@@ -55,6 +55,13 @@ class ArtifactType(Enum):
     APPINIT_DLL = "APPINIT_DLL"
     IMAGE_FILE_EXECUTION = "IMAGE_FILE_EXECUTION"
     ACCESSIBILITY = "ACCESSIBILITY"
+    
+    # Threat Intelligence and Social Engineering
+    SOCIAL_ENGINEERING = "SOCIAL_ENGINEERING"
+    RANSOMWARE = "RANSOMWARE"
+    HELP_DESK_ATTACK = "HELP_DESK_ATTACK"
+    CONDITIONAL_ACCESS_BYPASS = "CONDITIONAL_ACCESS_BYPASS"
+    INDUSTRY_TARGETING = "INDUSTRY_TARGETING"
 
 
 class CriticalityLevel(Enum):
@@ -136,8 +143,10 @@ class EnhancedThreatHuntingDetector:
                 "patterns": [
                     (r'\b(process\s+injection|process\s+hollowing|process\s+creation)\b', 0.9),
                     (r'\b(createprocess|startprocess|process\s+spawning)\b', 0.8),
-                    (r'\b(lsass|svchost|explorer|rundll32)\b', 0.7),
-                    (r'\b(process\s+memory|virtual\s+memory|heap\s+injection)\b', 0.9)
+                    (r'\b(lsass\s+memory|lsass\s+process\s+access|credential\s+dumping)\b', 0.9),
+                    (r'\b(process\s+memory\s+injection|virtual\s+memory\s+allocation|heap\s+injection)\b', 0.9),
+                    (r'\b(parent\s+process\s+spawns|process\s+chain\s+execution)\b', 0.8),
+                    (r'\b(process\s+tree\s+manipulation|process\s+hierarchy\s+attack)\b', 0.9)
                 ],
                 "category": "Execution",
                 "criticality": CriticalityLevel.HIGH,
@@ -155,31 +164,38 @@ class EnhancedThreatHuntingDetector:
             },
             "CMDLINE": {
                 "patterns": [
-                    (r'\b(powershell|cmd\.exe|command\s+line)\b', 0.8),
-                    (r'\b(execution\s+policy|bypass|encoded\s+command)\b', 0.9),
-                    (r'\b(iex|invoke-expression|start-process)\b', 0.9),
-                    (r'\b(bypass|unrestricted|remotesigned)\b', 0.8)
+                    (r'\b(powershell\s+-enc|powershell\s+-encodedcommand)\b', 0.9),
+                    (r'\b(executionpolicy\s+bypass|set-executionpolicy\s+unrestricted)\b', 0.9),
+                    (r'\b(iex\s+\(|invoke-expression\s+\(|start-process\s+-windowstyle\s+hidden)\b', 0.9),
+                    (r'\b(powershell\s+-nop\s+-w\s+hidden|powershell\s+-windowstyle\s+hidden)\b', 0.9),
+                    (r'\b(cmd\.exe\s+/c\s+echo|cmd\s+/c\s+base64)\b', 0.8),
+                    (r'\b(rundll32\s+.*\s+.*\s+.*|regsvr32\s+.*\s+/s)\b', 0.9),
+                    (r'\b(wscript\.exe\s+.*\.js|wscript\s+.*\.vbs)\b', 0.8),
+                    (r'\b(certutil\s+-decode|certutil\s+-decodehex)\b', 0.9)
                 ],
                 "category": "Execution",
                 "criticality": CriticalityLevel.HIGH,
                 "platform": "windows",
                 "guidance": [
-                    "Monitor command line execution",
-                    "Look for encoded commands",
-                    "Check for execution policy bypasses",
-                    "Monitor PowerShell execution"
+                    "Monitor for encoded PowerShell commands",
+                    "Look for execution policy bypasses",
+                    "Check for hidden window execution",
+                    "Monitor for living-off-the-land techniques"
                 ],
                 "detection_queries": [
-                    "Process Creation where Command Line contains 'powershell'",
-                    "Process Creation where Command Line contains 'cmd'"
+                    "Process Creation where Command Line contains '-enc'",
+                    "Process Creation where Command Line contains 'executionpolicy bypass'",
+                    "Process Creation where Command Line contains 'iex ('"
                 ]
             },
             "REGISTRY": {
                 "patterns": [
-                    (r'\b(registry\s+key|reg\s+add|startup\s+key)\b', 0.8),
-                    (r'\b(hkey_local_machine|hkey_current_user)\b', 0.7),
-                    (r'\b(run\s+key|runonce|image\s+file\s+execution)\b', 0.9),
-                    (r'\b(reg\s+add|reg\s+delete|reg\s+modify)\b', 0.8)
+                    (r'\b(registry\s+key\s+persistence|startup\s+key\s+modification)\b', 0.9),
+                    (r'\b(hkey_local_machine\\software\\microsoft\\windows\\currentversion\\run)\b', 0.9),
+                    (r'\b(hkey_current_user\\software\\microsoft\\windows\\currentversion\\run)\b', 0.9),
+                    (r'\b(image\s+file\s+execution\s+options|ifeo\s+modification)\b', 0.9),
+                    (r'\b(reg\s+add.*run|reg\s+add.*runonce)\b', 0.9),
+                    (r'\b(registry\s+hijacking|dll\s+search\s+order\s+hijacking)\b', 0.9)
                 ],
                 "category": "Persistence",
                 "criticality": CriticalityLevel.HIGH,
@@ -411,10 +427,10 @@ class EnhancedThreatHuntingDetector:
             },
             "CONTAINER": {
                 "patterns": [
-                    (r'\b(docker|kubernetes|container\s+runtime)\b', 0.8),
-                    (r'\b(pod|deployment|service|namespace)\b', 0.7),
-                    (r'\b(container\s+escape|privileged\s+container)\b', 0.9),
-                    (r'\b(container\s+persistence|container\s+backdoor)\b', 0.9)
+                    (r'\b(docker\s+run|kubernetes\s+deploy|container\s+runtime)\b', 0.8),
+                    (r'\b(container\s+escape|privileged\s+container|root\s+container)\b', 0.9),
+                    (r'\b(container\s+persistence|container\s+backdoor|malicious\s+container)\b', 0.9),
+                    (r'\b(docker\s+exec|kubectl\s+exec|container\s+execution)\b', 0.8)
                 ],
                 "category": "Persistence",
                 "criticality": CriticalityLevel.MEDIUM,
@@ -473,6 +489,128 @@ class EnhancedThreatHuntingDetector:
                     "AppInit DLL Registration",
                     "DLL Load Event"
                 ]
+            },
+            
+            # Social Engineering and Initial Access
+            "SOCIAL_ENGINEERING": {
+                "patterns": [
+                    (r'\b(help\s+desk\s+call|support\s+call|technical\s+support\s+call)\b', 0.9),
+                    (r'\b(password\s+reset\s+request|credential\s+reset\s+request)\b', 0.9),
+                    (r'\b(phone\s+scam|vishing\s+call|voice\s+phishing\s+call)\b', 0.9),
+                    (r'\b(english\s+fluency|language\s+capability|fluent\s+english)\b', 0.7),
+                    (r'\b(pretexting\s+call|baiting\s+call|quid\s+pro\s+quo\s+call)\b', 0.8),
+                    (r'\b(credential\s+harvesting|password\s+harvesting|credential\s+theft)\b', 0.8),
+                    (r'\b(social\s+engineering\s+attack|social\s+engineering\s+technique)\b', 0.8),
+                    (r'\b(phishing\s+attack|spear\s+phishing\s+attack)\b', 0.9)
+                ],
+                "category": "Initial Access",
+                "criticality": CriticalityLevel.CRITICAL,
+                "platform": "multi",
+                "guidance": [
+                    "Monitor help desk call patterns",
+                    "Check for unusual password reset requests",
+                    "Look for social engineering indicators",
+                    "Monitor vishing attempts"
+                ],
+                "detection_queries": [
+                    "Help Desk Password Reset",
+                    "Unusual Phone Call Patterns"
+                ]
+            },
+            
+            # Ransomware and Data Exfiltration
+            "RANSOMWARE": {
+                "patterns": [
+                    (r'\b(mass\s+file\s+encryption\s+process|bulk\s+file\s+encryption\s+activity)\b', 0.9),
+                    (r'\b(data\s+exfiltration\s+via\s+ftp|data\s+exfiltration\s+via\s+http)\b', 0.9),
+                    (r'\b(encryption\s+key\s+generation|ransom\s+note\s+creation)\b', 0.9),
+                    (r'\b(raas\s+affiliate\s+portal|ransomware\s+as\s+a\s+service\s+platform)\b', 0.8),
+                    (r'\b(dragonforce\s+ransomware\s+execution|lockbit\s+ransomware\s+deployment)\b', 0.9),
+                    (r'\b(encryption\s+process\s+monitoring|file\s+encryption\s+detection)\b', 0.9),
+                    (r'\b(decryption\s+key\s+delivery|ransom\s+payment\s+processing)\b', 0.8)
+                ],
+                "category": "Impact",
+                "criticality": CriticalityLevel.CRITICAL,
+                "platform": "multi",
+                "guidance": [
+                    "Monitor for mass file encryption processes using specific file extensions",
+                    "Check for data exfiltration via specific protocols (FTP, HTTP, SMB)",
+                    "Look for encryption key generation and ransom note creation",
+                    "Monitor for ransomware affiliate portal access"
+                ],
+                "detection_queries": [
+                    "Process Creation where Command Line contains 'cipher' and contains '/e'",
+                    "Network Connection where Destination Port contains '21' or '80' and contains large data transfer",
+                    "File Creation where File Name contains '.encrypted' or '.locked'",
+                    "Registry Modification where Registry Key contains 'HKCU\\Software\\' and contains 'ransom'"
+                ]
+            },
+            
+            # Specific Hunting Techniques
+            "HELP_DESK_ATTACK": {
+                "patterns": [
+                    (r'\b(help\s+desk\s+call|support\s+call|technical\s+support)\b', 0.9),
+                    (r'\b(password\s+reset\s+request|credential\s+reset)\b', 0.9),
+                    (r'\b(phone\s+scam|vishing\s+call|voice\s+phishing)\b', 0.9),
+                    (r'\b(english\s+fluency|language\s+capability)\b', 0.7)
+                ],
+                "category": "Initial Access",
+                "criticality": CriticalityLevel.CRITICAL,
+                "platform": "multi",
+                "guidance": [
+                    "Monitor help desk call patterns for unusual requests",
+                    "Check for password reset requests outside business hours",
+                    "Look for calls requesting elevated access",
+                    "Monitor for social engineering indicators in support calls"
+                ],
+                "detection_queries": [
+                    "Help Desk Password Reset Request",
+                    "Unusual Support Call Pattern"
+                ]
+            },
+            
+            "CONDITIONAL_ACCESS_BYPASS": {
+                "patterns": [
+                    (r'\b(conditional\s+access\s+policy|mfa\s+bypass)\b', 0.9),
+                    (r'\b(authentication\s+bypass|access\s+control\s+evasion)\b', 0.8),
+                    (r'\b(multi-factor\s+authentication|2fa\s+bypass)\b', 0.8),
+                    (r'\b(identity\s+verification\s+bypass)\b', 0.9)
+                ],
+                "category": "Defense Evasion",
+                "criticality": CriticalityLevel.CRITICAL,
+                "platform": "multi",
+                "guidance": [
+                    "Monitor for MFA bypass attempts",
+                    "Check for unusual authentication patterns",
+                    "Look for conditional access policy violations",
+                    "Monitor for identity verification bypasses"
+                ],
+                "detection_queries": [
+                    "MFA Bypass Attempt",
+                    "Conditional Access Policy Violation"
+                ]
+            },
+            
+            "INDUSTRY_TARGETING": {
+                "patterns": [
+                    (r'\b(government|retail|insurance|aviation)\s+targeting\b', 0.9),
+                    (r'\b(industry\s+wave|targeted\s+attack|sector\s+targeting)\b', 0.8),
+                    (r'\b(peer\s+targeting|competitor\s+attack)\b', 0.8),
+                    (r'\b(specific\s+industry|vertical\s+targeting)\b', 0.7)
+                ],
+                "category": "Reconnaissance",
+                "criticality": CriticalityLevel.HIGH,
+                "platform": "multi",
+                "guidance": [
+                    "Monitor for industry-specific targeting indicators",
+                    "Check for attacks against peer organizations",
+                    "Look for sector-specific threat intelligence",
+                    "Monitor for industry wave attacks"
+                ],
+                "detection_queries": [
+                    "Industry-Specific Targeting",
+                    "Peer Organization Attack"
+                ]
             }
         }
     
@@ -530,13 +668,19 @@ class EnhancedThreatHuntingDetector:
                 for pattern, confidence in config["patterns"]:
                     matches = re.finditer(pattern, content, re.IGNORECASE)
                     for match in matches:
+                        matched_text = match.group()
+                        
+                        # Filter out matches that are too short (less than 20 characters)
+                        if len(matched_text) < 20:
+                            continue
+                            
                         technique = EnhancedHuntingTechnique(
                             technique_name=category,
                             artifact_type=ArtifactType(category),
                             category=config["category"],
                             confidence=confidence,
                             context=match.group(),
-                            matched_text=match.group(),
+                            matched_text=matched_text,
                             hunting_guidance=config["guidance"].copy(),
                             position=(match.start(), match.end()),
                             relevance_score=confidence,
@@ -803,6 +947,119 @@ class EnhancedThreatHuntingDetector:
         report.append("✅ Analysis Complete!")
         
         return "\n".join(report)
+
+    def calculate_ttp_quality_score(self, content: str) -> Dict[str, Any]:
+        """
+        Calculate TTP quality score based on the user's analysis framework.
+        
+        Returns a quality assessment with scoring and recommendations.
+        """
+        content_lower = content.lower()
+        quality_factors = {}
+        
+        # 1. Sigma Rules Present (15 points)
+        sigma_indicators = [
+            'sigma rule', 'detection rule', 'hunting rule',
+            'selection:', 'detection:', 'condition:',
+            'parentimage', 'image', 'commandline', 'targetobject',
+            'endswith', 'contains', 'matches_regex'
+        ]
+        sigma_score = sum(15 if indicator in content_lower else 0 for indicator in sigma_indicators)
+        quality_factors['sigma_rules_present'] = min(sigma_score, 15)
+        
+        # 2. MITRE ATT&CK Mapping (10 points)
+        mitre_patterns = [
+            r'T\d{4}',  # Basic technique ID
+            r'T\d{4}\.\d{3}',  # Sub-technique ID
+            r'mitre.*att&ck', r'att&ck.*framework'
+        ]
+        mitre_score = 0
+        for pattern in mitre_patterns:
+            if re.search(pattern, content, re.IGNORECASE):
+                mitre_score += 5
+        quality_factors['mitre_attack_mapping'] = min(mitre_score, 10)
+        
+        # 3. Process Chains (12 points)
+        process_chain_indicators = [
+            'parentimage', 'parent process', 'process chain',
+            'powershell spawn', 'process spawning', 'child process',
+            'process hierarchy', 'parent-child'
+        ]
+        process_chain_score = sum(3 if indicator in content_lower else 0 for indicator in process_chain_indicators)
+        quality_factors['process_chains'] = min(process_chain_score, 12)
+        
+        # 4. Registry Operations (8 points)
+        registry_indicators = [
+            'registry run', 'run key', 'startup registry',
+            'hkey_current_user', 'hkey_local_machine',
+            'software\\microsoft\\windows\\currentversion\\run'
+        ]
+        registry_score = sum(2 if indicator in content_lower else 0 for indicator in registry_indicators)
+        quality_factors['registry_operations'] = min(registry_score, 8)
+        
+        # 5. Network IOCs (7 points)
+        network_indicators = [
+            'trycloudflare.com', 'cloudflare.com',
+            'suspicious domain', 'malicious ip', 'c2 infrastructure',
+            'command and control', 'c2', 'c&c'
+        ]
+        # Count IP addresses and domains
+        ip_count = len(re.findall(r'\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b', content))
+        domain_count = len(re.findall(r'\b[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}\b', content))
+        network_score = sum(2 if indicator in content_lower else 0 for indicator in network_indicators)
+        network_score += min(ip_count, 2) + min(domain_count, 2)
+        quality_factors['network_iocs'] = min(network_score, 7)
+        
+        # 6. File Path Specificity (9 points)
+        file_path_indicators = [
+            '\\appdata\\roaming\\', '\\appdata\\local\\', '\\temp\\',
+            '\\users\\', '\\programdata\\', 'suspicious path',
+            'unusual location', 'malicious directory'
+        ]
+        file_path_score = sum(2 if indicator in content_lower else 0 for indicator in file_path_indicators)
+        quality_factors['file_path_specificity'] = min(file_path_score, 9)
+        
+        # 7. Command Patterns (8 points)
+        command_indicators = [
+            'systeminfo', 'tasklist', 'get-service', 'get-process',
+            'get-netneighbor', 'get-netroute', 'netstat',
+            'commandline', 'command line', 'command arguments',
+            'get-wmiobject', 'wmic', 'get-computerinfo'
+        ]
+        command_score = sum(1 if indicator in content_lower else 0 for indicator in command_indicators)
+        quality_factors['command_patterns'] = min(command_score, 8)
+        
+        # 8. Campaign Attribution (6 points)
+        campaign_indicators = [
+            'campaign', 'threat actor', 'apt', 'group',
+            'variant', 'family', 'malware family'
+        ]
+        campaign_score = sum(2 if indicator in content_lower else 0 for indicator in campaign_indicators)
+        quality_factors['campaign_attribution'] = min(campaign_score, 6)
+        
+        # Calculate total score
+        total_score = sum(quality_factors.values())
+        quality_factors['total_score'] = total_score
+        quality_factors['max_possible'] = 75
+        
+        # Determine quality level
+        if total_score >= 60:
+            quality_level = "Excellent"
+            recommendation = "This content contains high-value hunting intelligence. Extract all patterns and implement detection rules immediately."
+        elif total_score >= 45:
+            quality_level = "Good"
+            recommendation = "This content has good hunting value. Review and implement key detection patterns."
+        elif total_score >= 30:
+            quality_level = "Fair"
+            recommendation = "This content has some hunting value. Focus on the most specific indicators."
+        else:
+            quality_level = "Limited"
+            recommendation = "This content has limited hunting value. Consider for general awareness only."
+        
+        quality_factors['quality_level'] = quality_level
+        quality_factors['recommendation'] = recommendation
+        
+        return quality_factors
 
 
 # Convenience function for easy integration

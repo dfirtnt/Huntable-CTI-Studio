@@ -564,14 +564,14 @@ def export(ctx: CLIContext, output_format: str, days: int, output: Optional[str]
 def analyze(ctx: CLIContext, article_id: Optional[int], source: Optional[str], recent: int, output: Optional[str], format: str, confidence: float, quality: bool):
     """Analyze collected articles for huntable threat hunting techniques."""
     try:
-        from utils.ttp_extractor import ThreatHuntingDetector
+        from utils.enhanced_ttp_extractor import EnhancedThreatHuntingDetector
         from database.manager import DatabaseManager
         
         async def _analyze():
             db_manager, _, _ = await get_managers(ctx)
             
-            # Initialize threat hunting detector
-            hunting_detector = ThreatHuntingDetector()
+            # Initialize enhanced threat hunting detector
+            hunting_detector = EnhancedThreatHuntingDetector()
             
             # Get articles to analyze
             if article_id:
@@ -602,7 +602,7 @@ def analyze(ctx: CLIContext, article_id: Optional[int], source: Optional[str], r
             all_analyses = []
             for article in articles:
                 try:
-                    analysis = hunting_detector.detect_hunting_techniques(article.content, article.id)
+                    analysis = hunting_detector.extract_enhanced_techniques(article.content)
                     if analysis.overall_confidence >= confidence:
                         all_analyses.append(analysis)
                 except Exception as e:

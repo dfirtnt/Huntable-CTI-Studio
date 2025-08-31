@@ -57,8 +57,8 @@ packaging==25.0
 setuptools==80.9.0
 pycparser==2.22
 cffi==1.17.1
-pyasn1==0.6.1
-pyasn1-modules==0.4.2
+pyasn1==0.4.8
+pyasn1-modules==0.2.8
 six==1.17.0
 attrs==25.3.0
 typing-extensions==4.12.2

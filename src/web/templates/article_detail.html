@@ -165,12 +165,12 @@
                 <div class="text-xs text-blue-800">TTP Quality</div>
             </div>
             <div class="text-center p-3 bg-green-50 rounded-lg">
-                <div class="text-lg font-bold text-green-600">{{ quality_data.llm_score }}</div>
+                <div class="text-lg font-bold text-green-600">{{ quality_data.quality_score }}</div>
                 <div class="text-xs text-green-800">LLM Quality</div>
             </div>
             <div class="text-center p-3 bg-purple-50 rounded-lg">
-                <div class="text-lg font-bold text-purple-600">{{ quality_data.tactical_score }}</div>
-                <div class="text-xs text-purple-800">Tactical Score</div>
+                <div class="text-lg font-bold text-purple-600">{{ quality_data.detection_quality_score }}</div>
+                <div class="text-xs text-purple-800">Detection Quality</div>
             </div>
         </div>
 
@@ -180,13 +180,13 @@
                 <h3 class="text-lg font-medium text-gray-900 mb-3">Quality Factors</h3>
                 <div class="space-y-3">
                     <div class="flex items-center justify-between">
-                        <span class="text-sm text-gray-700">Content Structure</span>
+                        <span class="text-sm text-gray-700">Artifact Coverage</span>
                         <div class="flex items-center space-x-2">
                             <div class="w-16 bg-gray-200 rounded-full h-2">
                                 <div class="h-2 rounded-full bg-blue-500" 
-                                     style="width: {{ (quality_data.structure_score / 25) * 100 }}%"></div>
+                                     style="width: {{ (quality_data.artifact_coverage_score / 100) * 100 }}%"></div>
                             </div>
-                            <span class="text-sm font-medium text-gray-900">{{ quality_data.structure_score }}/25</span>
+                            <span class="text-sm font-medium text-gray-900">{{ quality_data.artifact_coverage_score }}/100</span>
                         </div>
                     </div>
                     <div class="flex items-center justify-between">
@@ -194,19 +194,19 @@
                         <div class="flex items-center space-x-2">
                             <div class="w-16 bg-gray-200 rounded-full h-2">
                                 <div class="h-2 rounded-full bg-green-500" 
-                                     style="width: {{ (quality_data.technical_score / 25) * 100 }}%"></div>
+                                     style="width: {{ (quality_data.technical_depth_score / 100) * 100 }}%"></div>
                             </div>
-                            <span class="text-sm font-medium text-gray-900">{{ quality_data.technical_score }}/25</span>
+                            <span class="text-sm font-medium text-gray-900">{{ quality_data.technical_depth_score }}/100</span>
                         </div>
                     </div>
                     <div class="flex items-center justify-between">
-                        <span class="text-sm text-gray-700">Intelligence Value</span>
+                        <span class="text-sm text-gray-700">Actionable Intelligence</span>
                         <div class="flex items-center space-x-2">
                             <div class="w-16 bg-gray-200 rounded-full h-2">
                                 <div class="h-2 rounded-full bg-purple-500" 
-                                     style="width: {{ (quality_data.intelligence_score / 25) * 100 }}%"></div>
+                                     style="width: {{ (quality_data.actionable_intelligence_score / 100) * 100 }}%"></div>
                             </div>
-                            <span class="text-sm font-medium text-gray-900">{{ quality_data.intelligence_score }}/25</span>
+                            <span class="text-sm font-medium text-gray-900">{{ quality_data.actionable_intelligence_score }}/100</span>
                         </div>
                     </div>
                 </div>
@@ -232,8 +232,8 @@
                         </span>
                     </div>
                     <div class="flex items-center justify-between">
-                        <span class="text-sm text-gray-700">Strategic Score</span>
-                        <span class="text-sm font-medium text-gray-900">{{ quality_data.strategic_score }}/100</span>
+                        <span class="text-sm text-gray-700">Threat Context</span>
+                        <span class="text-sm font-medium text-gray-900">{{ quality_data.threat_context_score }}/100</span>
                     </div>
                 </div>
                 

@@ -354,25 +354,22 @@ async def article_detail(request: Request, article_id: int):
         
         source = await async_db_manager.get_source(article.source_id)
         
-                # Implement enhanced TTP analysis with LLM quality assessment
-        from src.utils.ttp_extractor import ThreatHuntingDetector
-        from src.utils.llm_quality_assessor import LLMQualityAssessor
+                # Implement enhanced TTP analysis with advanced quality assessment
+        from src.utils.enhanced_ttp_extractor import EnhancedThreatHuntingDetector
+        from src.utils.advanced_quality_assessor import AdvancedQualityAssessor
         
         if article.content and len(article.content) > 100:
             try:
-                hunting_detector = ThreatHuntingDetector()
-                llm_assessor = LLMQualityAssessor()
+                hunting_detector = EnhancedThreatHuntingDetector()
+                quality_assessor = AdvancedQualityAssessor()
                 
                 # Safely concatenate title and content
                 title = str(article.title) if article.title else ""
                 content = str(article.content) if article.content else ""
                 full_text = f"{title} {content}".strip()
                 
-                # TTP analysis
-                analysis = hunting_detector.detect_hunting_techniques(
-                    full_text,
-                    article.id
-                )
+                # Enhanced TTP analysis
+                analysis = hunting_detector.extract_enhanced_techniques(full_text)
                 
                 # Enhanced TTP analysis data
                 ttp_analysis = {
@@ -399,27 +396,29 @@ async def article_detail(request: Request, article_id: int):
                 numeric_values = [v for v in ttp_quality_analysis.values() if isinstance(v, (int, float))]
                 ttp_score = sum(numeric_values) if numeric_values else 0
                 
-                # NEW: LLM quality assessment
-                llm_assessment = llm_assessor.assess_content_quality(content, {
+                # NEW: Advanced quality assessment
+                quality_assessment = quality_assessor.assess_content_quality(content, {
                     'total_techniques': analysis.total_techniques,
                     'techniques_by_category': analysis.techniques_by_category
                 })
                 
-                # Enhanced quality data combining TTP and LLM assessment
+                # Enhanced quality data combining TTP and advanced assessment
                 quality_data = {
                     "ttp_score": ttp_score,
-                    "llm_score": llm_assessment.total_quality_score,
-                    "combined_score": (ttp_score + llm_assessment.total_quality_score) / 2,
-                    "quality_level": llm_assessment.quality_level,
-                    "tactical_score": llm_assessment.tactical_score,
-                    "strategic_score": llm_assessment.strategic_score,
-                    "classification": llm_assessment.classification,
-                    "hunting_priority": llm_assessment.hunting_priority,
-                    "recommendations": llm_assessment.recommendations,
-                    "structure_score": llm_assessment.content_structure_score,
-                    "technical_score": llm_assessment.technical_depth_score,
-                    "intelligence_score": llm_assessment.intelligence_value_score,
-                    "max_possible": 75,
+                    "quality_score": quality_assessment.overall_quality_score,
+                    "combined_score": (ttp_score + quality_assessment.overall_quality_score) / 2,
+                    "quality_level": quality_assessment.quality_level,
+                    # New assessment attributes
+                    "artifact_coverage_score": quality_assessment.artifact_coverage_score,
+                    "technical_depth_score": quality_assessment.technical_depth_score,
+                    "actionable_intelligence_score": quality_assessment.actionable_intelligence_score,
+                    "threat_context_score": quality_assessment.threat_context_score,
+                    "detection_quality_score": quality_assessment.detection_quality_score,
+                    "classification": quality_assessment.quality_level,
+                    "hunting_priority": quality_assessment.hunting_priority,
+                    "hunting_confidence": quality_assessment.hunting_confidence,
+                    "recommendations": quality_assessment.recommendations,
+                    "max_possible": 100,
                     "sigma_rules_present": ttp_quality_analysis.get('sigma_rules_present', 0),
                     "mitre_attack_mapping": ttp_quality_analysis.get('mitre_attack_mapping', 0),
                     "iocs_present": ttp_quality_analysis.get('iocs_present', 0)
@@ -485,12 +484,12 @@ async def ttp_analysis(request: Request):
         stats = await async_db_manager.get_database_stats()
         articles = await async_db_manager.list_articles(limit=20)
         
-        # Import both TTP detector and LLM quality assessor
-        from src.utils.ttp_extractor import ThreatHuntingDetector
-        from src.utils.llm_quality_assessor import LLMQualityAssessor
+        # Import enhanced TTP detector and advanced quality assessor
+        from src.utils.enhanced_ttp_extractor import EnhancedThreatHuntingDetector
+        from src.utils.advanced_quality_assessor import AdvancedQualityAssessor
         
-        hunting_detector = ThreatHuntingDetector()
-        llm_assessor = LLMQualityAssessor()
+        hunting_detector = EnhancedThreatHuntingDetector()
+        quality_assessor = AdvancedQualityAssessor()
         
         # Analyze articles for TTP content and quality
         total_techniques_detected = 0
@@ -512,11 +511,8 @@ async def ttp_analysis(request: Request):
                     content = str(article.content) if article.content else ""
                     full_text = f"{title} {content}".strip()
                     
-                    # Run TTP analysis (existing functionality)
-                    ttp_analysis = hunting_detector.detect_hunting_techniques(
-                        full_text,
-                        article.id
-                    )
+                    # Run enhanced TTP analysis
+                    ttp_analysis = hunting_detector.extract_enhanced_techniques(full_text)
                     
                     total_techniques_detected += ttp_analysis.total_techniques
                     
@@ -531,19 +527,38 @@ async def ttp_analysis(request: Request):
                     ttp_quality_analysis = hunting_detector.calculate_ttp_quality_score(content)
                     numeric_values = [v for v in ttp_quality_analysis.values() if isinstance(v, (int, float))]
                     ttp_score = sum(numeric_values) if numeric_values else 0
+                    # Normalize TTP score to 0-100 range
+                    ttp_score = min(ttp_score, 100)
                     ttp_quality_scores.append(ttp_score)
                     
-                    # NEW: Run LLM quality assessment
-                    llm_assessment = llm_assessor.assess_content_quality(content, {
+                    # NEW: Run advanced quality assessment
+                    quality_assessment = quality_assessor.assess_content_quality(content, {
                         'total_techniques': ttp_analysis.total_techniques,
                         'techniques_by_category': ttp_analysis.techniques_by_category
                     })
                     
-                    llm_quality_scores.append(llm_assessment.total_quality_score)
+                    llm_quality_scores.append(quality_assessment.overall_quality_score)
                     
-                    # Track quality distributions
-                    quality_distribution[llm_assessment.quality_level] += 1
-                    tactical_distribution[llm_assessment.classification] += 1
+                    # Track quality distributions with proper mapping
+                    # Map new quality levels to expected template levels
+                    quality_level_mapping = {
+                        "Critical": "Excellent",
+                        "High": "Good", 
+                        "Medium": "Fair",
+                        "Low": "Limited"
+                    }
+                    mapped_quality_level = quality_level_mapping.get(quality_assessment.quality_level, "Limited")
+                    quality_distribution[mapped_quality_level] += 1
+                    
+                    # Map hunting priority to tactical distribution
+                    priority_mapping = {
+                        "Critical": "Tactical",
+                        "High": "Tactical",
+                        "Medium": "Hybrid", 
+                        "Low": "Strategic"
+                    }
+                    mapped_priority = priority_mapping.get(quality_assessment.hunting_priority, "Strategic")
+                    tactical_distribution[mapped_priority] += 1
                     
                     # Add to recent analyses (top 5) with enhanced data
                     if len(recent_analyses) < 5:
@@ -551,8 +566,8 @@ async def ttp_analysis(request: Request):
                             "article": article,
                             "ttp_analysis": ttp_analysis,
                             "ttp_quality_score": ttp_score,
-                            "llm_assessment": llm_assessment,
-                            "combined_score": (ttp_score + llm_assessment.total_quality_score) / 2
+                            "quality_assessment": quality_assessment,
+                            "combined_score": (ttp_score + quality_assessment.overall_quality_score) / 2
                         })
                     
                 except Exception as e:
