@@ -133,10 +133,6 @@
             <div class="bg-white rounded-lg shadow-sm p-6">
                 <h3 class="text-lg font-medium text-gray-900 mb-4">Quick Actions</h3>
                 <div class="space-y-3">
-                    <a href="/analysis" class="w-full flex items-center px-4 py-3 border border-gray-300 rounded-md shadow-sm bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors">
-                        <span class="mr-3">🔍</span>
-                        TTP Analysis
-                    </a>
                     <a href="/sources" class="w-full flex items-center px-4 py-3 border border-gray-300 rounded-md shadow-sm bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors">
                         <span class="mr-3">⚙️</span>
                         Manage Sources
@@ -154,7 +150,6 @@
                             <div class="w-2 h-2 rounded-full {% if source.active %}bg-green-400{% else %}bg-red-400{% endif %} mr-3"></div>
                             <span class="text-sm font-medium text-gray-900">{{ source.name[:20] }}{% if source.name|length > 20 %}...{% endif %}</span>
                         </div>
-                        <span class="text-xs text-gray-500">{{ source.tier }}</span>
                     </div>
                     {% endfor %}
                     {% if sources|length > 5 %}

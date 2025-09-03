@@ -22,10 +22,6 @@ class TestDashboardFlows:
         await page.click("text=Articles")
         await expect(page).to_have_url("http://localhost:8000/articles")
         
-        # Test navigation to analysis
-        await page.click("text=TTP Analysis")
-        await expect(page).to_have_url("http://localhost:8000/analysis")
-        
         # Test navigation to sources
         await page.click("text=Sources")
         await expect(page).to_have_url("http://localhost:8000/sources")
@@ -87,62 +83,6 @@ class TestArticlesFlows:
         
         if await next_button.count() > 0:
             await expect(next_button).to_be_visible()
-
-class TestAnalysisFlows:
-    """Test TTP analysis dashboard flows."""
-    
-    @pytest.mark.ui
-    @pytest.mark.smoke
-    async def test_analysis_dashboard(self, page: Page):
-        """Test analysis dashboard functionality."""
-        await page.goto("http://localhost:8000/analysis")
-        
-        # Verify dashboard loads
-        await expect(page.locator("h1")).to_contain_text("Threat Hunting Analysis Dashboard")
-        
-        # Check quality metrics
-        await expect(page.locator("text=Combined Quality")).to_be_visible()
-        await expect(page.locator("text=TTP Quality")).to_be_visible()
-        await expect(page.locator("text=LLM Quality")).to_be_visible()
-        
-        # Check charts
-        await expect(page.locator("#qualityChart")).to_be_visible()
-        await expect(page.locator("#tacticalChart")).to_be_visible()
-    
-    @pytest.mark.ui
-    async def test_quality_distribution_chart(self, page: Page):
-        """Test quality distribution chart functionality."""
-        await page.goto("http://localhost:8000/analysis")
-        
-        # Wait for chart to load
-        await page.wait_for_selector("#qualityChart")
-        
-        # Check if chart canvas is present
-        canvas = page.locator("#qualityChart")
-        await expect(canvas).to_be_visible()
-        
-        # Verify chart data is loaded (basic check)
-        await expect(page.locator("text=Excellent")).to_be_visible()
-        await expect(page.locator("text=Good")).to_be_visible()
-        await expect(page.locator("text=Fair")).to_be_visible()
-        await expect(page.locator("text=Limited")).to_be_visible()
-    
-    @pytest.mark.ui
-    async def test_tactical_distribution_chart(self, page: Page):
-        """Test tactical vs strategic distribution chart."""
-        await page.goto("http://localhost:8000/analysis")
-        
-        # Wait for chart to load
-        await page.wait_for_selector("#tacticalChart")
-        
-        # Check if chart canvas is present
-        canvas = page.locator("#tacticalChart")
-        await expect(canvas).to_be_visible()
-        
-        # Verify chart categories
-        await expect(page.locator("text=Tactical")).to_be_visible()
-        await expect(page.locator("text=Strategic")).to_be_visible()
-        await expect(page.locator("text=Hybrid")).to_be_visible()
 
 class TestSourcesFlows:
     """Test source management flows."""

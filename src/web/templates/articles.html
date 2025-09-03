@@ -236,9 +236,10 @@
                         </p>
 
                         <div class="flex items-center space-x-2">
-                            <a href="/articles/{{ article.id }}" class="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded text-blue-700 bg-blue-100 hover:bg-blue-200 transition-colors">
-                                View Details
-                            </a>
+                            <button onclick="openClassificationModal({{ article.id }}, '{{ article.title|replace("'", "\\'")|replace('"', '\\"') }}')" 
+                                    class="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded text-white bg-blue-600 hover:bg-blue-700 transition-colors">
+                                🏷️ Classify
+                            </button>
                             {% if article.canonical_url %}
                             <a href="{{ article.canonical_url }}" target="_blank" class="inline-flex items-center px-3 py-1.5 border border-gray-300 text-xs font-medium rounded text-gray-700 bg-white hover:bg-gray-50 transition-colors">
                                 Original Source
@@ -308,10 +309,118 @@
         {% endif %}
     </div>
 </div>
+
+<!-- Classification Modal -->
+<div id="classificationModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden z-50">
+    <div class="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+        <div class="fixed inset-0 transition-opacity" aria-hidden="true">
+            <div class="absolute inset-0 bg-gray-500 opacity-75"></div>
+        </div>
+        
+        <!-- Modal content -->
+        <div class="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-4xl sm:w-full">
+            <!-- Header -->
+            <div class="bg-white px-6 py-4 border-b border-gray-200">
+                <div class="flex items-center justify-between">
+                    <h3 class="text-lg font-medium text-gray-900" id="modalTitle">
+                        Classify Article
+                    </h3>
+                    <button onclick="closeClassificationModal()" class="text-gray-400 hover:text-gray-600">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Content -->
+            <div class="bg-white px-6 py-4">
+                <div id="modalContent" class="space-y-4">
+                    <!-- Loading state -->
+                    <div id="modalLoading" class="text-center py-8">
+                        <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+                        <p class="mt-2 text-gray-600">Loading article...</p>
+                    </div>
+                    
+                    <!-- Article content will be loaded here -->
+                    <div id="modalArticleContent" class="hidden">
+                        <!-- Article details -->
+                        <div class="border-b border-gray-200 pb-4">
+                            <h4 class="text-xl font-semibold text-gray-900 mb-2" id="articleTitle"></h4>
+                            <div class="flex items-center space-x-4 text-sm text-gray-500">
+                                <span id="articleSource"></span>
+                                <span id="articleDate"></span>
+                                <span id="articleLength"></span>
+                            </div>
+                        </div>
+                        
+                        <!-- Article content -->
+                        <div class="max-h-96 overflow-y-auto">
+                            <div class="prose prose-sm max-w-none">
+                                <div id="articleContent" class="text-gray-700 leading-relaxed"></div>
+                            </div>
+                        </div>
+                        
+                        <!-- Current classification -->
+                        <div class="mt-4 p-3 bg-gray-50 rounded-md">
+                            <h5 class="text-sm font-medium text-gray-900 mb-2">Current Classification:</h5>
+                            <div id="currentClassification" class="text-sm text-gray-600">
+                                <!-- Will be populated by JavaScript -->
+                            </div>
+                        </div>
+                        
+                        <!-- Classification controls -->
+                        <div class="mt-6 space-y-4">
+                            <h5 class="text-sm font-medium text-gray-900">Classify this article as:</h5>
+                            
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                                <button onclick="classifyArticle('chosen')" 
+                                        class="flex items-center justify-center px-4 py-3 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors">
+                                    <span class="mr-2">✅</span>
+                                    Chosen
+                                </button>
+                                
+                                <button onclick="classifyArticle('rejected')" 
+                                        class="flex items-center justify-center px-4 py-3 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors">
+                                    <span class="mr-2">❌</span>
+                                    Rejected
+                                </button>
+                                
+                                <button onclick="classifyArticle('unclassified')" 
+                                        class="flex items-center justify-center px-4 py-3 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
+                                    <span class="mr-2">⏳</span>
+                                    Unclassified
+                                </button>
+                            </div>
+                            
+                            <!-- Navigation -->
+                            <div class="flex items-center justify-between pt-4 border-t border-gray-200">
+                                <button onclick="navigateToPrevious()" 
+                                        class="inline-flex items-center px-3 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
+                                    <span class="mr-1">←</span>
+                                    Previous
+                                </button>
+                                
+                                <button onclick="navigateToNextUnclassified()" 
+                                        class="inline-flex items-center px-3 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
+                                    Next Unclassified
+                                    <span class="ml-1">→</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block scripts %}
 <script>
+    let currentArticleId = null;
+    let currentArticleData = null;
+    
     // Auto-submit form when filters change
     document.addEventListener('DOMContentLoaded', function() {
         const form = document.querySelector('form');
@@ -332,6 +441,9 @@
                 searchHelp.classList.toggle('hidden');
             });
         }
+        
+        // Load settings
+        updateCommentPromptsStatus();
     });
 
     // Debounced search for better performance
@@ -345,5 +457,240 @@
             }, 500);
         });
     }
+    
+    // Modal functions
+    function openClassificationModal(articleId, title) {
+        currentArticleId = articleId;
+        
+        // Show modal
+        const modal = document.getElementById('classificationModal');
+        modal.classList.remove('hidden');
+        
+        // Show loading state
+        document.getElementById('modalLoading').classList.remove('hidden');
+        document.getElementById('modalArticleContent').classList.add('hidden');
+        
+        // Update title
+        document.getElementById('modalTitle').textContent = `Classify: ${title}`;
+        
+        // Load article data
+        loadArticleData(articleId);
+    }
+    
+    function closeClassificationModal() {
+        const modal = document.getElementById('classificationModal');
+        modal.classList.add('hidden');
+        currentArticleId = null;
+        currentArticleData = null;
+    }
+    
+    async function loadArticleData(articleId) {
+        try {
+            const response = await fetch(`/api/articles/${articleId}`);
+            if (!response.ok) {
+                throw new Error('Failed to load article');
+            }
+            
+            const article = await response.json();
+            currentArticleData = article;
+            
+            // Populate modal content
+            document.getElementById('articleTitle').textContent = article.title;
+            document.getElementById('articleSource').textContent = `Source: ${article.source_id}`;
+            document.getElementById('articleDate').textContent = article.published_at ? 
+                `Published: ${new Date(article.published_at).toLocaleString()}` : 'Published: Unknown';
+            document.getElementById('articleLength').textContent = `Content: ${article.content.length} characters`;
+            document.getElementById('articleContent').textContent = article.content;
+            
+            // Update current classification
+            updateCurrentClassification(article);
+            
+            // Hide loading, show content
+            document.getElementById('modalLoading').classList.add('hidden');
+            document.getElementById('modalArticleContent').classList.remove('hidden');
+            
+        } catch (error) {
+            console.error('Error loading article:', error);
+            document.getElementById('modalLoading').innerHTML = `
+                <div class="text-center py-8">
+                    <div class="text-red-600 text-6xl mb-4">❌</div>
+                    <p class="text-gray-600">Failed to load article</p>
+                    <button onclick="closeClassificationModal()" class="mt-4 px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700">
+                        Close
+                    </button>
+                </div>
+            `;
+        }
+    }
+    
+    function updateCurrentClassification(article) {
+        const classificationDiv = document.getElementById('currentClassification');
+        const category = article.metadata?.training_category;
+        
+        if (category === 'chosen') {
+            classificationDiv.innerHTML = `
+                <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                    ✅ Chosen
+                </span>
+                ${article.metadata?.training_reason ? `<div class="mt-1 text-xs text-gray-500">Reason: ${article.metadata.training_reason}</div>` : ''}
+            `;
+        } else if (category === 'rejected') {
+            classificationDiv.innerHTML = `
+                <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                    ❌ Rejected
+                </span>
+                ${article.metadata?.training_reason ? `<div class="mt-1 text-xs text-gray-500">Reason: ${article.metadata.training_reason}</div>` : ''}
+            `;
+        } else {
+            classificationDiv.innerHTML = `
+                <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                    ⏳ Unclassified
+                </span>
+            `;
+        }
+    }
+    
+    async function classifyArticle(category) {
+        if (!currentArticleId) return;
+        
+        let reason = '';
+        const commentPromptsEnabled = JSON.parse(localStorage.getItem('ctiScraperSettings') || '{}').commentPromptsEnabled !== false;
+        
+        if (commentPromptsEnabled && category !== 'unclassified') {
+            reason = prompt(`Why are you marking this article as ${category}? (optional)`);
+            if (reason === null) return; // User cancelled
+        }
+        
+        try {
+            const response = await fetch(`/api/articles/${currentArticleId}/classify`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    category: category,
+                    reason: reason
+                })
+            });
+            
+            if (!response.ok) {
+                throw new Error('Failed to classify article');
+            }
+            
+            // Update the article data
+            if (currentArticleData) {
+                currentArticleData.metadata = currentArticleData.metadata || {};
+                currentArticleData.metadata.training_category = category;
+                currentArticleData.metadata.training_reason = reason;
+                currentArticleData.metadata.training_categorized_at = new Date().toISOString();
+                
+                updateCurrentClassification(currentArticleData);
+            }
+            
+            // Show success notification
+            showNotification(`Article marked as ${category}`, 'success');
+            
+            // Refresh the page to update the article list
+            setTimeout(() => {
+                window.location.reload();
+            }, 1000);
+            
+        } catch (error) {
+            console.error('Error classifying article:', error);
+            showNotification('Failed to classify article', 'error');
+        }
+    }
+    
+    async function navigateToNextUnclassified() {
+        try {
+            const response = await fetch('/api/articles/next-unclassified');
+            if (!response.ok) {
+                throw new Error('Failed to get next unclassified article');
+            }
+            
+            const data = await response.json();
+            if (data.article_id) {
+                // Find the article title from the current page
+                const articleElement = document.querySelector(`[onclick*="openClassificationModal(${data.article_id}"]`);
+                if (articleElement) {
+                    const title = articleElement.getAttribute('onclick').match(/'([^']+)'/)[1];
+                    openClassificationModal(data.article_id, title);
+                } else {
+                    // Fallback: reload page and try again
+                    window.location.reload();
+                }
+            } else {
+                showNotification('No more unclassified articles', 'info');
+            }
+        } catch (error) {
+            console.error('Error navigating to next unclassified:', error);
+            showNotification('Failed to navigate to next article', 'error');
+        }
+    }
+    
+    async function navigateToPrevious() {
+        if (!currentArticleId) return;
+        
+        // Find the previous article in the current list
+        const articleElements = document.querySelectorAll('[onclick*="openClassificationModal"]');
+        let currentIndex = -1;
+        
+        for (let i = 0; i < articleElements.length; i++) {
+            const onclick = articleElements[i].getAttribute('onclick');
+            if (onclick.includes(`openClassificationModal(${currentArticleId}`)) {
+                currentIndex = i;
+                break;
+            }
+        }
+        
+        if (currentIndex > 0) {
+            const prevElement = articleElements[currentIndex - 1];
+            const onclick = prevElement.getAttribute('onclick');
+            const match = onclick.match(/openClassificationModal\((\d+),\s*'([^']+)'/);
+            if (match) {
+                openClassificationModal(parseInt(match[1]), match[2]);
+            }
+        } else {
+            showNotification('No previous article available', 'info');
+        }
+    }
+    
+    function showNotification(message, type = 'info') {
+        // Create notification element
+        const notification = document.createElement('div');
+        notification.className = `fixed top-4 right-4 z-50 p-4 rounded-md shadow-lg max-w-sm transform transition-all duration-300 ${
+            type === 'success' ? 'bg-green-500 text-white' :
+            type === 'error' ? 'bg-red-500 text-white' :
+            'bg-blue-500 text-white'
+        }`;
+        notification.textContent = message;
+        
+        document.body.appendChild(notification);
+        
+        // Remove after 3 seconds
+        setTimeout(() => {
+            notification.remove();
+        }, 3000);
+    }
+    
+    function updateCommentPromptsStatus() {
+        const settings = JSON.parse(localStorage.getItem('ctiScraperSettings') || '{}');
+        const commentPromptsEnabled = settings.commentPromptsEnabled !== false;
+        // This function can be used to update UI elements based on settings
+    }
+    
+    // Close modal when clicking outside
+    document.getElementById('classificationModal').addEventListener('click', function(e) {
+        if (e.target === this) {
+            closeClassificationModal();
+        }
+    });
+    
+    // Close modal with Escape key
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            closeClassificationModal();
+        }
+    });
 </script>
 {% endblock %}

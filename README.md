@@ -72,7 +72,6 @@ docker compose exec web python -m src.cli.main export --format json --days 7 --o
   - `/` dashboard with basic stats and recent items
   - `/articles` list with search, filters, and pagination
   - `/articles/{id}` detail with optional TTP and quality analysis
-  - `/analysis` aggregate analysis and quality distributions
   - `/sources` source management page
 
 - JSON APIs

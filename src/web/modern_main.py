@@ -430,46 +430,7 @@ async def article_detail(request: Request, article_id: int):
             status_code=500
         )
 
-# Analysis page (simplified)
-@app.get("/analysis", response_class=HTMLResponse)
-async def analysis_page(request: Request):
-    """Analysis page - TTP analysis removed."""
-    try:
-        stats = await async_db_manager.get_database_stats()
-        articles = await async_db_manager.list_articles(limit=20)
-        
-        return templates.TemplateResponse(
-            "analysis.html",
-            {
-                "request": request,
-                "stats": stats,
-                "articles": articles,
-                "analysis_summary": {
-                    "total_techniques_detected": 0,
-                    "high_priority_articles": 0,
-                    "mitre_coverage": 0,
-                    "recent_analysis": [],
-                    "quality_distribution": {"Excellent": 0, "Good": 0, "Fair": 0, "Limited": 0},
-                    "tactical_distribution": {"Tactical": 0, "Strategic": 0, "Hybrid": 0}
-                },
-                "quality_stats": {
-                    "ttp_average_score": 0,
-                    "llm_average_score": 0,
-                    "combined_average_score": 0,
-                    "total_analyzed": 0,
-                    "quality_distribution": {"Excellent": 0, "Good": 0, "Fair": 0, "Limited": 0},
-                    "tactical_distribution": {"Tactical": 0, "Strategic": 0, "Hybrid": 0}
-                },
-                "analyses": []
-            }
-        )
-    except Exception as e:
-        logger.error(f"Analysis page error: {e}")
-        return templates.TemplateResponse(
-            "error.html",
-            {"request": request, "error": str(e)},
-            status_code=500
-        )
+# Analysis page removed - no longer needed after quality scoring removal
 
 @app.get("/api/articles")
 async def api_articles_list(limit: Optional[int] = 100):

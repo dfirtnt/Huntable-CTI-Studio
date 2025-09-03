@@ -35,15 +35,6 @@ class TestCoreRoutes:
         assert "Browse and search collected threat intelligence articles" in response.text
     
     @pytest.mark.asyncio
-    async def test_analysis_dashboard(self, async_client: httpx.AsyncClient):
-        """Test the TTP analysis dashboard."""
-        response = await async_client.get("/analysis")
-        assert response.status_code == 200
-        assert "Threat Hunting Analysis Dashboard" in response.text
-        assert "Quality Distribution" in response.text
-        assert "Tactical vs Strategic Distribution" in response.text
-    
-    @pytest.mark.asyncio
     async def test_sources_management_page(self, async_client: httpx.AsyncClient):
         """Test the sources management page."""
         response = await async_client.get("/sources")
@@ -229,7 +220,7 @@ class TestUIComponents:
     @pytest.mark.asyncio
     async def test_navigation_menu(self, async_client: httpx.AsyncClient):
         """Test that navigation menu is present on all pages."""
-        pages = ["/", "/articles", "/analysis", "/sources"]
+        pages = ["/", "/articles", "/sources"]
         
         for page in pages:
             response = await async_client.get(page)
@@ -352,7 +343,7 @@ class TestPerformance:
         """Test that endpoints respond within reasonable time."""
         import time
         
-        endpoints = ["/", "/articles", "/analysis", "/sources"]
+        endpoints = ["/", "/articles", "/sources"]
         
         for endpoint in endpoints:
             start_time = time.time()

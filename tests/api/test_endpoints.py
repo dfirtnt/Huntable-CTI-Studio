@@ -67,29 +67,6 @@ class TestArticlesEndpoints:
             # If no articles exist, that's also valid
             assert response.status_code in [404, 500]
 
-class TestAnalysisEndpoints:
-    """Test analysis-related endpoints."""
-    
-    @pytest.mark.api
-    @pytest.mark.smoke
-    async def test_analysis_dashboard(self, async_client: httpx.AsyncClient):
-        """Test the TTP analysis dashboard."""
-        response = await async_client.get("/analysis")
-        assert response.status_code == 200
-        assert "Threat Hunting Analysis Dashboard" in response.text
-        assert "Quality Distribution" in response.text
-    
-    @pytest.mark.api
-    async def test_analysis_quality_metrics(self, async_client: httpx.AsyncClient):
-        """Test quality metrics display on analysis page."""
-        response = await async_client.get("/analysis")
-        assert response.status_code == 200
-        
-        # Check for quality score cards
-        assert "Combined Quality" in response.text
-        assert "TTP Quality" in response.text
-        assert "LLM Quality" in response.text
-
 class TestSourcesEndpoints:
     """Test source-related endpoints."""
     

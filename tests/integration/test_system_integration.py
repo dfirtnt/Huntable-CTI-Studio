@@ -19,7 +19,7 @@ class TestSystemHealth:
         assert response.status_code == 200
         
         # Test all major endpoints
-        endpoints = ["/articles", "/analysis", "/sources"]
+        endpoints = ["/articles", "/sources"]
         for endpoint in endpoints:
             response = await async_client.get(endpoint)
             assert response.status_code == 200, f"Endpoint {endpoint} failed"
@@ -89,36 +89,6 @@ class TestDataFlow:
             # Should have at least one article
             assert len(api_data["articles"]) > 0
 
-class TestQualityFramework:
-    """Test the quality assessment framework integration."""
-    
-    @pytest.mark.integration
-    async def test_ttp_detection_integration(self, async_client: httpx.AsyncClient):
-        """Test TTP detection integration in the UI."""
-        # Get analysis page
-        response = await async_client.get("/analysis")
-        assert response.status_code == 200
-        
-        # Check for TTP analysis elements
-        assert "Threat Hunting Analysis Dashboard" in response.text
-        assert "Top Articles with Huntable Techniques" in response.text
-    
-    @pytest.mark.integration
-    async def test_llm_quality_assessment_integration(self, async_client: httpx.AsyncClient):
-        """Test LLM quality assessment integration."""
-        # Get analysis page
-        response = await async_client.get("/analysis")
-        assert response.status_code == 200
-        
-        # Check for LLM quality metrics
-        assert "Combined Quality" in response.text
-        assert "TTP Quality" in response.text
-        assert "LLM Quality" in response.text
-        
-        # Check for quality distribution
-        assert "Quality Distribution" in response.text
-        assert "Tactical vs Strategic Distribution" in response.text
-
 class TestErrorHandling:
     """Test system-wide error handling."""
     
@@ -148,7 +118,7 @@ class TestPerformance:
     @pytest.mark.slow
     async def test_system_response_times(self, async_client: httpx.AsyncClient):
         """Test system response times."""
-        endpoints = ["/", "/articles", "/analysis", "/sources"]
+        endpoints = ["/", "/articles", "/sources"]
         
         for endpoint in endpoints:
             start_time = time.time()
