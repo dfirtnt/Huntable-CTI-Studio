@@ -1,401 +1,192 @@
-# 🛡️ CTI Scraper - Modern Threat Intelligence Platform
+# 🔍 Security Article Pipeline
 
-**Enterprise-grade threat intelligence aggregation and analysis platform built with modern technologies.**
+A focused tool for collecting, processing, and classifying security articles from RSS feeds and web sources. Designed to prepare high-quality training data for threat intelligence models.
 
-[![CI/CD Pipeline](https://github.com/your-username/CTIScraper/workflows/CI/badge.svg)](https://github.com/your-username/CTIScraper/actions)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
-[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
+## 🎯 Purpose
 
-## 📋 Table of Contents
-
-- [Overview](#overview)
-- [Features](#features)
-- [Technology Stack](#technology-stack)
-- [Quick Start](#quick-start)
-- [Installation](#installation)
-- [Configuration](#configuration)
-- [Usage](#usage)
-- [API Documentation](#api-documentation)
-- [Documentation](#documentation)
-- [Security](#security)
-- [Contributing](#contributing)
-- [License](#license)
-
-## 🎯 Overview
-
-CTI Scraper is a comprehensive threat intelligence platform that automatically collects, analyzes, and processes threat intelligence from various sources. Built with modern async Python technologies, it provides enterprise-grade performance, scalability, and security.
-
-### Key Capabilities
-
-- **Automated Collection**: RSS feed parsing and web scraping with anti-bot protection
-- **Content Analysis**: LLM-powered quality assessment and TTP extraction
-- **Real-time Processing**: Async architecture with background task processing
-- **Modern Web Interface**: HTMX-powered dashboard with real-time analytics
-- **Production Ready**: Docker containerization with PostgreSQL and Redis
+This pipeline helps security researchers and threat hunters:
+- **Collect** articles from trusted security sources
+- **Process** and clean content for analysis
+- **Classify** articles for relevance and quality
+- **Prepare** training data for ML model fine-tuning
 
 ## ✨ Features
 
-### 🔍 **Intelligence Collection**
-- **Multi-source RSS/Atom feed parsing**
-- **Advanced web scraping with anti-bot detection**
-- **Content deduplication and quality validation**
-- **Source health monitoring and alerting**
+### Core Functionality
+- **RSS Feed Scraping**: Collect articles from security blogs and news sources
+- **Web Scraping**: Extract content from individual articles
+- **Content Processing**: Clean, deduplicate, and normalize text
+- **Classification Pipeline**: Identify relevant articles for threat hunting
+- **Data Export**: Export processed data in various formats
 
-### 🤖 **AI-Powered Analysis**
-- **LLM-based content quality assessment**
-- **TTP (Tactics, Techniques, Procedures) extraction**
-- **Multi-model AI chatbot with source attribution**
-- **Threat hunting priority scoring**
+### Classification System
+- **Relevance Scoring**: Identify articles useful for threat hunters
+- **Quality Assessment**: Filter out low-quality or irrelevant content
+- **Content Chunking**: Break articles into manageable pieces
+- **Labeling Support**: Prepare data for supervised learning
 
-### 🏗️ **Modern Architecture**
-- **Async/await throughout the stack**
-- **PostgreSQL with connection pooling**
-- **Redis caching and message queuing**
-- **Celery background task processing**
+## 🏗️ Architecture
 
-### 🛡️ **Security & Compliance**
-- **Environment-based configuration**
-- **Input validation and sanitization**
-- **Rate limiting and CORS protection**
-- **Comprehensive audit logging**
+```
+src/
+├── scraper/          # RSS and web scraping
+├── processor/        # Content processing and cleaning
+├── classifier/       # Classification and scoring
+└── utils/           # Shared utilities
 
-### 📊 **Web Dashboard**
-- **Real-time analytics and metrics**
-- **Source management interface**
-- **Article browsing and search**
-- **TTP analysis visualization**
+config/
+├── sources.yaml     # RSS feed configurations
+└── models.yaml      # Model configurations
 
-## 🏗️ Technology Stack
-
-### **Backend**
-- **FastAPI 2.0**: Modern, fast web framework with async support
-- **PostgreSQL 15**: Production database with connection pooling
-- **Redis 7**: Caching and message broker
-- **SQLAlchemy 2.0**: Async ORM with proper transaction handling
-- **Celery**: Background task processing and scheduling
-
-### **Frontend**
-- **Jinja2 Templates**: Server-side rendering
-- **Tailwind CSS**: Modern, utility-first CSS framework
-- **HTMX**: Dynamic content updates without JavaScript
-- **Chart.js**: Interactive data visualization
-
-### **Infrastructure**
-- **Docker & Docker Compose**: Container orchestration
-- **Nginx**: Reverse proxy with rate limiting and compression
-- **Uvicorn**: ASGI server for FastAPI
-- **Alembic**: Database migrations
+data/
+├── raw/            # Raw scraped articles
+├── processed/      # Cleaned articles
+└── labeled/        # Training data
+```
 
 ## 🚀 Quick Start
 
-### **Option 1: Production Stack (Docker)**
-```bash
-# Clone the repository
-git clone https://github.com/your-username/CTIScraper.git
-cd CTIScraper
+### Prerequisites
+- Python 3.11+
+- PostgreSQL (optional, for persistent storage)
 
-# Copy environment template
-cp env.example .env
-# Edit .env with your configuration
+### Installation
 
-# Start the complete production stack
-./start_production.sh
+1. **Clone the repository**
+   ```bash
+   git clone https://github.com/your-username/security-article-pipeline.git
+   cd security-article-pipeline
+   ```
 
-# Access the application
-open http://localhost
+2. **Create virtual environment**
+   ```bash
+   python3 -m venv venv
+   source venv/bin/activate  # On Windows: venv\Scripts\activate
+   ```
+
+3. **Install dependencies**
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+4. **Configure sources**
+   ```bash
+   cp config/sources.yaml.example config/sources.yaml
+   # Edit sources.yaml with your preferred RSS feeds
+   ```
+
+### Basic Usage
+
+1. **Scrape articles**
+   ```bash
+   python -m src.scraper.main --sources config/sources.yaml
+   ```
+
+2. **Process content**
+   ```bash
+   python -m src.processor.main --input data/raw --output data/processed
+   ```
+
+3. **Classify articles**
+   ```bash
+   python -m src.classifier.main --input data/processed --output data/labeled
+   ```
+
+## 📊 Data Flow
+
+1. **Collection**: RSS feeds → Raw articles
+2. **Processing**: Raw articles → Cleaned content
+3. **Classification**: Cleaned content → Scored articles
+4. **Export**: Scored articles → Training datasets
+
+## 🔧 Configuration
+
+### Sources Configuration (`config/sources.yaml`)
+```yaml
+sources:
+  - name: "The Hacker News"
+    url: "https://thehackernews.com/"
+    rss_url: "https://feeds.feedburner.com/TheHackersNews"
+    tier: 1
+    weight: 1.0
 ```
 
-### **Option 2: Development Environment**
-```bash
-# Clone and setup
-git clone https://github.com/your-username/CTIScraper.git
-cd CTIScraper
-
-# Create virtual environment
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-
-# Install dependencies
-pip install -r requirements.txt
-
-# Setup environment
-cp env.example .env
-# Edit .env with your settings
-
-# Start services
-brew services start postgresql@15  # macOS
-brew services start redis
-
-# Create database
-createdb cti_scraper
-
-# Start the application
-python src/web/modern_main.py
+### Model Configuration (`config/models.yaml`)
+```yaml
+classification:
+  relevance_threshold: 0.7
+  quality_threshold: 0.6
+  chunk_size: 512
+  overlap: 50
 ```
 
-## 📦 Installation
+## 📈 Output Formats
 
-### **Prerequisites**
-- Python 3.9+
-- PostgreSQL 15+
-- Redis 7+
-- Docker & Docker Compose (for production)
-
-### **System Dependencies**
-```bash
-# macOS
-brew install postgresql@15 redis
-
-# Ubuntu/Debian
-sudo apt-get install postgresql-15 redis-server
-
-# CentOS/RHEL
-sudo yum install postgresql15-server redis
-```
-
-### **Python Dependencies**
-```bash
-# Install Python packages
-pip install -r requirements.txt
-
-# For development
-pip install -r requirements-test.txt
-```
-
-## ⚙️ Configuration
-
-### **Environment Variables**
-Copy `env.example` to `.env` and configure:
-
-```bash
-# Database Configuration
-DATABASE_URL=postgresql+asyncpg://user:password@localhost:5432/dbname
-POSTGRES_PASSWORD=your_secure_password
-
-# Redis Configuration
-REDIS_URL=redis://:password@localhost:6379/0
-REDIS_PASSWORD=your_redis_password
-
-# Application Configuration
-ENVIRONMENT=production
-SECRET_KEY=your-super-secret-key-change-this
-```
-
-### **Source Configuration**
-Add threat intelligence sources via the web interface or API:
-
-```python
-# Example source configuration
+### Processed Articles
+```json
 {
-    "name": "The DFIR Report",
-    "url": "https://thedfirreport.com/feed/",
-    "type": "rss",
-    "tier": 1,
-    "check_frequency": 900  # 15 minutes
+  "id": "unique_id",
+  "title": "Article Title",
+  "content": "Cleaned article content...",
+  "url": "https://example.com/article",
+  "published_at": "2024-01-01T00:00:00Z",
+  "source": "source_name",
+  "relevance_score": 0.85,
+  "quality_score": 0.78
 }
 ```
 
-## 🎮 Usage
-
-### **Web Interface**
-- **Dashboard**: `http://localhost:8000/`
-- **Sources**: `http://localhost:8000/sources`
-- **Articles**: `http://localhost:8000/articles`
-- **Chat**: `http://localhost:8000/chat`
-
-### **CLI Commands**
-```bash
-# List sources
-python -m src.cli.main sources list
-
-# Collect from all sources
-python -m src.cli.main collect
-
-# Analyze articles for TTPs
-python -m src.cli.main analyze
-
-# Export articles
-python -m src.cli.main export --format csv
-
-# Monitor sources continuously
-python -m src.cli.main monitor --interval 3600
+### Training Data
+```json
+{
+  "text": "Article chunk content...",
+  "label": "relevant",
+  "confidence": 0.92,
+  "metadata": {
+    "article_id": "unique_id",
+    "chunk_index": 0,
+    "source": "source_name"
+  }
+}
 ```
 
-### **API Usage**
+## 🧪 Development
+
+### Running Tests
 ```bash
-# Health check
-curl http://localhost:8000/health
-
-# List sources
-curl http://localhost:8000/api/sources
-
-# Get articles
-curl http://localhost:8000/api/articles
-
-# Chat with AI
-curl -X POST http://localhost:8000/api/chat \
-  -H "Content-Type: application/json" \
-  -d '{"message": "What are the latest ransomware trends?"}'
+pytest tests/
 ```
 
-## 📚 API Documentation
-
-### **Interactive Documentation**
-- **Swagger UI**: `http://localhost:8000/docs`
-- **ReDoc**: `http://localhost:8000/redoc`
-- **OpenAPI Schema**: `http://localhost:8000/openapi.json`
-
-### **Core Endpoints**
+### Code Formatting
 ```bash
-# Health and monitoring
-GET /health                    # System health check
-GET /api/sources              # List all sources
-GET /api/articles             # List all articles
-
-# Source management
-POST /api/sources/{id}/toggle # Toggle source status
-POST /api/sources/{id}/test   # Test source connectivity
-GET /api/sources/{id}/stats   # Get source statistics
-
-# Article management
-GET /api/articles/{id}        # Get specific article
-POST /api/articles/search     # Search articles
-GET /api/articles/export      # Export articles
-
-# AI Chat
-POST /api/chat               # Send message to chatbot
-GET /api/chat/history        # Get conversation history
-POST /api/chat/clear         # Clear conversation history
-```
-
-## 📖 Documentation
-
-### **Core Documentation**
-- **[README.md](README.md)** - This file - Project overview, installation, and quick start
-- **[CHANGELOG.md](CHANGELOG.md)** - Version history, release notes, and migration guides
-- **[CONTRIBUTING.md](CONTRIBUTING.md)** - Development setup, coding standards, and contribution guidelines
-- **[SECURITY.md](.github/SECURITY.md)** - Security policy, vulnerability reporting, and best practices
-
-### **Development & Testing**
-- **[TESTING_GUIDE.md](TESTING_GUIDE.md)** - Comprehensive testing instructions and best practices
-- **[TESTING_SUMMARY.md](TESTING_SUMMARY.md)** - Test results, coverage reports, and quality metrics
-- **[MANUAL_TEST_CHECKLIST.md](MANUAL_TEST_CHECKLIST.md)** - Manual testing procedures and validation steps
-- **[pytest.ini](pytest.ini)** - Pytest configuration and test settings
-
-### **Content Quality & Analysis**
-- **[CONTENT_QUALITY_FRAMEWORK.md](CONTENT_QUALITY_FRAMEWORK.md)** - Content quality assessment framework and scoring methodology
-- **[STRICT_CONTENT_GUIDELINES.md](STRICT_CONTENT_GUIDELINES.md)** - Content filtering rules and quality standards
-
-### **Project Management**
-- **[GITHUB_READY_SUMMARY.md](GITHUB_READY_SUMMARY.md)** - Summary of GitHub-ready improvements and security enhancements
-- **[CLEANUP_SUMMARY.md](CLEANUP_SUMMARY.md)** - Data cleanup procedures and maintenance tasks
-
-### **Configuration Files**
-- **[env.example](env.example)** - Environment variables template with placeholder values
-- **[requirements.txt](requirements.txt)** - Production dependencies with pinned versions
-- **[requirements-test.txt](requirements-test.txt)** - Development and testing dependencies
-- **[docker-compose.yml](docker-compose.yml)** - Production Docker orchestration
-- **[docker-compose.test.yml](docker-compose.test.yml)** - Testing environment configuration
-
-### **Development Tools**
-- **[run_tests.py](run_tests.py)** - Automated test runner with coverage reporting
-- **[setup_ollama_docker.sh](setup_ollama_docker.sh)** - Ollama Docker setup for local LLM models
-
-## 🔒 Security
-
-### **Built-in Security Features**
-- **Input Validation**: Pydantic model validation
-- **SQL Injection Protection**: Parameterized queries
-- **XSS Protection**: Template escaping
-- **Rate Limiting**: API and web request throttling
-- **CORS Protection**: Cross-origin request handling
-- **Environment Variables**: No hardcoded secrets
-
-### **Security Best Practices**
-1. **Use HTTPS in production**
-2. **Keep dependencies updated**
-3. **Monitor logs for suspicious activity**
-4. **Use strong, unique passwords**
-5. **Enable security features**
-
-### **Reporting Security Issues**
-**Do not report security vulnerabilities through public GitHub issues.**
-
-Please report security issues via email to `security@ctiscraper.com`. See our [Security Policy](.github/SECURITY.md) for details.
-
-## 🤝 Contributing
-
-We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details.
-
-### **Quick Start for Contributors**
-```bash
-# Fork and clone
-git clone https://github.com/your-username/CTIScraper.git
-cd CTIScraper
-
-# Setup development environment
-python -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
-pip install -r requirements-test.txt
-
-# Run tests
-pytest
-
-# Format code
 black src/
 isort src/
-
-# Create feature branch
-git checkout -b feature/your-feature
+flake8 src/
 ```
 
-### **Development Guidelines**
-- Follow PEP 8 with Black formatting
-- Use type hints for all functions
-- Write tests for new features
-- Update documentation
-- Follow security best practices
+### Adding New Sources
+1. Add RSS feed to `config/sources.yaml`
+2. Test with `python -m src.scraper.main --test-source source_name`
+3. Run full pipeline to verify
+
+## 📝 Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Add tests
+5. Submit a pull request
 
 ## 📄 License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+MIT License - see [LICENSE](LICENSE) file for details.
 
-## 🆘 Support
+## 🤝 Support
 
-### **Getting Help**
-- **Issues**: [GitHub Issues](https://github.com/your-username/CTIScraper/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/your-username/CTIScraper/discussions)
-- **Documentation**: This README and inline code docs
-- **Security**: See [SECURITY.md](.github/SECURITY.md)
-
-### **Common Issues**
-- **Database Connection**: Check PostgreSQL service status
-- **Redis Connection**: Verify Redis service is running
-- **Port Conflicts**: Ensure ports 8000, 5432, 6379 are available
-- **Permission Issues**: Check file permissions and ownership
-
-## �� Acknowledgments
-
-- **Contributors**: All who have contributed to this project
-- **Open Source**: Built on amazing open source technologies
-- **Security Community**: For feedback and security improvements
+- **Issues**: Report bugs and feature requests on GitHub
+- **Discussions**: Join the community discussions
+- **Documentation**: See the [docs/](docs/) folder for detailed guides
 
 ---
 
-## 📈 Roadmap
-
-### **Upcoming Features**
-- [ ] Advanced threat correlation
-- [ ] Machine learning-based threat detection
-- [ ] Integration with SIEM platforms
-- [ ] Mobile application
-- [ ] Advanced reporting and analytics
-
-### **Version History**
-See [CHANGELOG.md](CHANGELOG.md) for detailed version history and migration guides.
-
----
-
-**CTI Scraper** - Making threat intelligence accessible and actionable. 🚀
+**Note**: This tool is designed for research and educational purposes. Always respect website terms of service and robots.txt files when scraping content.

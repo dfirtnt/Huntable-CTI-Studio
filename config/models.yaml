@@ -1,0 +1,21 @@
+# Security Article Pipeline Configuration
+
+# Classification settings
+classification:
+  relevance_threshold: 0.7
+  quality_threshold: 0.6
+  chunk_size: 512
+  overlap: 50
+  
+# Processing settings
+processing:
+  max_content_length: 50000
+  min_content_length: 100
+  remove_ads: true
+  normalize_whitespace: true
+  
+# Export settings
+export:
+  formats: ["json", "csv", "parquet"]
+  include_metadata: true
+  include_scores: true

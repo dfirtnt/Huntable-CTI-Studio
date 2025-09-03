@@ -1,0 +1,99 @@
+version: '3.8'
+
+services:
+  # PostgreSQL for Testing
+  postgres-test:
+    image: postgres:15-alpine
+    container_name: cti_postgres_test
+    environment:
+      POSTGRES_DB: cti_scraper_test
+      POSTGRES_USER: test_user
+      POSTGRES_PASSWORD: test_password
+      POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --lc-collate=C --lc-ctype=C"
+    ports:
+      - "5433:5432"
+    networks:
+      - cti_test_network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U test_user -d cti_scraper_test"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis for Testing
+  redis-test:
+    image: redis:7-alpine
+    container_name: cti_redis_test
+    ports:
+      - "6380:6379"
+    networks:
+      - cti_test_network
+    restart: unless-stopped
+    command: redis-server --appendonly yes --requirepass test_redis_password
+    healthcheck:
+      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Web Application for Testing
+  web-test:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: cti_web_test
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://test_user:test_password@postgres-test:5432/cti_scraper_test
+      - REDIS_URL=redis://:test_redis_password@redis-test:6379/0
+      - ENVIRONMENT=test
+      - LOG_LEVEL=DEBUG
+      - TESTING=true
+    ports:
+      - "8002:8000"
+    volumes:
+      - ./src:/app/src
+      - ./tests:/app/tests
+      - ./logs:/app/logs
+    depends_on:
+      postgres-test:
+        condition: service_healthy
+      redis-test:
+        condition: service_healthy
+    networks:
+      - cti_test_network
+    restart: unless-stopped
+    command: uvicorn src.web.modern_main:app --host 0.0.0.0 --port 8000 --reload
+
+  # Worker for Testing
+  worker-test:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: cti_worker_test
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://test_user:test_password@postgres-test:5432/cti_scraper_test
+      - REDIS_URL=redis://:test_redis_password@redis-test:6379/0
+      - ENVIRONMENT=test
+      - LOG_LEVEL=DEBUG
+      - TESTING=true
+    volumes:
+      - ./src:/app/src
+      - ./tests:/app/tests
+      - ./logs:/app/logs
+    depends_on:
+      postgres-test:
+        condition: service_healthy
+      redis-test:
+        condition: service_healthy
+    networks:
+      - cti_test_network
+    restart: unless-stopped
+    command: celery -A src.worker.celery_app worker --loglevel=debug
+
+networks:
+  cti_test_network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.21.0.0/16

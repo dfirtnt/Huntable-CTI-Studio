@@ -1,0 +1,618 @@
+version: "1.0"
+
+sources:
+  # High-volume RSS sources (Tier 1)
+  - id: "dfir_report"
+    name: "The DFIR Report"
+    url: "https://thedfirreport.com"
+    rss_url: "https://thedfirreport.com/feed/"
+    tier: 1
+    weight: 2.0
+    check_frequency: 1800  # 30 minutes
+    active: true
+    
+  - id: "crowdstrike_blog"
+    name: "CrowdStrike Intelligence Blog"
+    url: "https://www.crowdstrike.com/blog/"
+    rss_url: "https://www.crowdstrike.com/blog/feed/"
+    tier: 1
+    weight: 1.9
+    check_frequency: 1800  # 30 minutes
+    active: true
+    
+  - id: "microsoft_security"
+    name: "Microsoft Security Response Center"
+    url: "https://msrc.microsoft.com/blog/"
+    rss_url: "https://msrc.microsoft.com/blog/feed/"
+    tier: 1
+    weight: 1.8
+    check_frequency: 3600  # 1 hour
+    active: true
+    
+  - id: "fireeye_blog"
+    name: "FireEye Threat Research"
+    url: "https://www.mandiant.com/resources/blog"
+    rss_url: "https://www.mandiant.com/resources/blog/rss.xml"
+    tier: 1
+    weight: 1.9
+    check_frequency: 1800
+    active: true
+    
+  - id: "symantec_security"
+    name: "Broadcom Security Response"
+    url: "https://www.broadcom.com/support/security-center"
+    rss_url: ""
+    tier: 1
+    weight: 1.7
+    check_frequency: 3600
+    active: true
+    
+  # Modern scraping sources (Tier 2)
+  - id: "huntress_blog"
+    name: "Huntress Cybersecurity Blog"
+    url: "https://www.huntress.com/blog"
+    rss_url: ""  # No RSS available - using modern scraping
+    tier: 1
+    weight: 1.9
+    check_frequency: 1800  # 30 minutes - Tier 1 priority
+    active: true
+    config:
+      allow: ["huntress.com"]
+      post_url_regex: ["^https://www\\.huntress\\.com/blog/.*"]
+      discovery:
+        listing: true
+        sitemap: false
+      extract:
+        title_selectors: ["h1", ".blog-title", "article h1", "[data-testid='blog-title']"]
+        body_selectors: ["main", ".blog-content", ".post-content", "[data-testid='blog-content']", ".content"]
+        author_selectors: [".author", ".byline", "[data-author]", ".blog-author"]
+        date_selectors: ["time", ".date", ".published", "[datetime]", ".blog-date"]
+      content_selector: "main"
+    description: "Excellent DFIR and threat hunting content with actionable intelligence"
+
+  - id: "specterops_blog"
+    name: "SpecterOps Blog"
+    url: "https://posts.specterops.io/"
+    rss_url: "https://posts.specterops.io/feed/"
+    tier: 1
+    weight: 2.0
+    check_frequency: 1800  # 30 minutes - Tier 1 priority
+    active: true
+    config:
+      content_selector: "div.blog-content, article"
+    description: "Advanced adversary tradecraft and detection research - premium huntable intel"
+
+  - id: "red_canary_blog"
+    name: "Red Canary Blog"
+    url: "https://redcanary.com/blog/"
+    rss_url: "https://redcanary.com/blog/feed/"
+    tier: 1
+    weight: 2.0
+    check_frequency: 1800  # 30 minutes - Tier 1 priority
+    active: true
+    config:
+      content_selector: "div.blog-content, article"
+    description: "Detection-focused research with actionable hunting techniques and IOCs"
+
+  # =============================================================================
+  # ADDITIONAL THREAT INTELLIGENCE SOURCES (COMMENTED OUT - READY TO ENABLE)
+  # =============================================================================
+  # Uncomment any of these sources below to add them to your collection
+  # 
+  # TIER CLASSIFICATION BASED ON ACTIONABLE THREAT INTELLIGENCE:
+  # Tier 1: High-quality huntable intel (IOCs, TTPs, detailed attack chains)
+  # Tier 2: Solid research with some actionable content 
+  # Tier 3: Good analysis but less immediately actionable
+  # Tier 4: General security news and broad advisories
+  
+  # # =============================================================================
+  # # TIER 1: PREMIUM HUNTABLE INTELLIGENCE (Highest Actionable Value)
+  # # =============================================================================
+  # # These sources consistently provide detailed IOCs, TTPs, and attack chains
+  
+  # - id: "unit42_paloalto"
+  #   name: "Unit 42 (Palo Alto)"
+  #   url: "https://unit42.paloaltonetworks.com/"
+  #   rss_url: "https://unit42.paloaltonetworks.com/feed/"
+  #   tier: 1
+  #   weight: 2.0
+  #   check_frequency: 1800  # 30 minutes - high priority
+  #   active: true
+  #   config:
+  #     content_selector: "div.entry-content, article"
+  #   description: "Exceptional threat research with detailed IOCs and TTPs"
+    
+  # - id: "cisco_talos"
+  #   name: "Cisco Talos Intelligence"
+  #   url: "https://blog.talosintelligence.com/"
+  #   rss_url: "https://blog.talosintelligence.com/rss/"
+  #   tier: 1
+  #   weight: 2.0
+  #   check_frequency: 1800  # 30 minutes
+  #   active: true
+  #   config:
+  #     content_selector: "div.blog-content, article"
+  #   description: "High-quality threat intelligence with actionable IOCs"
+    
+  # - id: "binary_defense"
+  #   name: "Binary Defense"
+  #   url: "https://www.binarydefense.com/resources/blog/"
+  #   rss_url: "https://www.binarydefense.com/resources/blog/feed/"
+  #   tier: 1
+  #   weight: 1.9
+  #   check_frequency: 1800  # 30 minutes
+  #   active: true
+  #   config:
+  #     content_selector: "div.blog-content, article"
+  #   description: "Excellent DFIR content with huntable intelligence"
+    
+  # - id: "volexity_blog"
+  #   name: "Volexity Blog"
+  #   url: "https://www.volexity.com/blog/"
+  #   rss_url: "https://www.volexity.com/blog/feed/"
+  #   tier: 1
+  #   weight: 1.9
+  #   check_frequency: 1800  # 30 minutes
+  #   active: true
+  #   config:
+  #     content_selector: "div.blog-content, article"
+  #   description: "Top-tier threat research with detailed attack analysis"
+    
+  # - id: "red_canary_blog"
+  #   name: "Red Canary Blog"
+  #   url: "https://redcanary.com/blog/"
+  #   rss_url: "https://redcanary.com/blog/feed/"
+  #   tier: 1
+  #   weight: 1.8
+  #   check_frequency: 3600  # 1 hour
+  #   active: true
+  #   config:
+  #     content_selector: "div.blog-content, article"
+  #   description: "Detection-focused content with actionable hunting techniques"
+    
+  # - id: "specterops_blog"
+  #   name: "SpecterOps Blog"
+  #   url: "https://posts.specterops.io/"
+  #   rss_url: "https://posts.specterops.io/feed.xml"
+  #   tier: 1
+  #   weight: 1.8
+  #   check_frequency: 3600  # 1 hour
+  #   active: true
+  #   config:
+  #     content_selector: "div.blog-content, article"
+  #   description: "Advanced tradecraft and detection research"
+
+  # # =============================================================================
+  # # TIER 2: SOLID RESEARCH WITH ACTIONABLE CONTENT (High Value)
+  # # =============================================================================
+  # # Good research that often includes IOCs and technical details
+  
+  # - id: "mandiant_fireeye"
+  #   name: "Mandiant/FireEye Research"
+  #   url: "https://cloud.google.com/blog/topics/threat-intelligence"
+  #   rss_url: ""  # Modern scraping approach
+  #   tier: 2
+  #   weight: 1.7
+  #   check_frequency: 3600  # 1 hour
+  #   active: true
+  #   config:
+  #     content_selector: "article, div.blog-content"
+  #   description: "High-quality APT research and threat intelligence"
+    
+  # - id: "kaspersky_securelist"
+  #   name: "Kaspersky Securelist"
+  #   url: "https://securelist.com/"
+  #   rss_url: "https://securelist.com/feed/"
+  #   tier: 2
+  #   weight: 1.6
+  #   check_frequency: 3600  # 1 hour
+  #   active: true
+  #   config:
+  #     content_selector: "div.blog-content, article"
+  #   description: "Excellent malware analysis and APT research"
+    
+  # - id: "eset_research"
+  #   name: "ESET Research"
+  #   url: "https://www.welivesecurity.com/category/research/"
+  #   rss_url: "https://www.welivesecurity.com/category/research/feed/"
+  #   tier: 2
+  #   weight: 1.5
+  #   check_frequency: 3600  # 1 hour
+  #   active: true
+  #   config:
+  #     content_selector: "div.blog-content, article"
+  #   description: "Strong malware research with technical details"
+    
+  # - id: "sentinelone_labs"
+  #   name: "SentinelOne Labs"
+  #   url: "https://www.sentinelone.com/labs/"
+  #   rss_url: "https://www.sentinelone.com/labs/feed/"
+  #   tier: 2
+  #   weight: 1.5
+  #   check_frequency: 3600  # 1 hour
+  #   active: true
+  #   config:
+  #     content_selector: "div.blog-content, article"
+  #   description: "Good threat research with detection context"
+    
+  # - id: "elastic_security_labs"
+  #   name: "Elastic Security Labs"
+  #   url: "https://www.elastic.co/security-labs/"
+  #   rss_url: "https://www.elastic.co/security-labs/feed/"
+  #   tier: 2
+  #   weight: 1.4
+  #   check_frequency: 3600  # 1 hour
+  #   active: true
+  #   config:
+  #     content_selector: "div.blog-content, article"
+  #   description: "Detection-focused research with hunting queries"
+    
+  # - id: "checkpoint_research"
+  #   name: "Check Point Research"
+  #   url: "https://research.checkpoint.com/"
+  #   rss_url: "https://research.checkpoint.com/feed/"
+  #   tier: 2
+  #   weight: 1.4
+  #   check_frequency: 3600  # 1 hour
+  #   active: true
+  #   config:
+  #     content_selector: "div.blog-content, article"
+  #   description: "Solid threat research with technical analysis"
+    
+  # - id: "malwarebytes_labs"
+  #   name: "Malwarebytes Labs"
+  #   url: "https://www.malwarebytes.com/blog/"
+  #   rss_url: "https://www.malwarebytes.com/blog/feed/index.xml"
+  #   tier: 2
+  #   weight: 1.3
+  #   check_frequency: 3600  # 1 hour
+  #   active: true
+  #   config:
+  #     content_selector: "div.blog-content, article"
+  #   description: "Good malware analysis and threat trends"
+
+  # # =============================================================================
+  # # TIER 3: GOOD ANALYSIS, LESS IMMEDIATELY ACTIONABLE (Medium Value)
+  # # =============================================================================
+  # # Valuable research but typically more strategic than tactical
+  
+  # - id: "sophos_labs"
+  #   name: "Sophos Labs"
+  #   url: "https://news.sophos.com/en-us/category/sophos-labs/"
+  #   rss_url: "https://news.sophos.com/en-us/category/sophos-labs/feed/"
+  #   tier: 3
+  #   weight: 1.2
+  #   check_frequency: 7200  # 2 hours
+  #   active: true
+  #   config:
+  #     content_selector: "div.blog-content, article"
+  #   description: "Decent threat research, more analysis than IOCs"
+    
+  # - id: "dragos_ics_ot"
+  #   name: "Dragos (ICS/OT Focus)"
+  #   url: "https://www.dragos.com/blog/"
+  #   rss_url: "https://www.dragos.com/blog/feed/"
+  #   tier: 3
+  #   weight: 1.2
+  #   check_frequency: 7200  # 2 hours
+  #   active: true
+  #   config:
+  #     content_selector: "div.blog-content, article"
+  #   description: "Specialized ICS/OT intelligence - niche but valuable"
+    
+  # - id: "cybereason_research"
+  #   name: "Cybereason Research"
+  #   url: "https://www.cybereason.com/blog/research"
+  #   rss_url: "https://www.cybereason.com/blog/research/feed/"
+  #   tier: 3
+  #   weight: 1.1
+  #   check_frequency: 7200  # 2 hours
+  #   active: true
+  #   config:
+  #     content_selector: "div.blog-content, article"
+  #   description: "Good analysis but less tactical intelligence"
+    
+  # - id: "reversinglabs_blog"
+  #   name: "ReversingLabs Blog"
+  #   url: "https://blog.reversinglabs.com/"
+  #   rss_url: "https://blog.reversinglabs.com/feed/"
+  #   tier: 3
+  #   weight: 1.1
+  #   check_frequency: 7200  # 2 hours
+  #   active: true
+  #   config:
+  #     content_selector: "div.blog-content, article"
+  #   description: "Malware analysis with some actionable content"
+    
+  # - id: "team_cymru_blog"
+  #   name: "Team Cymru Blog"
+  #   url: "https://team-cymru.com/blog/"
+  #   rss_url: "https://team-cymru.com/blog/feed/"
+  #   tier: 3
+  #   weight: 1.1
+  #   check_frequency: 7200  # 2 hours
+  #   active: true
+  #   config:
+  #     content_selector: "div.blog-content, article"
+  #   description: "Internet intelligence and analysis"
+    
+  # - id: "bad_packets_report"
+  #   name: "Bad Packets Report"
+  #   url: "https://badpackets.net/"
+  #   rss_url: "https://badpackets.net/feed/"
+  #   tier: 3
+  #   weight: 1.1
+  #   check_frequency: 7200  # 2 hours
+  #   active: true
+  #   config:
+  #     content_selector: "div.blog-content, article"
+  #   description: "Network attack analysis and reporting"
+    
+  # - id: "krebsonsecurity"
+  #   name: "KrebsOnSecurity"
+  #   url: "https://krebsonsecurity.com/"
+  #   rss_url: "https://krebsonsecurity.com/feed/"
+  #   tier: 3
+  #   weight: 1.0
+  #   check_frequency: 7200  # 2 hours
+  #   active: true
+  #   config:
+  #     content_selector: "div.entry-content"
+  #   description: "Excellent journalism but less tactical intel"
+    
+  # - id: "bleepingcomputer"
+  #   name: "Bleeping Computer"
+  #   url: "https://www.bleepingcomputer.com/"
+  #   rss_url: "https://www.bleepingcomputer.com/feed/"
+  #   tier: 3
+  #   weight: 1.0
+  #   check_frequency: 7200  # 2 hours
+  #   active: true
+  #   config:
+  #     content_selector: "div.articleBody"
+  #   description: "Good security news with some malware analysis"
+
+  # # =============================================================================
+  # # TIER 4: GENERAL ADVISORIES & BROAD COVERAGE (Lower Tactical Value)
+  # # =============================================================================
+  # # Government sources and general security news - hit or miss for actionable intel
+  
+  # - id: "us_cert"
+  #   name: "US-CERT"
+  #   url: "https://www.cisa.gov/news-events/cybersecurity-advisories"
+  #   rss_url: ""  # RSS disabled, using web scraping
+  #   tier: 4
+  #   weight: 0.9
+  #   check_frequency: 10800  # 3 hours - government updates are slower
+  #   active: true
+  #   config:
+  #     content_selector: "div.view-content, div.views-row, article"
+  #   description: "Government advisories - often broad, occasionally actionable"
+    
+  # - id: "cisa_advisories"
+  #   name: "CISA Cybersecurity Advisories"
+  #   url: "https://www.cisa.gov/news-events/cybersecurity-advisories"
+  #   rss_url: "https://www.cisa.gov/news-events/cybersecurity-advisories/feed"
+  #   tier: 4
+  #   weight: 0.8
+  #   check_frequency: 10800  # 3 hours
+  #   active: true
+  #   config:
+  #     content_selector: "div.view-content"
+  #   description: "Government advisories - strategic value over tactical"
+    
+  # - id: "nist_nvd"
+  #   name: "NIST NVD"
+  #   url: "https://nvd.nist.gov/vuln/data-feeds"
+  #   rss_url: "https://nvd.nist.gov/feeds/xml/cve/misc/nvd-rss-analyzed.xml"
+  #   tier: 4
+  #   weight: 0.8
+  #   check_frequency: 10800  # 3 hours
+  #   active: true
+  #   config:
+  #     content_selector: "div#body"
+  #   description: "CVE database - more compliance than hunting value"
+    
+  # - id: "mitre_attack"
+  #   name: "MITRE ATT&CK"
+  #   url: "https://attack.mitre.org/"
+  #   rss_url: ""  # RSS disabled, using web scraping
+  #   tier: 4
+  #   weight: 0.7
+  #   check_frequency: 10800  # 3 hours
+  #   active: true
+  #   config:
+  #     content_selector: "div.content, div.news-item, article"
+  #   description: "Framework updates - reference value over immediate hunting"
+    
+  # - id: "ncsc_uk_blog"
+  #   name: "NCSC (UK) Blog"
+  #   url: "https://www.ncsc.gov.uk/blog-post"
+  #   rss_url: "https://www.ncsc.gov.uk/blog-post/feed"
+  #   tier: 4
+  #   weight: 0.7
+  #   check_frequency: 10800  # 3 hours
+  #   active: true
+  #   config:
+  #     content_selector: "div.blog-content, article"
+  #   description: "UK government perspective - strategic insights"
+    
+  # - id: "threatpost"
+  #   name: "Threatpost"
+  #   url: "https://threatpost.com/"
+  #   rss_url: "https://threatpost.com/feed/"
+  #   tier: 4
+  #   weight: 0.6
+  #   check_frequency: 10800  # 3 hours
+  #   active: true
+  #   config:
+  #     content_selector: "div.entry-content"
+  #   description: "Security news aggregation - broad coverage, less depth"
+    
+  # - id: "securityweek"
+  #   name: "SecurityWeek"
+  #   url: "https://www.securityweek.com/"
+  #   rss_url: "https://www.securityweek.com/feed/"
+  #   tier: 4
+  #   weight: 0.6
+  #   check_frequency: 10800  # 3 hours
+  #   active: true
+  #   config:
+  #     content_selector: "div.entry-content"
+  #   description: "General cybersecurity news and industry updates"
+    
+  # - id: "zdnet_security"
+  #   name: "ZDNet Security"
+  #   url: "https://www.zdnet.com/security/"
+  #   rss_url: "https://www.zdnet.com/news/rss.xml"
+  #   tier: 4
+  #   weight: 0.5
+  #   check_frequency: 10800  # 3 hours
+  #   active: true
+  #   config:
+  #     content_selector: "div.article-content"
+  #   description: "Mainstream tech news with security angle"
+    
+  # - id: "arstechnica_security"
+  #   name: "Ars Technica Security"
+  #   url: "https://arstechnica.com/tag/security/"
+  #   rss_url: "https://feeds.arstechnica.com/arstechnica/security"
+  #   tier: 4
+  #   weight: 0.5
+  #   check_frequency: 10800  # 3 hours
+  #   active: true
+  #   config:
+  #     content_selector: "div.article-content"
+  #   description: "Tech journalism with security focus - context over IOCs"
+
+  # # Note: Community sources like Reddit and Twitter are disabled by default
+  # # due to API limitations and access restrictions
+  # # 
+  # # - id: "reddit_netsec"
+  # #   name: "Reddit r/netsec"
+  # #   url: "https://www.reddit.com/r/netsec/"
+  # #   rss_url: "https://www.reddit.com/r/netsec/.rss"
+  # #   tier: 4
+  # #   weight: 0.7
+  # #   check_frequency: 10800  # 3 hours
+  # #   active: false
+  # #   config:
+  # #     content_selector: "div.entry"
+  # #   description: "Reddit network security community"
+
+  # =============================================================================
+  # END OF ADDITIONAL SOURCES - UNCOMMENT ABOVE TO ENABLE
+  # =============================================================================
+        
+  - id: "mandiant_research"
+    name: "Mandiant Threat Research"
+    url: "https://cloud.google.com/blog/topics/threat-intelligence"
+    rss_url: ""  # No RSS available
+    tier: 2
+    weight: 1.8
+    check_frequency: 7200  # 2 hours
+    active: true
+    scope:
+      allow: ["cloud.google.com"]
+      post_url_regex: ["^https://cloud\\.google\\.com/blog/topics/threat-intelligence/.*"]
+    discovery:
+      strategies:
+        - listing:
+            urls: ["https://cloud.google.com/blog/topics/threat-intelligence"]
+            post_link_selector: "a[href*='/blog/topics/threat-intelligence/']"
+            max_pages: 3
+    extract:
+      prefer_jsonld: true
+      title_selectors: ["h1", "meta[property='og:title']::attr(content)"]
+      date_selectors: 
+        - "meta[property='article:published_time']::attr(content)"
+        - "time[datetime]::attr(datetime)"
+      body_selectors: ["article", "main", ".content"]
+      author_selectors: ["meta[name='author']::attr(content)", ".author-name"]
+      
+  - id: "palo_alto_research"
+    name: "Palo Alto Networks Research"
+    url: "https://unit42.paloaltonetworks.com/"
+    rss_url: ""
+    tier: 2
+    weight: 1.7
+    check_frequency: 7200
+    active: true
+    scope:
+      allow: ["unit42.paloaltonetworks.com"]
+      post_url_regex: ["^https://unit42\\.paloaltonetworks\\.com/.*"]
+    discovery:
+      strategies:
+        - listing:
+            urls: ["https://unit42.paloaltonetworks.com/"]
+            post_link_selector: "a[href*='unit42.paloaltonetworks.com']"
+            max_pages: 2
+    extract:
+      prefer_jsonld: true
+      title_selectors: ["h1.entry-title", "h1", "meta[property='og:title']::attr(content)"]
+      date_selectors:
+        - "meta[property='article:published_time']::attr(content)"
+        - ".entry-date time::attr(datetime)"
+      body_selectors: [".entry-content", "article", "main"]
+      
+  # Legacy sources (Tier 3)
+  - id: "sans_isc"
+    name: "SANS Internet Storm Center"
+    url: "https://isc.sans.edu/"
+    rss_url: "https://isc.sans.edu/rssfeed.xml"
+    tier: 1  # Has RSS but also good for testing tier 3 fallback
+    weight: 1.6
+    check_frequency: 3600
+    active: true
+    content_selector: ".story"  # Fallback for legacy scraping
+    
+  # Additional threat intelligence sources
+  - id: "checkpoint_research"
+    name: "Check Point Research"
+    url: "https://research.checkpoint.com/"
+    rss_url: "https://research.checkpoint.com/feed/"
+    tier: 1
+    weight: 1.6
+    check_frequency: 7200
+    active: true
+    
+  - id: "kaspersky_securelist"
+    name: "Kaspersky Securelist"
+    url: "https://securelist.com/"
+    rss_url: "https://securelist.com/feed/"
+    tier: 1
+    weight: 1.7
+    check_frequency: 3600
+    active: true
+    
+  - id: "trend_micro_research"
+    name: "Trend Micro Research"
+    url: "https://www.trendmicro.com/en_us/research.html"
+    rss_url: "https://www.trendmicro.com/content/tm/en_us/research/_jcr_content.feed.xml"
+    tier: 1
+    weight: 1.6
+    check_frequency: 7200
+    active: true
+    
+  - id: "proofpoint_threat_insight"
+    name: "Proofpoint Threat Insight"
+    url: "https://www.proofpoint.com/us/threat-insight"
+    rss_url: ""
+    tier: 2
+    weight: 1.5
+    check_frequency: 10800  # 3 hours
+    active: true
+    scope:
+      allow: ["proofpoint.com"]
+      post_url_regex: ["^https://www\\.proofpoint\\.com/.*/threat-insight/.*"]
+    discovery:
+      strategies:
+        - listing:
+            urls: ["https://www.proofpoint.com/us/threat-insight"]
+            post_link_selector: "a[href*='/threat-insight/']"
+            max_pages: 2
+    extract:
+      prefer_jsonld: true
+      title_selectors: ["h1", "meta[property='og:title']::attr(content)"]
+      date_selectors: ["meta[property='article:published_time']::attr(content)"]
+      body_selectors: [".content", "article", "main"]
