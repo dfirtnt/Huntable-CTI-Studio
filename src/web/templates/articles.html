@@ -355,10 +355,8 @@
                         </div>
                         
                         <!-- Article content -->
-                        <div class="max-h-96 overflow-y-auto">
-                            <div class="prose prose-sm max-w-none">
-                                <div id="articleContent" class="text-gray-700 leading-relaxed"></div>
-                            </div>
+                        <div class="max-h-96 overflow-y-auto border border-gray-200 rounded-md p-4">
+                            <div id="articleContent" class="text-gray-700 leading-relaxed whitespace-pre-wrap"></div>
                         </div>
                         
                         <!-- Current classification -->
@@ -370,7 +368,7 @@
                         </div>
                         
                         <!-- Classification controls -->
-                        <div class="mt-6 space-y-4">
+                        <div class="mt-6 space-y-4 p-4 bg-blue-50 border border-blue-200 rounded-md">
                             <h5 class="text-sm font-medium text-gray-900">Classify this article as:</h5>
                             
                             <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -508,6 +506,13 @@
             // Hide loading, show content
             document.getElementById('modalLoading').classList.add('hidden');
             document.getElementById('modalArticleContent').classList.remove('hidden');
+            
+            // Debug: Check if content is visible
+            console.log('Modal content loaded:', {
+                loadingHidden: document.getElementById('modalLoading').classList.contains('hidden'),
+                contentVisible: !document.getElementById('modalArticleContent').classList.contains('hidden'),
+                contentHeight: document.getElementById('modalArticleContent').offsetHeight
+            });
             
         } catch (error) {
             console.error('Error loading article:', error);
