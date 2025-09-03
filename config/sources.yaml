@@ -2,7 +2,7 @@ version: "1.0"
 
 sources:
   # =============================================================================
-  # TIER 1: PREMIUM THREAT INTELLIGENCE SOURCES (Highest Actionable Value)
+  # PREMIUM THREAT INTELLIGENCE SOURCES (Highest Actionable Value)
   # =============================================================================
   
   # Cisco Talos Blog - Fixed RSS URL and SSL handling
@@ -10,8 +10,6 @@ sources:
     name: "Cisco Talos Intelligence Blog"
     url: "https://blog.talosintelligence.com/"
     rss_url: "https://blog.talosintelligence.com/rss/"
-    tier: 1
-    weight: 2.0
     check_frequency: 1800  # 30 minutes
     active: true
     config:
@@ -32,8 +30,6 @@ sources:
     name: "Huntress Cybersecurity Blog"
     url: "https://www.huntress.com/blog"
     rss_url: "https://www.huntress.com/blog/rss.xml"  # Fixed RSS URL
-    tier: 1
-    weight: 1.9
     check_frequency: 1800  # 30 minutes
     active: true
     config:
@@ -52,8 +48,6 @@ sources:
     name: "Mandiant Threat Research"
     url: "https://www.mandiant.com/resources/blog"
     rss_url: "https://www.mandiant.com/resources/blog/rss.xml"
-    tier: 1
-    weight: 2.0
     check_frequency: 1800  # 30 minutes
     active: true
     config:
@@ -71,8 +65,6 @@ sources:
     name: "Palo Alto Unit42"
     url: "https://unit42.paloaltonetworks.com/"
     rss_url: "https://unit42.paloaltonetworks.com/feed/"
-    tier: 1
-    weight: 2.0
     check_frequency: 1800  # 30 minutes
     active: true
     config:
@@ -90,8 +82,6 @@ sources:
     name: "Kaspersky Securelist"
     url: "https://securelist.com/"
     rss_url: "https://securelist.com/feed/"
-    tier: 1
-    weight: 1.8
     check_frequency: 1800  # 30 minutes
     active: true
     config:
@@ -109,8 +99,6 @@ sources:
     name: "ESET Research"
     url: "https://www.welivesecurity.com/category/research/"
     rss_url: "https://www.welivesecurity.com/category/research/feed/"
-    tier: 1
-    weight: 1.7
     check_frequency: 1800  # 30 minutes
     active: true
     config:
@@ -128,8 +116,6 @@ sources:
     name: "Recorded Future"
     url: "https://www.recordedfuture.com/"
     rss_url: "https://www.recordedfuture.com/feed/"
-    tier: 1
-    weight: 1.9
     check_frequency: 1800  # 30 minutes
     active: true
     config:
@@ -147,8 +133,6 @@ sources:
     name: "SentinelOne Labs"
     url: "https://www.sentinelone.com/labs/"
     rss_url: "https://www.sentinelone.com/labs/feed/"
-    tier: 1
-    weight: 1.6
     check_frequency: 1800  # 30 minutes
     active: true
     config:
@@ -166,8 +150,6 @@ sources:
     name: "Elastic Security Labs"
     url: "https://www.elastic.co/security-labs/"
     rss_url: "https://www.elastic.co/security-labs/feed/"
-    tier: 1
-    weight: 1.5
     check_frequency: 1800  # 30 minutes
     active: true
     config:
@@ -185,8 +167,6 @@ sources:
     name: "Check Point Research"
     url: "https://research.checkpoint.com/"
     rss_url: "https://research.checkpoint.com/feed/"
-    tier: 1
-    weight: 1.5
     check_frequency: 1800  # 30 minutes
     active: true
     config:
@@ -200,7 +180,7 @@ sources:
     description: "Solid threat research with technical analysis"
 
   # =============================================================================
-  # TIER 2: NEWS AND ANALYSIS SOURCES (Good Coverage)
+  # NEWS AND ANALYSIS SOURCES (Good Coverage)
   # =============================================================================
 
   # The Hacker News
@@ -208,8 +188,6 @@ sources:
     name: "The Hacker News"
     url: "https://thehackernews.com/"
     rss_url: "https://feeds.feedburner.com/TheHackersNews"
-    tier: 2
-    weight: 1.4
     check_frequency: 1800  # 30 minutes
     active: true
     config:
@@ -227,8 +205,6 @@ sources:
     name: "Bleeping Computer"
     url: "https://www.bleepingcomputer.com/"
     rss_url: "https://www.bleepingcomputer.com/feed/"
-    tier: 2
-    weight: 1.3
     check_frequency: 1800  # 30 minutes
     active: true
     config:
@@ -246,8 +222,6 @@ sources:
     name: "Dark Reading"
     url: "https://www.darkreading.com/"
     rss_url: "https://www.darkreading.com/rss.xml"
-    tier: 2
-    weight: 1.2
     check_frequency: 1800  # 30 minutes
     active: true
     config:
@@ -265,8 +239,6 @@ sources:
     name: "SecurityWeek"
     url: "https://www.securityweek.com/"
     rss_url: "https://www.securityweek.com/feed/"
-    tier: 2
-    weight: 1.2
     check_frequency: 1800  # 30 minutes
     active: true
     config:
@@ -284,8 +256,6 @@ sources:
     name: "Infosecurity Magazine"
     url: "https://www.infosecurity-magazine.com/"
     rss_url: "https://www.infosecurity-magazine.com/rss/news/"
-    tier: 2
-    weight: 1.1
     check_frequency: 1800  # 30 minutes
     active: true
     config:
@@ -303,8 +273,6 @@ sources:
     name: "SANS Internet Storm Center"
     url: "https://isc.sans.edu/"
     rss_url: "https://isc.sans.edu/rssfeed.xml"
-    tier: 2
-    weight: 1.3
     check_frequency: 1800  # 30 minutes
     active: true
     config:
@@ -326,8 +294,6 @@ sources:
     name: "The DFIR Report"
     url: "https://thedfirreport.com"
     rss_url: "https://thedfirreport.com/feed/"
-    tier: 1
-    weight: 2.0
     check_frequency: 1800  # 30 minutes
     active: true
 
@@ -336,8 +302,6 @@ sources:
     name: "CrowdStrike Intelligence Blog"
     url: "https://www.crowdstrike.com/blog/"
     rss_url: "https://www.crowdstrike.com/blog/feed/"
-    tier: 1
-    weight: 1.9
     check_frequency: 1800  # 30 minutes
     active: true
 
@@ -346,8 +310,6 @@ sources:
     name: "Microsoft Security Response Center"
     url: "https://msrc.microsoft.com/blog/"
     rss_url: "https://msrc.microsoft.com/blog/feed/"
-    tier: 1
-    weight: 1.8
     check_frequency: 3600  # 1 hour
     active: true
 
@@ -356,8 +318,6 @@ sources:
     name: "FireEye Threat Research"
     url: "https://www.mandiant.com/resources/blog"
     rss_url: "https://www.mandiant.com/resources/blog/rss.xml"
-    tier: 1
-    weight: 1.9
     check_frequency: 1800
     active: true
 
@@ -366,8 +326,6 @@ sources:
     name: "SpecterOps Blog"
     url: "https://posts.specterops.io/"
     rss_url: "https://posts.specterops.io/feed/"
-    tier: 1
-    weight: 2.0
     check_frequency: 1800  # 30 minutes - Tier 1 priority
     active: true
     config:
@@ -379,8 +337,6 @@ sources:
     name: "Red Canary Blog"
     url: "https://redcanary.com/blog/"
     rss_url: "https://redcanary.com/blog/feed/"
-    tier: 1
-    weight: 2.0
     check_frequency: 1800  # 30 minutes - Tier 1 priority
     active: true
     config:

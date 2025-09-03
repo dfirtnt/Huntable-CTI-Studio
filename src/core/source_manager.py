@@ -126,8 +126,6 @@ class SourceConfigLoader:
         name = source_data['name']
         url = source_data['url']
         rss_url = source_data.get('rss_url', '')
-        tier = source_data.get('tier', 3)
-        weight = source_data.get('weight', 1.0)
         check_frequency = source_data.get('check_frequency', 3600)
         active = source_data.get('active', True)
         
@@ -159,8 +157,6 @@ class SourceConfigLoader:
             name=name,
             url=url,
             rss_url=rss_url if rss_url else None,
-            tier=tier,
-            weight=weight,
             check_frequency=check_frequency,
             active=active,
             config=config

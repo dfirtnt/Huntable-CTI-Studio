@@ -298,9 +298,6 @@ class ContentFetcher:
         
         logger.info(f"Found {len(due_sources)} sources due for checking")
         
-        # Sort by priority (tier 1 first, then by weight)
-        due_sources.sort(key=lambda s: (s.tier, -s.weight))
-        
         return await self.fetch_multiple_sources(due_sources)
     
     def _has_modern_config(self, source: Source) -> bool:

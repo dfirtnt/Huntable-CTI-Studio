@@ -57,7 +57,7 @@ Run CLI commands through Docker:
 docker compose exec web python -m src.cli.main init --config config/sources.yaml
 
 # Collect content (RSS → modern scraping → legacy scraping)
-docker compose exec web python -m src.cli.main collect --tier 1 --dry-run
+docker compose exec web python -m src.cli.main collect --dry-run
 
 # Monitor continuously
 docker compose exec web python -m src.cli.main monitor --interval 300 --max-concurrent 5
@@ -89,7 +89,7 @@ docker compose exec web python -m src.cli.main export --format json --days 7 --o
 - RSS ingestion: `src/core/rss_parser.py` (feedparser + content extraction)
 - Modern scraping: `src/core/modern_scraper.py` (JSON‑LD/opengraph/microdata + CSS selectors)
 - Legacy fallback: basic CSS extraction
-- Orchestration: `src/core/fetcher.py` (tiered strategy)
+- Orchestration: `src/core/fetcher.py` (multi-strategy)
 - Processing: `src/core/processor.py` (normalize, content hash + fingerprint, dedupe, quality checks)
 - HTTP: `src/utils/http.py` (rate limiting, conditional GETs, optional robots.txt)
 
@@ -113,8 +113,6 @@ sources:
     name: "The Hacker News"
     url: "https://thehackernews.com/"
     rss_url: "https://feeds.feedburner.com/TheHackersNews"
-    tier: 1
-    weight: 1.0
     check_frequency: 3600
     active: true
 ```

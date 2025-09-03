@@ -43,15 +43,15 @@ psql postgresql://cti_user:cti_password_2024@postgres:5432/cti_scraper
 
 ```sql
 -- All sources with their details
-SELECT id, name, url, rss_url, tier, active, created_at 
-FROM sources 
-ORDER BY tier, name;
+SELECT id, name, url, rss_url, active, created_at
+FROM sources
+ORDER BY name;
 
 -- Only active sources
 SELECT name, url, rss_url, tier 
 FROM sources 
 WHERE active = true 
-ORDER BY tier, name;
+ORDER BY name;
 ```
 
 ### View Articles
@@ -141,7 +141,7 @@ ORDER BY date DESC;
 
 ```sql
 -- Add a new source
-INSERT INTO sources (id, name, url, rss_url, tier, weight, check_frequency, active, created_at, updated_at)
+INSERT INTO sources (id, name, url, rss_url, check_frequency, active, created_at, updated_at)
 VALUES (
     'new_source_id',
     'New Source Name',
@@ -163,14 +163,13 @@ WHERE id = 'source_id_to_disable';
 -- View source collection statistics
 SELECT 
     s.name,
-    s.tier,
     COUNT(a.id) as total_articles,
     MAX(a.created_at) as last_article_date,
     s.active
 FROM sources s
 LEFT JOIN articles a ON s.id = a.source_id
-GROUP BY s.id, s.name, s.tier, s.active
-ORDER BY s.tier, total_articles DESC;
+GROUP BY s.id, s.name, s.active
+ORDER BY total_articles DESC;
 ```
 
 ## Advanced Queries
@@ -235,12 +234,10 @@ ORDER BY SIMILARITY(a1.title, a2.title) DESC;
         name,
         url,
         rss_url,
-        tier,
-        weight,
         active,
         created_at
     FROM sources
-    ORDER BY tier, name
+    ORDER BY name
 ) TO '/tmp/sources_export.csv' WITH CSV HEADER;
 ```
 
@@ -253,9 +250,7 @@ ORDER BY SIMILARITY(a1.title, a2.title) DESC;
 - `name`: Source name
 - `url`: Main website URL
 - `rss_url`: RSS feed URL
-- `tier`: Source tier (1 = premium, 2 = news)
-- `weight`: Collection weight
-- `check_frequency`: Check interval in seconds
+- `check_frequency`: How often to check this source (seconds)
 - `active`: Whether source is active
 - `created_at`: Creation timestamp
 - `updated_at`: Last update timestamp
@@ -278,14 +273,13 @@ ORDER BY SIMILARITY(a1.title, a2.title) DESC;
 CREATE VIEW article_stats AS
 SELECT 
     s.name as source_name,
-    s.tier,
     COUNT(a.id) as total_articles,
     COUNT(CASE WHEN a.metadata->>'training_category' = 'chosen' THEN 1 END) as chosen_count,
     COUNT(CASE WHEN a.metadata->>'training_category' = 'rejected' THEN 1 END) as rejected_count,
     MAX(a.created_at) as last_collection
 FROM sources s
 LEFT JOIN articles a ON s.id = a.source_id
-GROUP BY s.id, s.name, s.tier;
+GROUP BY s.id, s.name;
 
 -- Query the view
 SELECT * FROM article_stats ORDER BY total_articles DESC;

@@ -22,8 +22,6 @@ class SourceTable(Base):
     name = Column(String(500), nullable=False)
     url = Column(Text, nullable=False)
     rss_url = Column(Text, nullable=True)
-    tier = Column(Integer, nullable=False, default=3)
-    weight = Column(Float, nullable=False, default=1.0)
     check_frequency = Column(Integer, nullable=False, default=3600)
     active = Column(Boolean, nullable=False, default=True)
     config = Column(JSON, nullable=False, default=dict)

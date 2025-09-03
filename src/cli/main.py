@@ -119,7 +119,6 @@ def init(ctx: CLIContext, config: Optional[str], validate_feeds: bool):
             table = Table(title="Loaded Sources")
             table.add_column("Identifier", style="cyan")
             table.add_column("Name", style="white")
-            table.add_column("Tier", justify="center")
             table.add_column("RSS", justify="center")
             table.add_column("Active", justify="center")
             
@@ -127,7 +126,6 @@ def init(ctx: CLIContext, config: Optional[str], validate_feeds: bool):
                 table.add_row(
                     source.identifier,
                     source.name[:50] + "..." if len(source.name) > 50 else source.name,
-                    str(source.tier),
                     "✓" if source.rss_url else "✗",
                     "✓" if source.active else "✗"
                 )
@@ -144,11 +142,10 @@ def init(ctx: CLIContext, config: Optional[str], validate_feeds: bool):
 
 @cli.command()
 @click.option('--source', help='Specific source identifier to collect from')
-@click.option('--tier', type=int, help='Collect from sources of specific tier')
 @click.option('--force', is_flag=True, help='Force collection regardless of schedule')
 @click.option('--dry-run', is_flag=True, help='Show what would be collected without saving')
 @pass_context
-def collect(ctx: CLIContext, source: Optional[str], tier: Optional[int], force: bool, dry_run: bool):
+def collect(ctx: CLIContext, source: Optional[str], force: bool, dry_run: bool):
     """Collect content from sources."""
     
     async def _collect():
@@ -163,7 +160,7 @@ def collect(ctx: CLIContext, source: Optional[str], tier: Optional[int], force: 
                     return
                 sources = [source_obj]
             else:
-                filter_params = SourceFilter(tier=tier, active=True) if tier else SourceFilter(active=True)
+                filter_params = SourceFilter(active=True)
                 sources = db_manager.list_sources(filter_params)
                 
                 if not force:
@@ -357,15 +354,14 @@ def sources():
 
 
 @sources.command('list')
-@click.option('--tier', type=int, help='Filter by tier')
 @click.option('--active/--inactive', default=None, help='Filter by active status')
 @click.option('--format', 'output_format', type=click.Choice(['table', 'json']), default='table', help='Output format')
 @pass_context
-def list_sources(ctx: CLIContext, tier: Optional[int], active: Optional[bool], output_format: str):
+def list_sources(ctx: CLIContext, active: Optional[bool], output_format: str):
     """List configured sources."""
     db_manager, _, _ = asyncio.run(get_managers(ctx))
     
-    filter_params = SourceFilter(tier=tier, active=active)
+    filter_params = SourceFilter(active=active)
     sources = db_manager.list_sources(filter_params)
     
     if output_format == 'json':
@@ -376,7 +372,6 @@ def list_sources(ctx: CLIContext, tier: Optional[int], active: Optional[bool], o
                 'identifier': source.identifier,
                 'name': source.name,
                 'url': source.url,
-                'tier': source.tier,
                 'active': source.active,
                 'last_check': source.last_check.isoformat() if source.last_check else None,
                 'total_articles': source.total_articles
@@ -388,7 +383,6 @@ def list_sources(ctx: CLIContext, tier: Optional[int], active: Optional[bool], o
         table.add_column("ID", justify="right")
         table.add_column("Identifier", style="cyan")
         table.add_column("Name", style="white")
-        table.add_column("Tier", justify="center")
         table.add_column("Active", justify="center")
         table.add_column("Articles", justify="right")
         table.add_column("Last Check")
@@ -398,7 +392,6 @@ def list_sources(ctx: CLIContext, tier: Optional[int], active: Optional[bool], o
                 str(source.id),
                 source.identifier,
                 source.name[:40] + "..." if len(source.name) > 40 else source.name,
-                str(source.tier),
                 "[green]✓[/green]" if source.active else "[red]✗[/red]",
                 str(source.total_articles),
                 source.last_check.strftime('%Y-%m-%d %H:%M') if source.last_check else "Never"
@@ -412,10 +405,8 @@ def list_sources(ctx: CLIContext, tier: Optional[int], active: Optional[bool], o
 @click.argument('name')
 @click.argument('url')
 @click.option('--rss-url', help='RSS feed URL')
-@click.option('--tier', type=int, default=3, help='Source tier (1-3)')
-@click.option('--weight', type=float, default=1.0, help='Source weight')
 @pass_context
-def add_source(ctx: CLIContext, identifier: str, name: str, url: str, rss_url: Optional[str], tier: int, weight: float):
+def add_source(ctx: CLIContext, identifier: str, name: str, url: str, rss_url: Optional[str]):
     """Add a new source."""
     db_manager, _, _ = asyncio.run(get_managers(ctx))
     
@@ -427,8 +418,6 @@ def add_source(ctx: CLIContext, identifier: str, name: str, url: str, rss_url: O
             name=name,
             url=url,
             rss_url=rss_url,
-            tier=tier,
-            weight=weight,
             config=SourceConfig()
         )
         
@@ -572,28 +561,9 @@ def stats(ctx: CLIContext):
   • Last 24h: {stats_data['articles_last_day']} articles
   • Last 7 days: {stats_data['articles_last_week']} articles  
   • Last 30 days: {stats_data['articles_last_month']} articles
-[cyan]Quality:[/cyan] Average score: {stats_data['average_quality_score']:.2f}
         """.strip()
         
         console.print(Panel(summary_text, title="Database Statistics"))
-        
-        # Sources by tier table
-        tier_table = Table(title="Sources by Tier")
-        tier_table.add_column("Tier", justify="center")
-        tier_table.add_column("Count", justify="right")
-        tier_table.add_column("Description")
-        
-        tier_descriptions = {
-            'tier_1': 'RSS Feeds (Primary)',
-            'tier_2': 'Modern Scraping (Fallback)', 
-            'tier_3': 'Legacy HTML (Last Resort)'
-        }
-        
-        for tier_key, count in stats_data['sources_by_tier'].items():
-            tier_num = tier_key.split('_')[1]
-            tier_table.add_row(tier_num, str(count), tier_descriptions[tier_key])
-        
-        console.print(tier_table)
     
     except Exception as e:
         console.print(f"[red]Failed to get statistics: {e}[/red]")

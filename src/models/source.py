@@ -62,8 +62,6 @@ class Source(BaseModel):
     name: str = Field(..., min_length=1, description="Human readable name")
     url: str = Field(..., description="Base URL of the source")
     rss_url: Optional[str] = Field(None, description="RSS/Atom feed URL")
-    tier: int = Field(default=3, ge=1, le=3, description="Priority tier (1=highest)")
-    weight: float = Field(default=1.0, ge=0.0, le=2.0, description="Scoring weight")
     check_frequency: int = Field(default=3600, ge=60, description="Check frequency in seconds")
     active: bool = Field(default=True, description="Whether source is active")
     config: SourceConfig = Field(default_factory=SourceConfig, description="Source configuration")
@@ -91,13 +89,6 @@ class Source(BaseModel):
         if v and not v.startswith(('http://', 'https://')):
             raise ValueError('URL must start with http:// or https://')
         return v.strip() if v else v
-    
-    @validator('tier')
-    def validate_tier(cls, v):
-        """Validate tier value."""
-        if v not in [1, 2, 3]:
-            raise ValueError('Tier must be 1 (RSS), 2 (Modern), or 3 (Legacy)')
-        return v
     
     def should_check(self) -> bool:
         """Check if source should be checked based on frequency."""
@@ -141,8 +132,6 @@ class Source(BaseModel):
                 "name": "CrowdStrike Intelligence Blog",
                 "url": "https://www.crowdstrike.com/blog/",
                 "rss_url": "https://www.crowdstrike.com/blog/feed/",
-                "tier": 1,
-                "weight": 1.9,
                 "check_frequency": 1800,
                 "active": True,
                 "config": {
@@ -177,8 +166,6 @@ class SourceCreate(BaseModel):
     name: str
     url: str
     rss_url: Optional[str] = None
-    tier: int = 3
-    weight: float = 1.0
     check_frequency: int = 3600
     active: bool = True
     config: SourceConfig = Field(default_factory=SourceConfig)
@@ -194,8 +181,6 @@ class SourceUpdate(BaseModel):
     name: Optional[str] = None
     url: Optional[str] = None
     rss_url: Optional[str] = None
-    tier: Optional[int] = None
-    weight: Optional[float] = None
     check_frequency: Optional[int] = None
     active: Optional[bool] = None
     config: Optional[SourceConfig] = None
@@ -204,7 +189,6 @@ class SourceUpdate(BaseModel):
 class SourceFilter(BaseModel):
     """Model for filtering sources in queries."""
     
-    tier: Optional[int] = None
     active: Optional[bool] = None
     identifier_contains: Optional[str] = None
     name_contains: Optional[str] = None
@@ -221,7 +205,6 @@ class SourceHealth(BaseModel):
     identifier: str
     name: str
     active: bool
-    tier: int
     last_check: Optional[datetime]
     last_success: Optional[datetime]
     consecutive_failures: int

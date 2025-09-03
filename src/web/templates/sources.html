@@ -75,9 +75,6 @@
                                          {% if source.active %}bg-green-100 text-green-800{% else %}bg-red-100 text-red-800{% endif %}">
                                 {% if source.active %}Active{% else %}Inactive{% endif %}
                             </span>
-                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                                Tier {{ source.tier }}
-                            </span>
                         </div>
 
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-3">
@@ -176,21 +173,6 @@
                 </div>
             </div>
         </div>
-
-        <!-- Tier 1 Sources -->
-        <div class="bg-white rounded-lg shadow-sm p-6">
-            <div class="flex items-center">
-                <div class="flex-shrink-0">
-                    <div class="w-8 h-8 bg-yellow-500 rounded-md flex items-center justify-center">
-                        <span class="text-white text-lg">⭐</span>
-                    </div>
-                </div>
-                <div class="ml-4">
-                    <p class="text-sm font-medium text-gray-500">Tier 1 Sources</p>
-                    <p class="text-2xl font-bold text-gray-900">{{ sources|selectattr('tier', 'equalto', 1)|list|length }}</p>
-                </div>
-            </div>
-        </div>
     </div>
     {% endif %}
 
@@ -257,8 +239,7 @@ async function showSourceStats(sourceId) {
         if (response.ok) {
             let content = `<div class="space-y-3">`;
             content += `<p><strong>Source:</strong> ${stats.source_name}</p>`;
-                            content += `<p><strong>Status:</strong> <span class="${stats.active ? 'text-green-600' : 'text-red-600'}">${stats.active ? 'Active' : 'Inactive'}</span></p>`;
-            content += `<p><strong>Tier:</strong> ${stats.tier}</p>`;
+            content += `<p><strong>Status:</strong> <span class="${stats.active ? 'text-green-600' : 'text-red-600'}">${stats.active ? 'Active' : 'Inactive'}</span></p>`;
             content += `<p><strong>Collection Method:</strong> ${stats.collection_method}</p>`;
             content += `<p><strong>Total Articles:</strong> ${stats.total_articles}</p>`;
             content += `<p><strong>Average Content Length:</strong> ${stats.avg_content_length} characters</p>`;

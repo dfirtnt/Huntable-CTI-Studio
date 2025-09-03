@@ -178,7 +178,7 @@ class AsyncDatabaseManager:
                             SourceTable.name.contains(filter_params.name_contains)
                         )
                 
-                query = query.order_by(SourceTable.tier, SourceTable.name)
+                query = query.order_by(SourceTable.name)
                 result = await session.execute(query)
                 db_sources = result.scalars().all()
                 
@@ -198,8 +198,6 @@ class AsyncDatabaseManager:
                     name=source_data.name,
                     url=source_data.url,
                     rss_url=source_data.rss_url,
-                    tier=source_data.tier,
-                    weight=source_data.weight,
                     check_frequency=source_data.check_frequency,
                     active=source_data.active,
                     config=source_data.config.dict() if source_data.config else {},
@@ -560,8 +558,6 @@ class AsyncDatabaseManager:
             name=db_source.name,
             url=db_source.url,
             rss_url=db_source.rss_url,
-            tier=db_source.tier,
-            weight=db_source.weight,
             check_frequency=db_source.check_frequency,
             active=db_source.active,
             config=SourceConfig.parse_obj(db_source.config),
