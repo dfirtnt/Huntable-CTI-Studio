@@ -318,9 +318,9 @@
         </div>
         
         <!-- Modal content -->
-        <div class="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-4xl sm:w-full">
+        <div class="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-4xl sm:w-full max-h-[90vh] flex flex-col">
             <!-- Header -->
-            <div class="bg-white px-6 py-4 border-b border-gray-200">
+            <div class="bg-white px-6 py-4 border-b border-gray-200 flex-shrink-0">
                 <div class="flex items-center justify-between">
                     <h3 class="text-lg font-medium text-gray-900" id="modalTitle">
                         Classify Article
@@ -334,7 +334,7 @@
             </div>
             
             <!-- Content -->
-            <div class="bg-white px-6 py-4">
+            <div class="bg-white px-6 py-4 flex-1 overflow-y-auto">
                 <div id="modalContent" class="space-y-4">
                     <!-- Loading state -->
                     <div id="modalLoading" class="text-center py-8">
@@ -355,56 +355,61 @@
                         </div>
                         
                         <!-- Article content -->
-                        <div class="max-h-96 overflow-y-auto border border-gray-200 rounded-md p-4">
+                        <div class="max-h-64 overflow-y-auto border border-gray-200 rounded-md p-4 mb-4">
                             <div id="articleContent" class="text-gray-700 leading-relaxed whitespace-pre-wrap"></div>
                         </div>
                         
                         <!-- Current classification -->
-                        <div class="mt-4 p-3 bg-gray-50 rounded-md">
+                        <div class="mb-4 p-3 bg-gray-50 rounded-md">
                             <h5 class="text-sm font-medium text-gray-900 mb-2">Current Classification:</h5>
                             <div id="currentClassification" class="text-sm text-gray-600">
                                 <!-- Will be populated by JavaScript -->
                             </div>
                         </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Fixed bottom section with classification controls -->
+            <div class="bg-white px-6 py-4 border-t border-gray-200 flex-shrink-0">
+                <div id="classificationControls" class="hidden">
+                    <!-- Classification controls -->
+                    <div class="space-y-4 p-4 bg-blue-50 border border-blue-200 rounded-md">
+                        <h5 class="text-sm font-medium text-gray-900">Classify this article as:</h5>
                         
-                        <!-- Classification controls -->
-                        <div class="mt-6 space-y-4 p-4 bg-blue-50 border border-blue-200 rounded-md">
-                            <h5 class="text-sm font-medium text-gray-900">Classify this article as:</h5>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                            <button onclick="classifyArticle('chosen')" 
+                                    class="flex items-center justify-center px-4 py-3 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors">
+                                <span class="mr-2">✅</span>
+                                Chosen
+                            </button>
                             
-                            <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
-                                <button onclick="classifyArticle('chosen')" 
-                                        class="flex items-center justify-center px-4 py-3 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors">
-                                    <span class="mr-2">✅</span>
-                                    Chosen
-                                </button>
-                                
-                                <button onclick="classifyArticle('rejected')" 
-                                        class="flex items-center justify-center px-4 py-3 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors">
-                                    <span class="mr-2">❌</span>
-                                    Rejected
-                                </button>
-                                
-                                <button onclick="classifyArticle('unclassified')" 
-                                        class="flex items-center justify-center px-4 py-3 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
-                                    <span class="mr-2">⏳</span>
-                                    Unclassified
-                                </button>
-                            </div>
+                            <button onclick="classifyArticle('rejected')" 
+                                    class="flex items-center justify-center px-4 py-3 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors">
+                                <span class="mr-2">❌</span>
+                                Rejected
+                            </button>
                             
-                            <!-- Navigation -->
-                            <div class="flex items-center justify-between pt-4 border-t border-gray-200">
-                                <button onclick="navigateToPrevious()" 
-                                        class="inline-flex items-center px-3 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
-                                    <span class="mr-1">←</span>
-                                    Previous
-                                </button>
-                                
-                                <button onclick="navigateToNextUnclassified()" 
-                                        class="inline-flex items-center px-3 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
-                                    Next Unclassified
-                                    <span class="ml-1">→</span>
-                                </button>
-                            </div>
+                            <button onclick="classifyArticle('unclassified')" 
+                                    class="flex items-center justify-center px-4 py-3 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
+                                <span class="mr-2">⏳</span>
+                                Unclassified
+                            </button>
+                        </div>
+                        
+                        <!-- Navigation -->
+                        <div class="flex items-center justify-between pt-4 border-t border-gray-200">
+                            <button onclick="navigateToPrevious()" 
+                                    class="inline-flex items-center px-3 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
+                                <span class="mr-1">←</span>
+                                Previous
+                            </button>
+                            
+                            <button onclick="navigateToNextUnclassified()" 
+                                    class="inline-flex items-center px-3 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
+                                Next Unclassified
+                                <span class="ml-1">→</span>
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -506,6 +511,7 @@
             // Hide loading, show content
             document.getElementById('modalLoading').classList.add('hidden');
             document.getElementById('modalArticleContent').classList.remove('hidden');
+            document.getElementById('classificationControls').classList.remove('hidden');
             
             // Debug: Check if content is visible
             console.log('Modal content loaded:', {
