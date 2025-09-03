@@ -32,7 +32,7 @@ docker-compose.yml       # Full stack: Postgres, Redis, web, workers, Nginx
 
 ## Quick Start
 
-### Run the full stack (recommended)
+### Run the full stack (Docker)
 
 Requires Docker. This brings up PostgreSQL, Redis, FastAPI web, Celery worker/beat, and Nginx.
 
@@ -48,40 +48,22 @@ Services once healthy:
 - API: http://localhost:8000/api/*
 - Nginx (optional): http://localhost
 
-### Local development (web app)
+### CLI Commands (via Docker)
 
-The web app expects PostgreSQL (async). Either reuse the compose Postgres or point to your own:
-
-```bash
-python3 -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
-
-export DATABASE_URL="postgresql+asyncpg://cti_user:cti_password_2024@localhost:5432/cti_scraper"
-uvicorn src.web.modern_main:app --host 0.0.0.0 --port 8000 --reload
-```
-
-### Local development (CLI only)
-
-The CLI can run against SQLite by default (file `threat_intel.db`), or the same PostgreSQL instance as the web app.
+Run CLI commands through Docker:
 
 ```bash
-python3 -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
-
 # Example: initialize sources from YAML
-python -m src.cli.main init --config config/sources.yaml
+docker compose exec web python -m src.cli.main init --config config/sources.yaml
 
 # Collect content (RSS → modern scraping → legacy scraping)
-python -m src.cli.main collect --tier 1 --dry-run
+docker compose exec web python -m src.cli.main collect --tier 1 --dry-run
 
 # Monitor continuously
-python -m src.cli.main monitor --interval 300 --max-concurrent 5
-
-# Analyze for techniques (TTPs)
-python -m src.cli.main analyze --recent 10 --format text --quality
+docker compose exec web python -m src.cli.main monitor --interval 300 --max-concurrent 5
 
 # Export articles
-python -m src.cli.main export --format json --days 7 --output export.json
+docker compose exec web python -m src.cli.main export --format json --days 7 --output export.json
 ```
 
 ## Web Application
@@ -118,12 +100,7 @@ The Celery app in `src/worker/celery_app.py` defines tasks to:
 - Collect content from a specific source
 - Cleanup/maintenance and daily reports
 
-In Docker: `cti_worker` (worker) and `cti_scheduler` (beat) are started automatically. Outside Docker, run:
-
-```bash
-celery -A src.worker.celery_app worker --loglevel=info
-celery -A src.worker.celery_app beat --loglevel=info
-```
+In Docker: `cti_worker` (worker) and `cti_scheduler` (beat) are started automatically.
 
 ## Configuration
 
