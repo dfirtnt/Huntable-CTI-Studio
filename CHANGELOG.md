@@ -36,7 +36,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Redis Caching**: High-performance caching and message queuing
 - **Docker Containerization**: Production-ready container orchestration
 - **Nginx Reverse Proxy**: Professional-grade web server with rate limiting
-- **LLM-Powered Chatbot**: AI assistant with multi-model support
 - **Content Quality Assessment**: LLM-based quality scoring system
 - **TTP Extraction Engine**: Advanced threat technique detection
 - **Modern Web Interface**: HTMX-powered dynamic UI

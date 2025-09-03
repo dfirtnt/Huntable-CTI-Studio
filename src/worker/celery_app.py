@@ -83,9 +83,8 @@ def check_all_sources(self):
                 if not active_sources:
                     return {"status": "success", "message": "No active sources to check"}
                 
-                # Initialize processor for quality filtering and deduplication
+                # Initialize processor for deduplication
                 processor = ContentProcessor(
-                    min_quality_score=0.3,
                     similarity_threshold=0.85,
                     max_age_days=90,
                     enable_content_enhancement=True
@@ -113,10 +112,10 @@ def check_all_sources(self):
                                 total_articles_collected += len(articles)
                                 logger.info(f"  ✓ {source.name}: {len(articles)} articles collected")
                                 
-                                # Process articles through quality filter and deduplication
+                                # Process articles through deduplication
                                 dedup_result = await processor.process_articles(articles, existing_hashes)
                                 
-                                # Save only quality-filtered and deduplicated articles
+                                # Save deduplicated articles
                                 if dedup_result.unique_articles:
                                     for article in dedup_result.unique_articles:
                                         try:
@@ -128,13 +127,11 @@ def check_all_sources(self):
                                 
                                 # Log filtering statistics
                                 filtered_count = len(dedup_result.duplicates)
-                                quality_filtered = sum(1 for _, reason in dedup_result.duplicates if reason == "quality_filter")
-                                duplicates_filtered = filtered_count - quality_filtered
+                                duplicates_filtered = filtered_count
                                 
                                 total_articles_filtered += filtered_count
                                 
                                 logger.info(f"    - Saved: {len(dedup_result.unique_articles)} articles")
-                                logger.info(f"    - Quality filtered: {quality_filtered} articles")
                                 logger.info(f"    - Duplicates filtered: {duplicates_filtered} articles")
                                 
                                 success = True
@@ -163,12 +160,11 @@ def check_all_sources(self):
                 logger.info(f"  - Total collected: {total_articles_collected}")
                 logger.info(f"  - Total saved: {total_articles_saved}")
                 logger.info(f"  - Total filtered: {total_articles_filtered}")
-                logger.info(f"  - Quality filtered: {processor_stats['quality_filtered']}")
                 logger.info(f"  - Duplicates removed: {processor_stats['duplicates_removed']}")
                 
                 return {
                     "status": "success", 
-                    "message": f"Checked {len(active_sources)} sources, collected {total_articles_collected} articles, saved {total_articles_saved} articles after quality filtering"
+                    "message": f"Checked {len(active_sources)} sources, collected {total_articles_collected} articles, saved {total_articles_saved} articles after deduplication"
                 }
                 
             except Exception as e:
@@ -279,9 +275,8 @@ def collect_from_source(self, source_id: int):
                 
                 logger.info(f"Collecting content from {source.name} (ID: {source_id})...")
                 
-                # Initialize processor for quality filtering and deduplication
+                # Initialize processor for deduplication
                 processor = ContentProcessor(
-                    min_quality_score=0.3,
                     similarity_threshold=0.85,
                     max_age_days=90,
                     enable_content_enhancement=True
@@ -303,10 +298,10 @@ def collect_from_source(self, source_id: int):
                         if articles:
                             logger.info(f"  ✓ {source.name}: {len(articles)} articles collected")
                             
-                            # Process articles through quality filter and deduplication
+                            # Process articles through deduplication
                             dedup_result = await processor.process_articles(articles, existing_hashes)
                             
-                            # Save only quality-filtered and deduplicated articles
+                            # Save deduplicated articles
                             saved_count = 0
                             if dedup_result.unique_articles:
                                 for article in dedup_result.unique_articles:
@@ -319,11 +314,9 @@ def collect_from_source(self, source_id: int):
                             
                             # Log filtering statistics
                             filtered_count = len(dedup_result.duplicates)
-                            quality_filtered = sum(1 for _, reason in dedup_result.duplicates if reason == "quality_filter")
-                            duplicates_filtered = filtered_count - quality_filtered
+                            duplicates_filtered = filtered_count
                             
                             logger.info(f"    - Saved: {saved_count} articles")
-                            logger.info(f"    - Quality filtered: {quality_filtered} articles")
                             logger.info(f"    - Duplicates filtered: {duplicates_filtered} articles")
                             
                             return {
@@ -333,7 +326,7 @@ def collect_from_source(self, source_id: int):
                                 "articles_collected": len(articles),
                                 "articles_saved": saved_count,
                                 "articles_filtered": filtered_count,
-                                "message": f"Collected {len(articles)} articles, saved {saved_count} after quality filtering"
+                                "message": f"Collected {len(articles)} articles, saved {saved_count} after deduplication"
                             }
                         else:
                             logger.info(f"  ✓ {source.name}: 0 articles found")

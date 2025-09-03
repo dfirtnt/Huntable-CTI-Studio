@@ -1,192 +1,186 @@
-# 🔍 Security Article Pipeline
+# CTI Scraper
 
-A focused tool for collecting, processing, and classifying security articles from RSS feeds and web sources. Designed to prepare high-quality training data for threat intelligence models.
+Modern threat intelligence collection and analysis platform. Collects articles from security sources (RSS and web), processes and deduplicates content, stores it in a database, and exposes a FastAPI web UI and APIs, runs scheduled background tasks with Celery.
 
-## 🎯 Purpose
+## Highlights
 
-This pipeline helps security researchers and threat hunters:
-- **Collect** articles from trusted security sources
-- **Process** and clean content for analysis
-- **Classify** articles for relevance and quality
-- **Prepare** training data for ML model fine-tuning
+- RSS + web scraping with structured-data extraction and CSS fallbacks
+- Content processing: cleaning, normalization, hashing, deduplication, quality scoring
+- Async FastAPI app with dashboards, list/detail pages, and JSON APIs
+- PostgreSQL storage via SQLAlchemy (async for web, sync for CLI)
+- Celery workers for periodic source checks and collection
 
-## ✨ Features
-
-### Core Functionality
-- **RSS Feed Scraping**: Collect articles from security blogs and news sources
-- **Web Scraping**: Extract content from individual articles
-- **Content Processing**: Clean, deduplicate, and normalize text
-- **Classification Pipeline**: Identify relevant articles for threat hunting
-- **Data Export**: Export processed data in various formats
-
-### Classification System
-- **Relevance Scoring**: Identify articles useful for threat hunters
-- **Quality Assessment**: Filter out low-quality or irrelevant content
-- **Content Chunking**: Break articles into manageable pieces
-- **Labeling Support**: Prepare data for supervised learning
-
-## 🏗️ Architecture
+## Repository Layout
 
 ```
 src/
-├── scraper/          # RSS and web scraping
-├── processor/        # Content processing and cleaning
-├── classifier/       # Classification and scoring
-└── utils/           # Shared utilities
+├── web/                 # FastAPI app (templates in templates/)
+├── core/                # Ingestion: RSS parser, modern/legacy scrapers, fetcher, processor
+├── database/            # ORM models + managers (async + sync)
+├── models/              # Pydantic domain models
+├── worker/              # Celery app + config
+├── utils/               # HTTP client, content utilities
+└── cli/                 # Rich-based CLI commands
 
 config/
-├── sources.yaml     # RSS feed configurations
-└── models.yaml      # Model configurations
+├── sources.yaml         # Source definitions (identifiers, RSS, scraping config)
 
-data/
-├── raw/            # Raw scraped articles
-├── processed/      # Cleaned articles
-└── labeled/        # Training data
+tests/                   # Unit/integration tests
+nginx/                   # Reverse proxy config (docker)
+docker-compose.yml       # Full stack: Postgres, Redis, web, workers, Nginx
 ```
 
-## 🚀 Quick Start
+## Quick Start
 
-### Prerequisites
-- Python 3.11+
-- PostgreSQL (optional, for persistent storage)
+### Run the full stack (recommended)
 
-### Installation
+Requires Docker. This brings up PostgreSQL, Redis, FastAPI web, Celery worker/beat, and Nginx.
 
-1. **Clone the repository**
-   ```bash
-   git clone https://github.com/your-username/security-article-pipeline.git
-   cd security-article-pipeline
-   ```
+```bash
+docker compose up --build -d
+# or use the helper script
+./start_production.sh
+```
 
-2. **Create virtual environment**
-   ```bash
-   python3 -m venv venv
-   source venv/bin/activate  # On Windows: venv\Scripts\activate
-   ```
+Services once healthy:
+- Web UI: http://localhost:8000
+- Health: http://localhost:8000/health
+- API: http://localhost:8000/api/*
+- Nginx (optional): http://localhost
 
-3. **Install dependencies**
-   ```bash
-   pip install -r requirements.txt
-   ```
+### Local development (web app)
 
-4. **Configure sources**
-   ```bash
-   cp config/sources.yaml.example config/sources.yaml
-   # Edit sources.yaml with your preferred RSS feeds
-   ```
+The web app expects PostgreSQL (async). Either reuse the compose Postgres or point to your own:
 
-### Basic Usage
+```bash
+python3 -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
 
-1. **Scrape articles**
-   ```bash
-   python -m src.scraper.main --sources config/sources.yaml
-   ```
+export DATABASE_URL="postgresql+asyncpg://cti_user:cti_password_2024@localhost:5432/cti_scraper"
+uvicorn src.web.modern_main:app --host 0.0.0.0 --port 8000 --reload
+```
 
-2. **Process content**
-   ```bash
-   python -m src.processor.main --input data/raw --output data/processed
-   ```
+### Local development (CLI only)
 
-3. **Classify articles**
-   ```bash
-   python -m src.classifier.main --input data/processed --output data/labeled
-   ```
+The CLI can run against SQLite by default (file `threat_intel.db`), or the same PostgreSQL instance as the web app.
 
-## 📊 Data Flow
+```bash
+python3 -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
 
-1. **Collection**: RSS feeds → Raw articles
-2. **Processing**: Raw articles → Cleaned content
-3. **Classification**: Cleaned content → Scored articles
-4. **Export**: Scored articles → Training datasets
+# Example: initialize sources from YAML
+python -m src.cli.main init --config config/sources.yaml
 
-## 🔧 Configuration
+# Collect content (RSS → modern scraping → legacy scraping)
+python -m src.cli.main collect --tier 1 --dry-run
 
-### Sources Configuration (`config/sources.yaml`)
+# Monitor continuously
+python -m src.cli.main monitor --interval 300 --max-concurrent 5
+
+# Analyze for techniques (TTPs)
+python -m src.cli.main analyze --recent 10 --format text --quality
+
+# Export articles
+python -m src.cli.main export --format json --days 7 --output export.json
+```
+
+## Web Application
+
+- Routes
+  - `/` dashboard with basic stats and recent items
+  - `/articles` list with search, filters, and pagination
+  - `/articles/{id}` detail with optional TTP and quality analysis
+  - `/analysis` aggregate analysis and quality distributions
+  - `/sources` source management page
+
+- JSON APIs
+  - `GET /health` – service status
+  - `GET /api/articles[?limit=N]` – list articles
+  - `GET /api/articles/{id}` – article detail
+  - `GET /api/sources` – list sources (supports filters)
+  - `GET /api/sources/{id}` – source detail
+  - `POST /api/sources/{id}/toggle` – toggle active status
+  - `GET /api/sources/{id}/stats` – basic computed stats
+
+## Ingestion & Processing
+
+- RSS ingestion: `src/core/rss_parser.py` (feedparser + content extraction)
+- Modern scraping: `src/core/modern_scraper.py` (JSON‑LD/opengraph/microdata + CSS selectors)
+- Legacy fallback: basic CSS extraction
+- Orchestration: `src/core/fetcher.py` (tiered strategy)
+- Processing: `src/core/processor.py` (normalize, content hash + fingerprint, dedupe, quality checks)
+- HTTP: `src/utils/http.py` (rate limiting, conditional GETs, optional robots.txt)
+
+## Background Tasks (Celery)
+
+The Celery app in `src/worker/celery_app.py` defines tasks to:
+- Check all sources on a schedule
+- Collect content from a specific source
+- Cleanup/maintenance and daily reports
+
+In Docker: `cti_worker` (worker) and `cti_scheduler` (beat) are started automatically. Outside Docker, run:
+
+```bash
+celery -A src.worker.celery_app worker --loglevel=info
+celery -A src.worker.celery_app beat --loglevel=info
+```
+
+## Configuration
+
+- `config/sources.yaml`: define sources with identifiers, URLs, optional RSS, and scraping config. Example snippet:
+
 ```yaml
+version: "1.0"
 sources:
-  - name: "The Hacker News"
+  - id: "thehackernews"
+    name: "The Hacker News"
     url: "https://thehackernews.com/"
     rss_url: "https://feeds.feedburner.com/TheHackersNews"
     tier: 1
     weight: 1.0
+    check_frequency: 3600
+    active: true
 ```
 
-### Model Configuration (`config/models.yaml`)
-```yaml
-classification:
-  relevance_threshold: 0.7
-  quality_threshold: 0.6
-  chunk_size: 512
-  overlap: 50
-```
+- Environment variables (commonly via `.env` or compose):
+  - `DATABASE_URL` (web requires PostgreSQL async: `postgresql+asyncpg://...`)
+  - `REDIS_URL` (for Celery broker/results)
+  - `ENVIRONMENT`, `LOG_LEVEL`
 
-## 📈 Output Formats
+## Database Access
 
-### Processed Articles
-```json
-{
-  "id": "unique_id",
-  "title": "Article Title",
-  "content": "Cleaned article content...",
-  "url": "https://example.com/article",
-  "published_at": "2024-01-01T00:00:00Z",
-  "source": "source_name",
-  "relevance_score": 0.85,
-  "quality_score": 0.78
-}
-```
+For direct database queries and data analysis, see the [Database Query Guide](DATABASE_QUERY_GUIDE.md) for:
 
-### Training Data
-```json
-{
-  "text": "Article chunk content...",
-  "label": "relevant",
-  "confidence": 0.92,
-  "metadata": {
-    "article_id": "unique_id",
-    "chunk_index": 0,
-    "source": "source_name"
-  }
-}
-```
+- Connection details and authentication
+- Common SQL queries for articles and sources
+- Database schema documentation
+- Export and backup procedures
+- Performance optimization tips
 
-## 🧪 Development
-
-### Running Tests
+Quick example:
 ```bash
-pytest tests/
+# View recent articles
+docker exec -it cti_postgres psql -U cti_user -d cti_scraper -c "
+SELECT a.title, s.name as source, a.published_at 
+FROM articles a 
+JOIN sources s ON a.source_id = s.id 
+ORDER BY a.created_at DESC 
+LIMIT 10;"
 ```
 
-### Code Formatting
+## Tests
+
 ```bash
-black src/
-isort src/
-flake8 src/
+pytest -q
 ```
 
-### Adding New Sources
-1. Add RSS feed to `config/sources.yaml`
-2. Test with `python -m src.scraper.main --test-source source_name`
-3. Run full pipeline to verify
+Note: some tests (e.g., web app tests) assume a running instance at `http://localhost:8000`. Use Docker Compose or run uvicorn locally before executing integration tests.
 
-## 📝 Contributing
+## License
 
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Add tests
-5. Submit a pull request
+MIT License – see [LICENSE](LICENSE).
 
-## 📄 License
+## Notes
 
-MIT License - see [LICENSE](LICENSE) file for details.
-
-## 🤝 Support
-
-- **Issues**: Report bugs and feature requests on GitHub
-- **Discussions**: Join the community discussions
-- **Documentation**: See the [docs/](docs/) folder for detailed guides
-
----
-
-**Note**: This tool is designed for research and educational purposes. Always respect website terms of service and robots.txt files when scraping content.
+- This project is for research and operational TI collection. Always respect websites’ terms and robots.txt where applicable.
+- The previous simplified “pipeline-only” docs are obsolete; this README reflects the current FastAPI + PostgreSQL + Celery architecture.

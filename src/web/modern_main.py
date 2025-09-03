@@ -31,7 +31,7 @@ from src.database.async_manager import async_db_manager
 from src.models.source import Source, SourceUpdate, SourceFilter
 from src.models.article import Article
 from src.worker.celery_app import test_source_connectivity, collect_from_source
-from src.utils.chatbot import ThreatIntelligenceChatbot
+from src.utils.search_parser import parse_boolean_search, get_search_help_text
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -132,7 +132,7 @@ async def dashboard(request: Request):
         return templates.TemplateResponse(
             "dashboard.html",
             {
-                "request": request, 
+                "request": request,
                 "stats": stats,
                 "sources": sources,
                 "recent_articles": recent_articles,
@@ -141,6 +141,23 @@ async def dashboard(request: Request):
         )
     except Exception as e:
         logger.error(f"Dashboard error: {e}")
+        return templates.TemplateResponse(
+            "error.html",
+            {"request": request, "error": str(e)},
+            status_code=500
+        )
+
+# Settings page
+@app.get("/settings", response_class=HTMLResponse)
+async def settings_page(request: Request):
+    """Settings page."""
+    try:
+        return templates.TemplateResponse(
+            "settings.html",
+            {"request": request}
+        )
+    except Exception as e:
+        logger.error(f"Settings page error: {e}")
         return templates.TemplateResponse(
             "error.html",
             {"request": request, "error": str(e)},
@@ -252,7 +269,7 @@ async def articles_list(
     request: Request, 
     search: Optional[str] = None,
     source: Optional[str] = None,
-    quality_min: Optional[str] = None,
+    classification: Optional[str] = None,
     per_page: Optional[int] = 100,
     page: Optional[int] = 1
 ):
@@ -268,13 +285,30 @@ async def articles_list(
         # Apply filters
         filtered_articles = all_articles
         
-        # Search filter
+        # Search filter with boolean logic
         if search:
-            search_lower = search.lower()
+            # Convert articles to dict format for the search parser
+            articles_dict = [
+                {
+                    'id': article.id,
+                    'title': article.title,
+                    'content': article.content,
+                    'source_id': article.source_id,
+                    'published_at': article.published_at,
+                    'canonical_url': article.canonical_url,
+                    'metadata': article.metadata
+                }
+                for article in filtered_articles
+            ]
+            
+            # Apply boolean search filtering
+            filtered_dicts = parse_boolean_search(search, articles_dict)
+            
+            # Convert back to article objects
+            filtered_article_ids = {article['id'] for article in filtered_dicts}
             filtered_articles = [
                 article for article in filtered_articles
-                if (article.title and search_lower in article.title.lower()) or
-                   (article.content and search_lower in article.content.lower())
+                if article.id in filtered_article_ids
             ]
         
         # Source filter
@@ -285,13 +319,20 @@ async def articles_list(
                 if article.source_id == source_id
             ]
         
-        # Quality filter
-        if quality_min and quality_min.isdigit():
-            min_quality = float(quality_min)
-            filtered_articles = [
-                article for article in filtered_articles
-                if article.quality_score is not None and article.quality_score >= min_quality
-            ]
+        # Classification filter
+        if classification and classification in ['chosen', 'rejected', 'unclassified']:
+            if classification == 'unclassified':
+                filtered_articles = [
+                    article for article in filtered_articles
+                    if not article.metadata or 
+                    article.metadata.get('training_category') not in ['chosen', 'rejected']
+                ]
+            else:
+                filtered_articles = [
+                    article for article in filtered_articles
+                    if article.metadata and 
+                    article.metadata.get('training_category') == classification
+                ]
         
         # Apply pagination
         total_articles = len(filtered_articles)
@@ -318,7 +359,24 @@ async def articles_list(
         filters = {
             "search": search or "",
             "source": source or "",
-            "quality_min": quality_min or ""
+            "classification": classification or ""
+        }
+        
+        # Get classification statistics from filtered articles
+        chosen_count = sum(1 for article in filtered_articles 
+                          if article.metadata and 
+                          article.metadata.get('training_category') == 'chosen')
+        rejected_count = sum(1 for article in filtered_articles 
+                           if article.metadata and 
+                           article.metadata.get('training_category') == 'rejected')
+        unclassified_count = sum(1 for article in filtered_articles 
+                               if not article.metadata or 
+                               article.metadata.get('training_category') not in ['chosen', 'rejected'])
+        
+        stats = {
+            "chosen_count": chosen_count,
+            "rejected_count": rejected_count,
+            "unclassified_count": unclassified_count
         }
         
         return templates.TemplateResponse(
@@ -329,7 +387,8 @@ async def articles_list(
                 "sources": sources,
                 "source_lookup": source_lookup,
                 "pagination": pagination,
-                "filters": filters
+                "filters": filters,
+                "stats": stats
             }
         )
     except Exception as e:
@@ -354,118 +413,13 @@ async def article_detail(request: Request, article_id: int):
         
         source = await async_db_manager.get_source(article.source_id)
         
-                # Implement enhanced TTP analysis with advanced quality assessment
-        from src.utils.enhanced_ttp_extractor import EnhancedThreatHuntingDetector
-        from src.utils.advanced_quality_assessor import AdvancedQualityAssessor
-        
-        if article.content and len(article.content) > 100:
-            try:
-                hunting_detector = EnhancedThreatHuntingDetector()
-                quality_assessor = AdvancedQualityAssessor()
-                
-                # Safely concatenate title and content
-                title = str(article.title) if article.title else ""
-                content = str(article.content) if article.content else ""
-                full_text = f"{title} {content}".strip()
-                
-                # Enhanced TTP analysis
-                analysis = hunting_detector.extract_enhanced_techniques(full_text)
-                
-                # Enhanced TTP analysis data
-                ttp_analysis = {
-                    "total_techniques": analysis.total_techniques,
-                    "overall_confidence": analysis.overall_confidence,
-                    "hunting_priority": analysis.hunting_priority,
-                    "techniques_by_category": {
-                        category: [
-                            {
-                                "technique_name": tech.technique_name,
-                                "confidence": tech.confidence,
-                                "hunting_guidance": tech.hunting_guidance,
-                                "matched_text": tech.matched_text
-                            } for tech in techniques
-                        ] for category, techniques in analysis.techniques_by_category.items()
-                    },
-                    "threat_actors": analysis.threat_actors,
-                    "malware_families": analysis.malware_families,
-                    "attack_vectors": analysis.attack_vectors
-                }
-                
-                # TTP quality score
-                ttp_quality_analysis = hunting_detector.calculate_ttp_quality_score(content)
-                numeric_values = [v for v in ttp_quality_analysis.values() if isinstance(v, (int, float))]
-                ttp_score = sum(numeric_values) if numeric_values else 0
-                
-                # NEW: Advanced quality assessment
-                quality_assessment = quality_assessor.assess_content_quality(content, {
-                    'total_techniques': analysis.total_techniques,
-                    'techniques_by_category': analysis.techniques_by_category
-                })
-                
-                # Enhanced quality data combining TTP and advanced assessment
-                quality_data = {
-                    "ttp_score": ttp_score,
-                    "quality_score": quality_assessment.overall_quality_score,
-                    "combined_score": (ttp_score + quality_assessment.overall_quality_score) / 2,
-                    "quality_level": quality_assessment.quality_level,
-                    # New assessment attributes
-                    "artifact_coverage_score": quality_assessment.artifact_coverage_score,
-                    "technical_depth_score": quality_assessment.technical_depth_score,
-                    "actionable_intelligence_score": quality_assessment.actionable_intelligence_score,
-                    "threat_context_score": quality_assessment.threat_context_score,
-                    "detection_quality_score": quality_assessment.detection_quality_score,
-                    "classification": quality_assessment.quality_level,
-                    "hunting_priority": quality_assessment.hunting_priority,
-                    "hunting_confidence": quality_assessment.hunting_confidence,
-                    "recommendations": quality_assessment.recommendations,
-                    "max_possible": 100,
-                    "sigma_rules_present": ttp_quality_analysis.get('sigma_rules_present', 0),
-                    "mitre_attack_mapping": ttp_quality_analysis.get('mitre_attack_mapping', 0),
-                    "iocs_present": ttp_quality_analysis.get('iocs_present', 0)
-                }
-                
-            except Exception as e:
-                logger.warning(f"TTP analysis failed for article {article.id}: {e}")
-                ttp_analysis = {
-                    "total_techniques": 0,
-                    "overall_confidence": 0.0,
-                    "hunting_priority": "Analysis Failed",
-                    "techniques_by_category": {}
-                }
-                quality_data = {
-                    "total_score": 0,
-                    "max_possible": 75,
-                    "quality_level": "Analysis Failed",
-                    "sigma_rules_present": 0,
-                    "mitre_attack_mapping": 0,
-                    "iocs_present": 0,
-                    "recommendation": "TTP analysis encountered an error"
-                }
-        else:
-            ttp_analysis = {
-                "total_techniques": 0,
-                "overall_confidence": 0.0,
-                "hunting_priority": "Insufficient Content",
-                "techniques_by_category": {}
-            }
-            quality_data = {
-                "total_score": 0,
-                "max_possible": 75,
-                "quality_level": "Insufficient Content",
-                "sigma_rules_present": 0,
-                "mitre_attack_mapping": 0,
-                "iocs_present": 0,
-                "recommendation": "Article content too short for meaningful analysis"
-            }
-        
+        # Simplified article detail without TTP analysis
         return templates.TemplateResponse(
             "article_detail.html",
             {
                 "request": request, 
                 "article": article, 
-                "source": source,
-                "ttp_analysis": ttp_analysis,
-                "quality_data": quality_data
+                "source": source
             }
         )
     except Exception as e:
@@ -476,127 +430,13 @@ async def article_detail(request: Request, article_id: int):
             status_code=500
         )
 
-# TTP Analysis page
+# Analysis page (simplified)
 @app.get("/analysis", response_class=HTMLResponse)
-async def ttp_analysis(request: Request):
-    """TTP Analysis page with enhanced LLM quality assessment."""
+async def analysis_page(request: Request):
+    """Analysis page - TTP analysis removed."""
     try:
         stats = await async_db_manager.get_database_stats()
         articles = await async_db_manager.list_articles(limit=20)
-        
-        # Import enhanced TTP detector and advanced quality assessor
-        from src.utils.enhanced_ttp_extractor import EnhancedThreatHuntingDetector
-        from src.utils.advanced_quality_assessor import AdvancedQualityAssessor
-        
-        hunting_detector = EnhancedThreatHuntingDetector()
-        quality_assessor = AdvancedQualityAssessor()
-        
-        # Analyze articles for TTP content and quality
-        total_techniques_detected = 0
-        high_priority_articles = 0
-        ttp_quality_scores = []
-        llm_quality_scores = []
-        technique_categories = defaultdict(int)
-        recent_analyses = []
-        
-        # Quality distribution tracking
-        quality_distribution = {"Excellent": 0, "Good": 0, "Fair": 0, "Limited": 0}
-        tactical_distribution = {"Tactical": 0, "Strategic": 0, "Hybrid": 0}
-        
-        for article in articles:
-            if article.content and len(article.content) > 100:
-                try:
-                    # Safely concatenate title and content
-                    title = str(article.title) if article.title else ""
-                    content = str(article.content) if article.content else ""
-                    full_text = f"{title} {content}".strip()
-                    
-                    # Run enhanced TTP analysis
-                    ttp_analysis = hunting_detector.extract_enhanced_techniques(full_text)
-                    
-                    total_techniques_detected += ttp_analysis.total_techniques
-                    
-                    if ttp_analysis.hunting_priority in ["High", "Medium"]:
-                        high_priority_articles += 1
-                    
-                    # Count technique categories
-                    for category, techniques in ttp_analysis.techniques_by_category.items():
-                        technique_categories[category] += len(techniques)
-                    
-                    # Calculate TTP quality score (existing functionality)
-                    ttp_quality_analysis = hunting_detector.calculate_ttp_quality_score(content)
-                    numeric_values = [v for v in ttp_quality_analysis.values() if isinstance(v, (int, float))]
-                    ttp_score = sum(numeric_values) if numeric_values else 0
-                    # Normalize TTP score to 0-100 range
-                    ttp_score = min(ttp_score, 100)
-                    ttp_quality_scores.append(ttp_score)
-                    
-                    # NEW: Run advanced quality assessment
-                    quality_assessment = quality_assessor.assess_content_quality(content, {
-                        'total_techniques': ttp_analysis.total_techniques,
-                        'techniques_by_category': ttp_analysis.techniques_by_category
-                    })
-                    
-                    llm_quality_scores.append(quality_assessment.overall_quality_score)
-                    
-                    # Track quality distributions with proper mapping
-                    # Map new quality levels to expected template levels
-                    quality_level_mapping = {
-                        "Critical": "Excellent",
-                        "High": "Good", 
-                        "Medium": "Fair",
-                        "Low": "Limited"
-                    }
-                    mapped_quality_level = quality_level_mapping.get(quality_assessment.quality_level, "Limited")
-                    quality_distribution[mapped_quality_level] += 1
-                    
-                    # Map hunting priority to tactical distribution
-                    priority_mapping = {
-                        "Critical": "Tactical",
-                        "High": "Tactical",
-                        "Medium": "Hybrid", 
-                        "Low": "Strategic"
-                    }
-                    mapped_priority = priority_mapping.get(quality_assessment.hunting_priority, "Strategic")
-                    tactical_distribution[mapped_priority] += 1
-                    
-                    # Add to recent analyses (top 5) with enhanced data
-                    if len(recent_analyses) < 5:
-                        recent_analyses.append({
-                            "article": article,
-                            "ttp_analysis": ttp_analysis,
-                            "ttp_quality_score": ttp_score,
-                            "quality_assessment": quality_assessment,
-                            "combined_score": (ttp_score + quality_assessment.overall_quality_score) / 2
-                        })
-                    
-                except Exception as e:
-                    logger.warning(f"Analysis failed for article {article.id}: {e}")
-                    continue
-        
-        # Calculate summary statistics
-        avg_ttp_quality = sum(ttp_quality_scores) / len(ttp_quality_scores) if ttp_quality_scores else 0.0
-        avg_llm_quality = sum(llm_quality_scores) / len(llm_quality_scores) if llm_quality_scores else 0.0
-        
-        # Enhanced analysis summary
-        analysis_summary = {
-            "total_techniques_detected": total_techniques_detected,
-            "high_priority_articles": high_priority_articles,
-            "mitre_coverage": len([cat for cat in technique_categories if "MITRE" in cat.upper()]),
-            "recent_analysis": recent_analyses,
-            "quality_distribution": quality_distribution,
-            "tactical_distribution": tactical_distribution
-        }
-        
-        # Enhanced quality stats
-        quality_stats = {
-            "ttp_average_score": avg_ttp_quality,
-            "llm_average_score": avg_llm_quality,
-            "combined_average_score": (avg_ttp_quality + avg_llm_quality) / 2,
-            "total_analyzed": len(llm_quality_scores),
-            "quality_distribution": quality_distribution,
-            "tactical_distribution": tactical_distribution
-        }
         
         return templates.TemplateResponse(
             "analysis.html",
@@ -604,9 +444,23 @@ async def ttp_analysis(request: Request):
                 "request": request,
                 "stats": stats,
                 "articles": articles,
-                "analysis_summary": analysis_summary,
-                "quality_stats": quality_stats,
-                "analyses": recent_analyses
+                "analysis_summary": {
+                    "total_techniques_detected": 0,
+                    "high_priority_articles": 0,
+                    "mitre_coverage": 0,
+                    "recent_analysis": [],
+                    "quality_distribution": {"Excellent": 0, "Good": 0, "Fair": 0, "Limited": 0},
+                    "tactical_distribution": {"Tactical": 0, "Strategic": 0, "Hybrid": 0}
+                },
+                "quality_stats": {
+                    "ttp_average_score": 0,
+                    "llm_average_score": 0,
+                    "combined_average_score": 0,
+                    "total_analyzed": 0,
+                    "quality_distribution": {"Excellent": 0, "Good": 0, "Fair": 0, "Limited": 0},
+                    "tactical_distribution": {"Tactical": 0, "Strategic": 0, "Hybrid": 0}
+                },
+                "analyses": []
             }
         )
     except Exception as e:
@@ -627,6 +481,28 @@ async def api_articles_list(limit: Optional[int] = 100):
         logger.error(f"API articles list error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.get("/api/articles/next-unclassified")
+async def api_get_next_unclassified():
+    """API endpoint for getting the next unclassified article."""
+    try:
+        # Get all articles ordered by ID to ensure consistent ordering
+        articles = await async_db_manager.list_articles()
+        
+        # Sort by ID to ensure we get the lowest unclassified article ID
+        articles.sort(key=lambda x: x.id)
+        
+        # Find the first unclassified article
+        for article in articles:
+            if not article.metadata or article.metadata.get('training_category') not in ['chosen', 'rejected']:
+                return {"article_id": article.id}
+        
+        # If no unclassified articles found
+        return {"article_id": None, "message": "No unclassified articles found"}
+        
+    except Exception as e:
+        logger.error(f"API get next unclassified error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.get("/api/articles/{article_id}")
 async def api_get_article(article_id: int):
     """API endpoint for getting a specific article."""
@@ -641,81 +517,55 @@ async def api_get_article(article_id: int):
         logger.error(f"API get article error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-# Chatbot routes
-@app.get("/chat", response_class=HTMLResponse)
-async def chat_page(request: Request):
-    """Chat interface page."""
+@app.post("/api/articles/{article_id}/classify")
+async def api_classify_article(article_id: int, request: Request):
+    """API endpoint for classifying an article."""
     try:
-        return templates.TemplateResponse(
-            "chat.html",
-            {"request": request}
-        )
-    except Exception as e:
-        logger.error(f"Chat page error: {e}")
-        return templates.TemplateResponse(
-            "error.html",
-            {"request": request, "error": str(e)},
-            status_code=500
-        )
-
-@app.post("/api/chat")
-async def chat_api(request: Request):
-    """API endpoint for chatbot interactions."""
-    try:
-        data = await request.json()
-        user_message = data.get("message", "").strip()
+        # Get request body
+        body = await request.json()
+        category = body.get('category')
+        reason = body.get('reason')
         
-        if not user_message:
-            raise HTTPException(status_code=400, detail="Message is required")
+        if not category or category not in ['chosen', 'rejected', 'unclassified']:
+            raise HTTPException(status_code=400, detail="Invalid category. Must be 'chosen', 'rejected', or 'unclassified'")
         
-        # Initialize chatbot
-        chatbot = ThreatIntelligenceChatbot(async_db_manager)
+        # Get the article
+        article = await async_db_manager.get_article(article_id)
+        if not article:
+            raise HTTPException(status_code=404, detail="Article not found")
         
-        # Get response
-        response = await chatbot.chat(user_message)
+        # Prepare metadata update
+        from src.models.article import ArticleUpdate
+        
+        # Get current metadata or create new
+        current_metadata = article.metadata.copy() if article.metadata else {}
+        
+        # Update metadata with classification
+        current_metadata['training_category'] = category
+        current_metadata['training_reason'] = reason
+        current_metadata['training_categorized_at'] = datetime.now().isoformat()
+        
+        # Create update object
+        update_data = ArticleUpdate(metadata=current_metadata)
+        
+        # Save the updated article
+        updated_article = await async_db_manager.update_article(article_id, update_data)
+        
+        if not updated_article:
+            raise HTTPException(status_code=500, detail="Failed to update article")
         
         return {
-            "response": response,
-            "timestamp": datetime.now().isoformat(),
-            "sources": chatbot.get_conversation_history()[-1].get("metadata", {}).get("sources", [])
+            "success": True,
+            "article_id": article_id,
+            "category": category,
+            "reason": reason,
+            "categorized_at": current_metadata['training_categorized_at']
         }
         
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Chat API error: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.get("/api/chat/history")
-async def chat_history():
-    """Get chat conversation history."""
-    try:
-        chatbot = ThreatIntelligenceChatbot(async_db_manager)
-        return {"history": chatbot.get_conversation_history()}
-    except Exception as e:
-        logger.error(f"Chat history error: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.post("/api/chat/clear")
-async def clear_chat_history():
-    """Clear chat conversation history."""
-    try:
-        chatbot = ThreatIntelligenceChatbot(async_db_manager)
-        chatbot.clear_history()
-        return {"message": "Chat history cleared"}
-    except Exception as e:
-        logger.error(f"Clear chat history error: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.post("/api/chat/train")
-async def train_chatbot():
-    """Train the chatbot on blog content."""
-    try:
-        chatbot = ThreatIntelligenceChatbot(async_db_manager)
-        result = await chatbot.train_on_blog_content()
-        return {"message": result}
-    except Exception as e:
-        logger.error(f"Train chatbot error: {e}")
+        logger.error(f"API classify article error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 # Error handlers

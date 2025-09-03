@@ -82,186 +82,185 @@
         </div>
     </div>
 
-    <!-- TTP Analysis Summary -->
+    <!-- Classification Controls -->
     <div class="bg-white rounded-lg shadow-sm p-6">
-        <h2 class="text-xl font-bold text-gray-900 mb-4">🕵️ Threat Hunting Analysis</h2>
+        <h2 class="text-xl font-bold text-gray-900 mb-4">🏷️ Article Classification</h2>
         
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-            <div class="text-center p-4 bg-blue-50 rounded-lg">
-                <div class="text-2xl font-bold text-blue-600">{{ ttp_analysis.total_techniques }}</div>
-                <div class="text-sm text-blue-800">Techniques Detected</div>
-            </div>
-            <div class="text-center p-4 bg-green-50 rounded-lg">
-                <div class="text-2xl font-bold text-green-600">{{ "%.2f"|format(ttp_analysis.overall_confidence) }}</div>
-                <div class="text-sm text-green-800">Confidence Score</div>
-            </div>
-            <div class="text-center p-4 bg-yellow-50 rounded-lg">
-                <div class="text-2xl font-bold text-yellow-600">{{ ttp_analysis.hunting_priority }}</div>
-                <div class="text-sm text-yellow-800">Hunting Priority</div>
-            </div>
-        </div>
-
-        {% if ttp_analysis.techniques_by_category %}
-        <div class="space-y-4">
-            {% for category, techniques in ttp_analysis.techniques_by_category.items() %}
-            <div class="border border-gray-200 rounded-lg p-4">
-                <h3 class="text-lg font-medium text-gray-900 mb-3">{{ category }}</h3>
-                <div class="space-y-3">
-                    {% for technique in techniques %}
-                    <div class="bg-gray-50 rounded-lg p-3">
-                        <div class="flex items-start justify-between">
-                            <div class="flex-1">
-                                <h4 class="font-medium text-gray-900">{{ technique.technique_name }}</h4>
-                                <p class="text-sm text-gray-600 mt-1">{{ technique.hunting_guidance }}</p>
-                                <div class="mt-2">
-                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                                        Confidence: {{ "%.2f"|format(technique.confidence) }}
-                                    </span>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="mt-2 p-2 bg-white rounded border">
-                            <p class="text-xs text-gray-500">Matched Text:</p>
-                            <p class="text-sm font-mono bg-yellow-100 p-1 rounded">{{ technique.matched_text }}</p>
-                        </div>
-                    </div>
-                    {% endfor %}
+        <!-- Settings Status -->
+        <div class="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
+            <div class="flex items-center justify-between">
+                <div class="text-sm text-blue-800">
+                    <span class="font-medium">Comment Prompts:</span> 
+                    <span id="commentPromptsStatus">Loading...</span>
                 </div>
+                <a href="/settings" class="text-sm text-blue-600 hover:text-blue-800 underline">
+                    ⚙️ Settings
+                </a>
             </div>
-            {% endfor %}
         </div>
-        {% else %}
-        <div class="text-center py-8">
-            <div class="text-gray-400 text-4xl mb-2">🔍</div>
-            <p class="text-gray-500">No huntable techniques detected in this article.</p>
-        </div>
-        {% endif %}
-    </div>
-
-    <!-- Quality Assessment -->
-    <div class="bg-white rounded-lg shadow-sm p-6">
-        <h2 class="text-xl font-bold text-gray-900 mb-4">📊 TTP Quality Assessment</h2>
         
+        <!-- Current Classification Status -->
         <div class="mb-6">
-            <div class="flex items-center justify-between mb-2">
-                <span class="text-sm font-medium text-gray-700">Combined Quality Score</span>
-                <span class="text-lg font-bold text-gray-900">{{ quality_data.combined_score|round(1) }}/{{ quality_data.max_possible }}</span>
-            </div>
-            <div class="w-full bg-gray-200 rounded-full h-3">
-                <div class="h-3 rounded-full quality-bar" 
-                     style="width: {{ (quality_data.combined_score / quality_data.max_possible) * 100 }}%"></div>
-            </div>
-            <div class="mt-2 text-center">
-                <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium quality-badge text-white">
-                    {{ quality_data.quality_level }}
-                </span>
-            </div>
+            {% if article.metadata and article.metadata.get('training_category') %}
+                <div class="flex items-center space-x-2">
+                    <span class="text-sm font-medium text-gray-700">Current Status:</span>
+                    <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium
+                        {% if article.metadata.get('training_category') == 'chosen' %}bg-green-100 text-green-800
+                        {% elif article.metadata.get('training_category') == 'rejected' %}bg-red-100 text-red-800
+                        {% else %}bg-gray-100 text-gray-800{% endif %}">
+                        {% if article.metadata.get('training_category') == 'chosen' %}✅ Chosen
+                        {% elif article.metadata.get('training_category') == 'rejected' %}❌ Rejected
+                        {% else %}⏳ Unclassified{% endif %}
+                    </span>
+                    {% if article.metadata.get('training_categorized_at') %}
+                        <span class="text-sm text-gray-500">({{ article.metadata.get('training_categorized_at')[:19] }})</span>
+                    {% endif %}
+                </div>
+            {% else %}
+                <div class="flex items-center space-x-2">
+                    <span class="text-sm font-medium text-gray-700">Current Status:</span>
+                    <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-gray-100 text-gray-800">
+                        ⏳ Unclassified
+                    </span>
+                </div>
+            {% endif %}
         </div>
         
-        <!-- Enhanced Quality Breakdown -->
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-            <div class="text-center p-3 bg-blue-50 rounded-lg">
-                <div class="text-lg font-bold text-blue-600">{{ quality_data.ttp_score }}</div>
-                <div class="text-xs text-blue-800">TTP Quality</div>
-            </div>
-            <div class="text-center p-3 bg-green-50 rounded-lg">
-                <div class="text-lg font-bold text-green-600">{{ quality_data.quality_score }}</div>
-                <div class="text-xs text-green-800">LLM Quality</div>
-            </div>
-            <div class="text-center p-3 bg-purple-50 rounded-lg">
-                <div class="text-lg font-bold text-purple-600">{{ quality_data.detection_quality_score }}</div>
-                <div class="text-xs text-purple-800">Detection Quality</div>
-            </div>
+        <!-- Classification Buttons -->
+        <div class="flex flex-wrap gap-4 mb-6">
+            <button onclick="classifyArticle('chosen')" 
+                    class="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors">
+                <span class="mr-2">✅</span>
+                Mark as Chosen
+            </button>
+            
+            <button onclick="classifyArticle('rejected')" 
+                    class="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors">
+                <span class="mr-2">❌</span>
+                Mark as Rejected
+            </button>
+            
+            <button onclick="classifyArticle('unclassified')" 
+                    class="inline-flex items-center px-6 py-3 border border-gray-300 text-base font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-colors">
+                <span class="mr-2">⏳</span>
+                Mark as Unclassified
+            </button>
         </div>
-
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <!-- Quality Factors -->
-            <div>
-                <h3 class="text-lg font-medium text-gray-900 mb-3">Quality Factors</h3>
-                <div class="space-y-3">
-                    <div class="flex items-center justify-between">
-                        <span class="text-sm text-gray-700">Artifact Coverage</span>
-                        <div class="flex items-center space-x-2">
-                            <div class="w-16 bg-gray-200 rounded-full h-2">
-                                <div class="h-2 rounded-full bg-blue-500" 
-                                     style="width: {{ (quality_data.artifact_coverage_score / 100) * 100 }}%"></div>
-                            </div>
-                            <span class="text-sm font-medium text-gray-900">{{ quality_data.artifact_coverage_score }}/100</span>
-                        </div>
-                    </div>
-                    <div class="flex items-center justify-between">
-                        <span class="text-sm text-gray-700">Technical Depth</span>
-                        <div class="flex items-center space-x-2">
-                            <div class="w-16 bg-gray-200 rounded-full h-2">
-                                <div class="h-2 rounded-full bg-green-500" 
-                                     style="width: {{ (quality_data.technical_depth_score / 100) * 100 }}%"></div>
-                            </div>
-                            <span class="text-sm font-medium text-gray-900">{{ quality_data.technical_depth_score }}/100</span>
-                        </div>
-                    </div>
-                    <div class="flex items-center justify-between">
-                        <span class="text-sm text-gray-700">Actionable Intelligence</span>
-                        <div class="flex items-center space-x-2">
-                            <div class="w-16 bg-gray-200 rounded-full h-2">
-                                <div class="h-2 rounded-full bg-purple-500" 
-                                     style="width: {{ (quality_data.actionable_intelligence_score / 100) * 100 }}%"></div>
-                            </div>
-                            <span class="text-sm font-medium text-gray-900">{{ quality_data.actionable_intelligence_score }}/100</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- LLM Quality Assessment Details -->
-            <div>
-                <h3 class="text-lg font-medium text-gray-900 mb-3">LLM Quality Assessment</h3>
-                <div class="space-y-3">
-                    <div class="flex items-center justify-between">
-                        <span class="text-sm text-gray-700">Classification</span>
-                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
-                            {{ quality_data.classification }}
-                        </span>
-                    </div>
-                    <div class="flex items-center justify-between">
-                        <span class="text-sm text-gray-700">Hunting Priority</span>
-                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium 
-                            {% if quality_data.hunting_priority == 'High' %}bg-red-100 text-red-800
-                            {% elif quality_data.hunting_priority == 'Medium' %}bg-yellow-100 text-yellow-800
-                            {% else %}bg-gray-100 text-gray-800{% endif %}">
-                            {{ quality_data.hunting_priority }}
-                        </span>
-                    </div>
-                    <div class="flex items-center justify-between">
-                        <span class="text-sm text-gray-700">Threat Context</span>
-                        <span class="text-sm font-medium text-gray-900">{{ quality_data.threat_context_score }}/100</span>
-                    </div>
-                </div>
-                
-                {% if quality_data.recommendations %}
-                <div class="mt-4">
-                    <h4 class="text-sm font-medium text-gray-700 mb-2">Recommendations</h4>
-                    <div class="space-y-2">
-                        {% for rec in quality_data.recommendations %}
-                        <div class="text-sm text-gray-600 bg-blue-50 p-2 rounded">
-                            💡 {{ rec }}
-                        </div>
-                        {% endfor %}
-                    </div>
-                </div>
-                {% endif %}
-            </div>
+        
+        <!-- Navigation Buttons -->
+        <div class="flex flex-wrap gap-4">
+            <button onclick="navigateToNextUnclassified()" 
+                    class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-colors">
+                <span class="mr-2">⏭️</span>
+                Next Unclassified
+            </button>
+            
+            <button onclick="navigateToPrevious()" 
+                    class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-colors">
+                <span class="mr-2">⏮️</span>
+                Previous Article
+            </button>
+            
+            <button onclick="navigateToNext()" 
+                    class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-colors">
+                <span class="mr-2">⏭️</span>
+                Next Article
+            </button>
         </div>
     </div>
-
-    <!-- Article Content -->
     <div class="bg-white rounded-lg shadow-sm p-6">
         <h2 class="text-xl font-bold text-gray-900 mb-4">📄 Article Content</h2>
+        
+        {% if article.summary %}
+        <div class="mb-6 p-4 bg-gray-50 rounded-lg">
+            <h3 class="text-lg font-semibold text-gray-800 mb-2">Summary</h3>
+            <p class="text-gray-700">{{ article.summary }}</p>
+        </div>
+        {% endif %}
         
         <div class="bg-gray-50 rounded-lg p-4">
             <div class="prose max-w-none">
                 <pre class="whitespace-pre-wrap text-sm text-gray-800 font-mono">{{ article.content }}</pre>
             </div>
         </div>
+    </div>
+
+    <!-- Article Metadata -->
+    <div class="bg-white rounded-lg shadow-sm p-6">
+        <h2 class="text-xl font-bold text-gray-900 mb-4">📋 Article Metadata</h2>
+        
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+                <h3 class="text-lg font-semibold text-gray-800 mb-2">Basic Information</h3>
+                <dl class="space-y-2">
+                    <div>
+                        <dt class="text-sm font-medium text-gray-500">Article ID</dt>
+                        <dd class="text-sm text-gray-900">#{{ article.id }}</dd>
+                    </div>
+                    <div>
+                        <dt class="text-sm font-medium text-gray-500">Source ID</dt>
+                        <dd class="text-sm text-gray-900">{{ article.source_id }}</dd>
+                    </div>
+                    <div>
+                        <dt class="text-sm font-medium text-gray-500">Published At</dt>
+                        <dd class="text-sm text-gray-900">{{ article.published_at.strftime('%Y-%m-%d %H:%M:%S') if article.published_at else 'N/A' }}</dd>
+                    </div>
+                    <div>
+                        <dt class="text-sm font-medium text-gray-500">Discovered At</dt>
+                        <dd class="text-sm text-gray-900">{{ article.discovered_at.strftime('%Y-%m-%d %H:%M:%S') if article.discovered_at else 'N/A' }}</dd>
+                    </div>
+                    <div>
+                        <dt class="text-sm font-medium text-gray-500">Processing Status</dt>
+                        <dd class="text-sm text-gray-900">{{ article.processing_status }}</dd>
+                    </div>
+                    <div>
+                        <dt class="text-sm font-medium text-gray-500">Word Count</dt>
+                        <dd class="text-sm text-gray-900">{{ article.word_count or 'N/A' }}</dd>
+                    </div>
+                </dl>
+            </div>
+            
+            <div>
+                <h3 class="text-lg font-semibold text-gray-800 mb-2">Content Details</h3>
+                <dl class="space-y-2">
+                    <div>
+                        <dt class="text-sm font-medium text-gray-500">Content Length</dt>
+                        <dd class="text-sm text-gray-900">{{ article.content|length }} characters</dd>
+                    </div>
+                    <div>
+                        <dt class="text-sm font-medium text-gray-500">Content Hash</dt>
+                        <dd class="text-sm text-gray-900 font-mono">{{ article.content_hash[:20] }}...</dd>
+                    </div>
+                    <div>
+                        <dt class="text-sm font-medium text-gray-500">Authors</dt>
+                        <dd class="text-sm text-gray-900">
+                            {% if article.authors %}
+                                {{ article.authors|join(', ') }}
+                            {% else %}
+                                N/A
+                            {% endif %}
+                        </dd>
+                    </div>
+                    <div>
+                        <dt class="text-sm font-medium text-gray-500">Tags</dt>
+                        <dd class="text-sm text-gray-900">
+                            {% if article.tags %}
+                                {{ article.tags|join(', ') }}
+                            {% else %}
+                                N/A
+                            {% endif %}
+                        </dd>
+                    </div>
+                </dl>
+            </div>
+        </div>
+        
+        {% if article.metadata %}
+        <div class="mt-6">
+            <h3 class="text-lg font-semibold text-gray-800 mb-2">Additional Metadata</h3>
+            <pre class="bg-gray-50 p-4 rounded-lg text-sm text-gray-700 overflow-x-auto">{{ article.metadata|tojson(indent=2) }}</pre>
+        </div>
+        {% endif %}
     </div>
 
     <!-- Navigation -->
@@ -289,7 +288,7 @@
 
 {% block scripts %}
 <script>
-    // Add syntax highlighting for matched text and set quality colors
+    // Add syntax highlighting for matched text
     document.addEventListener('DOMContentLoaded', function() {
         // Syntax highlighting for matched text
         const matchedTexts = document.querySelectorAll('.font-mono');
@@ -298,26 +297,132 @@
             element.style.border = '1px solid #f59e0b';
         });
         
-        // Set quality colors based on score
-        const qualityScore = {{ quality_data.combined_score }};
-        const qualityBar = document.querySelector('.quality-bar');
-        const qualityBadge = document.querySelector('.quality-badge');
-        
-        if (qualityBar && qualityBadge) {
-            let qualityClass = '';
-            if (qualityScore >= 60) {
-                qualityClass = 'quality-excellent';
-            } else if (qualityScore >= 45) {
-                qualityClass = 'quality-good';
-            } else if (qualityScore >= 30) {
-                qualityClass = 'quality-fair';
-            } else {
-                qualityClass = 'quality-limited';
-            }
-            
-            qualityBar.classList.add(qualityClass);
-            qualityBadge.classList.add(qualityClass);
-        }
+        // Update comment prompts status
+        updateCommentPromptsStatus();
     });
+    
+    function updateCommentPromptsStatus() {
+        const settings = JSON.parse(localStorage.getItem('ctiScraperSettings') || '{}');
+        const commentPromptsEnabled = settings.commentPromptsEnabled !== false; // Default to true
+        const statusElement = document.getElementById('commentPromptsStatus');
+        
+        if (statusElement) {
+            if (commentPromptsEnabled) {
+                statusElement.textContent = '✅ Enabled';
+                statusElement.className = 'text-green-600 font-medium';
+            } else {
+                statusElement.textContent = '❌ Disabled';
+                statusElement.className = 'text-red-600 font-medium';
+            }
+        }
+    }
+    
+    // Classification functions
+    async function classifyArticle(category) {
+        const articleId = {{ article.id }};
+        
+        // Check if comment prompts are enabled
+        const settings = JSON.parse(localStorage.getItem('ctiScraperSettings') || '{}');
+        const commentPromptsEnabled = settings.commentPromptsEnabled !== false; // Default to true
+        
+        let reason = null;
+        if (commentPromptsEnabled && (category === 'chosen' || category === 'rejected')) {
+            reason = prompt(`Reason for marking as ${category} (optional):`);
+        }
+        
+        try {
+            const response = await fetch(`/api/articles/${articleId}/classify`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    category: category,
+                    reason: reason || null
+                })
+            });
+            
+            if (response.ok) {
+                // Show success message
+                showNotification(`Article marked as ${category} successfully!`, 'success');
+                
+                // Update the current status display
+                updateClassificationStatus(category);
+                
+                // Auto-advance to next unclassified if marked as chosen/rejected
+                if (category !== 'unclassified') {
+                    setTimeout(() => {
+                        navigateToNextUnclassified();
+                    }, 1000);
+                }
+            } else {
+                const error = await response.json();
+                showNotification(`Error: ${error.detail}`, 'error');
+            }
+        } catch (error) {
+            showNotification(`Error: ${error.message}`, 'error');
+        }
+    }
+    
+    function updateClassificationStatus(category) {
+        const statusElement = document.querySelector('.inline-flex.items-center.px-3.py-1.rounded-full');
+        if (statusElement) {
+            statusElement.className = 'inline-flex items-center px-3 py-1 rounded-full text-sm font-medium';
+            
+            if (category === 'chosen') {
+                statusElement.className += ' bg-green-100 text-green-800';
+                statusElement.textContent = '✅ Chosen';
+            } else if (category === 'rejected') {
+                statusElement.className += ' bg-red-100 text-red-800';
+                statusElement.textContent = '❌ Rejected';
+            } else {
+                statusElement.className += ' bg-gray-100 text-gray-800';
+                statusElement.textContent = '⏳ Unclassified';
+            }
+        }
+    }
+    
+    function showNotification(message, type) {
+        // Create notification element
+        const notification = document.createElement('div');
+        notification.className = `fixed top-4 right-4 z-50 p-4 rounded-md shadow-lg max-w-sm ${
+            type === 'success' ? 'bg-green-500 text-white' : 'bg-red-500 text-white'
+        }`;
+        notification.textContent = message;
+        
+        // Add to page
+        document.body.appendChild(notification);
+        
+        // Remove after 3 seconds
+        setTimeout(() => {
+            notification.remove();
+        }, 3000);
+    }
+    
+    // Navigation functions
+    async function navigateToNextUnclassified() {
+        try {
+            const response = await fetch('/api/articles/next-unclassified');
+            const data = await response.json();
+            
+            if (data.article_id) {
+                window.location.href = `/articles/${data.article_id}`;
+            } else {
+                showNotification('No more unclassified articles found!', 'info');
+            }
+        } catch (error) {
+            showNotification(`Error: ${error.message}`, 'error');
+        }
+    }
+    
+    function navigateToPrevious() {
+        const currentId = {{ article.id }};
+        window.location.href = `/articles/${currentId - 1}`;
+    }
+    
+    function navigateToNext() {
+        const currentId = {{ article.id }};
+        window.location.href = `/articles/${currentId + 1}`;
+    }
 </script>
 {% endblock %}

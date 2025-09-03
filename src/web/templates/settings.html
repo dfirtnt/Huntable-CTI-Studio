@@ -1,0 +1,157 @@
+{% extends "base.html" %}
+
+{% block title %}Settings - CTIScraper{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto px-4 py-8">
+    <div class="mb-8">
+        <h1 class="text-3xl font-bold text-gray-900">⚙️ Settings</h1>
+        <p class="text-gray-600 mt-2">Configure your CTIScraper preferences</p>
+    </div>
+
+    <!-- Settings Sections -->
+    <div class="space-y-6">
+        <!-- Classification Settings -->
+        <div class="bg-white rounded-lg shadow-sm p-6">
+            <h2 class="text-xl font-bold text-gray-900 mb-4">🏷️ Classification Settings</h2>
+            
+            <div class="space-y-4">
+                <!-- Comment Prompts Toggle -->
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h3 class="text-lg font-medium text-gray-900">Comment Prompts</h3>
+                        <p class="text-sm text-gray-600">Show comment prompts when classifying articles as Chosen or Rejected</p>
+                    </div>
+                    <div class="flex items-center">
+                        <button id="commentPromptsToggle" 
+                                class="relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                                role="switch" aria-checked="true">
+                            <span class="sr-only">Enable comment prompts</span>
+                            <span class="inline-block h-4 w-4 transform rounded-full bg-white transition-transform"></span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Display Settings -->
+        <div class="bg-white rounded-lg shadow-sm p-6">
+            <h2 class="text-xl font-bold text-gray-900 mb-4">📊 Display Settings</h2>
+            
+            <div class="space-y-4">
+                <!-- Articles Per Page -->
+                <div>
+                    <label for="articlesPerPage" class="block text-sm font-medium text-gray-700 mb-2">
+                        Articles Per Page
+                    </label>
+                    <select id="articlesPerPage" 
+                            class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                        <option value="20">20</option>
+                        <option value="50">50</option>
+                        <option value="100" selected>100</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <!-- Save Button -->
+        <div class="flex justify-end">
+            <button id="saveSettings" 
+                    class="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
+                💾 Save Settings
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Success Notification -->
+<div id="successNotification" class="fixed top-4 right-4 z-50 p-4 rounded-md shadow-lg max-w-sm bg-green-500 text-white transform translate-x-full transition-transform duration-300">
+    <div class="flex items-center">
+        <span class="mr-2">✅</span>
+        <span>Settings saved successfully!</span>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Load settings from localStorage
+    function loadSettings() {
+        const settings = JSON.parse(localStorage.getItem('ctiScraperSettings') || '{}');
+        
+        // Set comment prompts toggle
+        const commentPromptsEnabled = settings.commentPromptsEnabled !== false; // Default to true
+        setToggleState('commentPromptsToggle', commentPromptsEnabled);
+        
+        // Set articles per page
+        const articlesPerPage = settings.articlesPerPage || '100';
+        document.getElementById('articlesPerPage').value = articlesPerPage;
+    }
+    
+    // Save settings to localStorage
+    function saveSettings() {
+        const settings = {
+            commentPromptsEnabled: getToggleState('commentPromptsToggle'),
+            articlesPerPage: document.getElementById('articlesPerPage').value
+        };
+        
+        localStorage.setItem('ctiScraperSettings', JSON.stringify(settings));
+        showSuccessNotification();
+    }
+    
+    // Toggle functions
+    function setToggleState(toggleId, enabled) {
+        const toggle = document.getElementById(toggleId);
+        const span = toggle.querySelector('span:not(.sr-only)');
+        
+        if (enabled) {
+            toggle.classList.add('bg-blue-600');
+            toggle.classList.remove('bg-gray-200');
+            span.classList.add('translate-x-5');
+            span.classList.remove('translate-x-1');
+            toggle.setAttribute('aria-checked', 'true');
+        } else {
+            toggle.classList.remove('bg-blue-600');
+            toggle.classList.add('bg-gray-200');
+            span.classList.remove('translate-x-5');
+            span.classList.add('translate-x-1');
+            toggle.setAttribute('aria-checked', 'false');
+        }
+    }
+    
+    function getToggleState(toggleId) {
+        const toggle = document.getElementById(toggleId);
+        return toggle.getAttribute('aria-checked') === 'true';
+    }
+    
+    function toggleSwitch(toggleId) {
+        const currentState = getToggleState(toggleId);
+        setToggleState(toggleId, !currentState);
+    }
+    
+    // Show success notification
+    function showSuccessNotification() {
+        const notification = document.getElementById('successNotification');
+        notification.classList.remove('translate-x-full');
+        
+        setTimeout(() => {
+            notification.classList.add('translate-x-full');
+        }, 3000);
+    }
+    
+    // Event listeners
+    document.addEventListener('DOMContentLoaded', function() {
+        loadSettings();
+        
+        // Comment prompts toggle
+        document.getElementById('commentPromptsToggle').addEventListener('click', function() {
+            toggleSwitch('commentPromptsToggle');
+        });
+        
+        // Save settings button
+        document.getElementById('saveSettings').addEventListener('click', function() {
+            saveSettings();
+        });
+    });
+</script>
+{% endblock %}

@@ -111,10 +111,8 @@ class RSSParser:
                 'extraction_method': 'rss'
             }
             
-            # Calculate quality score
-            from src.utils.content import QualityScorer
-            quality_score = QualityScorer.score_article(title, content, metadata)
-            metadata['quality_score'] = quality_score
+            # Quality scoring removed
+            # metadata['quality_score'] = quality_score
             
             # Build article
             article = ArticleCreate(

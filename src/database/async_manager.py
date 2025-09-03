@@ -442,18 +442,8 @@ class AsyncDatabaseManager:
                 if modified_at and modified_at.tzinfo is not None:
                     modified_at = modified_at.replace(tzinfo=None)
                 
-                # Calculate quality score if not already provided
-                quality_score = article.metadata.get('quality_score')
-                if quality_score is None:
-                    from src.utils.content import QualityScorer
-                    quality_score = QualityScorer.score_article(
-                        article.title, 
-                        article.content, 
-                        article.metadata
-                    )
-                    # Convert to 0-100 scale if needed
-                    if quality_score <= 1.0:
-                        quality_score = quality_score * 100
+                # Quality scoring removed - set to NULL
+                quality_score = None
                 
                 # Calculate word count
                 word_count = len(article.content.split()) if article.content else 0

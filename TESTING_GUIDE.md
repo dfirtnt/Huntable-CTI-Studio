@@ -360,117 +360,7 @@ pytest --cov=src --cov-report=term-missing --cov-fail-under=80
 
 ## Overview
 
-This guide covers comprehensive testing of the CTI Scraper platform, including the new AI chatbot and model management features.
-
-## AI Chatbot Testing
-
-### **Model Management Testing**
-
-#### **List Available Models**
-```bash
-python3 -m src.cli.model_management list
-```
-**Expected Output**: Table showing all available models with descriptions
-
-#### **Model Information**
-```bash
-python3 -m src.cli.model_management info mistral
-```
-**Expected Output**: Detailed configuration table for the specified model
-
-#### **Model Testing**
-```bash
-python3 -m src.cli.model_management test gpt-oss-20b
-```
-**Expected Output**: Model configuration details and readiness status
-
-### **Content-Focused Response Testing**
-
-#### **Test 1: Strict Content Adherence**
-**Query**: "What are the latest ransomware trends?"
-**Expected Behavior**:
-- Response starts with "Based on the collected web content..." or "According to [URL]..."
-- ONLY references actual collected articles
-- Always cites source URLs using "According to [URL], [information]" format
-- No made-up statistics, fake sources, or hallucinated information
-- If no relevant content exists, responds with "I don't have information about that in my available content"
-
-#### **Test 2: Source Attribution**
-**Query**: "Tell me about machine learning evaluation methodologies"
-**Expected Behavior**:
-- Always cites source URLs using "According to [URL], [information]" format
-- References specific blog names and authors when available
-- Includes publication dates when available
-- Uses quotation marks for direct quotes
-- Distinguishes between different sources
-- Notes when information comes from multiple sources
-
-#### **Test 3: No Speculation Test**
-**Query**: "What is the latest APT group activity in 2025?"
-**Expected Behavior**:
-- If no relevant content exists, responds with "I don't have information about that in my available content"
-- No made-up information about future events
-- No hallucinated sources or statistics
-- Clear indication of content limitations
-- Does not use general knowledge to supplement missing information
-
-#### **Test 4: Blog Content Prioritization**
-**Query**: "What are the newest malware families?"
-**Expected Behavior**:
-- Prioritizes blog content over general articles
-- Higher relevance scores for blog sources
-- Includes blog metadata in responses
-
-### **Web Interface Testing**
-
-#### **Chat Interface**
-1. **Access**: Navigate to `http://localhost:8000/chat`
-2. **Train Button**: Click "Train on Blog Content" button
-3. **Conversation**: Send test messages
-4. **History**: Check conversation history
-5. **Export**: Test chat export functionality
-
-#### **API Endpoints**
-```bash
-# Test chat API
-curl -X POST http://localhost:8000/api/chat \
-  -H "Content-Type: application/json" \
-  -d '{"message": "What are the latest threats?"}'
-
-# Test history API
-curl http://localhost:8000/api/chat/history
-
-# Test clear API
-curl -X POST http://localhost:8000/api/chat/clear
-
-# Test training API
-curl -X POST http://localhost:8000/api/chat/train
-```
-
-### **Model Switching Testing**
-
-#### **Test Different Models**
-```python
-# Test with different models
-from src.utils.chatbot import ThreatIntelligenceChatbot
-from src.database.async_manager import async_db_manager
-
-# Test Mistral
-chatbot1 = ThreatIntelligenceChatbot(async_db_manager, model_name="mistral")
-
-# Test GPT OSS 20B (if available)
-chatbot2 = ThreatIntelligenceChatbot(async_db_manager, model_name="gpt-oss-20b")
-
-# Test with custom configuration
-custom_config = {
-    "name": "test-model",
-    "url": "http://localhost:11434/api/generate",
-    "temperature": 0.2,
-    "max_tokens": 1024,
-    "top_p": 0.9
-}
-chatbot3 = ThreatIntelligenceChatbot(async_db_manager, custom_config=custom_config)
-```
+This guide covers comprehensive testing of the CTI Scraper platform.
 
 ## Content Quality Testing
 
@@ -490,45 +380,39 @@ chatbot3 = ThreatIntelligenceChatbot(async_db_manager, custom_config=custom_conf
 
 ### **Response Time Testing**
 ```bash
-# Test response times for different models
-time curl -X POST http://localhost:8000/api/chat \
-  -H "Content-Type: application/json" \
-  -d '{"message": "Test query"}'
+# Test response times for different operations
+time curl http://localhost:8000/api/articles
 ```
 
 ### **Memory Usage Testing**
 ```bash
-# Monitor memory usage during chat sessions
-docker stats cti_ollama
+# Monitor memory usage during operations
+docker stats cti_web
 ```
 
 ### **Concurrent User Testing**
 ```bash
-# Test multiple simultaneous chat sessions
+# Test multiple simultaneous users
 for i in {1..5}; do
-  curl -X POST http://localhost:8000/api/chat \
-    -H "Content-Type: application/json" \
-    -d "{\"message\": \"Test query $i\"}" &
+  curl http://localhost:8000/api/articles &
 done
 ```
 
 ## Error Handling Testing
 
-### **Model Unavailable**
+### **Service Unavailable**
 ```bash
-# Test behavior when model is not available
-docker stop cti_ollama
-curl -X POST http://localhost:8000/api/chat \
-  -H "Content-Type: application/json" \
-  -d '{"message": "Test query"}'
+# Test behavior when service is not available
+docker stop cti_web
+curl http://localhost:8000/api/articles
 ```
 
-### **Invalid Model Configuration**
+### **Invalid Configuration**
 ```python
 # Test invalid configuration handling
 invalid_config = {
-    "name": "invalid-model",
-    "url": "http://invalid-url/api/generate"
+    "name": "invalid-config",
+    "url": "http://invalid-url/api"
 }
 # Should raise validation error
 ```
@@ -544,53 +428,22 @@ invalid_config = {
 ### **End-to-End Workflow**
 1. **Content Collection**: Run content collection
 2. **Quality Assessment**: Verify quality scoring
-3. **Chatbot Training**: Train on collected content
-4. **Query Testing**: Test various queries
-5. **Response Validation**: Verify content adherence
+3. **Query Testing**: Test various queries
+4. **Response Validation**: Verify content adherence
 
 ### **Model Configuration Integration**
-1. **Environment Variables**: Test model switching via env vars
-2. **Configuration Files**: Test custom model configurations
-3. **CLI Integration**: Test model management commands
-4. **Web Interface**: Test model selection in UI
+1. **Environment Variables**: Test configuration via env vars
+2. **Configuration Files**: Test custom configurations
+3. **CLI Integration**: Test management commands
+4. **Web Interface**: Test selection in UI
 
 ## Regression Testing
 
 ### **Content-First Approach**
-- Ensure no model hallucination
+- Ensure no hallucination
 - Verify source attribution
 - Check content adherence
 - Validate evidence-based responses
-
-### **Model Flexibility**
-- Test model switching
-- Verify configuration loading
-- Check parameter validation
-- Ensure backward compatibility
-
-## Test Data
-
-### **Sample Queries**
-```python
-test_queries = [
-    "What are the latest ransomware trends?",
-    "Tell me about machine learning evaluation methodologies",
-    "What are the newest malware families?",
-    "How to hunt for persistence techniques?",
-    "What are recent APT activities?",
-    "Explain threat hunting methodologies",
-    "What are the latest vulnerabilities?",
-    "How does incident response work?"
-]
-```
-
-### **Expected Response Patterns**
-- Start with "Based on the collected web content..." or "According to [URL]..."
-- Always include source URL citations using "According to [URL], [information]" format
-- Use quotation marks for direct quotes
-- Reference authors and dates when available
-- No speculation, hallucination, or made-up information
-- Clear "I don't have information about that in my available content" when appropriate
 
 ## Continuous Testing
 
@@ -600,15 +453,13 @@ test_queries = [
 pytest tests/ -v
 
 # Run specific test categories
-pytest tests/test_chatbot.py -v
-pytest tests/test_model_management.py -v
 pytest tests/test_content_quality.py -v
 ```
 
 ### **Monitoring**
 - Response quality metrics
-- Model performance tracking
+- Performance tracking
 - Content relevance scoring
 - User satisfaction metrics
 
-This comprehensive testing ensures the AI chatbot maintains high quality, content adherence, and model flexibility across all scenarios.
+This comprehensive testing ensures the platform maintains high quality and content adherence across all scenarios.

@@ -35,12 +35,11 @@ class ContentProcessor:
     
     def __init__(
         self,
-        min_quality_score: float = 0.3,
         similarity_threshold: float = 0.85,
         max_age_days: int = 90,
         enable_content_enhancement: bool = True
     ):
-        self.min_quality_score = min_quality_score
+        # Quality scoring removed
         self.similarity_threshold = similarity_threshold
         self.max_age_days = max_age_days
         self.enable_content_enhancement = enable_content_enhancement
@@ -54,7 +53,6 @@ class ContentProcessor:
         self.stats = {
             'total_processed': 0,
             'duplicates_removed': 0,
-            'quality_filtered': 0,
             'enhanced_articles': 0,
             'validation_failures': 0
         }
@@ -102,13 +100,9 @@ class ContentProcessor:
                     duplicates.append((processed_article, duplicate_reason))
                     self.stats['duplicates_removed'] += 1
                 else:
-                    # Quality filtering
-                    if self._passes_quality_filter(processed_article):
-                        unique_articles.append(processed_article)
-                        self._record_article(processed_article)
-                    else:
-                        duplicates.append((processed_article, "quality_filter"))
-                        self.stats['quality_filtered'] += 1
+                    # Quality filtering removed - accept all articles
+                    unique_articles.append(processed_article)
+                    self._record_article(processed_article)
                 
                 self.stats['total_processed'] += 1
                 
@@ -122,7 +116,6 @@ class ContentProcessor:
             'total': len(articles),
             'unique': len(unique_articles),
             'duplicates': len(duplicates),
-            'quality_filtered': sum(1 for _, reason in duplicates if reason == "quality_filter"),
             'hash_duplicates': sum(1 for _, reason in duplicates if reason == "content_hash"),
             'url_duplicates': sum(1 for _, reason in duplicates if reason == "url"),
             'similarity_duplicates': sum(1 for _, reason in duplicates if reason == "content_similarity")
@@ -313,40 +306,7 @@ class ContentProcessor:
         fingerprint_text = ' '.join(sorted(list(significant_words)[:20]))  # Top 20 words
         return hashlib.md5(fingerprint_text.encode('utf-8')).hexdigest()
     
-    def _passes_quality_filter(self, article: ArticleCreate) -> bool:
-        """Check if article passes quality filter."""
-        # Check minimum quality score
-        quality_score = article.metadata.get('quality_score', 0.0)
-        if quality_score < self.min_quality_score:
-            return False
-        
-        # Check age filter
-        if article.published_at:
-            try:
-                if article.published_at.tzinfo is not None:
-                    # If published_at is timezone-aware, make current time timezone-aware too
-                    current_time = datetime.now(article.published_at.tzinfo)
-                else:
-                    # If published_at is naive, use naive current time
-                    current_time = datetime.utcnow()
-                
-                age_days = (current_time - article.published_at).days
-                if age_days > self.max_age_days:
-                    return False
-            except Exception:
-                # If there's any datetime issue, don't filter by age
-                pass
-        
-        # Check content length
-        text_content = ContentCleaner.html_to_text(article.content)
-        if len(text_content.strip()) < 100:  # Minimum content length
-            return False
-        
-        # Check title length
-        if len(article.title.strip()) < 10:
-            return False
-        
-        return True
+    # Quality filter method removed
     
     def _record_article(self, article: ArticleCreate):
         """Record article in deduplication tracking."""

@@ -25,9 +25,63 @@
             <!-- Search -->
             <div>
                 <label for="search" class="block text-sm font-medium text-gray-700 mb-1">Search</label>
-                <input type="text" name="search" id="search" value="{{ filters.search or '' }}" 
-                       placeholder="Search titles and content..." 
-                       class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                <div class="relative">
+                    <input type="text" name="search" id="search" value="{{ filters.search or '' }}" 
+                           placeholder="Search with AND, OR, NOT logic..." 
+                           title="{{ filters.search or '' }}"
+                           class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-sm"
+                           style="font-family: monospace;">
+                    <button type="button" id="search-help-btn" 
+                            class="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                    </button>
+                </div>
+                <div id="search-help" class="hidden mt-2 p-3 bg-blue-50 border border-blue-200 rounded-md text-sm text-blue-800">
+                    <h4 class="font-medium mb-2">Boolean Search Syntax:</h4>
+                    <ul class="space-y-1 text-xs">
+                        <li>• <strong>Simple terms:</strong> malware, ransomware</li>
+                        <li>• <strong>AND operator:</strong> malware AND ransomware</li>
+                        <li>• <strong>OR operator:</strong> malware OR ransomware</li>
+                        <li>• <strong>NOT operator:</strong> malware NOT ransomware</li>
+                        <li>• <strong>Quoted phrases:</strong> "advanced persistent threat"</li>
+                    </ul>
+                    
+                    <div class="mt-4">
+                        <h5 class="font-medium mb-2">🎯 Predefined Search Examples:</h5>
+                        <div class="space-y-2 text-xs">
+                            <div class="p-2 bg-white rounded border">
+                                <div class="font-medium text-blue-700">High-Value Detection Content:</div>
+                                <code class="text-xs bg-gray-100 px-1 rounded">("sigma rule" OR "detection rule") AND ("parentimage" OR "commandline" OR "process chain")</code>
+                                <a href="/articles?search=%28%22sigma%20rule%22%20OR%20%22detection%20rule%22%29%20AND%20%28%22parentimage%22%20OR%20%22commandline%22%20OR%20%22process%20chain%22%29" 
+                                   class="ml-2 px-2 py-1 text-xs bg-blue-100 text-blue-700 rounded hover:bg-blue-200 transition-colors inline-block">
+                                    Use This Search
+                                </a>
+                            </div>
+                            <div class="p-2 bg-white rounded border">
+                                <div class="font-medium text-green-700">Technical Intelligence:</div>
+                                <code class="text-xs bg-gray-100 px-1 rounded">("mitre att&ck" OR "T[0-9]") AND ("registry run" OR "appdata" OR "suspicious path")</code>
+                                <a href="/articles?search=%28%22mitre%20att%26ck%22%20OR%20%22T%5B0-9%5D%22%29%20AND%20%28%22registry%20run%22%20OR%20%22appdata%22%20OR%20%22suspicious%20path%22%29" 
+                                   class="ml-2 px-2 py-1 text-xs bg-green-100 text-green-700 rounded hover:bg-green-200 transition-colors inline-block">
+                                    Use This Search
+                                </a>
+                            </div>
+                            <div class="p-2 bg-white rounded border">
+                                <div class="font-medium text-purple-700">Actionable Hunting Content:</div>
+                                <code class="text-xs bg-gray-100 px-1 rounded">("hunting" OR "detection") AND ("powershell" OR "cmd.exe" OR "process spawning")</code>
+                                <a href="/articles?search=%28%22hunting%22%20OR%20%22detection%22%29%20AND%20%28%22powershell%22%20OR%20%22cmd.exe%22%20OR%20%22process%20spawning%22%29" 
+                                   class="ml-2 px-2 py-1 text-xs bg-purple-100 text-purple-700 rounded hover:bg-purple-200 transition-colors inline-block">
+                                    Use This Search
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mt-3 text-xs">
+                        <strong>Quick Examples:</strong> "ransomware" AND "critical infrastructure", malware OR virus OR trojan
+                    </div>
+                </div>
             </div>
 
             <!-- Source Filter -->
@@ -44,16 +98,15 @@
                 </select>
             </div>
 
-            <!-- Quality Filter -->
+            <!-- Classification Filter -->
             <div>
-                <label for="quality_min" class="block text-sm font-medium text-gray-700 mb-1">Min Quality Score</label>
-                <select name="quality_min" id="quality_min" 
+                <label for="classification" class="block text-sm font-medium text-gray-700 mb-1">Article Classification</label>
+                <select name="classification" id="classification" 
                         class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
-                    <option value="">Any Quality</option>
-                    <option value="60" {% if filters.quality_min|string == "60" %}selected{% endif %}>Excellent (60+)</option>
-                    <option value="45" {% if filters.quality_min|string == "45" %}selected{% endif %}>Good (45+)</option>
-                    <option value="30" {% if filters.quality_min|string == "30" %}selected{% endif %}>Fair (30+)</option>
-                    <option value="0" {% if filters.quality_min|string == "0" %}selected{% endif %}>Limited (0+)</option>
+                    <option value="">All Classifications</option>
+                    <option value="chosen" {% if filters.classification == "chosen" %}selected{% endif %}>✅ Chosen</option>
+                    <option value="rejected" {% if filters.classification == "rejected" %}selected{% endif %}>❌ Rejected</option>
+                    <option value="unclassified" {% if filters.classification == "unclassified" %}selected{% endif %}>⏳ Unclassified</option>
                 </select>
             </div>
 
@@ -70,81 +123,49 @@
         </form>
 
         <!-- Filter Summary -->
-        {% if filters.search or filters.source or filters.quality_min %}
+        {% if filters.search or filters.source or filters.classification %}
         <div class="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
             <p class="text-sm text-blue-800">
                 <strong>Active Filters:</strong>
                 {% if filters.search %}Search: "{{ filters.search }}"{% endif %}
                 {% if filters.source %}Source: {{ filters.source }}{% endif %}
-                {% if filters.quality_min %}Quality: {{ filters.quality_min }}+{% endif %}
+                {% if filters.classification %}Classification: {{ filters.classification }}{% endif %}
                 <a href="/articles" class="ml-2 text-blue-600 hover:text-blue-800 underline">Clear all</a>
             </p>
         </div>
         {% endif %}
 
-        <!-- Quality Score Summary -->
+        <!-- Article Classification Statistics -->
         <div class="mt-4 p-4 bg-white border border-gray-200 rounded-lg">
-            <h4 class="text-sm font-medium text-gray-900 mb-3">Quality Score Distribution</h4>
+            <h4 class="text-sm font-medium text-gray-900 mb-3">Article Classification</h4>
             <div class="grid grid-cols-4 gap-4">
                 <div class="text-center">
-                    <div class="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-1">
-                        <span class="text-green-600 text-xs">⭐</span>
-                    </div>
-                    <div class="text-xs text-gray-600">Excellent (60+)</div>
-                    <div class="text-sm font-medium text-gray-900">
-                        {% set excellent_count = 0 %}
-                        {% for article in articles %}
-                            {% if article.quality_score and article.quality_score >= 60 %}
-                                {% set excellent_count = excellent_count + 1 %}
-                            {% endif %}
-                        {% endfor %}
-                        {{ excellent_count }}
-                    </div>
-                </div>
-                <div class="text-center">
                     <div class="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-1">
-                        <span class="text-blue-600 text-xs">✓</span>
+                        <span class="text-blue-600 text-xs">📰</span>
                     </div>
-                    <div class="text-xs text-gray-600">Good (45-59)</div>
-                    <div class="text-sm font-medium text-gray-900">
-                        {% set good_count = 0 %}
-                        {% for article in articles %}
-                            {% if article.quality_score and article.quality_score >= 45 and article.quality_score < 60 %}
-                                {% set good_count = good_count + 1 %}
-                            {% endif %}
-                        {% endfor %}
-                        {{ good_count }}
-                    </div>
+                    <div class="text-xs text-gray-600">Total Articles</div>
+                    <div class="text-sm font-medium text-gray-900">{{ pagination.total_articles }}</div>
                 </div>
                 <div class="text-center">
-                    <div class="w-8 h-8 bg-yellow-100 rounded-full flex items-center justify-center mx-auto mb-1">
-                        <span class="text-yellow-600 text-xs">○</span>
+                    <div class="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-1">
+                        <span class="text-green-600 text-xs">✅</span>
                     </div>
-                    <div class="text-xs text-gray-600">Fair (30-44)</div>
-                    <div class="text-sm font-medium text-gray-900">
-                        {% set fair_count = 0 %}
-                        {% for article in articles %}
-                            {% if article.quality_score and article.quality_score >= 30 and article.quality_score < 45 %}
-                                {% set fair_count = fair_count + 1 %}
-                            {% endif %}
-                        {% endfor %}
-                        {{ fair_count }}
-                    </div>
+                    <div class="text-xs text-gray-600">Chosen</div>
+                    <div class="text-sm font-medium text-gray-900">{{ stats.chosen_count }}</div>
                 </div>
                 <div class="text-center">
                     <div class="w-8 h-8 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-1">
-                        <span class="text-red-600 text-xs">⚠</span>
+                        <span class="text-red-600 text-xs">❌</span>
                     </div>
-                    <div class="text-xs text-gray-600">Limited (<30)</div>
-                    <div class="text-sm font-medium text-gray-900">
-                        {% set limited_count = 0 %}
-                        {% for article in articles %}
-                            {% if article.quality_score and article.quality_score < 30 %}
-                                {% set limited_count = limited_count + 1 %}
-                            {% endif %}
-                        {% endfor %}
-                        {{ limited_count }}
+                    <div class="text-xs text-gray-600">Rejected</div>
+                    <div class="text-sm font-medium text-gray-900">{{ stats.rejected_count }}</div>
+                </div>
+                <div class="text-center">
+                    <div class="w-8 h-8 bg-yellow-100 rounded-full flex items-center justify-center mx-auto mb-1">
+                        <span class="text-yellow-600 text-xs">⏳</span>
                     </div>
+                    <div class="text-xs text-gray-600">Unclassified</div>
+                    <div class="text-sm font-medium text-gray-900">{{ stats.unclassified_count }}</div>
                 </div>
             </div>
         </div>
@@ -176,22 +197,11 @@
                             <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
                                 #{{ article.id }}
                             </span>
-                            {% if article.quality_score is not none %}
-                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium 
-                                {% if article.quality_score >= 60 %}bg-green-100 text-green-800{% elif article.quality_score >= 45 %}bg-blue-100 text-blue-800{% elif article.quality_score >= 30 %}bg-yellow-100 text-yellow-800{% else %}bg-red-100 text-red-800{% endif %}">
-                                {% if article.quality_score >= 60 %}⭐ Excellent{% elif article.quality_score >= 45 %}✓ Good{% elif article.quality_score >= 30 %}○ Fair{% else %}⚠ Limited{% endif %} ({{ "%.0f"|format(article.quality_score) }})
-                            </span>
-                            {% endif %}
                         </div>
                         
                         <div class="flex items-center space-x-4 text-sm text-gray-500 mb-2">
                             <span>Source: 
-                                {% set source_name = article.source_id %}
-                                {% for source in sources %}
-                                    {% if source.id == article.source_id %}
-                                        {% set source_name = source.name %}
-                                    {% endif %}
-                                {% endfor %}
+                                {% set source_name = source_lookup[article.source_id].name if article.source_id in source_lookup else article.source_id %}
                                 {% if article.canonical_url %}
                                     <a href="{{ article.canonical_url }}" target="_blank" class="text-blue-600 hover:text-blue-800 hover:underline">
                                         {{ source_name }}
@@ -203,14 +213,22 @@
                             {% if article.published_at %}
                             <span>Published: {{ article.published_at.strftime('%Y-%m-%d %H:%M') }}</span>
                             {% endif %}
-                            {% if article.quality_score is not none %}
-                            <span class="flex items-center">
-                                <span class="w-2 h-2 rounded-full mr-1 
-                                    {% if article.quality_score >= 60 %}bg-green-500{% elif article.quality_score >= 45 %}bg-blue-500{% elif article.quality_score >= 30 %}bg-yellow-500{% else %}bg-red-500{% endif %}"></span>
-                                Quality: {{ "%.0f"|format(article.quality_score) }}/100
-                            </span>
-                            {% endif %}
                             <span>Content: {{ article.content|length }} characters</span>
+                            <span>Classification: 
+                                {% if article.metadata and article.metadata.get('training_category') == 'chosen' %}
+                                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                        ✅ Chosen
+                                    </span>
+                                {% elif article.metadata and article.metadata.get('training_category') == 'rejected' %}
+                                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                                        ❌ Rejected
+                                    </span>
+                                {% else %}
+                                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                                        ⏳ Unclassified
+                                    </span>
+                                {% endif %}
+                            </span>
                         </div>
 
                         <p class="text-gray-600 mb-3">
@@ -255,7 +273,7 @@
                 </div>
                 <div class="flex items-center space-x-2">
                     {% if pagination.page > 1 %}
-                    <a href="?page={{ pagination.page - 1 }}&per_page={{ pagination.per_page }}{% if filters.search %}&search={{ filters.search }}{% endif %}{% if filters.source %}&source={{ filters.source }}{% endif %}{% if filters.quality_min %}&quality_min={{ filters.quality_min }}{% endif %}" 
+                    <a href="?page={{ pagination.page - 1 }}&per_page={{ pagination.per_page }}{% if filters.search %}&search={{ filters.search }}{% endif %}{% if filters.source %}&source={{ filters.source }}{% endif %}{% if filters.status %}&status={{ filters.status }}{% endif %}" 
                        class="px-3 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition-colors">
                         Previous
                     </a>
@@ -267,7 +285,7 @@
                             {{ page_num }}
                         </span>
                         {% elif page_num <= 3 or page_num > pagination.total_pages - 3 or (page_num >= pagination.page - 1 and page_num <= pagination.page + 1) %}
-                        <a href="?page={{ page_num }}&per_page={{ pagination.per_page }}{% if filters.search %}&search={{ filters.search }}{% endif %}{% if filters.source %}&source={{ filters.source }}{% endif %}{% if filters.quality_min %}&quality_min={{ filters.quality_min }}{% endif %}" 
+                        <a href="?page={{ page_num }}&per_page={{ pagination.per_page }}{% if filters.search %}&search={{ filters.search }}{% endif %}{% if filters.source %}&source={{ filters.source }}{% endif %}{% if filters.status %}&status={{ filters.status }}{% endif %}" 
                            class="px-3 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition-colors">
                             {{ page_num }}
                         </a>
@@ -279,7 +297,7 @@
                     {% endfor %}
 
                     {% if pagination.page < pagination.total_pages %}
-                    <a href="?page={{ pagination.page + 1 }}&per_page={{ pagination.per_page }}{% if filters.search %}&search={{ filters.search }}{% endif %}{% if filters.source %}&source={{ filters.source }}{% endif %}{% if filters.quality_min %}&quality_min={{ filters.quality_min }}{% endif %}" 
+                    <a href="?page={{ pagination.page + 1 }}&per_page={{ pagination.per_page }}{% if filters.search %}&search={{ filters.search }}{% endif %}{% if filters.source %}&source={{ filters.source }}{% endif %}{% if filters.status %}&status={{ filters.status }}{% endif %}" 
                        class="px-3 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition-colors">
                         Next
                     </a>
@@ -304,16 +322,28 @@
                 form.submit();
             });
         });
+        
+        // Search help toggle
+        const searchHelpBtn = document.getElementById('search-help-btn');
+        const searchHelp = document.getElementById('search-help');
+        
+        if (searchHelpBtn && searchHelp) {
+            searchHelpBtn.addEventListener('click', function() {
+                searchHelp.classList.toggle('hidden');
+            });
+        }
     });
 
     // Debounced search for better performance
-    let searchTimeout;
+    window.searchTimeout;
     const searchInput = document.getElementById('search');
-    searchInput.addEventListener('input', function() {
-        clearTimeout(searchTimeout);
-        searchTimeout = setTimeout(() => {
-            this.form.submit();
-        }, 500);
-    });
+    if (searchInput) {
+        searchInput.addEventListener('input', function() {
+            clearTimeout(window.searchTimeout);
+            window.searchTimeout = setTimeout(() => {
+                this.form.submit();
+            }, 500);
+        });
+    }
 </script>
 {% endblock %}
