@@ -89,6 +89,15 @@
                     </button>
                     <span id="apiKeyStatus" class="ml-3 text-sm"></span>
                 </div>
+                
+                <!-- Test ChatGPT Summary Button -->
+                <div>
+                    <button id="testChatGPTSummary" 
+                            class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
+                        📝 Test ChatGPT Summary
+                    </button>
+                    <span id="chatgptSummaryStatus" class="ml-3 text-sm"></span>
+                </div>
             </div>
         </div>
 
@@ -140,6 +149,56 @@
         
         localStorage.setItem('ctiScraperSettings', JSON.stringify(settings));
         showSuccessNotification();
+    }
+    
+    // Test ChatGPT Summary functionality
+    async function testChatGPTSummary() {
+        const apiKey = document.getElementById('openaiApiKey').value;
+        const statusElement = document.getElementById('chatgptSummaryStatus');
+        const testButton = document.getElementById('testChatGPTSummary');
+        
+        if (!apiKey) {
+            statusElement.textContent = '❌ Please enter an API key first';
+            statusElement.className = 'ml-3 text-sm text-red-600';
+            return;
+        }
+        
+        // Disable button and show loading
+        testButton.disabled = true;
+        testButton.textContent = '📝 Testing...';
+        statusElement.textContent = '⏳ Testing ChatGPT summary...';
+        statusElement.className = 'ml-3 text-sm text-gray-600';
+        
+        try {
+            // Test with a simple prompt
+            const response = await fetch('/api/test-chatgpt-summary', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    api_key: apiKey,
+                    test_prompt: 'Please provide a brief summary of cybersecurity threats.'
+                })
+            });
+            
+            if (response.ok) {
+                const result = await response.json();
+                statusElement.textContent = `✅ ChatGPT Summary working! Model: ${result.model_name}`;
+                statusElement.className = 'ml-3 text-sm text-green-600';
+            } else {
+                const error = await response.json();
+                statusElement.textContent = `❌ ${error.detail}`;
+                statusElement.className = 'ml-3 text-sm text-red-600';
+            }
+        } catch (error) {
+            statusElement.textContent = '❌ Network error - please try again';
+            statusElement.className = 'ml-3 text-sm text-red-600';
+        } finally {
+            // Re-enable button
+            testButton.disabled = false;
+            testButton.textContent = '📝 Test ChatGPT Summary';
+        }
     }
     
     // Test OpenAI API key
@@ -266,6 +325,11 @@
         // Test API key button
         document.getElementById('testApiKey').addEventListener('click', function() {
             testApiKey();
+        });
+        
+        // Test ChatGPT Summary button
+        document.getElementById('testChatGPTSummary').addEventListener('click', function() {
+            testChatGPTSummary();
         });
         
         // Save settings button

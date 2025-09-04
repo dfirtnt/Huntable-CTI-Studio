@@ -762,22 +762,21 @@ async def api_chatgpt_summary(article_id: int, request: Request):
         if not article:
             raise HTTPException(status_code=404, detail="Article not found")
         
-        # Get request body to determine what to summarize
+        # Get request body to determine what to summarize and API key
         body = await request.json()
         include_content = body.get('include_content', True)  # Default to full content
+        api_key = body.get('api_key')  # Get API key from request
+        
+        # Check if API key is provided
+        if not api_key:
+            raise HTTPException(status_code=400, detail="OpenAI API key is required. Please configure it in Settings.")
         
         # Prepare the summary prompt
         if include_content:
             # Smart content truncation based on model
-            chatgpt_api_key = os.getenv('CHATGPT_API_KEY')
-            
-            if chatgpt_api_key:
-                # Using ChatGPT - can handle more content
-                # GPT-4 Turbo: ~50k chars, GPT-4: ~20k chars, GPT-3.5: ~15k chars
-                content_limit = int(os.getenv('CHATGPT_CONTENT_LIMIT', '20000'))
-            else:
-                # Using Ollama - more conservative limit
-                content_limit = int(os.getenv('OLLAMA_CONTENT_LIMIT', '8000'))
+            # Using ChatGPT - can handle more content
+            # GPT-4 Turbo: ~50k chars, GPT-4: ~20k chars, GPT-3.5: ~15k chars
+            content_limit = int(os.getenv('CHATGPT_CONTENT_LIMIT', '20000'))
             
             # Truncate content intelligently
             content = article.content[:content_limit]
@@ -816,78 +815,45 @@ Content Length: {len(article.content)} characters
 
 Based on the title, source, and metadata, please provide a brief assessment of what this article likely covers and its potential importance for security professionals."""
         
-        # Get ChatGPT configuration from environment
+        # Use ChatGPT API with provided key
         chatgpt_api_url = os.getenv('CHATGPT_API_URL', 'https://api.openai.com/v1/chat/completions')
-        chatgpt_api_key = os.getenv('CHATGPT_API_KEY')
         
-        if not chatgpt_api_key:
-            # Fallback to Ollama if ChatGPT not configured
-            ollama_url = os.getenv('LLM_API_URL', 'http://cti_ollama:11434')
-            ollama_model = os.getenv('LLM_MODEL', 'mistral')
-            
-            logger.info(f"Using Ollama at {ollama_url} with model {ollama_model}")
-            
-            # Use Ollama API
-            async with httpx.AsyncClient() as client:
-                try:
-                    response = await client.post(
-                        f"{ollama_url}/api/generate",
-                        json={
-                            "model": ollama_model,
-                            "prompt": prompt,
-                            "stream": False,
-                            "options": {
-                                "temperature": 0.3,
-                                "num_predict": 2048
-                            }
+        # Use ChatGPT API
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                chatgpt_api_url,
+                headers={
+                    "Authorization": f"Bearer {api_key}",
+                    "Content-Type": "application/json"
+                },
+                json={
+                    "model": "gpt-4",  # or your specific ChatGPT model
+                    "messages": [
+                        {
+                            "role": "system",
+                            "content": "You are a cybersecurity expert specializing in threat intelligence analysis. Provide clear, concise summaries of threat intelligence articles."
                         },
-                        timeout=180.0
-                    )
-                    
-                    if response.status_code != 200:
-                        logger.error(f"Ollama API error: {response.status_code} - {response.text}")
-                        raise HTTPException(status_code=500, detail=f"Failed to get summary from Ollama: {response.status_code}")
-                    
-                    result = response.json()
-                    summary = result.get('response', 'No summary available')
-                    logger.info(f"Successfully got summary from Ollama: {len(summary)} characters")
-                    
-                except Exception as e:
-                    logger.error(f"Ollama API request failed: {e}")
-                    raise HTTPException(status_code=500, detail=f"Failed to get summary from Ollama: {str(e)}")
-                
-        else:
-            # Use ChatGPT API
-            async with httpx.AsyncClient() as client:
-                response = await client.post(
-                    chatgpt_api_url,
-                    headers={
-                        "Authorization": f"Bearer {chatgpt_api_key}",
-                        "Content-Type": "application/json"
-                    },
-                    json={
-                        "model": "gpt-4",  # or your specific ChatGPT model
-                        "messages": [
-                            {
-                                "role": "system",
-                                "content": "You are a cybersecurity expert specializing in threat intelligence analysis. Provide clear, concise summaries of threat intelligence articles."
-                            },
-                            {
-                                "role": "user",
-                                "content": prompt
-                            }
-                        ],
-                        "max_tokens": 2048,
-                        "temperature": 0.3
-                    },
-                    timeout=60.0
-                )
-                
-                if response.status_code != 200:
-                    raise HTTPException(status_code=500, detail="Failed to get summary from ChatGPT")
-                
-                result = response.json()
-                summary = result['choices'][0]['message']['content']
+                        {
+                            "role": "user",
+                            "content": prompt
+                        }
+                    ],
+                    "max_tokens": 2048,
+                    "temperature": 0.3
+                },
+                timeout=60.0
+            )
+            
+            if response.status_code != 200:
+                error_detail = f"Failed to get summary from ChatGPT: {response.status_code}"
+                if response.status_code == 401:
+                    error_detail = "Invalid API key. Please check your OpenAI API key in Settings."
+                elif response.status_code == 429:
+                    error_detail = "Rate limit exceeded. Please try again later."
+                raise HTTPException(status_code=500, detail=error_detail)
+            
+            result = response.json()
+            summary = result['choices'][0]['message']['content']
         
         # Store the summary in article metadata
         current_metadata = article.metadata.copy() if article.metadata else {}
@@ -895,8 +861,8 @@ Based on the title, source, and metadata, please provide a brief assessment of w
             'summary': summary,
             'summarized_at': datetime.now().isoformat(),
             'content_type': 'full content' if include_content else 'metadata only',
-            'model_used': 'chatgpt' if chatgpt_api_key else 'ollama',
-            'model_name': 'gpt-4' if chatgpt_api_key else ollama_model
+            'model_used': 'chatgpt',
+            'model_name': 'gpt-4'
         }
         
         # Update the article
@@ -1034,6 +1000,65 @@ Please be specific and actionable in your analysis."""
     except Exception as e:
         logger.error(f"API analyze CustomGPT error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/test-chatgpt-summary")
+async def test_chatgpt_summary(request: Request):
+    """Test ChatGPT summary functionality with provided API key."""
+    try:
+        body = await request.json()
+        api_key = body.get('api_key')
+        test_prompt = body.get('test_prompt', 'Please provide a brief summary of cybersecurity threats.')
+        
+        if not api_key:
+            raise HTTPException(status_code=400, detail="API key is required")
+        
+        # Use ChatGPT API with provided key
+        chatgpt_api_url = os.getenv('CHATGPT_API_URL', 'https://api.openai.com/v1/chat/completions')
+        
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                chatgpt_api_url,
+                headers={
+                    "Authorization": f"Bearer {api_key}",
+                    "Content-Type": "application/json"
+                },
+                json={
+                    "model": "gpt-4",
+                    "messages": [
+                        {
+                            "role": "system",
+                            "content": "You are a cybersecurity expert. Provide brief, helpful responses."
+                        },
+                        {
+                            "role": "user",
+                            "content": test_prompt
+                        }
+                    ],
+                    "max_tokens": 100,
+                    "temperature": 0.3
+                },
+                timeout=30.0
+            )
+            
+            if response.status_code == 200:
+                result = response.json()
+                summary = result['choices'][0]['message']['content']
+                return {
+                    "success": True, 
+                    "message": "ChatGPT Summary is working",
+                    "model_name": "gpt-4",
+                    "test_summary": summary
+                }
+            elif response.status_code == 401:
+                raise HTTPException(status_code=400, detail="Invalid API key")
+            else:
+                raise HTTPException(status_code=400, detail=f"API error: {response.status_code}")
+                
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Test ChatGPT summary error: {e}")
+        raise HTTPException(status_code=500, detail="Failed to test ChatGPT summary")
 
 @app.post("/api/test-openai-key")
 async def test_openai_key(request: Request):
