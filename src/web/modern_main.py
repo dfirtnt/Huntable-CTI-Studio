@@ -172,6 +172,11 @@ async def sources_list(request: Request):
         sources = await async_db_manager.list_sources()
         quality_stats = await async_db_manager.get_source_quality_stats()
         
+        # Debug logging
+        logger.info(f"Quality stats returned: {len(quality_stats)} entries")
+        for stat in quality_stats[:5]:  # Log first 5 entries
+            logger.info(f"Source {stat['source_id']}: {stat['name']} - Rejection rate: {stat['rejection_rate']}%")
+        
         # Create a lookup for quality stats by source ID
         quality_lookup = {stat["source_id"]: stat for stat in quality_stats}
         
