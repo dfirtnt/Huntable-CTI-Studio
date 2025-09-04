@@ -1,4 +1,4 @@
-"""Database manager for threat intelligence aggregator."""
+"""Database manager for threat intelligence aggregator with deduplication support."""
 
 import asyncio
 from typing import List, Optional, Dict, Any, Set, Tuple
@@ -9,9 +9,10 @@ from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 import logging
 
-from database.models import Base, SourceTable, ArticleTable, SourceCheckTable, ContentHashTable, URLTrackingTable
+from database.models import Base, SourceTable, ArticleTable, SourceCheckTable, ContentHashTable, URLTrackingTable, SimHashBucketTable
 from models.source import Source, SourceCreate, SourceUpdate, SourceFilter, SourceHealth
 from models.article import Article, ArticleCreate, ArticleUpdate, ArticleFilter
+from src.services.deduplication import DeduplicationService
 
 logger = logging.getLogger(__name__)
 

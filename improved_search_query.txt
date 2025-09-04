@@ -1,0 +1,103 @@
+# Improved Windows Malware/Threat Search Query
+# Fixed backslashes, escaping, and search patterns
+# Updated for case-insensitive search (no need for multiple case variations)
+
+"rundll32" OR "comspec" OR "msiexec" OR "wmic" OR "iex" OR "findstr" OR 
+"hkey" OR "hklm" OR "appdata" OR "programdata" OR 
+"\\temp\\" OR 
+"powershell.exe" OR 
+"wbem" OR 
+"==" OR 
+"c:\\windows\\" OR 
+"Event ID" OR "EventID" OR 
+".bat" OR 
+".ps1" OR 
+".lnk" OR 
+"D:\\" OR 
+".vhdx" OR 
+".iso" OR 
+"<Command>" OR 
+"\\pipe\\" OR 
+"MZ" OR 
+"svchost" OR 
+"::" OR 
+"-accepteula" OR 
+"lsass.exe" OR 
+"%WINDIR%" OR 
+"[.]" OR 
+"%wintmp%"
+
+# Additional improvements to consider:
+# 1. Add common malware indicators
+# 2. Include registry path variations
+# 3. Add process injection patterns
+# 4. Include network connection patterns
+# 5. Add file system manipulation patterns
+
+# Alternative version with better escaping for specific search engines:
+"rundll32" OR "comspec" OR "msiexec" OR "wmic" OR "iex" OR "findstr" OR 
+"hkey" OR "hklm" OR "appdata" OR "programdata" OR 
+"temp" OR 
+"powershell.exe" OR 
+"wbem" OR 
+"Event ID" OR "EventID" OR 
+".bat" OR 
+".ps1" OR 
+".lnk" OR 
+".vhdx" OR 
+".iso" OR 
+"Command" OR 
+"pipe" OR 
+"MZ" OR 
+"svchost" OR 
+"accepteula" OR 
+"lsass.exe" OR 
+"WINDIR" OR 
+"wintmp"
+
+# VERSION THAT WILL WORK WITH YOUR BOOLEANSEARCHPARSER:
+# This version uses only word characters and simple terms that the parser can handle
+# Note: Case-insensitive search means we don't need multiple case variations
+"rundll32" OR "comspec" OR "msiexec" OR "wmic" OR "iex" OR "findstr" OR 
+"hkey" OR "hklm" OR "appdata" OR "programdata" OR 
+"temp" OR 
+"powershell" OR 
+"wbem" OR 
+"Event" OR 
+"ID" OR 
+"EventID" OR 
+"bat" OR 
+"ps1" OR 
+"lnk" OR 
+"vhdx" OR 
+"iso" OR 
+"Command" OR 
+"pipe" OR 
+"MZ" OR 
+"svchost" OR 
+"accepteula" OR 
+"lsass" OR 
+"WINDIR" OR 
+"wintmp"
+
+# RECOMMENDED APPROACH FOR YOUR SEARCH FUNCTION:
+# Break into multiple focused queries for better results:
+
+# Query 1: Process names
+"rundll32" OR "comspec" OR "msiexec" OR "wmic" OR "iex" OR "findstr" OR "powershell" OR "svchost" OR "lsass"
+
+# Query 2: Registry and paths
+"hkey" OR "hklm" OR "appdata" OR "programdata" OR "temp" OR "windows" OR "windir"
+
+# Query 3: File extensions
+"bat" OR "ps1" OR "lnk" OR "vhdx" OR "iso"
+
+# Query 4: Technical indicators
+"wbem" OR "EventID" OR "Event ID" OR "Command" OR "pipe" OR "MZ" OR "accepteula"
+
+# NOTES:
+# - All searches are case-insensitive (no need for multiple case variations)
+# - Use quotes for exact phrase matching
+# - Use OR for multiple terms (any can match)
+# - Use AND for required terms (all must match)
+# - Use NOT to exclude terms

@@ -24,6 +24,7 @@ from sqlalchemy.orm import selectinload
 from src.database.models import Base, SourceTable, ArticleTable, SourceCheckTable
 from src.models.source import Source, SourceCreate, SourceUpdate, SourceFilter
 from src.models.article import Article, ArticleCreate, ArticleUpdate
+from src.services.deduplication import DeduplicationService
 
 logger = logging.getLogger(__name__)
 
@@ -428,49 +429,29 @@ class AsyncDatabaseManager:
             return []
     
     async def create_article(self, article: ArticleCreate) -> Optional[Article]:
-        """Create a new article in the database."""
+        """Create a new article in the database with deduplication."""
         try:
             async with self.get_session() as session:
-                # Convert timezone-aware datetimes to timezone-naive
-                published_at = article.published_at
-                if published_at.tzinfo is not None:
-                    published_at = published_at.replace(tzinfo=None)
+                # Use deduplication service
+                dedup_service = DeduplicationService(session)
                 
-                modified_at = article.modified_at
-                if modified_at and modified_at.tzinfo is not None:
-                    modified_at = modified_at.replace(tzinfo=None)
+                # Create article with deduplication checks
+                created, new_article, similar_articles = dedup_service.create_article_with_deduplication(article)
                 
-                # Quality scoring removed - set to NULL
-                quality_score = None
+                if not created:
+                    logger.info(f"Duplicate article detected: {article.title}")
+                    # Return the existing article
+                    return self._db_article_to_model(new_article)
                 
-                # Calculate word count
-                word_count = len(article.content.split()) if article.content else 0
+                # Log similar articles if found
+                if similar_articles:
+                    logger.info(f"Created article with {len(similar_articles)} similar articles: {article.title}")
                 
-                # Convert ArticleCreate to ArticleTable
-                db_article = ArticleTable(
-                    source_id=article.source_id,
-                    canonical_url=article.canonical_url,
-                    title=article.title,
-                    published_at=published_at,
-                    modified_at=modified_at,
-                    authors=article.authors,
-                    tags=article.tags,
-                    summary=article.summary,
-                    content=article.content,
-                    content_hash=article.content_hash,
-                    article_metadata=article.metadata,
-                    quality_score=quality_score,
-                    word_count=word_count,
-                    discovered_at=datetime.utcnow(),  # Set current time
-                    processing_status="pending"  # Default status
-                )
-                
-                session.add(db_article)
                 await session.commit()
-                await session.refresh(db_article)
+                await session.refresh(new_article)
                 
-                logger.info(f"Created article: {article.title}")
-                return self._db_article_to_model(db_article)
+                logger.info(f"Created article with deduplication: {article.title}")
+                return self._db_article_to_model(new_article)
                 
         except Exception as e:
             logger.error(f"Failed to create article: {e}")

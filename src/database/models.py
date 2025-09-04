@@ -1,8 +1,8 @@
-"""SQLAlchemy database models."""
+"""SQLAlchemy database models with enhanced deduplication support."""
 
 from datetime import datetime
 from typing import Dict, Any, List, Optional
-from sqlalchemy import Column, Integer, String, DateTime, Boolean, Float, Text, ForeignKey, JSON
+from sqlalchemy import Column, Integer, String, DateTime, Boolean, Float, Text, ForeignKey, JSON, BigInteger
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import UUID
@@ -49,7 +49,7 @@ class SourceTable(Base):
 
 
 class ArticleTable(Base):
-    """Database table for articles."""
+    """Database table for articles with enhanced deduplication."""
     
     __tablename__ = 'articles'
     
@@ -65,6 +65,10 @@ class ArticleTable(Base):
     content = Column(Text, nullable=False)
     content_hash = Column(String(64), nullable=False, unique=True, index=True)
     article_metadata = Column(JSON, nullable=False, default=dict)
+    
+    # Enhanced deduplication fields
+    simhash = Column(BigInteger, nullable=True, index=True)  # 64-bit SimHash for near-duplicate detection
+    simhash_bucket = Column(Integer, nullable=True, index=True)  # Bucket for efficient SimHash lookup
     
     # Processing fields
     discovered_at = Column(DateTime, nullable=False, default=func.now())
@@ -120,6 +124,21 @@ class ContentHashTable(Base):
     
     def __repr__(self):
         return f"<ContentHash(hash='{self.content_hash[:8]}...', article_id={self.article_id})>"
+
+
+class SimHashBucketTable(Base):
+    """Database table for SimHash bucket tracking (for near-duplicate detection)."""
+    
+    __tablename__ = 'simhash_buckets'
+    
+    id = Column(Integer, primary_key=True, index=True)
+    bucket_id = Column(Integer, nullable=False, index=True)  # SimHash bucket number
+    simhash = Column(BigInteger, nullable=False, index=True)  # 64-bit SimHash value
+    article_id = Column(Integer, ForeignKey('articles.id'), nullable=False)
+    first_seen = Column(DateTime, nullable=False, default=func.now())
+    
+    def __repr__(self):
+        return f"<SimHashBucket(bucket={self.bucket_id}, simhash={self.simhash}, article_id={self.article_id})>"
 
 
 class URLTrackingTable(Base):
