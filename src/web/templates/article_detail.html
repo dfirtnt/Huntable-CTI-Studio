@@ -67,6 +67,31 @@
                         <span class="mr-2">🆔</span>
                         <span>#{{ article.id }}</span>
                     </div>
+                    {% if article.metadata and article.metadata.get('threat_hunting_score') is not none %}
+                    <div class="flex items-center">
+                        <span class="mr-2">🎯</span>
+                        <span>Threat Hunting Score: 
+                            {% set score = article.metadata.get('threat_hunting_score', 0) %}
+                            {% if score >= 80 %}
+                                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                    🎯 {{ "%.1f"|format(score) }}
+                                </span>
+                            {% elif score >= 60 %}
+                                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                                    🟡 {{ "%.1f"|format(score) }}
+                                </span>
+                            {% elif score >= 40 %}
+                                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
+                                    🟠 {{ "%.1f"|format(score) }}
+                                </span>
+                            {% else %}
+                                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                                    🔴 {{ "%.1f"|format(score) }}
+                                </span>
+                            {% endif %}
+                        </span>
+                    </div>
+                    {% endif %}
                 </div>
 
                 {% if article.canonical_url %}

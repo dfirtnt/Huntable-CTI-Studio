@@ -302,23 +302,31 @@ class RSSParser:
             # Return None to indicate extraction failure - this article will be rejected
             return None
         
-        # Special handling for The Hacker News - use RSS content instead of scraping
+        # Special handling for The Hacker News - try modern scraping first, fallback to RSS
         if 'thehackernews.com' in url.lower():
-            logger.info(f"The Hacker News URL detected, using RSS content: {url}")
-            # Return the RSS content directly instead of trying to scrape the website
+            logger.info(f"The Hacker News URL detected, trying modern scraping first: {url}")
+            try:
+                # Try modern scraping to get full content
+                modern_content = await self._extract_with_modern_scraping(url, source)
+                if modern_content:
+                    modern_text_length = len(ContentCleaner.html_to_text(modern_content).strip())
+                    if modern_text_length > 1000:  # Ensure we got substantial content
+                        logger.info(f"Modern scraping successful for The Hacker News: {modern_text_length} chars")
+                        return modern_content
+                    else:
+                        logger.info(f"Modern scraping didn't provide substantial content: {modern_text_length} chars")
+                else:
+                    logger.info(f"Modern scraping failed for The Hacker News, using RSS content")
+            except Exception as e:
+                logger.warning(f"Modern scraping failed for The Hacker News {url}: {e}")
+            
+            # Fallback to RSS content if modern scraping fails
             if content and len(ContentCleaner.html_to_text(content).strip()) > 100:
+                logger.info(f"Using RSS content for The Hacker News: {len(ContentCleaner.html_to_text(content).strip())} chars")
                 return ContentCleaner.clean_html(content)
             return None
         
         # If feed content is insufficient, fetch from URL with retry strategies
-        # Skip scraping for The Hacker News since we're using RSS content
-        if 'thehackernews.com' in url.lower():
-            # Return feed content even if short
-            if content:
-                cleaned_content = ContentCleaner.clean_html(content)
-                return cleaned_content
-            return None
-            
         try:
             response = None
             for attempt in range(2):  # Try twice with different approaches
@@ -354,6 +362,9 @@ class RSSParser:
             
             # Try comprehensive content selectors (prioritized by likelihood)
             content_selectors = [
+                # The Hacker News specific (prioritized)
+                '.post-body', '.entry-content', '.post-content', '.article-content',
+                '.post-body .entry-content', '.entry-content .post-body',
                 # CrowdStrike specific (prioritized)
                 '.blog-post-content', '.blog-content', '.post-content', '.article-content',
                 '.blog-post-body', '.post-body', '.article-body',
@@ -427,6 +438,9 @@ class RSSParser:
             
             # Try comprehensive content selectors (prioritized by likelihood)
             content_selectors = [
+                # The Hacker News specific (prioritized)
+                '.post-body', '.entry-content', '.post-content', '.article-content',
+                '.post-body .entry-content', '.entry-content .post-body',
                 # Modern blog platforms
                 '.blog-post-content', '.post-body', '.article-body', '.entry-body',
                 # Medium/modern platforms
@@ -484,12 +498,12 @@ class RSSParser:
         
         # Ensure sufficient content length and word count
         words = text.split()
-        if len(words) < 50:  # Less than 50 words is probably not full content
+        if len(words) < 30:  # Reduced from 50 to 30 words
             return False
         
         # Check for reasonable content structure (paragraphs, sentences)
         sentences = text.count('.') + text.count('!') + text.count('?')
-        if sentences < 3:  # Very few sentences suggests incomplete content
+        if sentences < 2:  # Reduced from 3 to 2 sentences
             return False
         
         logger.debug(f"Quality content validated: {len(text)} chars, {len(words)} words, {sentences} sentences")
