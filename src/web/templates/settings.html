@@ -86,7 +86,7 @@
         </div>
 
         <!-- API Configuration -->
-        <div class="bg-white rounded-lg shadow-sm p-6">
+        <div id="apiConfigurationSection" class="bg-white rounded-lg shadow-sm p-6" style="display: none;">
             <h2 class="text-xl font-bold text-gray-900 mb-4">🔑 API Configuration</h2>
             
             <div class="space-y-4">
@@ -172,6 +172,21 @@
         // Set AI model
         const aiModel = settings.aiModel || 'chatgpt';
         document.getElementById('aiModel').value = aiModel;
+        
+        // Update API Configuration section visibility
+        updateApiConfigurationVisibility();
+    }
+    
+    // Update API Configuration section visibility based on AI model selection
+    function updateApiConfigurationVisibility() {
+        const aiModel = document.getElementById('aiModel').value;
+        const apiSection = document.getElementById('apiConfigurationSection');
+        
+        if (aiModel === 'chatgpt') {
+            apiSection.style.display = 'block';
+        } else {
+            apiSection.style.display = 'none';
+        }
     }
     
     // Save settings to localStorage
@@ -351,6 +366,11 @@
         // Comment prompts toggle
         document.getElementById('commentPromptsToggle').addEventListener('click', function() {
             toggleSwitch('commentPromptsToggle');
+        });
+        
+        // AI model selection
+        document.getElementById('aiModel').addEventListener('change', function() {
+            updateApiConfigurationVisibility();
         });
         
         // API key visibility toggle
