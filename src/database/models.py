@@ -2,7 +2,7 @@
 
 from datetime import datetime
 from typing import Dict, Any, List, Optional
-from sqlalchemy import Column, Integer, String, DateTime, Boolean, Float, Text, ForeignKey, JSON, BigInteger
+from sqlalchemy import Column, Integer, String, DateTime, Boolean, Float, Text, ForeignKey, JSON, Numeric
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import UUID
@@ -67,7 +67,7 @@ class ArticleTable(Base):
     article_metadata = Column(JSON, nullable=False, default=dict)
     
     # Enhanced deduplication fields
-    simhash = Column(BigInteger, nullable=True, index=True)  # 64-bit SimHash for near-duplicate detection
+    simhash = Column(Numeric(20, 0), nullable=True, index=True)  # 64-bit SimHash for near-duplicate detection
     simhash_bucket = Column(Integer, nullable=True, index=True)  # Bucket for efficient SimHash lookup
     
     # Processing fields
@@ -133,7 +133,7 @@ class SimHashBucketTable(Base):
     
     id = Column(Integer, primary_key=True, index=True)
     bucket_id = Column(Integer, nullable=False, index=True)  # SimHash bucket number
-    simhash = Column(BigInteger, nullable=False, index=True)  # 64-bit SimHash value
+    simhash = Column(Numeric(20, 0), nullable=False, index=True)  # 64-bit SimHash value
     article_id = Column(Integer, ForeignKey('articles.id'), nullable=False)
     first_seen = Column(DateTime, nullable=False, default=func.now())
     

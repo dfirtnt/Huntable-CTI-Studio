@@ -21,14 +21,14 @@ logger = logging.getLogger(__name__)
 def run_migration():
     """Run the SimHash migration."""
     try:
-        # Connect to PostgreSQL database
-        database_url = "postgresql+asyncpg://cti_user:cti_password_2024@localhost:5432/cti_scraper"
+        # Connect to PostgreSQL database using environment variables
+        database_url = "postgresql://cti_user:cti_password_2024@postgres:5432/cti_scraper"
         
         # Create synchronous engine for migration
-        engine = create_engine(database_url.replace("+asyncpg", ""))
+        engine = create_engine(database_url)
         
         # Read and execute migration SQL
-        migration_file = "init.sql/migrations/002_add_simhash_deduplication.sql"
+        migration_file = "/app/init.sql/migrations/002_add_simhash_deduplication.sql"
         
         if not os.path.exists(migration_file):
             logger.error(f"Migration file not found: {migration_file}")
@@ -64,8 +64,8 @@ def backfill_simhash():
     """Backfill SimHash values for existing articles."""
     try:
         # Connect to database
-        database_url = "postgresql+asyncpg://cti_user:cti_password_2024@localhost:5432/cti_scraper"
-        engine = create_engine(database_url.replace("+asyncpg", ""))
+        database_url = "postgresql://cti_user:cti_password_2024@postgres:5432/cti_scraper"
+        engine = create_engine(database_url)
         SessionLocal = sessionmaker(bind=engine)
         
         with SessionLocal() as session:
