@@ -7,7 +7,6 @@ from urllib.parse import urljoin, urlparse
 from datetime import datetime
 import logging
 from bs4 import BeautifulSoup
-import extruct
 
 from src.models.article import ArticleCreate
 from src.models.source import Source
@@ -207,13 +206,28 @@ class StructuredDataExtractor:
             Dictionary with extracted structured data
         """
         try:
-            # Use extruct to extract structured data
-            data = extruct.extract(
-                html,
-                base_url=base_url,
-                syntaxes=['json-ld', 'opengraph', 'microdata', 'microformat'],
-                uniform=True
-            )
+            # Simplified structured data extraction without extruct
+            data = {
+                'json-ld': [],
+                'opengraph': [],
+                'microdata': [],
+                'microformat': []
+            }
+            
+            # Basic JSON-LD extraction
+            soup = BeautifulSoup(html, 'html.parser')
+            json_ld_scripts = soup.find_all('script', type='application/ld+json')
+            
+            for script in json_ld_scripts:
+                try:
+                    import json
+                    json_data = json.loads(script.string)
+                    if isinstance(json_data, dict):
+                        data['json-ld'].append(json_data)
+                    elif isinstance(json_data, list):
+                        data['json-ld'].extend(json_data)
+                except Exception:
+                    continue
             
             return data
             
