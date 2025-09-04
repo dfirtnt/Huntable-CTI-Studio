@@ -12,6 +12,18 @@ Modern threat intelligence collection and analysis platform. Collects articles f
 - **Robots.txt compliance** with per-source configuration and rate limiting
 - **Source tiering system** (premium/standard/basic) for priority management
 
+## Documentation
+
+Comprehensive documentation is available in the `docs/` directory:
+
+- **📚 [Documentation Overview](docs/README.md)** - Complete documentation index
+- **🐳 [Docker Architecture](docs/deployment/DOCKER_ARCHITECTURE.md)** - Complete Docker setup and architecture guide
+- **🧪 [Testing Guide](docs/development/TESTING_GUIDE.md)** - Comprehensive testing documentation
+- **🔍 [Search Documentation](docs/development/boolean-search.md)** - Boolean search implementation
+- **📊 [Database Queries](docs/development/DATABASE_QUERY_GUIDE.md)** - Database operations guide
+
+For quick reference, see the [Documentation Overview](docs/README.md) for a complete index of all available documentation.
+
 ## Repository Layout
 
 ```
