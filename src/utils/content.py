@@ -409,6 +409,10 @@ def validate_content(title: str, content: str, url: str) -> List[str]:
         elif len(content.strip()) > 50000:
             issues.append("Content too long")
         
+        # Check for binary/corrupted content
+        if _is_binary_content(content):
+            issues.append("Content appears to be binary/corrupted data")
+        
         # URL validation
         if not url or not url.startswith(('http://', 'https://')):
             issues.append("Invalid URL format")
@@ -429,6 +433,45 @@ def validate_content(title: str, content: str, url: str) -> List[str]:
         issues.append("Validation error")
     
     return issues
+
+
+def _is_binary_content(content: str) -> bool:
+    """Check if content appears to be binary/corrupted data."""
+    if not content:
+        return False
+    
+    # Check for high ratio of non-printable characters
+    non_printable_count = sum(1 for c in content if not c.isprintable() and not c.isspace())
+    total_chars = len(content)
+    
+    if total_chars > 0:
+        non_printable_ratio = non_printable_count / total_chars
+        if non_printable_ratio > 0.1:  # More than 10% non-printable
+            return True
+    
+    # Check for common binary patterns
+    binary_patterns = [
+        b'\x00', b'\xff', b'\xfe', b'\xfd', b'\xfc',  # Common binary bytes
+        b'\x1f\x8b',  # Gzip header
+        b'PK\x03\x04',  # ZIP header
+        b'\x89PNG',  # PNG header
+        b'GIF8',  # GIF header
+        b'\xff\xd8\xff',  # JPEG header
+    ]
+    
+    try:
+        content_bytes = content.encode('utf-8', errors='ignore')
+        for pattern in binary_patterns:
+            if pattern in content_bytes:
+                return True
+    except Exception:
+        pass
+    
+    # Check for excessive unicode replacement characters
+    if content.count('�') > len(content) * 0.05:  # More than 5% replacement chars
+        return True
+    
+    return False
 
 
 class ThreatHuntingScorer:
