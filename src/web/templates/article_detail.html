@@ -166,13 +166,6 @@
                 <span class="mr-2">📝</span>
                 ChatGPT Summary
             </button>
-            
-            <!-- Test Button -->
-            <button onclick="alert('Button test - ChatGPT Summary function exists!')" 
-                    class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-colors">
-                <span class="mr-2">🧪</span>
-                Test Button
-            </button>
         </div>
         
         <!-- Navigation Buttons -->
@@ -414,7 +407,9 @@
         // Create notification element
         const notification = document.createElement('div');
         notification.className = `fixed top-4 right-4 z-50 p-4 rounded-md shadow-lg max-w-sm ${
-            type === 'success' ? 'bg-green-500 text-white' : 'bg-red-500 text-white'
+            type === 'success' ? 'bg-green-500 text-white' : 
+            type === 'error' ? 'bg-red-500 text-white' : 
+            type === 'info' ? 'bg-blue-500 text-white' : 'bg-gray-500 text-white'
         }`;
         notification.textContent = message;
         
@@ -514,8 +509,8 @@
     
     async function analyzeThreatHunting(analyzeContent) {
         closeAnalysisOptionsModal();
-    
-    async function analyzeThreatHunting(analyzeContent) {
+        
+        // Show loading modal
         // Show loading modal
         const loadingModal = document.createElement('div');
         loadingModal.id = 'loadingModal';
@@ -777,6 +772,15 @@
     async function generateChatGPTSummary() {
         console.log('ChatGPT Summary button clicked!'); // Debug log
         
+        // Get API key from settings
+        const settings = JSON.parse(localStorage.getItem('ctiScraperSettings') || '{}');
+        const apiKey = settings.openaiApiKey;
+        
+        if (!apiKey) {
+            showNotification('Please configure your OpenAI API key in Settings first', 'error');
+            return;
+        }
+        
         // Show loading modal
         const loadingModal = document.createElement('div');
         loadingModal.id = 'loadingModal';
@@ -804,8 +808,10 @@
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
-                    include_content: true  // Set to false to send only URL
-                })
+                    include_content: true,  // Set to false to send only URL
+                    api_key: apiKey  // Send API key from settings
+                }),
+                signal: AbortSignal.timeout(60000)  // 60 second timeout
             });
             
             console.log('Response status:', response.status); // Debug log
@@ -821,7 +827,11 @@
             }
         } catch (error) {
             console.error('JavaScript error:', error); // Debug log
-            showNotification(`Error: ${error.message}`, 'error');
+            if (error.name === 'TimeoutError') {
+                showNotification('ChatGPT Summary timed out after 60 seconds. Try using metadata-only analysis or configure OpenAI API key for faster results.', 'error');
+            } else {
+                showNotification(`Error: ${error.message}`, 'error');
+            }
         } finally {
             // Remove loading modal
             const loadingModal = document.getElementById('loadingModal');
