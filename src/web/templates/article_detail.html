@@ -145,6 +145,13 @@
                 <span class="mr-2">⏳</span>
                 Mark as Unclassified
             </button>
+            
+            <!-- Threat Hunting Analysis Button -->
+            <button onclick="showThreatHuntingAnalysis()" 
+                    class="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-colors">
+                <span class="mr-2">🔍</span>
+                Threat Hunting Analysis
+            </button>
         </div>
         
         <!-- Navigation Buttons -->
@@ -423,6 +430,181 @@
     function navigateToNext() {
         const currentId = {{ article.id }};
         window.location.href = `/articles/${currentId + 1}`;
+    }
+    
+    // Threat Hunting Analysis Functions
+    function showThreatHuntingAnalysis() {
+        // Check if we already have an analysis
+        const existingAnalysis = {{ article.metadata.get('threat_hunting_analysis', {}).get('analysis', 'null') | tojson }};
+        
+        if (existingAnalysis && existingAnalysis !== 'null') {
+            // Show existing analysis
+            showAnalysisModal(existingAnalysis, true);
+        } else {
+            // Show options for new analysis
+            showAnalysisOptionsModal();
+        }
+    }
+    
+    function showAnalysisOptionsModal() {
+        const modal = document.createElement('div');
+        modal.id = 'analysisOptionsModal';
+        modal.className = 'fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50';
+        modal.innerHTML = `
+            <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+                <div class="mt-3 text-center">
+                    <h3 class="text-lg font-medium text-gray-900 mb-4">🔍 Threat Hunting Analysis</h3>
+                    <p class="text-sm text-gray-500 mb-6">Choose what to analyze:</p>
+                    
+                    <div class="space-y-3">
+                        <button onclick="analyzeThreatHunting(false)" 
+                                class="w-full inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
+                            <span class="mr-2">📋</span>
+                            Analyze Metadata Only (Faster)
+                        </button>
+                        
+                        <button onclick="analyzeThreatHunting(true)" 
+                                class="w-full inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-colors">
+                            <span class="mr-2">📄</span>
+                            Analyze Full Content (More Detailed)
+                        </button>
+                        
+                        <button onclick="closeAnalysisOptionsModal()" 
+                                class="w-full inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-colors">
+                            Cancel
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+    }
+    
+    function closeAnalysisOptionsModal() {
+        const modal = document.getElementById('analysisOptionsModal');
+        if (modal) {
+            modal.remove();
+        }
+    }
+    
+    async function analyzeThreatHunting(analyzeContent) {
+        closeAnalysisOptionsModal();
+        
+        // Show loading modal
+        const loadingModal = document.createElement('div');
+        loadingModal.id = 'loadingModal';
+        loadingModal.className = 'fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50';
+        loadingModal.innerHTML = `
+            <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+                <div class="mt-3 text-center">
+                    <div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-purple-100">
+                        <svg class="animate-spin h-6 w-6 text-purple-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                    </div>
+                    <h3 class="text-lg font-medium text-gray-900 mt-4">Analyzing Article...</h3>
+                    <p class="text-sm text-gray-500 mt-2">This may take a few moments.</p>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(loadingModal);
+        
+        try {
+            const response = await fetch(`/api/articles/{{ article.id }}/analyze-threat-hunting`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    analyze_content: analyzeContent
+                })
+            });
+            
+            if (response.ok) {
+                const data = await response.json();
+                showAnalysisModal(data.analysis, false, data);
+            } else {
+                const error = await response.json();
+                showNotification(`Analysis failed: ${error.detail}`, 'error');
+            }
+        } catch (error) {
+            showNotification(`Error: ${error.message}`, 'error');
+        } finally {
+            // Remove loading modal
+            const loadingModal = document.getElementById('loadingModal');
+            if (loadingModal) {
+                loadingModal.remove();
+            }
+        }
+    }
+    
+    function showAnalysisModal(analysis, isExisting = false, data = null) {
+        const modal = document.createElement('div');
+        modal.id = 'analysisModal';
+        modal.className = 'fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50';
+        
+        const analysisType = data?.analyzed_content ? 'Full Content' : 'Metadata Only';
+        const modelUsed = data?.model_used || 'Unknown';
+        const analyzedAt = data?.analyzed_at ? new Date(data.analyzed_at).toLocaleString() : 'Unknown';
+        
+        modal.innerHTML = `
+            <div class="relative top-10 mx-auto p-5 border w-11/12 max-w-4xl shadow-lg rounded-md bg-white">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-xl font-bold text-gray-900">🔍 Threat Hunting Analysis</h3>
+                    <button onclick="closeAnalysisModal()" class="text-gray-400 hover:text-gray-600">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </button>
+                </div>
+                
+                <div class="mb-4 p-3 bg-gray-50 rounded-md">
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                        <div>
+                            <span class="font-medium text-gray-700">Analysis Type:</span>
+                            <span class="text-gray-900">${analysisType}</span>
+                        </div>
+                        <div>
+                            <span class="font-medium text-gray-700">Model Used:</span>
+                            <span class="text-gray-900">${modelUsed}</span>
+                        </div>
+                        <div>
+                            <span class="font-medium text-gray-700">Analyzed At:</span>
+                            <span class="text-gray-900">${analyzedAt}</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="bg-gray-50 rounded-lg p-4 max-h-96 overflow-y-auto">
+                    <div class="prose max-w-none">
+                        <pre class="whitespace-pre-wrap text-sm text-gray-800 font-mono">${analysis}</pre>
+                    </div>
+                </div>
+                
+                <div class="mt-4 flex justify-end space-x-3">
+                    ${!isExisting ? `
+                    <button onclick="analyzeThreatHunting(true)" 
+                            class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-colors">
+                        <span class="mr-2">📄</span>
+                        Analyze Full Content
+                    </button>
+                    ` : ''}
+                    <button onclick="closeAnalysisModal()" 
+                            class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-colors">
+                        Close
+                    </button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+    }
+    
+    function closeAnalysisModal() {
+        const modal = document.getElementById('analysisModal');
+        if (modal) {
+            modal.remove();
+        }
     }
 </script>
 {% endblock %}

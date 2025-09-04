@@ -51,6 +51,10 @@ services:
       - REDIS_URL=redis://:cti_redis_2024@redis:6379/0
       - ENVIRONMENT=production
       - LOG_LEVEL=INFO
+      - LLM_API_URL=http://cti_ollama:11434
+      - LLM_MODEL=mistral
+      - LLM_TEMPERATURE=0.3
+      - LLM_MAX_TOKENS=2048
     ports:
       - "8000:8000"
     volumes:

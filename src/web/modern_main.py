@@ -6,11 +6,14 @@ Uses async/await, PostgreSQL, and proper connection management.
 
 import os
 import sys
+import json
+import asyncio
 import logging
+import httpx
 from pathlib import Path
 from typing import List, Optional, Dict, Any
 from contextlib import asynccontextmanager
-from datetime import datetime
+from datetime import datetime, timedelta
 from collections import defaultdict
 
 from fastapi import FastAPI, HTTPException, Depends, BackgroundTasks, Request
@@ -29,7 +32,7 @@ sys.path.insert(0, str(src_path))
 
 from src.database.async_manager import async_db_manager
 from src.models.source import Source, SourceUpdate, SourceFilter
-from src.models.article import Article
+from src.models.article import Article, ArticleUpdate
 from src.worker.celery_app import test_source_connectivity, collect_from_source
 from src.utils.search_parser import parse_boolean_search, get_search_help_text
 
@@ -541,6 +544,194 @@ async def api_classify_article(article_id: int, request: Request):
         raise
     except Exception as e:
         logger.error(f"API classify article error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/articles/{article_id}/analyze-threat-hunting")
+async def api_analyze_threat_hunting(article_id: int, request: Request):
+    """API endpoint for analyzing an article with CustomGPT for threat hunting and detection engineering."""
+    try:
+        # Get the article
+        article = await async_db_manager.get_article(article_id)
+        if not article:
+            raise HTTPException(status_code=404, detail="Article not found")
+        
+        # Get request body to determine what to analyze
+        body = await request.json()
+        analyze_content = body.get('analyze_content', False)  # Default to URL only
+        
+        # Prepare the analysis prompt
+        if analyze_content:
+            # Analyze both URL and content
+            prompt = f"""As a cybersecurity expert specializing in threat hunting and detection engineering, analyze this threat intelligence article for its usefulness to security professionals.
+
+Article Title: {article.title}
+Source URL: {article.canonical_url or 'N/A'}
+Published Date: {article.published_at or 'N/A'}
+
+Article Content:
+{article.content[:2000]}  # Limit content to avoid token limits
+
+Please provide a comprehensive analysis covering:
+
+1. **Threat Hunting Value** (1-10 scale):
+   - How useful is this for threat hunters?
+   - What indicators of compromise (IOCs) are mentioned?
+   - What attack techniques are described?
+
+2. **Detection Engineering Value** (1-10 scale):
+   - How useful is this for creating detection rules?
+   - What detection opportunities are present?
+   - What log sources would be relevant?
+
+3. **Key Technical Details**:
+   - Specific malware families, tools, or techniques
+   - Network indicators, file hashes, registry keys
+   - Process names, command lines, or behaviors
+
+4. **Actionable Intelligence**:
+   - Specific detection rules that could be created
+   - Threat hunting queries that could be used
+   - Recommended monitoring areas
+
+5. **Overall Assessment**:
+   - Summary of the article's value
+   - Priority level for security teams
+   - Recommended next steps
+
+Please be specific and actionable in your analysis."""
+        else:
+            # Analyze URL and metadata only
+            prompt = f"""As a cybersecurity expert specializing in threat hunting and detection engineering, analyze this threat intelligence article for its potential usefulness to security professionals.
+
+Article Title: {article.title}
+Source URL: {article.canonical_url or 'N/A'}
+Published Date: {article.published_at or 'N/A'}
+Source: {article.source_id}
+Content Length: {len(article.content)} characters
+
+Based on the title, source, and metadata, please provide an initial assessment:
+
+1. **Potential Threat Hunting Value** (1-10 scale):
+   - How promising does this article look for threat hunters?
+   - What types of threats might be discussed?
+
+2. **Potential Detection Engineering Value** (1-10 scale):
+   - How promising does this look for detection rule creation?
+   - What detection opportunities might be present?
+
+3. **Source Credibility**:
+   - How reliable is this source typically?
+   - What is the source's reputation in the security community?
+
+4. **Recommended Next Steps**:
+   - Should the full content be analyzed?
+   - What specific aspects should be focused on?
+
+Please provide a brief but insightful analysis based on the available metadata."""
+        
+        # Get CustomGPT configuration from environment
+        customgpt_api_url = os.getenv('CUSTOMGPT_API_URL')
+        customgpt_api_key = os.getenv('CUSTOMGPT_API_KEY')
+        
+        if not customgpt_api_url or not customgpt_api_key:
+            # Fallback to Ollama if CustomGPT not configured
+            ollama_url = os.getenv('LLM_API_URL', 'http://cti_ollama:11434')
+            ollama_model = os.getenv('LLM_MODEL', 'mistral')
+            
+            logger.info(f"Using Ollama at {ollama_url} with model {ollama_model}")
+            
+            # Use Ollama API
+            async with httpx.AsyncClient() as client:
+                try:
+                    response = await client.post(
+                        f"{ollama_url}/api/generate",
+                        json={
+                            "model": ollama_model,
+                            "prompt": prompt,
+                            "stream": False,
+                            "options": {
+                                "temperature": 0.3,
+                                "num_predict": 2048
+                            }
+                        },
+                        timeout=180.0
+                    )
+                    
+                    if response.status_code != 200:
+                        logger.error(f"Ollama API error: {response.status_code} - {response.text}")
+                        raise HTTPException(status_code=500, detail=f"Failed to get analysis from Ollama: {response.status_code}")
+                    
+                    result = response.json()
+                    analysis = result.get('response', 'No analysis available')
+                    logger.info(f"Successfully got analysis from Ollama: {len(analysis)} characters")
+                    
+                except Exception as e:
+                    logger.error(f"Ollama API request failed: {e}")
+                    logger.error(f"Exception type: {type(e)}")
+                    logger.error(f"Exception args: {e.args}")
+                    import traceback
+                    logger.error(f"Traceback: {traceback.format_exc()}")
+                    raise HTTPException(status_code=500, detail=f"Failed to get analysis from Ollama: {str(e)}")
+                
+        else:
+            # Use CustomGPT API
+            async with httpx.AsyncClient() as client:
+                response = await client.post(
+                    f"{customgpt_api_url}/v1/chat/completions",
+                    headers={
+                        "Authorization": f"Bearer {customgpt_api_key}",
+                        "Content-Type": "application/json"
+                    },
+                    json={
+                        "model": "gpt-4",  # or your specific CustomGPT model
+                        "messages": [
+                            {
+                                "role": "system",
+                                "content": "You are a cybersecurity expert specializing in threat hunting and detection engineering. Provide clear, actionable analysis of threat intelligence articles."
+                            },
+                            {
+                                "role": "user",
+                                "content": prompt
+                            }
+                        ],
+                        "max_tokens": 2048,
+                        "temperature": 0.3
+                    },
+                    timeout=60.0
+                )
+                
+                if response.status_code != 200:
+                    raise HTTPException(status_code=500, detail="Failed to get analysis from CustomGPT")
+                
+                result = response.json()
+                analysis = result['choices'][0]['message']['content']
+        
+        # Store the analysis in article metadata
+        current_metadata = article.metadata.copy() if article.metadata else {}
+        current_metadata['threat_hunting_analysis'] = {
+            'analysis': analysis,
+            'analyzed_at': datetime.now().isoformat(),
+            'analyzed_content': analyze_content,
+            'model_used': 'customgpt' if customgpt_api_url else 'ollama'
+        }
+        
+        # Update the article
+        update_data = ArticleUpdate(metadata=current_metadata)
+        await async_db_manager.update_article(article_id, update_data)
+        
+        return {
+            "success": True,
+            "article_id": article_id,
+            "analysis": analysis,
+            "analyzed_at": current_metadata['threat_hunting_analysis']['analyzed_at'],
+            "analyzed_content": analyze_content,
+            "model_used": current_metadata['threat_hunting_analysis']['model_used']
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"API analyze threat hunting error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 # Error handlers
