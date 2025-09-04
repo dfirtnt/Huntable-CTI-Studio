@@ -35,6 +35,7 @@ from src.models.source import Source, SourceUpdate, SourceFilter
 from src.models.article import Article, ArticleUpdate
 from src.worker.celery_app import test_source_connectivity, collect_from_source
 from src.utils.search_parser import parse_boolean_search, get_search_help_text
+from src.utils.ioc_extractor import HybridIOCExtractor, IOCExtractionResult
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -1315,7 +1316,7 @@ Please provide a brief but insightful analysis based on the available metadata."
 
 @app.post("/api/articles/{article_id}/extract-iocs")
 async def api_extract_iocs(article_id: int, request: Request):
-    """API endpoint for extracting IOCs from an article."""
+    """API endpoint for extracting IOCs from an article using hybrid approach."""
     try:
         # Get the article
         article = await async_db_manager.get_article(article_id)
@@ -1327,8 +1328,9 @@ async def api_extract_iocs(article_id: int, request: Request):
         include_content = body.get('include_content', True)  # Default to full content
         api_key = body.get('api_key')  # Get API key from request
         force_regenerate = body.get('force_regenerate', False)  # Force regeneration
+        use_llm_validation = body.get('use_llm_validation', True)  # Use LLM validation
         
-        logger.info(f"IOC extraction request for article {article_id}, api_key provided: {bool(api_key)}, force_regenerate: {force_regenerate}")
+        logger.info(f"IOC extraction request for article {article_id}, api_key provided: {bool(api_key)}, force_regenerate: {force_regenerate}, use_llm_validation: {use_llm_validation}")
         
         # If force regeneration is requested, skip cache check
         if not force_regenerate:
@@ -1344,138 +1346,38 @@ async def api_extract_iocs(article_id: int, request: Request):
                     "content_type": existing_iocs['content_type'],
                     "model_used": existing_iocs['model_used'],
                     "model_name": existing_iocs['model_name'],
+                    "extraction_method": existing_iocs.get('extraction_method', 'unknown'),
+                    "confidence": existing_iocs.get('confidence', 0.0),
                     "cached": True
                 }
         
-        # Check if API key is provided
-        if not api_key:
-            raise HTTPException(status_code=400, detail="OpenAI API key is required. Please configure it in Settings.")
+        # Initialize hybrid IOC extractor
+        ioc_extractor = HybridIOCExtractor(use_llm_validation=use_llm_validation)
         
-        # Prepare the IOC extraction prompt
+        # Prepare content for extraction
         if include_content:
-            # Smart content truncation for IOC extraction
-            content_limit = int(os.getenv('CHATGPT_CONTENT_LIMIT', '8000'))  # Conservative limit
-            
-            # Truncate content intelligently
-            content = article.content[:content_limit]
-            if len(article.content) > content_limit:
-                content += f"\n\n[Content truncated at {content_limit:,} characters. Full article has {len(article.content):,} characters.]"
-            
-            # IOC extraction prompt
-            prompt = f"""You are a cybersecurity analyst. Extract all Indicators of Compromise (IOCs) from the following threat intelligence report.
-
-CRITICAL: Return ONLY valid JSON. Do not include any explanatory text, comments, or markdown formatting.
-
-Rules:
-- Return results in valid JSON only.
-- Group by type: IP, Domain, URL, File Hash (MD5/SHA1/SHA256), Registry Key, File Path, Email, Mutex, Named Pipe, Process/Command-Line, Event ID.
-- Do not include plain text explanations.
-- Normalize values (lowercase domains, full paths, valid hash lengths).
-- Exclude non-IOC context (timestamps, CVEs, actor names, generic tool names).
-- If no IOCs are found, return the JSON structure with empty arrays.
-
-Input:
-{content}
-
-Output format (return ONLY this JSON structure):
-{{
-  "ip": [],
-  "domain": [],
-  "url": [],
-  "file_hash": [],
-  "registry_key": [],
-  "file_path": [],
-  "email": [],
-  "mutex": [],
-  "named_pipe": [],
-  "process_cmdline": [],
-  "event_id": []
-}}"""
+            content = article.content
         else:
-            # Metadata-only prompt
-            prompt = f"""You are a cybersecurity analyst. Based on the article metadata, provide guidance on potential IOCs that might be found in this threat intelligence report.
-
-Article Title: {article.title}
-Source URL: {article.canonical_url or 'N/A'}
-Published Date: {article.published_at or 'N/A'}
-Source: {article.source_id}
-Content Length: {len(article.content)} characters
-
-Based on the article title and metadata, provide:
-
-1. **Potential IOC Types**:
-   - What types of IOCs might be discussed?
-   - What threat categories are likely present?
-
-2. **Expected IOC Categories**:
-   - Network indicators (IPs, domains, URLs)
-   - File indicators (hashes, paths)
-   - System indicators (registry keys, processes)
-   - Other indicators (emails, mutexes, etc.)
-
-3. **Recommended Analysis**:
-   - Should the full content be analyzed?
-   - What specific IOC types to focus on?
-
-Please provide a brief but insightful analysis based on the available metadata."""
+            # Metadata-only content
+            content = f"Title: {article.title}\nURL: {article.canonical_url or 'N/A'}\nPublished: {article.published_at or 'N/A'}\nSource: {article.source_id}"
         
-        # Use ChatGPT API for IOC extraction
-        chatgpt_api_url = os.getenv('CHATGPT_API_URL', 'https://api.openai.com/v1/chat/completions')
-        
-        logger.info(f"Sending IOC extraction request to OpenAI for article {article_id}, content length: {len(content) if include_content else 'metadata only'}")
-        
-        async with httpx.AsyncClient() as client:
-            response = await client.post(
-                chatgpt_api_url,
-                headers={
-                    "Authorization": f"Bearer {api_key}",
-                    "Content-Type": "application/json"
-                },
-                json={
-                    "model": "gpt-4",
-                    "messages": [
-                        {
-                            "role": "system",
-                            "content": "You are a cybersecurity analyst specializing in IOC extraction. Extract all Indicators of Compromise from threat intelligence articles and return them in valid JSON format only. NEVER include explanatory text, comments, or markdown formatting. Return ONLY the JSON object."
-                        },
-                        {
-                            "role": "user",
-                            "content": prompt
-                        }
-                    ],
-                    "max_tokens": 2048,
-                    "temperature": 0.1  # Very low temperature for consistent JSON output
-                },
-                timeout=120.0
-            )
-            
-            if response.status_code != 200:
-                error_detail = f"Failed to extract IOCs: {response.status_code}"
-                if response.status_code == 401:
-                    error_detail = "Invalid API key. Please check your OpenAI API key in Settings."
-                elif response.status_code == 429:
-                    error_detail = "Rate limit exceeded. Please try again later."
-                elif response.status_code == 400:
-                    # Log the actual error from OpenAI
-                    try:
-                        error_response = response.json()
-                        logger.error(f"OpenAI API 400 error details: {error_response}")
-                        error_detail = f"OpenAI API error: {error_response.get('error', {}).get('message', 'Bad request')}"
-                    except:
-                        error_detail = "OpenAI API error: Bad request - check prompt format"
-                raise HTTPException(status_code=500, detail=error_detail)
-            
-            result = response.json()
-            iocs_json = result['choices'][0]['message']['content']
+        # Extract IOCs using hybrid approach
+        extraction_result = await ioc_extractor.extract_iocs(content, api_key)
         
         # Store the IOCs in article metadata
         current_metadata = article.metadata.copy() if article.metadata else {}
         current_metadata['extracted_iocs'] = {
-            'iocs': iocs_json,
+            'iocs': extraction_result.iocs,
             'extracted_at': datetime.now().isoformat(),
             'content_type': 'full content' if include_content else 'metadata only',
-            'model_used': 'chatgpt',
-            'model_name': 'gpt-4'
+            'model_used': 'hybrid' if extraction_result.extraction_method == 'hybrid' else 'iocextract',
+            'model_name': 'gpt-4' if extraction_result.extraction_method == 'hybrid' else 'iocextract',
+            'extraction_method': extraction_result.extraction_method,
+            'confidence': extraction_result.confidence,
+            'processing_time': extraction_result.processing_time,
+            'raw_count': extraction_result.raw_count,
+            'validated_count': extraction_result.validated_count,
+            'metadata': extraction_result.metadata
         }
         
         # Update the article
@@ -1485,11 +1387,16 @@ Please provide a brief but insightful analysis based on the available metadata."
         return {
             "success": True,
             "article_id": article_id,
-            "iocs": iocs_json,
+            "iocs": extraction_result.iocs,
             "extracted_at": current_metadata['extracted_iocs']['extracted_at'],
             "content_type": current_metadata['extracted_iocs']['content_type'],
             "model_used": current_metadata['extracted_iocs']['model_used'],
-            "model_name": current_metadata['extracted_iocs']['model_name']
+            "model_name": current_metadata['extracted_iocs']['model_name'],
+            "extraction_method": extraction_result.extraction_method,
+            "confidence": extraction_result.confidence,
+            "processing_time": extraction_result.processing_time,
+            "raw_count": extraction_result.raw_count,
+            "validated_count": extraction_result.validated_count
         }
         
     except HTTPException:
