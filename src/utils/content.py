@@ -9,6 +9,61 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+# Windows malware/threat hunting keywords from analysis
+WINDOWS_MALWARE_KEYWORDS = {
+    # Perfect discriminators (100% Chosen, 0% others)
+    'perfect_discriminators': [
+        'rundll32', 'comspec', 'msiexec', 'wmic', 'iex', 'findstr',
+        'hklm', 'appdata', 'programdata', 'powershell.exe', 'wbem',
+        'EventID', '.lnk', 'D:\\', '.iso', '<Command>', 'MZ',
+        'svchost', '-accepteula', 'lsass.exe', 'WINDIR', 'wintmp'
+    ],
+    # Good discriminators (high Chosen ratio)
+    'good_discriminators': [
+        'temp', '==', 'c:\\windows\\', 'Event ID', '.bat', '.ps1',
+        'pipe', '::', '[.]'
+    ],
+    # LOLBAS (Living Off the Land Binaries and Scripts) - 68 Chosen, 2 Rejected
+    'lolbas_executables': [
+        'AddinUtil.exe', 'AppInstaller.exe', 'Aspnet_Compiler.exe', 'At.exe', 'Atbroker.exe',
+        'Bash.exe', 'Bitsadmin.exe', 'CertOC.exe', 'CertReq.exe', 'Certutil.exe', 'Cipher.exe',
+        'Cmd.exe', 'Cmdkey.exe', 'cmdl32.exe', 'Cmstp.exe', 'Colorcpl.exe', 'ComputerDefaults.exe',
+        'ConfigSecurityPolicy.exe', 'Conhost.exe', 'Control.exe', 'Csc.exe', 'Cscript.exe',
+        'CustomShellHost.exe', 'DataSvcUtil.exe', 'Desktopimgdownldr.exe', 'DeviceCredentialDeployment.exe',
+        'Dfsvc.exe', 'Diantz.exe', 'Diskshadow.exe', 'Dnscmd.exe', 'Esentutl.exe', 'Eventvwr.exe',
+        'Expand.exe', 'Explorer.exe', 'Extexport.exe', 'Extrac32.exe', 'Findstr.exe', 'Finger.exe',
+        'fltMC.exe', 'Forfiles.exe', 'Fsutil.exe', 'Ftp.exe', 'Gpscript.exe', 'Hh.exe',
+        'IMEWDBLD.exe', 'Ie4uinit.exe', 'iediagcmd.exe', 'Ieexec.exe', 'Ilasm.exe', 'Infdefaultinstall.exe',
+        'Installutil.exe', 'Jsc.exe', 'Ldifde.exe', 'Makecab.exe', 'Mavinject.exe',
+        'Microsoft.Workflow.Compiler.exe', 'Mmc.exe', 'MpCmdRun.exe', 'Msbuild.exe', 'Msconfig.exe',
+        'Msdt.exe', 'Msedge.exe', 'Mshta.exe', 'Msiexec.exe', 'Netsh.exe', 'Ngen.exe',
+        'Odbcconf.exe', 'OfflineScannerShell.exe', 'OneDriveStandaloneUpdater.exe', 'Pcalua.exe',
+        'Pcwrun.exe', 'Pktmon.exe', 'Pnputil.exe', 'Presentationhost.exe', 'Print.exe',
+        'PrintBrm.exe', 'Provlaunch.exe', 'Psr.exe', 'Rasautou.exe', 'rdrleakdiag.exe',
+        'Reg.exe', 'Regasm.exe', 'Regedit.exe', 'Regini.exe', 'Register-cimprovider.exe',
+        'Regsvcs.exe', 'Regsvr32.exe', 'Replace.exe', 'Rpcping.exe', 'Rundll32.exe',
+        'Runexehelper.exe', 'Runonce.exe', 'Runscripthelper.exe', 'Sc.exe', 'Schtasks.exe',
+        'Scriptrunner.exe', 'Setres.exe', 'SettingSyncHost.exe', 'Sftp.exe', 'ssh.exe',
+        'Stordiag.exe', 'SyncAppvPublishingServer.exe', 'Tar.exe', 'Ttdinject.exe', 'Tttracer.exe',
+        'Unregmp2.exe', 'vbc.exe', 'Verclsid.exe', 'Wab.exe', 'wbadmin.exe', 'wbemtest.exe',
+        'winget.exe', 'Wlrmdr.exe', 'Wmic.exe', 'WorkFolders.exe', 'Wscript.exe', 'Wsreset.exe',
+        'wuauclt.exe', 'Xwizard.exe', 'msedge_proxy.exe', 'msedgewebview2.exe', 'wt.exe',
+        'AccCheckConsole.exe', 'adplus.exe', 'AgentExecutor.exe', 'AppCert.exe', 'Appvlp.exe',
+        'Bginfo.exe', 'Cdb.exe', 'coregen.exe', 'Createdump.exe', 'csi.exe', 'DefaultPack.EXE',
+        'Devinit.exe', 'Devtoolslauncher.exe', 'dnx.exe', 'Dotnet.exe', 'dsdbutil.exe',
+        'dtutil.exe', 'Dump64.exe', 'DumpMinitool.exe', 'Dxcap.exe', 'ECMangen.exe',
+        'Excel.exe', 'Fsi.exe', 'FsiAnyCpu.exe', 'Mftrace.exe', 'Microsoft.NodejsTools.PressAnyKey.exe',
+        'MSAccess.exe', 'Msdeploy.exe', 'MsoHtmEd.exe', 'Mspub.exe', 'msxsl.exe', 'ntdsutil.exe',
+        'OpenConsole.exe', 'Powerpnt.exe', 'Procdump.exe', 'ProtocolHandler.exe', 'rcsi.exe',
+        'Remote.exe', 'Sqldumper.exe', 'Sqlps.exe', 'SQLToolsPS.exe', 'Squirrel.exe', 'te.exe',
+        'Teams.exe', 'TestWindowRemoteAgent.exe', 'Tracker.exe', 'Update.exe', 'VSDiagnostics.exe',
+        'VSIISExeLauncher.exe', 'Visio.exe', 'VisualUiaVerifyNative.exe', 'VSLaunchBrowser.exe',
+        'Vshadow.exe', 'vsjitdebugger.exe', 'WFMFormat.exe', 'Wfc.exe', 'WinProj.exe',
+        'Winword.exe', 'Wsl.exe', 'XBootMgrSleep.exe', 'devtunnel.exe', 'vsls-agent.exe',
+        'vstest.console.exe', 'winfile.exe', 'xsd.exe'
+    ]
+}
+
 
 class ContentCleaner:
     """Utilities for cleaning and normalizing content."""
@@ -369,3 +424,150 @@ def validate_content(title: str, content: str, url: str) -> List[str]:
         issues.append("Validation error")
     
     return issues
+
+
+class ThreatHuntingScorer:
+    """Enhanced scoring for threat hunting and malware analysis content."""
+    
+    @staticmethod
+    def score_threat_hunting_content(title: str, content: str) -> Dict[str, Any]:
+        """
+        Score content for threat hunting quality using Windows malware keywords.
+        
+        Returns:
+            Dict containing:
+            - threat_hunting_score: float (0-100)
+            - perfect_keyword_matches: List[str]
+            - good_keyword_matches: List[str]
+            - keyword_density: float
+            - technical_depth_score: float
+        """
+        if not content:
+            return {
+                'threat_hunting_score': 0.0,
+                'perfect_keyword_matches': [],
+                'good_keyword_matches': [],
+                'keyword_density': 0.0,
+                'technical_depth_score': 0.0
+            }
+        
+        # Clean content for analysis
+        clean_content = ContentCleaner.html_to_text(content).lower()
+        title_lower = title.lower() if title else ""
+        full_text = f"{title_lower} {clean_content}"
+        
+        # Find keyword matches
+        perfect_matches = []
+        good_matches = []
+        lolbas_matches = []
+        
+        # Check perfect discriminators
+        for keyword in WINDOWS_MALWARE_KEYWORDS['perfect_discriminators']:
+            if ThreatHuntingScorer._keyword_matches(keyword, full_text):
+                perfect_matches.append(keyword)
+        
+        # Check good discriminators
+        for keyword in WINDOWS_MALWARE_KEYWORDS['good_discriminators']:
+            if ThreatHuntingScorer._keyword_matches(keyword, full_text):
+                good_matches.append(keyword)
+        
+        # Check LOLBAS executables
+        for executable in WINDOWS_MALWARE_KEYWORDS['lolbas_executables']:
+            if ThreatHuntingScorer._keyword_matches(executable, full_text):
+                lolbas_matches.append(executable)
+        
+        # Calculate scores
+        perfect_score = len(perfect_matches) * 15  # 15 points per perfect keyword
+        good_score = len(good_matches) * 8         # 8 points per good keyword
+        lolbas_score = len(lolbas_matches) * 12    # 12 points per LOLBAS executable
+        
+        # Technical depth indicators
+        technical_depth_score = ThreatHuntingScorer._calculate_technical_depth(full_text)
+        
+        # Keyword density (percentage of content containing technical keywords)
+        total_keywords = len(perfect_matches) + len(good_matches) + len(lolbas_matches)
+        keyword_density = (total_keywords / max(len(full_text.split()), 1)) * 1000  # per 1000 words
+        
+        # Calculate final threat hunting score
+        threat_hunting_score = min(perfect_score + good_score + lolbas_score + technical_depth_score, 100.0)
+        
+        return {
+            'threat_hunting_score': round(threat_hunting_score, 1),
+            'perfect_keyword_matches': perfect_matches,
+            'good_keyword_matches': good_matches,
+            'lolbas_matches': lolbas_matches,
+            'keyword_density': round(keyword_density, 2),
+            'technical_depth_score': round(technical_depth_score, 1)
+        }
+    
+    @staticmethod
+    def _keyword_matches(keyword: str, text: str) -> bool:
+        """Check if a keyword matches in the text with proper regex handling."""
+        try:
+            # Handle special characters in keywords
+            if keyword in ['[.]', '::', '==', '-accepteula']:
+                pattern = re.escape(keyword)
+            elif keyword in ['c:\\windows\\', 'D:\\']:
+                pattern = re.escape(keyword)
+            elif keyword == '<Command>':
+                pattern = r'<command>'
+            elif keyword == 'Event ID':
+                pattern = r'event\s+id'
+            elif keyword == 'EventID':
+                pattern = r'eventid'
+            elif keyword == 'lsass.exe':
+                pattern = r'lsass\.exe'
+            elif keyword == 'powershell.exe':
+                pattern = r'powershell\.exe'
+            # Handle LOLBAS executables (case-insensitive, word boundaries)
+            elif keyword.endswith('.exe'):
+                # Remove .exe extension for matching
+                base_name = keyword[:-4]
+                pattern = r'\b' + re.escape(base_name) + r'\.exe\b'
+            else:
+                pattern = r'\b' + re.escape(keyword) + r'\b'
+            
+            return bool(re.search(pattern, text, re.IGNORECASE))
+        except Exception as e:
+            logger.warning(f"Error matching keyword '{keyword}': {e}")
+            return False
+    
+    @staticmethod
+    def _calculate_technical_depth(text: str) -> float:
+        """Calculate technical depth score based on various indicators."""
+        score = 0.0
+        
+        # Check for technical patterns
+        technical_patterns = [
+            (r'cve-\d{4}-\d+', 5),           # CVE references
+            (r'0x[0-9a-fA-F]+', 3),          # Hex values
+            (r'\\[a-zA-Z0-9_]+\\', 2),        # Registry paths
+            (r'[A-Z]:\\[\\\w\s]+', 2),       # Windows paths
+            (r'powershell|cmd\.exe|cmd', 3),  # Command shells
+            (r'\.exe|\.dll|\.sys', 2),        # Executable files
+            (r'http[s]?://[^\s]+', 1),        # URLs
+            (r'\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}', 2),  # IP addresses
+            (r'[a-fA-F0-9]{32,}', 3),         # MD5 hashes
+            (r'[a-fA-F0-9]{64,}', 4),         # SHA256 hashes
+        ]
+        
+        for pattern, points in technical_patterns:
+            matches = len(re.findall(pattern, text, re.IGNORECASE))
+            score += min(matches * points, 20)  # Cap at 20 points per pattern
+        
+        # Check for code blocks or technical formatting
+        if re.search(r'```|`.*`|\[.*\]|\(.*\)', text):
+            score += 5
+        
+        # Check for technical terms
+        technical_terms = [
+            'malware', 'ransomware', 'trojan', 'backdoor', 'rootkit',
+            'exploit', 'vulnerability', 'payload', 'shellcode', 'injection',
+            'persistence', 'lateral movement', 'privilege escalation',
+            'command and control', 'c2', 'beacon', 'dropper', 'loader'
+        ]
+        
+        term_matches = sum(1 for term in technical_terms if term in text.lower())
+        score += min(term_matches * 2, 15)  # Cap at 15 points
+        
+        return min(score, 30.0)  # Cap technical depth at 30 points

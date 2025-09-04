@@ -11,7 +11,7 @@
 "c:\\windows\\" OR 
 "Event ID" OR "EventID" OR 
 ".bat" OR 
-".ps1" OR 
+".ps1" OR  
 ".lnk" OR 
 "D:\\" OR 
 ".vhdx" OR 

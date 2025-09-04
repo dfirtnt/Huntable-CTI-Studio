@@ -86,7 +86,7 @@ class RSSParser:
             # Extract basic fields
             title = self._extract_title(entry)
             url = self._extract_url(entry)
-            published_at = self._extract_date(entry)
+            published_at = await self._extract_date(entry, url)
             
             if not title or not url:
                 logger.warning(f"Skipping entry with missing title or URL in {source.name}")
@@ -164,7 +164,7 @@ class RSSParser:
         
         return None
     
-    def _extract_date(self, entry: Any) -> Optional[datetime]:
+    async def _extract_date(self, entry: Any, url: str = None) -> Optional[datetime]:
         """Extract publication date from RSS entry."""
         # Try different date fields
         date_fields = ['published', 'updated', 'created']
@@ -173,7 +173,7 @@ class RSSParser:
             date_str = getattr(entry, field, '')
             if date_str:
                 parsed_date = DateExtractor.parse_date(date_str)
-                if parsed_date:
+                if parsed_date and parsed_date.year > 1970:  # Skip epoch dates
                     return parsed_date
         
         # Try parsed date fields
@@ -181,7 +181,9 @@ class RSSParser:
             try:
                 import time
                 timestamp = time.mktime(entry.published_parsed)
-                return datetime.fromtimestamp(timestamp)
+                parsed_date = datetime.fromtimestamp(timestamp)
+                if parsed_date.year > 1970:  # Skip epoch dates
+                    return parsed_date
             except Exception:
                 pass
         
@@ -189,11 +191,69 @@ class RSSParser:
             try:
                 import time
                 timestamp = time.mktime(entry.updated_parsed)
-                return datetime.fromtimestamp(timestamp)
+                parsed_date = datetime.fromtimestamp(timestamp)
+                if parsed_date.year > 1970:  # Skip epoch dates
+                    return parsed_date
             except Exception:
                 pass
         
+        # Fallback: try to extract date from article page metadata
+        if url:
+            try:
+                date_from_page = await self._extract_date_from_page(url)
+                if date_from_page:
+                    return date_from_page
+            except Exception as e:
+                logger.warning(f"Failed to extract date from page {url}: {e}")
+        
         return None
+    
+    async def _extract_date_from_page(self, url: str) -> Optional[datetime]:
+        """Extract publication date from article page metadata."""
+        try:
+            # Fetch the article page
+            response = await self.http_client.get(url)
+            response.raise_for_status()
+            
+            from bs4 import BeautifulSoup
+            soup = BeautifulSoup(response.text, 'lxml')
+            
+            # Try different meta tags for publication date
+            date_selectors = [
+                'meta[name="published-date"]',
+                'meta[name="article:published_time"]',
+                'meta[property="article:published_time"]',
+                'meta[name="date"]',
+                'meta[name="pubdate"]',
+                'meta[name="publishdate"]',
+                'meta[name="publication_date"]',
+                'meta[name="og:published_time"]',
+                'meta[property="og:published_time"]',
+                'time[datetime]',
+                'time[pubdate]'
+            ]
+            
+            for selector in date_selectors:
+                element = soup.select_one(selector)
+                if element:
+                    date_str = element.get('content') or element.get('datetime')
+                    if date_str:
+                        parsed_date = DateExtractor.parse_date(date_str)
+                        if parsed_date and parsed_date.year > 1970:
+                            logger.info(f"Extracted date from page metadata: {date_str} -> {parsed_date}")
+                            return parsed_date
+            
+            # Try to extract date from URL patterns
+            url_date = DateExtractor.extract_date_from_url(url)
+            if url_date and url_date.year > 1970:
+                logger.info(f"Extracted date from URL pattern: {url_date}")
+                return url_date
+            
+            return None
+            
+        except Exception as e:
+            logger.warning(f"Failed to extract date from page {url}: {e}")
+            return None
     
     async def _extract_content(self, entry: Any, url: str, source: Source) -> Optional[str]:
         """
