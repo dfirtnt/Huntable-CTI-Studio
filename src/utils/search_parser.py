@@ -229,4 +229,9 @@ def get_search_help_text() -> str:
     • Registry keys: "HKEY_LOCAL_MACHINE"
     • File extensions: ".bat", ".ps1"
     • Technical terms: "Event ID", "MZ"
+    
+    Case Sensitivity:
+    • All searches are case-insensitive
+    • "rundll32" matches "RUNDLL32", "Rundll32", etc.
+    • "PowerShell" matches "powershell", "POWERSHELL", etc.
 """
