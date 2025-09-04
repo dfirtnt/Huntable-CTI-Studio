@@ -10,7 +10,7 @@ classification:
 # Processing settings
 processing:
   max_content_length: 50000
-  min_content_length: 100
+  min_content_length: 500  # Increased from 100 to 500
   remove_ads: true
   normalize_whitespace: true
   

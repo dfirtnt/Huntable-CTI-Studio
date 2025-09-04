@@ -779,6 +779,26 @@ async def api_chatgpt_summary(article_id: int, request: Request):
         body = await request.json()
         include_content = body.get('include_content', True)  # Default to full content
         api_key = body.get('api_key')  # Get API key from request
+        force_regenerate = body.get('force_regenerate', False)  # Force regeneration
+        
+        logger.info(f"ChatGPT summary request for article {article_id}, api_key provided: {bool(api_key)}, force_regenerate: {force_regenerate}")
+        
+        # If force regeneration is requested, skip cache check
+        if not force_regenerate:
+            # Check if summary already exists and return cached version
+            existing_summary = article.metadata.get('chatgpt_summary', {}) if article.metadata else {}
+            if existing_summary and existing_summary.get('summary'):
+                logger.info(f"Returning cached ChatGPT summary for article {article_id}")
+                return {
+                    "success": True,
+                    "article_id": article_id,
+                    "summary": existing_summary['summary'],
+                    "summarized_at": existing_summary['summarized_at'],
+                    "content_type": existing_summary['content_type'],
+                    "model_used": existing_summary['model_used'],
+                    "model_name": existing_summary['model_name'],
+                    "cached": True
+                }
         
         # Check if API key is provided
         if not api_key:
@@ -1119,6 +1139,21 @@ async def api_generate_sigma(article_id: int, request: Request):
         logger.info(f"SIGMA generation request for article {article_id}, training_category: '{training_category}'")
         if training_category != 'chosen':
             raise HTTPException(status_code=400, detail="SIGMA rules can only be generated for articles marked as 'Chosen'. Please classify this article first.")
+        
+        # Check if SIGMA rules already exist and return cached version
+        existing_sigma_rules = article.metadata.get('sigma_rules', {}) if article.metadata else {}
+        if existing_sigma_rules and existing_sigma_rules.get('rules'):
+            logger.info(f"Returning cached SIGMA rules for article {article_id}")
+            return {
+                "success": True,
+                "article_id": article_id,
+                "sigma_rules": existing_sigma_rules['rules'],
+                "generated_at": existing_sigma_rules['generated_at'],
+                "content_type": existing_sigma_rules['content_type'],
+                "model_used": existing_sigma_rules['model_used'],
+                "model_name": existing_sigma_rules['model_name'],
+                "cached": True
+            }
         
         # Get request body
         body = await request.json()

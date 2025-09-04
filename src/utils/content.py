@@ -403,9 +403,9 @@ def validate_content(title: str, content: str, url: str) -> List[str]:
         elif len(title.strip()) > 200:
             issues.append("Title too long")
         
-        # Content validation
-        if not content or len(content.strip()) < 50:
-            issues.append("Content too short or missing")
+        # Content validation - INCREASED MINIMUM LENGTH
+        if not content or len(content.strip()) < 500:  # Increased from 50 to 500
+            issues.append("Content too short or missing (minimum 500 characters)")
         elif len(content.strip()) > 50000:
             issues.append("Content too long")
         
@@ -427,6 +427,23 @@ def validate_content(title: str, content: str, url: str) -> List[str]:
         link_count = content.count('<a href')
         if link_count > 20:
             issues.append("Too many links")
+        
+        # Check for RSS excerpt indicators (content that's clearly just a snippet)
+        excerpt_indicators = [
+            'read more', 'continue reading', 'full article', 'click to read',
+            'read the full', 'read more at', 'continue reading at',
+            '...', '…', 'read more →', 'read more...'
+        ]
+        text_content = ContentCleaner.html_to_text(content).lower()
+        if any(indicator in text_content for indicator in excerpt_indicators):
+            # If content is short AND has excerpt indicators, it's likely just a snippet
+            if len(text_content.strip()) < 1000:
+                issues.append("Content appears to be RSS excerpt/snippet only")
+        
+        # Check for content that's mostly HTML tags or formatting
+        clean_text = ContentCleaner.html_to_text(content)
+        if len(clean_text.strip()) < len(content) * 0.3:  # Less than 30% actual text
+            issues.append("Content contains too much HTML/formatting")
         
     except Exception as e:
         logger.warning(f"Error validating content: {e}")
