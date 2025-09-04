@@ -1218,6 +1218,8 @@ Please provide a brief but insightful analysis based on the available metadata."
         # Use ChatGPT API (no fallback to Ollama for SIGMA generation)
         chatgpt_api_url = os.getenv('CHATGPT_API_URL', 'https://api.openai.com/v1/chat/completions')
         
+        logger.info(f"Sending SIGMA request to OpenAI for article {article_id}, content length: {len(content) if include_content else 'metadata only'}")
+        
         async with httpx.AsyncClient() as client:
             response = await client.post(
                 chatgpt_api_url,
@@ -1249,6 +1251,14 @@ Please provide a brief but insightful analysis based on the available metadata."
                     error_detail = "Invalid API key. Please check your OpenAI API key in Settings."
                 elif response.status_code == 429:
                     error_detail = "Rate limit exceeded. Please try again later."
+                elif response.status_code == 400:
+                    # Log the actual error from OpenAI
+                    try:
+                        error_response = response.json()
+                        logger.error(f"OpenAI API 400 error details: {error_response}")
+                        error_detail = f"OpenAI API error: {error_response.get('error', {}).get('message', 'Bad request')}"
+                    except:
+                        error_detail = "OpenAI API error: Bad request - check prompt format"
                 raise HTTPException(status_code=500, detail=error_detail)
             
             result = response.json()
