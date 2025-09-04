@@ -360,20 +360,6 @@ class HTTPClient:
             Decoded text content
         """
         try:
-            # Check if response is properly decompressed
-            content_encoding = response.headers.get('content-encoding', '').lower()
-            if content_encoding in ['gzip', 'deflate', 'br'] and '�' in response.text:
-                logger.warning(f"Compressed content not properly decompressed for {response.url}")
-                # Try to get raw content and decode manually
-                try:
-                    # Force httpx to handle compression properly
-                    raw_response = response.raw
-                    if hasattr(raw_response, 'read'):
-                        content = raw_response.read()
-                        return content.decode('utf-8', errors='replace')
-                except Exception:
-                    pass
-            
             # First try the default text decoding
             text = response.text
             if '�' not in text:  # No replacement characters
