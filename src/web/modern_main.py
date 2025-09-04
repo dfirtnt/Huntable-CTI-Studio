@@ -1160,8 +1160,9 @@ async def api_generate_sigma(article_id: int, request: Request):
         body = await request.json()
         include_content = body.get('include_content', True)  # Default to full content
         api_key = body.get('api_key')  # Get API key from request
+        author_name = body.get('author_name', 'CTIScraper User')  # Get author name from request
         
-        logger.info(f"SIGMA generation request for article {article_id}, api_key provided: {bool(api_key)}")
+        logger.info(f"SIGMA generation request for article {article_id}, api_key provided: {bool(api_key)}, author: {author_name}")
         
         if not api_key:
             logger.warning(f"SIGMA generation failed: No API key provided for article {article_id}")
@@ -1191,7 +1192,7 @@ Create one high-quality Sigma rule in YAML format with:
 - id: valid UUID v4
 - status: experimental
 - description: what it detects
-- author: your name
+- author: {author_name}
 - date: YYYY/MM/DD
 - tags: relevant MITRE ATT&CK tags
 - logsource: product and category
@@ -1199,6 +1200,23 @@ Create one high-quality Sigma rule in YAML format with:
 - fields: relevant fields
 - falsepositives: potential false positives
 - level: high/medium/low
+
+CRITICAL SIGMA SYNTAX REQUIREMENTS:
+- Use ONLY valid SIGMA condition syntax: 'selection' or 'selection1 and selection2' or 'selection1 or selection2'
+- NEVER use SQL-like syntax like 'count()', 'group by', 'where', 'stats', etc.
+- NEVER use aggregation functions in conditions
+- Valid conditions: 'selection', 'selection and selection', 'selection or selection', 'all of selection*', '1 of selection*'
+- Selection must reference defined filters above it
+- Use proper YAML indentation and syntax
+
+EXAMPLE VALID SIGMA STRUCTURE:
+```yaml
+detection:
+  selection:
+    EventID: 4688
+    CommandLine|contains: 'powershell'
+  condition: selection
+```
 
 IMPORTANT: Focus on TTPs (Tactics, Techniques, and Procedures) rather than atomic IOCs (Indicators of Compromise). Avoid rules that could easily be replaced by simple IOC matching (specific IP addresses, file hashes, etc.). Instead, focus on:
 
@@ -1264,7 +1282,7 @@ Please provide a brief but insightful analysis based on the available metadata."
                     "messages": [
                         {
                             "role": "system",
-                            "content": "You are a senior cybersecurity detection engineer specializing in SIGMA rule creation and threat hunting. Generate high-quality, actionable SIGMA rules based on threat intelligence articles. Always use proper SIGMA syntax and include all required fields according to SigmaHQ standards. Focus on TTPs (Tactics, Techniques, and Procedures) rather than atomic IOCs (Indicators of Compromise). Create rules that detect behavioral patterns and techniques, not just specific artifacts like IP addresses or file hashes. Domain/URL patterns are acceptable when they represent techniques or behavioral patterns."
+                            "content": "You are a senior cybersecurity detection engineer specializing in SIGMA rule creation and threat hunting. Generate high-quality, actionable SIGMA rules based on threat intelligence articles. Always use proper SIGMA syntax and include all required fields according to SigmaHQ standards. Focus on TTPs (Tactics, Techniques, and Procedures) rather than atomic IOCs (Indicators of Compromise). Create rules that detect behavioral patterns and techniques, not just specific artifacts like IP addresses or file hashes. Domain/URL patterns are acceptable when they represent techniques or behavioral patterns.\n\nCRITICAL: Use ONLY valid SIGMA condition syntax. NEVER use SQL-like syntax (count(), group by, where, stats, etc.) or aggregation functions in conditions. Valid conditions are: 'selection', 'selection1 and selection2', 'selection1 or selection2', 'all of selection*', '1 of selection*'. Always reference defined selections above the condition."
                         },
                         {
                             "role": "user",
