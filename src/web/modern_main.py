@@ -1133,54 +1133,38 @@ async def api_generate_sigma(article_id: int, request: Request):
         
         # Prepare the SIGMA generation prompt
         if include_content:
-            # Smart content truncation for SIGMA generation
-            content_limit = int(os.getenv('CHATGPT_CONTENT_LIMIT', '20000'))
+            # Smart content truncation for SIGMA generation - much more conservative
+            content_limit = int(os.getenv('CHATGPT_CONTENT_LIMIT', '8000'))  # Reduced from 20000
             
             # Truncate content intelligently
             content = article.content[:content_limit]
             if len(article.content) > content_limit:
                 content += f"\n\n[Content truncated at {content_limit:,} characters. Full article has {len(article.content):,} characters.]"
             
-            # Enhanced SIGMA-specific prompt based on SigmaHQ best practices
-            prompt = f"""You are an expert in Sigma rule creation. Given the following threat intelligence blog content:
+            # Enhanced SIGMA-specific prompt based on SigmaHQ best practices - simplified
+            prompt = f"""Generate a Sigma detection rule based on this threat intelligence:
 
 Article Title: {article.title}
 Source URL: {article.canonical_url or 'N/A'}
-Published Date: {article.published_at or 'N/A'}
 
-Article Content:
+Content:
 {content}
 
-Extract one actionable detection use-case.
+Create one high-quality Sigma rule in YAML format with:
+- title: under 50 chars, title case
+- id: valid UUID v4
+- status: experimental
+- description: what it detects
+- author: your name
+- date: YYYY/MM/DD
+- tags: relevant MITRE ATT&CK tags
+- logsource: product and category
+- detection: selection and condition
+- fields: relevant fields
+- falsepositives: potential false positives
+- level: high/medium/low
 
-Generate a Sigma rule in YAML format that adheres to the official Sigma best practices:
-
-- **Metadata**:
-  - title: under 50 characters, title case, no "Detects" prefix
-  - id: a valid UUID v4
-  - status: set to "experimental"
-  - description: clear explanation of what the rule detects
-  - author: your name or handle
-  - date: YYYY/MM/DD
-  - references: list of relevant URLs or documents
-  - tags: relevant MITRE ATT&CK and CAR tags, lowercase, underscores instead of spaces/hyphens
-
-- **Logsource**:
-  - product: relevant product (e.g., windows, linux, aws)
-  - category: log category (e.g., process_creation, cloudtrail)
-
-- **Detection**:
-  - selection: key fields with exact or modifier-based matching
-  - condition: logical expression (e.g., selection or combination)
-  - avoid unnecessary regex; prefer contains/all modifiers if possible
-
-- **Fields**: list of fields relevant for analyst investigation
-
-- **Falsepositives**: describe plausible non-malicious triggers
-
-- **Level**: one of informational, low, medium, high, critical
-
-Ensure YAML is syntactically correct. Use standard Sigma structure."""
+Focus on the most actionable detection from this content."""
         else:
             # Metadata-only prompt
             prompt = f"""As a senior cybersecurity detection engineer specializing in SIGMA rule creation and threat hunting, analyze this threat intelligence article metadata and provide guidance for SIGMA rule generation.
@@ -1239,7 +1223,7 @@ Please provide a brief but insightful analysis based on the available metadata."
                             "content": prompt
                         }
                     ],
-                    "max_tokens": 4096,  # Higher token limit for SIGMA rules
+                    "max_tokens": 2048,  # Reduced from 4096 to stay within limits
                     "temperature": 0.2   # Lower temperature for more consistent rule generation
                 },
                 timeout=120.0  # Longer timeout for SIGMA generation
