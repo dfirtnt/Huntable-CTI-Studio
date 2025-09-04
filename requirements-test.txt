@@ -9,7 +9,7 @@ pytest-mock==3.14.0
 pytest-xdist==3.6.1
 
 # Code Quality and Linting
-black==24.1.1
+black==24.3.0
 isort==5.13.2
 flake8==7.0.0
 mypy==1.8.0
