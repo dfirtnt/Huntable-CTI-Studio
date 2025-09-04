@@ -22,7 +22,7 @@ class DatabaseManager:
     
     def __init__(
         self,
-        database_url: str = "sqlite:///threat_intel.db",
+        database_url: str = "postgresql+asyncpg://cti_user:cti_password_2024@postgres:5432/cti_scraper",
         echo: bool = False,
         pool_size: int = 10,
         max_overflow: int = 20

@@ -7,8 +7,8 @@ Configures Redis as the message broker and result backend.
 import os
 
 # Broker settings
-broker_url = os.getenv('REDIS_URL', 'redis://:cti_redis_2024@localhost:6379/0')
-result_backend = os.getenv('REDIS_URL', 'redis://:cti_redis_2024@localhost:6379/0')
+broker_url = os.getenv('REDIS_URL', 'redis://:cti_redis_2024@redis:6379/0')
+result_backend = os.getenv('REDIS_URL', 'redis://:cti_redis_2024@redis:6379/0')
 
 # Task settings
 task_serializer = 'json'

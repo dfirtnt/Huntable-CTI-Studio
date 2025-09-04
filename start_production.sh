@@ -24,10 +24,11 @@ echo "📁 Creating necessary directories..."
 mkdir -p logs data nginx/ssl
 
 # Set environment variables
-export DATABASE_URL="postgresql+asyncpg://cti_user:${POSTGRES_PASSWORD:-cti_password_2024}@localhost:5432/cti_scraper"
-export REDIS_URL="redis://:cti_redis_2024@localhost:6379/0"
+export DATABASE_URL="postgresql+asyncpg://cti_user:${POSTGRES_PASSWORD:-cti_password_2024}@postgres:5432/cti_scraper"
+export REDIS_URL="redis://:cti_redis_2024@redis:6379/0"
 export ENVIRONMENT="production"
 export LOG_LEVEL="INFO"
+export SOURCES_CONFIG="/app/config/sources.yaml"
 
 # Stop any existing containers
 echo "🛑 Stopping existing containers..."

@@ -33,7 +33,7 @@ console = Console()
 # Global CLI context
 class CLIContext:
     def __init__(self):
-        self.database_url = os.getenv('DATABASE_URL', 'sqlite:///threat_intel.db')
+        self.database_url = os.getenv('DATABASE_URL', 'postgresql+asyncpg://cti_user:cti_password_2024@postgres:5432/cti_scraper')
         self.config_file = os.getenv('SOURCES_CONFIG', 'config/sources.yaml')
         self.debug = False
         self.db_manager: Optional[DatabaseManager] = None

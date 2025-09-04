@@ -1,20 +1,22 @@
+version: '3.8'
+
 services:
   # PostgreSQL Database
   postgres:
     image: postgres:15-alpine
-    container_name: cti_postgres
+    container_name: cti_postgres_dev
     environment:
       POSTGRES_DB: cti_scraper
       POSTGRES_USER: cti_user
       POSTGRES_PASSWORD: cti_password_2024
       POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --lc-collate=C --lc-ctype=C"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - postgres_data_dev:/var/lib/postgresql/data
       - ./init.sql:/docker-entrypoint-initdb.d/init.sql
     ports:
       - "5432:5432"
     networks:
-      - cti_network
+      - cti_network_dev
     restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U cti_user -d cti_scraper"]
@@ -25,13 +27,13 @@ services:
   # Redis for caching and background tasks
   redis:
     image: redis:7-alpine
-    container_name: cti_redis
+    container_name: cti_redis_dev
     ports:
       - "6379:6379"
     volumes:
-      - redis_data:/data
+      - redis_data_dev:/data
     networks:
-      - cti_network
+      - cti_network_dev
     restart: unless-stopped
     command: redis-server --appendonly yes --requirepass cti_redis_2024
     healthcheck:
@@ -45,12 +47,12 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: cti_web
+    container_name: cti_web_dev
     environment:
       - DATABASE_URL=postgresql+asyncpg://cti_user:cti_password_2024@postgres:5432/cti_scraper
       - REDIS_URL=redis://:cti_redis_2024@redis:6379/0
-      - ENVIRONMENT=production
-      - LOG_LEVEL=INFO
+      - ENVIRONMENT=development
+      - LOG_LEVEL=DEBUG
       - LLM_API_URL=http://cti_ollama:11434
       - LLM_MODEL=mistral
       - LLM_TEMPERATURE=0.3
@@ -66,7 +68,7 @@ services:
       redis:
         condition: service_healthy
     networks:
-      - cti_network
+      - cti_network_dev
     restart: unless-stopped
     command: uvicorn src.web.modern_main:app --host 0.0.0.0 --port 8000 --reload
 
@@ -75,12 +77,12 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: cti_worker
+    container_name: cti_worker_dev
     environment:
       - DATABASE_URL=postgresql+asyncpg://cti_user:cti_password_2024@postgres:5432/cti_scraper
       - REDIS_URL=redis://:cti_redis_2024@redis:6379/0
-      - ENVIRONMENT=production
-      - LOG_LEVEL=INFO
+      - ENVIRONMENT=development
+      - LOG_LEVEL=DEBUG
     volumes:
       - ./src:/app/src
       - ./logs:/app/logs
@@ -90,21 +92,21 @@ services:
       redis:
         condition: service_healthy
     networks:
-      - cti_network
+      - cti_network_dev
     restart: unless-stopped
-    command: celery -A src.worker.celery_app worker --loglevel=info
+    command: celery -A src.worker.celery_app worker --loglevel=debug
 
   # Celery Beat for Scheduled Tasks
   scheduler:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: cti_scheduler
+    container_name: cti_scheduler_dev
     environment:
       - DATABASE_URL=postgresql+asyncpg://cti_user:cti_password_2024@postgres:5432/cti_scraper
       - REDIS_URL=redis://:cti_redis_2024@redis:6379/0
-      - ENVIRONMENT=production
-      - LOG_LEVEL=INFO
+      - ENVIRONMENT=development
+      - LOG_LEVEL=DEBUG
     volumes:
       - ./src:/app/src
       - ./logs:/app/logs
@@ -114,23 +116,23 @@ services:
       redis:
         condition: service_healthy
     networks:
-      - cti_network
+      - cti_network_dev
     restart: unless-stopped
-    command: celery -A src.worker.celery_app beat --loglevel=info
+    command: celery -A src.worker.celery_app beat --loglevel=debug
 
   # Ollama for GPT OSS 20B
   ollama:
     image: ollama/ollama:latest
-    container_name: cti_ollama
+    container_name: cti_ollama_dev
     ports:
       - "11434:11434"
     volumes:
-      - ollama_data:/root/.ollama
+      - ollama_data_dev:/root/.ollama
     environment:
       - OLLAMA_HOST=0.0.0.0
       - OLLAMA_ORIGINS=*
     networks:
-      - cti_network
+      - cti_network_dev
     restart: unless-stopped
     deploy:
       resources:
@@ -145,33 +147,17 @@ services:
       retries: 3
       start_period: 60s
 
-  # Nginx Reverse Proxy
-  nginx:
-    image: nginx:alpine
-    container_name: cti_nginx
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./nginx/ssl:/etc/nginx/ssl:ro
-    depends_on:
-      - web
-    networks:
-      - cti_network
-    restart: unless-stopped
-
   # CLI Tool Service
   cli:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: cti_cli
+    container_name: cti_cli_dev
     environment:
       - DATABASE_URL=postgresql+asyncpg://cti_user:cti_password_2024@postgres:5432/cti_scraper
       - REDIS_URL=redis://:cti_redis_2024@redis:6379/0
-      - ENVIRONMENT=production
-      - LOG_LEVEL=INFO
+      - ENVIRONMENT=development
+      - LOG_LEVEL=DEBUG
       - SOURCES_CONFIG=/app/config/sources.yaml
     volumes:
       - ./src:/app/src
@@ -183,23 +169,23 @@ services:
       redis:
         condition: service_healthy
     networks:
-      - cti_network
+      - cti_network_dev
     restart: unless-stopped
     profiles:
       - tools
     command: ["python", "-m", "src.cli.main"]
 
 volumes:
-  postgres_data:
+  postgres_data_dev:
     driver: local
-  redis_data:
+  redis_data_dev:
     driver: local
-  ollama_data:
+  ollama_data_dev:
     driver: local
 
 networks:
-  cti_network:
+  cti_network_dev:
     driver: bridge
     ipam:
       config:
-        - subnet: 172.20.0.0/16
+        - subnet: 172.21.0.0/16

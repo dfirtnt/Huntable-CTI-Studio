@@ -62,38 +62,76 @@ docker-compose.yml       # Full stack: Postgres, Redis, web, workers, Nginx
 
 ## Quick Start
 
-### Run the full stack (Docker)
+### Development Environment (Recommended)
 
-Requires Docker. This brings up PostgreSQL, Redis, FastAPI web, Celery worker/beat, and Nginx.
+For development and testing, use the development stack:
 
 ```bash
-docker compose up --build -d
-# or use the helper script
+# Start development stack with CLI tools
+./start_development.sh
+
+# Run CLI commands
+./run_cli.sh init
+./run_cli.sh sources list
+./run_cli.sh collect --dry-run
+```
+
+### Production Environment
+
+For production deployment:
+
+```bash
+# Start production stack
 ./start_production.sh
+```
+
+### Manual Docker Commands
+
+```bash
+# Development stack
+docker-compose -f docker-compose.dev.yml up --build -d
+
+# Production stack
+docker-compose up --build -d
+
+# CLI commands (development)
+docker-compose -f docker-compose.dev.yml run --rm cli python -m src.cli.main init
+
+# CLI commands (production)
+docker-compose run --rm cli python -m src.cli.main init
 ```
 
 Services once healthy:
 - Web UI: http://localhost:8000
 - Health: http://localhost:8000/health
 - API: http://localhost:8000/api/*
-- Nginx (optional): http://localhost
+- Nginx (production): http://localhost
+- PostgreSQL: localhost:5432
+- Redis: localhost:6379
+- Ollama: localhost:11434
 
-### CLI Commands (via Docker)
+### CLI Commands
 
-Run CLI commands through Docker:
+The CLI tool is now fully containerized and uses the same PostgreSQL database as the web application:
 
 ```bash
-# Example: initialize sources from YAML
-docker compose exec web python -m src.cli.main init --config config/sources.yaml
+# Initialize sources from YAML
+./run_cli.sh init --config config/sources.yaml
 
 # Collect content (RSS → modern scraping → legacy scraping)
-docker compose exec web python -m src.cli.main collect --dry-run
+./run_cli.sh collect --dry-run
 
 # Monitor continuously
-docker compose exec web python -m src.cli.main monitor --interval 300 --max-concurrent 5
+./run_cli.sh monitor --interval 300
+
+# List sources
+./run_cli.sh sources list --active
 
 # Export articles
-docker compose exec web python -m src.cli.main export --format json --days 7 --output export.json
+./run_cli.sh export --format json --days 7
+
+# Show statistics
+./run_cli.sh stats
 ```
 
 ## Web Application
