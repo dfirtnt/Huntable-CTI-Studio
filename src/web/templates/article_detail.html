@@ -146,18 +146,11 @@
                 Mark as Unclassified
             </button>
             
-            <!-- Threat Hunting Analysis Button -->
-            <button onclick="showThreatHuntingAnalysis()" 
+            <!-- AI Assistant Button -->
+            <button onclick="showAIAssistant()" 
                     class="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-colors">
-                <span class="mr-2">🔍</span>
-                Threat Hunting Analysis
-            </button>
-            
-            <!-- ChatGPT Summary Button -->
-            <button onclick="generateChatGPTSummary()" 
-                    class="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
-                <span class="mr-2">📝</span>
-                ChatGPT Summary
+                <span class="mr-2">🤖</span>
+                AI Assistant
             </button>
         </div>
         
@@ -441,6 +434,423 @@
         window.location.href = `/articles/${currentId + 1}`;
     }
     
+    // AI Assistant Functions
+    function showAIAssistant() {
+        // Get AI model from settings
+        const settings = JSON.parse(localStorage.getItem('ctiScraperSettings') || '{}');
+        const aiModel = settings.aiModel || 'chatgpt';
+        
+        const modal = document.createElement('div');
+        modal.id = 'aiAssistantModal';
+        modal.className = 'fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50';
+        
+        // Add click outside to close
+        modal.addEventListener('click', function(e) {
+            if (e.target === modal) {
+                closeAIAssistantModal();
+            }
+        });
+        
+        // Add ESC key to close
+        const handleEsc = function(e) {
+            if (e.key === 'Escape') {
+                closeAIAssistantModal();
+                document.removeEventListener('keydown', handleEsc);
+            }
+        };
+        document.addEventListener('keydown', handleEsc);
+        
+        modal.innerHTML = `
+            <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+                <div class="mt-3 text-center">
+                    <h3 class="text-lg font-medium text-gray-900 mb-4">🤖 AI Assistant</h3>
+                    <p class="text-sm text-gray-500 mb-6">Choose what you'd like to generate:</p>
+                    
+                    <div class="space-y-3">
+                        <button onclick="generateAIAnalysis('summary')" 
+                                class="w-full inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
+                            <span class="mr-2">📝</span>
+                            Generate Summary
+                        </button>
+                        
+                        <button onclick="generateAIAnalysis('sigma')" 
+                                class="w-full inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md transition-colors {% if article.metadata and article.metadata.get('training_category') == 'chosen' %}text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500{% else %}text-gray-400 bg-gray-300 cursor-not-allowed{% endif %}"
+                                {% if not (article.metadata and article.metadata.get('training_category') == 'chosen') %}disabled{% endif %}
+                                title="{% if article.metadata and article.metadata.get('training_category') == 'chosen' %}Generate SIGMA detection rules for this article{% else %}SIGMA rules can only be generated for articles marked as 'Chosen'. Please classify this article first.{% endif %}">
+                            <span class="mr-2">🔍</span>
+                            Generate SIGMA Rules
+                        </button>
+                        {% if not (article.metadata and article.metadata.get('training_category') == 'chosen') %}
+                        <div class="text-xs text-gray-500 text-center mt-1">
+                            ⚠️ Only available for articles marked as "Chosen"
+                        </div>
+                        {% endif %}
+                        
+                        <button onclick="showCustomPromptModal()" 
+                                class="w-full inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-colors">
+                            <span class="mr-2">💬</span>
+                            Custom Prompt
+                        </button>
+                        
+                        <button onclick="closeAIAssistantModal()" 
+                                class="w-full inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-colors">
+                            Cancel
+                        </button>
+                    </div>
+                    
+                    <div class="mt-4 p-2 bg-gray-50 rounded text-xs text-gray-600">
+                        Using: ${aiModel === 'chatgpt' ? 'ChatGPT (OpenAI)' : 'Mistral (Local)'}
+                    </div>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+    }
+    
+    function closeAIAssistantModal() {
+        const modal = document.getElementById('aiAssistantModal');
+        if (modal) {
+            modal.remove();
+        }
+    }
+    
+    async function generateAIAnalysis(type) {
+        closeAIAssistantModal();
+        
+        // Check if SIGMA rules are allowed for this article
+        if (type === 'sigma') {
+            const isChosen = {{ article.metadata.get('training_category', '') | tojson }} === 'chosen';
+            if (!isChosen) {
+                showNotification('SIGMA rules can only be generated for articles marked as "Chosen". Please classify this article first.', 'error');
+                return;
+            }
+        }
+        
+        // Get AI model from settings
+        const settings = JSON.parse(localStorage.getItem('ctiScraperSettings') || '{}');
+        const aiModel = settings.aiModel || 'chatgpt';
+        const apiKey = settings.openaiApiKey;
+        
+        if (aiModel === 'chatgpt' && !apiKey) {
+            showNotification('Please configure your OpenAI API key in Settings first', 'error');
+            return;
+        }
+        
+        // Show loading modal
+        const loadingModal = document.createElement('div');
+        loadingModal.id = 'loadingModal';
+        loadingModal.className = 'fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50';
+        
+        const typeText = type === 'summary' ? 'Summary' : 'SIGMA Rules';
+        const typeIcon = type === 'summary' ? '📝' : '🔍';
+        
+        loadingModal.innerHTML = `
+            <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+                <div class="mt-3 text-center">
+                    <div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-purple-100">
+                        <svg class="animate-spin h-6 w-6 text-purple-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                    </div>
+                    <h3 class="text-lg font-medium text-gray-900 mt-4">${typeIcon} Generating ${typeText}...</h3>
+                    <p class="text-sm text-gray-500 mt-2">This may take a few moments.</p>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(loadingModal);
+        
+        try {
+            // Create a timeout promise
+            const timeoutPromise = new Promise((_, reject) => {
+                setTimeout(() => reject(new Error('Request timed out after 60 seconds')), 60000);
+            });
+            
+            // Create the fetch promise
+            const endpoint = type === 'summary' ? 'chatgpt-summary' : 'analyze-threat-hunting';
+            const fetchPromise = fetch(`/api/articles/{{ article.id }}/${endpoint}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    include_content: true,
+                    api_key: apiKey
+                })
+            });
+            
+            // Race between fetch and timeout
+            const response = await Promise.race([fetchPromise, timeoutPromise]);
+            
+            if (response.ok) {
+                const data = await response.json();
+                if (type === 'summary') {
+                    showChatGPTSummaryModal(data.summary, data);
+                } else {
+                    showAnalysisModal(data.analysis, false, data);
+                }
+            } else {
+                const error = await response.json();
+                showNotification(`${typeText} generation failed: ${error.detail}`, 'error');
+            }
+        } catch (error) {
+            if (error.message.includes('timed out')) {
+                showNotification(`${typeText} generation timed out after 60 seconds. Try using a different model or check your settings.`, 'error');
+            } else {
+                showNotification(`Error: ${error.message}`, 'error');
+            }
+        } finally {
+            // Remove loading modal
+            const loadingModal = document.getElementById('loadingModal');
+            if (loadingModal) {
+                loadingModal.remove();
+            }
+        }
+    }
+    
+    function showCustomPromptModal() {
+        closeAIAssistantModal();
+        
+        const modal = document.createElement('div');
+        modal.id = 'customPromptModal';
+        modal.className = 'fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50';
+        
+        // Add click outside to close
+        modal.addEventListener('click', function(e) {
+            if (e.target === modal) {
+                closeCustomPromptModal();
+            }
+        });
+        
+        // Add ESC key to close
+        const handleEsc = function(e) {
+            if (e.key === 'Escape') {
+                closeCustomPromptModal();
+                document.removeEventListener('keydown', handleEsc);
+            }
+        };
+        document.addEventListener('keydown', handleEsc);
+        
+        modal.innerHTML = `
+            <div class="relative top-10 mx-auto p-5 border w-11/12 max-w-2xl shadow-lg rounded-md bg-white">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-xl font-bold text-gray-900">💬 Custom AI Prompt</h3>
+                    <button onclick="closeCustomPromptModal()" class="text-gray-400 hover:text-gray-600">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </button>
+                </div>
+                
+                <div class="mb-4">
+                    <label for="customPrompt" class="block text-sm font-medium text-gray-700 mb-2">
+                        Your Question or Request
+                    </label>
+                    <textarea id="customPrompt" 
+                              rows="4" 
+                              class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                              placeholder="Ask anything about this article. For example:&#10;- What are the main attack vectors mentioned?&#10;- How would I detect this threat in my network?&#10;- What are the key IOCs to monitor?&#10;- Explain the technical details in simple terms"></textarea>
+                </div>
+                
+                <div class="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
+                    <div class="text-sm text-blue-800">
+                        <p class="font-medium mb-1">💡 Tips:</p>
+                        <ul class="list-disc list-inside space-y-1">
+                            <li>Be specific about what you want to know</li>
+                            <li>Ask for technical details, IOCs, or analysis</li>
+                            <li>Request detection rules or threat hunting queries</li>
+                            <li>Ask for explanations in different detail levels</li>
+                        </ul>
+                    </div>
+                </div>
+                
+                <div class="flex justify-end space-x-3">
+                    <button onclick="closeCustomPromptModal()" 
+                            class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-colors">
+                        Cancel
+                    </button>
+                    <button onclick="generateCustomPrompt()" 
+                            class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-colors">
+                        <span class="mr-2">🤖</span>
+                        Generate Response
+                    </button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+    }
+    
+    function closeCustomPromptModal() {
+        const modal = document.getElementById('customPromptModal');
+        if (modal) {
+            modal.remove();
+        }
+    }
+    
+    async function generateCustomPrompt() {
+        const customPrompt = document.getElementById('customPrompt').value.trim();
+        
+        if (!customPrompt) {
+            showNotification('Please enter a question or request', 'error');
+            return;
+        }
+        
+        closeCustomPromptModal();
+        
+        // Get AI model from settings
+        const settings = JSON.parse(localStorage.getItem('ctiScraperSettings') || '{}');
+        const aiModel = settings.aiModel || 'chatgpt';
+        const apiKey = settings.openaiApiKey;
+        
+        if (aiModel === 'chatgpt' && !apiKey) {
+            showNotification('Please configure your OpenAI API key in Settings first', 'error');
+            return;
+        }
+        
+        // Show loading modal
+        const loadingModal = document.createElement('div');
+        loadingModal.id = 'loadingModal';
+        loadingModal.className = 'fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50';
+        loadingModal.innerHTML = `
+            <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+                <div class="mt-3 text-center">
+                    <div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-purple-100">
+                        <svg class="animate-spin h-6 w-6 text-purple-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                    </div>
+                    <h3 class="text-lg font-medium text-gray-900 mt-4">🤖 Processing Custom Request...</h3>
+                    <p class="text-sm text-gray-500 mt-2">This may take a few moments.</p>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(loadingModal);
+        
+        try {
+            // Create a timeout promise
+            const timeoutPromise = new Promise((_, reject) => {
+                setTimeout(() => reject(new Error('Request timed out after 60 seconds')), 60000);
+            });
+            
+            // Create the fetch promise
+            const fetchPromise = fetch(`/api/articles/{{ article.id }}/custom-prompt`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    prompt: customPrompt,
+                    api_key: apiKey
+                })
+            });
+            
+            // Race between fetch and timeout
+            const response = await Promise.race([fetchPromise, timeoutPromise]);
+            
+            if (response.ok) {
+                const data = await response.json();
+                showCustomResponseModal(data.response, customPrompt, data);
+            } else {
+                const error = await response.json();
+                showNotification(`Custom prompt failed: ${error.detail}`, 'error');
+            }
+        } catch (error) {
+            if (error.message.includes('timed out')) {
+                showNotification('Custom prompt timed out after 60 seconds. Try using a different model or check your settings.', 'error');
+            } else {
+                showNotification(`Error: ${error.message}`, 'error');
+            }
+        } finally {
+            // Remove loading modal
+            const loadingModal = document.getElementById('loadingModal');
+            if (loadingModal) {
+                loadingModal.remove();
+            }
+        }
+    }
+    
+    function showCustomResponseModal(response, originalPrompt, data = null) {
+        const modal = document.createElement('div');
+        modal.id = 'customResponseModal';
+        modal.className = 'fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50';
+        
+        // Add click outside to close
+        modal.addEventListener('click', function(e) {
+            if (e.target === modal) {
+                closeCustomResponseModal();
+            }
+        });
+        
+        // Add ESC key to close
+        const handleEsc = function(e) {
+            if (e.key === 'Escape') {
+                closeCustomResponseModal();
+                document.removeEventListener('keydown', handleEsc);
+            }
+        };
+        document.addEventListener('keydown', handleEsc);
+        
+        const modelUsed = data?.model_name || 'Unknown';
+        const respondedAt = data?.responded_at ? new Date(data.responded_at).toLocaleString() : 'Unknown';
+        
+        modal.innerHTML = `
+            <div class="relative top-10 mx-auto p-5 border w-11/12 max-w-4xl shadow-lg rounded-md bg-white">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-xl font-bold text-gray-900">💬 Custom AI Response</h3>
+                    <button onclick="closeCustomResponseModal()" class="text-gray-400 hover:text-gray-600">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </button>
+                </div>
+                
+                <div class="mb-4 p-3 bg-gray-50 rounded-md">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                        <div>
+                            <span class="font-medium text-gray-700">Your Question:</span>
+                            <p class="text-gray-900 mt-1">${originalPrompt}</p>
+                        </div>
+                        <div>
+                            <span class="font-medium text-gray-700">Model Used:</span>
+                            <span class="text-gray-900">${modelUsed}</span>
+                        </div>
+                        <div>
+                            <span class="font-medium text-gray-700">Responded At:</span>
+                            <span class="text-gray-900">${respondedAt}</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="bg-gray-50 rounded-lg p-4 max-h-96 overflow-y-auto">
+                    <div class="prose max-w-none">
+                        <pre class="whitespace-pre-wrap text-sm text-gray-800 font-mono">${response}</pre>
+                    </div>
+                </div>
+                
+                <div class="mt-4 flex justify-end space-x-3">
+                    <button onclick="showCustomPromptModal()" 
+                            class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-colors">
+                        <span class="mr-2">💬</span>
+                        Ask Another Question
+                    </button>
+                    <button onclick="closeCustomResponseModal()" 
+                            class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-colors">
+                        Close
+                    </button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+    }
+    
+    function closeCustomResponseModal() {
+        const modal = document.getElementById('customResponseModal');
+        if (modal) {
+            modal.remove();
+        }
+    }
+    
     // Threat Hunting Analysis Functions
     function showThreatHuntingAnalysis() {
         // Check if we already have an analysis
@@ -557,6 +967,22 @@
         const modal = document.createElement('div');
         modal.id = 'analysisModal';
         modal.className = 'fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50';
+        
+        // Add click outside to close
+        modal.addEventListener('click', function(e) {
+            if (e.target === modal) {
+                closeAnalysisModal();
+            }
+        });
+        
+        // Add ESC key to close
+        const handleEsc = function(e) {
+            if (e.key === 'Escape') {
+                closeAnalysisModal();
+                document.removeEventListener('keydown', handleEsc);
+            }
+        };
+        document.addEventListener('keydown', handleEsc);
         
         const analysisType = data?.analyzed_content ? 'Full Content' : 'Metadata Only';
         const modelUsed = data?.model_name || (data?.model_used === 'customgpt' ? 'CustomGPT' : (data?.model_used === 'ollama' ? 'Mistral (via Ollama)' : 'Unknown'));
@@ -724,6 +1150,22 @@
         const modal = document.createElement('div');
         modal.id = 'chatGPTSummaryModal';
         modal.className = 'fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50';
+        
+        // Add click outside to close
+        modal.addEventListener('click', function(e) {
+            if (e.target === modal) {
+                closeChatGPTSummaryModal();
+            }
+        });
+        
+        // Add ESC key to close
+        const handleEsc = function(e) {
+            if (e.key === 'Escape') {
+                closeChatGPTSummaryModal();
+                document.removeEventListener('keydown', handleEsc);
+            }
+        };
+        document.addEventListener('keydown', handleEsc);
         
         const modelUsed = data?.model_name || 'gpt-4';
         const summarizedAt = data?.summarized_at ? new Date(data.summarized_at).toLocaleString() : 'Unknown';

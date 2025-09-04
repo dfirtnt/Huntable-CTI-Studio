@@ -578,6 +578,19 @@ async def api_analyze_threat_hunting(article_id: int, request: Request):
         
         # Prepare the analysis prompt
         if analyze_content:
+            # Smart content truncation based on model
+            if customgpt_api_url and customgpt_api_key:
+                # Using ChatGPT - can handle more content
+                content_limit = int(os.getenv('CHATGPT_CONTENT_LIMIT', '15000'))
+            else:
+                # Using Ollama - more conservative limit
+                content_limit = int(os.getenv('OLLAMA_CONTENT_LIMIT', '4000'))
+            
+            # Truncate content intelligently
+            content = article.content[:content_limit]
+            if len(article.content) > content_limit:
+                content += f"\n\n[Content truncated at {content_limit:,} characters. Full article has {len(article.content):,} characters.]"
+            
             # Analyze both URL and content
             prompt = f"""As a cybersecurity expert specializing in threat hunting and detection engineering, analyze this threat intelligence article for its usefulness to security professionals.
 
@@ -586,7 +599,7 @@ Source URL: {article.canonical_url or 'N/A'}
 Published Date: {article.published_at or 'N/A'}
 
 Article Content:
-{article.content[:2000]}  # Limit content to avoid token limits
+{content}
 
 Please provide a comprehensive analysis covering:
 
@@ -883,6 +896,120 @@ Based on the title, source, and metadata, please provide a brief assessment of w
         raise
     except Exception as e:
         logger.error(f"API ChatGPT summary error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/articles/{article_id}/custom-prompt")
+async def api_custom_prompt(article_id: int, request: Request):
+    """API endpoint for custom AI prompts about an article."""
+    try:
+        # Get the article
+        article = await async_db_manager.get_article(article_id)
+        if not article:
+            raise HTTPException(status_code=404, detail="Article not found")
+        
+        # Get request body
+        body = await request.json()
+        custom_prompt = body.get('prompt')
+        api_key = body.get('api_key')
+        
+        if not custom_prompt:
+            raise HTTPException(status_code=400, detail="Custom prompt is required")
+        
+        if not api_key:
+            raise HTTPException(status_code=400, detail="OpenAI API key is required")
+        
+        # Smart content truncation based on model
+        # Using ChatGPT - can handle more content
+        content_limit = int(os.getenv('CHATGPT_CONTENT_LIMIT', '15000'))
+        
+        # Truncate content intelligently
+        content = article.content[:content_limit]
+        if len(article.content) > content_limit:
+            content += f"\n\n[Content truncated at {content_limit:,} characters. Full article has {len(article.content):,} characters.]"
+        
+        # Prepare the custom prompt
+        full_prompt = f"""As a cybersecurity expert, please answer the following question about this threat intelligence article.
+
+Article Title: {article.title}
+Source URL: {article.canonical_url or 'N/A'}
+Published Date: {article.published_at or 'N/A'}
+
+Article Content:
+{content}
+
+User Question: {custom_prompt}
+
+Please provide a comprehensive and helpful response based on the article content. Be specific, actionable, and focus on cybersecurity insights."""
+        
+        # Use ChatGPT API
+        chatgpt_api_url = os.getenv('CHATGPT_API_URL', 'https://api.openai.com/v1/chat/completions')
+        
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                chatgpt_api_url,
+                headers={
+                    "Authorization": f"Bearer {api_key}",
+                    "Content-Type": "application/json"
+                },
+                json={
+                    "model": "gpt-4",
+                    "messages": [
+                        {
+                            "role": "system",
+                            "content": "You are a cybersecurity expert specializing in threat intelligence analysis. Provide clear, helpful responses to questions about threat intelligence articles."
+                        },
+                        {
+                            "role": "user",
+                            "content": full_prompt
+                        }
+                    ],
+                    "max_tokens": 2048,
+                    "temperature": 0.3
+                },
+                timeout=60.0
+            )
+            
+            if response.status_code != 200:
+                error_detail = f"Failed to get response from ChatGPT: {response.status_code}"
+                if response.status_code == 401:
+                    error_detail = "Invalid API key. Please check your OpenAI API key in Settings."
+                elif response.status_code == 429:
+                    error_detail = "Rate limit exceeded. Please try again later."
+                raise HTTPException(status_code=500, detail=error_detail)
+            
+            result = response.json()
+            ai_response = result['choices'][0]['message']['content']
+        
+        # Store the custom prompt response in article metadata
+        current_metadata = article.metadata.copy() if article.metadata else {}
+        if 'custom_prompts' not in current_metadata:
+            current_metadata['custom_prompts'] = []
+        
+        current_metadata['custom_prompts'].append({
+            'prompt': custom_prompt,
+            'response': ai_response,
+            'responded_at': datetime.now().isoformat(),
+            'model_used': 'chatgpt',
+            'model_name': 'gpt-4'
+        })
+        
+        # Update the article
+        update_data = ArticleUpdate(metadata=current_metadata)
+        await async_db_manager.update_article(article_id, update_data)
+        
+        return {
+            "success": True,
+            "article_id": article_id,
+            "response": ai_response,
+            "responded_at": current_metadata['custom_prompts'][-1]['responded_at'],
+            "model_used": "chatgpt",
+            "model_name": "gpt-4"
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"API custom prompt error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/test-chatgpt-summary")
