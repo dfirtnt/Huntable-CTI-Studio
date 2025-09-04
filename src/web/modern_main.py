@@ -170,9 +170,18 @@ async def sources_list(request: Request):
     """Sources management page."""
     try:
         sources = await async_db_manager.list_sources()
+        quality_stats = await async_db_manager.get_source_quality_stats()
+        
+        # Create a lookup for quality stats by source ID
+        quality_lookup = {stat["source_id"]: stat for stat in quality_stats}
+        
         return templates.TemplateResponse(
             "sources.html",
-            {"request": request, "sources": sources}
+            {
+                "request": request, 
+                "sources": sources,
+                "quality_stats": quality_lookup
+            }
         )
     except Exception as e:
         logger.error(f"Sources list error: {e}")

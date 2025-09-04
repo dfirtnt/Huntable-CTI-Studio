@@ -17,7 +17,7 @@ from sqlalchemy.ext.asyncio import (
     async_sessionmaker,
     AsyncEngine
 )
-from sqlalchemy import select, update, delete, func, and_, or_, desc
+from sqlalchemy import select, update, delete, func, and_, or_, desc, text
 from sqlalchemy.exc import SQLAlchemyError, IntegrityError
 from sqlalchemy.orm import selectinload
 
@@ -528,6 +528,60 @@ class AsyncDatabaseManager:
         except Exception as e:
             logger.error(f"Failed to get existing content hashes: {e}")
             return set()
+    
+    async def get_source_quality_stats(self) -> List[Dict[str, Any]]:
+        """Get quality statistics for all sources."""
+        try:
+            async with self.get_session() as session:
+                # Raw SQL query for better performance
+                query = """
+                SELECT 
+                    s.id,
+                    s.name,
+                    s.identifier,
+                    s.active,
+                    COUNT(a.id) as total_articles,
+                    COUNT(CASE WHEN a.article_metadata->>'training_category' = 'rejected' THEN 1 END) as rejected_count,
+                    COUNT(CASE WHEN a.article_metadata->>'training_category' = 'chosen' THEN 1 END) as chosen_count,
+                    COUNT(CASE WHEN a.article_metadata->>'training_category' IS NULL OR a.article_metadata->>'training_category' = 'unclassified' THEN 1 END) as unclassified_count,
+                    CASE 
+                        WHEN COUNT(a.id) > 0 THEN 
+                            ROUND(COUNT(CASE WHEN a.article_metadata->>'training_category' = 'rejected' THEN 1 END)::numeric / COUNT(a.id)::numeric * 100, 1)
+                        ELSE 0 
+                    END as rejection_rate,
+                    CASE 
+                        WHEN COUNT(a.id) > 0 THEN 
+                            ROUND(COUNT(CASE WHEN a.article_metadata->>'training_category' = 'chosen' THEN 1 END)::numeric / COUNT(a.id)::numeric * 100, 1)
+                        ELSE 0 
+                    END as acceptance_rate
+                FROM sources s 
+                LEFT JOIN articles a ON s.id = a.source_id 
+                GROUP BY s.id, s.name, s.identifier, s.active
+                ORDER BY rejected_count DESC, rejection_rate DESC
+                """
+                
+                result = await session.execute(text(query))
+                rows = result.fetchall()
+                
+                return [
+                    {
+                        "source_id": row.id,
+                        "name": row.name,
+                        "identifier": row.identifier,
+                        "active": row.active,
+                        "total_articles": row.total_articles,
+                        "rejected_count": row.rejected_count,
+                        "chosen_count": row.chosen_count,
+                        "unclassified_count": row.unclassified_count,
+                        "rejection_rate": row.rejection_rate,
+                        "acceptance_rate": row.acceptance_rate
+                    }
+                    for row in rows
+                ]
+                
+        except Exception as e:
+            logger.error(f"Failed to get source quality stats: {e}")
+            return []
     
     def _db_source_to_model(self, db_source: SourceTable) -> Source:
         """Convert database source to Pydantic model."""
