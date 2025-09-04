@@ -1364,17 +1364,20 @@ async def api_extract_iocs(article_id: int, request: Request):
             # IOC extraction prompt
             prompt = f"""You are a cybersecurity analyst. Extract all Indicators of Compromise (IOCs) from the following threat intelligence report.
 
+CRITICAL: Return ONLY valid JSON. Do not include any explanatory text, comments, or markdown formatting.
+
 Rules:
 - Return results in valid JSON only.
 - Group by type: IP, Domain, URL, File Hash (MD5/SHA1/SHA256), Registry Key, File Path, Email, Mutex, Named Pipe, Process/Command-Line, Event ID.
 - Do not include plain text explanations.
 - Normalize values (lowercase domains, full paths, valid hash lengths).
 - Exclude non-IOC context (timestamps, CVEs, actor names, generic tool names).
+- If no IOCs are found, return the JSON structure with empty arrays.
 
 Input:
 {content}
 
-Output format:
+Output format (return ONLY this JSON structure):
 {{
   "ip": [],
   "domain": [],
@@ -1433,7 +1436,7 @@ Please provide a brief but insightful analysis based on the available metadata."
                     "messages": [
                         {
                             "role": "system",
-                            "content": "You are a cybersecurity analyst specializing in IOC extraction. Extract all Indicators of Compromise from threat intelligence articles and return them in valid JSON format only."
+                            "content": "You are a cybersecurity analyst specializing in IOC extraction. Extract all Indicators of Compromise from threat intelligence articles and return them in valid JSON format only. NEVER include explanatory text, comments, or markdown formatting. Return ONLY the JSON object."
                         },
                         {
                             "role": "user",

@@ -1316,7 +1316,18 @@
         let iocsData = {};
         let jsonError = null;
         try {
-            iocsData = JSON.parse(iocsJson);
+            // Try to extract JSON from the response if it contains text before JSON
+            let jsonText = iocsJson.trim();
+            
+            // If the response starts with text, try to find JSON within it
+            if (!jsonText.startsWith('{')) {
+                const jsonMatch = jsonText.match(/\{[\s\S]*\}/);
+                if (jsonMatch) {
+                    jsonText = jsonMatch[0];
+                }
+            }
+            
+            iocsData = JSON.parse(jsonText);
         } catch (e) {
             jsonError = e.message;
         }
