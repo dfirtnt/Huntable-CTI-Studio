@@ -1313,6 +1313,188 @@ Please provide a brief but insightful analysis based on the available metadata."
         logger.error(f"SIGMA generation error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.post("/api/articles/{article_id}/extract-iocs")
+async def api_extract_iocs(article_id: int, request: Request):
+    """API endpoint for extracting IOCs from an article."""
+    try:
+        # Get the article
+        article = await async_db_manager.get_article(article_id)
+        if not article:
+            raise HTTPException(status_code=404, detail="Article not found")
+        
+        # Get request body
+        body = await request.json()
+        include_content = body.get('include_content', True)  # Default to full content
+        api_key = body.get('api_key')  # Get API key from request
+        force_regenerate = body.get('force_regenerate', False)  # Force regeneration
+        
+        logger.info(f"IOC extraction request for article {article_id}, api_key provided: {bool(api_key)}, force_regenerate: {force_regenerate}")
+        
+        # If force regeneration is requested, skip cache check
+        if not force_regenerate:
+            # Check if IOCs already exist and return cached version
+            existing_iocs = article.metadata.get('extracted_iocs', {}) if article.metadata else {}
+            if existing_iocs and existing_iocs.get('iocs'):
+                logger.info(f"Returning cached IOCs for article {article_id}")
+                return {
+                    "success": True,
+                    "article_id": article_id,
+                    "iocs": existing_iocs['iocs'],
+                    "extracted_at": existing_iocs['extracted_at'],
+                    "content_type": existing_iocs['content_type'],
+                    "model_used": existing_iocs['model_used'],
+                    "model_name": existing_iocs['model_name'],
+                    "cached": True
+                }
+        
+        # Check if API key is provided
+        if not api_key:
+            raise HTTPException(status_code=400, detail="OpenAI API key is required. Please configure it in Settings.")
+        
+        # Prepare the IOC extraction prompt
+        if include_content:
+            # Smart content truncation for IOC extraction
+            content_limit = int(os.getenv('CHATGPT_CONTENT_LIMIT', '8000'))  # Conservative limit
+            
+            # Truncate content intelligently
+            content = article.content[:content_limit]
+            if len(article.content) > content_limit:
+                content += f"\n\n[Content truncated at {content_limit:,} characters. Full article has {len(article.content):,} characters.]"
+            
+            # IOC extraction prompt
+            prompt = f"""You are a cybersecurity analyst. Extract all Indicators of Compromise (IOCs) from the following threat intelligence report.
+
+Rules:
+- Return results in valid JSON only.
+- Group by type: IP, Domain, URL, File Hash (MD5/SHA1/SHA256), Registry Key, File Path, Email, Mutex, Named Pipe, Process/Command-Line, Event ID.
+- Do not include plain text explanations.
+- Normalize values (lowercase domains, full paths, valid hash lengths).
+- Exclude non-IOC context (timestamps, CVEs, actor names, generic tool names).
+
+Input:
+{content}
+
+Output format:
+{{
+  "ip": [],
+  "domain": [],
+  "url": [],
+  "file_hash": [],
+  "registry_key": [],
+  "file_path": [],
+  "email": [],
+  "mutex": [],
+  "named_pipe": [],
+  "process_cmdline": [],
+  "event_id": []
+}}"""
+        else:
+            # Metadata-only prompt
+            prompt = f"""You are a cybersecurity analyst. Based on the article metadata, provide guidance on potential IOCs that might be found in this threat intelligence report.
+
+Article Title: {article.title}
+Source URL: {article.canonical_url or 'N/A'}
+Published Date: {article.published_at or 'N/A'}
+Source: {article.source_id}
+Content Length: {len(article.content)} characters
+
+Based on the article title and metadata, provide:
+
+1. **Potential IOC Types**:
+   - What types of IOCs might be discussed?
+   - What threat categories are likely present?
+
+2. **Expected IOC Categories**:
+   - Network indicators (IPs, domains, URLs)
+   - File indicators (hashes, paths)
+   - System indicators (registry keys, processes)
+   - Other indicators (emails, mutexes, etc.)
+
+3. **Recommended Analysis**:
+   - Should the full content be analyzed?
+   - What specific IOC types to focus on?
+
+Please provide a brief but insightful analysis based on the available metadata."""
+        
+        # Use ChatGPT API for IOC extraction
+        chatgpt_api_url = os.getenv('CHATGPT_API_URL', 'https://api.openai.com/v1/chat/completions')
+        
+        logger.info(f"Sending IOC extraction request to OpenAI for article {article_id}, content length: {len(content) if include_content else 'metadata only'}")
+        
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                chatgpt_api_url,
+                headers={
+                    "Authorization": f"Bearer {api_key}",
+                    "Content-Type": "application/json"
+                },
+                json={
+                    "model": "gpt-4",
+                    "messages": [
+                        {
+                            "role": "system",
+                            "content": "You are a cybersecurity analyst specializing in IOC extraction. Extract all Indicators of Compromise from threat intelligence articles and return them in valid JSON format only."
+                        },
+                        {
+                            "role": "user",
+                            "content": prompt
+                        }
+                    ],
+                    "max_tokens": 2048,
+                    "temperature": 0.1  # Very low temperature for consistent JSON output
+                },
+                timeout=120.0
+            )
+            
+            if response.status_code != 200:
+                error_detail = f"Failed to extract IOCs: {response.status_code}"
+                if response.status_code == 401:
+                    error_detail = "Invalid API key. Please check your OpenAI API key in Settings."
+                elif response.status_code == 429:
+                    error_detail = "Rate limit exceeded. Please try again later."
+                elif response.status_code == 400:
+                    # Log the actual error from OpenAI
+                    try:
+                        error_response = response.json()
+                        logger.error(f"OpenAI API 400 error details: {error_response}")
+                        error_detail = f"OpenAI API error: {error_response.get('error', {}).get('message', 'Bad request')}"
+                    except:
+                        error_detail = "OpenAI API error: Bad request - check prompt format"
+                raise HTTPException(status_code=500, detail=error_detail)
+            
+            result = response.json()
+            iocs_json = result['choices'][0]['message']['content']
+        
+        # Store the IOCs in article metadata
+        current_metadata = article.metadata.copy() if article.metadata else {}
+        current_metadata['extracted_iocs'] = {
+            'iocs': iocs_json,
+            'extracted_at': datetime.now().isoformat(),
+            'content_type': 'full content' if include_content else 'metadata only',
+            'model_used': 'chatgpt',
+            'model_name': 'gpt-4'
+        }
+        
+        # Update the article
+        update_data = ArticleUpdate(metadata=current_metadata)
+        await async_db_manager.update_article(article_id, update_data)
+        
+        return {
+            "success": True,
+            "article_id": article_id,
+            "iocs": iocs_json,
+            "extracted_at": current_metadata['extracted_iocs']['extracted_at'],
+            "content_type": current_metadata['extracted_iocs']['content_type'],
+            "model_used": current_metadata['extracted_iocs']['model_used'],
+            "model_name": current_metadata['extracted_iocs']['model_name']
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"IOC extraction error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 # Error handlers
 @app.exception_handler(404)
 async def not_found_handler(request: Request, exc: HTTPException):
