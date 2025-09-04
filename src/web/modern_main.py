@@ -1072,7 +1072,7 @@ async def test_openai_key(request: Request):
         
         # Test the API key by making a simple request to OpenAI
         async with httpx.AsyncClient() as client:
-            response = await client.post(
+            response = await client.get(
                 "https://api.openai.com/v1/models",
                 headers={
                     "Authorization": f"Bearer {api_key}",

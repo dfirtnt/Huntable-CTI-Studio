@@ -802,7 +802,14 @@
         
         try {
             console.log('Making API request to ChatGPT summary endpoint...'); // Debug log
-            const response = await fetch(`/api/articles/{{ article.id }}/chatgpt-summary`, {
+            
+            // Create a timeout promise
+            const timeoutPromise = new Promise((_, reject) => {
+                setTimeout(() => reject(new Error('Request timed out after 60 seconds')), 60000);
+            });
+            
+            // Create the fetch promise
+            const fetchPromise = fetch(`/api/articles/{{ article.id }}/chatgpt-summary`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -810,9 +817,11 @@
                 body: JSON.stringify({
                     include_content: true,  // Set to false to send only URL
                     api_key: apiKey  // Send API key from settings
-                }),
-                signal: AbortSignal.timeout(60000)  // 60 second timeout
+                })
             });
+            
+            // Race between fetch and timeout
+            const response = await Promise.race([fetchPromise, timeoutPromise]);
             
             console.log('Response status:', response.status); // Debug log
             
@@ -827,7 +836,7 @@
             }
         } catch (error) {
             console.error('JavaScript error:', error); // Debug log
-            if (error.name === 'TimeoutError') {
+            if (error.message.includes('timed out')) {
                 showNotification('ChatGPT Summary timed out after 60 seconds. Try using metadata-only analysis or configure OpenAI API key for faster results.', 'error');
             } else {
                 showNotification(`Error: ${error.message}`, 'error');
