@@ -552,8 +552,8 @@
         loadingModal.id = 'loadingModal';
         loadingModal.className = 'fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50';
         
-        const typeText = type === 'summary' ? 'Summary' : 'SIGMA Rules';
-        const typeIcon = type === 'summary' ? '📝' : '🔍';
+        const typeText = type === 'summary' ? 'Summary' : type === 'sigma' ? 'SIGMA Rules' : 'IOCs';
+        const typeIcon = type === 'summary' ? '📝' : type === 'sigma' ? '🔍' : '🔍';
         
         loadingModal.innerHTML = `
             <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
@@ -564,8 +564,8 @@
                             <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                         </svg>
                     </div>
-                    <h3 class="text-lg font-medium text-gray-900 mt-4">${typeIcon} Generating ${typeText}...</h3>
-                    <p class="text-sm text-gray-500 mt-2">This may take a few moments.</p>
+                    <h3 class="text-lg font-medium text-gray-900 mt-4">${typeIcon} ${type === 'summary' ? 'Generating' : type === 'sigma' ? 'Generating' : 'Extracting'} ${typeText}...</h3>
+                    <p class="text-sm text-gray-500 mt-2">${type === 'summary' ? 'Creating a comprehensive summary' : type === 'sigma' ? 'Creating detection rules' : 'Extracting indicators of compromise'} - this may take a few moments.</p>
                 </div>
             </div>
         `;
@@ -605,11 +605,11 @@
                 }
             } else {
                 const error = await response.json();
-                showNotification(`${typeText} generation failed: ${error.detail}`, 'error');
+                showNotification(`${typeText} ${type === 'summary' ? 'generation' : type === 'sigma' ? 'generation' : 'extraction'} failed: ${error.detail}`, 'error');
             }
         } catch (error) {
             if (error.message.includes('timed out')) {
-                showNotification(`${typeText} generation timed out after 60 seconds. Try using a different model or check your settings.`, 'error');
+                showNotification(`${typeText} ${type === 'summary' ? 'generation' : type === 'sigma' ? 'generation' : 'extraction'} timed out after 60 seconds. Try using a different model or check your settings.`, 'error');
             } else {
                 showNotification(`Error: ${error.message}`, 'error');
             }
