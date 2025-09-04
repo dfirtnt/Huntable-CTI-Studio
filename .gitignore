@@ -182,6 +182,7 @@ logs/
 *.bak
 *.backup
 *.old
+backup_old_architecture/
 
 # IDE specific
 .vscode/

@@ -753,6 +753,156 @@ Please provide a brief but insightful analysis based on the available metadata."
         logger.error(f"API analyze threat hunting error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.post("/api/articles/{article_id}/analyze-customgpt")
+async def api_analyze_customgpt(article_id: int, request: Request):
+    """Analyze article using CustomGPT via OpenAI API."""
+    try:
+        # Get the article
+        article = await async_db_manager.get_article(article_id)
+        if not article:
+            raise HTTPException(status_code=404, detail="Article not found")
+        
+        # Get request body to check for API key
+        body = await request.json()
+        api_key = body.get('api_key')
+        
+        if not api_key:
+            raise HTTPException(status_code=400, detail="OpenAI API key is required")
+        
+        # Prepare the analysis prompt for full content
+        prompt = f"""As a cybersecurity expert specializing in threat hunting and detection engineering, analyze this threat intelligence article for its usefulness to security professionals.
+
+Article Title: {article.title}
+Source URL: {article.canonical_url or 'N/A'}
+Published Date: {article.published_at or 'N/A'}
+
+Article Content:
+{article.content[:4000]}  # Limit content to avoid token limits
+
+Please provide a comprehensive analysis covering:
+
+1. **Threat Hunting Value** (1-10 scale):
+   - How useful is this for threat hunters?
+   - What indicators of compromise (IOCs) are mentioned?
+   - What attack techniques are described?
+
+2. **Detection Engineering Value** (1-10 scale):
+   - How useful is this for creating detection rules?
+   - What detection opportunities are present?
+   - What log sources would be relevant?
+
+3. **Key Technical Details**:
+   - Specific malware families, tools, or techniques
+   - Network indicators, file hashes, registry keys
+   - Process names, command lines, or behaviors
+
+4. **Actionable Intelligence**:
+   - Specific detection rules that could be created
+   - Threat hunting queries that could be used
+   - Recommended monitoring areas
+
+5. **Overall Assessment**:
+   - Summary of the article's value
+   - Priority level for security teams
+   - Recommended next steps
+
+Please be specific and actionable in your analysis."""
+        
+        # Use OpenAI API
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                "https://api.openai.com/v1/chat/completions",
+                headers={
+                    "Authorization": f"Bearer {api_key}",
+                    "Content-Type": "application/json"
+                },
+                json={
+                    "model": "gpt-4",
+                    "messages": [
+                        {
+                            "role": "system",
+                            "content": "You are a cybersecurity expert specializing in threat hunting and detection engineering. Provide clear, actionable analysis of threat intelligence articles."
+                        },
+                        {
+                            "role": "user",
+                            "content": prompt
+                        }
+                    ],
+                    "max_tokens": 2048,
+                    "temperature": 0.3
+                },
+                timeout=120.0
+            )
+            
+            if response.status_code != 200:
+                logger.error(f"OpenAI API error: {response.status_code} - {response.text}")
+                raise HTTPException(status_code=500, detail=f"Failed to get analysis from OpenAI: {response.text}")
+            
+            result = response.json()
+            analysis = result['choices'][0]['message']['content']
+        
+        # Store the analysis in article metadata
+        current_metadata = article.metadata.copy() if article.metadata else {}
+        current_metadata['customgpt_analysis'] = {
+            'analysis': analysis,
+            'analyzed_at': datetime.now().isoformat(),
+            'model_used': 'openai',
+            'model_name': 'gpt-4'
+        }
+        
+        # Update the article
+        update_data = ArticleUpdate(metadata=current_metadata)
+        await async_db_manager.update_article(article_id, update_data)
+        
+        return {
+            "success": True,
+            "article_id": article_id,
+            "analysis": analysis,
+            "analyzed_at": current_metadata['customgpt_analysis']['analyzed_at'],
+            "model_used": "openai",
+            "model_name": "gpt-4"
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"API analyze CustomGPT error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/test-openai-key")
+async def test_openai_key(request: Request):
+    """Test OpenAI API key validity."""
+    try:
+        body = await request.json()
+        api_key = body.get('api_key')
+        
+        if not api_key:
+            raise HTTPException(status_code=400, detail="API key is required")
+        
+        # Test the API key by making a simple request to OpenAI
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                "https://api.openai.com/v1/models",
+                headers={
+                    "Authorization": f"Bearer {api_key}",
+                    "Content-Type": "application/json"
+                },
+                timeout=10.0
+            )
+            
+            if response.status_code == 200:
+                return {"success": True, "message": "API key is valid"}
+            elif response.status_code == 401:
+                raise HTTPException(status_code=400, detail="Invalid API key")
+            else:
+                raise HTTPException(status_code=400, detail=f"API error: {response.status_code}")
+                
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Test OpenAI API key error: {e}")
+        raise HTTPException(status_code=500, detail="Failed to test API key")
+
 # Error handlers
 @app.exception_handler(404)
 async def not_found_handler(request: Request, exc: HTTPException):
