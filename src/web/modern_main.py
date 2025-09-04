@@ -1200,7 +1200,19 @@ Create one high-quality Sigma rule in YAML format with:
 - falsepositives: potential false positives
 - level: high/medium/low
 
-Focus on the most actionable detection from this content."""
+IMPORTANT: Focus on TTPs (Tactics, Techniques, and Procedures) rather than atomic IOCs (Indicators of Compromise). Avoid rules that could easily be replaced by simple IOC matching (specific IP addresses, file hashes, etc.). Instead, focus on:
+
+- Behavioral patterns and techniques
+- Process execution chains
+- Network communication patterns
+- File system activities
+- Registry modifications
+- Authentication anomalies
+- Command execution patterns
+- Persistence mechanisms
+- Domain/URL patterns (when they indicate technique, not just specific domains)
+
+The rule should detect the technique or behavior, not just specific artifacts. Domain/URL patterns are acceptable when they represent a technique (e.g., specific TLDs, URL structures, or domain patterns that indicate malicious behavior)."""
         else:
             # Metadata-only prompt
             prompt = f"""As a senior cybersecurity detection engineer specializing in SIGMA rule creation and threat hunting, analyze this threat intelligence article metadata and provide guidance for SIGMA rule generation.
@@ -1252,7 +1264,7 @@ Please provide a brief but insightful analysis based on the available metadata."
                     "messages": [
                         {
                             "role": "system",
-                            "content": "You are a senior cybersecurity detection engineer specializing in SIGMA rule creation and threat hunting. Generate high-quality, actionable SIGMA rules based on threat intelligence articles. Always use proper SIGMA syntax and include all required fields according to SigmaHQ standards."
+                            "content": "You are a senior cybersecurity detection engineer specializing in SIGMA rule creation and threat hunting. Generate high-quality, actionable SIGMA rules based on threat intelligence articles. Always use proper SIGMA syntax and include all required fields according to SigmaHQ standards. Focus on TTPs (Tactics, Techniques, and Procedures) rather than atomic IOCs (Indicators of Compromise). Create rules that detect behavioral patterns and techniques, not just specific artifacts like IP addresses or file hashes. Domain/URL patterns are acceptable when they represent techniques or behavioral patterns."
                         },
                         {
                             "role": "user",
@@ -1370,8 +1382,8 @@ async def api_extract_iocs(article_id: int, request: Request):
             'iocs': extraction_result.iocs,
             'extracted_at': datetime.now().isoformat(),
             'content_type': 'full content' if include_content else 'metadata only',
-            'model_used': 'hybrid' if extraction_result.extraction_method == 'hybrid' else 'iocextract',
-            'model_name': 'gpt-4' if extraction_result.extraction_method == 'hybrid' else 'iocextract',
+            'model_used': 'hybrid' if extraction_result.extraction_method == 'hybrid' else 'regex',
+            'model_name': 'gpt-4' if extraction_result.extraction_method == 'hybrid' else 'custom-regex',
             'extraction_method': extraction_result.extraction_method,
             'confidence': extraction_result.confidence,
             'processing_time': extraction_result.processing_time,
