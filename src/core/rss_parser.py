@@ -331,9 +331,9 @@ class RSSParser:
             response = None
             for attempt in range(2):  # Try twice with different approaches
                 try:
-                    # First attempt: standard request with any pre-configured headers
+                    # First attempt: standard request
                     # Second attempt: with additional headers to appear more like a browser
-                    attempt_headers = extra_headers.copy() if extra_headers else {}
+                    attempt_headers = {}
                     if attempt == 1:
                         attempt_headers.update({
                             'Referer': f"https://{url.split('/')[2]}/",
