@@ -216,7 +216,7 @@ class RSSParser:
             response.raise_for_status()
             
             from bs4 import BeautifulSoup
-            soup = BeautifulSoup(response.text, 'lxml')
+            soup = BeautifulSoup(self.http_client.get_text_with_encoding_fallback(response), 'lxml')
             
             # Try different meta tags for publication date
             date_selectors = [
@@ -277,16 +277,32 @@ class RSSParser:
             # Return None to indicate extraction failure - this article will be rejected
             return None
         
+        # Special handling for The Hacker News - use RSS content instead of scraping
+        if 'thehackernews.com' in url.lower():
+            logger.info(f"The Hacker News URL detected, using RSS content: {url}")
+            # Return the RSS content directly instead of trying to scrape the website
+            if content and len(ContentCleaner.html_to_text(content).strip()) > 100:
+                return ContentCleaner.clean_html(content)
+            return None
+        
         # If feed content is insufficient, fetch from URL with retry strategies
+        # Skip scraping for The Hacker News since we're using RSS content
+        if 'thehackernews.com' in url.lower():
+            # Return feed content even if short
+            if content:
+                cleaned_content = ContentCleaner.clean_html(content)
+                return cleaned_content
+            return None
+            
         try:
             response = None
             for attempt in range(2):  # Try twice with different approaches
                 try:
-                    # First attempt: standard request
+                    # First attempt: standard request with any pre-configured headers
                     # Second attempt: with additional headers to appear more like a browser
-                    extra_headers = {}
+                    attempt_headers = extra_headers.copy() if extra_headers else {}
                     if attempt == 1:
-                        extra_headers.update({
+                        attempt_headers.update({
                             'Referer': f"https://{url.split('/')[2]}/",
                             'Sec-Fetch-User': '?1',
                             'Sec-Ch-Ua': '"Google Chrome";v="120", "Chromium";v="120", "Not A(Brand";v="99"',
@@ -295,7 +311,7 @@ class RSSParser:
                         })
                         logger.info(f"Retry attempt {attempt + 1} with enhanced headers for {url}")
                     
-                    response = await self.http_client.get(url, headers=extra_headers)
+                    response = await self.http_client.get(url, headers=attempt_headers)
                     response.raise_for_status()
                     break  # Success, exit retry loop
                     
@@ -309,7 +325,7 @@ class RSSParser:
             
             # Use basic content extraction
             from bs4 import BeautifulSoup
-            soup = BeautifulSoup(response.text, 'lxml')
+            soup = BeautifulSoup(self.http_client.get_text_with_encoding_fallback(response), 'lxml')
             
             # Try comprehensive content selectors (prioritized by likelihood)
             content_selectors = [

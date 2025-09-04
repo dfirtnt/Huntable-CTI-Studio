@@ -84,7 +84,7 @@ class URLDiscovery:
                     response = await self.http_client.get(current_url, source_id=source.identifier)
                     response.raise_for_status()
                     
-                    soup = BeautifulSoup(response.text, 'lxml')
+                    soup = BeautifulSoup(self.http_client.get_text_with_encoding_fallback(response), 'lxml')
                     
                     # Extract post links
                     post_links = soup.select(post_link_selector)
@@ -372,11 +372,11 @@ class ModernScraper:
             response.raise_for_status()
             
             # Parse HTML
-            soup = BeautifulSoup(response.text, 'lxml')
+            soup = BeautifulSoup(self.http_client.get_text_with_encoding_fallback(response), 'lxml')
             
             # Extract structured data
             structured_data = self.structured_extractor.extract_structured_data(
-                response.text, url
+                self.http_client.get_text_with_encoding_fallback(response), url
             )
             
             # Try JSON-LD extraction first
@@ -574,7 +574,7 @@ class LegacyScraper:
             response = await self.http_client.get(source.url, source_id=source.identifier)
             response.raise_for_status()
             
-            soup = BeautifulSoup(response.text, 'lxml')
+            soup = BeautifulSoup(self.http_client.get_text_with_encoding_fallback(response), 'lxml')
             
             # Extract basic content
             content_elem = soup.select_one(content_selector)

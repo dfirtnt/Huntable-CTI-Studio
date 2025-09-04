@@ -237,7 +237,7 @@ class HTTPClient:
                 "User-Agent": user_agent,
                 "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
                 "Accept-Language": "en-US,en;q=0.9",
-                "Accept-Encoding": "gzip, deflate, br",
+                "Accept-Encoding": "gzip, deflate",
                 "DNT": "1",
                 "Connection": "keep-alive",
                 "Upgrade-Insecure-Requests": "1",
@@ -245,7 +245,8 @@ class HTTPClient:
                 "Sec-Fetch-Mode": "navigate",
                 "Sec-Fetch-Site": "none",
                 "Cache-Control": "max-age=0"
-            }
+            },
+            "http2": False  # Disable HTTP/2 to avoid Brotli compression issues
         }
         
         self._client: Optional[httpx.AsyncClient] = None
@@ -347,6 +348,66 @@ class HTTPClient:
             self.rate_limiter.record_failure(url)
             logger.error(f"Failed to fetch {url}: {e}")
             raise
+
+    def get_text_with_encoding_fallback(self, response: httpx.Response) -> str:
+        """
+        Get response text with robust encoding handling to avoid Unicode replacement characters.
+        
+        Args:
+            response: httpx.Response object
+            
+        Returns:
+            Decoded text content
+        """
+        try:
+            # Check if response is properly decompressed
+            content_encoding = response.headers.get('content-encoding', '').lower()
+            if content_encoding in ['gzip', 'deflate', 'br'] and '�' in response.text:
+                logger.warning(f"Compressed content not properly decompressed for {response.url}")
+                # Try to get raw content and decode manually
+                try:
+                    # Force httpx to handle compression properly
+                    raw_response = response.raw
+                    if hasattr(raw_response, 'read'):
+                        content = raw_response.read()
+                        return content.decode('utf-8', errors='replace')
+                except Exception:
+                    pass
+            
+            # First try the default text decoding
+            text = response.text
+            if '�' not in text:  # No replacement characters
+                return text
+            
+            # If we have replacement characters, try manual encoding detection
+            content = response.content
+            encodings_to_try = [
+                'utf-8',
+                'utf-8-sig',  # UTF-8 with BOM
+                'latin-1',
+                'iso-8859-1',
+                'cp1252',
+                'windows-1252',
+                'ascii'
+            ]
+            
+            # Try each encoding
+            for encoding in encodings_to_try:
+                try:
+                    decoded = content.decode(encoding, errors='replace')
+                    if '�' not in decoded:  # Success if no replacement characters
+                        logger.debug(f"Successfully decoded {response.url} with {encoding}")
+                        return decoded
+                except UnicodeDecodeError:
+                    continue
+            
+            # If all encodings fail, return the original text but log the issue
+            logger.warning(f"Failed to decode {response.url} properly, using fallback")
+            return text
+            
+        except Exception as e:
+            logger.error(f"Error in encoding fallback for {response.url}: {e}")
+            return response.text
     
     async def head(self, url: str, **kwargs) -> httpx.Response:
         """HEAD request with same enhancements as GET."""

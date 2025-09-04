@@ -55,6 +55,7 @@ services:
       - LLM_MODEL=mistral
       - LLM_TEMPERATURE=0.3
       - LLM_MAX_TOKENS=2048
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
     ports:
       - "8000:8000"
     volumes:
@@ -81,6 +82,7 @@ services:
       - REDIS_URL=redis://:cti_redis_2024@redis:6379/0
       - ENVIRONMENT=production
       - LOG_LEVEL=INFO
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
     volumes:
       - ./src:/app/src
       - ./logs:/app/logs
@@ -173,6 +175,7 @@ services:
       - ENVIRONMENT=production
       - LOG_LEVEL=INFO
       - SOURCES_CONFIG=/app/config/sources.yaml
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
     volumes:
       - ./src:/app/src
       - ./config:/app/config
