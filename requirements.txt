@@ -10,8 +10,6 @@ readability-lxml==0.3.0
 iocextract==1.16.1
 
 # Data processing and storage
-
-# Data processing and storage
 pandas==2.2.3
 numpy==1.24.3
 sqlalchemy[asyncio]==2.0.43
