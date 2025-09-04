@@ -134,6 +134,50 @@ The CLI tool is now fully containerized and uses the same PostgreSQL database as
 ./run_cli.sh stats
 ```
 
+## Development Setup
+
+### Prerequisites
+
+- **Docker Desktop** (required)
+- **Git** (for version control)
+- **Text Editor/IDE** (VS Code, PyCharm, etc.)
+
+### No Virtual Environment Needed
+
+Unlike traditional Python projects, **you don't need to create a Python virtual environment**. All dependencies are managed inside Docker containers.
+
+**❌ Don't do this:**
+```bash
+python -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+```
+
+**✅ Do this instead:**
+```bash
+./start_development.sh
+./run_cli.sh init
+```
+
+### Why No Virtual Environment?
+
+- **Docker isolation**: All dependencies are contained in Docker images
+- **Consistent environment**: Same setup for all developers
+- **Simplified workflow**: No need to manage Python versions or dependencies
+- **Production parity**: Development environment matches production exactly
+
+### Local Development (Optional)
+
+If you need to run tools locally (linting, testing, etc.), you can still create a virtual environment:
+
+```bash
+# Only if you need local Python tools
+python -m venv venv
+source venv/bin/activate  # or venv\Scripts\activate on Windows
+pip install -r requirements.txt
+pip install -r requirements-test.txt  # for testing dependencies
+```
+
 ## Web Application
 
 - Routes

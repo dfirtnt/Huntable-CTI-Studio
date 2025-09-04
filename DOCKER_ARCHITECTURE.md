@@ -244,3 +244,4 @@ If you were previously running components locally:
 4. **Data backup**: Regular backups of PostgreSQL and Redis data
 5. **Monitoring**: Check health endpoints and logs regularly
 6. **Environment variables**: Use consistent environment variables across services
+7. **No virtual environments needed**: All Python dependencies are managed in Docker containers
