@@ -9,6 +9,7 @@ docs/
 ├── api/                    # API documentation
 ├── development/           # Development guides and technical documentation
 │   ├── ADVANCED_QUALITY_SYSTEM.md
+│   ├── AI_FEATURES.md
 │   ├── boolean-search.md
 │   ├── DATABASE_QUERY_GUIDE.md
 │   ├── MANUAL_TEST_CHECKLIST.md
@@ -37,6 +38,7 @@ docs/
 - **Database Queries**: `development/DATABASE_QUERY_GUIDE.md` - Database operations
 - **Boolean Search**: `development/boolean-search.md` - Search functionality
 - **Search Queries**: `development/search-queries.md` - Query examples and patterns
+- **AI Features**: `development/AI_FEATURES.md` - AI-powered content analysis features
 
 ### 🏗️ Architecture & Quality
 - **Advanced Quality System**: `development/ADVANCED_QUALITY_SYSTEM.md` - Quality assessment framework
