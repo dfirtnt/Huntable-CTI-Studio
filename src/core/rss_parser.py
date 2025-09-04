@@ -40,8 +40,11 @@ class RSSParser:
         logger.info(f"Parsing RSS feed for {source.name}: {source.rss_url}")
         
         try:
-            # Fetch RSS feed
-            response = await self.http_client.get(source.rss_url)
+            # Fetch RSS feed with source-specific robots configuration
+            response = await self.http_client.get(
+                source.rss_url, 
+                source_id=source.identifier
+            )
             response.raise_for_status()
             
             # Parse with feedparser

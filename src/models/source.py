@@ -62,6 +62,7 @@ class Source(BaseModel):
     name: str = Field(..., min_length=1, description="Human readable name")
     url: str = Field(..., description="Base URL of the source")
     rss_url: Optional[str] = Field(None, description="RSS/Atom feed URL")
+    tier: int = Field(default=2, ge=1, le=3, description="Source tier (1=premium, 2=standard, 3=basic)")
     check_frequency: int = Field(default=3600, ge=60, description="Check frequency in seconds")
     active: bool = Field(default=True, description="Whether source is active")
     config: SourceConfig = Field(default_factory=SourceConfig, description="Source configuration")
@@ -192,6 +193,7 @@ class SourceFilter(BaseModel):
     active: Optional[bool] = None
     identifier_contains: Optional[str] = None
     name_contains: Optional[str] = None
+    tier: Optional[int] = None
     consecutive_failures_gte: Optional[int] = None
     last_check_before: Optional[datetime] = None
     limit: int = Field(default=100, le=1000)

@@ -199,6 +199,9 @@ class SourceManager:
         
         logger.info(f"Loaded {len(source_configs)} source configurations")
         
+        # Configure robots.txt settings for each source
+        await self._configure_robots_settings(source_configs)
+        
         # Validate feeds if requested
         if validate_feeds:
             source_configs = await self._validate_source_feeds(source_configs)
@@ -246,6 +249,14 @@ class SourceManager:
                 validated_configs.append(config)
         
         return validated_configs
+    
+    async def _configure_robots_settings(self, source_configs: List[SourceCreate]):
+        """Configure robots.txt settings for each source."""
+        for config in source_configs:
+            if hasattr(config.config, 'robots') and config.config.robots:
+                robots_config = config.config.robots
+                self.http_client.configure_source_robots(config.identifier, robots_config)
+                logger.debug(f"Configured robots.txt settings for {config.identifier}")
     
     async def _sync_sources_to_db(self, source_configs: List[SourceCreate]) -> List[Source]:
         """Synchronize source configurations with database."""

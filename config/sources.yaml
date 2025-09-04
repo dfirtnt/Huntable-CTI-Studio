@@ -15,6 +15,12 @@ sources:
     config:
       allow: ["blog.talosintelligence.com"]
       post_url_regex: ["^https://blog\\.talosintelligence\\.com/.*"]
+      robots:
+        enabled: true
+        user_agent: "CTIScraper/2.0"
+        respect_delay: true
+        max_requests_per_minute: 10
+        crawl_delay: 1.0
       extract:
         prefer_jsonld: true
         title_selectors: ["h1", "meta[property='og:title']::attr(content)"]
@@ -35,6 +41,12 @@ sources:
     config:
       allow: ["huntress.com"]
       post_url_regex: ["^https://www\\.huntress\\.com/blog/.*"]
+      robots:
+        enabled: true
+        user_agent: "CTIScraper/2.0"
+        respect_delay: true
+        max_requests_per_minute: 8
+        crawl_delay: 2.0
       extract:
         prefer_jsonld: true
         title_selectors: ["h1.landing-banner-heading-h1", "h1.blog", ".landing-banner-heading-h1", "h1"]
@@ -53,6 +65,12 @@ sources:
     config:
       allow: ["mandiant.com"]
       post_url_regex: ["^https://www\\.mandiant\\.com/resources/blog/.*"]
+      robots:
+        enabled: true
+        user_agent: "CTIScraper/2.0"
+        respect_delay: true
+        max_requests_per_minute: 6
+        crawl_delay: 3.0
       extract:
         prefer_jsonld: true
         title_selectors: ["h1", "meta[property='og:title']::attr(content)"]

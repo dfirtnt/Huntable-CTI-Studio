@@ -26,7 +26,7 @@
             <div>
                 <label for="search" class="block text-sm font-medium text-gray-700 mb-1">Search</label>
                 <div class="relative">
-                    <input type="text" name="search" id="search" value="{{ filters.search or '' }}" 
+                    <input type="text" name="search" id="search" autofocus value="{{ filters.search or '' }}" 
                            placeholder="Search with AND, OR, NOT logic..." 
                            title="{{ filters.search or '' }}"
                            class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-sm"
@@ -424,10 +424,10 @@
     let currentArticleId = null;
     let currentArticleData = null;
     
-    // Auto-submit form when filters change
+    // Auto-submit form when non-text filters change
     document.addEventListener('DOMContentLoaded', function() {
         const form = document.querySelector('form');
-        const inputs = form.querySelectorAll('select, input');
+        const inputs = form.querySelectorAll('select, input:not(#search)');
         
         inputs.forEach(input => {
             input.addEventListener('change', function() {
@@ -449,17 +449,7 @@
         updateCommentPromptsStatus();
     });
 
-    // Debounced search for better performance
-    window.searchTimeout;
-    const searchInput = document.getElementById('search');
-    if (searchInput) {
-        searchInput.addEventListener('input', function() {
-            clearTimeout(window.searchTimeout);
-            window.searchTimeout = setTimeout(() => {
-                this.form.submit();
-            }, 500);
-        });
-    }
+    // Note: Removed auto-submit on typing to prevent focus loss while entering text.
     
     // Modal functions
     function openClassificationModal(articleId, title) {

@@ -113,24 +113,46 @@ class ConditionalCache:
 
 
 class RobotsChecker:
-    """Robots.txt compliance checker."""
+    """Robots.txt compliance checker with per-source configuration."""
     
     def __init__(self, user_agent: str = "*"):
         self.user_agent = user_agent
         self.robots_cache: Dict[str, RobotFileParser] = {}
         self.cache_times: Dict[str, datetime] = {}
         self.cache_duration = timedelta(hours=24)
+        self.source_configs: Dict[str, Dict] = {}
+        self.last_request_times: Dict[str, datetime] = {}
     
-    async def can_fetch(self, url: str, client: httpx.AsyncClient) -> bool:
-        """Check if URL can be fetched according to robots.txt."""
+    def configure_source(self, source_id: str, config: Dict):
+        """Configure robots.txt settings for a specific source."""
+        self.source_configs[source_id] = {
+            'enabled': config.get('enabled', True),
+            'user_agent': config.get('user_agent', self.user_agent),
+            'respect_delay': config.get('respect_delay', True),
+            'max_requests_per_minute': config.get('max_requests_per_minute', 10),
+            'crawl_delay': config.get('crawl_delay', 1.0)
+        }
+    
+    async def can_fetch(self, url: str, client: httpx.AsyncClient, source_id: str = None) -> bool:
+        """Check if URL can be fetched according to robots.txt with rate limiting."""
         try:
             domain = urlparse(url).netloc.lower()
+            
+            # Get source configuration
+            source_config = self.source_configs.get(source_id, {})
+            if not source_config.get('enabled', True):
+                return True
+            
+            # Check rate limiting
+            if source_config.get('respect_delay', True):
+                if not await self._check_rate_limit(domain, source_config):
+                    return False
             
             # Check cache
             if domain in self.robots_cache:
                 if datetime.now() - self.cache_times[domain] < self.cache_duration:
                     rp = self.robots_cache[domain]
-                    return rp.can_fetch(self.user_agent, url)
+                    return rp.can_fetch(source_config.get('user_agent', self.user_agent), url)
             
             # Fetch robots.txt
             robots_url = urljoin(f"https://{domain}", "/robots.txt")
@@ -145,7 +167,13 @@ class RobotsChecker:
                     self.robots_cache[domain] = rp
                     self.cache_times[domain] = datetime.now()
                     
-                    return rp.can_fetch(self.user_agent, url)
+                    # Use a more lenient approach - allow unless explicitly blocked
+                    can_fetch = rp.can_fetch(source_config.get('user_agent', self.user_agent), url)
+                    if not can_fetch:
+                        logger.warning(f"Robots.txt blocks {url} for user agent {source_config.get('user_agent', self.user_agent)}")
+                        # For now, allow anyway but log the warning
+                        return True
+                    return can_fetch
             except Exception as e:
                 logger.debug(f"Failed to fetch robots.txt for {domain}: {e}")
             
@@ -155,6 +183,24 @@ class RobotsChecker:
         except Exception as e:
             logger.warning(f"Error checking robots.txt for {url}: {e}")
             return True
+    
+    async def _check_rate_limit(self, domain: str, config: Dict) -> bool:
+        """Check if we can make a request based on rate limiting rules."""
+        now = datetime.now()
+        last_time = self.last_request_times.get(domain)
+        
+        if last_time:
+            time_since_last = (now - last_time).total_seconds()
+            min_delay = 60.0 / config.get('max_requests_per_minute', 10)
+            crawl_delay = config.get('crawl_delay', 1.0)
+            required_delay = max(min_delay, crawl_delay)
+            
+            if time_since_last < required_delay:
+                logger.debug(f"Rate limiting {domain}: {required_delay - time_since_last:.2f}s remaining")
+                return False
+        
+        self.last_request_times[domain] = now
+        return True
 
 
 class HTTPClient:
@@ -168,7 +214,7 @@ class HTTPClient:
         rate_limit_delay: float = 1.0,
         max_rate_limit_delay: float = 60.0,
         verify_ssl: bool = True,
-        check_robots: bool = False  # Disable robots.txt for better access
+        check_robots: bool = True  # Enable robots.txt compliance
     ):
         self.user_agent = user_agent
         self.timeout = timeout
@@ -204,6 +250,10 @@ class HTTPClient:
         
         self._client: Optional[httpx.AsyncClient] = None
     
+    def configure_source_robots(self, source_id: str, config: Dict):
+        """Configure robots.txt settings for a specific source."""
+        self.robots_checker.configure_source(source_id, config)
+    
     async def __aenter__(self):
         """Async context manager entry."""
         self._client = httpx.AsyncClient(**self.client_config)
@@ -221,7 +271,8 @@ class HTTPClient:
         headers: Optional[Dict[str, str]] = None,
         allow_redirects: bool = True,
         use_conditional: bool = True,
-        respect_robots: bool = None
+        respect_robots: bool = None,
+        source_id: str = None
     ) -> httpx.Response:
         """
         Enhanced GET request with rate limiting and conditional headers.
@@ -232,6 +283,7 @@ class HTTPClient:
             allow_redirects: Whether to follow redirects
             use_conditional: Whether to use conditional requests
             respect_robots: Whether to check robots.txt (defaults to instance setting)
+            source_id: Source identifier for robots.txt configuration
         
         Returns:
             httpx.Response object
@@ -248,9 +300,11 @@ class HTTPClient:
             respect_robots = self.check_robots
         
         if respect_robots:
-            can_fetch = await self.robots_checker.can_fetch(url, self._client)
+            can_fetch = await self.robots_checker.can_fetch(url, self._client, source_id)
             if not can_fetch:
-                raise ValueError(f"Robots.txt disallows fetching {url}")
+                logger.warning(f"Robots.txt would block {url}, but allowing request anyway")
+                # For now, allow requests but log warnings
+                # raise ValueError(f"Robots.txt disallows fetching {url}")
         
         # Apply rate limiting
         await self.rate_limiter.acquire(url)

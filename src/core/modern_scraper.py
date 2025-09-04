@@ -81,7 +81,7 @@ class URLDiscovery:
                 while current_url and page_count < max_pages:
                     logger.debug(f"Scraping listing page {page_count + 1}: {current_url}")
                     
-                    response = await self.http_client.get(current_url)
+                    response = await self.http_client.get(current_url, source_id=source.identifier)
                     response.raise_for_status()
                     
                     soup = BeautifulSoup(response.text, 'lxml')
@@ -124,7 +124,7 @@ class URLDiscovery:
             try:
                 logger.debug(f"Parsing sitemap: {sitemap_url}")
                 
-                response = await self.http_client.get(sitemap_url)
+                response = await self.http_client.get(sitemap_url, source_id=source.identifier)
                 response.raise_for_status()
                 
                 soup = BeautifulSoup(response.text, 'xml')
@@ -143,7 +143,7 @@ class URLDiscovery:
                         if sub_sitemap_url:
                             # Recursively parse sub-sitemaps (limit depth)
                             try:
-                                sub_response = await self.http_client.get(sub_sitemap_url)
+                                sub_response = await self.http_client.get(sub_sitemap_url, source_id=source.identifier)
                                 sub_response.raise_for_status()
                                 sub_soup = BeautifulSoup(sub_response.text, 'xml')
                                 
@@ -362,7 +362,7 @@ class ModernScraper:
         """
         try:
             # Fetch page with conditional headers
-            response = await self.http_client.get(url, use_conditional=True)
+            response = await self.http_client.get(url, use_conditional=True, source_id=source.identifier)
             
             # Handle 304 Not Modified
             if response.status_code == 304:
@@ -571,7 +571,7 @@ class LegacyScraper:
         
         try:
             # Fetch main page
-            response = await self.http_client.get(source.url)
+            response = await self.http_client.get(source.url, source_id=source.identifier)
             response.raise_for_status()
             
             soup = BeautifulSoup(response.text, 'lxml')
