@@ -712,7 +712,8 @@ Please provide a brief but insightful analysis based on the available metadata."
             'analysis': analysis,
             'analyzed_at': datetime.now().isoformat(),
             'analyzed_content': analyze_content,
-            'model_used': 'customgpt' if customgpt_api_url else 'ollama'
+            'model_used': 'customgpt' if customgpt_api_url else 'ollama',
+            'model_name': 'gpt-4' if customgpt_api_url else ollama_model
         }
         
         # Update the article
@@ -725,7 +726,8 @@ Please provide a brief but insightful analysis based on the available metadata."
             "analysis": analysis,
             "analyzed_at": current_metadata['threat_hunting_analysis']['analyzed_at'],
             "analyzed_content": analyze_content,
-            "model_used": current_metadata['threat_hunting_analysis']['model_used']
+            "model_used": current_metadata['threat_hunting_analysis']['model_used'],
+            "model_name": current_metadata['threat_hunting_analysis']['model_name']
         }
         
     except HTTPException:

@@ -436,10 +436,14 @@
     function showThreatHuntingAnalysis() {
         // Check if we already have an analysis
         const existingAnalysis = {{ article.metadata.get('threat_hunting_analysis', {}).get('analysis', 'null') | tojson }};
+        const existingModelName = {{ article.metadata.get('threat_hunting_analysis', {}).get('model_name', 'null') | tojson }};
         
         if (existingAnalysis && existingAnalysis !== 'null') {
             // Show existing analysis
-            showAnalysisModal(existingAnalysis, true);
+            showAnalysisModal(existingAnalysis, true, {
+                model_name: existingModelName !== 'null' ? existingModelName : 'mistral',
+                model_used: 'ollama'
+            });
         } else {
             // Show options for new analysis
             showAnalysisOptionsModal();
@@ -545,7 +549,7 @@
         modal.className = 'fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50';
         
         const analysisType = data?.analyzed_content ? 'Full Content' : 'Metadata Only';
-        const modelUsed = data?.model_used || 'Unknown';
+        const modelUsed = data?.model_name || (data?.model_used === 'customgpt' ? 'CustomGPT' : (data?.model_used === 'ollama' ? 'Mistral (via Ollama)' : 'Unknown'));
         const analyzedAt = data?.analyzed_at ? new Date(data.analyzed_at).toLocaleString() : 'Unknown';
         
         modal.innerHTML = `

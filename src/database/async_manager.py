@@ -24,7 +24,7 @@ from sqlalchemy.orm import selectinload
 from src.database.models import Base, SourceTable, ArticleTable, SourceCheckTable
 from src.models.source import Source, SourceCreate, SourceUpdate, SourceFilter
 from src.models.article import Article, ArticleCreate, ArticleUpdate
-from src.services.deduplication import DeduplicationService
+from src.services.deduplication import AsyncDeduplicationService
 
 logger = logging.getLogger(__name__)
 
@@ -433,10 +433,10 @@ class AsyncDatabaseManager:
         try:
             async with self.get_session() as session:
                 # Use deduplication service
-                dedup_service = DeduplicationService(session)
+                dedup_service = AsyncDeduplicationService(session)
                 
                 # Create article with deduplication checks
-                created, new_article, similar_articles = dedup_service.create_article_with_deduplication(article)
+                created, new_article, similar_articles = await dedup_service.create_article_with_deduplication(article)
                 
                 if not created:
                     logger.info(f"Duplicate article detected: {article.title}")
