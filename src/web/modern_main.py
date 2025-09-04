@@ -753,6 +753,172 @@ Please provide a brief but insightful analysis based on the available metadata."
         logger.error(f"API analyze threat hunting error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.post("/api/articles/{article_id}/chatgpt-summary")
+async def api_chatgpt_summary(article_id: int, request: Request):
+    """API endpoint for generating a ChatGPT summary of an article."""
+    try:
+        # Get the article
+        article = await async_db_manager.get_article(article_id)
+        if not article:
+            raise HTTPException(status_code=404, detail="Article not found")
+        
+        # Get request body to determine what to summarize
+        body = await request.json()
+        include_content = body.get('include_content', True)  # Default to full content
+        
+        # Prepare the summary prompt
+        if include_content:
+            # Smart content truncation based on model
+            chatgpt_api_key = os.getenv('CHATGPT_API_KEY')
+            
+            if chatgpt_api_key:
+                # Using ChatGPT - can handle more content
+                # GPT-4 Turbo: ~50k chars, GPT-4: ~20k chars, GPT-3.5: ~15k chars
+                content_limit = int(os.getenv('CHATGPT_CONTENT_LIMIT', '20000'))
+            else:
+                # Using Ollama - more conservative limit
+                content_limit = int(os.getenv('OLLAMA_CONTENT_LIMIT', '8000'))
+            
+            # Truncate content intelligently
+            content = article.content[:content_limit]
+            if len(article.content) > content_limit:
+                content += f"\n\n[Content truncated at {content_limit:,} characters. Full article has {len(article.content):,} characters.]"
+            
+            # Summarize both URL and content
+            prompt = f"""Please provide a comprehensive summary of this threat intelligence article.
+
+Article Title: {article.title}
+Source URL: {article.canonical_url or 'N/A'}
+Published Date: {article.published_at or 'N/A'}
+
+Article Content:
+{content}
+
+Please provide a summary that includes:
+
+1. **Key Points**: Main findings and important details
+2. **Threat Actors**: Any mentioned threat actors or groups
+3. **Techniques**: Attack techniques, tools, or methods described
+4. **Indicators**: Any IOCs, hashes, IPs, or domains mentioned
+5. **Impact**: Potential impact or severity of the threat
+6. **Recommendations**: Any suggested mitigations or actions
+
+Please be concise but comprehensive, focusing on actionable intelligence."""
+        else:
+            # Summarize URL and metadata only
+            prompt = f"""Please provide a brief summary of this threat intelligence article based on its metadata.
+
+Article Title: {article.title}
+Source URL: {article.canonical_url or 'N/A'}
+Published Date: {article.published_at or 'N/A'}
+Source: {article.source_id}
+Content Length: {len(article.content)} characters
+
+Based on the title, source, and metadata, please provide a brief assessment of what this article likely covers and its potential importance for security professionals."""
+        
+        # Get ChatGPT configuration from environment
+        chatgpt_api_url = os.getenv('CHATGPT_API_URL', 'https://api.openai.com/v1/chat/completions')
+        chatgpt_api_key = os.getenv('CHATGPT_API_KEY')
+        
+        if not chatgpt_api_key:
+            # Fallback to Ollama if ChatGPT not configured
+            ollama_url = os.getenv('LLM_API_URL', 'http://cti_ollama:11434')
+            ollama_model = os.getenv('LLM_MODEL', 'mistral')
+            
+            logger.info(f"Using Ollama at {ollama_url} with model {ollama_model}")
+            
+            # Use Ollama API
+            async with httpx.AsyncClient() as client:
+                try:
+                    response = await client.post(
+                        f"{ollama_url}/api/generate",
+                        json={
+                            "model": ollama_model,
+                            "prompt": prompt,
+                            "stream": False,
+                            "options": {
+                                "temperature": 0.3,
+                                "num_predict": 2048
+                            }
+                        },
+                        timeout=180.0
+                    )
+                    
+                    if response.status_code != 200:
+                        logger.error(f"Ollama API error: {response.status_code} - {response.text}")
+                        raise HTTPException(status_code=500, detail=f"Failed to get summary from Ollama: {response.status_code}")
+                    
+                    result = response.json()
+                    summary = result.get('response', 'No summary available')
+                    logger.info(f"Successfully got summary from Ollama: {len(summary)} characters")
+                    
+                except Exception as e:
+                    logger.error(f"Ollama API request failed: {e}")
+                    raise HTTPException(status_code=500, detail=f"Failed to get summary from Ollama: {str(e)}")
+                
+        else:
+            # Use ChatGPT API
+            async with httpx.AsyncClient() as client:
+                response = await client.post(
+                    chatgpt_api_url,
+                    headers={
+                        "Authorization": f"Bearer {chatgpt_api_key}",
+                        "Content-Type": "application/json"
+                    },
+                    json={
+                        "model": "gpt-4",  # or your specific ChatGPT model
+                        "messages": [
+                            {
+                                "role": "system",
+                                "content": "You are a cybersecurity expert specializing in threat intelligence analysis. Provide clear, concise summaries of threat intelligence articles."
+                            },
+                            {
+                                "role": "user",
+                                "content": prompt
+                            }
+                        ],
+                        "max_tokens": 2048,
+                        "temperature": 0.3
+                    },
+                    timeout=60.0
+                )
+                
+                if response.status_code != 200:
+                    raise HTTPException(status_code=500, detail="Failed to get summary from ChatGPT")
+                
+                result = response.json()
+                summary = result['choices'][0]['message']['content']
+        
+        # Store the summary in article metadata
+        current_metadata = article.metadata.copy() if article.metadata else {}
+        current_metadata['chatgpt_summary'] = {
+            'summary': summary,
+            'summarized_at': datetime.now().isoformat(),
+            'content_type': 'full content' if include_content else 'metadata only',
+            'model_used': 'chatgpt' if chatgpt_api_key else 'ollama',
+            'model_name': 'gpt-4' if chatgpt_api_key else ollama_model
+        }
+        
+        # Update the article
+        update_data = ArticleUpdate(metadata=current_metadata)
+        await async_db_manager.update_article(article_id, update_data)
+        
+        return {
+            "success": True,
+            "article_id": article_id,
+            "summary": summary,
+            "summarized_at": current_metadata['chatgpt_summary']['summarized_at'],
+            "content_type": current_metadata['chatgpt_summary']['content_type'],
+            "model_used": current_metadata['chatgpt_summary']['model_used'],
+            "model_name": current_metadata['chatgpt_summary']['model_name']
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"API ChatGPT summary error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.post("/api/articles/{article_id}/analyze-customgpt")
 async def api_analyze_customgpt(article_id: int, request: Request):
     """Analyze article using CustomGPT via OpenAI API."""
