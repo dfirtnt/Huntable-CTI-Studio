@@ -16,12 +16,13 @@ WINDOWS_MALWARE_KEYWORDS = {
         'rundll32', 'comspec', 'msiexec', 'wmic', 'iex', 'findstr',
         'hklm', 'appdata', 'programdata', 'powershell.exe', 'wbem',
         'EventID', '.lnk', 'D:\\', '.iso', '<Command>', 'MZ',
-        'svchost', '-accepteula', 'lsass.exe', 'WINDIR', 'wintmp'
+        'svchost', '-accepteula', 'lsass.exe', 'WINDIR', 'wintmp',
+        '\\temp\\', '\\pipe\\', '%WINDIR%', '%wintmp%'
     ],
     # Good discriminators (high Chosen ratio)
     'good_discriminators': [
         'temp', '==', 'c:\\windows\\', 'Event ID', '.bat', '.ps1',
-        'pipe', '::', '[.]'
+        'pipe', '::', '[.]', '-->', 'currentversion', 'EventCode'
     ],
     # LOLBAS (Living Off the Land Binaries and Scripts) - 68 Chosen, 2 Rejected
     'lolbas_executables': [
@@ -61,6 +62,10 @@ WINDOWS_MALWARE_KEYWORDS = {
         'Vshadow.exe', 'vsjitdebugger.exe', 'WFMFormat.exe', 'Wfc.exe', 'WinProj.exe',
         'Winword.exe', 'Wsl.exe', 'XBootMgrSleep.exe', 'devtunnel.exe', 'vsls-agent.exe',
         'vstest.console.exe', 'winfile.exe', 'xsd.exe'
+    ],
+    # Threat hunting terminology and concepts
+    'threat_hunting_terms': [
+        'lolbas', 'lolbins', 'RMM'
     ]
 }
 
@@ -460,6 +465,7 @@ class ThreatHuntingScorer:
         perfect_matches = []
         good_matches = []
         lolbas_matches = []
+        threat_hunting_matches = []
         
         # Check perfect discriminators
         for keyword in WINDOWS_MALWARE_KEYWORDS['perfect_discriminators']:
@@ -476,26 +482,33 @@ class ThreatHuntingScorer:
             if ThreatHuntingScorer._keyword_matches(executable, full_text):
                 lolbas_matches.append(executable)
         
+        # Check threat hunting terms
+        for term in WINDOWS_MALWARE_KEYWORDS['threat_hunting_terms']:
+            if ThreatHuntingScorer._keyword_matches(term, full_text):
+                threat_hunting_matches.append(term)
+        
         # Calculate scores
         perfect_score = len(perfect_matches) * 15  # 15 points per perfect keyword
         good_score = len(good_matches) * 8         # 8 points per good keyword
         lolbas_score = len(lolbas_matches) * 12    # 12 points per LOLBAS executable
+        threat_hunting_score = len(threat_hunting_matches) * 10  # 10 points per threat hunting term
         
         # Technical depth indicators
         technical_depth_score = ThreatHuntingScorer._calculate_technical_depth(full_text)
         
         # Keyword density (percentage of content containing technical keywords)
-        total_keywords = len(perfect_matches) + len(good_matches) + len(lolbas_matches)
+        total_keywords = len(perfect_matches) + len(good_matches) + len(lolbas_matches) + len(threat_hunting_matches)
         keyword_density = (total_keywords / max(len(full_text.split()), 1)) * 1000  # per 1000 words
         
         # Calculate final threat hunting score
-        threat_hunting_score = min(perfect_score + good_score + lolbas_score + technical_depth_score, 100.0)
+        threat_hunting_score = min(perfect_score + good_score + lolbas_score + threat_hunting_score + technical_depth_score, 100.0)
         
         return {
             'threat_hunting_score': round(threat_hunting_score, 1),
             'perfect_keyword_matches': perfect_matches,
             'good_keyword_matches': good_matches,
             'lolbas_matches': lolbas_matches,
+            'threat_hunting_matches': threat_hunting_matches,
             'keyword_density': round(keyword_density, 2),
             'technical_depth_score': round(technical_depth_score, 1)
         }
@@ -505,7 +518,7 @@ class ThreatHuntingScorer:
         """Check if a keyword matches in the text with proper regex handling."""
         try:
             # Handle special characters in keywords
-            if keyword in ['[.]', '::', '==', '-accepteula']:
+            if keyword in ['[.]', '::', '==', '-accepteula', '-->']:
                 pattern = re.escape(keyword)
             elif keyword in ['c:\\windows\\', 'D:\\']:
                 pattern = re.escape(keyword)

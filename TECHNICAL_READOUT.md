@@ -320,7 +320,7 @@ docker-compose up -d
 http://localhost:8000
 
 # Database access
-docker exec -it cti_postgres psql -U cti_user -d cti_scraper
+docker exec cti_postgres psql -U cti_user -d cti_scraper
 
 # Run tests
 python3 -m pytest tests/ -v

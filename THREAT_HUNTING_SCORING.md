@@ -14,13 +14,16 @@ These keywords appear **exclusively** in "Chosen" content:
 - **Command Execution**: `iex`, `wmic`, `powershell.exe`
 - **File Types**: `.lnk`, `.iso`
 - **Technical Patterns**: `MZ`, `-accepteula`, `wintmp`
+- **Path Patterns**: `\temp\`, `\pipe\`, `%WINDIR%`, `%wintmp%`
 
 ### Good Discriminators (High Chosen ratio)
 These keywords have >90% correlation with "Chosen" content:
 
 - **Windows Paths**: `c:\windows\` (98.1% Chosen)
 - **File Extensions**: `.bat` (97.1% Chosen), `.ps1` (94.4% Chosen)
-- **Technical Patterns**: `==` (94% Chosen), `[.]` (96.7% Chosen)
+- **Technical Patterns**: `==` (94% Chosen), `[.]` (96.7% Chosen), `-->` (detection engineering focus)
+- **Registry Patterns**: `currentversion` (detection engineering focus)
+- **Event Log Patterns**: `EventCode` (detection engineering focus)
 
 ### LOLBAS Executables (97.1% Chosen ratio)
 Living Off the Land Binaries and Scripts - 68 Chosen, 2 Rejected:
@@ -31,6 +34,13 @@ Living Off the Land Binaries and Scripts - 68 Chosen, 2 Rejected:
 - **Installation Tools**: `msiexec.exe`, `regsvr32.exe`, `rundll32.exe`
 - **File Operations**: `forfiles.exe`, `explorer.exe`, `ieexec.exe`
 - **And 150+ more legitimate Windows executables commonly abused by threat actors**
+
+### Threat Hunting Terminology (10 points each)
+Threat hunting and detection engineering concepts:
+
+- **LOLBAS**: Living Off the Land Binaries and Scripts
+- **LOLBINS**: Living Off the Land Binaries  
+- **RMM**: Remote Management and Monitoring tools
 
 ## Implementation
 
@@ -48,7 +58,7 @@ Living Off the Land Binaries and Scripts - 68 Chosen, 2 Rejected:
 ### Scoring Algorithm
 
 ```
-Threat Hunting Score = Perfect Keywords × 15 + Good Keywords × 8 + LOLBAS × 12 + Technical Depth (max 30)
+Threat Hunting Score = Perfect Keywords × 15 + Good Keywords × 8 + LOLBAS × 12 + Threat Hunting Terms × 10 + Technical Depth (max 30)
 ```
 
 **Perfect Keywords** (15 points each):
@@ -56,15 +66,20 @@ Threat Hunting Score = Perfect Keywords × 15 + Good Keywords × 8 + LOLBAS × 1
 - `hklm`, `appdata`, `programdata`, `powershell.exe`, `wbem`
 - `EventID`, `.lnk`, `D:\`, `.iso`, `<Command>`, `MZ`
 - `svchost`, `-accepteula`, `lsass.exe`, `WINDIR`, `wintmp`
+- `\temp\`, `\pipe\`, `%WINDIR%`, `%wintmp%`
 
 **Good Keywords** (8 points each):
 - `temp`, `==`, `c:\windows\`, `Event ID`, `.bat`, `.ps1`
-- `pipe`, `::`, `[.]`
+- `pipe`, `::`, `[.]`, `-->`, `currentversion`, `EventCode`
 
 **LOLBAS Executables** (12 points each):
 - 150+ legitimate Windows executables commonly abused by threat actors
 - Examples: `certutil.exe`, `cmd.exe`, `reg.exe`, `schtasks.exe`, `wmic.exe`
 - High correlation with threat hunting content (97.1% Chosen ratio)
+
+**Threat Hunting Terms** (10 points each):
+- `lolbas`, `lolbins`, `RMM`
+- Threat hunting and detection engineering concepts
 
 **Technical Depth** (up to 30 points):
 - CVE references, hex values, registry paths

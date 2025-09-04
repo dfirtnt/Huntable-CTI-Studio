@@ -21,10 +21,10 @@ This document provides instructions for directly querying the CTI Scraper databa
 
 ```bash
 # Connect using docker exec
-docker exec -it cti_postgres psql -U cti_user -d cti_scraper
+docker exec cti_postgres psql -U cti_user -d cti_scraper
 
-# Or run a single query
-docker exec -it cti_postgres psql -U cti_user -d cti_scraper -c "YOUR_QUERY_HERE"
+# Run a single query
+docker exec cti_postgres psql -U cti_user -d cti_scraper -c "YOUR_QUERY_HERE"
 ```
 
 ### From Within a Container
@@ -296,7 +296,7 @@ SELECT * FROM article_stats ORDER BY total_articles DESC;
 
 2. **Permission Denied**: Use correct database credentials
    ```bash
-   docker exec -it cti_postgres psql -U cti_user -d cti_scraper
+   docker exec cti_postgres psql -U cti_user -d cti_scraper
    ```
 
 3. **Table Not Found**: Check if database is initialized

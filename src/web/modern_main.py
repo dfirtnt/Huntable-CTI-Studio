@@ -287,6 +287,7 @@ async def articles_list(
     search: Optional[str] = None,
     source: Optional[str] = None,
     classification: Optional[str] = None,
+    threat_hunting_range: Optional[str] = None,
     per_page: Optional[int] = 100,
     page: Optional[int] = 1
 ):
@@ -351,6 +352,21 @@ async def articles_list(
                     article.metadata.get('training_category') == classification
                 ]
         
+        # Threat Hunting Score filter
+        if threat_hunting_range:
+            try:
+                # Parse range like "60-79" or "40-100"
+                if '-' in threat_hunting_range:
+                    min_score, max_score = map(float, threat_hunting_range.split('-'))
+                    filtered_articles = [
+                        article for article in filtered_articles
+                        if article.metadata and 
+                        min_score <= article.metadata.get('threat_hunting_score', 0) <= max_score
+                    ]
+            except (ValueError, TypeError):
+                # If parsing fails, ignore the filter
+                pass
+        
         # Apply pagination
         total_articles = len(filtered_articles)
         per_page = max(1, min(per_page, 100))  # Limit to 100 per page
@@ -376,7 +392,8 @@ async def articles_list(
         filters = {
             "search": search or "",
             "source": source or "",
-            "classification": classification or ""
+            "classification": classification or "",
+            "threat_hunting_range": threat_hunting_range or ""
         }
         
         # Get classification statistics from filtered articles

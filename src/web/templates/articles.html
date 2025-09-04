@@ -120,16 +120,33 @@
                     <option value="100" {% if pagination.per_page|string == "100" %}selected{% endif %}>100</option>
                 </select>
             </div>
+
+            <!-- Threat Hunting Score Range -->
+            <div>
+                <label for="threat_hunting_range" class="block text-sm font-medium text-gray-700 mb-1">Threat Hunting Score</label>
+                <select name="threat_hunting_range" id="threat_hunting_range" 
+                        class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                    <option value="">All Scores</option>
+                    <option value="80-100" {% if filters.threat_hunting_range == "80-100" %}selected{% endif %}>🎯 Excellent (80-100)</option>
+                    <option value="60-79" {% if filters.threat_hunting_range == "60-79" %}selected{% endif %}>🟡 Good (60-79)</option>
+                    <option value="40-59" {% if filters.threat_hunting_range == "40-59" %}selected{% endif %}>🟠 Fair (40-59)</option>
+                    <option value="20-39" {% if filters.threat_hunting_range == "20-39" %}selected{% endif %}>🔴 Poor (20-39)</option>
+                    <option value="0-19" {% if filters.threat_hunting_range == "0-19" %}selected{% endif %}>⚫ Very Poor (0-19)</option>
+                    <option value="40-100" {% if filters.threat_hunting_range == "40-100" %}selected{% endif %}>📈 Good & Above (40+)</option>
+                    <option value="60-100" {% if filters.threat_hunting_range == "60-100" %}selected{% endif %}>⭐ High Quality (60+)</option>
+                </select>
+            </div>
         </form>
 
         <!-- Filter Summary -->
-        {% if filters.search or filters.source or filters.classification %}
+        {% if filters.search or filters.source or filters.classification or filters.threat_hunting_range %}
         <div class="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
             <p class="text-sm text-blue-800">
                 <strong>Active Filters:</strong>
                 {% if filters.search %}Search: "{{ filters.search }}"{% endif %}
                 {% if filters.source %}Source: {{ filters.source }}{% endif %}
                 {% if filters.classification %}Classification: {{ filters.classification }}{% endif %}
+                {% if filters.threat_hunting_range %}Threat Hunting Score: {{ filters.threat_hunting_range }}{% endif %}
                 <a href="/articles" class="ml-2 text-blue-600 hover:text-blue-800 underline">Clear all</a>
             </p>
         </div>
@@ -229,6 +246,28 @@
                                     </span>
                                 {% endif %}
                             </span>
+                            {% if article.metadata and article.metadata.get('threat_hunting_score') is not none %}
+                            <span>Threat Hunting Score: 
+                                {% set score = article.metadata.get('threat_hunting_score', 0) %}
+                                {% if score >= 80 %}
+                                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                        🎯 {{ "%.1f"|format(score) }}
+                                    </span>
+                                {% elif score >= 60 %}
+                                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                                        🟡 {{ "%.1f"|format(score) }}
+                                    </span>
+                                {% elif score >= 40 %}
+                                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
+                                        🟠 {{ "%.1f"|format(score) }}
+                                    </span>
+                                {% else %}
+                                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                                        🔴 {{ "%.1f"|format(score) }}
+                                    </span>
+                                {% endif %}
+                            </span>
+                            {% endif %}
                         </div>
 
                         <p class="text-gray-600 mb-3">
