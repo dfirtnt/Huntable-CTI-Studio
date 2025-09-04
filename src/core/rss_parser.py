@@ -11,7 +11,6 @@ from src.models.article import Article, ArticleCreate
 from src.models.source import Source
 from src.utils.http import HTTPClient
 from src.utils.content import DateExtractor, ContentCleaner, MetadataExtractor
-from src.core.modern_scraper import ModernScraper
 
 logger = logging.getLogger(__name__)
 
@@ -21,7 +20,6 @@ class RSSParser:
     
     def __init__(self, http_client: HTTPClient):
         self.http_client = http_client
-        self.modern_scraper = ModernScraper(http_client)
     
     async def parse_feed(self, source: Source) -> List[ArticleCreate]:
         """
@@ -283,14 +281,14 @@ class RSSParser:
                 logger.info(f"RSS content too short ({rss_text_length} chars) for {url}, trying modern scraping")
                 try:
                     # Try modern scraping to get full content
-                    modern_article = await self.modern_scraper._extract_article(url, source)
-                    if modern_article and modern_article.content:
-                        modern_text_length = len(ContentCleaner.html_to_text(modern_article.content).strip())
+                    modern_content = await self._extract_with_modern_scraping(url, source)
+                    if modern_content:
+                        modern_text_length = len(ContentCleaner.html_to_text(modern_content).strip())
                         if modern_text_length > rss_text_length:
                             logger.info(f"Modern scraping successful: {modern_text_length} chars vs {rss_text_length} chars from RSS")
                             # Mark that modern scraping was used
                             entry._used_modern_fallback = True
-                            return modern_article.content
+                            return modern_content
                         else:
                             logger.info(f"Modern scraping didn't improve content length: {modern_text_length} vs {rss_text_length}")
                     else:
@@ -405,6 +403,64 @@ class RSSParser:
             if 'crowdstrike.com' in url.lower():
                 cleaned_content = self._clean_crowdstrike_content(cleaned_content)
             return cleaned_content
+        return None
+    
+    async def _extract_with_modern_scraping(self, url: str, source: Source) -> Optional[str]:
+        """
+        Extract content using modern scraping techniques (simplified version).
+        
+        Args:
+            url: Article URL
+            source: Source configuration
+            
+        Returns:
+            Extracted content or None if extraction fails
+        """
+        try:
+            # Fetch the article page
+            response = await self.http_client.get(url, source_id=source.identifier)
+            response.raise_for_status()
+            
+            # Parse HTML
+            from bs4 import BeautifulSoup
+            soup = BeautifulSoup(self.http_client.get_text_with_encoding_fallback(response), 'lxml')
+            
+            # Try comprehensive content selectors (prioritized by likelihood)
+            content_selectors = [
+                # Modern blog platforms
+                '.blog-post-content', '.post-body', '.article-body', '.entry-body',
+                # Medium/modern platforms
+                'article', '[data-testid="storyContent"]', '.story-content',
+                # WordPress/common CMS
+                '.entry-content', '.post-content', '.content-area',
+                # Generic content containers
+                '.content', 'main', '#main-content', '#content',
+                # Fallback containers
+                '.container .content', '.page-content', '.site-content'
+            ]
+            
+            for selector in content_selectors:
+                content_elem = soup.select_one(selector)
+                if content_elem:
+                    extracted_content = str(content_elem)
+                    clean_text = ContentCleaner.html_to_text(extracted_content).strip()
+                    
+                    # Enhanced content quality validation
+                    if self._is_quality_content(clean_text, url):
+                        logger.info(f"Successful modern content extraction using selector '{selector}' for {url}")
+                        return ContentCleaner.clean_html(extracted_content)
+            
+            # Fallback: get body content
+            body = soup.find('body')
+            if body:
+                body_content = ContentCleaner.clean_html(str(body))
+                clean_text = ContentCleaner.html_to_text(body_content).strip()
+                if self._is_quality_content(clean_text, url):
+                    return body_content
+                
+        except Exception as e:
+            logger.warning(f"Failed to extract modern content from {url}: {e}")
+        
         return None
     
     def _is_quality_content(self, text: str, url: str) -> bool:
