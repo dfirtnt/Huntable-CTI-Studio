@@ -87,18 +87,6 @@
         <h2 class="text-xl font-bold text-gray-900 mb-4">🏷️ Article Classification</h2>
         
         <!-- Settings Status -->
-        <div class="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
-            <div class="flex items-center justify-between">
-                <div class="text-sm text-blue-800">
-                    <span class="font-medium">Comment Prompts:</span> 
-                    <span id="commentPromptsStatus">Loading...</span>
-                </div>
-                <a href="/settings" class="text-sm text-blue-600 hover:text-blue-800 underline">
-                    ⚙️ Settings
-                </a>
-            </div>
-        </div>
-        
         <!-- Current Classification Status -->
         <div class="mb-6">
             {% if article.metadata and article.metadata.get('training_category') %}
@@ -304,25 +292,9 @@
             element.style.border = '1px solid #f59e0b';
         });
         
-        // Update comment prompts status
-        updateCommentPromptsStatus();
+        // Load settings
+        loadSettings();
     });
-    
-    function updateCommentPromptsStatus() {
-        const settings = JSON.parse(localStorage.getItem('ctiScraperSettings') || '{}');
-        const commentPromptsEnabled = settings.commentPromptsEnabled !== false; // Default to true
-        const statusElement = document.getElementById('commentPromptsStatus');
-        
-        if (statusElement) {
-            if (commentPromptsEnabled) {
-                statusElement.textContent = '✅ Enabled';
-                statusElement.className = 'text-green-600 font-medium';
-            } else {
-                statusElement.textContent = '❌ Disabled';
-                statusElement.className = 'text-red-600 font-medium';
-            }
-        }
-    }
     
     // Classification functions
     async function classifyArticle(category) {
