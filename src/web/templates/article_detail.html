@@ -292,6 +292,10 @@
             element.style.border = '1px solid #f59e0b';
         });
         
+        // Initialize current article classification in localStorage
+        const currentClassification = '{{ article.metadata.get("training_category", "") }}';
+        localStorage.setItem('currentArticleClassification', currentClassification);
+        
         // Load settings
         loadSettings();
     });
@@ -328,8 +332,8 @@
                 // Update the current status display
                 updateClassificationStatus(category);
                 
-                // Auto-advance to next unclassified if marked as chosen/rejected
-                if (category !== 'unclassified') {
+                // Auto-advance to next unclassified only if marked as rejected
+                if (category === 'rejected') {
                     setTimeout(() => {
                         navigateToNextUnclassified();
                     }, 1000);
@@ -359,6 +363,9 @@
                 statusElement.textContent = '⏳ Unclassified';
             }
         }
+        
+        // Store the current classification in localStorage for the AI Assistant modal
+        localStorage.setItem('currentArticleClassification', category);
     }
     
     function showNotification(message, type) {
@@ -412,6 +419,10 @@
         const settings = JSON.parse(localStorage.getItem('ctiScraperSettings') || '{}');
         const aiModel = settings.aiModel || 'chatgpt';
         
+        // Get current article classification
+        const currentClassification = localStorage.getItem('currentArticleClassification') || '{{ article.metadata.get("training_category", "") }}';
+        const isChosen = currentClassification === 'chosen';
+        
         const modal = document.createElement('div');
         modal.id = 'aiAssistantModal';
         modal.className = 'fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50';
@@ -446,17 +457,13 @@
                         </button>
                         
                         <button onclick="generateAIAnalysis('sigma')" 
-                                class="w-full inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md transition-colors {% if article.metadata and article.metadata.get('training_category') == 'chosen' %}text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500{% else %}text-gray-400 bg-gray-300 cursor-not-allowed{% endif %}"
-                                {% if not (article.metadata and article.metadata.get('training_category') == 'chosen') %}disabled{% endif %}
-                                title="{% if article.metadata and article.metadata.get('training_category') == 'chosen' %}Generate SIGMA detection rules for this article{% else %}SIGMA rules can only be generated for articles marked as 'Chosen'. Please classify this article first.{% endif %}">
+                                class="w-full inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md transition-colors ${isChosen ? 'text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500' : 'text-gray-400 bg-gray-300 cursor-not-allowed'}"
+                                ${!isChosen ? 'disabled' : ''}
+                                title="${isChosen ? 'Generate SIGMA detection rules for this article' : 'SIGMA rules can only be generated for articles marked as "Chosen". Please classify this article first.'}">
                             <span class="mr-2">🔍</span>
                             Generate SIGMA Rules
                         </button>
-                        {% if not (article.metadata and article.metadata.get('training_category') == 'chosen') %}
-                        <div class="text-xs text-gray-500 text-center mt-1">
-                            ⚠️ Only available for articles marked as "Chosen"
-                        </div>
-                        {% endif %}
+                        ${!isChosen ? '<div class="text-xs text-gray-500 text-center mt-1">⚠️ Only available for articles marked as "Chosen"</div>' : ''}
                         
                         <button onclick="showCustomPromptModal()" 
                                 class="w-full inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-colors">
@@ -491,7 +498,8 @@
         
         // Check if SIGMA rules are allowed for this article
         if (type === 'sigma') {
-            const isChosen = {{ article.metadata.get('training_category', '') | tojson }} === 'chosen';
+            const currentClassification = localStorage.getItem('currentArticleClassification') || '{{ article.metadata.get("training_category", "") }}';
+            const isChosen = currentClassification === 'chosen';
             if (!isChosen) {
                 showNotification('SIGMA rules can only be generated for articles marked as "Chosen". Please classify this article first.', 'error');
                 return;
@@ -539,7 +547,7 @@
             });
             
             // Create the fetch promise
-            const endpoint = type === 'summary' ? 'chatgpt-summary' : 'analyze-threat-hunting';
+            const endpoint = type === 'summary' ? 'chatgpt-summary' : 'generate-sigma';
             const fetchPromise = fetch(`/api/articles/{{ article.id }}/${endpoint}`, {
                 method: 'POST',
                 headers: {
@@ -559,7 +567,7 @@
                 if (type === 'summary') {
                     showChatGPTSummaryModal(data.summary, data);
                 } else {
-                    showAnalysisModal(data.analysis, false, data);
+                    showSigmaRulesModal(data.sigma_rules, data);
                 }
             } else {
                 const error = await response.json();
@@ -1195,6 +1203,56 @@
     
     function closeChatGPTSummaryModal() {
         const modal = document.getElementById('chatGPTSummaryModal');
+        if (modal) {
+            modal.remove();
+        }
+    }
+    
+    function showSigmaRulesModal(sigmaRules, data) {
+        // Remove any existing modal
+        closeSigmaRulesModal();
+        
+        const modal = document.createElement('div');
+        modal.id = 'sigmaRulesModal';
+        modal.className = 'fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50';
+        
+        const modelUsed = data?.model_name || 'gpt-4';
+        const generatedAt = data?.generated_at ? new Date(data.generated_at).toLocaleString() : 'Unknown';
+        
+        modal.innerHTML = `
+            <div class="relative top-10 mx-auto p-5 border w-11/12 max-w-6xl shadow-lg rounded-md bg-white">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-lg font-medium text-gray-900">🔍 SIGMA Detection Rules</h3>
+                    <button onclick="closeSigmaRulesModal()" class="text-gray-400 hover:text-gray-600">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </button>
+                </div>
+                
+                <div class="mb-4 text-sm text-gray-600">
+                    <span class="font-medium">Generated by:</span> ${modelUsed} | 
+                    <span class="font-medium">Generated at:</span> ${generatedAt}
+                </div>
+                
+                <div class="bg-gray-50 p-4 rounded-lg max-h-96 overflow-y-auto">
+                    <pre class="text-sm font-mono whitespace-pre-wrap text-gray-800">${sigmaRules}</pre>
+                </div>
+                
+                <div class="mt-4 flex justify-end">
+                    <button onclick="closeSigmaRulesModal()" 
+                            class="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 transition-colors">
+                        Close
+                    </button>
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(modal);
+    }
+    
+    function closeSigmaRulesModal() {
+        const modal = document.getElementById('sigmaRulesModal');
         if (modal) {
             modal.remove();
         }

@@ -766,6 +766,219 @@ Please provide a brief but insightful analysis based on the available metadata."
         logger.error(f"API analyze threat hunting error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.post("/api/articles/{article_id}/generate-sigma")
+async def api_generate_sigma(article_id: int, request: Request):
+    """API endpoint for generating SIGMA detection rules from an article."""
+    try:
+        # Get the article
+        article = await async_db_manager.get_article(article_id)
+        if not article:
+            raise HTTPException(status_code=404, detail="Article not found")
+        
+        # Check if article is marked as "chosen" (required for SIGMA generation)
+        training_category = article.metadata.get('training_category', '') if article.metadata else ''
+        if training_category != 'chosen':
+            raise HTTPException(status_code=400, detail="SIGMA rules can only be generated for articles marked as 'Chosen'. Please classify this article first.")
+        
+        # Get request body
+        body = await request.json()
+        include_content = body.get('include_content', True)  # Default to full content
+        api_key = body.get('api_key')  # Get API key from request
+        
+        if not api_key:
+            raise HTTPException(status_code=400, detail="OpenAI API key is required. Please configure it in Settings.")
+        
+        # Prepare the SIGMA generation prompt
+        if include_content:
+            # Smart content truncation for SIGMA generation
+            content_limit = int(os.getenv('CHATGPT_CONTENT_LIMIT', '20000'))
+            
+            # Truncate content intelligently
+            content = article.content[:content_limit]
+            if len(article.content) > content_limit:
+                content += f"\n\n[Content truncated at {content_limit:,} characters. Full article has {len(article.content):,} characters.]"
+            
+            # SIGMA-specific prompt
+            prompt = f"""As a cybersecurity expert specializing in detection engineering and SIGMA rule creation, analyze this threat intelligence article and generate actionable SIGMA detection rules.
+
+Article Title: {article.title}
+Source URL: {article.canonical_url or 'N/A'}
+Published Date: {article.published_at or 'N/A'}
+
+Article Content:
+{content}
+
+Please generate SIGMA detection rules based on the threat intelligence in this article. Focus on:
+
+1. **Process Creation Rules**:
+   - Suspicious process executions
+   - Malware process names
+   - Command line arguments
+   - Parent-child process relationships
+
+2. **File System Rules**:
+   - Suspicious file creations/modifications
+   - File paths and extensions
+   - File hash detections (if available)
+
+3. **Network Activity Rules**:
+   - Suspicious network connections
+   - Command and control (C2) indicators
+   - DNS queries
+   - HTTP/HTTPS patterns
+
+4. **Registry Rules**:
+   - Persistence mechanisms
+   - Configuration changes
+   - Suspicious registry keys
+
+5. **Authentication Rules**:
+   - Failed login attempts
+   - Privilege escalation
+   - Account creation/modification
+
+For each rule, provide:
+- A clear, descriptive title
+- Proper SIGMA syntax with detection logic
+- MITRE ATT&CK technique mappings (if applicable)
+- Log source requirements
+- Confidence level (high/medium/low)
+
+Format your response as:
+```
+# SIGMA Detection Rules for [Threat Name]
+
+## Rule 1: [Rule Title]
+```yaml
+title: [Descriptive Title]
+id: [UUID or descriptive ID]
+status: experimental
+description: [Clear description of what this rule detects]
+author: [Your name or organization]
+date: [Current date]
+tags:
+  - attack.technique_id
+  - attack.tactic_id
+logsource:
+  category: [process_creation/network_connection/file_event/etc]
+  product: [windows/linux/macos]
+detection:
+  selection:
+    [detection logic here]
+  condition: selection
+falsepositives:
+  - [List potential false positives]
+level: [high/medium/low]
+```
+
+## Rule 2: [Rule Title]
+[Continue with additional rules...]
+```
+
+Generate as many relevant rules as possible based on the threat intelligence in this article. Focus on high-confidence, actionable detections that security teams can implement immediately."""
+        else:
+            # Metadata-only prompt
+            prompt = f"""As a cybersecurity expert specializing in detection engineering and SIGMA rule creation, analyze this threat intelligence article metadata and provide guidance for SIGMA rule generation.
+
+Article Title: {article.title}
+Source URL: {article.canonical_url or 'N/A'}
+Published Date: {article.published_at or 'N/A'}
+Source: {article.source_id}
+Content Length: {len(article.content)} characters
+
+Based on the article title and metadata, provide:
+
+1. **Potential Detection Opportunities**:
+   - What types of threats might be discussed?
+   - What detection categories would be most relevant?
+   - What log sources should be considered?
+
+2. **Recommended SIGMA Rule Types**:
+   - Process creation rules
+   - Network activity rules
+   - File system rules
+   - Registry rules
+   - Authentication rules
+
+3. **MITRE ATT&CK Techniques**:
+   - Likely techniques based on the title
+   - Recommended technique mappings
+
+4. **Next Steps**:
+   - Should the full content be analyzed?
+   - What specific aspects should be focused on?
+
+Please provide a brief but insightful analysis based on the available metadata."""
+        
+        # Use ChatGPT API (no fallback to Ollama for SIGMA generation)
+        chatgpt_api_url = os.getenv('CHATGPT_API_URL', 'https://api.openai.com/v1/chat/completions')
+        
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                chatgpt_api_url,
+                headers={
+                    "Authorization": f"Bearer {api_key}",
+                    "Content-Type": "application/json"
+                },
+                json={
+                    "model": "gpt-4",
+                    "messages": [
+                        {
+                            "role": "system",
+                            "content": "You are a cybersecurity expert specializing in SIGMA detection rule creation. Generate high-quality, actionable SIGMA rules based on threat intelligence articles. Always use proper SIGMA syntax and include all required fields."
+                        },
+                        {
+                            "role": "user",
+                            "content": prompt
+                        }
+                    ],
+                    "max_tokens": 4096,  # Higher token limit for SIGMA rules
+                    "temperature": 0.2   # Lower temperature for more consistent rule generation
+                },
+                timeout=120.0  # Longer timeout for SIGMA generation
+            )
+            
+            if response.status_code != 200:
+                error_detail = f"Failed to generate SIGMA rules: {response.status_code}"
+                if response.status_code == 401:
+                    error_detail = "Invalid API key. Please check your OpenAI API key in Settings."
+                elif response.status_code == 429:
+                    error_detail = "Rate limit exceeded. Please try again later."
+                raise HTTPException(status_code=500, detail=error_detail)
+            
+            result = response.json()
+            sigma_rules = result['choices'][0]['message']['content']
+        
+        # Store the SIGMA rules in article metadata
+        current_metadata = article.metadata.copy() if article.metadata else {}
+        current_metadata['sigma_rules'] = {
+            'rules': sigma_rules,
+            'generated_at': datetime.now().isoformat(),
+            'content_type': 'full content' if include_content else 'metadata only',
+            'model_used': 'chatgpt',
+            'model_name': 'gpt-4'
+        }
+        
+        # Update the article
+        update_data = ArticleUpdate(metadata=current_metadata)
+        await async_db_manager.update_article(article_id, update_data)
+        
+        return {
+            "success": True,
+            "article_id": article_id,
+            "sigma_rules": sigma_rules,
+            "generated_at": current_metadata['sigma_rules']['generated_at'],
+            "content_type": current_metadata['sigma_rules']['content_type'],
+            "model_used": current_metadata['sigma_rules']['model_used'],
+            "model_name": current_metadata['sigma_rules']['model_name']
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"API SIGMA generation error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.post("/api/articles/{article_id}/chatgpt-summary")
 async def api_chatgpt_summary(article_id: int, request: Request):
     """API endpoint for generating a ChatGPT summary of an article."""
