@@ -11,6 +11,7 @@ from src.models.article import Article, ArticleCreate
 from src.models.source import Source
 from src.utils.http import HTTPClient
 from src.utils.content import DateExtractor, ContentCleaner, MetadataExtractor
+from src.core.modern_scraper import ModernScraper
 
 logger = logging.getLogger(__name__)
 
@@ -20,6 +21,7 @@ class RSSParser:
     
     def __init__(self, http_client: HTTPClient):
         self.http_client = http_client
+        self.modern_scraper = ModernScraper(http_client)
     
     async def parse_feed(self, source: Source) -> List[ArticleCreate]:
         """
@@ -111,7 +113,7 @@ class RSSParser:
                     'published': getattr(entry, 'published', ''),
                     'updated': getattr(entry, 'updated', ''),
                 },
-                'extraction_method': 'rss'
+                'extraction_method': 'rss_with_modern_fallback' if hasattr(entry, '_used_modern_fallback') else 'rss'
             }
             
             # Quality scoring removed
@@ -262,7 +264,8 @@ class RSSParser:
         Priority:
         1. Full content from feed
         2. Summary/description from feed
-        3. Fetch full article from URL (with Red Canary protection)
+        3. If RSS content < 500 chars, try modern scraping
+        4. Fetch full article from URL (with Red Canary protection)
         """
         # Try to get full content from feed first
         content = self._get_feed_content(entry)
@@ -270,6 +273,30 @@ class RSSParser:
         if content and len(ContentCleaner.html_to_text(content).strip()) > 1000:
             # We have substantial content from the feed (at least 1000 chars)
             return ContentCleaner.clean_html(content)
+        
+        # Check if RSS content is too short (< 500 chars) and try modern scraping
+        if content:
+            cleaned_rss_content = ContentCleaner.clean_html(content)
+            rss_text_length = len(ContentCleaner.html_to_text(cleaned_rss_content).strip())
+            
+            if rss_text_length < 500:
+                logger.info(f"RSS content too short ({rss_text_length} chars) for {url}, trying modern scraping")
+                try:
+                    # Try modern scraping to get full content
+                    modern_article = await self.modern_scraper._extract_article(url, source)
+                    if modern_article and modern_article.content:
+                        modern_text_length = len(ContentCleaner.html_to_text(modern_article.content).strip())
+                        if modern_text_length > rss_text_length:
+                            logger.info(f"Modern scraping successful: {modern_text_length} chars vs {rss_text_length} chars from RSS")
+                            # Mark that modern scraping was used
+                            entry._used_modern_fallback = True
+                            return modern_article.content
+                        else:
+                            logger.info(f"Modern scraping didn't improve content length: {modern_text_length} vs {rss_text_length}")
+                    else:
+                        logger.info(f"Modern scraping failed for {url}, using RSS content")
+                except Exception as e:
+                    logger.warning(f"Modern scraping failed for {url}: {e}, falling back to RSS content")
         
         # Special handling for Red Canary - avoid compressed content issues
         if 'redcanary.com' in url.lower():
