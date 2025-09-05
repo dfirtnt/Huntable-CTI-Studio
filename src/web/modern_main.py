@@ -281,6 +281,76 @@ async def api_source_stats(source_id: int):
         logger.error(f"API source stats error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+# Search API endpoint
+@app.get("/api/articles/search")
+async def api_search_articles(
+    q: str,
+    source_id: Optional[int] = None,
+    classification: Optional[str] = None,
+    threat_hunting_min: Optional[int] = None,
+    limit: Optional[int] = 100,
+    offset: Optional[int] = 0
+):
+    """Search articles with wildcard and boolean support."""
+    try:
+        # Get all articles first
+        all_articles = await async_db_manager.list_articles()
+        
+        # Apply basic filters
+        filtered_articles = all_articles
+        
+        if source_id:
+            filtered_articles = [a for a in filtered_articles if a.source_id == source_id]
+        
+        if classification:
+            filtered_articles = [a for a in filtered_articles 
+                               if a.metadata and a.metadata.get('training_category') == classification]
+        
+        if threat_hunting_min is not None:
+            filtered_articles = [a for a in filtered_articles 
+                               if a.metadata and a.metadata.get('threat_hunting_score', 0) >= threat_hunting_min]
+        
+        # Convert to dict format for search parser
+        articles_dict = [
+            {
+                'id': article.id,
+                'title': article.title,
+                'content': article.content,
+                'source_id': article.source_id,
+                'published_at': article.published_at.isoformat() if article.published_at else None,
+                'canonical_url': article.canonical_url,
+                'metadata': article.metadata
+            }
+            for article in filtered_articles
+        ]
+        
+        # Apply search with wildcard support
+        search_results = parse_boolean_search(q, articles_dict)
+        
+        # Apply pagination
+        total_results = len(search_results)
+        paginated_results = search_results[offset:offset + limit]
+        
+        return {
+            "query": q,
+            "total_results": total_results,
+            "articles": paginated_results,
+            "pagination": {
+                "offset": offset,
+                "limit": limit,
+                "has_more": offset + limit < total_results
+            }
+        }
+        
+    except Exception as e:
+        logger.error(f"Search API error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/search/help")
+async def api_search_help():
+    """Get search syntax help."""
+    return {"help_text": get_search_help_text()}
+
 # Articles management
 @app.get("/articles", response_class=HTMLResponse)
 async def articles_list(
