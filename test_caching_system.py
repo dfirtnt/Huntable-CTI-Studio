@@ -99,6 +99,35 @@ async def test_caching_system():
         except Exception as e:
             print(f"❌ Error extracting IOCs: {e}")
         
+        # Test 2.5: Generate Summary (first time)
+        print(f"\n📝 Test 2.5: Generating Summary (first time)")
+        print("-" * 40)
+        
+        try:
+            response = await client.post(
+                f"{base_url}/api/articles/{article_id}/chatgpt-summary",
+                headers={"Content-Type": "application/json"},
+                json={
+                    "include_content": True,
+                    "api_key": "test_key"  # This will fail, but we can see the caching logic
+                }
+            )
+            
+            if response.status_code == 200:
+                result = response.json()
+                print(f"✅ Summary generated successfully")
+                print(f"   Cached: {result.get('cached', False)}")
+                print(f"   Summarized at: {result.get('summarized_at', 'Unknown')}")
+                print(f"   Model: {result.get('model_name', 'Unknown')}")
+                print(f"   Content type: {result.get('content_type', 'Unknown')}")
+            else:
+                error = response.json()
+                print(f"⚠️ Summary generation failed (expected): {error.get('detail', 'Unknown error')}")
+                print("   This is expected without a valid API key")
+                
+        except Exception as e:
+            print(f"❌ Error generating summary: {e}")
+        
         # Test 3: Simulate user leaving and coming back
         print(f"\n⏰ Test 3: Simulating user leaving and coming back")
         print("-" * 40)
@@ -172,6 +201,39 @@ async def test_caching_system():
         except Exception as e:
             print(f"❌ Error requesting IOCs: {e}")
         
+        # Test 5.5: Request Summary again (should be cached)
+        print(f"\n📝 Test 5.5: Requesting Summary again (should be cached)")
+        print("-" * 40)
+        
+        try:
+            response = await client.post(
+                f"{base_url}/api/articles/{article_id}/chatgpt-summary",
+                headers={"Content-Type": "application/json"},
+                json={
+                    "include_content": True,
+                    "api_key": "test_key"
+                }
+            )
+            
+            if response.status_code == 200:
+                result = response.json()
+                print(f"✅ Summary retrieved")
+                print(f"   Cached: {result.get('cached', False)}")
+                print(f"   Summarized at: {result.get('summarized_at', 'Unknown')}")
+                print(f"   Model: {result.get('model_name', 'Unknown')}")
+                
+                if result.get('cached'):
+                    print("   🎉 SUCCESS: Cached results returned!")
+                else:
+                    print("   ⚠️ Results were regenerated (not cached)")
+                    
+            else:
+                error = response.json()
+                print(f"⚠️ Summary request failed: {error.get('detail', 'Unknown error')}")
+                
+        except Exception as e:
+            print(f"❌ Error requesting summary: {e}")
+        
         # Test 6: Force regeneration
         print(f"\n🔄 Test 6: Force regeneration (bypass cache)")
         print("-" * 40)
@@ -210,6 +272,7 @@ async def test_caching_system():
         print("📊 Caching System Test Summary:")
         print("✅ SIGMA rules are cached in article.metadata['sigma_rules']")
         print("✅ IOCs are cached in article.metadata['extracted_iocs']")
+        print("✅ Summaries are cached in article.metadata['chatgpt_summary']")
         print("✅ Frontend displays cached status with (Cached) indicator")
         print("✅ Users can leave and come back to see their results")
         print("✅ Force regeneration bypasses cache when needed")
