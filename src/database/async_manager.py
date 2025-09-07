@@ -625,6 +625,260 @@ class AsyncDatabaseManager:
             processing_status=db_article.processing_status
         )
     
+    async def get_deduplication_stats(self) -> Dict[str, Any]:
+        """Get deduplication system statistics."""
+        try:
+            async with self.get_session() as session:
+                stats = {}
+                
+                # Content hash duplicates
+                content_hash_query = """
+                SELECT content_hash, COUNT(*) as count 
+                FROM articles 
+                GROUP BY content_hash 
+                HAVING COUNT(*) > 1
+                """
+                result = await session.execute(text(content_hash_query))
+                duplicate_hashes = result.fetchall()
+                
+                stats['content_hash_duplicates'] = len(duplicate_hashes)
+                stats['duplicate_details'] = [
+                    {'hash': row[0][:10] + '...', 'count': row[1]} 
+                    for row in duplicate_hashes[:10]
+                ]
+                
+                # SimHash coverage
+                simhash_query = """
+                SELECT 
+                    COUNT(*) as total_articles,
+                    COUNT(CASE WHEN simhash IS NOT NULL THEN 1 END) as simhash_articles
+                FROM articles
+                """
+                result = await session.execute(text(simhash_query))
+                row = result.fetchone()
+                
+                if row and row[0] > 0:
+                    stats['simhash_coverage'] = round((row[1] / row[0]) * 100, 1)
+                else:
+                    stats['simhash_coverage'] = 0
+                
+                # Near duplicates (simhash buckets)
+                bucket_query = """
+                SELECT simhash_bucket, COUNT(*) as count
+                FROM articles 
+                WHERE simhash_bucket IS NOT NULL
+                GROUP BY simhash_bucket
+                ORDER BY count DESC
+                LIMIT 10
+                """
+                result = await session.execute(text(bucket_query))
+                buckets = result.fetchall()
+                
+                stats['bucket_distribution'] = [
+                    {'bucket_id': row[0], 'articles_count': row[1]} 
+                    for row in buckets
+                ]
+                
+                if buckets:
+                    stats['most_active_bucket'] = [buckets[0][0], buckets[0][1]]
+                else:
+                    stats['most_active_bucket'] = None
+                
+                # Potential near duplicates
+                stats['near_duplicates'] = sum(row[1] for row in buckets if row[1] > 1)
+                
+                # Unique URLs
+                url_query = "SELECT COUNT(DISTINCT canonical_url) FROM articles"
+                result = await session.execute(text(url_query))
+                stats['unique_urls'] = result.scalar() or 0
+                
+                # Duplicate rate
+                total_articles = await session.scalar(select(func.count(ArticleTable.id)))
+                if total_articles > 0:
+                    stats['duplicate_rate'] = round((stats['content_hash_duplicates'] / total_articles) * 100, 1)
+                else:
+                    stats['duplicate_rate'] = 0
+                
+                return stats
+                
+        except Exception as e:
+            logger.error(f"Failed to get deduplication stats: {e}")
+            return {
+                'content_hash_duplicates': 0,
+                'duplicate_details': [],
+                'simhash_coverage': 0,
+                'bucket_distribution': [],
+                'most_active_bucket': None,
+                'near_duplicates': 0,
+                'unique_urls': 0,
+                'duplicate_rate': 0
+            }
+    
+    async def get_performance_metrics(self) -> List[Dict[str, Any]]:
+        """Get database performance metrics."""
+        try:
+            async with self.get_session() as session:
+                metrics = []
+                
+                # Test queries with timing
+                import time
+                
+                # Articles count query
+                start_time = time.time()
+                result = await session.scalar(select(func.count(ArticleTable.id)))
+                query_time = (time.time() - start_time) * 1000
+                metrics.append({
+                    'test': 'Articles Count',
+                    'query_time_ms': round(query_time, 2),
+                    'rows_returned': result or 0
+                })
+                
+                # Sources count query
+                start_time = time.time()
+                result = await session.scalar(select(func.count(SourceTable.id)))
+                query_time = (time.time() - start_time) * 1000
+                metrics.append({
+                    'test': 'Sources Count',
+                    'query_time_ms': round(query_time, 2),
+                    'rows_returned': result or 0
+                })
+                
+                # Recent articles query
+                start_time = time.time()
+                result = await session.execute(
+                    select(ArticleTable.id)
+                    .order_by(desc(ArticleTable.discovered_at))
+                    .limit(10)
+                )
+                query_time = (time.time() - start_time) * 1000
+                metrics.append({
+                    'test': 'Recent Articles',
+                    'query_time_ms': round(query_time, 2),
+                    'rows_returned': len(result.fetchall())
+                })
+                
+                return metrics
+                
+        except Exception as e:
+            logger.error(f"Failed to get performance metrics: {e}")
+            return []
+    
+    async def get_ingestion_analytics(self) -> Dict[str, Any]:
+        """Get ingestion analytics and trends."""
+        try:
+            async with self.get_session() as session:
+                analytics = {}
+                
+                # Total stats
+                total_articles = await session.scalar(select(func.count(ArticleTable.id)))
+                total_sources = await session.scalar(select(func.count(SourceTable.id)))
+                
+                # Date range queries
+                earliest_query = select(func.min(ArticleTable.discovered_at))
+                latest_query = select(func.max(ArticleTable.discovered_at))
+                
+                earliest_article = await session.scalar(earliest_query)
+                latest_article = await session.scalar(latest_query)
+                
+                analytics['total_stats'] = {
+                    'total_articles': total_articles or 0,
+                    'total_sources': total_sources or 0,
+                    'earliest_article': earliest_article.isoformat() if earliest_article else None,
+                    'latest_article': latest_article.isoformat() if latest_article else None
+                }
+                
+                # Daily trends (last 30 days)
+                daily_query = """
+                SELECT 
+                    DATE(discovered_at) as date,
+                    COUNT(*) as articles_count,
+                    COUNT(DISTINCT source_id) as sources_count
+                FROM articles 
+                WHERE discovered_at >= NOW() - INTERVAL '30 days'
+                GROUP BY DATE(discovered_at)
+                ORDER BY date DESC
+                LIMIT 30
+                """
+                result = await session.execute(text(daily_query))
+                daily_trends = [
+                    {
+                        'date': row[0].strftime('%Y-%m-%d'),
+                        'articles_count': row[1],
+                        'sources_count': row[2]
+                    }
+                    for row in result.fetchall()
+                ]
+                analytics['daily_trends'] = daily_trends
+                
+                # Hourly distribution (today)
+                hourly_query = """
+                SELECT 
+                    EXTRACT(hour FROM discovered_at) as hour,
+                    COUNT(*) as articles_count
+                FROM articles 
+                WHERE DATE(discovered_at) = CURRENT_DATE
+                GROUP BY EXTRACT(hour FROM discovered_at)
+                ORDER BY hour
+                """
+                result = await session.execute(text(hourly_query))
+                hourly_data = {row[0]: row[1] for row in result.fetchall()}
+                
+                hourly_distribution = [
+                    {'hour': i, 'articles_count': hourly_data.get(i, 0)}
+                    for i in range(24)
+                ]
+                analytics['hourly_distribution'] = hourly_distribution
+                
+                # Source breakdown (last 7 days)
+                source_query = """
+                SELECT 
+                    s.name as source_name,
+                    COUNT(a.id) as articles_count,
+                    ROUND(AVG(CAST(a.article_metadata->>'threat_hunting_score' AS FLOAT)), 1) as avg_hunt_score,
+                    COUNT(CASE WHEN a.article_metadata->>'training_category' = 'chosen' THEN 1 END) as chosen_count,
+                    COUNT(CASE WHEN a.article_metadata->>'training_category' = 'rejected' THEN 1 END) as rejected_count,
+                    COUNT(CASE WHEN a.article_metadata->>'training_category' IS NULL OR a.article_metadata->>'training_category' = 'unclassified' THEN 1 END) as unclassified_count
+                FROM sources s
+                LEFT JOIN articles a ON s.id = a.source_id
+                WHERE a.discovered_at >= NOW() - INTERVAL '7 days'
+                GROUP BY s.id, s.name
+                ORDER BY articles_count DESC
+                LIMIT 10
+                """
+                result = await session.execute(text(source_query))
+                source_breakdown = []
+                
+                for row in result.fetchall():
+                    total = row[1] or 0
+                    chosen = row[3] or 0
+                    rejected = row[4] or 0
+                    unclassified = row[5] or 0
+                    
+                    source_breakdown.append({
+                        'source_name': row[0],
+                        'articles_count': total,
+                        'avg_hunt_score': row[2] or 0,
+                        'chosen_count': chosen,
+                        'rejected_count': rejected,
+                        'unclassified_count': unclassified,
+                        'chosen_ratio': f"{round((chosen/total)*100, 1)}%" if total > 0 else "0%",
+                        'rejected_ratio': f"{round((rejected/total)*100, 1)}%" if total > 0 else "0%",
+                        'unclassified_ratio': f"{round((unclassified/total)*100, 1)}%" if total > 0 else "0%"
+                    })
+                
+                analytics['source_breakdown'] = source_breakdown
+                
+                return analytics
+                
+        except Exception as e:
+            logger.error(f"Failed to get ingestion analytics: {e}")
+            return {
+                'total_stats': {'total_articles': 0, 'total_sources': 0},
+                'daily_trends': [],
+                'hourly_distribution': [],
+                'source_breakdown': []
+            }
+
     async def close(self):
         """Close database connections properly."""
         await self.engine.dispose()

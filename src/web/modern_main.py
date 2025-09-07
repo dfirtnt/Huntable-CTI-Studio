@@ -114,7 +114,7 @@ async def health_check():
         stats = await async_db_manager.get_database_stats()
         return {
             "status": "healthy",
-            "timestamp": "2024-01-01T00:00:00Z",
+            "timestamp": datetime.now().isoformat(),
             "database": {
                 "status": "connected",
                 "sources": stats["total_sources"],
@@ -125,6 +125,241 @@ async def health_check():
     except Exception as e:
         logger.error(f"Health check failed: {e}")
         raise HTTPException(status_code=503, detail="Service unhealthy")
+
+# Health check API endpoints
+@app.get("/api/health")
+async def api_health_check():
+    """API health check endpoint."""
+    try:
+        stats = await async_db_manager.get_database_stats()
+        return {
+            "status": "healthy",
+            "timestamp": datetime.now().isoformat(),
+            "database": {
+                "status": "connected",
+                "sources": stats["total_sources"],
+                "articles": stats["total_articles"]
+            },
+            "version": "2.0.0"
+        }
+    except Exception as e:
+        logger.error(f"API health check failed: {e}")
+        return {
+            "status": "unhealthy",
+            "timestamp": datetime.now().isoformat(),
+            "error": str(e)
+        }
+
+@app.get("/api/health/database")
+async def api_database_health():
+    """Database health check with detailed statistics."""
+    try:
+        stats = await async_db_manager.get_database_stats()
+        
+        # Get deduplication stats
+        dedup_stats = await async_db_manager.get_deduplication_stats()
+        
+        # Get performance metrics
+        performance_metrics = await async_db_manager.get_performance_metrics()
+        
+        return {
+            "status": "healthy",
+            "timestamp": datetime.now().isoformat(),
+            "database": {
+                "connection": "connected",
+                "total_articles": stats["total_articles"],
+                "total_sources": stats["total_sources"],
+                "simhash": {
+                    "coverage": f"{dedup_stats.get('simhash_coverage', 0)}%"
+                },
+                "deduplication": {
+                    "total_articles": stats["total_articles"],
+                    "unique_urls": dedup_stats.get("unique_urls", 0),
+                    "duplicate_rate": f"{dedup_stats.get('duplicate_rate', 0)}%"
+                },
+                "performance": performance_metrics
+            }
+        }
+    except Exception as e:
+        logger.error(f"Database health check failed: {e}")
+        return {
+            "status": "unhealthy",
+            "timestamp": datetime.now().isoformat(),
+            "error": str(e)
+        }
+
+@app.get("/api/health/deduplication")
+async def api_deduplication_health():
+    """Deduplication system health check."""
+    try:
+        dedup_stats = await async_db_manager.get_deduplication_stats()
+        
+        return {
+            "status": "healthy",
+            "timestamp": datetime.now().isoformat(),
+            "deduplication": {
+                "exact_duplicates": {
+                    "content_hash_duplicates": dedup_stats.get("content_hash_duplicates", 0),
+                    "duplicate_details": dedup_stats.get("duplicate_details", [])
+                },
+                "near_duplicates": {
+                    "potential_near_duplicates": dedup_stats.get("near_duplicates", 0),
+                    "simhash_coverage": f"{dedup_stats.get('simhash_coverage', 0)}%"
+                },
+                "simhash_buckets": {
+                    "bucket_distribution": dedup_stats.get("bucket_distribution", []),
+                    "most_active_bucket": dedup_stats.get("most_active_bucket")
+                }
+            }
+        }
+    except Exception as e:
+        logger.error(f"Deduplication health check failed: {e}")
+        return {
+            "status": "unhealthy",
+            "timestamp": datetime.now().isoformat(),
+            "error": str(e)
+        }
+
+@app.get("/api/health/services")
+async def api_services_health():
+    """External services health check."""
+    try:
+        services_status = {}
+        
+        # Check Redis
+        try:
+            import redis
+            redis_client = redis.Redis(host='redis', port=6379, password='cti_redis_2024', decode_responses=True)
+            redis_info = redis_client.info()
+            services_status["redis"] = {
+                "status": "healthy",
+                "info": {
+                    "used_memory": redis_info.get("used_memory", 0),
+                    "connected_clients": redis_info.get("connected_clients", 0)
+                }
+            }
+        except Exception as e:
+            services_status["redis"] = {
+                "status": "unhealthy",
+                "error": str(e)
+            }
+        
+        # Check Ollama
+        try:
+            import httpx
+            async with httpx.AsyncClient() as client:
+                response = await client.get("http://ollama:11434/api/tags", timeout=5.0)
+                if response.status_code == 200:
+                    models_data = response.json()
+                    services_status["ollama"] = {
+                        "status": "healthy",
+                        "models_available": len(models_data.get("models", [])),
+                        "models": [model["name"] for model in models_data.get("models", [])]
+                    }
+                else:
+                    services_status["ollama"] = {
+                        "status": "unhealthy",
+                        "error": f"HTTP {response.status_code}"
+                    }
+        except Exception as e:
+            services_status["ollama"] = {
+                "status": "unhealthy",
+                "error": str(e)
+            }
+        
+        return {
+            "status": "healthy",
+            "timestamp": datetime.now().isoformat(),
+            "services": services_status
+        }
+    except Exception as e:
+        logger.error(f"Services health check failed: {e}")
+        return {
+            "status": "unhealthy",
+            "timestamp": datetime.now().isoformat(),
+            "error": str(e)
+        }
+
+@app.get("/api/health/celery")
+async def api_celery_health():
+    """Celery workers health check."""
+    try:
+        celery_status = {}
+        
+        # Check Celery workers
+        try:
+            from src.worker.celery_app import celery_app
+            inspect = celery_app.control.inspect()
+            active_workers = inspect.active()
+            
+            if active_workers:
+                celery_status["workers"] = {
+                    "status": "healthy",
+                    "active_workers": len(active_workers)
+                }
+            else:
+                celery_status["workers"] = {
+                    "status": "unhealthy",
+                    "error": "No active workers found"
+                }
+        except Exception as e:
+            celery_status["workers"] = {
+                "status": "unhealthy",
+                "error": str(e)
+            }
+        
+        # Check broker
+        celery_status["broker"] = {
+            "status": "healthy",
+            "url": "redis://redis:6379/0"
+        }
+        
+        # Check result backend
+        celery_status["result_backend"] = {
+            "status": "healthy",
+            "backend": "redis://redis:6379/0"
+        }
+        
+        return {
+            "status": "healthy",
+            "timestamp": datetime.now().isoformat(),
+            "celery": celery_status
+        }
+    except Exception as e:
+        logger.error(f"Celery health check failed: {e}")
+        return {
+            "status": "unhealthy",
+            "timestamp": datetime.now().isoformat(),
+            "error": str(e)
+        }
+
+@app.get("/api/health/ingestion")
+async def api_ingestion_health():
+    """Ingestion analytics health check."""
+    try:
+        ingestion_stats = await async_db_manager.get_ingestion_analytics()
+        
+        return {
+            "status": "healthy",
+            "timestamp": datetime.now().isoformat(),
+            "ingestion": ingestion_stats
+        }
+    except Exception as e:
+        logger.error(f"Ingestion health check failed: {e}")
+        return {
+            "status": "unhealthy",
+            "timestamp": datetime.now().isoformat(),
+            "error": str(e)
+        }
+
+# Health Checks Page
+@app.get("/health-checks", response_class=HTMLResponse)
+async def health_checks_page(request: Request):
+    """Health checks monitoring page."""
+    return templates.TemplateResponse(
+        "health_checks.html",
+        {"request": request}
+    )
 
 # Dashboard
 @app.get("/", response_class=HTMLResponse)
