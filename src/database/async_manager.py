@@ -773,6 +773,8 @@ class AsyncDatabaseManager:
                 total_articles = await session.scalar(select(func.count(ArticleTable.id)))
                 total_sources = await session.scalar(select(func.count(SourceTable.id)))
                 
+                logger.info(f"Ingestion analytics: {total_articles} articles, {total_sources} sources")
+                
                 # Date range queries
                 earliest_query = select(func.min(ArticleTable.discovered_at))
                 latest_query = select(func.max(ArticleTable.discovered_at))
@@ -834,7 +836,7 @@ class AsyncDatabaseManager:
                 SELECT 
                     s.name as source_name,
                     COUNT(a.id) as articles_count,
-                    ROUND(AVG(CAST(a.article_metadata->>'threat_hunting_score' AS FLOAT)), 1) as avg_hunt_score,
+                    ROUND(AVG(CAST(a.article_metadata->>'threat_hunting_score' AS NUMERIC)), 1) as avg_hunt_score,
                     COUNT(CASE WHEN a.article_metadata->>'training_category' = 'chosen' THEN 1 END) as chosen_count,
                     COUNT(CASE WHEN a.article_metadata->>'training_category' = 'rejected' THEN 1 END) as rejected_count,
                     COUNT(CASE WHEN a.article_metadata->>'training_category' IS NULL OR a.article_metadata->>'training_category' = 'unclassified' THEN 1 END) as unclassified_count
@@ -871,7 +873,7 @@ class AsyncDatabaseManager:
                 return analytics
                 
         except Exception as e:
-            logger.error(f"Failed to get ingestion analytics: {e}")
+            logger.error(f"Failed to get ingestion analytics: {e}", exc_info=True)
             return {
                 'total_stats': {'total_articles': 0, 'total_sources': 0},
                 'daily_trends': [],
