@@ -820,6 +820,7 @@ async def articles_list(
     request: Request, 
     search: Optional[str] = None,
     source: Optional[str] = None,
+    source_id: Optional[int] = None,
     classification: Optional[str] = None,
     threat_hunting_range: Optional[str] = None,
     per_page: Optional[int] = 100,
@@ -831,23 +832,15 @@ async def articles_list(
     try:
         from src.models.article import ArticleFilter
         
-        # Create filter object for sorting
-        article_filter = ArticleFilter(
-            limit=per_page,
-            sort_by=sort_by,
-            sort_order=sort_order,
-            offset=(page - 1) * per_page
-        )
-        
-        # Get articles with sorting applied
-        all_articles = await async_db_manager.list_articles(article_filter=article_filter)
+        # Get all articles first to calculate total count
+        all_articles_unfiltered = await async_db_manager.list_articles()
         sources = await async_db_manager.list_sources()
         
         # Create source lookup
         source_lookup = {source.id: source for source in sources}
         
         # Apply additional filters (search, source, classification, etc.)
-        filtered_articles = all_articles
+        filtered_articles = all_articles_unfiltered
         
         # Search filter with boolean logic
         if search:
@@ -876,7 +869,12 @@ async def articles_list(
             ]
         
         # Source filter
-        if source and source.isdigit():
+        if source_id:
+            filtered_articles = [
+                article for article in filtered_articles
+                if article.source_id == source_id
+            ]
+        elif source and source.isdigit():
             source_id = int(source)
             filtered_articles = [
                 article for article in filtered_articles
@@ -913,6 +911,22 @@ async def articles_list(
                 # If parsing fails, ignore the filter
                 pass
         
+        # Apply sorting after filtering
+        if sort_by == "threat_hunting_score":
+            # Special handling for threat_hunting_score which is stored in metadata
+            filtered_articles.sort(
+                key=lambda x: float(x.metadata.get('threat_hunting_score', 0)) if x.metadata and x.metadata.get('threat_hunting_score') else 0,
+                reverse=(sort_order == 'desc')
+            )
+        else:
+            # Get the attribute dynamically
+            sort_attr = getattr(filtered_articles[0], sort_by, None) if filtered_articles else None
+            if sort_attr is not None:
+                filtered_articles.sort(
+                    key=lambda x: getattr(x, sort_by, ''),
+                    reverse=(sort_order == 'desc')
+                )
+        
         # Apply pagination
         total_articles = len(filtered_articles)
         per_page = max(1, min(per_page, 100))  # Limit to 100 per page
@@ -938,6 +952,7 @@ async def articles_list(
         filters = {
             "search": search or "",
             "source": source or "",
+            "source_id": source_id,
             "classification": classification or "",
             "threat_hunting_range": threat_hunting_range or "",
             "sort_by": sort_by,

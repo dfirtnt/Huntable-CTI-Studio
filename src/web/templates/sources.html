@@ -132,7 +132,11 @@
                 <div class="flex items-start justify-between">
                     <div class="flex-1 min-w-0">
                         <div class="flex items-center space-x-2 mb-2">
-                            <h4 class="text-lg font-medium text-gray-900">{{ source.name }}</h4>
+                            <h4 class="text-lg font-medium text-gray-900">
+                                <a href="/articles?source_id={{ source.id }}" class="text-blue-600 hover:text-blue-800 hover:underline transition-colors">
+                                    {{ source.name }}
+                                </a>
+                            </h4>
                             <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium 
                                          {% if source.active %}bg-green-100 text-green-800{% else %}bg-red-100 text-red-800{% endif %}">
                                 {% if source.active %}Active{% else %}Inactive{% endif %}
@@ -269,7 +273,11 @@
             <div class="flex items-start justify-between">
                 <div class="flex-1 min-w-0">
                     <div class="flex items-center space-x-2 mb-2">
-                        <h4 class="text-lg font-medium text-gray-900">{{ source.name }}</h4>
+                        <h4 class="text-lg font-medium text-gray-900">
+                            <a href="/articles?source_id={{ source.id }}" class="text-blue-600 hover:text-blue-800 hover:underline transition-colors">
+                                {{ source.name }}
+                            </a>
+                        </h4>
                         <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium 
                                      {% if source.active %}bg-green-100 text-green-800{% else %}bg-red-100 text-red-800{% endif %}">
                             {% if source.active %}Active{% else %}Inactive{% endif %}
