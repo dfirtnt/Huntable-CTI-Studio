@@ -57,14 +57,18 @@ async def regenerate_all_threat_hunting_scores():
                 enhanced_metadata = await processor._enhance_metadata(article_create)
                 
                 if 'threat_hunting_score' in enhanced_metadata:
-                    new_score = enhanced_metadata['threat_hunting_score']
-                    
                     # Update the article in database
                     if not article.metadata:
                         article.metadata = {}
                     
-                    # Update only the threat hunting score
-                    article.metadata['threat_hunting_score'] = new_score
+                    # Update threat hunting score and keyword matches
+                    article.metadata['threat_hunting_score'] = enhanced_metadata['threat_hunting_score']
+                    article.metadata['perfect_keyword_matches'] = enhanced_metadata.get('perfect_keyword_matches', [])
+                    article.metadata['good_keyword_matches'] = enhanced_metadata.get('good_keyword_matches', [])
+                    article.metadata['lolbas_matches'] = enhanced_metadata.get('lolbas_matches', [])
+                    article.metadata['threat_hunting_matches'] = enhanced_metadata.get('threat_hunting_matches', [])
+                    article.metadata['keyword_density'] = enhanced_metadata.get('keyword_density', 0.0)
+                    article.metadata['technical_depth_score'] = enhanced_metadata.get('technical_depth_score', 0.0)
                     
                     # Save the updated article
                     await db.update_article(article.id, article)

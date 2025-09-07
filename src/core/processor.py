@@ -10,7 +10,7 @@ from src.models.article import Article, ArticleCreate
 from src.models.source import Source
 from src.utils.content import (
     ContentCleaner, DateExtractor, QualityScorer, 
-    validate_content, MetadataExtractor
+    validate_content, MetadataExtractor, ThreatHuntingScorer
 )
 
 logger = logging.getLogger(__name__)
@@ -287,6 +287,12 @@ class ContentProcessor:
             found_keywords = [kw for kw in threat_keywords if kw in text_content]
             enhanced['threat_keywords'] = found_keywords
             enhanced['threat_keyword_count'] = len(found_keywords)
+            
+            # Calculate threat hunting score with keyword matches
+            threat_hunting_result = ThreatHuntingScorer.score_threat_hunting_content(
+                article.title, article.content
+            )
+            enhanced.update(threat_hunting_result)
             
             # Processing timestamp
             enhanced['processed_at'] = datetime.utcnow().isoformat()
