@@ -196,4 +196,8 @@ backup_old_architecture/
 Thumbs.db
 ehthumbs.db
 Desktop.ini
-backups/*.sql.gz
+# Database backup files
+backups/
+*.sql.gz
+*.sql
+backup_*.json
