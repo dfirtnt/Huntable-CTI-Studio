@@ -127,6 +127,7 @@
         {% if sources %}
         <div class="divide-y divide-gray-200">
             {% for source in sources %}
+            {% if source.name.lower() != 'manual' %}
             <div class="px-6 py-4 hover:bg-gray-50 transition-colors">
                 <div class="flex items-start justify-between">
                     <div class="flex-1 min-w-0">
@@ -243,6 +244,7 @@
                     </div>
                 </div>
             </div>
+            {% endif %}
             {% endfor %}
         </div>
         {% else %}
@@ -253,6 +255,114 @@
         </div>
         {% endif %}
     </div>
+
+    <!-- Manual Source Panel -->
+    {% for source in sources %}
+    {% if source.name.lower() == 'manual' %}
+    <div class="bg-blue-50 border border-blue-200 rounded-lg shadow-sm">
+        <div class="px-6 py-4 border-b border-blue-200">
+            <h3 class="text-lg font-medium text-blue-900">📝 Manual Source</h3>
+            <p class="text-sm text-blue-600">For manually added articles and content</p>
+        </div>
+        
+        <div class="px-6 py-4">
+            <div class="flex items-start justify-between">
+                <div class="flex-1 min-w-0">
+                    <div class="flex items-center space-x-2 mb-2">
+                        <h4 class="text-lg font-medium text-gray-900">{{ source.name }}</h4>
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium 
+                                     {% if source.active %}bg-green-100 text-green-800{% else %}bg-red-100 text-red-800{% endif %}">
+                            {% if source.active %}Active{% else %}Inactive{% endif %}
+                        </span>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-3">
+                        <div>
+                            <p class="text-sm text-gray-500">URL</p>
+                            <p class="text-sm font-medium text-gray-900 break-all">{{ source.url or 'N/A' }}</p>
+                        </div>
+                        <div>
+                            <p class="text-sm text-gray-500">Collection Method</p>
+                            <p class="text-sm font-medium text-gray-900">Manual Entry</p>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-3">
+                        <div>
+                            <p class="text-sm text-gray-500">Last Check</p>
+                            <p class="text-sm font-medium text-gray-900">
+                                {% if source.last_check %}{{ source.last_check.strftime('%Y-%m-%d %H:%M') }}{% else %}Never{% endif %}
+                            </p>
+                        </div>
+                        <div>
+                            <p class="text-sm text-gray-500">Lookback Window</p>
+                            <p class="text-sm font-medium text-gray-900">{{ source.lookback_days }} days</p>
+                        </div>
+                        <div>
+                            <p class="text-sm text-gray-500">Articles Collected</p>
+                            <p class="text-sm font-medium text-gray-900">{{ source.total_articles or 0 }}</p>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-3">
+                        <div>
+                            <p class="text-sm text-gray-500">Min Content Length</p>
+                            <p class="text-sm font-medium text-gray-900">
+                                {% if source.config and source.config.min_content_length %}
+                                    {{ source.config.min_content_length }} chars
+                                {% else %}
+                                    <span class="text-gray-400">200 chars (default)</span>
+                                {% endif %}
+                            </p>
+                        </div>
+                        <div>
+                            <p class="text-sm text-gray-500">Check Frequency</p>
+                            <p class="text-sm font-medium text-gray-900">{{ source.check_frequency // 60 }} minutes</p>
+                        </div>
+                    </div>
+
+                    <!-- Quality Metrics -->
+                    {% if source.id in quality_stats and quality_stats[source.id].total_articles > 0 %}
+                    {% set stat = quality_stats[source.id] %}
+                    <div class="bg-gray-50 rounded-lg p-3 mb-3">
+                        <h5 class="text-sm font-medium text-gray-700 mb-2">📊 Quality Metrics</h5>
+                        <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+                            <div>
+                                <p class="text-xs text-gray-500">Total Articles</p>
+                                <p class="text-sm font-medium text-gray-900">{{ stat.total_articles }}</p>
+                            </div>
+                            <div>
+                                <p class="text-xs text-gray-500">Rejected</p>
+                                <p class="text-sm font-medium text-red-600">{{ stat.rejected_count }} ({{ stat.rejection_rate }}%)</p>
+                            </div>
+                            <div>
+                                <p class="text-xs text-gray-500">Chosen</p>
+                                <p class="text-sm font-medium text-green-600">{{ stat.chosen_count }} ({{ stat.acceptance_rate }}%)</p>
+                            </div>
+                            <div>
+                                <p class="text-xs text-gray-500">Unclassified</p>
+                                <p class="text-sm font-medium text-gray-600">{{ stat.unclassified_count }}</p>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <div class="flex items-center space-x-2">
+                        <button onclick="showSourceStats({{ source.id }})" class="inline-flex items-center px-3 py-1.5 border border-gray-300 rounded text-xs font-medium text-gray-700 bg-white hover:bg-gray-50 transition-colors">
+                            <span class="mr-2">📊</span>
+                            Stats
+                        </button>
+                        
+                        <span class="text-xs text-gray-400 px-2 py-1">
+                            ⚙️ Configure and 🔄 Toggle Status disabled for Manual source
+                        </span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+    {% endfor %}
 
     <!-- Source Statistics -->
     {% if sources %}
