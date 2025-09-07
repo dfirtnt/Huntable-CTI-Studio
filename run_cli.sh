@@ -31,12 +31,18 @@ show_usage() {
     echo "  sources disable <id>                         - Disable source"
     echo "  export [--format <format>] [--days <days>]   - Export articles"
     echo "  stats                                         - Show statistics"
+    echo "  backup create [--backup-dir <dir>] [--no-compress] - Create database backup"
+    echo "  backup list [--backup-dir <dir>]              - List available backups"
+    echo "  backup restore <file> [--backup-dir <dir>] [--force] - Restore database"
     echo ""
     echo "Examples:"
     echo "  $0 init"
     echo "  $0 collect --source threatpost"
     echo "  $0 sources list --active"
     echo "  $0 export --format json --days 7"
+    echo "  $0 backup create"
+    echo "  $0 backup list"
+    echo "  $0 backup restore cti_scraper_backup_20250907_134653.sql.gz"
 }
 
 # Check if command is provided
@@ -227,6 +233,85 @@ case "$1" in
         ;;
     "stats")
         CLI_CMD="$CLI_CMD stats"
+        ;;
+    "backup")
+        CLI_CMD="$CLI_CMD backup"
+        shift
+        case "$1" in
+            "create")
+                CLI_CMD="$CLI_CMD create"
+                shift
+                while [[ $# -gt 0 ]]; do
+                    case $1 in
+                        --backup-dir)
+                            CLI_CMD="$CLI_CMD --backup-dir $2"
+                            shift 2
+                            ;;
+                        --no-compress)
+                            CLI_CMD="$CLI_CMD --no-compress"
+                            shift
+                            ;;
+                        *)
+                            echo "Unknown option: $1"
+                            show_usage
+                            exit 1
+                            ;;
+                    esac
+                done
+                ;;
+            "list")
+                CLI_CMD="$CLI_CMD list"
+                shift
+                while [[ $# -gt 0 ]]; do
+                    case $1 in
+                        --backup-dir)
+                            CLI_CMD="$CLI_CMD --backup-dir $2"
+                            shift 2
+                            ;;
+                        *)
+                            echo "Unknown option: $1"
+                            show_usage
+                            exit 1
+                            ;;
+                    esac
+                done
+                ;;
+            "restore")
+                if [ $# -lt 2 ]; then
+                    echo "Error: backup restore requires <file>"
+                    show_usage
+                    exit 1
+                fi
+                CLI_CMD="$CLI_CMD restore $2"
+                shift 2
+                while [[ $# -gt 0 ]]; do
+                    case $1 in
+                        --backup-dir)
+                            CLI_CMD="$CLI_CMD --backup-dir $2"
+                            shift 2
+                            ;;
+                        --force)
+                            CLI_CMD="$CLI_CMD --force"
+                            shift
+                            ;;
+                        --no-snapshot)
+                            CLI_CMD="$CLI_CMD --no-snapshot"
+                            shift
+                            ;;
+                        *)
+                            echo "Unknown option: $1"
+                            show_usage
+                            exit 1
+                            ;;
+                    esac
+                done
+                ;;
+            *)
+                echo "Unknown backup command: $1"
+                show_usage
+                exit 1
+                ;;
+        esac
         ;;
     *)
         echo "Unknown command: $1"

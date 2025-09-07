@@ -17,13 +17,14 @@ from sqlalchemy.ext.asyncio import (
     async_sessionmaker,
     AsyncEngine
 )
-from sqlalchemy import select, update, delete, func, and_, or_, desc, text
+from sqlalchemy import select, update, delete, func, and_, or_, desc, text, Float, Numeric, String
 from sqlalchemy.exc import SQLAlchemyError, IntegrityError
 from sqlalchemy.orm import selectinload
 
-from src.database.models import Base, SourceTable, ArticleTable, SourceCheckTable
+from src.database.models import Base, SourceTable, ArticleTable, SourceCheckTable, ArticleAnnotationTable
 from src.models.source import Source, SourceCreate, SourceUpdate, SourceFilter
 from src.models.article import Article, ArticleCreate, ArticleUpdate
+from src.models.annotation import ArticleAnnotation, ArticleAnnotationCreate, ArticleAnnotationUpdate, ArticleAnnotationFilter, AnnotationStats
 from src.services.deduplication import AsyncDeduplicationService
 
 logger = logging.getLogger(__name__)
@@ -200,8 +201,13 @@ class AsyncDatabaseManager:
                     url=source_data.url,
                     rss_url=source_data.rss_url,
                     check_frequency=source_data.check_frequency,
+                    lookback_days=source_data.lookback_days,
                     active=source_data.active,
                     config=source_data.config.dict() if source_data.config else {},
+                    consecutive_failures=0,
+                    total_articles=0,
+                    success_rate=0.0,
+                    average_response_time=0.0,
                     created_at=datetime.now(),
                     updated_at=datetime.now()
                 )
@@ -233,6 +239,43 @@ class AsyncDatabaseManager:
         except Exception as e:
             logger.error(f"Failed to get source {source_id}: {e}")
             return None
+    
+    async def update_source_min_content_length(self, source_id: int, min_content_length: int) -> Optional[Dict[str, Any]]:
+        """Update source minimum content length in config."""
+        try:
+            async with self.get_session() as session:
+                # Get the source
+                result = await session.execute(
+                    select(SourceTable).where(SourceTable.id == source_id)
+                )
+                db_source = result.scalar_one_or_none()
+                
+                if not db_source:
+                    return None
+                
+                # Update config with min_content_length
+                config = db_source.config or {}
+                config['min_content_length'] = min_content_length
+                db_source.config = config
+                
+                # Update timestamp
+                db_source.updated_at = datetime.now()
+                
+                await session.commit()
+                await session.refresh(db_source)
+                
+                logger.info(f"Successfully updated min_content_length for source {db_source.identifier}: {min_content_length}")
+                
+                return {
+                    "success": True,
+                    "message": f"Minimum content length updated to {min_content_length} characters",
+                    "source_name": db_source.name,
+                    "min_content_length": min_content_length
+                }
+                
+        except Exception as e:
+            logger.error(f"Failed to update min_content_length for source {source_id}: {e}")
+            raise
     
     async def update_source(self, source_id: int, update_data: SourceUpdate) -> Optional[Source]:
         """Update a source with proper transaction handling."""
@@ -362,14 +405,63 @@ class AsyncDatabaseManager:
             logger.error(f"Failed to update source article count for {source_id}: {e}")
             raise
     
-    async def list_articles(self, limit: Optional[int] = None) -> List[Article]:
-        """List articles with optional limit."""
+    async def list_articles(self, article_filter: Optional['ArticleFilter'] = None, limit: Optional[int] = None) -> List[Article]:
+        """List articles with optional filtering and sorting."""
         try:
             async with self.get_session() as session:
-                query = select(ArticleTable).order_by(desc(ArticleTable.discovered_at))
+                query = select(ArticleTable)
                 
-                if limit:
-                    query = query.limit(limit)
+                # Apply filters if provided
+                if article_filter:
+                    if article_filter.source_id is not None:
+                        query = query.where(ArticleTable.source_id == article_filter.source_id)
+                    
+                    if article_filter.published_after is not None:
+                        query = query.where(ArticleTable.published_at >= article_filter.published_after)
+                    
+                    if article_filter.published_before is not None:
+                        query = query.where(ArticleTable.published_at <= article_filter.published_before)
+                    
+                    if article_filter.processing_status is not None:
+                        query = query.where(ArticleTable.processing_status == article_filter.processing_status)
+                    
+                    if article_filter.content_contains is not None:
+                        query = query.where(ArticleTable.content.contains(article_filter.content_contains))
+                    
+                    # Apply sorting
+                    if article_filter.sort_by == 'threat_hunting_score':
+                        # Special handling for threat_hunting_score which is stored in metadata
+                        # Handle null values by using COALESCE to provide a default value
+                        threat_score_expr = func.cast(
+                            func.coalesce(
+                                func.cast(ArticleTable.article_metadata['threat_hunting_score'], String), 
+                                '0'
+                            ), 
+                            Numeric
+                        )
+                        if article_filter.sort_order == 'desc':
+                            query = query.order_by(desc(threat_score_expr))
+                        else:
+                            query = query.order_by(threat_score_expr)
+                    else:
+                        sort_field = getattr(ArticleTable, article_filter.sort_by, ArticleTable.discovered_at)
+                        if article_filter.sort_order == 'desc':
+                            query = query.order_by(desc(sort_field))
+                        else:
+                            query = query.order_by(sort_field)
+                    
+                    # Apply pagination
+                    if article_filter.offset > 0:
+                        query = query.offset(article_filter.offset)
+                    
+                    if article_filter.limit:
+                        query = query.limit(article_filter.limit)
+                else:
+                    # Default sorting by discovered_at desc
+                    query = query.order_by(desc(ArticleTable.discovered_at))
+                    
+                    if limit:
+                        query = query.limit(limit)
                 
                 result = await session.execute(query)
                 db_articles = result.scalars().all()
@@ -594,6 +686,7 @@ class AsyncDatabaseManager:
             url=db_source.url,
             rss_url=db_source.rss_url,
             check_frequency=db_source.check_frequency,
+            lookback_days=db_source.lookback_days,
             active=db_source.active,
             config=SourceConfig.parse_obj(db_source.config),
             last_check=db_source.last_check,
@@ -880,6 +973,202 @@ class AsyncDatabaseManager:
                 'hourly_distribution': [],
                 'source_breakdown': []
             }
+
+    # Annotation management methods
+    
+    async def create_annotation(self, annotation_data: ArticleAnnotationCreate) -> Optional[ArticleAnnotation]:
+        """Create a new annotation."""
+        try:
+            async with self.get_session() as session:
+                db_annotation = ArticleAnnotationTable(
+                    article_id=annotation_data.article_id,
+                    user_id=None,  # Set to None for now
+                    annotation_type=annotation_data.annotation_type,
+                    selected_text=annotation_data.selected_text,
+                    start_position=annotation_data.start_position,
+                    end_position=annotation_data.end_position,
+                    context_before=annotation_data.context_before,
+                    context_after=annotation_data.context_after,
+                    confidence_score=annotation_data.confidence_score,
+                    created_at=datetime.now(),
+                    updated_at=datetime.now()
+                )
+                
+                session.add(db_annotation)
+                await session.commit()
+                await session.refresh(db_annotation)
+                
+                logger.info(f"Created annotation: {annotation_data.annotation_type} for article {annotation_data.article_id}")
+                return self._db_annotation_to_model(db_annotation)
+                
+        except Exception as e:
+            logger.error(f"Failed to create annotation: {e}")
+            return None
+    
+    async def get_annotation(self, annotation_id: int) -> Optional[ArticleAnnotation]:
+        """Get a specific annotation by ID."""
+        try:
+            async with self.get_session() as session:
+                result = await session.execute(
+                    select(ArticleAnnotationTable).where(ArticleAnnotationTable.id == annotation_id)
+                )
+                db_annotation = result.scalar_one_or_none()
+                
+                if db_annotation:
+                    return self._db_annotation_to_model(db_annotation)
+                return None
+                
+        except Exception as e:
+            logger.error(f"Failed to get annotation {annotation_id}: {e}")
+            return None
+    
+    async def get_article_annotations(self, article_id: int) -> List[ArticleAnnotation]:
+        """Get all annotations for a specific article."""
+        try:
+            async with self.get_session() as session:
+                result = await session.execute(
+                    select(ArticleAnnotationTable)
+                    .where(ArticleAnnotationTable.article_id == article_id)
+                    .order_by(ArticleAnnotationTable.created_at.desc())
+                )
+                db_annotations = result.scalars().all()
+                
+                return [self._db_annotation_to_model(annotation) for annotation in db_annotations]
+                
+        except Exception as e:
+            logger.error(f"Failed to get annotations for article {article_id}: {e}")
+            return []
+    
+    async def update_annotation(self, annotation_id: int, update_data: ArticleAnnotationUpdate) -> Optional[ArticleAnnotation]:
+        """Update an existing annotation."""
+        try:
+            async with self.get_session() as session:
+                result = await session.execute(
+                    select(ArticleAnnotationTable).where(ArticleAnnotationTable.id == annotation_id)
+                )
+                db_annotation = result.scalar_one_or_none()
+                
+                if not db_annotation:
+                    return None
+                
+                # Update fields
+                if update_data.annotation_type is not None:
+                    db_annotation.annotation_type = update_data.annotation_type
+                if update_data.confidence_score is not None:
+                    db_annotation.confidence_score = update_data.confidence_score
+                
+                db_annotation.updated_at = datetime.now()
+                
+                await session.commit()
+                await session.refresh(db_annotation)
+                
+                logger.info(f"Updated annotation {annotation_id}")
+                return self._db_annotation_to_model(db_annotation)
+                
+        except Exception as e:
+            logger.error(f"Failed to update annotation {annotation_id}: {e}")
+            return None
+    
+    async def delete_annotation(self, annotation_id: int) -> bool:
+        """Delete an annotation."""
+        try:
+            async with self.get_session() as session:
+                result = await session.execute(
+                    delete(ArticleAnnotationTable).where(ArticleAnnotationTable.id == annotation_id)
+                )
+                
+                if result.rowcount > 0:
+                    await session.commit()
+                    logger.info(f"Deleted annotation {annotation_id}")
+                    return True
+                return False
+                
+        except Exception as e:
+            logger.error(f"Failed to delete annotation {annotation_id}: {e}")
+            return False
+    
+    async def get_annotation_stats(self) -> AnnotationStats:
+        """Get annotation statistics."""
+        try:
+            async with self.get_session() as session:
+                # Get total counts
+                total_result = await session.execute(
+                    select(func.count(ArticleAnnotationTable.id))
+                )
+                total_annotations = total_result.scalar() or 0
+                
+                # Get huntable count
+                huntable_result = await session.execute(
+                    select(func.count(ArticleAnnotationTable.id))
+                    .where(ArticleAnnotationTable.annotation_type == 'huntable')
+                )
+                huntable_count = huntable_result.scalar() or 0
+                
+                # Get not_huntable count
+                not_huntable_result = await session.execute(
+                    select(func.count(ArticleAnnotationTable.id))
+                    .where(ArticleAnnotationTable.annotation_type == 'not_huntable')
+                )
+                not_huntable_count = not_huntable_result.scalar() or 0
+                
+                # Get average confidence
+                avg_confidence_result = await session.execute(
+                    select(func.avg(ArticleAnnotationTable.confidence_score))
+                )
+                average_confidence = avg_confidence_result.scalar() or 0.0
+                
+                # Get most annotated article
+                most_annotated_result = await session.execute(
+                    select(ArticleAnnotationTable.article_id, func.count(ArticleAnnotationTable.id).label('count'))
+                    .group_by(ArticleAnnotationTable.article_id)
+                    .order_by(desc('count'))
+                    .limit(1)
+                )
+                most_annotated_row = most_annotated_result.first()
+                most_annotated_article = most_annotated_row[0] if most_annotated_row else None
+                
+                # Calculate percentages
+                huntable_percentage = (huntable_count / total_annotations * 100) if total_annotations > 0 else 0
+                not_huntable_percentage = (not_huntable_count / total_annotations * 100) if total_annotations > 0 else 0
+                
+                return AnnotationStats(
+                    total_annotations=total_annotations,
+                    huntable_count=huntable_count,
+                    not_huntable_count=not_huntable_count,
+                    huntable_percentage=round(huntable_percentage, 1),
+                    not_huntable_percentage=round(not_huntable_percentage, 1),
+                    average_confidence=round(average_confidence, 2),
+                    most_annotated_article=most_annotated_article
+                )
+                
+        except Exception as e:
+            logger.error(f"Failed to get annotation stats: {e}")
+            return AnnotationStats(
+                total_annotations=0,
+                huntable_count=0,
+                not_huntable_count=0,
+                huntable_percentage=0.0,
+                not_huntable_percentage=0.0,
+                average_confidence=0.0,
+                most_annotated_article=None
+            )
+    
+    def _db_annotation_to_model(self, db_annotation: ArticleAnnotationTable) -> ArticleAnnotation:
+        """Convert database annotation to Pydantic model."""
+        return ArticleAnnotation(
+            id=db_annotation.id,
+            article_id=db_annotation.article_id,
+            user_id=db_annotation.user_id,
+            annotation_type=db_annotation.annotation_type,
+            selected_text=db_annotation.selected_text,
+            start_position=db_annotation.start_position,
+            end_position=db_annotation.end_position,
+            context_before=db_annotation.context_before,
+            context_after=db_annotation.context_after,
+            confidence_score=db_annotation.confidence_score,
+            created_at=db_annotation.created_at,
+            updated_at=db_annotation.updated_at
+        )
 
     async def close(self):
         """Close database connections properly."""

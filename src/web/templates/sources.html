@@ -18,22 +18,6 @@
         </div>
     </div>
 
-    <!-- 90-Day Window Note -->
-    <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
-        <div class="flex items-start">
-            <div class="flex-shrink-0">
-                <span class="text-blue-400 text-lg">ℹ️</span>
-            </div>
-            <div class="ml-3">
-                <h3 class="text-sm font-medium text-blue-800">Collection Window</h3>
-                <p class="text-sm text-blue-700">
-                    Articles older than <strong>90 days</strong> are automatically filtered out during collection to maintain data freshness. 
-                    This ensures your threat intelligence feed contains only recent and relevant information.
-                </p>
-            </div>
-        </div>
-    </div>
-
     <!-- Quality Summary -->
     <!-- Debug: quality_stats count: {{ quality_stats|length }} -->
     {% if quality_stats %}
@@ -186,6 +170,27 @@
                             </div>
                         </div>
 
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-3">
+                            <div>
+                                <p class="text-sm text-gray-500">Check Frequency</p>
+                                <p class="text-sm font-medium text-gray-900">{{ source.check_frequency // 60 }} minutes</p>
+                            </div>
+                            <div>
+                                <p class="text-sm text-gray-500">Lookback Window</p>
+                                <p class="text-sm font-medium text-gray-900">{{ source.lookback_days }} days</p>
+                            </div>
+                            <div>
+                                <p class="text-sm text-gray-500">Min Content Length</p>
+                                <p class="text-sm font-medium text-gray-900">
+                                    {% if source.config and source.config.min_content_length %}
+                                        {{ source.config.min_content_length }} chars
+                                    {% else %}
+                                        <span class="text-gray-400">200 chars (default)</span>
+                                    {% endif %}
+                                </p>
+                            </div>
+                        </div>
+
                         <!-- Quality Metrics -->
                         {% if source.id in quality_stats and quality_stats[source.id].total_articles > 0 %}
                         {% set stat = quality_stats[source.id] %}
@@ -220,9 +225,14 @@
                         {% endif %}
 
                         <div class="flex items-center space-x-2">
-                            <button onclick="toggleSourceStatus({{ source.id }})" class="inline-flex items-center px-3 py-1.5 border border-gray-300 rounded text-xs font-medium text-gray-700 bg-white hover:bg-gray-50 transition-colors">
+                            <button onclick="openSourceConfig({{ source.id }}, {{ source.lookback_days }}, {{ source.config.min_content_length if source.config and source.config.min_content_length else 200 }})" class="inline-flex items-center px-3 py-1.5 border border-gray-300 rounded text-xs font-medium text-gray-700 bg-white hover:bg-gray-50 transition-colors">
                                 <span class="mr-2">⚙️</span>
-                                Edit
+                                Configure
+                            </button>
+
+                            <button onclick="toggleSourceStatus({{ source.id }})" class="inline-flex items-center px-3 py-1.5 border border-gray-300 rounded text-xs font-medium text-gray-700 bg-white hover:bg-gray-50 transition-colors">
+                                <span class="mr-2">🔄</span>
+                                Toggle Status
                             </button>
 
                             <button onclick="showSourceStats({{ source.id }})" class="inline-flex items-center px-3 py-1.5 border border-gray-300 rounded text-xs font-medium text-gray-700 bg-white hover:bg-gray-50 transition-colors">
@@ -278,26 +288,6 @@
         </div>
     </div>
     {% endif %}
-
-    <!-- Quick Actions -->
-    <div class="bg-white rounded-lg shadow-sm p-6">
-        <h3 class="text-lg font-medium text-gray-900 mb-4">Quick Actions</h3>
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <a href="/" class="flex items-center px-4 py-3 border border-gray-300 rounded-md shadow-sm bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors">
-                <span class="mr-3">🏠</span>
-                Dashboard
-            </a>
-            <a href="/articles" class="flex items-center px-4 py-3 border border-gray-300 rounded-md shadow-sm bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors">
-                <span class="mr-3">📰</span>
-                View Articles
-            </a>
-            <button onclick="window.location.reload()" class="flex items-center px-4 py-3 border border-gray-300 rounded-md shadow-sm bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors">
-                <span class="mr-3">🔄</span>
-                Refresh
-            </button>
-        </div>
-    </div>
-</div>
 
 <!-- Modal for displaying results -->
 <div id="resultModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden z-50">
@@ -464,4 +454,342 @@ document.getElementById('resultModal').addEventListener('click', function(e) {
     }
 });
 </script>
+
+<!-- Source Configuration Modal -->
+<div id="sourceConfigModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden z-50">
+    <div class="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+        <div class="fixed inset-0 transition-opacity" aria-hidden="true">
+            <div class="absolute inset-0 bg-gray-500 opacity-75"></div>
+        </div>
+        <div class="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+            <div class="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                <div class="flex items-start">
+                    <div class="mt-3 text-center sm:mt-0 sm:text-left w-full">
+                        <h3 class="text-lg leading-6 font-medium text-gray-900" id="sourceConfigModalTitle">
+                            Configure Source Settings
+                        </h3>
+                        <div class="mt-4 space-y-6">
+                            <!-- Lookback Window Configuration -->
+                            <div>
+                                <label for="configLookbackDays" class="block text-sm font-medium text-gray-700 mb-2">
+                                    Lookback Window (days)
+                                </label>
+                                <input type="number" id="configLookbackDays" min="1" max="365" 
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                                       placeholder="Enter days (1-365)">
+                                <p class="mt-1 text-xs text-gray-500">
+                                    How many days back this source should look for articles.
+                                </p>
+                            </div>
+
+                            <!-- Minimum Content Length Configuration -->
+                            <div>
+                                <label for="configMinContentLength" class="block text-sm font-medium text-gray-700 mb-2">
+                                    Minimum Content Length (characters)
+                                </label>
+                                <input type="number" id="configMinContentLength" min="0" 
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                                       placeholder="Enter minimum characters">
+                                <p class="mt-1 text-xs text-gray-500">
+                                    Articles shorter than this length will be filtered out.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+                <button type="button" id="saveSourceConfigBtn" 
+                        class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-blue-600 text-base font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:ml-3 sm:w-auto sm:text-sm">
+                    Save Changes
+                </button>
+                <button type="button" id="cancelSourceConfigBtn" 
+                        class="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm">
+                    Cancel
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let currentSourceId = null;
+
+function openSourceConfig(sourceId, currentDays, currentMinLength) {
+    currentSourceId = sourceId;
+    document.getElementById('configLookbackDays').value = currentDays;
+    document.getElementById('configMinContentLength').value = currentMinLength;
+    document.getElementById('sourceConfigModal').classList.remove('hidden');
+}
+
+function closeSourceConfig() {
+    document.getElementById('sourceConfigModal').classList.add('hidden');
+    currentSourceId = null;
+}
+
+function saveSourceConfig() {
+    const days = parseInt(document.getElementById('configLookbackDays').value);
+    const minLength = parseInt(document.getElementById('configMinContentLength').value);
+    
+    if (!days || days < 1 || days > 365) {
+        alert('Please enter a valid number between 1 and 365 days for lookback window.');
+        return;
+    }
+    
+    if (!minLength || minLength < 0) {
+        alert('Please enter a valid non-negative number for minimum content length.');
+        return;
+    }
+    
+    // Show loading state
+    const saveBtn = document.getElementById('saveSourceConfigBtn');
+    const originalText = saveBtn.textContent;
+    saveBtn.textContent = 'Saving...';
+    saveBtn.disabled = true;
+    
+    // Update both settings
+    Promise.all([
+        fetch(`/api/sources/${currentSourceId}/lookback`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ lookback_days: days })
+        }),
+        fetch(`/api/sources/${currentSourceId}/min_content_length`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ min_content_length: minLength })
+        })
+    ])
+    .then(responses => Promise.all(responses.map(r => r.json())))
+    .then(results => {
+        if (results.every(r => r.success)) {
+            showNotification('Source configuration updated successfully!', 'success');
+            closeSourceConfig();
+            // Refresh the page to show updated values
+            setTimeout(() => window.location.reload(), 1000);
+        } else {
+            throw new Error('Failed to update one or more settings');
+        }
+    })
+    .catch(error => {
+        console.error('Error updating source configuration:', error);
+        showNotification('Failed to update source configuration: ' + error.message, 'error');
+    })
+    .finally(() => {
+        saveBtn.textContent = originalText;
+        saveBtn.disabled = false;
+    });
+}
+
+function showNotification(message, type = 'info') {
+    // Create notification element
+    const notification = document.createElement('div');
+    notification.className = `fixed top-4 right-4 z-50 p-4 rounded-md shadow-lg ${
+        type === 'success' ? 'bg-green-500 text-white' : 
+        type === 'error' ? 'bg-red-500 text-white' : 
+        'bg-blue-500 text-white'
+    }`;
+    notification.textContent = message;
+    
+    document.body.appendChild(notification);
+    
+    // Remove after 3 seconds
+    setTimeout(() => {
+        notification.remove();
+    }, 3000);
+}
+
+// Adhoc URL scraping functions
+function handleAdhocUrlSubmit(event) {
+    event.preventDefault();
+    
+    const url = document.getElementById('adhocUrl').value.trim();
+    const title = document.getElementById('adhocTitle').value.trim();
+    const forceScrape = document.getElementById('adhocForceScrape').checked;
+    
+    if (!url) {
+        showNotification('Please enter a valid URL', 'error');
+        return;
+    }
+    
+    // Show loading state
+    const submitBtn = document.getElementById('scrapeUrlBtn');
+    const statusDiv = document.getElementById('scrapingStatus');
+    const statusText = document.getElementById('scrapingStatusText');
+    
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<span class="mr-2">⏳</span>Scraping...';
+    statusDiv.classList.remove('hidden');
+    statusText.textContent = 'Scraping URL...';
+    
+    // Prepare request data
+    const requestData = {
+        url: url,
+        force_scrape: forceScrape
+    };
+    
+    if (title) {
+        requestData.title = title;
+    }
+    
+    // Send scraping request
+    fetch('/api/scrape-url', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestData)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            statusText.textContent = 'Scraping completed successfully!';
+            showNotification(`Article scraped successfully: ${data.article_title || 'Unknown Title'}`, 'success');
+            
+            // Clear form
+            document.getElementById('adhocUrl').value = '';
+            document.getElementById('adhocTitle').value = '';
+            document.getElementById('adhocForceScrape').checked = false;
+            
+            // Hide status after delay
+            setTimeout(() => {
+                statusDiv.classList.add('hidden');
+            }, 2000);
+            
+            // Optionally redirect to the new article
+            if (data.article_id) {
+                setTimeout(() => {
+                    window.location.href = `/articles/${data.article_id}`;
+                }, 1500);
+            }
+        } else {
+            throw new Error(data.error || 'Failed to scrape URL');
+        }
+    })
+    .catch(error => {
+        console.error('Error scraping URL:', error);
+        statusText.textContent = 'Scraping failed';
+        showNotification('Failed to scrape URL: ' + error.message, 'error');
+        
+        // Hide status after delay
+        setTimeout(() => {
+            statusDiv.classList.add('hidden');
+        }, 3000);
+    })
+    .finally(() => {
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = '<span class="mr-2">🔍</span>Scrape URL';
+    });
+}
+
+// Event listeners
+document.getElementById('saveSourceConfigBtn').addEventListener('click', saveSourceConfig);
+document.getElementById('cancelSourceConfigBtn').addEventListener('click', closeSourceConfig);
+
+// Adhoc URL form event listener
+document.getElementById('adhocUrlForm').addEventListener('submit', handleAdhocUrlSubmit);
+
+// Close modal when clicking outside
+document.getElementById('sourceConfigModal').addEventListener('click', function(e) {
+    if (e.target === this) {
+        closeSourceConfig();
+    }
+});
+
+// Handle Enter key in inputs
+document.getElementById('configLookbackDays').addEventListener('keypress', function(e) {
+    if (e.key === 'Enter') {
+        saveSourceConfig();
+    }
+});
+
+document.getElementById('configMinContentLength').addEventListener('keypress', function(e) {
+    if (e.key === 'Enter') {
+        saveSourceConfig();
+    }
+});
+</script>
+
+    <!-- Manual URL Scraping Section -->
+    <div class="bg-white rounded-lg shadow-sm p-6">
+        <div class="flex items-center justify-between mb-4">
+            <div>
+                <h2 class="text-xl font-bold text-gray-900">Manual URL Scraping</h2>
+                <p class="mt-1 text-sm text-gray-600">Add individual URLs for immediate scraping and analysis</p>
+            </div>
+        </div>
+        
+        <form id="adhocUrlForm" class="space-y-4">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label for="adhocUrl" class="block text-sm font-medium text-gray-700 mb-2">
+                        Article URL
+                    </label>
+                    <input type="url" id="adhocUrl" name="url" required
+                           class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                           placeholder="https://example.com/article">
+                    <p class="mt-1 text-xs text-gray-500">
+                        Enter the full URL of the article you want to scrape
+                    </p>
+                    <div class="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-md">
+                        <div class="flex items-start">
+                            <div class="flex-shrink-0">
+                                <span class="text-blue-600 text-sm">ℹ️</span>
+                            </div>
+                            <div class="ml-2">
+                                <p class="text-xs text-blue-800">
+                                    <strong>Tip:</strong> Verify the URL opens correctly in your browser first. Some URLs may redirect to different domains or pages.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div>
+                    <label for="adhocTitle" class="block text-sm font-medium text-gray-700 mb-2">
+                        Custom Title (Optional)
+                    </label>
+                    <input type="text" id="adhocTitle" name="title"
+                           class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                           placeholder="Leave empty to auto-detect">
+                    <p class="mt-1 text-xs text-gray-500">
+                        Override the auto-detected title if needed
+                    </p>
+                </div>
+            </div>
+            
+            <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-4">
+                    <label class="flex items-center">
+                        <input type="checkbox" id="adhocForceScrape" name="force_scrape" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                        <span class="ml-2 text-sm text-gray-700">Force scrape even if URL exists</span>
+                        <div class="relative ml-2 group">
+                            <span class="inline-flex items-center justify-center w-4 h-4 text-xs font-medium text-gray-500 bg-gray-200 rounded-full cursor-help hover:bg-gray-300 transition-colors">?</span>
+                            <div class="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 text-xs text-white bg-gray-800 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-10">
+                                Override duplicate URL check and scrape even if this URL already exists in the database
+                                <div class="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-800"></div>
+                            </div>
+                        </div>
+                    </label>
+                </div>
+                
+                <button type="submit" id="scrapeUrlBtn"
+                        class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                    <span class="mr-2">🔍</span>
+                    Scrape URL
+                </button>
+            </div>
+        </form>
+        
+        <!-- Scraping Status -->
+        <div id="scrapingStatus" class="mt-4 hidden">
+            <div class="bg-blue-50 border border-blue-200 rounded-md p-4">
+                <div class="flex items-center">
+                    <div class="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-3"></div>
+                    <span class="text-sm text-blue-800" id="scrapingStatusText">Scraping URL...</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
 {% endblock %}

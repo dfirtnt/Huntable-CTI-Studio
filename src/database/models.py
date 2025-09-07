@@ -23,8 +23,13 @@ class SourceTable(Base):
     url = Column(Text, nullable=False)
     rss_url = Column(Text, nullable=True)
     check_frequency = Column(Integer, nullable=False, default=3600)
+    lookback_days = Column(Integer, nullable=False, default=90)
     active = Column(Boolean, nullable=False, default=True)
     config = Column(JSON, nullable=False, default=dict)
+    
+    # Additional fields from database schema
+    tier = Column(Integer, nullable=False, default=2)
+    weight = Column(Float, nullable=False, default=1.0)
     
     # Tracking fields
     last_check = Column(DateTime, nullable=True)
@@ -110,6 +115,33 @@ class SourceCheckTable(Base):
     def __repr__(self):
         status = "SUCCESS" if self.success else "FAILED"
         return f"<SourceCheck(source_id={self.source_id}, {status}, {self.articles_found} articles)>"
+
+
+class ArticleAnnotationTable(Base):
+    """Database table for article text annotations."""
+    
+    __tablename__ = 'article_annotations'
+    
+    id = Column(Integer, primary_key=True, index=True)
+    article_id = Column(Integer, ForeignKey('articles.id'), nullable=False, index=True)
+    user_id = Column(Integer, nullable=True)  # For future user management
+    annotation_type = Column(String(20), nullable=False, index=True)  # 'huntable' or 'not_huntable'
+    selected_text = Column(Text, nullable=False)
+    start_position = Column(Integer, nullable=False)
+    end_position = Column(Integer, nullable=False)
+    context_before = Column(Text, nullable=True)
+    context_after = Column(Text, nullable=True)
+    confidence_score = Column(Float, nullable=False, default=0.0)
+    
+    # Timestamps
+    created_at = Column(DateTime, nullable=False, default=func.now())
+    updated_at = Column(DateTime, nullable=False, default=func.now(), onupdate=func.now())
+    
+    # Relationships
+    article = relationship("ArticleTable", backref="annotations")
+    
+    def __repr__(self):
+        return f"<ArticleAnnotation(id={self.id}, type='{self.annotation_type}', text='{self.selected_text[:50]}...')>"
 
 
 class ContentHashTable(Base):

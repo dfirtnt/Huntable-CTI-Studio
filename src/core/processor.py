@@ -62,7 +62,8 @@ class ContentProcessor:
         self,
         articles: List[ArticleCreate],
         existing_hashes: Optional[Set[str]] = None,
-        existing_urls: Optional[Set[str]] = None
+        existing_urls: Optional[Set[str]] = None,
+        source_config: Optional[Dict[str, Any]] = None
     ) -> DeduplicationResult:
         """
         Process articles with deduplication, normalization, and quality filtering.
@@ -95,7 +96,7 @@ class ContentProcessor:
         for article in articles:
             try:
                 # Normalize and enhance article
-                processed_article = await self._process_single_article(article)
+                processed_article = await self._process_single_article(article, source_config)
                 
                 if not processed_article:
                     continue
@@ -137,19 +138,20 @@ class ContentProcessor:
         
         return DeduplicationResult(unique_articles, duplicates, result_stats)
     
-    async def _process_single_article(self, article: ArticleCreate) -> Optional[ArticleCreate]:
+    async def _process_single_article(self, article: ArticleCreate, source_config: Optional[Dict[str, Any]] = None) -> Optional[ArticleCreate]:
         """
         Process and normalize a single article.
         
         Args:
             article: Article to process
+            source_config: Optional source configuration dict
             
         Returns:
             Processed article or None if processing fails
         """
         try:
-            # Validate required fields
-            validation_issues = validate_content(article.title, article.content, article.canonical_url)
+            # Validate required fields with source-specific requirements
+            validation_issues = validate_content(article.title, article.content, article.canonical_url, source_config)
             if validation_issues:
                 logger.debug(f"Article validation failed: {validation_issues}")
                 return None

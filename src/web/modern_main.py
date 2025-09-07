@@ -33,6 +33,7 @@ sys.path.insert(0, str(src_path))
 from src.database.async_manager import async_db_manager
 from src.models.source import Source, SourceUpdate, SourceFilter
 from src.models.article import Article, ArticleUpdate
+from src.models.annotation import ArticleAnnotationCreate, ArticleAnnotationUpdate
 from src.worker.celery_app import test_source_connectivity, collect_from_source
 from src.utils.search_parser import parse_boolean_search, get_search_help_text
 from src.utils.ioc_extractor import HybridIOCExtractor, IOCExtractionResult
@@ -498,6 +499,209 @@ async def api_toggle_source_status(source_id: int):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.put("/api/sources/{source_id}/min_content_length")
+async def api_update_source_min_content_length(source_id: int, request: dict):
+    """Update source minimum content length."""
+    try:
+        min_content_length = request.get('min_content_length')
+        
+        if min_content_length is None:
+            raise HTTPException(status_code=400, detail="min_content_length is required")
+        
+        if not isinstance(min_content_length, int) or min_content_length < 0:
+            raise HTTPException(status_code=400, detail="min_content_length must be a non-negative integer")
+        
+        result = await async_db_manager.update_source_min_content_length(source_id, min_content_length)
+        if not result:
+            raise HTTPException(status_code=404, detail="Source not found")
+        
+        return result
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"API update source min content length error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/scrape-url")
+async def api_scrape_url(request: dict):
+    """Scrape a single URL manually."""
+    try:
+        url = request.get('url')
+        title = request.get('title')
+        force_scrape = request.get('force_scrape', False)
+        
+        if not url:
+            raise HTTPException(status_code=400, detail="URL is required")
+        
+        # Use httpx to fetch the URL content directly
+        async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
+            try:
+                response = await client.get(url)
+                response.raise_for_status()
+                html_content = response.text
+            except httpx.RequestError as e:
+                raise HTTPException(status_code=400, detail=f"Failed to fetch URL: {str(e)}")
+        
+        # Simple content extraction (basic implementation)
+        import re
+        from bs4 import BeautifulSoup
+        
+        soup = BeautifulSoup(html_content, 'html.parser')
+        
+        # Extract title
+        extracted_title = title
+        if not extracted_title:
+            title_tag = soup.find('title')
+            if title_tag:
+                extracted_title = title_tag.get_text().strip()
+            else:
+                extracted_title = "Untitled Article"
+        
+        # Extract main content
+        content_selectors = ['article', 'main', '.content', '.post-content', '.article-content', 'body']
+        content_text = ""
+        
+        for selector in content_selectors:
+            element = soup.select_one(selector)
+            if element:
+                content_text = element.get_text(separator=' ', strip=True)
+                if len(content_text) > 200:  # Minimum content length
+                    break
+        
+        if not content_text or len(content_text) < 200:
+            content_text = soup.get_text(separator=' ', strip=True)
+        
+        # Get or create a "Manual" source for adhoc scraping
+        from src.models.source import SourceFilter
+        manual_sources = await async_db_manager.list_sources(SourceFilter(identifier_contains="manual"))
+        manual_source = None
+        
+        # Find exact match for "manual" identifier
+        for source in manual_sources:
+            if source.identifier == "manual":
+                manual_source = source
+                break
+        
+        if not manual_source:
+            # Create manual source if it doesn't exist
+            from src.models.source import SourceCreate, SourceConfig
+            manual_source_data = SourceCreate(
+                identifier="manual",
+                name="Manual",
+                url="https://manual.example.com",  # Provide a valid URL
+                rss_url="",
+                check_frequency=3600,  # 1 hour
+                lookback_days=90,  # 90 days
+                active=True,
+                config=SourceConfig()  # Use proper SourceConfig object
+            )
+            manual_source = await async_db_manager.create_source(manual_source_data)
+            
+            # If creation failed (e.g., duplicate), try to get existing source
+            if not manual_source:
+                manual_sources = await async_db_manager.list_sources(SourceFilter(identifier_contains="manual"))
+                for source in manual_sources:
+                    if source.identifier == "manual":
+                        manual_source = source
+                        break
+        
+        # Check for existing article if not forcing
+        if not force_scrape:
+            existing_article = await async_db_manager.get_article_by_url(url)
+            if existing_article:
+                return {
+                    "success": False,
+                    "error": "Article already exists",
+                    "article_id": existing_article.id,
+                    "article_title": existing_article.title
+                }
+        
+        # Create article directly in database
+        from src.database.models import ArticleTable
+        from datetime import datetime
+        import hashlib
+        
+        content_hash = hashlib.sha256(content_text.encode()).hexdigest()
+        
+        async with async_db_manager.get_session() as session:
+            new_article = ArticleTable(
+                source_id=manual_source.id,
+                canonical_url=url,
+                title=extracted_title,
+                published_at=datetime.utcnow(),
+                content=content_text,
+                content_hash=content_hash,
+                metadata={"source_name": "Manual", "manual_scrape": True},
+                word_count=len(content_text.split()),
+                processing_status="completed"
+            )
+            
+            session.add(new_article)
+            await session.commit()
+            await session.refresh(new_article)
+            
+            logger.info(f"Successfully scraped manual URL: {url} -> Article ID: {new_article.id}")
+            
+            return {
+                "success": True,
+                "article_id": new_article.id,
+                "article_title": new_article.title,
+                "message": "Article scraped successfully"
+            }
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"API scrape URL error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/test-route")
+async def test_route():
+    """Test route to verify route registration."""
+    return {"message": "Test route is working"}
+
+
+@app.put("/api/sources/{source_id}/lookback")
+async def api_update_source_lookback(source_id: int, request: dict):
+    """Update source lookback window."""
+    try:
+        lookback_days = request.get('lookback_days')
+        
+        if not lookback_days or not isinstance(lookback_days, int):
+            raise HTTPException(status_code=400, detail="lookback_days must be a valid integer")
+        
+        if lookback_days < 1 or lookback_days > 365:
+            raise HTTPException(status_code=400, detail="lookback_days must be between 1 and 365")
+        
+        # Get the source to verify it exists
+        source = await async_db_manager.get_source(source_id)
+        if not source:
+            raise HTTPException(status_code=404, detail="Source not found")
+        
+        # Update the source
+        from src.models.source import SourceUpdate
+        update_data = SourceUpdate(lookback_days=lookback_days)
+        
+        updated_source = await async_db_manager.update_source(source_id, update_data)
+        if not updated_source:
+            raise HTTPException(status_code=500, detail="Failed to update source")
+        
+        logger.info(f"Updated lookback window for source {source_id} to {lookback_days} days")
+        
+        return {
+            "success": True, 
+            "message": f"Lookback window updated to {lookback_days} days",
+            "lookback_days": lookback_days
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to update source lookback window: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 
 @app.get("/api/sources/{source_id}/stats")
 async def api_source_stats(source_id: int):
@@ -619,18 +823,30 @@ async def articles_list(
     classification: Optional[str] = None,
     threat_hunting_range: Optional[str] = None,
     per_page: Optional[int] = 100,
-    page: Optional[int] = 1
+    page: Optional[int] = 1,
+    sort_by: str = "discovered_at",
+    sort_order: str = "desc"
 ):
-    """Articles listing page."""
+    """Articles listing page with sorting and filtering."""
     try:
-        # Get all articles first for filtering
-        all_articles = await async_db_manager.list_articles()
+        from src.models.article import ArticleFilter
+        
+        # Create filter object for sorting
+        article_filter = ArticleFilter(
+            limit=per_page,
+            sort_by=sort_by,
+            sort_order=sort_order,
+            offset=(page - 1) * per_page
+        )
+        
+        # Get articles with sorting applied
+        all_articles = await async_db_manager.list_articles(article_filter=article_filter)
         sources = await async_db_manager.list_sources()
         
         # Create source lookup
         source_lookup = {source.id: source for source in sources}
         
-        # Apply filters
+        # Apply additional filters (search, source, classification, etc.)
         filtered_articles = all_articles
         
         # Search filter with boolean logic
@@ -723,7 +939,9 @@ async def articles_list(
             "search": search or "",
             "source": source or "",
             "classification": classification or "",
-            "threat_hunting_range": threat_hunting_range or ""
+            "threat_hunting_range": threat_hunting_range or "",
+            "sort_by": sort_by,
+            "sort_order": sort_order
         }
         
         # Get classification statistics from filtered articles
@@ -797,11 +1015,33 @@ async def article_detail(request: Request, article_id: int):
 # Analysis page removed - no longer needed after quality scoring removal
 
 @app.get("/api/articles")
-async def api_articles_list(limit: Optional[int] = 100):
-    """API endpoint for listing articles."""
+async def api_articles_list(
+    limit: Optional[int] = 100,
+    sort_by: str = "discovered_at",
+    sort_order: str = "desc",
+    source_id: Optional[int] = None,
+    processing_status: Optional[str] = None
+):
+    """API endpoint for listing articles with sorting and filtering."""
     try:
-        articles = await async_db_manager.list_articles(limit=limit)
-        return {"articles": [article.dict() for article in articles]}
+        from src.models.article import ArticleFilter
+        
+        # Create filter object
+        article_filter = ArticleFilter(
+            limit=limit,
+            sort_by=sort_by,
+            sort_order=sort_order,
+            source_id=source_id,
+            processing_status=processing_status
+        )
+        
+        articles = await async_db_manager.list_articles(article_filter=article_filter)
+        return {
+            "articles": [article.dict() for article in articles],
+            "total": len(articles),
+            "sort_by": sort_by,
+            "sort_order": sort_order
+        }
     except Exception as e:
         logger.error(f"API articles list error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -1765,9 +2005,180 @@ async def api_extract_iocs(article_id: int, request: Request):
         raise HTTPException(status_code=500, detail=str(e))
 
 # Error handlers
+# Annotation API endpoints
+
+@app.post("/api/articles/{article_id}/annotations")
+async def create_annotation(article_id: int, annotation_data: dict):
+    """Create a new text annotation for an article."""
+    try:
+        # Verify article exists
+        article = await async_db_manager.get_article(article_id)
+        if not article:
+            raise HTTPException(status_code=404, detail="Article not found")
+        
+        # Create annotation data object
+        from src.models.annotation import ArticleAnnotationCreate
+        annotation_create = ArticleAnnotationCreate(
+            article_id=article_id,
+            annotation_type=annotation_data.get("annotation_type"),
+            selected_text=annotation_data.get("selected_text"),
+            start_position=annotation_data.get("start_position"),
+            end_position=annotation_data.get("end_position"),
+            context_before=annotation_data.get("context_before"),
+            context_after=annotation_data.get("context_after"),
+            confidence_score=annotation_data.get("confidence_score", 1.0)
+        )
+        
+        # Create annotation
+        annotation = await async_db_manager.create_annotation(annotation_create)
+        if not annotation:
+            raise HTTPException(status_code=500, detail="Failed to create annotation")
+        
+        logger.info(f"Created annotation {annotation.id} for article {article_id}")
+        
+        return {
+            "success": True,
+            "annotation": annotation,
+            "message": f"Annotation created successfully"
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to create annotation: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/articles/{article_id}/annotations")
+async def get_article_annotations(article_id: int):
+    """Get all annotations for a specific article."""
+    try:
+        # Verify article exists
+        article = await async_db_manager.get_article(article_id)
+        if not article:
+            raise HTTPException(status_code=404, detail="Article not found")
+        
+        annotations = await async_db_manager.get_article_annotations(article_id)
+        
+        return {
+            "success": True,
+            "article_id": article_id,
+            "annotations": annotations,
+            "count": len(annotations)
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to get annotations: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/annotations/stats")
+async def get_annotation_stats():
+    """Get annotation statistics."""
+    try:
+        stats = await async_db_manager.get_annotation_stats()
+        
+        return {
+            "success": True,
+            "stats": stats
+        }
+        
+    except Exception as e:
+        logger.error(f"Failed to get annotation stats: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/annotations/{annotation_id}")
+async def get_annotation(annotation_id: int):
+    """Get a specific annotation by ID."""
+    try:
+        annotation = await async_db_manager.get_annotation(annotation_id)
+        if not annotation:
+            raise HTTPException(status_code=404, detail="Annotation not found")
+        
+        return {
+            "success": True,
+            "annotation": annotation
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to get annotation: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/annotations/{annotation_id}")
+async def get_annotation(annotation_id: int):
+    """Get a specific annotation by ID."""
+    try:
+        annotation = await async_db_manager.get_annotation(annotation_id)
+        if not annotation:
+            raise HTTPException(status_code=404, detail="Annotation not found")
+        
+        return {
+            "success": True,
+            "annotation": annotation
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to get annotation: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.put("/api/annotations/{annotation_id}")
+async def update_annotation(annotation_id: int, update_data: ArticleAnnotationUpdate):
+    """Update an existing annotation."""
+    try:
+        annotation = await async_db_manager.update_annotation(annotation_id, update_data)
+        if not annotation:
+            raise HTTPException(status_code=404, detail="Annotation not found")
+        
+        logger.info(f"Updated annotation {annotation_id}")
+        
+        return {
+            "success": True,
+            "annotation": annotation,
+            "message": "Annotation updated successfully"
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to update annotation: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.delete("/api/annotations/{annotation_id}")
+async def delete_annotation(annotation_id: int):
+    """Delete an annotation."""
+    try:
+        success = await async_db_manager.delete_annotation(annotation_id)
+        if not success:
+            raise HTTPException(status_code=404, detail="Annotation not found")
+        
+        logger.info(f"Deleted annotation {annotation_id}")
+        
+        return {
+            "success": True,
+            "message": "Annotation deleted successfully"
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to delete annotation: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.exception_handler(404)
 async def not_found_handler(request: Request, exc: HTTPException):
     """Handle 404 errors."""
+    # Check if this is an API request
+    if request.url.path.startswith("/api/"):
+        return JSONResponse(
+            content={"detail": "Not found"},
+            status_code=404
+        )
+    
+    # For non-API requests, return HTML error page
     return templates.TemplateResponse(
         "error.html",
         {"request": request, "error": "Page not found"},
@@ -1783,6 +2194,247 @@ async def internal_error_handler(request: Request, exc: HTTPException):
         {"request": request, "error": "Internal server error"},
         status_code=500
     )
+
+# Static file serving for backups
+backup_dir = Path("backups")
+backup_dir.mkdir(exist_ok=True)
+app.mount("/backups", StaticFiles(directory=str(backup_dir)), name="backups")
+
+# Database Backup & Restore API endpoints
+@app.post("/api/backup/create")
+async def api_create_backup(background_tasks: BackgroundTasks):
+    """Create a new database backup."""
+    try:
+        from pathlib import Path
+        import gzip
+        import io
+        
+        # Create backup directory
+        backup_dir = Path("backups")
+        backup_dir.mkdir(exist_ok=True)
+        
+        # Generate backup filename with timestamp
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        backup_filename = f"cti_scraper_backup_{timestamp}.sql.gz"
+        backup_path = backup_dir / backup_filename
+        
+        # Create backup using SQLAlchemy to dump all tables
+        from sqlalchemy import text, inspect
+        from src.database.async_manager import AsyncDatabaseManager
+        
+        db_manager = AsyncDatabaseManager()
+        
+        # Get database connection
+        async with db_manager.get_session() as session:
+            # Get all table names using raw SQL
+            result = await session.execute(text("""
+                SELECT table_name 
+                FROM information_schema.tables 
+                WHERE table_schema = 'public' 
+                AND table_type = 'BASE TABLE'
+                ORDER BY table_name
+            """))
+            tables = [row[0] for row in result.fetchall()]
+            
+            backup_content = []
+            backup_content.append("-- PostgreSQL database backup")
+            backup_content.append(f"-- Generated at: {datetime.now().isoformat()}")
+            backup_content.append("-- CTI Scraper Database Backup")
+            backup_content.append("")
+            
+            # Add SET statements
+            backup_content.append("SET statement_timeout = 0;")
+            backup_content.append("SET lock_timeout = 0;")
+            backup_content.append("SET idle_in_transaction_session_timeout = 0;")
+            backup_content.append("SET client_encoding = 'UTF8';")
+            backup_content.append("SET standard_conforming_strings = on;")
+            backup_content.append("SET check_function_bodies = false;")
+            backup_content.append("SET xmloption = content;")
+            backup_content.append("SET client_min_messages = warning;")
+            backup_content.append("SET row_security = off;")
+            backup_content.append("")
+            
+            # For each table, dump data only (simplified approach)
+            for table_name in tables:
+                backup_content.append(f"-- Data for table {table_name}")
+                
+                # Get column names first
+                col_result = await session.execute(text(f"""
+                    SELECT column_name 
+                    FROM information_schema.columns 
+                    WHERE table_name = '{table_name}' 
+                    AND table_schema = 'public'
+                    ORDER BY ordinal_position
+                """))
+                columns = [row[0] for row in col_result.fetchall()]
+                
+                if not columns:
+                    continue
+                
+                # Get table data
+                result = await session.execute(text(f'SELECT * FROM "{table_name}"'))
+                rows = result.fetchall()
+                
+                if rows:
+                    backup_content.append(f"-- Data for table {table_name}")
+                    
+                    for row in rows:
+                        values = []
+                        for i, col in enumerate(columns):
+                            value = row[i]
+                            if value is None:
+                                values.append('NULL')
+                            elif isinstance(value, str):
+                                # Escape single quotes
+                                escaped_value = value.replace("'", "''")
+                                values.append(f"'{escaped_value}'")
+                            else:
+                                values.append(str(value))
+                        
+                        # Build column names and values separately
+                        col_names = ", ".join(f'"{col}"' for col in columns)
+                        val_str = ", ".join(values)
+                        insert_sql = f'INSERT INTO "{table_name}" ({col_names}) VALUES ({val_str});'
+                        backup_content.append(insert_sql)
+                    
+                    backup_content.append("")
+            
+            # Compress the backup
+            backup_text = "\n".join(backup_content)
+            with gzip.open(backup_path, 'wt') as f:
+                f.write(backup_text)
+        
+        # Get file size
+        file_size = backup_path.stat().st_size
+        
+        return {
+            "success": True,
+            "message": f"Backup created successfully: {backup_filename}",
+            "backup_file": backup_filename,
+            "size_bytes": file_size,
+            "size_mb": round(file_size / (1024 * 1024), 2),
+            "created_at": datetime.now().isoformat()
+        }
+        
+    except Exception as e:
+        logger.error(f"Backup creation error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/backup/list")
+async def api_list_backups():
+    """List all available database backups."""
+    try:
+        from pathlib import Path
+        import os
+        
+        backup_dir = Path("backups")
+        if not backup_dir.exists():
+            return {"backups": []}
+        
+        backups = []
+        for backup_file in backup_dir.glob("*.sql.gz"):
+            stat = backup_file.stat()
+            backups.append({
+                "filename": backup_file.name,
+                "size_bytes": stat.st_size,
+                "size_mb": round(stat.st_size / (1024 * 1024), 2),
+                "created_at": datetime.fromtimestamp(stat.st_mtime).isoformat(),
+                "modified_at": datetime.fromtimestamp(stat.st_mtime).strftime("%Y-%m-%d %H:%M:%S")
+            })
+        
+        # Sort by creation time (newest first)
+        backups.sort(key=lambda x: x["created_at"], reverse=True)
+        
+        return {"backups": backups}
+        
+    except Exception as e:
+        logger.error(f"Backup listing error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/backup/restore")
+async def api_restore_backup(request: Request):
+    """Restore database from a backup file."""
+    try:
+        from fastapi import UploadFile, File
+        import tempfile
+        import gzip
+        
+        # Get uploaded file
+        form = await request.form()
+        backup_file = form.get("backup_file")
+        if not backup_file:
+            raise HTTPException(status_code=400, detail="No backup file provided")
+        
+        # Save uploaded file temporarily
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".sql.gz") as temp_file:
+            content = await backup_file.read()
+            temp_file.write(content)
+            temp_file_path = temp_file.name
+        
+        try:
+            # Decompress and restore using SQLAlchemy
+            with gzip.open(temp_file_path, 'rt') as f_gz:
+                sql_content = f_gz.read()
+            
+            from sqlalchemy import text
+            from src.database.async_manager import AsyncDatabaseManager
+            
+            db_manager = AsyncDatabaseManager()
+            
+            # Split SQL content into individual statements
+            statements = [stmt.strip() for stmt in sql_content.split(';') if stmt.strip()]
+            
+            async with db_manager.get_session() as session:
+                # Execute each SQL statement
+                for statement in statements:
+                    if statement and not statement.startswith('--'):
+                        try:
+                            await session.execute(text(statement))
+                        except Exception as e:
+                            # Log the error but continue with other statements
+                            logger.warning(f"Failed to execute statement: {statement[:100]}... Error: {e}")
+                
+                # Commit all changes
+                await session.commit()
+            
+            return {
+                "success": True,
+                "message": "Database restored successfully",
+                "restored_at": datetime.now().isoformat()
+            }
+            
+        finally:
+            # Clean up temporary file
+            os.unlink(temp_file_path)
+        
+    except Exception as e:
+        logger.error(f"Backup restore error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.delete("/api/backup/{backup_filename}")
+async def api_delete_backup(backup_filename: str):
+    """Delete a specific backup file."""
+    try:
+        from pathlib import Path
+        
+        # Security check - ensure filename is safe
+        if not backup_filename.endswith('.sql.gz') or '..' in backup_filename or '/' in backup_filename:
+            raise HTTPException(status_code=400, detail="Invalid backup filename")
+        
+        backup_path = Path("backups") / backup_filename
+        if not backup_path.exists():
+            raise HTTPException(status_code=404, detail="Backup file not found")
+        
+        backup_path.unlink()
+        
+        return {
+            "success": True,
+            "message": f"Backup {backup_filename} deleted successfully"
+        }
+        
+    except Exception as e:
+        logger.error(f"Backup deletion error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 if __name__ == "__main__":
     import uvicorn

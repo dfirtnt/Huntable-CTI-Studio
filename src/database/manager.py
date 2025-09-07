@@ -79,9 +79,8 @@ class DatabaseManager:
                     name=source_data.name,
                     url=source_data.url,
                     rss_url=source_data.rss_url,
-                    tier=source_data.tier,
-                    weight=source_data.weight,
                     check_frequency=source_data.check_frequency,
+                    lookback_days=source_data.lookback_days,
                     active=source_data.active,
                     config=source_data.config.dict() if source_data.config else {}
                 )
@@ -486,9 +485,8 @@ class DatabaseManager:
             name=db_source.name,
             url=db_source.url,
             rss_url=db_source.rss_url,
-            tier=db_source.tier,
-            weight=db_source.weight,
             check_frequency=db_source.check_frequency,
+            lookback_days=db_source.lookback_days,
             active=db_source.active,
             config=SourceConfig.parse_obj(db_source.config),
             last_check=db_source.last_check,

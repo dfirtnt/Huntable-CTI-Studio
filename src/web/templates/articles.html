@@ -188,6 +188,43 @@
         </div>
     </div>
 
+    <!-- Sorting Controls -->
+    <div class="bg-white rounded-lg shadow-sm p-6">
+        <h3 class="text-lg font-medium text-gray-900 mb-4">Sort Articles</h3>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <!-- Sort By -->
+            <div>
+                <label for="sort-by" class="block text-sm font-medium text-gray-700 mb-1">Sort By</label>
+                <select name="sort_by" id="sort-by" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-sm">
+                    <option value="discovered_at" {% if filters.sort_by == 'discovered_at' %}selected{% endif %}>Discovery Date</option>
+                    <option value="published_at" {% if filters.sort_by == 'published_at' %}selected{% endif %}>Publication Date</option>
+                    <option value="title" {% if filters.sort_by == 'title' %}selected{% endif %}>Title</option>
+                    <option value="source_id" {% if filters.sort_by == 'source_id' %}selected{% endif %}>Source</option>
+                    <option value="quality_score" {% if filters.sort_by == 'quality_score' %}selected{% endif %}>Quality Score</option>
+                    <option value="threat_hunting_score" {% if filters.sort_by == 'threat_hunting_score' %}selected{% endif %}>Threat Hunting Score</option>
+                    <option value="word_count" {% if filters.sort_by == 'word_count' %}selected{% endif %}>Word Count</option>
+                    <option value="id" {% if filters.sort_by == 'id' %}selected{% endif %}>Article ID</option>
+                </select>
+            </div>
+            
+            <!-- Sort Order -->
+            <div>
+                <label for="sort-order" class="block text-sm font-medium text-gray-700 mb-1">Order</label>
+                <select name="sort_order" id="sort-order" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-sm">
+                    <option value="desc" {% if filters.sort_order == 'desc' %}selected{% endif %}>Desc</option>
+                    <option value="asc" {% if filters.sort_order == 'asc' %}selected{% endif %}>Asc</option>
+                </select>
+            </div>
+            
+            <!-- Apply Button -->
+            <div class="flex items-end">
+                <button type="submit" class="w-full px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
+                    Apply Sorting
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- Articles List -->
     <div class="bg-white rounded-lg shadow-sm">
         <div class="px-6 py-4 border-b border-gray-200">
@@ -791,5 +828,48 @@
             closeClassificationModal();
         }
     });
+    
+    // Dynamic sorting functionality
+    function applySorting() {
+        const sortBy = document.getElementById('sort-by').value;
+        const sortOrder = document.getElementById('sort-order').value;
+        
+        // Get current URL parameters
+        const urlParams = new URLSearchParams(window.location.search);
+        
+        // Update sorting parameters
+        urlParams.set('sort_by', sortBy);
+        urlParams.set('sort_order', sortOrder);
+        
+        // Reset to page 1 when sorting changes
+        urlParams.set('page', '1');
+        
+        // Redirect to updated URL
+        window.location.href = window.location.pathname + '?' + urlParams.toString();
+    }
+    
+    // Auto-apply sorting when dropdowns change
+    document.getElementById('sort-by').addEventListener('change', applySorting);
+    document.getElementById('sort-order').addEventListener('change', applySorting);
+    
+    // Add visual indicators for current sort
+    function updateSortIndicators() {
+        const sortBy = '{{ filters.sort_by }}';
+        const sortOrder = '{{ filters.sort_order }}';
+        
+        // Add visual indicators to table headers if they exist
+        const headers = document.querySelectorAll('th[data-sort]');
+        headers.forEach(header => {
+            const sortField = header.getAttribute('data-sort');
+            if (sortField === sortBy) {
+                header.classList.add('bg-blue-50', 'text-blue-700');
+                const indicator = sortOrder === 'desc' ? '↓' : '↑';
+                header.innerHTML = header.textContent + ' ' + indicator;
+            }
+        });
+    }
+    
+    // Initialize sort indicators on page load
+    document.addEventListener('DOMContentLoaded', updateSortIndicators);
 </script>
 {% endblock %}

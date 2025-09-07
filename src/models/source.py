@@ -18,6 +18,9 @@ class SourceConfig(BaseModel):
     # Extraction configuration
     extract: Dict[str, Any] = Field(default_factory=dict, description="Content extraction configuration")
     
+    # Content quality configuration
+    min_content_length: Optional[int] = Field(None, description="Minimum content length in characters")
+    
     # Legacy fallback
     content_selector: Optional[str] = Field(None, description="Legacy content selector")
 
@@ -64,6 +67,7 @@ class Source(BaseModel):
     rss_url: Optional[str] = Field(None, description="RSS/Atom feed URL")
     tier: int = Field(default=2, ge=1, le=3, description="Source tier (1=premium, 2=standard, 3=basic)")
     check_frequency: int = Field(default=3600, ge=60, description="Check frequency in seconds")
+    lookback_days: int = Field(default=90, ge=1, le=3650, description="Lookback window in days for article collection")
     active: bool = Field(default=True, description="Whether source is active")
     config: SourceConfig = Field(default_factory=SourceConfig, description="Source configuration")
     
@@ -168,6 +172,7 @@ class SourceCreate(BaseModel):
     url: str
     rss_url: Optional[str] = None
     check_frequency: int = 3600
+    lookback_days: int = 90
     active: bool = True
     config: SourceConfig = Field(default_factory=SourceConfig)
     
@@ -183,6 +188,7 @@ class SourceUpdate(BaseModel):
     url: Optional[str] = None
     rss_url: Optional[str] = None
     check_frequency: Optional[int] = None
+    lookback_days: Optional[int] = None
     active: Optional[bool] = None
     config: Optional[SourceConfig] = None
 

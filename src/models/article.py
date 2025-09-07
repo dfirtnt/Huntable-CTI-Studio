@@ -47,7 +47,7 @@ class Article(BaseModel):
     @validator('processing_status')
     def validate_status(cls, v):
         """Validate processing status values."""
-        valid_statuses = {'pending', 'processed', 'failed', 'duplicate'}
+        valid_statuses = {'pending', 'processed', 'failed', 'duplicate', 'completed'}
         if v not in valid_statuses:
             raise ValueError(f'Invalid status: {v}. Must be one of {valid_statuses}')
         return v
@@ -132,3 +132,25 @@ class ArticleFilter(BaseModel):
     processing_status: Optional[str] = None
     limit: int = Field(default=100, le=1000)
     offset: int = Field(default=0, ge=0)
+    
+    # Sorting options
+    sort_by: str = Field(default="discovered_at", description="Field to sort by")
+    sort_order: str = Field(default="desc", description="Sort order: 'asc' or 'desc'")
+    
+    @validator('sort_by')
+    def validate_sort_by(cls, v):
+        """Validate sort_by field."""
+        valid_fields = [
+            'id', 'title', 'published_at', 'discovered_at', 'modified_at',
+            'source_id', 'quality_score', 'threat_hunting_score', 'word_count', 'processing_status'
+        ]
+        if v not in valid_fields:
+            raise ValueError(f'sort_by must be one of: {", ".join(valid_fields)}')
+        return v
+    
+    @validator('sort_order')
+    def validate_sort_order(cls, v):
+        """Validate sort_order field."""
+        if v not in ['asc', 'desc']:
+            raise ValueError('sort_order must be "asc" or "desc"')
+        return v
