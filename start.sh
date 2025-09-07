@@ -1,11 +1,11 @@
 #!/bin/bash
 
-# CTI Scraper Development Startup Script
-# This script starts the development stack with CLI tools
+# CTI Scraper Startup Script
+# Single script for development use
 
 set -e
 
-echo "🚀 Starting CTI Scraper Development Stack..."
+echo "🚀 Starting CTI Scraper..."
 
 # Check if Docker is running
 if ! docker info > /dev/null 2>&1; then
@@ -14,7 +14,7 @@ if ! docker info > /dev/null 2>&1; then
 fi
 
 # Check if we're in the right directory
-if [ ! -f "docker-compose.dev.yml" ]; then
+if [ ! -f "docker-compose.yml" ]; then
     echo "❌ Please run this script from the CTI Scraper root directory."
     exit 1
 fi
@@ -25,11 +25,11 @@ mkdir -p logs data nginx/ssl
 
 # Stop any existing containers
 echo "🛑 Stopping existing containers..."
-docker-compose -f docker-compose.dev.yml down --remove-orphans
+docker-compose down --remove-orphans
 
-# Build and start the development stack
-echo "🔨 Building and starting development stack..."
-docker-compose -f docker-compose.dev.yml up --build -d
+# Build and start the stack
+echo "🔨 Building and starting stack..."
+docker-compose up --build -d
 
 # Wait for services to be ready
 echo "⏳ Waiting for services to be ready..."
@@ -39,20 +39,20 @@ sleep 15
 echo "🏥 Checking service health..."
 
 # Check PostgreSQL
-if docker-compose -f docker-compose.dev.yml exec -T postgres pg_isready -U cti_user -d cti_scraper > /dev/null 2>&1; then
+if docker-compose exec -T postgres pg_isready -U cti_user -d cti_scraper > /dev/null 2>&1; then
     echo "✅ PostgreSQL is ready"
 else
     echo "❌ PostgreSQL is not ready"
-    docker-compose -f docker-compose.dev.yml logs postgres
+    docker-compose logs postgres
     exit 1
 fi
 
 # Check Redis
-if docker-compose -f docker-compose.dev.yml exec -T redis redis-cli --raw incr ping > /dev/null 2>&1; then
+if docker-compose exec -T redis redis-cli --raw incr ping > /dev/null 2>&1; then
     echo "✅ Redis is ready"
 else
     echo "❌ Redis is not ready"
-    docker-compose -f docker-compose.dev.yml logs redis
+    docker-compose logs redis
     exit 1
 fi
 
@@ -61,12 +61,12 @@ if curl -f http://localhost:8000/health > /dev/null 2>&1; then
     echo "✅ Web service is ready"
 else
     echo "❌ Web service is not ready"
-    docker-compose -f docker-compose.dev.yml logs web
+    docker-compose logs web
     exit 1
 fi
 
 echo ""
-echo "🎉 CTI Scraper Development Stack is running!"
+echo "🎉 CTI Scraper is running!"
 echo ""
 echo "📊 Services:"
 echo "   • Web Interface: http://localhost:8000"
@@ -76,9 +76,9 @@ echo "   • Ollama:        localhost:11434"
 echo ""
 echo "🔧 Management:"
 echo "   • CLI Commands:  ./run_cli.sh <command>"
-echo "   • View logs:     docker-compose -f docker-compose.dev.yml logs -f [service]"
-echo "   • Stop stack:    docker-compose -f docker-compose.dev.yml down"
-echo "   • Restart:       docker-compose -f docker-compose.dev.yml restart [service]"
+echo "   • View logs:     docker-compose logs -f [service]"
+echo "   • Stop stack:    docker-compose down"
+echo "   • Restart:       docker-compose restart [service]"
 echo ""
 echo "📈 Monitoring:"
 echo "   • Health check:  http://localhost:8000/health"
@@ -87,10 +87,10 @@ echo ""
 
 # Show running containers
 echo "🐳 Running containers:"
-docker-compose -f docker-compose.dev.yml ps
+docker-compose ps
 
 echo ""
-echo "✨ Development stack startup complete!"
+echo "✨ Startup complete!"
 echo ""
 echo "💡 Quick start:"
 echo "   • Initialize sources: ./run_cli.sh init"

@@ -36,9 +36,28 @@
         .priority-high { background-color: #ef4444; }
         .priority-medium { background-color: #f59e0b; }
         .priority-low { background-color: #10b981; }
+        
+        /* Environment banner styles */
+        .env-banner-dev {
+            background: linear-gradient(90deg, #10b981, #059669);
+            color: white;
+        }
+        .env-banner-prod {
+            background: linear-gradient(90deg, #ef4444, #dc2626);
+            color: white;
+        }
+        .env-banner-test {
+            background: linear-gradient(90deg, #f59e0b, #d97706);
+            color: white;
+        }
     </style>
 </head>
-<body class="bg-gray-50 min-h-screen">
+<body class="bg-gray-50 dark:bg-gray-900 min-h-screen">
+    <!-- Environment Banner -->
+    <div id="environment-banner" class="w-full py-2 text-center text-sm font-medium">
+        <!-- Banner content will be populated by JavaScript -->
+    </div>
+    
     <!-- Navigation -->
     <nav class="gradient-bg text-white shadow-lg">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -57,6 +76,9 @@
                             </a>
                             <a href="/sources" class="px-3 py-2 rounded-md text-sm font-medium hover:bg-white hover:bg-opacity-20 transition-colors">
                                 Sources
+                            </a>
+                            <a href="/health-checks" class="px-3 py-2 rounded-md text-sm font-medium hover:bg-white hover:bg-opacity-20 transition-colors">
+                                🏥 Health
                             </a>
                             <a href="/settings" class="px-3 py-2 rounded-md text-sm font-medium hover:bg-white hover:bg-opacity-20 transition-colors">
                                 ⚙️ Settings
@@ -118,6 +140,68 @@
             }
         }
 
+        // Environment detection and banner
+        function detectEnvironment() {
+            const hostname = window.location.hostname;
+            const port = window.location.port;
+            const pathname = window.location.pathname;
+            
+            // Get environment from server-side context (if available)
+            const serverEnvironment = '{{ environment }}' || 'unknown';
+            
+            let environment = serverEnvironment;
+            let bannerClass = '';
+            let bannerText = '';
+            
+            // Determine banner styling based on environment
+            switch(environment.toLowerCase()) {
+                case 'development':
+                    bannerClass = 'env-banner-dev';
+                    bannerText = '🔧 DEVELOPMENT ENVIRONMENT - Local Development Server';
+                    break;
+                case 'production':
+                    bannerClass = 'env-banner-prod';
+                    bannerText = '🚀 PRODUCTION ENVIRONMENT - Live Production Server';
+                    break;
+                case 'test':
+                    bannerClass = 'env-banner-test';
+                    bannerText = '🧪 TEST ENVIRONMENT - Testing & CI/CD';
+                    break;
+                default:
+                    // Fallback to client-side detection
+                    if (port === '8000' || port === '') {
+                        if (hostname === 'localhost' || hostname === '127.0.0.1') {
+                            bannerClass = 'env-banner-dev';
+                            bannerText = '🔧 DEVELOPMENT ENVIRONMENT - Local Development Server';
+                        } else {
+                            bannerClass = 'env-banner-prod';
+                            bannerText = '🚀 PRODUCTION ENVIRONMENT - Live Production Server';
+                        }
+                    } else if (port === '5433' || pathname.includes('test')) {
+                        bannerClass = 'env-banner-test';
+                        bannerText = '🧪 TEST ENVIRONMENT - Testing & CI/CD';
+                    } else {
+                        bannerClass = 'env-banner-dev';
+                        bannerText = '❓ UNKNOWN ENVIRONMENT - Check Configuration';
+                    }
+            }
+            
+            // Update banner
+            const banner = document.getElementById('environment-banner');
+            if (banner) {
+                banner.className = `w-full py-2 text-center text-sm font-medium ${bannerClass}`;
+                banner.innerHTML = `
+                    <div class="flex items-center justify-center space-x-2">
+                        <span>${bannerText}</span>
+                        <span class="text-xs opacity-75">(${hostname}:${port || '80'})</span>
+                    </div>
+                `;
+            }
+        }
+        
+        // Initialize environment banner on page load
+        document.addEventListener('DOMContentLoaded', detectEnvironment);
+        
         // Auto-refresh dashboard every 30 seconds
         if (window.location.pathname === '/') {
             setInterval(() => {
