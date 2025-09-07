@@ -166,15 +166,35 @@ class RSSParser:
     
     async def _extract_date(self, entry: Any, url: str = None) -> Optional[datetime]:
         """Extract publication date from RSS entry."""
-        # Try different date fields
+        def normalize_datetime(dt: datetime) -> datetime:
+            """Convert any datetime to timezone-naive UTC datetime."""
+            if dt is None:
+                return None
+            if dt.tzinfo is not None:
+                # Convert to UTC and remove timezone info
+                return dt.astimezone().replace(tzinfo=None)
+            return dt
+        
+        # Check if feedparser has already created datetime objects
+        datetime_fields = ['published', 'updated', 'created']
+        for field in datetime_fields:
+            if hasattr(entry, field):
+                value = getattr(entry, field)
+                if hasattr(value, 'tzinfo'):
+                    # This is a datetime object
+                    normalized = normalize_datetime(value)
+                    if normalized and normalized.year > 1970:
+                        return normalized
+        
+        # Try different date fields as strings
         date_fields = ['published', 'updated', 'created']
         
         for field in date_fields:
             date_str = getattr(entry, field, '')
-            if date_str:
+            if date_str and isinstance(date_str, str):
                 parsed_date = DateExtractor.parse_date(date_str)
                 if parsed_date and parsed_date.year > 1970:  # Skip epoch dates
-                    return parsed_date
+                    return normalize_datetime(parsed_date)
         
         # Try parsed date fields
         if hasattr(entry, 'published_parsed') and entry.published_parsed:
@@ -183,7 +203,7 @@ class RSSParser:
                 timestamp = time.mktime(entry.published_parsed)
                 parsed_date = datetime.fromtimestamp(timestamp)
                 if parsed_date.year > 1970:  # Skip epoch dates
-                    return parsed_date
+                    return normalize_datetime(parsed_date)
             except Exception:
                 pass
         
@@ -193,7 +213,7 @@ class RSSParser:
                 timestamp = time.mktime(entry.updated_parsed)
                 parsed_date = datetime.fromtimestamp(timestamp)
                 if parsed_date.year > 1970:  # Skip epoch dates
-                    return parsed_date
+                    return normalize_datetime(parsed_date)
             except Exception:
                 pass
         
@@ -202,7 +222,7 @@ class RSSParser:
             try:
                 date_from_page = await self._extract_date_from_page(url)
                 if date_from_page:
-                    return date_from_page
+                    return normalize_datetime(date_from_page)
             except Exception as e:
                 logger.warning(f"Failed to extract date from page {url}: {e}")
         

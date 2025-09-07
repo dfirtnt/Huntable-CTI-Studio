@@ -211,12 +211,15 @@ class DateExtractor:
             # Handle common date formats
             date_str = date_str.strip()
             
-            # ISO format with timezone
-            if 'T' in date_str or '+' in date_str or 'Z' in date_str:
-                return date_parser.parse(date_str)
+            # Parse the date (may be timezone-aware)
+            parsed_date = date_parser.parse(date_str)
             
-            # Try dateutil parser
-            return date_parser.parse(date_str)
+            # Convert to timezone-naive datetime for database compatibility
+            if parsed_date.tzinfo is not None:
+                # Convert to UTC first, then remove timezone info
+                parsed_date = parsed_date.astimezone().replace(tzinfo=None)
+            
+            return parsed_date
             
         except Exception as e:
             logger.debug(f"Failed to parse date '{date_str}': {e}")
