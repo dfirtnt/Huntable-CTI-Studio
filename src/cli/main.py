@@ -11,7 +11,7 @@ src_path = Path(__file__).parent.parent
 sys.path.insert(0, str(src_path))
 
 from .context import CLIContext, setup_logging, get_managers
-from .commands import init, collect, search, export, stats
+from .commands import init, collect, search, export, stats, backup
 
 pass_context = click.make_pass_decorator(CLIContext, ensure=True)
 
@@ -39,6 +39,7 @@ cli.add_command(collect)
 cli.add_command(search)
 cli.add_command(export)
 cli.add_command(stats)
+cli.add_command(backup)
 
 
 if __name__ == '__main__':

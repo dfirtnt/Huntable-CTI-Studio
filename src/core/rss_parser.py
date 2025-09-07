@@ -393,7 +393,7 @@ class RSSParser:
                     clean_text = ContentCleaner.html_to_text(extracted_content).strip()
                     
                     # Enhanced content quality validation
-                    if self._is_quality_content(clean_text, url):
+                    if self._is_quality_content(clean_text, url, source.config if hasattr(source, 'config') else None):
                         logger.info(f"Successful content extraction using selector '{selector}' for {url}")
                         cleaned_content = ContentCleaner.clean_html(extracted_content)
                         
@@ -464,7 +464,7 @@ class RSSParser:
                     clean_text = ContentCleaner.html_to_text(extracted_content).strip()
                     
                     # Enhanced content quality validation
-                    if self._is_quality_content(clean_text, url):
+                    if self._is_quality_content(clean_text, url, source.config if hasattr(source, 'config') else None):
                         logger.info(f"Successful modern content extraction using selector '{selector}' for {url}")
                         return ContentCleaner.clean_html(extracted_content)
             
@@ -481,9 +481,14 @@ class RSSParser:
         
         return None
     
-    def _is_quality_content(self, text: str, url: str) -> bool:
+    def _is_quality_content(self, text: str, url: str, source_config: Optional[Dict[str, Any]] = None) -> bool:
         """Validate if extracted content is high quality and not blocked/error content."""
-        if not text or len(text) < 100:
+        # Use source-specific minimum content length if configured
+        min_length = 100  # Default minimum
+        if source_config and 'min_content_length' in source_config:
+            min_length = source_config['min_content_length']
+        
+        if not text or len(text) < min_length:
             return False
         
         # Check for anti-bot/error messages

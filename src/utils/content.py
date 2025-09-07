@@ -6,7 +6,8 @@ from datetime import datetime
 from dateutil import parser as date_parser
 import hashlib
 from bs4 import BeautifulSoup, Tag
-from readability import Document
+# Temporarily disabled due to Python 3 compatibility issues
+# from readability import Document
 import logging
 
 logger = logging.getLogger(__name__)
@@ -18,15 +19,9 @@ class ContentCleaner:
     @staticmethod
     def clean_html(html: str) -> str:
         """Clean HTML content and extract readable text."""
-        try:
-            # First try readability for article extraction
-            doc = Document(html)
-            cleaned_html = doc.content()
-            # Convert to clean text
-            return ContentCleaner.html_to_text(cleaned_html)
-        except Exception as e:
-            logger.warning(f"Readability failed, using enhanced cleaning: {e}")
-            return ContentCleaner.enhanced_html_clean(html)
+        # Temporarily disabled readability due to Python 3 compatibility issues
+        # Always use enhanced cleaning for now
+        return ContentCleaner.enhanced_html_clean(html)
     
     @staticmethod
     def enhanced_html_clean(html: str) -> str:
@@ -450,10 +445,16 @@ class QualityScorer:
         return max(0.0, min(1.0, score))
 
 
-def validate_content(title: str, content: str, url: str) -> List[str]:
+def validate_content(title: str, content: str, url: str, source_config: Optional[Dict[str, Any]] = None) -> List[str]:
     """
     Validate content and return list of issues.
     
+    Args:
+        title: Article title
+        content: Article content
+        url: Article URL
+        source_config: Optional source configuration dict containing min_content_length
+        
     Returns:
         List of validation issues (empty if valid)
     """
@@ -478,8 +479,15 @@ def validate_content(title: str, content: str, url: str) -> List[str]:
             issues.append("Content indicates extraction failure")
         
         text_content = ContentCleaner.html_to_text(content)
-        if len(text_content.strip()) < 50:
-            issues.append("Content too short")
+        content_length = len(text_content.strip())
+        
+        # Use source-specific minimum content length if configured
+        min_length = 200  # Default minimum
+        if source_config and 'min_content_length' in source_config:
+            min_length = source_config['min_content_length']
+        
+        if content_length < min_length:
+            issues.append(f"Content too short (minimum {min_length} chars, found {content_length})")
     
     if not url or not url.strip():
         issues.append("Missing URL")

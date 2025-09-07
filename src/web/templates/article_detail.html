@@ -296,8 +296,22 @@
         {% endif %}
         
         <div class="bg-gray-50 rounded-lg p-4">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg font-semibold text-gray-800">Article Content</h3>
+                <div class="flex items-center space-x-2">
+                    <span class="text-sm text-gray-500">Select text to annotate</span>
+                    <div class="flex items-center space-x-1">
+                        <span class="w-3 h-3 bg-green-100 border border-green-300 rounded"></span>
+                        <span class="text-xs text-gray-600">Huntable</span>
+                    </div>
+                    <div class="flex items-center space-x-1">
+                        <span class="w-3 h-3 bg-red-100 border border-red-300 rounded"></span>
+                        <span class="text-xs text-gray-600">Not Huntable</span>
+                    </div>
+                </div>
+            </div>
             <div class="prose max-w-none">
-                <pre class="whitespace-pre-wrap text-sm text-gray-800 font-mono">{{ article.content }}</pre>
+                <div id="article-content" class="whitespace-pre-wrap text-sm text-gray-800 font-mono leading-relaxed select-text">{{ article.content }}</div>
             </div>
         </div>
     </div>
@@ -1574,5 +1588,14 @@
         // Call generateAIAnalysis with force regeneration
         generateAIAnalysis('iocs', true);
     }
+    
+    // Initialize text annotation system
+    document.addEventListener('DOMContentLoaded', function() {
+        const articleContent = document.getElementById('article-content');
+        if (articleContent) {
+            // Initialize annotation manager
+            window.annotationManager = new TextAnnotationManager(articleContent, {{ article.id }});
+        }
+    });
 </script>
 {% endblock %}

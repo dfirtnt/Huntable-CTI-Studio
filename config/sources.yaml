@@ -93,6 +93,7 @@ sources:
         title_selectors: ["h1", "meta[property='og:title']::attr(content)"]
         date_selectors: ["meta[property='article:published_time']::attr(content)"]
         body_selectors: ["article", "main", ".content", ".post-content"]
+      min_content_length: 1200  # Unit 42 requires 1200+ chars
     description: "Exceptional threat research with detailed IOCs and TTPs"
 
   # Kaspersky Securelist
@@ -233,6 +234,7 @@ sources:
         title_selectors: ["h1", "meta[property='og:title']::attr(content)"]
         date_selectors: ["meta[property='article:published_time']::attr(content)"]
         body_selectors: ["article", "main", ".content", ".post-content"]
+      min_content_length: 400  # BleepingComputer requires 400+ chars
     description: "Good security news with malware analysis"
 
   # Dark Reading
@@ -301,6 +303,7 @@ sources:
         title_selectors: ["h1", "meta[property='og:title']::attr(content)"]
         date_selectors: ["meta[property='article:published_time']::attr(content)"]
         body_selectors: ["article", "main", ".content", ".post-content"]
+      min_content_length: 500  # SANS requires 500+ chars
     description: "Daily security incident analysis and threat intelligence"
 
   # =============================================================================
@@ -313,6 +316,7 @@ sources:
     url: "https://thedfirreport.com"
     rss_url: "https://thedfirreport.com/feed/"
     check_frequency: 1800  # 30 minutes
+    lookback_days: 3650  # 10 years to capture all historical articles (~80 total)
     active: true
 
   # CrowdStrike Blog (existing)
@@ -330,6 +334,8 @@ sources:
     rss_url: "https://msrc.microsoft.com/blog/feed/"
     check_frequency: 3600  # 1 hour
     active: true
+    config:
+      min_content_length: 1000  # Microsoft Security requires 1000+ chars
 
   # FireEye/Mandiant Blog (existing)
   - id: "fireeye_blog"

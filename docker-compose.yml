@@ -61,6 +61,7 @@ services:
     volumes:
       - ./src:/app/src
       - ./logs:/app/logs
+      - ./backups:/app/backups
     depends_on:
       postgres:
         condition: service_healthy

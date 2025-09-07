@@ -5,5 +5,6 @@ from .collect import collect
 from .search import search
 from .export import export
 from .stats import stats
+from .backup import backup
 
-__all__ = ['init', 'collect', 'search', 'export', 'stats']
+__all__ = ['init', 'collect', 'search', 'export', 'stats', 'backup']

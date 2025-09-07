@@ -127,6 +127,7 @@ class SourceConfigLoader:
         url = source_data['url']
         rss_url = source_data.get('rss_url', '')
         check_frequency = source_data.get('check_frequency', 3600)
+        lookback_days = source_data.get('lookback_days', 90)
         active = source_data.get('active', True)
         
         # Parse configuration
@@ -158,6 +159,7 @@ class SourceConfigLoader:
             url=url,
             rss_url=rss_url if rss_url else None,
             check_frequency=check_frequency,
+            lookback_days=lookback_days,
             active=active,
             config=config
         )
@@ -277,9 +279,8 @@ class SourceManager:
                         name=config.name,
                         url=config.url,
                         rss_url=config.rss_url,
-                        tier=config.tier,
-                        weight=config.weight,
                         check_frequency=config.check_frequency,
+                        lookback_days=config.lookback_days,
                         active=config.active,
                         config=config.config
                     )

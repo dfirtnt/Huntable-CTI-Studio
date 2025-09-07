@@ -112,8 +112,9 @@ def check_all_sources(self):
                                 total_articles_collected += len(articles)
                                 logger.info(f"  ✓ {source.name}: {len(articles)} articles collected")
                                 
-                                # Process articles through deduplication
-                                dedup_result = await processor.process_articles(articles, existing_hashes)
+                                # Process articles through deduplication with source-specific config
+                                source_config = source.config if hasattr(source, 'config') else None
+                                dedup_result = await processor.process_articles(articles, existing_hashes, source_config=source_config)
                                 
                                 # Save deduplicated articles
                                 if dedup_result.unique_articles:
