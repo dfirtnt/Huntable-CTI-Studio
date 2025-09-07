@@ -1,0 +1,27 @@
+title: Test PowerShell Execution
+id: 12345678-1234-1234-1234-123456789012
+status: experimental
+description: Detects suspicious PowerShell execution patterns commonly used by malware
+references:
+  - https://attack.mitre.org/techniques/T1059/001/
+tags:
+  - attack.execution
+  - attack.t1059.001
+author: Test Author
+date: 2024/01/15
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection:
+    process.name: powershell.exe
+    command_line:
+      - '*Invoke-Expression*'
+      - '*IEX*'
+  condition: selection
+fields:
+  - process.name
+  - process.command_line
+falsepositives:
+  - Legitimate PowerShell scripts
+level: medium

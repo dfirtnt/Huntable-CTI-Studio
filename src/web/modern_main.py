@@ -41,6 +41,9 @@ from src.utils.ioc_extractor import HybridIOCExtractor, IOCExtractionResult
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# Get environment from environment variable
+ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
+
 # Templates
 templates = Jinja2Templates(directory="src/web/templates")
 
@@ -140,7 +143,8 @@ async def dashboard(request: Request):
                 "stats": stats,
                 "sources": sources,
                 "recent_articles": recent_articles,
-                "current_time": current_time
+                "current_time": current_time,
+                "environment": ENVIRONMENT
             }
         )
     except Exception as e:
@@ -162,6 +166,26 @@ async def settings_page(request: Request):
         )
     except Exception as e:
         logger.error(f"Settings page error: {e}")
+        return templates.TemplateResponse(
+            "error.html",
+            {"request": request, "error": str(e)},
+            status_code=500
+        )
+
+# Health checks page
+@app.get("/health-checks", response_class=HTMLResponse)
+async def health_checks_page(request: Request):
+    """Health checks monitoring page."""
+    try:
+        return templates.TemplateResponse(
+            "health_checks.html",
+            {
+                "request": request,
+                "environment": ENVIRONMENT
+            }
+        )
+    except Exception as e:
+        logger.error(f"Health checks page error: {e}")
         return templates.TemplateResponse(
             "error.html",
             {"request": request, "error": str(e)},
