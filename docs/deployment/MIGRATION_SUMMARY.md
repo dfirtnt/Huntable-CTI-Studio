@@ -151,3 +151,41 @@ You now have a **clean, focused tool** that does exactly what you need:
 - Export data for ML training
 
 No more complexity, no more unnecessary dependencies, just a straightforward pipeline for your security research! 🚀
+
+## 🔄 Database Migration: Text Highlights
+
+### Overview
+The system has been updated to use a new `article_annotations` table instead of the legacy `text_highlights` table for storing user annotations (huntable/not huntable classifications).
+
+### Migration Process
+When restoring a database that contains the old `text_highlights` table, the system will automatically migrate the data:
+
+1. **Automatic Migration**: The migration script `009_migrate_text_highlights_to_annotations.sql` runs automatically during database initialization
+2. **Manual Migration**: If needed, run the migration script manually:
+   ```bash
+   python3 scripts/migrate_text_highlights.py
+   ```
+
+### Migration Details
+- **Source**: `text_highlights` table (legacy)
+- **Target**: `article_annotations` table (new)
+- **Data Preserved**: 
+  - Huntable/not huntable status
+  - Selected text content
+  - Start/end positions
+  - Creation timestamps
+- **Duplicate Prevention**: Migration checks for existing annotations to avoid duplicates
+
+### Verification
+After migration, verify the data was transferred correctly:
+```bash
+# Check annotation counts
+docker exec cti_postgres psql -U cti_user -d cti_scraper -c "
+SELECT 
+    (SELECT COUNT(*) FROM article_annotations) as annotations,
+    (SELECT COUNT(*) FROM text_highlights) as legacy_highlights;
+"
+```
+
+### UI Compatibility
+The web interface automatically loads and displays existing annotations from the `article_annotations` table, ensuring all previous user classifications are visible after database restoration.

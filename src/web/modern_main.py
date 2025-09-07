@@ -48,6 +48,61 @@ ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
 # Templates
 templates = Jinja2Templates(directory="src/web/templates")
 
+# Custom Jinja2 filters
+def highlight_keywords(content: str, metadata: Dict[str, Any]) -> str:
+    """
+    Highlight discriminator keywords in article content.
+    
+    Args:
+        content: Article content text
+        metadata: Article metadata containing keyword matches
+        
+    Returns:
+        HTML content with highlighted keywords
+    """
+    if not content or not metadata:
+        return content
+    
+    # Get all keyword matches
+    all_keywords = []
+    keyword_types = {
+        'perfect_keyword_matches': ('perfect', 'bg-green-100 text-green-800 border-green-300'),
+        'good_keyword_matches': ('good', 'bg-purple-100 text-purple-800 border-purple-300'),
+        'lolbas_matches': ('lolbas', 'bg-blue-100 text-blue-800 border-blue-300'),
+        'threat_hunting_matches': ('threat', 'bg-purple-100 text-purple-800 border-purple-300')
+    }
+    
+    for key, (type_name, css_classes) in keyword_types.items():
+        keywords = metadata.get(key, [])
+        for keyword in keywords:
+            all_keywords.append((keyword, type_name, css_classes))
+    
+    if not all_keywords:
+        return content
+    
+    # Sort keywords by length (longest first) to avoid partial replacements
+    all_keywords.sort(key=lambda x: len(x[0]), reverse=True)
+    
+    # Create highlighted content
+    highlighted_content = content
+    
+    for keyword, type_name, css_classes in all_keywords:
+        # Escape special regex characters in the keyword
+        import re
+        escaped_keyword = re.escape(keyword)
+        
+        # Create highlight span
+        highlight_span = f'<span class="px-1 py-0.5 rounded text-xs font-medium border {css_classes}" title="{type_name.title()} discriminator: {keyword}">{keyword}</span>'
+        
+        # Replace keyword with highlighted version (case-insensitive)
+        pattern = re.compile(re.escape(keyword), re.IGNORECASE)
+        highlighted_content = pattern.sub(highlight_span, highlighted_content)
+    
+    return highlighted_content
+
+# Register the filter
+templates.env.filters["highlight_keywords"] = highlight_keywords
+
 # Application lifespan
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -617,38 +672,61 @@ async def api_scrape_url(request: dict):
                     "article_title": existing_article.title
                 }
         
-        # Create article directly in database
-        from src.database.models import ArticleTable
+        # Create article using ContentProcessor for proper scoring
+        from src.models.article import ArticleCreate
+        from src.core.processor import ContentProcessor
         from datetime import datetime
         import hashlib
         
-        content_hash = hashlib.sha256(content_text.encode()).hexdigest()
+        # Create ArticleCreate object
+        article_data = ArticleCreate(
+            source_id=manual_source.id,
+            canonical_url=url,
+            title=extracted_title,
+            published_at=datetime.utcnow(),
+            content=content_text,
+            metadata={"source_name": "Manual", "manual_scrape": True}
+        )
         
-        async with async_db_manager.get_session() as session:
-            new_article = ArticleTable(
-                source_id=manual_source.id,
-                canonical_url=url,
-                title=extracted_title,
-                published_at=datetime.utcnow(),
-                content=content_text,
-                content_hash=content_hash,
-                metadata={"source_name": "Manual", "manual_scrape": True},
-                word_count=len(content_text.split()),
-                processing_status="completed"
-            )
+        # Apply threat hunting scoring directly
+        from src.utils.content import ThreatHuntingScorer
+        
+        # Calculate threat hunting score and keyword matches
+        threat_hunting_result = ThreatHuntingScorer.score_threat_hunting_content(
+            article_data.title, article_data.content
+        )
+        
+        # Update article metadata with threat hunting results
+        article_data.metadata.update(threat_hunting_result)
+        
+        # Add basic quality metrics
+        article_data.metadata.update({
+            'word_count': len(content_text.split()),
+            'quality_score': 50.0,  # Default quality score for manual articles
+            'processing_status': 'completed',
+            'manual_scrape': True
+        })
+        
+        processed_article = article_data
+        
+        # Save processed article to database
+        try:
+            await async_db_manager.create_article(processed_article)
             
-            session.add(new_article)
-            await session.commit()
-            await session.refresh(new_article)
+            # Get the created article to return its ID
+            created_article = await async_db_manager.get_article_by_url(url)
             
-            logger.info(f"Successfully scraped manual URL: {url} -> Article ID: {new_article.id}")
+            logger.info(f"Successfully scraped and processed manual URL: {url} -> Article ID: {created_article.id}")
             
             return {
                 "success": True,
-                "article_id": new_article.id,
-                "article_title": new_article.title,
-                "message": "Article scraped successfully"
+                "article_id": created_article.id,
+                "article_title": created_article.title,
+                "message": "Article scraped and processed successfully with threat hunting scoring"
             }
+        except Exception as e:
+            logger.error(f"Error saving processed manual article: {e}")
+            raise HTTPException(status_code=500, detail=f"Failed to save article: {str(e)}")
             
     except HTTPException:
         raise
