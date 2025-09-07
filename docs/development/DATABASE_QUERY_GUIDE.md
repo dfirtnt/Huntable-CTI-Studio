@@ -321,6 +321,34 @@ docker exec cti_postgres pg_dump -U cti_user cti_scraper > backup_$(date +%Y%m%d
 docker exec -i cti_postgres psql -U cti_user cti_scraper < backup_file.sql
 ```
 
+### Text Highlights Migration
+
+When restoring a database that contains the legacy `text_highlights` table, the system will automatically migrate annotations to the new `article_annotations` table:
+
+```sql
+-- Check migration status
+SELECT 
+    (SELECT COUNT(*) FROM article_annotations) as current_annotations,
+    (SELECT COUNT(*) FROM text_highlights) as legacy_highlights;
+
+-- Manual migration (if needed)
+INSERT INTO article_annotations (article_id, annotation_type, selected_text, start_position, end_position, created_at, updated_at)
+SELECT 
+    article_id,
+    CASE WHEN is_huntable = true THEN 'huntable' ELSE 'not_huntable' END,
+    selected_text,
+    start_offset,
+    end_offset,
+    COALESCE(categorized_at, created_at),
+    updated_at
+FROM text_highlights
+WHERE NOT EXISTS (
+    SELECT 1 FROM article_annotations aa 
+    WHERE aa.article_id = text_highlights.article_id 
+    AND aa.selected_text = text_highlights.selected_text
+);
+```
+
 ## Security Notes
 
 - Database credentials are stored in environment variables

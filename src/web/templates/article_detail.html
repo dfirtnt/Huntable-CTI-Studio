@@ -132,14 +132,14 @@
             
             <!-- Good Discriminators -->
             {% if article.metadata.get('good_keyword_matches') %}
-            <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-                <h3 class="text-sm font-semibold text-yellow-800 mb-2 flex items-center">
-                    <span class="mr-2">🟡</span>
+            <div class="bg-purple-50 border border-purple-200 rounded-lg p-4">
+                <h3 class="text-sm font-semibold text-purple-800 mb-2 flex items-center">
+                    <span class="mr-2">🟣</span>
                     Good Discriminators
                 </h3>
                 <div class="flex flex-wrap gap-1">
                     {% for keyword in article.metadata.get('good_keyword_matches', []) %}
-                    <span class="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-yellow-100 text-yellow-800">
+                    <span class="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-purple-100 text-purple-800">
                         {{ keyword }}
                     </span>
                     {% endfor %}
@@ -311,7 +311,7 @@
                 </div>
             </div>
             <div class="prose max-w-none">
-                <div id="article-content" class="whitespace-pre-wrap text-sm text-gray-800 font-mono leading-relaxed select-text">{{ article.content }}</div>
+                <div id="article-content" class="whitespace-pre-wrap text-sm text-gray-800 font-mono leading-relaxed select-text">{{ article.content|highlight_keywords(article.metadata)|safe }}</div>
             </div>
         </div>
     </div>
@@ -421,6 +421,9 @@
 <script>
     // Add syntax highlighting for matched text
     document.addEventListener('DOMContentLoaded', function() {
+        // Load existing annotations
+        loadExistingAnnotations();
+        
         // Syntax highlighting for matched text
         const matchedTexts = document.querySelectorAll('.font-mono');
         matchedTexts.forEach(element => {
@@ -435,6 +438,52 @@
         // Load settings
         loadSettings();
     });
+    
+    // Load existing annotations and highlight them
+    async function loadExistingAnnotations() {
+        const articleId = {{ article.id }};
+        try {
+            const response = await fetch(`/api/articles/${articleId}/annotations`);
+            const data = await response.json();
+            
+            if (data.success && data.annotations.length > 0) {
+                highlightExistingAnnotations(data.annotations);
+            }
+        } catch (error) {
+            console.error('Failed to load annotations:', error);
+        }
+    }
+    
+    // Highlight existing annotations in the content
+    function highlightExistingAnnotations(annotations) {
+        const contentElement = document.getElementById('article-content');
+        if (!contentElement) return;
+        
+        const content = contentElement.innerHTML;
+        let highlightedContent = content;
+        
+        // Sort annotations by start position (descending) to avoid offset issues
+        const sortedAnnotations = annotations.sort((a, b) => b.start_position - a.start_position);
+        
+        sortedAnnotations.forEach(annotation => {
+            const { selected_text, start_position, end_position, annotation_type } = annotation;
+            
+            // Create highlight span with appropriate styling
+            const highlightClass = annotation_type === 'huntable' 
+                ? 'bg-green-100 border-green-300 text-green-800' 
+                : 'bg-red-100 border-red-300 text-red-800';
+            
+            const highlightSpan = `<span class="px-1 py-0.5 rounded text-xs font-medium border ${highlightClass}" title="${annotation_type === 'huntable' ? 'Huntable' : 'Not Huntable'}: ${selected_text.substring(0, 50)}...">${selected_text}</span>`;
+            
+            // Replace the text in the content
+            // Note: This is a simple approach - for production, you might want more sophisticated text matching
+            const escapedText = selected_text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const regex = new RegExp(escapedText, 'gi');
+            highlightedContent = highlightedContent.replace(regex, highlightSpan);
+        });
+        
+        contentElement.innerHTML = highlightedContent;
+    }
     
     // Classification functions
     async function classifyArticle(category) {
