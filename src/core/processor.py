@@ -10,7 +10,7 @@ from src.models.article import Article, ArticleCreate
 from src.models.source import Source
 from src.utils.content import (
     ContentCleaner, DateExtractor, QualityScorer, 
-    validate_content, MetadataExtractor, ThreatHuntingScorer
+    validate_content, MetadataExtractor
 )
 
 logger = logging.getLogger(__name__)
@@ -39,7 +39,6 @@ class ContentProcessor:
         max_age_days: int = 90,
         enable_content_enhancement: bool = True
     ):
-        # Quality scoring removed
         self.similarity_threshold = similarity_threshold
         self.max_age_days = max_age_days
         self.enable_content_enhancement = enable_content_enhancement
@@ -47,12 +46,14 @@ class ContentProcessor:
         # Deduplication tracking
         self.seen_hashes: Set[str] = set()
         self.seen_urls: Set[str] = set()
+        self.seen_url_titles: Set[str] = set()  # url||title combinations
         self.content_fingerprints: Dict[str, str] = {}  # fingerprint -> content_hash
         
         # Processing statistics
         self.stats = {
             'total_processed': 0,
             'duplicates_removed': 0,
+            'quality_filtered': 0,
             'enhanced_articles': 0,
             'validation_failures': 0
         }
@@ -60,7 +61,8 @@ class ContentProcessor:
     async def process_articles(
         self,
         articles: List[ArticleCreate],
-        existing_hashes: Optional[Set[str]] = None
+        existing_hashes: Optional[Set[str]] = None,
+        existing_urls: Optional[Set[str]] = None
     ) -> DeduplicationResult:
         """
         Process articles with deduplication, normalization, and quality filtering.
@@ -68,6 +70,7 @@ class ContentProcessor:
         Args:
             articles: List of articles to process
             existing_hashes: Set of existing content hashes to check against
+            existing_urls: Set of existing URLs to check against
             
         Returns:
             DeduplicationResult with unique articles and statistics
@@ -77,9 +80,13 @@ class ContentProcessor:
         
         logger.info(f"Processing {len(articles)} articles")
         
-        # Initialize existing hashes if provided
+        # Initialize existing hashes and URLs if provided
         if existing_hashes:
             self.seen_hashes.update(existing_hashes)
+        if existing_urls:
+            # Normalize existing URLs for consistent comparison
+            normalized_existing_urls = {self._normalize_url(url) for url in existing_urls if url}
+            self.seen_urls.update(normalized_existing_urls)
         
         # Process each article
         unique_articles = []
@@ -100,9 +107,13 @@ class ContentProcessor:
                     duplicates.append((processed_article, duplicate_reason))
                     self.stats['duplicates_removed'] += 1
                 else:
-                    # Quality filtering removed - accept all articles
-                    unique_articles.append(processed_article)
-                    self._record_article(processed_article)
+                    # Quality filtering
+                    if self._passes_quality_filter(processed_article):
+                        unique_articles.append(processed_article)
+                        self._record_article(processed_article)
+                    else:
+                        duplicates.append((processed_article, "quality_filter"))
+                        self.stats['quality_filtered'] += 1
                 
                 self.stats['total_processed'] += 1
                 
@@ -116,6 +127,7 @@ class ContentProcessor:
             'total': len(articles),
             'unique': len(unique_articles),
             'duplicates': len(duplicates),
+            'quality_filtered': sum(1 for _, reason in duplicates if reason == "quality_filter"),
             'hash_duplicates': sum(1 for _, reason in duplicates if reason == "content_hash"),
             'url_duplicates': sum(1 for _, reason in duplicates if reason == "url"),
             'similarity_duplicates': sum(1 for _, reason in duplicates if reason == "content_similarity")
@@ -142,6 +154,18 @@ class ContentProcessor:
                 logger.debug(f"Article validation failed: {validation_issues}")
                 return None
             
+            # Content type detection
+            content_type = self._detect_content_type(article)
+            if content_type == 'podcast' and len(article.content) < 500:
+                logger.info(f"Detected podcast entry: {article.title[:50]}...")
+                # For podcast entries, we'll keep them but flag them
+                article.metadata['content_type'] = 'podcast'
+                article.metadata['is_short_content'] = True
+            elif len(article.content) < 200:
+                logger.warning(f"Very short content detected: {article.title[:50]}... ({len(article.content)} chars)")
+                article.metadata['is_short_content'] = True
+                # Don't reject, but flag for review
+            
             # Normalize content
             normalized_title = ContentCleaner.normalize_whitespace(article.title)
             normalized_content = ContentCleaner.clean_html(article.content)
@@ -151,6 +175,12 @@ class ContentProcessor:
             
             # Extract/enhance metadata if enabled
             enhanced_metadata = article.metadata.copy()
+            enhanced_metadata.update({
+                'content_type': content_type,
+                'word_count': len(normalized_content.split()),
+                'content_length': len(normalized_content),
+                'processing_timestamp': datetime.utcnow().isoformat()
+            })
             
             if self.enable_content_enhancement:
                 enhanced_metadata.update(await self._enhance_metadata(article))
@@ -258,12 +288,6 @@ class ContentProcessor:
             enhanced['threat_keywords'] = found_keywords
             enhanced['threat_keyword_count'] = len(found_keywords)
             
-            # Enhanced threat hunting scoring using Windows malware keywords
-            threat_hunting_analysis = ThreatHuntingScorer.score_threat_hunting_content(
-                article.title, article.content
-            )
-            enhanced.update(threat_hunting_analysis)
-            
             # Processing timestamp
             enhanced['processed_at'] = datetime.utcnow().isoformat()
             
@@ -272,6 +296,94 @@ class ContentProcessor:
         
         return enhanced
     
+    def _normalize_url(self, url: str) -> str:
+        """Normalize URL for consistent duplicate detection."""
+        if not url:
+            return ""
+        
+        # Remove trailing slashes, fragments, and common tracking parameters
+        normalized = url.strip().rstrip('/')
+        
+        # Remove common tracking parameters
+        if '?' in normalized:
+            base_url, params = normalized.split('?', 1)
+            # Keep only essential parameters, remove tracking ones
+            param_pairs = params.split('&')
+            essential_params = []
+            tracking_params = {
+                'utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content', 
+                'fbclid', 'gclid', 'ref', 'source', '_ga', '_gid', 'mc_cid', 'mc_eid',
+                'si', 's', 'fb_action_ids', 'fb_action_types', 'fb_source', 'fb_ref',
+                'campaign', 'email', 'newsletter', 'social', 'share', 'click'
+            }
+            
+            for param in param_pairs:
+                if '=' in param:
+                    key = param.split('=')[0].lower()
+                    if key not in tracking_params:
+                        essential_params.append(param)
+            
+            if essential_params:
+                normalized = f"{base_url}?{'&'.join(essential_params)}"
+            else:
+                normalized = base_url
+        
+        # Remove fragments
+        if '#' in normalized:
+            normalized = normalized.split('#')[0]
+        
+        # Normalize to lowercase
+        normalized = normalized.lower()
+        
+        # Remove www. prefix for consistency
+        if normalized.startswith('www.'):
+            normalized = normalized[4:]
+        
+        return normalized
+    
+    def _get_minimum_content_length(self, url: str) -> int:
+        """Get minimum content length based on source domain."""
+        if not url:
+            return 100  # Default minimum
+        
+        try:
+            from urllib.parse import urlparse
+            domain = urlparse(url).netloc.lower()
+            
+            # Source-specific minimum content lengths
+            min_lengths = {
+                'msrc.microsoft.com': 1000,  # Microsoft Security Response Center articles should be substantial
+                'microsoft.com': 800,        # Other Microsoft articles
+                'sans.edu': 500,             # SANS articles are usually detailed
+                'isc.sans.edu': 500,         # ISC diary entries
+                'unit42.paloaltonetworks.com': 1200,  # Unit 42 reports are comprehensive
+                'paloaltonetworks.com': 800, # Other PAN articles
+                'fireeye.com': 1000,         # FireEye threat intelligence
+                'mandiant.com': 1000,        # Mandiant reports
+                'crowdstrike.com': 800,      # CrowdStrike blogs
+                'krebsonsecurity.com': 600,  # Brian Krebs articles
+                'threatpost.com': 500,       # Threatpost articles
+                'darkreading.com': 500,      # Dark Reading articles
+                'bleepingcomputer.com': 400, # BleepingComputer news
+                'securityweek.com': 400,     # Security Week news
+            }
+            
+            # Check for exact domain match first
+            if domain in min_lengths:
+                return min_lengths[domain]
+            
+            # Check for subdomain matches
+            for source_domain, min_len in min_lengths.items():
+                if domain.endswith(f".{source_domain}"):
+                    return min_len
+            
+            # Default minimum for unknown sources
+            return 200
+            
+        except Exception as e:
+            logger.warning(f"Error determining minimum content length for {url}: {e}")
+            return 100  # Safe default
+    
     def _check_duplicates(self, article: ArticleCreate) -> Optional[str]:
         """
         Check for duplicates using multiple strategies.
@@ -279,18 +391,30 @@ class ContentProcessor:
         Returns:
             Duplicate reason string or None if not a duplicate
         """
+        # Normalize URL for better duplicate detection
+        normalized_url = self._normalize_url(article.canonical_url)
+        
+        # Check URL first (strongest signal)
+        if normalized_url in self.seen_urls:
+            logger.debug(f"URL duplicate detected: {normalized_url}")
+            return "url"
+        
         # Check content hash (ensure we have one)
         if hasattr(article, 'content_hash') and article.content_hash:
             if article.content_hash in self.seen_hashes:
+                logger.debug(f"Content hash duplicate detected: {article.content_hash[:10]}...")
                 return "content_hash"
         
-        # Check URL
-        if article.canonical_url in self.seen_urls:
-            return "url"
+        # Check URL + title combination for RSS feeds that might change content
+        url_title_key = f"{normalized_url}||{article.title.strip()}"
+        if hasattr(self, 'seen_url_titles') and url_title_key in self.seen_url_titles:
+            logger.debug(f"URL+title duplicate detected: {url_title_key[:50]}...")
+            return "url_title"
         
         # Check content similarity using fingerprinting
         fingerprint = self._generate_content_fingerprint(article)
         if fingerprint in self.content_fingerprints:
+            logger.debug(f"Content similarity duplicate detected: {fingerprint[:10]}...")
             return "content_similarity"
         
         return None
@@ -312,18 +436,78 @@ class ContentProcessor:
         fingerprint_text = ' '.join(sorted(list(significant_words)[:20]))  # Top 20 words
         return hashlib.md5(fingerprint_text.encode('utf-8')).hexdigest()
     
-    # Quality filter method removed
+    def _passes_quality_filter(self, article: ArticleCreate) -> bool:
+        """Check if article passes quality filter."""
+        # Check age filter
+        if article.published_at:
+            try:
+                if article.published_at.tzinfo is not None:
+                    # If published_at is timezone-aware, make current time timezone-aware too
+                    current_time = datetime.now(article.published_at.tzinfo)
+                else:
+                    # If published_at is naive, use naive current time
+                    current_time = datetime.utcnow()
+                
+                age_days = (current_time - article.published_at).days
+                if age_days > self.max_age_days:
+                    return False
+            except Exception:
+                # If there's any datetime issue, don't filter by age
+                pass
+        
+        # Check content length with source-specific requirements
+        text_content = ContentCleaner.html_to_text(article.content)
+        min_length = self._get_minimum_content_length(article.canonical_url)
+        
+        content_length = len(text_content.strip())
+        if content_length < min_length:
+            logger.warning(f"Article '{article.title[:50]}...' content too short: {content_length} chars (min: {min_length})")
+            return False
+        
+        # Check title length
+        if len(article.title.strip()) < 10:
+            return False
+        
+        return True
     
     def _record_article(self, article: ArticleCreate):
         """Record article in deduplication tracking."""
+        # Normalize URL for consistent tracking
+        normalized_url = self._normalize_url(article.canonical_url)
+        self.seen_urls.add(normalized_url)
+        
+        # Track URL + title combination
+        if not hasattr(self, 'seen_url_titles'):
+            self.seen_url_titles = set()
+        url_title_key = f"{normalized_url}||{article.title.strip()}"
+        self.seen_url_titles.add(url_title_key)
+        
         # Only add hash if we have one
         if hasattr(article, 'content_hash') and article.content_hash:
             self.seen_hashes.add(article.content_hash)
             
             fingerprint = self._generate_content_fingerprint(article)
             self.content_fingerprints[fingerprint] = article.content_hash
+    
+    def _detect_content_type(self, article: ArticleCreate) -> str:
+        """Detect the type of content based on title, content, and metadata."""
+        title_lower = article.title.lower()
+        content_lower = article.content.lower()
         
-        self.seen_urls.add(article.canonical_url)
+        # Podcast detection
+        if any(keyword in title_lower for keyword in ['stormcast', 'podcast', 'episode']):
+            return 'podcast'
+        
+        # Announcement detection
+        if any(keyword in title_lower for keyword in ['announcement', 'update', 'release', 'bounty']):
+            return 'announcement'
+        
+        # Analysis detection
+        if any(keyword in title_lower for keyword in ['analysis', 'research', 'investigation', 'report']):
+            return 'analysis'
+        
+        # Default to article
+        return 'article'
     
     def _normalize_authors(self, authors: List[str]) -> List[str]:
         """Normalize author names."""
@@ -405,7 +589,8 @@ class BatchProcessor:
     async def process_batches(
         self,
         articles: List[ArticleCreate],
-        existing_hashes: Optional[Set[str]] = None
+        existing_hashes: Optional[Set[str]] = None,
+        existing_urls: Optional[Set[str]] = None
     ) -> DeduplicationResult:
         """
         Process articles in batches for better memory management.
@@ -413,6 +598,7 @@ class BatchProcessor:
         Args:
             articles: List of articles to process
             existing_hashes: Set of existing content hashes
+            existing_urls: Set of existing URLs
             
         Returns:
             Combined DeduplicationResult
@@ -433,7 +619,7 @@ class BatchProcessor:
         
         async def process_batch(batch):
             async with semaphore:
-                return await self.processor.process_articles(batch, existing_hashes)
+                return await self.processor.process_articles(batch, existing_hashes, existing_urls)
         
         # Process all batches
         batch_results = await asyncio.gather(*[process_batch(batch) for batch in batches])

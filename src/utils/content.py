@@ -1,176 +1,210 @@
-"""Content processing utilities for threat intelligence articles."""
+"""Content processing utilities."""
 
 import re
-import hashlib
-from datetime import datetime
 from typing import List, Optional, Dict, Any
-from bs4 import BeautifulSoup
+from datetime import datetime
+from dateutil import parser as date_parser
+import hashlib
+from bs4 import BeautifulSoup, Tag
+from readability import Document
 import logging
 
 logger = logging.getLogger(__name__)
 
-# Windows malware/threat hunting keywords from analysis
-WINDOWS_MALWARE_KEYWORDS = {
-    # Perfect discriminators (100% Chosen, 0% others)
-    'perfect_discriminators': [
-        'rundll32', 'comspec', 'msiexec', 'wmic', 'iex', 'findstr',
-        'hklm', 'appdata', 'programdata', 'powershell.exe', 'wbem',
-        'EventID', '.lnk', 'D:\\', '.iso', '<Command>', 'MZ',
-        'svchost', '-accepteula', 'lsass.exe', 'WINDIR', 'wintmp',
-        '\\temp\\', '\\pipe\\', '%WINDIR%', '%wintmp%'
-    ],
-    # Good discriminators (high Chosen ratio)
-    'good_discriminators': [
-        'temp', '==', 'c:\\windows\\', 'Event ID', '.bat', '.ps1',
-        'pipe', '::', '[.]', '-->', 'currentversion', 'EventCode'
-    ],
-    # LOLBAS (Living Off the Land Binaries and Scripts) - 68 Chosen, 2 Rejected
-    'lolbas_executables': [
-        'AddinUtil.exe', 'AppInstaller.exe', 'Aspnet_Compiler.exe', 'At.exe', 'Atbroker.exe',
-        'Bash.exe', 'Bitsadmin.exe', 'CertOC.exe', 'CertReq.exe', 'Certutil.exe', 'Cipher.exe',
-        'Cmd.exe', 'Cmdkey.exe', 'cmdl32.exe', 'Cmstp.exe', 'Colorcpl.exe', 'ComputerDefaults.exe',
-        'ConfigSecurityPolicy.exe', 'Conhost.exe', 'Control.exe', 'Csc.exe', 'Cscript.exe',
-        'CustomShellHost.exe', 'DataSvcUtil.exe', 'Desktopimgdownldr.exe', 'DeviceCredentialDeployment.exe',
-        'Dfsvc.exe', 'Diantz.exe', 'Diskshadow.exe', 'Dnscmd.exe', 'Esentutl.exe', 'Eventvwr.exe',
-        'Expand.exe', 'Explorer.exe', 'Extexport.exe', 'Extrac32.exe', 'Findstr.exe', 'Finger.exe',
-        'fltMC.exe', 'Forfiles.exe', 'Fsutil.exe', 'Ftp.exe', 'Gpscript.exe', 'Hh.exe',
-        'IMEWDBLD.exe', 'Ie4uinit.exe', 'iediagcmd.exe', 'Ieexec.exe', 'Ilasm.exe', 'Infdefaultinstall.exe',
-        'Installutil.exe', 'Jsc.exe', 'Ldifde.exe', 'Makecab.exe', 'Mavinject.exe',
-        'Microsoft.Workflow.Compiler.exe', 'Mmc.exe', 'MpCmdRun.exe', 'Msbuild.exe', 'Msconfig.exe',
-        'Msdt.exe', 'Msedge.exe', 'Mshta.exe', 'Msiexec.exe', 'Netsh.exe', 'Ngen.exe',
-        'Odbcconf.exe', 'OfflineScannerShell.exe', 'OneDriveStandaloneUpdater.exe', 'Pcalua.exe',
-        'Pcwrun.exe', 'Pktmon.exe', 'Pnputil.exe', 'Presentationhost.exe', 'Print.exe',
-        'PrintBrm.exe', 'Provlaunch.exe', 'Psr.exe', 'Rasautou.exe', 'rdrleakdiag.exe',
-        'Reg.exe', 'Regasm.exe', 'Regedit.exe', 'Regini.exe', 'Register-cimprovider.exe',
-        'Regsvcs.exe', 'Regsvr32.exe', 'Replace.exe', 'Rpcping.exe', 'Rundll32.exe',
-        'Runexehelper.exe', 'Runonce.exe', 'Runscripthelper.exe', 'Sc.exe', 'Schtasks.exe',
-        'Scriptrunner.exe', 'Setres.exe', 'SettingSyncHost.exe', 'Sftp.exe', 'ssh.exe',
-        'Stordiag.exe', 'SyncAppvPublishingServer.exe', 'Tar.exe', 'Ttdinject.exe', 'Tttracer.exe',
-        'Unregmp2.exe', 'vbc.exe', 'Verclsid.exe', 'Wab.exe', 'wbadmin.exe', 'wbemtest.exe',
-        'winget.exe', 'Wlrmdr.exe', 'Wmic.exe', 'WorkFolders.exe', 'Wscript.exe', 'Wsreset.exe',
-        'wuauclt.exe', 'Xwizard.exe', 'msedge_proxy.exe', 'msedgewebview2.exe', 'wt.exe',
-        'AccCheckConsole.exe', 'adplus.exe', 'AgentExecutor.exe', 'AppCert.exe', 'Appvlp.exe',
-        'Bginfo.exe', 'Cdb.exe', 'coregen.exe', 'Createdump.exe', 'csi.exe', 'DefaultPack.EXE',
-        'Devinit.exe', 'Devtoolslauncher.exe', 'dnx.exe', 'Dotnet.exe', 'dsdbutil.exe',
-        'dtutil.exe', 'Dump64.exe', 'DumpMinitool.exe', 'Dxcap.exe', 'ECMangen.exe',
-        'Excel.exe', 'Fsi.exe', 'FsiAnyCpu.exe', 'Mftrace.exe', 'Microsoft.NodejsTools.PressAnyKey.exe',
-        'MSAccess.exe', 'Msdeploy.exe', 'MsoHtmEd.exe', 'Mspub.exe', 'msxsl.exe', 'ntdsutil.exe',
-        'OpenConsole.exe', 'Powerpnt.exe', 'Procdump.exe', 'ProtocolHandler.exe', 'rcsi.exe',
-        'Remote.exe', 'Sqldumper.exe', 'Sqlps.exe', 'SQLToolsPS.exe', 'Squirrel.exe', 'te.exe',
-        'Teams.exe', 'TestWindowRemoteAgent.exe', 'Tracker.exe', 'Update.exe', 'VSDiagnostics.exe',
-        'VSIISExeLauncher.exe', 'Visio.exe', 'VisualUiaVerifyNative.exe', 'VSLaunchBrowser.exe',
-        'Vshadow.exe', 'vsjitdebugger.exe', 'WFMFormat.exe', 'Wfc.exe', 'WinProj.exe',
-        'Winword.exe', 'Wsl.exe', 'XBootMgrSleep.exe', 'devtunnel.exe', 'vsls-agent.exe',
-        'vstest.console.exe', 'winfile.exe', 'xsd.exe'
-    ],
-    # Threat hunting terminology and concepts
-    'threat_hunting_terms': [
-        'lolbas', 'lolbins', 'RMM'
-    ]
-}
-
 
 class ContentCleaner:
-    """Utilities for cleaning and normalizing content."""
+    """Utility class for cleaning and normalizing content."""
+    
+    @staticmethod
+    def clean_html(html: str) -> str:
+        """Clean HTML content and extract readable text."""
+        try:
+            # First try readability for article extraction
+            doc = Document(html)
+            cleaned_html = doc.content()
+            # Convert to clean text
+            return ContentCleaner.html_to_text(cleaned_html)
+        except Exception as e:
+            logger.warning(f"Readability failed, using enhanced cleaning: {e}")
+            return ContentCleaner.enhanced_html_clean(html)
+    
+    @staticmethod
+    def enhanced_html_clean(html: str) -> str:
+        """Enhanced HTML cleaning that extracts clean text."""
+        soup = BeautifulSoup(html, 'lxml')
+        
+        # Remove unwanted elements completely
+        unwanted_tags = [
+            "script", "style", "nav", "header", "footer", "aside", 
+            "advertisement", "menu", "sidebar", "breadcrumb", "pagination",
+            "social", "share", "comment", "related", "widget", "promo",
+            "banner", "ad", "popup", "modal", "overlay", "tracking"
+        ]
+        
+        for tag_name in unwanted_tags:
+            for tag in soup.find_all(tag_name):
+                tag.decompose()
+        
+        # Remove elements by class/id patterns (common navigation/UI elements)
+        unwanted_patterns = [
+            'nav', 'menu', 'sidebar', 'header', 'footer', 'breadcrumb',
+            'pagination', 'social', 'share', 'comment', 'related', 'widget',
+            'promo', 'banner', 'ad', 'popup', 'modal', 'overlay', 'tracking',
+            'subscribe', 'newsletter', 'follow', 'like', 'tweet', 'facebook'
+        ]
+        
+        for pattern in unwanted_patterns:
+            for element in soup.find_all(attrs={'class': lambda x: x and any(pattern.lower() in str(x).lower() for pattern in unwanted_patterns)}):
+                element.decompose()
+            for element in soup.find_all(attrs={'id': lambda x: x and any(pattern.lower() in str(x).lower() for pattern in unwanted_patterns)}):
+                element.decompose()
+        
+        # Find main content area
+        content_selectors = [
+            'article', '[role="main"]', 'main', '.content', '.post-content',
+            '.entry-content', '.blog-content', '.article-content', '#content'
+        ]
+        
+        main_content = None
+        for selector in content_selectors:
+            main_content = soup.select_one(selector)
+            if main_content and len(main_content.get_text(strip=True)) > 100:
+                break
+        
+        if main_content:
+            # Extract clean text from main content
+            return ContentCleaner.html_to_text(str(main_content))
+        else:
+            # Fallback: extract from body but clean aggressively
+            return ContentCleaner.html_to_text(html)
+    
+    @staticmethod
+    def basic_html_clean(html: str) -> str:
+        """Basic HTML cleaning without readability (deprecated - use enhanced_html_clean)."""
+        soup = BeautifulSoup(html, 'lxml')
+        
+        # Remove unwanted elements
+        for tag in soup(["script", "style", "nav", "header", "footer", "aside", "advertisement"]):
+            tag.decompose()
+        
+        # Remove attributes that might cause issues
+        for tag in soup.find_all():
+            tag.attrs = {k: v for k, v in tag.attrs.items() 
+                        if k in ['href', 'src', 'alt', 'title']}
+        
+        return str(soup)
+    
+    @staticmethod
+    def html_to_text(html: str) -> str:
+        """Convert HTML to clean text with better formatting."""
+        try:
+            # Ensure we have clean text input
+            if isinstance(html, bytes):
+                html = html.decode('utf-8', errors='ignore')
+            
+            soup = BeautifulSoup(html, 'lxml')
+            
+            # Add line breaks for block elements before extracting text
+            for tag in soup.find_all(['p', 'div', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'li', 'br']):
+                tag.insert_after('\n')
+            
+            # Extract text
+            text = soup.get_text(separator=' ', strip=True)
+            
+            # Clean up whitespace and normalize
+            text = ContentCleaner.normalize_whitespace(text)
+            
+            # Remove non-printable characters
+            text = ContentCleaner.clean_text_characters(text)
+            
+            return text
+        except Exception as e:
+            logger.warning(f"Error in html_to_text: {e}")
+            # Fallback to simple text extraction
+            return ContentCleaner.normalize_whitespace(str(html))
     
     @staticmethod
     def normalize_whitespace(text: str) -> str:
         """Normalize whitespace in text."""
-        if not text:
-            return ""
-        # Replace multiple whitespace with single space
-        text = re.sub(r'\s+', ' ', text.strip())
-        return text
+        # Replace multiple whitespace characters with single space
+        text = re.sub(r'\s+', ' ', text)
+        return text.strip()
     
     @staticmethod
-    def clean_html(html_content: str) -> str:
-        """Clean HTML content while preserving structure."""
-        if not html_content:
-            return ""
+    def clean_text_characters(text: str) -> str:
+        """Clean text by removing non-printable and control characters."""
+        try:
+            # Remove control characters and other problematic characters
+            # Keep only printable ASCII and common Unicode characters
+            cleaned = ''.join(char for char in text if (
+                char.isprintable() or char.isspace()
+            ) and ord(char) < 65536)  # Basic Multilingual Plane
+            
+            # Remove any remaining problematic sequences
+            cleaned = re.sub(r'[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]', '', cleaned)
+            
+            return cleaned
+        except Exception as e:
+            logger.warning(f"Error cleaning text characters: {e}")
+            # Fallback: remove only null bytes and common control chars
+            return re.sub(r'[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]', '', text)
+    
+    @staticmethod
+    def extract_summary(content: str, max_length: int = 500) -> str:
+        """Extract summary from content."""
+        # Convert HTML to text if needed
+        if '<' in content and '>' in content:
+            text = ContentCleaner.html_to_text(content)
+        else:
+            text = content
         
-        # Parse with BeautifulSoup
-        soup = BeautifulSoup(html_content, 'html.parser')
-        
-        # Remove script and style elements
-        for script in soup(["script", "style"]):
-            script.decompose()
-        
-        # Get text content
-        text = soup.get_text()
-        
-        # Clean up whitespace
+        # Normalize whitespace
         text = ContentCleaner.normalize_whitespace(text)
         
-        return text
-    
-    @staticmethod
-    def html_to_text(html_content: str) -> str:
-        """Convert HTML to plain text."""
-        if not html_content:
-            return ""
+        # Find first complete sentence that doesn't exceed max_length
+        sentences = re.split(r'[.!?]+', text)
+        summary = ""
         
-        # Parse with BeautifulSoup
-        soup = BeautifulSoup(html_content, 'html.parser')
+        for sentence in sentences:
+            sentence = sentence.strip()
+            if not sentence:
+                continue
+            
+            test_summary = f"{summary} {sentence}".strip()
+            if len(test_summary) <= max_length:
+                summary = test_summary
+            else:
+                break
         
-        # Remove script and style elements
-        for script in soup(["script", "style"]):
-            script.decompose()
+        # If no complete sentences fit, truncate at word boundary
+        if not summary:
+            words = text.split()
+            summary = ""
+            for word in words:
+                test_summary = f"{summary} {word}".strip()
+                if len(test_summary) <= max_length - 3:  # Leave room for "..."
+                    summary = test_summary
+                else:
+                    break
+            summary += "..."
         
-        # Get text content
-        text = soup.get_text()
-        
-        # Clean up whitespace
-        text = ContentCleaner.normalize_whitespace(text)
-        
-        return text
-    
-    @staticmethod
-    def extract_summary(content: str, max_length: int = 300) -> str:
-        """Extract a summary from content."""
-        if not content:
-            return ""
-        
-        # Clean the content
-        clean_content = ContentCleaner.html_to_text(content)
-        
-        # Take first max_length characters
-        if len(clean_content) <= max_length:
-            return clean_content
-        
-        # Try to break at sentence boundary
-        summary = clean_content[:max_length]
-        last_period = summary.rfind('.')
-        last_exclamation = summary.rfind('!')
-        last_question = summary.rfind('?')
-        
-        # Find the last sentence ending
-        last_sentence = max(last_period, last_exclamation, last_question)
-        
-        if last_sentence > max_length * 0.7:  # If we have a good sentence break
-            summary = summary[:last_sentence + 1]
-        
-        return summary.strip()
+        return summary
     
     @staticmethod
     def calculate_content_hash(title: str, content: str) -> str:
-        """Calculate SHA256 hash of title and content."""
-        combined = f"{title}\n{content}".encode('utf-8')
+        """Calculate SHA256 hash of content for deduplication."""
+        # Normalize content for hashing
+        normalized_title = ContentCleaner.normalize_whitespace(title.lower())
+        normalized_content = ContentCleaner.normalize_whitespace(
+            ContentCleaner.html_to_text(content).lower()
+        )
+        
+        combined = f"{normalized_title}\n{normalized_content}".encode('utf-8')
         return hashlib.sha256(combined).hexdigest()
 
 
 class DateExtractor:
-    """Utilities for extracting and parsing dates."""
-    
-    # Common date patterns
-    DATE_PATTERNS = [
-        r'(\d{4}-\d{2}-\d{2})',  # YYYY-MM-DD
-        r'(\d{2}/\d{2}/\d{4})',  # MM/DD/YYYY
-        r'(\d{2}-\d{2}-\d{4})',  # MM-DD-YYYY
-        r'(\d{1,2}\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d{4})',  # DD MMM YYYY
-        r'(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})',  # ISO format
-        r'(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z)',  # ISO format with Z
-        r'(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\+\d{2}:\d{2})',  # ISO format with timezone
-    ]
+    """Utility class for extracting and parsing dates."""
     
     @staticmethod
     def parse_date(date_str: str) -> Optional[datetime]:
@@ -179,468 +213,370 @@ class DateExtractor:
             return None
         
         try:
-            # Try parsing with feedparser's date parser
-            import feedparser
-            parsed = feedparser._parse_date(date_str)
-            if parsed:
-                return datetime(*parsed[:6])
-        except Exception:
-            pass
-        
-        # Try common formats
-        for pattern in DateExtractor.DATE_PATTERNS:
-            match = re.search(pattern, date_str)
-            if match:
-                try:
-                    date_part = match.group(1)
-                    # Try different parsing approaches
-                    for fmt in ['%Y-%m-%d', '%m/%d/%Y', '%m-%d-%Y', '%d %b %Y', '%Y-%m-%dT%H:%M:%S']:
-                        try:
-                            return datetime.strptime(date_part, fmt)
-                        except ValueError:
-                            continue
-                except Exception:
-                    continue
-        
-        logger.warning(f"Could not parse date: {date_str}")
-        return None
+            # Handle common date formats
+            date_str = date_str.strip()
+            
+            # ISO format with timezone
+            if 'T' in date_str or '+' in date_str or 'Z' in date_str:
+                return date_parser.parse(date_str)
+            
+            # Try dateutil parser
+            return date_parser.parse(date_str)
+            
+        except Exception as e:
+            logger.debug(f"Failed to parse date '{date_str}': {e}")
+            return None
     
     @staticmethod
     def extract_date_from_url(url: str) -> Optional[datetime]:
-        """Extract date from URL patterns."""
-        if not url:
-            return None
-        
-        # Common URL date patterns
-        url_patterns = [
-            r'/(\d{4})/(\d{2})/(\d{2})/',  # /YYYY/MM/DD/
-            r'/(\d{4})-(\d{2})-(\d{2})/',  # /YYYY-MM-DD/
-            r'(\d{4})_(\d{2})_(\d{2})',    # YYYY_MM_DD
+        """Extract date from URL path if possible."""
+        # Look for YYYY/MM/DD or YYYY-MM-DD patterns
+        date_patterns = [
+            r'(\d{4})/(\d{1,2})/(\d{1,2})',  # 2024/01/15
+            r'(\d{4})-(\d{1,2})-(\d{1,2})',  # 2024-01-15
+            r'(\d{4})(\d{2})(\d{2})',        # 20240115
         ]
         
-        for pattern in url_patterns:
+        for pattern in date_patterns:
             match = re.search(pattern, url)
             if match:
                 try:
-                    year, month, day = match.groups()
-                    return datetime(int(year), int(month), int(day))
-                except (ValueError, TypeError):
+                    year, month, day = map(int, match.groups())
+                    return datetime(year, month, day)
+                except ValueError:
                     continue
         
         return None
 
 
 class MetadataExtractor:
-    """Utilities for extracting metadata from HTML."""
-    
-    @staticmethod
-    def extract_authors(soup: BeautifulSoup) -> List[str]:
-        """Extract authors from HTML."""
-        authors = []
-        
-        # Common author selectors
-        author_selectors = [
-            '.author', '.byline', '.author-name', '.writer',
-            '[rel="author"]', '.post-author', '.entry-author',
-            'meta[name="author"]', 'meta[property="article:author"]'
-        ]
-        
-        for selector in author_selectors:
-            elements = soup.select(selector)
-            for element in elements:
-                if element.name == 'meta':
-                    content = element.get('content', '')
-                else:
-                    content = element.get_text()
-                
-                if content:
-                    author = ContentCleaner.normalize_whitespace(content)
-                    if author and author not in authors:
-                        authors.append(author)
-        
-        return authors
-    
-    @staticmethod
-    def extract_tags(soup: BeautifulSoup) -> List[str]:
-        """Extract tags/categories from HTML."""
-        tags = []
-        
-        # Common tag selectors
-        tag_selectors = [
-            '.tags', '.categories', '.tag', '.category',
-            '.post-tags', '.entry-tags', '.article-tags'
-        ]
-        
-        for selector in tag_selectors:
-            elements = soup.select(selector)
-            for element in elements:
-                links = element.find_all('a')
-                for link in links:
-                    tag = ContentCleaner.normalize_whitespace(link.get_text())
-                    if tag and tag not in tags:
-                        tags.append(tag)
-        
-        return tags
-    
-    @staticmethod
-    def extract_canonical_url(soup: BeautifulSoup) -> Optional[str]:
-        """Extract canonical URL from HTML."""
-        canonical = soup.find('link', rel='canonical')
-        if canonical:
-            return canonical.get('href')
-        
-        # Try Open Graph URL
-        og_url = soup.find('meta', property='og:url')
-        if og_url:
-            return og_url.get('content')
-        
-        return None
+    """Utility class for extracting metadata from HTML."""
     
     @staticmethod
     def extract_meta_tags(soup: BeautifulSoup) -> Dict[str, str]:
-        """Extract meta tags from HTML."""
+        """Extract all meta tag content."""
         meta_data = {}
         
-        meta_tags = soup.find_all('meta')
-        for tag in meta_tags:
-            name = tag.get('name') or tag.get('property')
-            content = tag.get('content')
+        # Standard meta tags
+        for meta in soup.find_all('meta'):
+            name = meta.get('name') or meta.get('property') or meta.get('http-equiv')
+            content = meta.get('content')
             
             if name and content:
-                meta_data[name] = content
+                meta_data[name.lower()] = content
         
         return meta_data
     
     @staticmethod
     def extract_opengraph(soup: BeautifulSoup) -> Dict[str, str]:
-        """Extract Open Graph data from HTML."""
+        """Extract OpenGraph metadata."""
         og_data = {}
         
-        og_tags = soup.find_all('meta', property=re.compile(r'^og:'))
-        for tag in og_tags:
-            property_name = tag.get('property', '')
-            content = tag.get('content', '')
-            
-            if property_name and content:
-                og_data[property_name] = content
+        for meta in soup.find_all('meta'):
+            property_name = meta.get('property', '')
+            if property_name.startswith('og:'):
+                content = meta.get('content')
+                if content:
+                    key = property_name[3:]  # Remove 'og:' prefix
+                    og_data[key] = content
         
         return og_data
+    
+    @staticmethod
+    def extract_twitter_cards(soup: BeautifulSoup) -> Dict[str, str]:
+        """Extract Twitter Card metadata."""
+        twitter_data = {}
+        
+        for meta in soup.find_all('meta'):
+            name = meta.get('name', '')
+            if name.startswith('twitter:'):
+                content = meta.get('content')
+                if content:
+                    key = name[8:]  # Remove 'twitter:' prefix
+                    twitter_data[key] = content
+        
+        return twitter_data
+    
+    @staticmethod
+    def extract_canonical_url(soup: BeautifulSoup) -> Optional[str]:
+        """Extract canonical URL from link tag."""
+        canonical = soup.find('link', {'rel': 'canonical'})
+        if canonical:
+            return canonical.get('href')
+        return None
+    
+    @staticmethod
+    def extract_authors(soup: BeautifulSoup) -> List[str]:
+        """Extract author information from various sources."""
+        authors = []
+        
+        # Try meta tags first
+        author_meta = soup.find('meta', {'name': 'author'})
+        if author_meta:
+            content = author_meta.get('content', '')
+            if content:
+                # Split on common delimiters
+                for delimiter in [',', ';', '&', ' and ']:
+                    if delimiter in content:
+                        authors.extend([a.strip() for a in content.split(delimiter)])
+                        break
+                else:
+                    authors.append(content.strip())
+        
+        # Try OpenGraph
+        if not authors:
+            og_author = soup.find('meta', {'property': 'article:author'})
+            if og_author:
+                content = og_author.get('content', '').strip()
+                if content:
+                    authors.append(content)
+        
+        # Try structured data (basic)
+        if not authors:
+            # Look for author in JSON-LD or microdata
+            author_elements = soup.find_all(attrs={'itemprop': 'author'})
+            for elem in author_elements:
+                if elem.string:
+                    authors.append(elem.string.strip())
+        
+        # Clean and deduplicate
+        cleaned_authors = []
+        for author in authors:
+            author = author.strip()
+            if author and author not in cleaned_authors:
+                cleaned_authors.append(author)
+        
+        return cleaned_authors[:5]  # Limit to 5 authors
+    
+    @staticmethod
+    def extract_tags(soup: BeautifulSoup) -> List[str]:
+        """Extract tags/categories from various sources."""
+        tags = set()
+        
+        # Meta keywords
+        keywords_meta = soup.find('meta', {'name': 'keywords'})
+        if keywords_meta:
+            content = keywords_meta.get('content', '')
+            if content:
+                tags.update([tag.strip() for tag in content.split(',') if tag.strip()])
+        
+        # OpenGraph tags
+        og_tags = soup.find_all('meta', {'property': 'article:tag'})
+        for tag_meta in og_tags:
+            content = tag_meta.get('content', '').strip()
+            if content:
+                tags.add(content)
+        
+        # Category meta
+        category_meta = soup.find('meta', {'name': 'category'})
+        if category_meta:
+            content = category_meta.get('content', '').strip()
+            if content:
+                tags.add(content)
+        
+        # Convert to sorted list and limit
+        return sorted(list(tags))[:10]  # Limit to 10 tags
 
 
 class QualityScorer:
-    """Utilities for scoring article quality."""
+    """Utility class for scoring content quality."""
     
     @staticmethod
     def score_article(title: str, content: str, metadata: Dict[str, Any]) -> float:
-        """Score article quality based on various factors."""
-        score = 50.0  # Base score
+        """
+        Score article quality from 0.0 to 1.0.
         
-        try:
-            # Title quality (0-20 points)
-            if title:
-                title_length = len(title.strip())
-                if 10 <= title_length <= 100:
-                    score += 10
-                elif 5 <= title_length <= 150:
-                    score += 5
-                
-                # Check for common spam indicators
-                spam_indicators = ['click here', 'buy now', 'limited time', 'act now']
-                if not any(indicator in title.lower() for indicator in spam_indicators):
-                    score += 10
-            
-            # Content quality (0-30 points)
-            if content:
-                content_length = len(ContentCleaner.html_to_text(content))
-                if content_length >= 500:
-                    score += 15
-                elif content_length >= 200:
-                    score += 10
-                elif content_length >= 100:
-                    score += 5
-                
-                # Check for structured content
-                if '<h' in content or '<p>' in content:
-                    score += 10
-                
-                # Check for links (but not too many)
-                link_count = content.count('<a href')
-                if 1 <= link_count <= 10:
-                    score += 5
-            
-            # Metadata quality (0-20 points)
-            if metadata:
-                # Check for author information
-                if metadata.get('authors'):
-                    score += 10
-                
-                # Check for tags/categories
-                if metadata.get('tags'):
-                    score += 5
-                
-                # Check for publication date
-                if metadata.get('published_at'):
-                    score += 5
-            
-            # Cap score at 100
-            score = min(score, 100.0)
-            
-        except Exception as e:
-            logger.warning(f"Error scoring article: {e}")
-            score = 50.0  # Default score on error
+        Factors:
+        - Title length and quality
+        - Content length and structure
+        - Metadata completeness
+        - Date presence
+        - Author information
+        """
+        score = 0.0
         
-        return round(score, 1)
+        # Title scoring (0.2 max)
+        if title:
+            title_len = len(title.strip())
+            if 10 <= title_len <= 200:
+                score += 0.2
+            elif title_len > 5:
+                score += 0.1
+        
+        # Content scoring (0.4 max)
+        if content:
+            text_content = ContentCleaner.html_to_text(content)
+            content_len = len(text_content.strip())
+            
+            if content_len >= 500:
+                score += 0.4
+            elif content_len >= 200:
+                score += 0.3
+            elif content_len >= 50:
+                score += 0.2
+            elif content_len > 0:
+                score += 0.1
+            
+            # Bonus for structured content
+            if '<p>' in content or '<div>' in content:
+                score += 0.05
+        
+        # Metadata scoring (0.2 max)
+        meta_score = 0.0
+        
+        # Author presence
+        if metadata.get('authors'):
+            meta_score += 0.05
+        
+        # Publication date
+        if metadata.get('published_at'):
+            meta_score += 0.05
+        
+        # Tags/categories
+        if metadata.get('tags'):
+            meta_score += 0.05
+        
+        # Summary/description
+        if metadata.get('summary') or metadata.get('description'):
+            meta_score += 0.05
+        
+        score += meta_score
+        
+        # Deduction for obvious issues
+        if not title or not content:
+            score *= 0.5
+        
+        # Ensure score is between 0 and 1
+        return max(0.0, min(1.0, score))
 
 
 def validate_content(title: str, content: str, url: str) -> List[str]:
-    """Validate content and return list of issues."""
+    """
+    Validate content and return list of issues.
+    
+    Returns:
+        List of validation issues (empty if valid)
+    """
     issues = []
     
-    try:
-        # Title validation
-        if not title or len(title.strip()) < 5:
-            issues.append("Title too short or missing")
-        elif len(title.strip()) > 200:
-            issues.append("Title too long")
+    if not title or not title.strip():
+        issues.append("Missing or empty title")
+    elif len(title.strip()) < 5:
+        issues.append("Title too short")
+    elif len(title.strip()) > 500:
+        issues.append("Title too long")
+    
+    if not content or not content.strip():
+        issues.append("Missing or empty content")
+    else:
+        # Check for garbage content patterns
+        if _is_garbage_content(content):
+            issues.append("Content appears to be garbage/compressed data")
         
-        # Content validation - INCREASED MINIMUM LENGTH
-        if not content or len(content.strip()) < 500:  # Increased from 50 to 500
-            issues.append("Content too short or missing (minimum 500 characters)")
-        elif len(content.strip()) > 50000:
-            issues.append("Content too long")
+        # Check for compression failure messages
+        if _has_compression_failure_indicators(content):
+            issues.append("Content indicates extraction failure")
         
-        # Check for binary/corrupted content
-        if _is_binary_content(content):
-            issues.append("Content appears to be binary/corrupted data")
-        
-        # URL validation
-        if not url or not url.startswith(('http://', 'https://')):
-            issues.append("Invalid URL format")
-        
-        # Check for obvious spam indicators
-        spam_indicators = ['click here', 'buy now', 'limited time', 'act now', 'make money fast']
-        text_content = ContentCleaner.html_to_text(content).lower()
-        if any(indicator in text_content for indicator in spam_indicators):
-            issues.append("Contains spam indicators")
-        
-        # Check for excessive links
-        link_count = content.count('<a href')
-        if link_count > 20:
-            issues.append("Too many links")
-        
-        # Check for RSS excerpt indicators (content that's clearly just a snippet)
-        excerpt_indicators = [
-            'read more', 'continue reading', 'full article', 'click to read',
-            'read the full', 'read more at', 'continue reading at',
-            '...', '…', 'read more →', 'read more...'
-        ]
-        text_content = ContentCleaner.html_to_text(content).lower()
-        if any(indicator in text_content for indicator in excerpt_indicators):
-            # If content is short AND has excerpt indicators, it's likely just a snippet
-            if len(text_content.strip()) < 1000:
-                issues.append("Content appears to be RSS excerpt/snippet only")
-        
-        # Check for content that's mostly HTML tags or formatting
-        clean_text = ContentCleaner.html_to_text(content)
-        if len(clean_text.strip()) < len(content) * 0.3:  # Less than 30% actual text
-            issues.append("Content contains too much HTML/formatting")
-        
-    except Exception as e:
-        logger.warning(f"Error validating content: {e}")
-        issues.append("Validation error")
+        text_content = ContentCleaner.html_to_text(content)
+        if len(text_content.strip()) < 50:
+            issues.append("Content too short")
+    
+    if not url or not url.strip():
+        issues.append("Missing URL")
+    elif not url.startswith(('http://', 'https://')):
+        issues.append("Invalid URL format")
     
     return issues
 
-
-def _is_binary_content(content: str) -> bool:
-    """Check if content appears to be binary/corrupted data."""
+def _is_garbage_content(content: str) -> bool:
+    """
+    Detect if content is garbage/compressed data.
+    
+    Returns:
+        True if content appears to be garbage
+    """
     if not content:
         return False
     
-    # Check for high ratio of non-printable characters
-    non_printable_count = sum(1 for c in content if not c.isprintable() and not c.isspace())
+    # Convert to lowercase for analysis
+    content_lower = content.lower()
+    
+    # Check for high ratio of problematic characters
+    problematic_chars = sum(1 for c in content if c in '[]{}|\\')
     total_chars = len(content)
     
     if total_chars > 0:
-        non_printable_ratio = non_printable_count / total_chars
-        if non_printable_ratio > 0.1:  # More than 10% non-printable
+        problematic_ratio = problematic_chars / total_chars
+        if problematic_ratio > 0.08:  # More than 8% problematic characters
             return True
     
-    # Check for common binary patterns
+    # Check for specific garbage patterns
+    if '`E9 UI=' in content or 'cwCz _9hvtYfL' in content:
+        return True
+    
+    # Check for consecutive problematic characters
+    consecutive_count = 0
+    max_consecutive = 0
+    for char in content:
+        if char in '[]{}|\\':
+            consecutive_count += 1
+            max_consecutive = max(max_consecutive, consecutive_count)
+        else:
+            consecutive_count = 0
+    
+    # Check final sequence
+    if consecutive_count >= 3:
+        max_consecutive = max(max_consecutive, consecutive_count)
+    
+    if max_consecutive >= 3:  # 3 or more consecutive problematic chars
+        return True
+    
+    # Check for binary-like patterns
     binary_patterns = [
-        b'\x00', b'\xff', b'\xfe', b'\xfd', b'\xfc',  # Common binary bytes
-        b'\x1f\x8b',  # Gzip header
-        b'PK\x03\x04',  # ZIP header
-        b'\x89PNG',  # PNG header
-        b'GIF8',  # GIF header
-        b'\xff\xd8\xff',  # JPEG header
+        r'[^\w\s]{3,}',      # Multiple consecutive special chars
     ]
     
-    try:
-        content_bytes = content.encode('utf-8', errors='ignore')
-        for pattern in binary_patterns:
-            if pattern in content_bytes:
-                return True
-    except Exception:
-        pass
+    import re
+    for pattern in binary_patterns:
+        if re.search(pattern, content):
+            return True
     
-    # Check for excessive unicode replacement characters
-    if content.count('�') > len(content) * 0.05:  # More than 5% replacement chars
+    # Check for compression artifacts
+    compression_indicators = [
+        'compression issues',
+        'website compression',
+        'content extraction failed',
+        'failed due to website',
+        'compression failed',
+        'extraction disabled'
+    ]
+    
+    if any(indicator in content_lower for indicator in compression_indicators):
         return True
     
     return False
 
-
-class ThreatHuntingScorer:
-    """Enhanced scoring for threat hunting and malware analysis content."""
+def _has_compression_failure_indicators(content: str) -> bool:
+    """
+    Check if content contains indicators of extraction failure.
     
-    @staticmethod
-    def score_threat_hunting_content(title: str, content: str) -> Dict[str, Any]:
-        """
-        Score content for threat hunting quality using Windows malware keywords.
-        
-        Returns:
-            Dict containing:
-            - threat_hunting_score: float (0-100)
-            - perfect_keyword_matches: List[str]
-            - good_keyword_matches: List[str]
-            - keyword_density: float
-            - technical_depth_score: float
-        """
-        if not content:
-            return {
-                'threat_hunting_score': 0.0,
-                'perfect_keyword_matches': [],
-                'good_keyword_matches': [],
-                'keyword_density': 0.0,
-                'technical_depth_score': 0.0
-            }
-        
-        # Clean content for analysis
-        clean_content = ContentCleaner.html_to_text(content).lower()
-        title_lower = title.lower() if title else ""
-        full_text = f"{title_lower} {clean_content}"
-        
-        # Find keyword matches
-        perfect_matches = []
-        good_matches = []
-        lolbas_matches = []
-        threat_hunting_matches = []
-        
-        # Check perfect discriminators
-        for keyword in WINDOWS_MALWARE_KEYWORDS['perfect_discriminators']:
-            if ThreatHuntingScorer._keyword_matches(keyword, full_text):
-                perfect_matches.append(keyword)
-        
-        # Check good discriminators
-        for keyword in WINDOWS_MALWARE_KEYWORDS['good_discriminators']:
-            if ThreatHuntingScorer._keyword_matches(keyword, full_text):
-                good_matches.append(keyword)
-        
-        # Check LOLBAS executables
-        for executable in WINDOWS_MALWARE_KEYWORDS['lolbas_executables']:
-            if ThreatHuntingScorer._keyword_matches(executable, full_text):
-                lolbas_matches.append(executable)
-        
-        # Check threat hunting terms
-        for term in WINDOWS_MALWARE_KEYWORDS['threat_hunting_terms']:
-            if ThreatHuntingScorer._keyword_matches(term, full_text):
-                threat_hunting_matches.append(term)
-        
-        # Calculate scores
-        perfect_score = len(perfect_matches) * 15  # 15 points per perfect keyword
-        good_score = len(good_matches) * 8         # 8 points per good keyword
-        lolbas_score = len(lolbas_matches) * 12    # 12 points per LOLBAS executable
-        threat_hunting_score = len(threat_hunting_matches) * 10  # 10 points per threat hunting term
-        
-        # Technical depth indicators
-        technical_depth_score = ThreatHuntingScorer._calculate_technical_depth(full_text)
-        
-        # Keyword density (percentage of content containing technical keywords)
-        total_keywords = len(perfect_matches) + len(good_matches) + len(lolbas_matches) + len(threat_hunting_matches)
-        keyword_density = (total_keywords / max(len(full_text.split()), 1)) * 1000  # per 1000 words
-        
-        # Calculate final threat hunting score
-        threat_hunting_score = min(perfect_score + good_score + lolbas_score + threat_hunting_score + technical_depth_score, 100.0)
-        
-        return {
-            'threat_hunting_score': round(threat_hunting_score, 1),
-            'perfect_keyword_matches': perfect_matches,
-            'good_keyword_matches': good_matches,
-            'lolbas_matches': lolbas_matches,
-            'threat_hunting_matches': threat_hunting_matches,
-            'keyword_density': round(keyword_density, 2),
-            'technical_depth_score': round(technical_depth_score, 1)
-        }
+    Returns:
+        True if content suggests extraction failed
+    """
+    if not content:
+        return False
     
-    @staticmethod
-    def _keyword_matches(keyword: str, text: str) -> bool:
-        """Check if a keyword matches in the text with proper regex handling."""
-        try:
-            # Handle special characters in keywords
-            if keyword in ['[.]', '::', '==', '-accepteula', '-->']:
-                pattern = re.escape(keyword)
-            elif keyword in ['c:\\windows\\', 'D:\\']:
-                pattern = re.escape(keyword)
-            elif keyword == '<Command>':
-                pattern = r'<command>'
-            elif keyword == 'Event ID':
-                pattern = r'event\s+id'
-            elif keyword == 'EventID':
-                pattern = r'eventid'
-            elif keyword == 'lsass.exe':
-                pattern = r'lsass\.exe'
-            elif keyword == 'powershell.exe':
-                pattern = r'powershell\.exe'
-            # Handle LOLBAS executables (case-insensitive, word boundaries)
-            elif keyword.endswith('.exe'):
-                # Remove .exe extension for matching
-                base_name = keyword[:-4]
-                pattern = r'\b' + re.escape(base_name) + r'\.exe\b'
-            else:
-                pattern = r'\b' + re.escape(keyword) + r'\b'
-            
-            return bool(re.search(pattern, text, re.IGNORECASE))
-        except Exception as e:
-            logger.warning(f"Error matching keyword '{keyword}': {e}")
-            return False
+    content_lower = content.lower()
     
-    @staticmethod
-    def _calculate_technical_depth(text: str) -> float:
-        """Calculate technical depth score based on various indicators."""
-        score = 0.0
-        
-        # Check for technical patterns
-        technical_patterns = [
-            (r'cve-\d{4}-\d+', 5),           # CVE references
-            (r'0x[0-9a-fA-F]+', 3),          # Hex values
-            (r'\\[a-zA-Z0-9_]+\\', 2),        # Registry paths
-            (r'[A-Z]:\\[\\\w\s]+', 2),       # Windows paths
-            (r'powershell|cmd\.exe|cmd', 3),  # Command shells
-            (r'\.exe|\.dll|\.sys', 2),        # Executable files
-            (r'http[s]?://[^\s]+', 1),        # URLs
-            (r'\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}', 2),  # IP addresses
-            (r'[a-fA-F0-9]{32,}', 3),         # MD5 hashes
-            (r'[a-fA-F0-9]{64,}', 4),         # SHA256 hashes
-        ]
-        
-        for pattern, points in technical_patterns:
-            matches = len(re.findall(pattern, text, re.IGNORECASE))
-            score += min(matches * points, 20)  # Cap at 20 points per pattern
-        
-        # Check for code blocks or technical formatting
-        if re.search(r'```|`.*`|\[.*\]|\(.*\)', text):
-            score += 5
-        
-        # Check for technical terms
-        technical_terms = [
-            'malware', 'ransomware', 'trojan', 'backdoor', 'rootkit',
-            'exploit', 'vulnerability', 'payload', 'shellcode', 'injection',
-            'persistence', 'lateral movement', 'privilege escalation',
-            'command and control', 'c2', 'beacon', 'dropper', 'loader'
-        ]
-        
-        term_matches = sum(1 for term in technical_terms if term in text.lower())
-        score += min(term_matches * 2, 15)  # Cap at 15 points
-        
-        return min(score, 30.0)  # Cap technical depth at 30 points
+    # Patterns that indicate extraction failure
+    failure_patterns = [
+        'content extraction failed',
+        'failed due to website compression',
+        'extraction is disabled',
+        'please visit the original article',
+        'compression issues',
+        'website compression issues',
+        'full content extraction is disabled'
+    ]
+    
+    return any(pattern in content_lower for pattern in failure_patterns)
