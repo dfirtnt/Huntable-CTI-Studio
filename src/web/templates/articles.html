@@ -381,10 +381,6 @@
                         </p>
 
                         <div class="flex items-center space-x-2">
-                            <button onclick="openClassificationModal({{ article.id }}, '{{ article.title|replace("'", "\\'")|replace('"', '\\"') }}')" 
-                                    class="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded text-white bg-blue-600 hover:bg-blue-700 transition-colors">
-                                🏷️ Classify
-                            </button>
                             {% if article.canonical_url %}
                             <a href="{{ article.canonical_url }}" target="_blank" class="inline-flex items-center px-3 py-1.5 border border-gray-300 text-xs font-medium rounded text-gray-700 bg-white hover:bg-gray-50 transition-colors">
                                 Original Source
