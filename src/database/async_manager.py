@@ -409,7 +409,24 @@ class AsyncDatabaseManager:
         """List articles with optional filtering and sorting."""
         try:
             async with self.get_session() as session:
-                query = select(ArticleTable)
+                # Create a subquery to get annotation counts per article
+                annotation_count_subquery = (
+                    select(
+                        ArticleAnnotationTable.article_id,
+                        func.count(ArticleAnnotationTable.id).label('annotation_count')
+                    )
+                    .group_by(ArticleAnnotationTable.article_id)
+                    .subquery()
+                )
+                
+                # Main query with left join to get annotation counts
+                query = (
+                    select(
+                        ArticleTable,
+                        func.coalesce(annotation_count_subquery.c.annotation_count, 0).label('annotation_count')
+                    )
+                    .outerjoin(annotation_count_subquery, ArticleTable.id == annotation_count_subquery.c.article_id)
+                )
                 
                 # Apply filters if provided
                 if article_filter:
@@ -443,6 +460,13 @@ class AsyncDatabaseManager:
                             query = query.order_by(desc(threat_score_expr))
                         else:
                             query = query.order_by(threat_score_expr)
+                    elif article_filter.sort_by == 'annotation_count':
+                        # Sort by annotation count
+                        annotation_count_expr = func.coalesce(annotation_count_subquery.c.annotation_count, 0)
+                        if article_filter.sort_order == 'desc':
+                            query = query.order_by(desc(annotation_count_expr))
+                        else:
+                            query = query.order_by(annotation_count_expr)
                     else:
                         sort_field = getattr(ArticleTable, article_filter.sort_by, ArticleTable.discovered_at)
                         if article_filter.sort_order == 'desc':
@@ -464,9 +488,22 @@ class AsyncDatabaseManager:
                         query = query.limit(limit)
                 
                 result = await session.execute(query)
-                db_articles = result.scalars().all()
+                rows = result.all()
                 
-                return [self._db_article_to_model(db_article) for db_article in db_articles]
+                # Convert to Article models with annotation counts
+                articles = []
+                for row in rows:
+                    db_article = row[0]  # ArticleTable object
+                    annotation_count = row[1]  # annotation_count
+                    
+                    article = self._db_article_to_model(db_article)
+                    # Add annotation count to the article metadata
+                    if not hasattr(article, 'metadata') or article.metadata is None:
+                        article.metadata = {}
+                    article.metadata['annotation_count'] = annotation_count
+                    articles.append(article)
+                
+                return articles
                 
         except Exception as e:
             logger.error(f"Failed to list articles: {e}")

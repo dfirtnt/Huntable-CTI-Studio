@@ -1122,7 +1122,7 @@
     
     function getSelectedArticleIds() {
         const checkboxes = document.querySelectorAll('.bulk-select-checkbox:checked');
-        return Array.from(checkboxes).map(checkbox => checkbox.dataset.articleId);
+        return Array.from(checkboxes).map(checkbox => parseInt(checkbox.dataset.articleId));
     }
     
     async function bulkAction(action) {
