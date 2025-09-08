@@ -1563,6 +1563,24 @@
             return;
         }
         
+        // Estimate cost before proceeding
+        const articleContent = `{{ article.content[:1000] }}`; // Get first 1000 chars for estimation
+        const estimatedTokens = Math.ceil(articleContent.length / 4); // Rough estimate: 1 token ≈ 4 chars
+        const promptTokens = 2000; // Estimated prompt length
+        const totalTokens = estimatedTokens + promptTokens;
+        
+        // GPT4o pricing: $5.00 per 1M input tokens, $15.00 per 1M output tokens
+        const inputCost = (totalTokens / 1000000) * 5.00;
+        const outputCost = (2000 / 1000000) * 15.00; // Assume 2000 output tokens
+        const totalCost = inputCost + outputCost;
+        
+        const costMessage = `Estimated cost: $${totalCost.toFixed(4)} (${totalTokens.toLocaleString()} input tokens + ~2,000 output tokens)`;
+        
+        const confirmed = confirm(`GPT4o Analysis Cost Estimate:\n\n${costMessage}\n\nDo you want to proceed with the analysis?`);
+        if (!confirmed) {
+            return;
+        }
+        
         // Show loading state
         const button = event.target;
         const originalText = button.innerHTML;

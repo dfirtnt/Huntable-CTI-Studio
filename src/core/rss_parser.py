@@ -520,7 +520,8 @@ class RSSParser:
             'terms of service', 'cookie policy', 'about us', 'contact us',
             'advertisement', 'sponsored', 'promotion', 'sale', 'discount',
             'product launch', 'new product', 'feature update', 'version',
-            'maintenance', 'downtime', 'scheduled maintenance', 'outage'
+            'maintenance', 'downtime', 'scheduled maintenance', 'outage',
+            'trends', 'the state of'
         ]
         
         # Get source-specific filter keywords if configured

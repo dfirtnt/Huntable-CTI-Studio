@@ -193,6 +193,7 @@ sources:
     config:
       allow: ["research.checkpoint.com"]
       post_url_regex: ["^https://research\\.checkpoint\\.com/.*"]
+      title_filter_keywords: ["threat intelligence report"]
       extract:
         prefer_jsonld: true
         title_selectors: ["h1", "meta[property='og:title']::attr(content)"]

@@ -93,8 +93,16 @@ def highlight_keywords(content: str, metadata: Dict[str, Any]) -> str:
         # Create highlight span
         highlight_span = f'<span class="px-1 py-0.5 rounded text-xs font-medium border {css_classes}" title="{type_name.title()} discriminator: {keyword}">{keyword}</span>'
         
-        # Replace keyword with highlighted version (case-insensitive)
-        pattern = re.compile(re.escape(keyword), re.IGNORECASE)
+        # For certain keywords, allow partial matches (like "hunting" in "threat hunting")
+        partial_match_keywords = ['hunting', 'detection', 'monitor', 'alert', 'executable']
+        
+        if keyword.lower() in partial_match_keywords:
+            # Allow partial matches for these keywords
+            pattern = re.compile(escaped_keyword, re.IGNORECASE)
+        else:
+            # Use word boundaries for other keywords
+            pattern = re.compile(r'\b' + escaped_keyword + r'\b', re.IGNORECASE)
+        
         highlighted_content = pattern.sub(highlight_span, highlighted_content)
     
     return highlighted_content
@@ -2222,11 +2230,11 @@ async def api_gpt4o_rank(article_id: int, request: Request):
 
 ## Your Role
 
-You are a detection engineer evaluating cybersecurity blog content specifically for its suitability to create SIGMA detection rules. Rate content based on how directly it maps to Windows Event Logs, Sysmon, or Linux auditd/Syslog data sources.
+You are a detection engineer evaluating cybersecurity blog content specifically for its suitability to create SIGMA detection rules. Rate content based on how directly it maps to structured log data sources including Windows Event Logs, Sysmon, Linux auditd/Syslog, AND cloud service logs (AWS CloudTrail, Azure Activity, GCP Audit).
 
 ## SIGMA-Focused Scoring (1-10 Scale)
 
-Only content that maps to log-based telemetry receives points. Ignore network payloads, binary analysis, or packet-level details.
+Only content that maps to structured log telemetry receives points. Ignore network payloads, binary analysis, or packet-level details.
 
 ## Important Notes
 
@@ -2236,46 +2244,49 @@ Only content that maps to log-based telemetry receives points. Ignore network pa
 
 ### Category A – Process Creation & Command-Line Arguments (0-4 pts)
 
-**Data Sources:** Sysmon Event ID 1, Windows Security 4688, Linux process logs
+**Data Sources:** Sysmon Event ID 1, Windows Security 4688, Linux process logs, cloud shell/CLI commands
 **Look For:**
 
 - Parent → child process chains with full paths
 - Exact command-line strings with arguments, switches, flags
 - Process execution sequences
+- **Cloud CLI commands** (aws, az, gcloud) with specific parameters
 
 **Scoring:**
 
-- 0 = No process details
-- 1 = Vague mentions ("runs PowerShell")
-- 2 = Partial arguments or missing parent-child relationships
+- 0 = No process/command details
+- 1 = Vague mentions ("runs PowerShell" or "uses AWS CLI")
+- 2 = Partial arguments or missing execution context
 - 3 = Detailed examples but limited coverage
-- 4 = Multiple detailed process chains with full arguments
+- 4 = Multiple detailed command chains with full arguments
 
-### Category B – Persistence & System Modification (0-3 pts)
+### Category B – Persistence & System/Service Modification (0-3 pts)
 
-**Data Sources:** Sysmon Event IDs 12/13/19/7045, Security 4697, Linux auditd
+**Data Sources:** Sysmon Event IDs 12/13/19/7045, Security 4697, Linux auditd, AWS CloudTrail, Azure Activity
 **Look For:**
 
 - Registry keys with exact paths and values
 - Service creation/modification details
 - Scheduled tasks or cron job configurations
-- Startup folder modifications
+- **Cloud service configurations** (IAM roles, SNS topics, Lambda functions, etc.)
+- API calls that establish persistence or modify services
 
 **Scoring:**
 
-- 0 = No persistence details
-- 1 = Generic mention ("creates persistence")
+- 0 = No persistence/modification details
+- 1 = Generic mention ("creates persistence" or "modifies cloud config")
 - 2 = Specific mechanism but incomplete details
-- 3 = Exact paths, keys, or configs ready for SIGMA rules
+- 3 = Exact configurations, API calls, or settings ready for SIGMA rules
 
 ### Category C – Log-Correlated Behavior (0-2 pts)
 
-**Data Sources:** Multiple Windows/Linux log sources in sequence
+**Data Sources:** Multiple log sources in sequence (Windows/Linux/Cloud)
 **Look For:**
 
-- Cross-log correlations (process → network, persistence → execution)
+- Cross-log correlations (process → network, cloud API → local execution)
 - Event sequences that can be chained in SIGMA rules
 - Time-based correlations between different log types
+- **Cloud service chains** (EC2 → SNS → external endpoint)
 
 **Scoring:**
 
@@ -2283,19 +2294,24 @@ Only content that maps to log-based telemetry receives points. Ignore network pa
 - 1 = Limited correlation opportunities
 - 2 = Clear multi-log correlation patterns
 
-### Category D – File/Path & Execution Patterns (0-1 pt)
+### Category D – Structured Log Patterns (0-1 pt)
 
-**Data Sources:** Sysmon FileCreate, Security 4663, Linux file access logs
+**Data Sources:** Any structured log format (file creation, API calls, service events)
 **Look For:**
 
 - File path patterns or naming conventions (not hashes)
-- Directory structures used by threats
-- File creation/modification patterns
+- **API call patterns** with specific parameters
+- Service usage patterns or anomalous configurations
+- Structured event patterns in any log format
 
 **Scoring:**
 
-- 0 = No usable file patterns
-- 1 = Clear file/path patterns present
+- 0 = No usable structured patterns
+- 1 = Clear structured patterns present
+
+## Important: Cloud Native Content
+
+**AWS CloudTrail, Azure Activity Logs, and GCP Audit Logs ARE valid SIGMA data sources.** Do not dismiss cloud-focused content. API calls, service configurations, and cloud command execution are all huntable through structured logs.
 
 ## Scoring Bands
 
@@ -2311,23 +2327,23 @@ Only content that maps to log-based telemetry receives points. Ignore network pa
 
 **CATEGORY BREAKDOWN:**
 
-- **Process/Command-Line (0-4):** [Score] - [Brief reasoning]
-- **Persistence/System Mods (0-3):** [Score] - [Brief reasoning]
+- **Process/Command-Line (0-4):** [Score] - [Brief reasoning including cloud CLI if applicable]
+- **Persistence/System Mods (0-3):** [Score] - [Brief reasoning including cloud services if applicable]
 - **Log Correlation (0-2):** [Score] - [Brief reasoning]
-- **File/Path Patterns (0-1):** [Score] - [Brief reasoning]
+- **Structured Patterns (0-1):** [Score] - [Brief reasoning]
 
 **SIGMA-READY OBSERVABLES:**
-[List specific elements that can directly become SIGMA rules]
+[List specific elements that can directly become SIGMA rules, including cloud API calls]
 
 **REQUIRED LOG SOURCES:**
-[Windows Event IDs, Sysmon events, or Linux log types needed]
+[Windows Event IDs, Sysmon events, Linux log types, OR cloud service logs needed]
 
 **RULE FEASIBILITY:**
 [Assessment of how quickly detection rules could be created]
 
 ## Instructions
 
-Analyze the provided blog content using only this SIGMA-focused rubric. Ignore network IOCs, binary analysis, or anything not mappable to Windows/Linux system logs. Focus exclusively on rule creation potential.
+Analyze the provided blog content using this SIGMA-focused rubric. Cloud service logs (CloudTrail, Azure Activity, etc.) are valid SIGMA data sources. Focus on structured log patterns regardless of platform. Ignore only unstructured data like network payloads or binary analysis.
 
 Please analyze the following blog content:
 

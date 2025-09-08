@@ -605,7 +605,10 @@ WINDOWS_MALWARE_KEYWORDS = {
     ],
     'good_discriminators': [
         'temp', '==', 'c:\\windows\\', 'Event ID', '.bat', '.ps1',
-        'pipe', '::', '[.]', '-->', 'currentversion', 'EventCode'
+        'pipe', '::', '[.]', '-->', 'currentversion', 'EventCode',
+        'Monitor', 'Executable', 'Detection', 'Alert on', 'Hunt for',
+        'Hunting', 'Create Detections', 'KQL', 'Search Query', '//',
+        'http:', 'hxxp', '->', '.exe', '--'
     ],
     'lolbas_executables': [
         'certutil.exe', 'cmd.exe', 'reg.exe', 'schtasks.exe', 'wmic.exe',
@@ -703,8 +706,15 @@ class ThreatHuntingScorer:
         # Escape special regex characters
         escaped_keyword = re.escape(keyword)
         
-        # Create pattern with word boundaries for whole word matching
-        pattern = r'\b' + escaped_keyword + r'\b'
+        # For certain keywords, allow partial matches (like "hunting" in "threat hunting")
+        partial_match_keywords = ['hunting', 'detection', 'monitor', 'alert', 'executable']
+        
+        if keyword.lower() in partial_match_keywords:
+            # Allow partial matches for these keywords
+            pattern = escaped_keyword
+        else:
+            # Use word boundaries for other keywords
+            pattern = r'\b' + escaped_keyword + r'\b'
         
         return bool(re.search(pattern, text, re.IGNORECASE))
     
