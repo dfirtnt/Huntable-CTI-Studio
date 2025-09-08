@@ -142,7 +142,7 @@ class ArticleFilter(BaseModel):
         """Validate sort_by field."""
         valid_fields = [
             'id', 'title', 'published_at', 'discovered_at', 'modified_at',
-            'source_id', 'quality_score', 'threat_hunting_score', 'word_count', 'processing_status'
+            'source_id', 'quality_score', 'threat_hunting_score', 'word_count', 'processing_status', 'annotation_count'
         ]
         if v not in valid_fields:
             raise ValueError(f'sort_by must be one of: {", ".join(valid_fields)}')

@@ -496,11 +496,30 @@ class AsyncDatabaseManager:
                     db_article = row[0]  # ArticleTable object
                     annotation_count = row[1]  # annotation_count
                     
-                    article = self._db_article_to_model(db_article)
-                    # Add annotation count to the article metadata
-                    if not hasattr(article, 'metadata') or article.metadata is None:
-                        article.metadata = {}
-                    article.metadata['annotation_count'] = annotation_count
+                    # Create article with updated metadata including annotation count
+                    article_data = {
+                        'id': db_article.id,
+                        'source_id': db_article.source_id,
+                        'canonical_url': db_article.canonical_url,
+                        'title': db_article.title,
+                        'published_at': db_article.published_at,
+                        'modified_at': db_article.modified_at,
+                        'authors': db_article.authors,
+                        'tags': db_article.tags,
+                        'summary': db_article.summary,
+                        'content': db_article.content,
+                        'content_hash': db_article.content_hash,
+                        'metadata': dict(db_article.article_metadata) if db_article.article_metadata else {},
+                        'quality_score': db_article.quality_score,
+                        'word_count': db_article.word_count,
+                        'discovered_at': db_article.discovered_at,
+                        'processing_status': db_article.processing_status
+                    }
+                    
+                    # Add annotation count to metadata
+                    article_data['metadata']['annotation_count'] = annotation_count
+                    
+                    article = Article(**article_data)
                     articles.append(article)
                 
                 return articles
