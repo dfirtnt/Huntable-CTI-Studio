@@ -460,16 +460,44 @@
         const contentElement = document.getElementById('article-content');
         if (!contentElement) return;
         
+        // Temporarily disable annotation highlighting to preserve keyword highlighting
+        // The keyword highlighting from the server-side Jinja2 filter is more important
+        console.log('Annotation highlighting disabled to preserve keyword highlighting');
+        return;
+        
         // Don't overwrite the content if there are no annotations to highlight
         if (!annotations || annotations.length === 0) {
             return;
         }
         
-        const content = contentElement.innerHTML;
-        let highlightedContent = content;
+        // Get the text content and work with text positions instead of HTML
+        const textContent = contentElement.textContent;
+        const textLength = textContent.length;
+        
+        // Create a mapping of text positions to HTML positions
+        let htmlPos = 0;
+        let textPos = 0;
+        const positionMap = [];
+        
+        while (htmlPos < contentElement.innerHTML.length && textPos < textLength) {
+            const char = contentElement.innerHTML[htmlPos];
+            if (char === '<') {
+                // Skip HTML tags
+                while (htmlPos < contentElement.innerHTML.length && contentElement.innerHTML[htmlPos] !== '>') {
+                    htmlPos++;
+                }
+                htmlPos++; // Skip the '>'
+            } else {
+                positionMap[textPos] = htmlPos;
+                htmlPos++;
+                textPos++;
+            }
+        }
         
         // Sort annotations by start position (descending) to avoid offset issues
         const sortedAnnotations = annotations.sort((a, b) => b.start_position - a.start_position);
+        
+        let modifiedHTML = contentElement.innerHTML;
         
         sortedAnnotations.forEach(annotation => {
             const { selected_text, start_position, end_position, annotation_type } = annotation;
@@ -481,14 +509,16 @@
             
             const highlightSpan = `<span class="px-1 py-0.5 rounded text-xs font-medium border ${highlightClass}" title="${annotation_type === 'huntable' ? 'Huntable' : 'Not Huntable'}: ${selected_text.substring(0, 50)}...">${selected_text}</span>`;
             
-            // Only replace text that's not already inside a span (to preserve keyword highlighting)
-            const escapedText = selected_text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-            // Use a more sophisticated approach to avoid replacing text inside existing spans
-            const regex = new RegExp(`\\b${escapedText}\\b(?![^<]*>)`, 'gi');
-            highlightedContent = highlightedContent.replace(regex, highlightSpan);
+            // Find the text in the HTML and replace it, but only if it's not already inside a span
+            const textToReplace = selected_text;
+            const escapedText = textToReplace.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            
+            // Use a more sophisticated regex that avoids replacing text inside existing spans
+            const regex = new RegExp(`(?![^<]*>)\\b${escapedText}\\b(?![^<]*>)`, 'gi');
+            modifiedHTML = modifiedHTML.replace(regex, highlightSpan);
         });
         
-        contentElement.innerHTML = highlightedContent;
+        contentElement.innerHTML = modifiedHTML;
     }
     
     // Classification functions
