@@ -460,6 +460,11 @@
         const contentElement = document.getElementById('article-content');
         if (!contentElement) return;
         
+        // Don't overwrite the content if there are no annotations to highlight
+        if (!annotations || annotations.length === 0) {
+            return;
+        }
+        
         const content = contentElement.innerHTML;
         let highlightedContent = content;
         
@@ -476,10 +481,10 @@
             
             const highlightSpan = `<span class="px-1 py-0.5 rounded text-xs font-medium border ${highlightClass}" title="${annotation_type === 'huntable' ? 'Huntable' : 'Not Huntable'}: ${selected_text.substring(0, 50)}...">${selected_text}</span>`;
             
-            // Replace the text in the content
-            // Note: This is a simple approach - for production, you might want more sophisticated text matching
+            // Only replace text that's not already inside a span (to preserve keyword highlighting)
             const escapedText = selected_text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-            const regex = new RegExp(escapedText, 'gi');
+            // Use a more sophisticated approach to avoid replacing text inside existing spans
+            const regex = new RegExp(`\\b${escapedText}\\b(?![^<]*>)`, 'gi');
             highlightedContent = highlightedContent.replace(regex, highlightSpan);
         });
         
