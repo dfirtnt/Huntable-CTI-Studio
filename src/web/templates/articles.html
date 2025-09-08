@@ -261,7 +261,7 @@
                                id="select-all-matching" 
                                class="mr-2 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                                onchange="toggleSelectAllMatching()">
-                        Select All Matching
+                        Select All Visible
                     </label>
                     {% endif %}
                 </div>
@@ -281,7 +281,7 @@
                     <div class="flex items-center space-x-2">
                         <button onclick="selectAllVisible()" 
                                 class="text-sm text-blue-600 hover:text-blue-800 underline">
-                            Select All Matching
+                            Select All Visible
                         </button>
                         <span class="text-blue-400">|</span>
                         <button onclick="clearSelection()" 
@@ -1077,42 +1077,13 @@
     
     async function selectAllVisible() {
         try {
-            // Get current filter parameters from URL
-            const urlParams = new URLSearchParams(window.location.search);
-            const currentFilters = {
-                search: urlParams.get('search') || '',
-                source: urlParams.get('source') || '',
-                source_id: urlParams.get('source_id') || '',
-                classification: urlParams.get('classification') || '',
-                threat_hunting_range: urlParams.get('threat_hunting_range') || '',
-                title_only: urlParams.get('title_only') || ''
-            };
-            
-            // Build API URL with current filters
-            const apiParams = new URLSearchParams();
-            Object.entries(currentFilters).forEach(([key, value]) => {
-                if (value) {
-                    apiParams.append(key, value);
-                }
-            });
-            apiParams.append('per_page', '1000'); // Get all matching articles
-            
-            const response = await fetch(`/api/articles?${apiParams.toString()}`);
-            if (!response.ok) {
-                throw new Error('Failed to fetch articles');
-            }
-            
-            const data = await response.json();
-            const allArticleIds = data.articles.map(article => article.id.toString());
-            
-            // Select all checkboxes that match the fetched article IDs
+            // Simply select all visible checkboxes on the current page
             const checkboxes = document.querySelectorAll('.bulk-select-checkbox');
-            let visibleSelectedCount = 0;
+            let selectedCount = 0;
+            
             checkboxes.forEach(checkbox => {
-                if (allArticleIds.includes(checkbox.dataset.articleId)) {
-                    checkbox.checked = true;
-                    visibleSelectedCount++;
-                }
+                checkbox.checked = true;
+                selectedCount++;
             });
             
             // Update the Select All Matching checkbox state
@@ -1124,8 +1095,8 @@
             
             updateBulkActions();
             
-            // Show notification with accurate count
-            showNotification(`Selected ${allArticleIds.length} articles matching current filters (${visibleSelectedCount} visible).`, 'success');
+            // Show notification with count of visible articles selected
+            showNotification(`Selected ${selectedCount} articles on current page.`, 'success');
             
         } catch (error) {
             console.error('Error selecting all articles:', error);
