@@ -436,8 +436,8 @@
         const currentClassification = '{{ article.metadata.get("training_category", "") }}';
         localStorage.setItem('currentArticleClassification', currentClassification);
         
-        // Load settings
-        loadSettings();
+        // Load existing annotations
+        loadExistingAnnotations();
     });
     
     // Load existing annotations and highlight them
