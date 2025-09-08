@@ -223,11 +223,26 @@
         
         <!-- GPT4o Ranking Results -->
         <div id="gpt4o-ranking-results" class="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg" style="display: none;">
-            <h3 class="text-lg font-semibold text-blue-900 mb-3">📊 GPT4o SIGMA Huntability Analysis</h3>
-            <div id="gpt4o-ranking-content" class="text-sm text-blue-800">
+            <div class="flex items-center justify-between cursor-pointer" onclick="toggleGPT4oRanking()">
+                <h3 class="text-lg font-semibold text-blue-900 mb-0">📊 GPT4o SIGMA Huntability Analysis</h3>
+                <span id="gpt4o-toggle-icon" class="text-blue-600 text-xl">▼</span>
+            </div>
+            <div id="gpt4o-ranking-content" class="text-sm text-blue-800 mt-3" style="display: none;">
                 <!-- Results will be populated here -->
             </div>
         </div>
+        
+        <!-- Load existing GPT4o ranking if available -->
+        {% if article.metadata and article.metadata.get('gpt4o_ranking') %}
+        <script>
+            document.addEventListener('DOMContentLoaded', function() {
+                const existingRanking = {{ article.metadata.get('gpt4o_ranking') | tojson }};
+                if (existingRanking && existingRanking.analysis) {
+                    displayGPT4oRanking(existingRanking.analysis);
+                }
+            });
+        </script>
+        {% endif %}
         
         <!-- Classification Buttons -->
         <div class="flex flex-wrap gap-4 mb-6">
@@ -1538,7 +1553,6 @@
     // GPT4o Ranking Function
     async function rankWithGPT4o() {
         const articleId = {{ article.id }};
-        const articleUrl = '{{ article.canonical_url }}';
         
         // Get API key from settings
         const settings = JSON.parse(localStorage.getItem('ctiScraperSettings') || '{}');
@@ -1562,7 +1576,6 @@
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
-                    url: articleUrl,
                     api_key: apiKey
                 })
             });
@@ -1597,6 +1610,19 @@
         
         // Scroll to results
         resultsDiv.scrollIntoView({ behavior: 'smooth' });
+    }
+    
+    function toggleGPT4oRanking() {
+        const contentDiv = document.getElementById('gpt4o-ranking-content');
+        const toggleIcon = document.getElementById('gpt4o-toggle-icon');
+        
+        if (contentDiv.style.display === 'none') {
+            contentDiv.style.display = 'block';
+            toggleIcon.textContent = '▼';
+        } else {
+            contentDiv.style.display = 'none';
+            toggleIcon.textContent = '▶';
+        }
     }
     
     function showCustomPromptModal() {

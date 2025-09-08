@@ -2204,11 +2204,18 @@ async def api_gpt4o_rank(article_id: int, request: Request):
         article_url = body.get('url')
         api_key = body.get('api_key')  # Get API key from request
         
-        if not article_url:
-            raise HTTPException(status_code=400, detail="URL is required")
-        
         if not api_key:
             raise HTTPException(status_code=400, detail="OpenAI API key is required. Please configure it in Settings.")
+        
+        # Prepare the article content for analysis
+        if not article.content:
+            raise HTTPException(status_code=400, detail="Article content is required for analysis")
+        
+        # Truncate content if too long (GPT4o has 128K token limit, roughly 500K characters)
+        max_chars = 400000  # Leave room for prompt
+        content_to_analyze = article.content
+        if len(content_to_analyze) > max_chars:
+            content_to_analyze = content_to_analyze[:max_chars] + "\n\n[Content truncated due to length]"
         
         # SIGMA-focused prompt
         sigma_prompt = """# Blog Content SIGMA-Suitability Huntability Ranking System
@@ -2322,10 +2329,26 @@ Only content that maps to log-based telemetry receives points. Ignore network pa
 
 Analyze the provided blog content using only this SIGMA-focused rubric. Ignore network IOCs, binary analysis, or anything not mappable to Windows/Linux system logs. Focus exclusively on rule creation potential.
 
-Please analyze the following blog post: {url}"""
+Please analyze the following blog content:
+
+**Title:** {title}
+**Source:** {source}
+**URL:** {url}
+
+**Content:**
+{content}"""
         
-        # Prepare the prompt with the URL
-        full_prompt = sigma_prompt.format(url=article_url)
+        # Get the source name from source_id
+        source = await async_db_manager.get_source(article.source_id)
+        source_name = source.name if source else f"Source {article.source_id}"
+        
+        # Prepare the prompt with the article content
+        full_prompt = sigma_prompt.format(
+            title=article.title,
+            source=source_name,
+            url=article.canonical_url,
+            content=content_to_analyze
+        )
         
         # Call OpenAI API
         async with httpx.AsyncClient() as client:
@@ -2356,6 +2379,21 @@ Please analyze the following blog post: {url}"""
             
             result = response.json()
             analysis = result['choices'][0]['message']['content']
+        
+        # Save the analysis to the article's metadata
+        if article.metadata is None:
+            article.metadata = {}
+        
+        article.metadata['gpt4o_ranking'] = {
+            'analysis': analysis,
+            'timestamp': datetime.utcnow().isoformat(),
+            'model': 'gpt-4o'
+        }
+        
+        # Update the article in the database
+        from src.models.article import ArticleUpdate
+        update_data = ArticleUpdate(metadata=article.metadata)
+        await async_db_manager.update_article(article_id, update_data)
         
         return {
             "success": True,
