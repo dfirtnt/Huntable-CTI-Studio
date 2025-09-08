@@ -31,7 +31,7 @@
                 <label for="search" class="block text-sm font-medium text-gray-700 mb-1">Search</label>
                 <div class="relative">
                     <input type="text" name="search" id="search" autofocus value="{{ filters.search or '' }}" 
-                           placeholder="Search with AND, OR, NOT logic..." 
+                           placeholder="Search titles, content, or use boolean logic..." 
                            title="{{ filters.search or '' }}"
                            class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-sm"
                            style="font-family: monospace;">
@@ -43,7 +43,7 @@
                     </button>
                 </div>
                 <div id="search-help" class="hidden mt-2 p-3 bg-blue-50 border border-blue-200 rounded-md text-sm text-blue-800">
-                    <h4 class="font-medium mb-2">Boolean Search Syntax:</h4>
+                    <h4 class="font-medium mb-2">Search Syntax:</h4>
                     <ul class="space-y-1 text-xs">
                         <li>• <strong>Simple terms:</strong> malware, ransomware</li>
                         <li>• <strong>AND operator:</strong> malware AND ransomware</li>
@@ -51,6 +51,16 @@
                         <li>• <strong>NOT operator:</strong> malware NOT ransomware</li>
                         <li>• <strong>Quoted phrases:</strong> "advanced persistent threat"</li>
                     </ul>
+                    
+                    <div class="mt-3">
+                        <h5 class="font-medium mb-2">🎯 Title-Specific Search Examples:</h5>
+                        <ul class="space-y-1 text-xs">
+                            <li>• <strong>Find by title:</strong> "CrowdStrike" (searches titles and content)</li>
+                            <li>• <strong>Title contains:</strong> "APT" AND "analysis"</li>
+                            <li>• <strong>Exclude titles:</strong> NOT "webinar" NOT "training"</li>
+                            <li>• <strong>Wildcard titles:</strong> "malware*" (matches malware, malicious, etc.)</li>
+                        </ul>
+                    </div>
                     
                     <div class="mt-4">
                         <h5 class="font-medium mb-2">🎯 Predefined Intelligence Search Patterns:</h5>
