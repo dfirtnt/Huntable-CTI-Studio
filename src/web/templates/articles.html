@@ -1030,13 +1030,16 @@
             if (allCheckboxes.length === 0) {
                 selectAllCheckbox.indeterminate = false;
                 selectAllCheckbox.checked = false;
-            } else if (checkboxes.length === allCheckboxes.length) {
+            } else if (checkboxes.length === allCheckboxes.length && allCheckboxes.length > 0) {
+                // All visible articles are selected
                 selectAllCheckbox.indeterminate = false;
                 selectAllCheckbox.checked = true;
             } else if (checkboxes.length > 0) {
+                // Some visible articles are selected
                 selectAllCheckbox.indeterminate = true;
                 selectAllCheckbox.checked = false;
             } else {
+                // No visible articles are selected
                 selectAllCheckbox.indeterminate = false;
                 selectAllCheckbox.checked = false;
             }
@@ -1104,16 +1107,25 @@
             
             // Select all checkboxes that match the fetched article IDs
             const checkboxes = document.querySelectorAll('.bulk-select-checkbox');
+            let visibleSelectedCount = 0;
             checkboxes.forEach(checkbox => {
                 if (allArticleIds.includes(checkbox.dataset.articleId)) {
                     checkbox.checked = true;
+                    visibleSelectedCount++;
                 }
             });
             
+            // Update the Select All Matching checkbox state
+            const selectAllCheckbox = document.getElementById('select-all-matching');
+            if (selectAllCheckbox) {
+                selectAllCheckbox.checked = true;
+                selectAllCheckbox.indeterminate = false;
+            }
+            
             updateBulkActions();
             
-            // Show notification
-            showNotification(`Selected ${allArticleIds.length} articles matching current filters.`, 'success');
+            // Show notification with accurate count
+            showNotification(`Selected ${allArticleIds.length} articles matching current filters (${visibleSelectedCount} visible).`, 'success');
             
         } catch (error) {
             console.error('Error selecting all articles:', error);
