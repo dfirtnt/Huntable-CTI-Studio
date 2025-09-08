@@ -446,6 +446,7 @@
             this.enableAnnotationClicking();
         }
         
+        
         async loadExistingClassifications() {
             try {
                 console.log('Loading existing classifications for article {{ article.id }}');
@@ -531,42 +532,60 @@
             
             const highlightSpan = `<span class="px-1 py-0.5 rounded text-xs font-medium border ${cssClass}" title="${classification === 'huntable' ? 'Huntable' : 'Not Huntable'}: ${text.substring(0, 50)}...">${text}</span>`;
             
-            // Try multiple approaches to find and replace the text
+            // Debug: Log what we're looking for vs what's in the content
+            console.log('=== TEXT REPLACEMENT DEBUG ===');
+            console.log('Looking for text:', JSON.stringify(text));
+            console.log('Text length:', text.length);
+            console.log('Content preview:', content.substring(0, 500));
+            
+            // Use a more reliable approach - replace only the first occurrence
             let newContent = content;
             let replaced = false;
             
-            // Approach 1: Exact match
-            if (content.includes(text)) {
-                const index = content.indexOf(text);
+            // Approach 1: Exact match using indexOf (most reliable)
+            const index = content.indexOf(text);
+            console.log('Exact match index:', index);
+            
+            if (index !== -1) {
+                // Verify this is actually the text we want to replace
+                const beforeText = content.substring(Math.max(0, index - 20), index);
+                const afterText = content.substring(index + text.length, index + text.length + 20);
+                console.log('Context before:', beforeText);
+                console.log('Context after:', afterText);
+                
                 newContent = content.substring(0, index) + highlightSpan + content.substring(index + text.length);
                 console.log('Found exact text match, replaced');
                 replaced = true;
             } else {
-                // Approach 2: Try with regex (word boundaries)
-                const escapedText = text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-                const regex = new RegExp(`(?![^<]*>)\\b${escapedText}\\b(?![^<]*>)`, 'gi');
+                console.log('Exact match failed, trying different approaches...');
                 
-                const match = regex.exec(content);
-                if (match) {
-                    const index = match.index;
-                    newContent = content.substring(0, index) + highlightSpan + content.substring(index + match[0].length);
-                    console.log('Found regex match, replaced');
+                // Approach 2: Try with HTML entities decoded
+                const decodedText = text.replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'");
+                const decodedIndex = content.indexOf(decodedText);
+                console.log('Decoded text match index:', decodedIndex);
+                
+                if (decodedIndex !== -1) {
+                    newContent = content.substring(0, decodedIndex) + highlightSpan + content.substring(decodedIndex + decodedText.length);
+                    console.log('Found decoded text match, replaced');
                     replaced = true;
                 } else {
-                    // Approach 3: Try without word boundaries (for text with special chars)
-                    const simpleRegex = new RegExp(escapedText, 'gi');
-                    const simpleMatch = simpleRegex.exec(content);
-                    if (simpleMatch) {
-                        const index = simpleMatch.index;
-                        newContent = content.substring(0, index) + highlightSpan + content.substring(index + simpleMatch[0].length);
-                        console.log('Found simple regex match, replaced');
+                    // Approach 3: Try with a longer substring (up to 500 chars)
+                    const longerText = text.substring(0, Math.min(500, text.length));
+                    const longerIndex = content.indexOf(longerText);
+                    console.log('Longer text match index:', longerIndex);
+                    
+                    if (longerIndex !== -1) {
+                        newContent = content.substring(0, longerIndex) + highlightSpan + content.substring(longerIndex + longerText.length);
+                        console.log('Found longer text match, replaced');
                         replaced = true;
                     } else {
-                        // Approach 4: Try with a shorter substring
-                        const shortText = text.substring(0, Math.min(50, text.length));
-                        if (content.includes(shortText)) {
-                            const index = content.indexOf(shortText);
-                            newContent = content.substring(0, index) + highlightSpan + content.substring(index + shortText.length);
+                        // Approach 4: Try with a shorter substring as last resort
+                        const shortText = text.substring(0, Math.min(100, text.length));
+                        const shortIndex = content.indexOf(shortText);
+                        console.log('Short text match index:', shortIndex);
+                        
+                        if (shortIndex !== -1) {
+                            newContent = content.substring(0, shortIndex) + highlightSpan + content.substring(shortIndex + shortText.length);
                             console.log('Found short text match, replaced');
                             replaced = true;
                         } else {
@@ -578,6 +597,8 @@
                     }
                 }
             }
+            
+            console.log('=== END DEBUG ===');
             
             // Save state before making changes
             this.saveState();

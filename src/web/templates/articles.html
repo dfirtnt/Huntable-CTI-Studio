@@ -42,6 +42,14 @@
                         </svg>
                     </button>
                 </div>
+                <div class="mt-2">
+                    <label class="flex items-center text-sm text-gray-600">
+                        <input type="checkbox" name="title_only" id="title-only" value="1" 
+                               {% if filters.title_only %}checked{% endif %}
+                               class="mr-2 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
+                        Search titles only
+                    </label>
+                </div>
                 <div id="search-help" class="hidden mt-2 p-3 bg-blue-50 border border-blue-200 rounded-md text-sm text-blue-800">
                     <h4 class="font-medium mb-2">Search Syntax:</h4>
                     <ul class="space-y-1 text-xs">
@@ -859,7 +867,8 @@
             threat_hunting_range: document.getElementById('threat-hunting-range')?.value || '',
             per_page: document.getElementById('per-page')?.value || '100',
             sort_by: document.getElementById('sort-by')?.value || 'threat_hunting_score',
-            sort_order: document.getElementById('sort-order')?.value || 'desc'
+            sort_order: document.getElementById('sort-order')?.value || 'desc',
+            title_only: document.getElementById('title-only')?.checked || false
         };
         
         sessionStorage.setItem('cti_articles_settings', JSON.stringify(settings));
@@ -899,6 +908,9 @@
                 if (settings.sort_order && document.getElementById('sort-order')) {
                     document.getElementById('sort-order').value = settings.sort_order;
                 }
+                if (settings.title_only !== undefined && document.getElementById('title-only')) {
+                    document.getElementById('title-only').checked = settings.title_only;
+                }
             }
         } catch (e) {
             console.error('Failed to load session settings:', e);
@@ -910,7 +922,7 @@
         loadSessionSettings();
         
         // Save settings when form elements change
-        const formElements = ['search', 'source', 'classification', 'threat-hunting-range', 'per-page', 'sort-by', 'sort-order'];
+        const formElements = ['search', 'source', 'classification', 'threat-hunting-range', 'per-page', 'sort-by', 'sort-order', 'title-only'];
         formElements.forEach(id => {
             const element = document.getElementById(id);
             if (element) {

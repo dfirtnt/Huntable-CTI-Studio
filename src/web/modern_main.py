@@ -903,7 +903,8 @@ async def articles_list(
     per_page: Optional[int] = 100,
     page: Optional[int] = 1,
     sort_by: str = "threat_hunting_score",
-    sort_order: str = "desc"
+    sort_order: str = "desc",
+    title_only: Optional[bool] = False
 ):
     """Articles listing page with sorting and filtering."""
     try:
@@ -921,29 +922,37 @@ async def articles_list(
         
         # Search filter with boolean logic
         if search:
-            # Convert articles to dict format for the search parser
-            articles_dict = [
-                {
-                    'id': article.id,
-                    'title': article.title,
-                    'content': article.content,
-                    'source_id': article.source_id,
-                    'published_at': article.published_at,
-                    'canonical_url': article.canonical_url,
-                    'metadata': article.metadata
-                }
-                for article in filtered_articles
-            ]
-            
-            # Apply boolean search filtering
-            filtered_dicts = parse_boolean_search(search, articles_dict)
-            
-            # Convert back to article objects
-            filtered_article_ids = {article['id'] for article in filtered_dicts}
-            filtered_articles = [
-                article for article in filtered_articles
-                if article.id in filtered_article_ids
-            ]
+            if title_only:
+                # Title-only search using simple filtering
+                filtered_articles = [
+                    article for article in filtered_articles
+                    if search.lower() in article.title.lower()
+                ]
+            else:
+                # Full search with boolean logic
+                # Convert articles to dict format for the search parser
+                articles_dict = [
+                    {
+                        'id': article.id,
+                        'title': article.title,
+                        'content': article.content,
+                        'source_id': article.source_id,
+                        'published_at': article.published_at,
+                        'canonical_url': article.canonical_url,
+                        'metadata': article.metadata
+                    }
+                    for article in filtered_articles
+                ]
+                
+                # Apply boolean search filtering
+                filtered_dicts = parse_boolean_search(search, articles_dict)
+                
+                # Convert back to article objects
+                filtered_article_ids = {article['id'] for article in filtered_dicts}
+                filtered_articles = [
+                    article for article in filtered_articles
+                    if article.id in filtered_article_ids
+                ]
         
         # Source filter
         if source_id:
@@ -1033,7 +1042,8 @@ async def articles_list(
             "classification": classification or "",
             "threat_hunting_range": threat_hunting_range or "",
             "sort_by": sort_by,
-            "sort_order": sort_order
+            "sort_order": sort_order,
+            "title_only": title_only
         }
         
         # Get classification statistics from filtered articles
