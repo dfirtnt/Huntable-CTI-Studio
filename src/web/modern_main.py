@@ -1235,6 +1235,73 @@ async def api_classify_article(article_id: int, request: Request):
         logger.error(f"API classify article error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.post("/api/articles/bulk-action")
+async def api_bulk_action(request: Request):
+    """API endpoint for performing bulk actions on multiple articles."""
+    try:
+        body = await request.json()
+        action = body.get('action')
+        article_ids = body.get('article_ids', [])
+        
+        if not action:
+            raise HTTPException(status_code=400, detail="Action is required")
+        
+        if not article_ids:
+            raise HTTPException(status_code=400, detail="Article IDs are required")
+        
+        if action not in ['chosen', 'rejected', 'unclassified', 'delete']:
+            raise HTTPException(status_code=400, detail="Invalid action")
+        
+        processed_count = 0
+        errors = []
+        
+        for article_id in article_ids:
+            try:
+                if action == 'delete':
+                    # Delete the article
+                    await async_db_manager.delete_article(article_id)
+                    processed_count += 1
+                else:
+                    # Update classification
+                    article = await async_db_manager.get_article(article_id)
+                    if not article:
+                        errors.append(f"Article {article_id} not found")
+                        continue
+                    
+                    # Prepare metadata update
+                    from src.models.article import ArticleUpdate
+                    
+                    # Get current metadata or create new
+                    current_metadata = article.metadata.copy() if article.metadata else {}
+                    
+                    # Update metadata with classification
+                    current_metadata['training_category'] = action
+                    current_metadata['training_categorized_at'] = datetime.now().isoformat()
+                    
+                    # Create update object
+                    update_data = ArticleUpdate(metadata=current_metadata)
+                    
+                    # Save the updated article
+                    await async_db_manager.update_article(article_id, update_data)
+                    processed_count += 1
+                    
+            except Exception as e:
+                errors.append(f"Article {article_id}: {str(e)}")
+                logger.error(f"Bulk action error for article {article_id}: {e}")
+        
+        return {
+            "success": True,
+            "processed_count": processed_count,
+            "total_requested": len(article_ids),
+            "errors": errors
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"API bulk action error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.post("/api/articles/{article_id}/analyze-threat-hunting")
 async def api_analyze_threat_hunting(article_id: int, request: Request):
     """API endpoint for analyzing an article with CustomGPT for threat hunting and detection engineering."""

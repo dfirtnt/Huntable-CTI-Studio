@@ -260,13 +260,58 @@
             </div>
         </div>
 
+        <!-- Bulk Actions Toolbar -->
+        <div id="bulk-actions-toolbar" class="hidden px-6 py-3 bg-blue-50 border-b border-blue-200">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-4">
+                    <span class="text-sm font-medium text-blue-900">
+                        <span id="selected-count">0</span> articles selected
+                    </span>
+                    <div class="flex items-center space-x-2">
+                        <button onclick="selectAllVisible()" 
+                                class="text-sm text-blue-600 hover:text-blue-800 underline">
+                            Select All
+                        </button>
+                        <span class="text-blue-400">|</span>
+                        <button onclick="clearSelection()" 
+                                class="text-sm text-blue-600 hover:text-blue-800 underline">
+                            Clear Selection
+                        </button>
+                    </div>
+                </div>
+                <div class="flex items-center space-x-2">
+                    <button onclick="bulkAction('chosen')" 
+                            class="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded text-white bg-green-600 hover:bg-green-700 transition-colors">
+                        ✅ Mark as Chosen
+                    </button>
+                    <button onclick="bulkAction('rejected')" 
+                            class="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded text-white bg-red-600 hover:bg-red-700 transition-colors">
+                        ❌ Reject
+                    </button>
+                    <button onclick="bulkAction('unclassified')" 
+                            class="inline-flex items-center px-3 py-1.5 border border-gray-300 text-xs font-medium rounded text-gray-700 bg-white hover:bg-gray-50 transition-colors">
+                        ⏳ Unclassify
+                    </button>
+                    <button onclick="bulkAction('delete')" 
+                            class="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded text-white bg-red-800 hover:bg-red-900 transition-colors">
+                        🗑️ Delete
+                    </button>
+                </div>
+            </div>
+        </div>
+
         {% if articles %}
         <div class="divide-y divide-gray-200">
             {% for article in articles %}
             <div class="px-6 py-4 hover:bg-gray-50 transition-colors">
                 <div class="flex items-start justify-between">
-                    <div class="flex-1 min-w-0">
-                        <div class="flex items-center space-x-2 mb-2">
+                    <div class="flex items-start space-x-3">
+                        <input type="checkbox" 
+                               class="bulk-select-checkbox mt-1 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded" 
+                               data-article-id="{{ article.id }}"
+                               onchange="updateBulkActions()">
+                        <div class="flex-1 min-w-0">
+                            <div class="flex items-center space-x-2 mb-2">
                             <a href="/articles/{{ article.id }}" class="text-lg font-medium text-blue-600 hover:text-blue-800">
                                 {{ article.title }}
                             </a>
@@ -386,6 +431,7 @@
                                 Original Source
                             </a>
                             {% endif %}
+                        </div>
                         </div>
                     </div>
                 </div>
@@ -951,5 +997,104 @@
     
     // Initialize sort indicators on page load
     document.addEventListener('DOMContentLoaded', updateSortIndicators);
+    
+    // Bulk Actions Functions
+    function updateBulkActions() {
+        const checkboxes = document.querySelectorAll('.bulk-select-checkbox:checked');
+        const toolbar = document.getElementById('bulk-actions-toolbar');
+        const countSpan = document.getElementById('selected-count');
+        
+        countSpan.textContent = checkboxes.length;
+        
+        if (checkboxes.length > 0) {
+            toolbar.classList.remove('hidden');
+        } else {
+            toolbar.classList.add('hidden');
+        }
+    }
+    
+    function selectAllVisible() {
+        const checkboxes = document.querySelectorAll('.bulk-select-checkbox');
+        checkboxes.forEach(checkbox => {
+            checkbox.checked = true;
+        });
+        updateBulkActions();
+    }
+    
+    function clearSelection() {
+        const checkboxes = document.querySelectorAll('.bulk-select-checkbox');
+        checkboxes.forEach(checkbox => {
+            checkbox.checked = false;
+        });
+        updateBulkActions();
+    }
+    
+    function getSelectedArticleIds() {
+        const checkboxes = document.querySelectorAll('.bulk-select-checkbox:checked');
+        return Array.from(checkboxes).map(checkbox => checkbox.dataset.articleId);
+    }
+    
+    async function bulkAction(action) {
+        const articleIds = getSelectedArticleIds();
+        
+        if (articleIds.length === 0) {
+            alert('Please select at least one article.');
+            return;
+        }
+        
+        // Confirmation for destructive actions
+        if (action === 'delete') {
+            const confirmed = confirm(`Are you sure you want to delete ${articleIds.length} article(s)? This action cannot be undone.`);
+            if (!confirmed) return;
+        }
+        
+        try {
+            const response = await fetch('/api/articles/bulk-action', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    action: action,
+                    article_ids: articleIds
+                })
+            });
+            
+            if (!response.ok) {
+                throw new Error('Failed to perform bulk action');
+            }
+            
+            const result = await response.json();
+            
+            // Show success message
+            showNotification(`Successfully ${action === 'delete' ? 'deleted' : 'updated'} ${result.processed_count} article(s).`, 'success');
+            
+            // Clear selection and reload page
+            clearSelection();
+            window.location.reload();
+            
+        } catch (error) {
+            console.error('Bulk action error:', error);
+            showNotification('Failed to perform bulk action. Please try again.', 'error');
+        }
+    }
+    
+    function showNotification(message, type = 'info') {
+        // Create notification element
+        const notification = document.createElement('div');
+        notification.className = `fixed top-4 right-4 z-50 px-6 py-3 rounded-md shadow-lg text-white ${
+            type === 'success' ? 'bg-green-500' : 
+            type === 'error' ? 'bg-red-500' : 
+            'bg-blue-500'
+        }`;
+        notification.textContent = message;
+        
+        document.body.appendChild(notification);
+        
+        // Remove after 3 seconds
+        setTimeout(() => {
+            notification.remove();
+        }, 3000);
+    }
 </script>
 {% endblock %}
