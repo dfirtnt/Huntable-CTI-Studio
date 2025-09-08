@@ -2261,6 +2261,33 @@ async def delete_annotation(annotation_id: int):
         logger.error(f"Failed to delete annotation: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.delete("/api/articles/{article_id}")
+async def delete_article(article_id: int):
+    """Delete an article and all its related data."""
+    try:
+        # Verify article exists first
+        article = await async_db_manager.get_article(article_id)
+        if not article:
+            raise HTTPException(status_code=404, detail="Article not found")
+        
+        # Delete the article and all related data
+        success = await async_db_manager.delete_article(article_id)
+        if not success:
+            raise HTTPException(status_code=500, detail="Failed to delete article")
+        
+        logger.info(f"Deleted article {article_id}")
+        
+        return {
+            "success": True,
+            "message": "Article deleted successfully"
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to delete article: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.exception_handler(404)
 async def not_found_handler(request: Request, exc: HTTPException):
     """Handle 404 errors."""
