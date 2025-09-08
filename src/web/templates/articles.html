@@ -1049,8 +1049,27 @@
         if (selectAllCheckbox.checked) {
             await selectAllVisible();
         } else {
-            clearSelection();
+            // When unchecking, we need to clear ALL selections, not just visible ones
+            // This includes articles that were selected via API but aren't visible
+            clearAllSelections();
         }
+    }
+    
+    function clearAllSelections() {
+        // Clear visible checkboxes
+        const checkboxes = document.querySelectorAll('.bulk-select-checkbox');
+        checkboxes.forEach(checkbox => {
+            checkbox.checked = false;
+        });
+        
+        // Clear the "Select All Matching" checkbox
+        const selectAllCheckbox = document.getElementById('select-all-matching');
+        if (selectAllCheckbox) {
+            selectAllCheckbox.checked = false;
+            selectAllCheckbox.indeterminate = false;
+        }
+        
+        updateBulkActions();
     }
     
     async function selectAllVisible() {
@@ -1107,6 +1126,14 @@
         checkboxes.forEach(checkbox => {
             checkbox.checked = false;
         });
+        
+        // Also uncheck the "Select All Matching" checkbox
+        const selectAllCheckbox = document.getElementById('select-all-matching');
+        if (selectAllCheckbox) {
+            selectAllCheckbox.checked = false;
+            selectAllCheckbox.indeterminate = false;
+        }
+        
         updateBulkActions();
     }
     
