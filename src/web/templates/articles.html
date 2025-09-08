@@ -23,7 +23,7 @@
         <h3 class="text-lg font-medium text-gray-900 mb-4">Filters & Search</h3>
         <form method="GET" class="grid grid-cols-1 md:grid-cols-4 gap-4">
             <!-- Hidden inputs to preserve sort parameters -->
-            <input type="hidden" name="sort_by" value="{{ filters.sort_by or 'published_at' }}">
+            <input type="hidden" name="sort_by" value="{{ filters.sort_by or 'threat_hunting_score' }}">
             <input type="hidden" name="sort_order" value="{{ filters.sort_order or 'desc' }}">
             
             <!-- Search -->
@@ -839,6 +839,76 @@
         // Redirect to updated URL
         window.location.href = window.location.pathname + '?' + urlParams.toString();
     }
+    
+    // Session persistence for filter/sort settings
+    function saveSessionSettings() {
+        const settings = {
+            search: document.getElementById('search')?.value || '',
+            source: document.getElementById('source')?.value || '',
+            classification: document.getElementById('classification')?.value || '',
+            threat_hunting_range: document.getElementById('threat-hunting-range')?.value || '',
+            per_page: document.getElementById('per-page')?.value || '100',
+            sort_by: document.getElementById('sort-by')?.value || 'threat_hunting_score',
+            sort_order: document.getElementById('sort-order')?.value || 'desc'
+        };
+        
+        sessionStorage.setItem('cti_articles_settings', JSON.stringify(settings));
+    }
+    
+    function loadSessionSettings() {
+        const saved = sessionStorage.getItem('cti_articles_settings');
+        if (!saved) return;
+        
+        try {
+            const settings = JSON.parse(saved);
+            
+            // Only load settings if URL doesn't have parameters (fresh page load)
+            const urlParams = new URLSearchParams(window.location.search);
+            const hasUrlParams = Array.from(urlParams.keys()).length > 0;
+            
+            if (!hasUrlParams) {
+                // Apply saved settings to form elements
+                if (settings.search && document.getElementById('search')) {
+                    document.getElementById('search').value = settings.search;
+                }
+                if (settings.source && document.getElementById('source')) {
+                    document.getElementById('source').value = settings.source;
+                }
+                if (settings.classification && document.getElementById('classification')) {
+                    document.getElementById('classification').value = settings.classification;
+                }
+                if (settings.threat_hunting_range && document.getElementById('threat-hunting-range')) {
+                    document.getElementById('threat-hunting-range').value = settings.threat_hunting_range;
+                }
+                if (settings.per_page && document.getElementById('per-page')) {
+                    document.getElementById('per-page').value = settings.per_page;
+                }
+                if (settings.sort_by && document.getElementById('sort-by')) {
+                    document.getElementById('sort-by').value = settings.sort_by;
+                }
+                if (settings.sort_order && document.getElementById('sort-order')) {
+                    document.getElementById('sort-order').value = settings.sort_order;
+                }
+            }
+        } catch (e) {
+            console.error('Failed to load session settings:', e);
+        }
+    }
+    
+    // Load settings when page loads
+    document.addEventListener('DOMContentLoaded', function() {
+        loadSessionSettings();
+        
+        // Save settings when form elements change
+        const formElements = ['search', 'source', 'classification', 'threat-hunting-range', 'per-page', 'sort-by', 'sort-order'];
+        formElements.forEach(id => {
+            const element = document.getElementById(id);
+            if (element) {
+                element.addEventListener('change', saveSessionSettings);
+                element.addEventListener('input', saveSessionSettings);
+            }
+        });
+    });
     
     // Auto-apply sorting when dropdowns change
     document.getElementById('sort-by').addEventListener('change', applySorting);

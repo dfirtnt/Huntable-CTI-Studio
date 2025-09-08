@@ -92,6 +92,11 @@ class RSSParser:
                 logger.warning(f"Skipping entry with missing title or URL in {source.name}")
                 return None
             
+            # Filter out articles based on title keywords
+            if self._should_filter_title(title, source.config if hasattr(source, 'config') else None):
+                logger.info(f"Filtered out article by title: {title}")
+                return None
+            
             # Extract content
             content = await self._extract_content(entry, url, source)
             if not content:
@@ -500,6 +505,36 @@ class RSSParser:
             logger.warning(f"Failed to extract modern content from {url}: {e}")
         
         return None
+    
+    def _should_filter_title(self, title: str, source_config: Optional[Dict[str, Any]] = None) -> bool:
+        """Check if article title should be filtered out based on keywords."""
+        if not title:
+            return True
+        
+        # Default title filter keywords
+        default_filter_keywords = [
+            'job posting', 'careers', 'hiring', 'we are hiring', 'join our team',
+            'press release', 'announcement', 'gartner', 'company news', 'partnership',
+            'webinar', 'event', 'conference', 'training', 'workshop',
+            'newsletter', 'subscribe', 'unsubscribe', 'privacy policy',
+            'terms of service', 'cookie policy', 'about us', 'contact us',
+            'advertisement', 'sponsored', 'promotion', 'sale', 'discount',
+            'product launch', 'new product', 'feature update', 'version',
+            'maintenance', 'downtime', 'scheduled maintenance', 'outage'
+        ]
+        
+        # Get source-specific filter keywords if configured
+        filter_keywords = default_filter_keywords.copy()
+        if source_config and 'title_filter_keywords' in source_config:
+            filter_keywords.extend(source_config['title_filter_keywords'])
+        
+        title_lower = title.lower()
+        for keyword in filter_keywords:
+            if keyword in title_lower:
+                logger.info(f"Filtering article by title keyword '{keyword}': {title}")
+                return True
+        
+        return False
     
     def _is_quality_content(self, text: str, url: str, source_config: Optional[Dict[str, Any]] = None) -> bool:
         """Validate if extracted content is high quality and not blocked/error content."""

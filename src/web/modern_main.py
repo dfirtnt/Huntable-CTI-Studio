@@ -902,7 +902,7 @@ async def articles_list(
     threat_hunting_range: Optional[str] = None,
     per_page: Optional[int] = 100,
     page: Optional[int] = 1,
-    sort_by: str = "discovered_at",
+    sort_by: str = "threat_hunting_score",
     sort_order: str = "desc"
 ):
     """Articles listing page with sorting and filtering."""
@@ -1109,7 +1109,7 @@ async def article_detail(request: Request, article_id: int):
 @app.get("/api/articles")
 async def api_articles_list(
     limit: Optional[int] = 100,
-    sort_by: str = "discovered_at",
+    sort_by: str = "threat_hunting_score",
     sort_order: str = "desc",
     source_id: Optional[int] = None,
     processing_status: Optional[str] = None

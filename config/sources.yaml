@@ -21,6 +21,8 @@ sources:
         respect_delay: true
         max_requests_per_minute: 10
         crawl_delay: 1.0
+      min_content_length: 1200
+      title_filter_keywords: ["webinar", "training", "careers", "job posting"]
       extract:
         prefer_jsonld: true
         title_selectors: ["h1", "meta[property='og:title']::attr(content)"]
@@ -326,6 +328,8 @@ sources:
     rss_url: "https://www.crowdstrike.com/blog/feed/"
     check_frequency: 1800  # 30 minutes
     active: true
+    config:
+      title_filter_keywords: ["CrowdStrike Named a Leader"]
 
   # Microsoft Security Response Center (existing)
   - id: "microsoft_security"
