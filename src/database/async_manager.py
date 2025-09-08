@@ -1172,31 +1172,6 @@ class AsyncDatabaseManager:
                 most_annotated_article=None
             )
     
-    async def delete_article(self, article_id: int) -> bool:
-        """Delete an article and all its related data."""
-        try:
-            async with self.get_session() as session:
-                # First, delete all annotations for this article
-                await session.execute(
-                    delete(ArticleAnnotationTable).where(ArticleAnnotationTable.article_id == article_id)
-                )
-                
-                # Then delete the article itself
-                result = await session.execute(
-                    delete(ArticleTable).where(ArticleTable.id == article_id)
-                )
-                
-                if result.rowcount > 0:
-                    await session.commit()
-                    logger.info(f"Deleted article {article_id} and all related data")
-                    return True
-                else:
-                    logger.warning(f"Article {article_id} not found for deletion")
-                    return False
-                    
-        except Exception as e:
-            logger.error(f"Failed to delete article {article_id}: {e}")
-            return False
     
     def _db_annotation_to_model(self, db_annotation: ArticleAnnotationTable) -> ArticleAnnotation:
         """Convert database annotation to Pydantic model."""
