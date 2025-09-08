@@ -211,6 +211,56 @@
                 htmx.ajax('GET', '/', {target: 'body', swap: 'innerHTML'});
             }, 30000);
         }
+        
+        // Cross-page AI completion notification system
+        function showCompletionBanner(type, typeText, typeIcon, articleId, articleTitle) {
+            // Create completion banner
+            const banner = document.createElement('div');
+            banner.id = 'completionBanner';
+            banner.className = 'fixed top-4 right-4 z-50 p-4 rounded-md shadow-lg max-w-sm bg-green-500 text-white';
+            
+            banner.innerHTML = `
+                <div class="flex items-center space-x-2">
+                    <span class="text-lg">${typeIcon}</span>
+                    <div class="flex-1">
+                        <div class="font-medium">${typeText} Complete!</div>
+                        <div class="text-sm opacity-90">Article: ${articleTitle.length > 30 ? articleTitle.substring(0, 30) + '...' : articleTitle}</div>
+                        <a href="/articles/${articleId}#${type}" class="text-sm underline hover:no-underline">View Results →</a>
+                    </div>
+                    <button onclick="this.parentElement.parentElement.remove()" class="text-white hover:text-gray-200">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </button>
+                </div>
+            `;
+            
+            // Add to page
+            document.body.appendChild(banner);
+            
+            // Remove after 10 seconds
+            setTimeout(() => {
+                const bannerElement = document.getElementById('completionBanner');
+                if (bannerElement) {
+                    bannerElement.remove();
+                }
+            }, 10000);
+        }
+        
+        function checkPendingCompletions() {
+            const pendingCompletions = JSON.parse(localStorage.getItem('pendingCompletions') || '[]');
+            
+            pendingCompletions.forEach(completion => {
+                // Show completion banner
+                showCompletionBanner(completion.type, completion.typeText, completion.typeIcon, completion.articleId, completion.articleTitle);
+            });
+            
+            // Clear pending completions after showing them
+            localStorage.removeItem('pendingCompletions');
+        }
+        
+        // Check for pending completions on page load
+        document.addEventListener('DOMContentLoaded', checkPendingCompletions);
     </script>
 
     {% block scripts %}{% endblock %}
