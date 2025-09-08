@@ -1155,19 +1155,30 @@ async def api_articles_list(
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/articles/next-unclassified")
-async def api_get_next_unclassified():
+async def api_get_next_unclassified(current_article_id: Optional[int] = None):
     """API endpoint for getting the next unclassified article."""
     try:
         # Get all articles ordered by ID to ensure consistent ordering
         articles = await async_db_manager.list_articles()
         
-        # Sort by ID to ensure we get the lowest unclassified article ID
+        # Sort by ID to ensure we get the next unclassified article ID
         articles.sort(key=lambda x: x.id)
         
-        # Find the first unclassified article
-        for article in articles:
-            if not article.metadata or article.metadata.get('training_category') not in ['chosen', 'rejected']:
-                return {"article_id": article.id}
+        # If no current article ID provided, return the first unclassified
+        if not current_article_id:
+            for article in articles:
+                if not article.metadata or article.metadata.get('training_category') not in ['chosen', 'rejected']:
+                    return {"article_id": article.id}
+        else:
+            # Find the next unclassified article after the current one
+            found_current = False
+            for article in articles:
+                if article.id == current_article_id:
+                    found_current = True
+                    continue
+                
+                if found_current and (not article.metadata or article.metadata.get('training_category') not in ['chosen', 'rejected']):
+                    return {"article_id": article.id}
         
         # If no unclassified articles found
         return {"article_id": None, "message": "No unclassified articles found"}
@@ -2177,6 +2188,186 @@ async def api_extract_iocs(article_id: int, request: Request):
         raise
     except Exception as e:
         logger.error(f"IOC extraction error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/articles/{article_id}/gpt4o-rank")
+async def api_gpt4o_rank(article_id: int, request: Request):
+    """API endpoint for GPT4o SIGMA huntability ranking."""
+    try:
+        # Get the article
+        article = await async_db_manager.get_article(article_id)
+        if not article:
+            raise HTTPException(status_code=404, detail="Article not found")
+        
+        # Get request body
+        body = await request.json()
+        article_url = body.get('url')
+        api_key = body.get('api_key')  # Get API key from request
+        
+        if not article_url:
+            raise HTTPException(status_code=400, detail="URL is required")
+        
+        if not api_key:
+            raise HTTPException(status_code=400, detail="OpenAI API key is required. Please configure it in Settings.")
+        
+        # SIGMA-focused prompt
+        sigma_prompt = """# Blog Content SIGMA-Suitability Huntability Ranking System
+
+## Your Role
+
+You are a detection engineer evaluating cybersecurity blog content specifically for its suitability to create SIGMA detection rules. Rate content based on how directly it maps to Windows Event Logs, Sysmon, or Linux auditd/Syslog data sources.
+
+## SIGMA-Focused Scoring (1-10 Scale)
+
+Only content that maps to log-based telemetry receives points. Ignore network payloads, binary analysis, or packet-level details.
+
+## Important Notes
+
+- Do not award points for atomic IOCs (file hashes, IPs, or one-off domains).
+- Filename/path patterns and directory conventions are acceptable if they indicate repeatable behavior.
+- Only award points for observables that map directly to Windows Event Logs, Sysmon, or Linux auditd/Syslog.
+
+### Category A – Process Creation & Command-Line Arguments (0-4 pts)
+
+**Data Sources:** Sysmon Event ID 1, Windows Security 4688, Linux process logs
+**Look For:**
+
+- Parent → child process chains with full paths
+- Exact command-line strings with arguments, switches, flags
+- Process execution sequences
+
+**Scoring:**
+
+- 0 = No process details
+- 1 = Vague mentions ("runs PowerShell")
+- 2 = Partial arguments or missing parent-child relationships
+- 3 = Detailed examples but limited coverage
+- 4 = Multiple detailed process chains with full arguments
+
+### Category B – Persistence & System Modification (0-3 pts)
+
+**Data Sources:** Sysmon Event IDs 12/13/19/7045, Security 4697, Linux auditd
+**Look For:**
+
+- Registry keys with exact paths and values
+- Service creation/modification details
+- Scheduled tasks or cron job configurations
+- Startup folder modifications
+
+**Scoring:**
+
+- 0 = No persistence details
+- 1 = Generic mention ("creates persistence")
+- 2 = Specific mechanism but incomplete details
+- 3 = Exact paths, keys, or configs ready for SIGMA rules
+
+### Category C – Log-Correlated Behavior (0-2 pts)
+
+**Data Sources:** Multiple Windows/Linux log sources in sequence
+**Look For:**
+
+- Cross-log correlations (process → network, persistence → execution)
+- Event sequences that can be chained in SIGMA rules
+- Time-based correlations between different log types
+
+**Scoring:**
+
+- 0 = Single log source only
+- 1 = Limited correlation opportunities
+- 2 = Clear multi-log correlation patterns
+
+### Category D – File/Path & Execution Patterns (0-1 pt)
+
+**Data Sources:** Sysmon FileCreate, Security 4663, Linux file access logs
+**Look For:**
+
+- File path patterns or naming conventions (not hashes)
+- Directory structures used by threats
+- File creation/modification patterns
+
+**Scoring:**
+
+- 0 = No usable file patterns
+- 1 = Clear file/path patterns present
+
+## Scoring Bands
+
+- **1-2:** Mostly strategic content, minimal SIGMA applicability
+- **3-4:** Limited SIGMA potential, too generic for reliable rules
+- **5-6:** Moderate SIGMA candidates with some specificity
+- **7-8:** Strong SIGMA potential, multiple rule-ready observables
+- **9-10:** Excellent SIGMA content, rules can be drafted immediately
+
+## Output Format
+
+**SIGMA HUNTABILITY SCORE: [1-10]**
+
+**CATEGORY BREAKDOWN:**
+
+- **Process/Command-Line (0-4):** [Score] - [Brief reasoning]
+- **Persistence/System Mods (0-3):** [Score] - [Brief reasoning]
+- **Log Correlation (0-2):** [Score] - [Brief reasoning]
+- **File/Path Patterns (0-1):** [Score] - [Brief reasoning]
+
+**SIGMA-READY OBSERVABLES:**
+[List specific elements that can directly become SIGMA rules]
+
+**REQUIRED LOG SOURCES:**
+[Windows Event IDs, Sysmon events, or Linux log types needed]
+
+**RULE FEASIBILITY:**
+[Assessment of how quickly detection rules could be created]
+
+## Instructions
+
+Analyze the provided blog content using only this SIGMA-focused rubric. Ignore network IOCs, binary analysis, or anything not mappable to Windows/Linux system logs. Focus exclusively on rule creation potential.
+
+Please analyze the following blog post: {url}"""
+        
+        # Prepare the prompt with the URL
+        full_prompt = sigma_prompt.format(url=article_url)
+        
+        # Call OpenAI API
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                "https://api.openai.com/v1/chat/completions",
+                headers={
+                    "Authorization": f"Bearer {api_key}",
+                    "Content-Type": "application/json"
+                },
+                json={
+                    "model": "gpt-4o",
+                    "messages": [
+                        {
+                            "role": "user",
+                            "content": full_prompt
+                        }
+                    ],
+                    "max_tokens": 2000,
+                    "temperature": 0.3
+                },
+                timeout=60.0
+            )
+            
+            if response.status_code != 200:
+                error_detail = response.text
+                logger.error(f"OpenAI API error: {error_detail}")
+                raise HTTPException(status_code=500, detail=f"OpenAI API error: {error_detail}")
+            
+            result = response.json()
+            analysis = result['choices'][0]['message']['content']
+        
+        return {
+            "success": True,
+            "article_id": article_id,
+            "analysis": analysis,
+            "timestamp": datetime.utcnow().isoformat()
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"GPT4o ranking error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 # Error handlers

@@ -221,6 +221,14 @@
             {% endif %}
         </div>
         
+        <!-- GPT4o Ranking Results -->
+        <div id="gpt4o-ranking-results" class="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg" style="display: none;">
+            <h3 class="text-lg font-semibold text-blue-900 mb-3">📊 GPT4o SIGMA Huntability Analysis</h3>
+            <div id="gpt4o-ranking-content" class="text-sm text-blue-800">
+                <!-- Results will be populated here -->
+            </div>
+        </div>
+        
         <!-- Classification Buttons -->
         <div class="flex flex-wrap gap-4 mb-6">
             <button onclick="classifyArticle('chosen')" 
@@ -246,6 +254,13 @@
                     class="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-colors">
                 <span class="mr-2">🤖</span>
                 AI Assistant
+            </button>
+            
+            <!-- GPT4o Ranking Button -->
+            <button onclick="rankWithGPT4o()" 
+                    class="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
+                <span class="mr-2">📊</span>
+                Rank with GPT4o
             </button>
         </div>
         
@@ -1077,7 +1092,7 @@
                 if (category === 'rejected') {
                     setTimeout(() => {
                         navigateToNextUnclassified();
-                    }, 1000);
+                    }, 2000); // Increased delay to ensure database is updated
                 }
             } else {
                 const error = await response.json();
@@ -1128,16 +1143,103 @@
         }, 3000);
     }
     
+    function markOperationComplete(operationId, status = 'completed') {
+        console.log('markOperationComplete called with:', operationId, status);
+        
+        // Update operation status in localStorage
+        const ongoingOps = JSON.parse(localStorage.getItem('ongoingAIOperations') || '[]');
+        const operationIndex = ongoingOps.findIndex(op => op.id === operationId);
+        
+        console.log('Found operation at index:', operationIndex, 'Operations:', ongoingOps);
+        
+        if (operationIndex !== -1) {
+            ongoingOps[operationIndex].status = status;
+            ongoingOps[operationIndex].completedAt = Date.now();
+            localStorage.setItem('ongoingAIOperations', JSON.stringify(ongoingOps));
+            
+            // Store completion notification for cross-page display
+            if (status === 'completed') {
+                const completionNotification = {
+                    id: `completion_${Date.now()}`,
+                    operationId: operationId,
+                    type: ongoingOps[operationIndex].type,
+                    typeText: ongoingOps[operationIndex].typeText,
+                    typeIcon: ongoingOps[operationIndex].typeIcon,
+                    articleId: ongoingOps[operationIndex].articleId,
+                    articleTitle: ongoingOps[operationIndex].articleTitle,
+                    completedAt: Date.now()
+                };
+                
+                console.log('Creating completion notification:', completionNotification);
+                
+                const completions = JSON.parse(localStorage.getItem('pendingCompletions') || '[]');
+                completions.push(completionNotification);
+                localStorage.setItem('pendingCompletions', JSON.stringify(completions));
+                
+                console.log('Stored pending completions:', completions);
+            }
+        }
+    }
+    
+    function showCompletionBanner(type, typeText, typeIcon, articleId = null, articleTitle = null) {
+        console.log('showCompletionBanner called with:', type, typeText, typeIcon, articleId, articleTitle);
+        
+        // Create completion banner
+        const banner = document.createElement('div');
+        banner.id = 'completionBanner';
+        banner.className = 'fixed top-4 right-4 z-50 p-4 rounded-md shadow-lg max-w-sm bg-green-500 text-white';
+        
+        const bannerArticleTitle = articleTitle || '{{ article.title }}';
+        const bannerArticleId = articleId || {{ article.id }};
+        
+        banner.innerHTML = `
+            <div class="flex items-center space-x-2">
+                <span class="text-lg">${typeIcon}</span>
+                <div class="flex-1">
+                    <div class="font-medium">${typeText} Complete!</div>
+                    <div class="text-sm opacity-90">Article: ${bannerArticleTitle.length > 30 ? bannerArticleTitle.substring(0, 30) + '...' : bannerArticleTitle}</div>
+                    <a href="/articles/${bannerArticleId}#${type}" class="text-sm underline hover:no-underline">View Results →</a>
+                </div>
+                <button onclick="this.parentElement.parentElement.remove()" class="text-white hover:text-gray-200">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+        `;
+        
+        // Add to page
+        document.body.appendChild(banner);
+        console.log('Banner added to DOM:', banner);
+        
+        // Remove after 10 seconds
+        setTimeout(() => {
+            const bannerElement = document.getElementById('completionBanner');
+            if (bannerElement) {
+                console.log('Removing banner after 10 seconds');
+                bannerElement.remove();
+            }
+        }, 10000);
+    }
+    
     // Navigation functions
-    async function navigateToNextUnclassified() {
+    async function navigateToNextUnclassified(retryCount = 0) {
         try {
-            const response = await fetch('/api/articles/next-unclassified');
+            const response = await fetch(`/api/articles/next-unclassified?current_article_id={{ article.id }}`);
             const data = await response.json();
             
             if (data.article_id) {
                 window.location.href = `/articles/${data.article_id}`;
             } else {
+                // If no article found and we haven't retried yet, wait and retry once
+                if (retryCount === 0) {
+                    console.log('No unclassified article found, retrying in 1 second...');
+                    setTimeout(() => {
+                        navigateToNextUnclassified(1);
+                    }, 1000);
+            } else {
                 showNotification('No more unclassified articles found!', 'info');
+                }
             }
         } catch (error) {
             showNotification(`Error: ${error.message}`, 'error');
@@ -1168,6 +1270,11 @@
         const threatHuntingScore = {{ article.metadata.get('threat_hunting_score', 0) if article.metadata and article.metadata.get('threat_hunting_score') is not none else 0 }};
         const showSigmaWarning = isChosen && threatHuntingScore < 65;
         
+        // Check for existing generated content
+        const hasSummary = {{ 'true' if article.metadata and article.metadata.get('chatgpt_summary') else 'false' }};
+        const hasSigmaRules = {{ 'true' if article.metadata and article.metadata.get('sigma_rules') else 'false' }};
+        const hasIOCs = {{ 'true' if article.metadata and article.metadata.get('extracted_iocs') else 'false' }};
+        
         const modal = document.createElement('div');
         modal.id = 'aiAssistantModal';
         modal.className = 'fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50';
@@ -1192,21 +1299,21 @@
             <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
                 <div class="mt-3 text-center">
                     <h3 class="text-lg font-medium text-gray-900 mb-4">🤖 AI Assistant</h3>
-                    <p class="text-sm text-gray-500 mb-6">Choose what you'd like to generate:</p>
+                    <p class="text-sm text-gray-500 mb-6">Choose what you'd like to ${hasSummary || hasSigmaRules || hasIOCs ? 'view or regenerate' : 'generate'}:</p>
                     
                     <div class="space-y-3">
                         <button onclick="generateAIAnalysis('summary')" 
                                 class="w-full inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
                             <span class="mr-2">📝</span>
-                            Generate Summary
+                            ${hasSummary ? 'Display Summary' : 'Generate Summary'}
                         </button>
                         
                         <button onclick="generateAIAnalysis('sigma')" 
                                 class="w-full inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md transition-colors ${isChosen ? 'text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500' : 'text-gray-400 bg-gray-300 cursor-not-allowed'}"
                                 ${!isChosen ? 'disabled' : ''}
-                                title="${isChosen ? 'Generate SIGMA detection rules for this article' : 'SIGMA rules can only be generated for articles marked as "Chosen". Please classify this article first.'}">
+                                title="${isChosen ? (hasSigmaRules ? 'Display existing SIGMA detection rules' : 'Generate SIGMA detection rules for this article') : 'SIGMA rules can only be generated for articles marked as "Chosen". Please classify this article first.'}">
                             <span class="mr-2">🔍</span>
-                            Generate SIGMA Rules
+                            ${hasSigmaRules ? 'Display SIGMA Rules' : 'Generate SIGMA Rules'}
                             ${showSigmaWarning ? '<span class="ml-2 text-yellow-300">⚠️</span>' : ''}
                         </button>
                         ${!isChosen ? '<div class="text-xs text-gray-500 text-center mt-1">⚠️ Only available for articles marked as "Chosen"</div>' : ''}
@@ -1215,7 +1322,7 @@
                         <button onclick="generateAIAnalysis('iocs')" 
                                 class="w-full inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-orange-600 hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500 transition-colors">
                             <span class="mr-2">🔍</span>
-                            Extract IOCs
+                            ${hasIOCs ? 'Display IOCs' : 'Extract IOCs'}
                         </button>
                         
                         <button onclick="showCustomPromptModal()" 
@@ -1249,6 +1356,27 @@
     async function generateAIAnalysis(type, forceRegenerate = false) {
         closeAIAssistantModal();
         
+        // Check for existing content first (unless force regenerate)
+        if (!forceRegenerate) {
+            if (type === 'summary' && {{ 'true' if article.metadata and article.metadata.get('chatgpt_summary') else 'false' }}) {
+                const summaryData = {{ article.metadata.get('chatgpt_summary') | tojson if article.metadata and article.metadata.get('chatgpt_summary') else 'null' }};
+                showChatGPTSummaryModal(summaryData.summary, summaryData);
+                return;
+            }
+            
+            if (type === 'sigma' && {{ 'true' if article.metadata and article.metadata.get('sigma_rules') else 'false' }}) {
+                const sigmaData = {{ article.metadata.get('sigma_rules') | tojson if article.metadata and article.metadata.get('sigma_rules') else 'null' }};
+                showSigmaRulesModal(sigmaData.rules, sigmaData);
+                return;
+            }
+            
+            if (type === 'iocs' && {{ 'true' if article.metadata and article.metadata.get('extracted_iocs') else 'false' }}) {
+                const iocData = {{ article.metadata.get('extracted_iocs') | tojson if article.metadata and article.metadata.get('extracted_iocs') else 'null' }};
+                showIOCsModal(iocData.iocs, iocData);
+                return;
+            }
+        }
+        
         // Check if SIGMA rules are allowed for this article
         if (type === 'sigma') {
             const currentClassification = localStorage.getItem('currentArticleClassification') || '{{ article.metadata.get("training_category", "") }}';
@@ -1278,18 +1406,47 @@
             return;
         }
         
+        // Store ongoing AI operation in localStorage for cross-page tracking
+        const articleId = {{ article.id }};
+        const operationId = `ai_${type}_${articleId}_${Date.now()}`;
+        const operationData = {
+            id: operationId,
+            type: type,
+            typeText: type === 'summary' ? 'Summary' : type === 'sigma' ? 'SIGMA Rules' : 'IOCs',
+            typeIcon: type === 'summary' ? '📝' : type === 'sigma' ? '🔍' : '🔍',
+            articleId: articleId,
+            articleTitle: '{{ article.title }}',
+            startedAt: Date.now(),
+            status: 'running'
+        };
+        
+        // Store in localStorage
+        const ongoingOps = JSON.parse(localStorage.getItem('ongoingAIOperations') || '[]');
+        ongoingOps.push(operationData);
+        localStorage.setItem('ongoingAIOperations', JSON.stringify(ongoingOps));
+        
         // Show loading modal
         const loadingModal = document.createElement('div');
         loadingModal.id = 'loadingModal';
         loadingModal.className = 'fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50';
         
-        const typeText = type === 'summary' ? 'Summary' : type === 'sigma' ? 'SIGMA Rules' : 'IOCs';
-        const typeIcon = type === 'summary' ? '📝' : type === 'sigma' ? '🔍' : '🔍';
+        const typeText = operationData.typeText;
+        const typeIcon = operationData.typeIcon;
         
         // Debug logging
         console.log('generateAIAnalysis called with type:', type);
         console.log('typeText:', typeText);
         console.log('typeIcon:', typeIcon);
+        
+        // Add ESC key handler to close loading modal
+        const handleEsc = function(e) {
+            if (e.key === 'Escape') {
+                loadingModal.remove();
+                document.removeEventListener('keydown', handleEsc);
+                showNotification('AI generation continues in the background. You can return to this article later to view the results.', 'info');
+            }
+        };
+        document.addEventListener('keydown', handleEsc);
         
         loadingModal.innerHTML = `
             <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
@@ -1302,6 +1459,7 @@
                     </div>
                     <h3 class="text-lg font-medium text-gray-900 mt-4">${typeIcon} ${type === 'summary' ? 'Generating' : type === 'sigma' ? 'Generating' : 'Extracting'} ${typeText}...</h3>
                     <p class="text-sm text-gray-500 mt-2">${type === 'summary' ? 'Creating a comprehensive summary' : type === 'sigma' ? 'Creating detection rules' : 'Extracting indicators of compromise'} - this may take a few moments.</p>
+                    <p class="text-xs text-gray-400 mt-3">💡 Press <kbd class="px-1 py-0.5 bg-gray-200 rounded text-xs">ESC</kbd> to leave while generation continues</p>
                 </div>
             </div>
         `;
@@ -1342,34 +1500,112 @@
             
             if (response.ok) {
                 const data = await response.json();
-                if (type === 'summary') {
-                    showChatGPTSummaryModal(data.summary, data);
-                } else if (type === 'sigma') {
-                    showSigmaRulesModal(data.sigma_rules, data);
-                } else {
-                    showIOCsModal(JSON.stringify(data.iocs, null, 2), data);
-                }
+                
+                console.log('AI generation completed successfully:', data);
+                
+                // Mark operation as complete and show banner
+                markOperationComplete(operationId);
+                showCompletionBanner(type, typeText, typeIcon);
+                
+                console.log('Completion banner should be showing now');
+                
+                // Don't automatically show results - let user choose when to view them
             } else {
                 const error = await response.json();
+                console.log('API Error:', error);
+                markOperationComplete(operationId, 'failed');
                 showNotification(`${typeText} ${type === 'summary' ? 'generation' : type === 'sigma' ? 'generation' : 'extraction'} failed: ${error.detail}`, 'error');
             }
         } catch (error) {
+            console.log('Caught error:', error);
+            markOperationComplete(operationId, 'failed');
             if (error.message.includes('timed out')) {
                 showNotification(`${typeText} ${type === 'summary' ? 'generation' : type === 'sigma' ? 'generation' : 'extraction'} timed out after 60 seconds. Try using a different model or check your settings.`, 'error');
             } else {
                 showNotification(`Error: ${error.message}`, 'error');
             }
         } finally {
-            // Remove loading modal
+            // Remove loading modal and clean up ESC handler
             const loadingModal = document.getElementById('loadingModal');
             if (loadingModal) {
                 loadingModal.remove();
+                // Clean up the ESC key handler
+                document.removeEventListener('keydown', handleEsc);
             }
         }
     }
     
+    // GPT4o Ranking Function
+    async function rankWithGPT4o() {
+        const articleId = {{ article.id }};
+        const articleUrl = '{{ article.canonical_url }}';
+        
+        // Get API key from settings
+        const settings = JSON.parse(localStorage.getItem('ctiScraperSettings') || '{}');
+        const apiKey = settings.openaiApiKey;
+        
+        if (!apiKey) {
+            showNotification('Please configure your OpenAI API key in Settings first', 'error');
+            return;
+        }
+        
+        // Show loading state
+        const button = event.target;
+        const originalText = button.innerHTML;
+        button.innerHTML = '<span class="mr-2">⏳</span>Analyzing...';
+        button.disabled = true;
+        
+        try {
+            const response = await fetch(`/api/articles/${articleId}/gpt4o-rank`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    url: articleUrl,
+                    api_key: apiKey
+                })
+            });
+            
+            if (response.ok) {
+                const data = await response.json();
+                displayGPT4oRanking(data.analysis);
+                showNotification('GPT4o analysis completed successfully!', 'success');
+            } else {
+                const error = await response.json();
+                showNotification(`GPT4o analysis failed: ${error.detail}`, 'error');
+            }
+        } catch (error) {
+            showNotification(`Error: ${error.message}`, 'error');
+        } finally {
+            // Restore button state
+            button.innerHTML = originalText;
+            button.disabled = false;
+        }
+    }
+    
+    function displayGPT4oRanking(analysis) {
+        const resultsDiv = document.getElementById('gpt4o-ranking-results');
+        const contentDiv = document.getElementById('gpt4o-ranking-content');
+        
+        // Format the analysis for display
+        const formattedAnalysis = analysis.replace(/\n/g, '<br>');
+        contentDiv.innerHTML = formattedAnalysis;
+        
+        // Show the results section
+        resultsDiv.style.display = 'block';
+        
+        // Scroll to results
+        resultsDiv.scrollIntoView({ behavior: 'smooth' });
+    }
+    
     function showCustomPromptModal() {
         closeAIAssistantModal();
+        
+        // Get AI model from settings
+        const settings = JSON.parse(localStorage.getItem('ctiScraperSettings') || '{}');
+        const aiModel = settings.aiModel || 'chatgpt';
+        const modelDisplayName = aiModel === 'chatgpt' ? 'ChatGPT (OpenAI)' : 'Mistral (Local Ollama)';
         
         const modal = document.createElement('div');
         modal.id = 'customPromptModal';
@@ -1400,6 +1636,13 @@
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
                         </svg>
                     </button>
+                </div>
+                
+                <div class="mb-4 p-3 bg-gray-50 border border-gray-200 rounded-md">
+                    <div class="text-sm text-gray-700">
+                        <p class="font-medium mb-1">🤖 AI Model:</p>
+                        <p class="text-gray-600">${modelDisplayName}</p>
+                    </div>
                 </div>
                 
                 <div class="mb-4">
@@ -1907,6 +2150,8 @@
     }
     
     function showChatGPTSummaryModal(summary, data = null) {
+        console.log('showChatGPTSummaryModal called with:', summary, data);
+        
         const modal = document.createElement('div');
         modal.id = 'chatGPTSummaryModal';
         modal.className = 'fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50';
@@ -1983,6 +2228,7 @@
             </div>
         `;
         document.body.appendChild(modal);
+        console.log('ChatGPT Summary modal added to DOM:', modal);
     }
     
     function closeChatGPTSummaryModal() {
@@ -2221,5 +2467,221 @@
             });
         }
     }
+    
+    // Check for pending completion notifications from other pages
+    function checkPendingCompletions() {
+        const pendingCompletions = JSON.parse(localStorage.getItem('pendingCompletions') || '[]');
+        
+        pendingCompletions.forEach(completion => {
+            // Show completion banner
+            showCompletionBanner(completion.type, completion.typeText, completion.typeIcon, completion.articleId, completion.articleTitle);
+        });
+        
+        // Clear pending completions after showing them
+        localStorage.removeItem('pendingCompletions');
+    }
+    
+    // Handle URL fragments to auto-open results
+    console.log('Setting up URL fragment handler...');
+    window.addEventListener('load', function() {
+        console.log('Page loaded, checking URL fragments...');
+        
+        // Check for pending completions first
+        checkPendingCompletions();
+        
+        const hash = window.location.hash.substring(1); // Remove the #
+        console.log('URL hash:', hash);
+        
+        if (hash === 'summary') {
+            console.log('Processing summary hash...');
+            // Check if summary exists and show it
+            const hasSummary = {{ 'true' if article.metadata and article.metadata.get('chatgpt_summary') else 'false' }};
+            console.log('Has summary:', hasSummary);
+            if (hasSummary) {
+                const summaryData = {{ article.metadata.get('chatgpt_summary') | tojson if article.metadata and article.metadata.get('chatgpt_summary') else 'null' }};
+                console.log('Summary data:', summaryData);
+                if (summaryData) {
+                    console.log('Auto-opening summary modal from URL fragment');
+                    setTimeout(() => {
+                        console.log('About to call showChatGPTSummaryModal');
+                        showChatGPTSummaryModal(summaryData.summary, summaryData);
+                    }, 500);
+                }
+            } else {
+                console.log('No summary found for this article');
+            }
+        } else if (hash === 'sigma') {
+            // Check if SIGMA rules exist and show them
+            const hasSigmaRules = {{ 'true' if article.metadata and article.metadata.get('sigma_rules') else 'false' }};
+            if (hasSigmaRules) {
+                const sigmaData = {{ article.metadata.get('sigma_rules') | tojson if article.metadata and article.metadata.get('sigma_rules') else 'null' }};
+                if (sigmaData) {
+                    console.log('Auto-opening SIGMA modal from URL fragment');
+                    setTimeout(() => showSigmaRulesModal(sigmaData.rules, sigmaData), 500);
+                }
+            } else {
+                console.log('No SIGMA rules found for this article');
+            }
+        } else if (hash === 'iocs') {
+            // Check if IOCs exist and show them
+            const hasIOCs = {{ 'true' if article.metadata and article.metadata.get('extracted_iocs') else 'false' }};
+            if (hasIOCs) {
+                const iocData = {{ article.metadata.get('extracted_iocs') | tojson if article.metadata and article.metadata.get('extracted_iocs') else 'null' }};
+                if (iocData) {
+                    console.log('Auto-opening IOCs modal from URL fragment');
+                    setTimeout(() => showIOCsModal(JSON.stringify(iocData.iocs, null, 2), iocData), 500);
+                }
+            } else {
+                console.log('No IOCs found for this article');
+            }
+        }
+        
+        // Clear the hash from URL after handling
+        if (hash) {
+            console.log('Clearing URL hash:', hash);
+            window.history.replaceState(null, null, window.location.pathname);
+        }
+    });
+
+    // Handle URL fragments to auto-open results
+    console.log('Setting up URL fragment handler...');
+    window.addEventListener('load', function() {
+        console.log('Page loaded, checking URL fragments...');
+        
+        // Check for pending completions first
+        checkPendingCompletions();
+        
+        const hash = window.location.hash.substring(1); // Remove the #
+        console.log('URL hash:', hash);
+        
+        if (hash === 'summary') {
+            console.log('Processing summary hash...');
+            
+            // Get current article ID from URL
+            const currentArticleId = window.location.pathname.split('/').pop();
+            console.log('Current article ID:', currentArticleId);
+            
+            // Check if this is the same article as the template context
+            const templateArticleId = {{ article.id }};
+            console.log('Template article ID:', templateArticleId);
+            
+            if (currentArticleId == templateArticleId) {
+                // Same article - use template data
+                const hasSummary = {{ 'true' if article.metadata and article.metadata.get('chatgpt_summary') else 'false' }};
+                console.log('Has summary (template):', hasSummary);
+                
+                if (hasSummary) {
+                    const summaryData = {{ article.metadata.get('chatgpt_summary') | tojson if article.metadata and article.metadata.get('chatgpt_summary') else 'null' }};
+                    console.log('Summary data (template):', summaryData);
+                    
+                    if (summaryData) {
+                        console.log('Auto-opening summary modal from URL fragment (template)');
+                        setTimeout(() => showChatGPTSummaryModal(summaryData.summary, summaryData), 500);
+                    }
+                }
+            } else {
+                // Different article - fetch data via API
+                console.log('Different article, fetching summary data via API...');
+                fetch(`/api/articles/${currentArticleId}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        console.log('Fetched article data:', data);
+                        if (data.metadata && data.metadata.chatgpt_summary) {
+                            console.log('Auto-opening summary modal from URL fragment (API)');
+                            setTimeout(() => showChatGPTSummaryModal(data.metadata.chatgpt_summary.summary, data.metadata.chatgpt_summary), 500);
+                        } else {
+                            console.log('No summary data found for this article');
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error fetching article data:', error);
+                    });
+            }
+        } else if (hash === 'sigma') {
+            console.log('Processing sigma hash...');
+            
+            // Get current article ID from URL
+            const currentArticleId = window.location.pathname.split('/').pop();
+            const templateArticleId = {{ article.id }};
+            
+            if (currentArticleId == templateArticleId) {
+                // Same article - use template data
+                const hasSigma = {{ 'true' if article.metadata and article.metadata.get('sigma_rules') else 'false' }};
+                console.log('Has sigma (template):', hasSigma);
+                
+                if (hasSigma) {
+                    const sigmaData = {{ article.metadata.get('sigma_rules') | tojson if article.metadata and article.metadata.get('sigma_rules') else 'null' }};
+                    console.log('Sigma data (template):', sigmaData);
+                    
+                    if (sigmaData) {
+                        console.log('Auto-opening sigma modal from URL fragment (template)');
+                        setTimeout(() => showSigmaModal(sigmaData.rules, sigmaData), 500);
+                    }
+                }
+            } else {
+                // Different article - fetch data via API
+                console.log('Different article, fetching sigma data via API...');
+                fetch(`/api/articles/${currentArticleId}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        console.log('Fetched article data for sigma:', data);
+                        if (data.metadata && data.metadata.sigma_rules) {
+                            console.log('Auto-opening sigma modal from URL fragment (API)');
+                            setTimeout(() => showSigmaModal(data.metadata.sigma_rules.rules, data.metadata.sigma_rules), 500);
+                        } else {
+                            console.log('No sigma data found for this article');
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error fetching article data for sigma:', error);
+                    });
+            }
+        } else if (hash === 'iocs') {
+            console.log('Processing iocs hash...');
+            
+            // Get current article ID from URL
+            const currentArticleId = window.location.pathname.split('/').pop();
+            const templateArticleId = {{ article.id }};
+            
+            if (currentArticleId == templateArticleId) {
+                // Same article - use template data
+                const hasIocs = {{ 'true' if article.metadata and article.metadata.get('extracted_iocs') else 'false' }};
+                console.log('Has iocs (template):', hasIocs);
+                
+                if (hasIocs) {
+                    const iocsData = {{ article.metadata.get('extracted_iocs') | tojson if article.metadata and article.metadata.get('extracted_iocs') else 'null' }};
+                    console.log('IOCs data (template):', iocsData);
+                    
+                    if (iocsData) {
+                        console.log('Auto-opening IOCs modal from URL fragment (template)');
+                        setTimeout(() => showIOCsModal(iocsData.iocs, iocsData), 500);
+                    }
+                }
+            } else {
+                // Different article - fetch data via API
+                console.log('Different article, fetching IOCs data via API...');
+                fetch(`/api/articles/${currentArticleId}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        console.log('Fetched article data for IOCs:', data);
+                        if (data.metadata && data.metadata.extracted_iocs) {
+                            console.log('Auto-opening IOCs modal from URL fragment (API)');
+                            setTimeout(() => showIOCsModal(data.metadata.extracted_iocs.iocs, data.metadata.extracted_iocs), 500);
+                        } else {
+                            console.log('No IOCs data found for this article');
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error fetching article data for IOCs:', error);
+                    });
+            }
+        }
+        
+        // Clear the hash from URL after handling
+        if (hash) {
+            console.log('Clearing URL hash:', hash);
+            window.history.replaceState(null, null, window.location.pathname);
+        }
+    });
 </script>
 {% endblock %}
