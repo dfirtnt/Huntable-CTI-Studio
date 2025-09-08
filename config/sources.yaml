@@ -329,7 +329,7 @@ sources:
     check_frequency: 1800  # 30 minutes
     active: true
     config:
-      title_filter_keywords: ["CrowdStrike Named a Leader"]
+      title_filter_keywords: ["CrowdStrike Named a Leader", "CrowdStrike to Acquire"]
 
   # Microsoft Security Response Center (existing)
   - id: "microsoft_security"
