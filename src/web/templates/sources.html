@@ -454,7 +454,7 @@ async function showSourceStats(sourceId) {
             content += `<p><strong>Collection Method:</strong> ${stats.collection_method}</p>`;
             content += `<p><strong>Total Articles:</strong> ${stats.total_articles}</p>`;
             content += `<p><strong>Average Content Length:</strong> ${stats.avg_content_length} characters</p>`;
-            content += `<p><strong>Average Quality Score:</strong> ${stats.avg_quality_score}/75</p>`;
+            content += `<p><strong>Average Threat Hunting Score:</strong> ${stats.avg_threat_hunting_score}/100</p>`;
             content += `<p><strong>Last Check:</strong> ${stats.last_check ? new Date(stats.last_check).toLocaleString() : 'Never'}</p>`;
             
             if (Object.keys(stats.articles_by_date).length > 0) {

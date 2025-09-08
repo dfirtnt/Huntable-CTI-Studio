@@ -419,12 +419,12 @@
                                 
                                 {% if article.metadata.get('good_keyword_matches') %}
                                     {% for keyword in article.metadata.get('good_keyword_matches', [])[:2] %}
-                                    <span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800" title="Good Discriminator">
+                                    <span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-800" title="Good Discriminator">
                                         🟡 {{ keyword }}
                                     </span>
                                     {% endfor %}
                                     {% if article.metadata.get('good_keyword_matches', [])|length > 2 %}
-                                    <span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800">
+                                    <span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-800">
                                         +{{ article.metadata.get('good_keyword_matches', [])|length - 2 }}
                                     </span>
                                     {% endif %}
