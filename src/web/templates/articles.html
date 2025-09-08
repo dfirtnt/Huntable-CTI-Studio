@@ -270,7 +270,7 @@
                     <div class="flex items-center space-x-2">
                         <button onclick="selectAllVisible()" 
                                 class="text-sm text-blue-600 hover:text-blue-800 underline">
-                            Select All
+                            Select All Matching
                         </button>
                         <span class="text-blue-400">|</span>
                         <button onclick="clearSelection()" 
@@ -1013,12 +1013,53 @@
         }
     }
     
-    function selectAllVisible() {
-        const checkboxes = document.querySelectorAll('.bulk-select-checkbox');
-        checkboxes.forEach(checkbox => {
-            checkbox.checked = true;
-        });
-        updateBulkActions();
+    async function selectAllVisible() {
+        try {
+            // Get current filter parameters from URL
+            const urlParams = new URLSearchParams(window.location.search);
+            const currentFilters = {
+                search: urlParams.get('search') || '',
+                source: urlParams.get('source') || '',
+                source_id: urlParams.get('source_id') || '',
+                classification: urlParams.get('classification') || '',
+                threat_hunting_range: urlParams.get('threat_hunting_range') || '',
+                title_only: urlParams.get('title_only') || ''
+            };
+            
+            // Build API URL with current filters
+            const apiParams = new URLSearchParams();
+            Object.entries(currentFilters).forEach(([key, value]) => {
+                if (value) {
+                    apiParams.append(key, value);
+                }
+            });
+            apiParams.append('per_page', '1000'); // Get all matching articles
+            
+            const response = await fetch(`/api/articles?${apiParams.toString()}`);
+            if (!response.ok) {
+                throw new Error('Failed to fetch articles');
+            }
+            
+            const data = await response.json();
+            const allArticleIds = data.articles.map(article => article.id.toString());
+            
+            // Select all checkboxes that match the fetched article IDs
+            const checkboxes = document.querySelectorAll('.bulk-select-checkbox');
+            checkboxes.forEach(checkbox => {
+                if (allArticleIds.includes(checkbox.dataset.articleId)) {
+                    checkbox.checked = true;
+                }
+            });
+            
+            updateBulkActions();
+            
+            // Show notification
+            showNotification(`Selected ${allArticleIds.length} articles matching current filters.`, 'success');
+            
+        } catch (error) {
+            console.error('Error selecting all articles:', error);
+            showNotification('Failed to select all articles. Please try again.', 'error');
+        }
     }
     
     function clearSelection() {
