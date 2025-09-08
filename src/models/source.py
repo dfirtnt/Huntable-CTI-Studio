@@ -21,6 +21,9 @@ class SourceConfig(BaseModel):
     # Content quality configuration
     min_content_length: Optional[int] = Field(None, description="Minimum content length in characters")
     
+    # Title filtering configuration
+    title_filter_keywords: Optional[List[str]] = Field(None, description="Additional keywords to filter out by title")
+    
     # Legacy fallback
     content_selector: Optional[str] = Field(None, description="Legacy content selector")
 
