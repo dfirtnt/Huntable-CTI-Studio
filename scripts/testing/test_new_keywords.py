@@ -50,15 +50,12 @@ def test_new_keywords():
     if result['good_keyword_matches']:
         print(f"Good Keywords: {', '.join(result['good_keyword_matches'])}")
     
-    if result['threat_hunting_matches']:
-        print(f"Threat Hunting Terms: {', '.join(result['threat_hunting_matches'])}")
-    
     # Check for specific new keywords
     new_keywords = ['currentversion', 'EventCode', 'lolbas', 'lolbins', 'RMM']
     found_keywords = []
     
     for keyword in new_keywords:
-        if keyword in result['good_keyword_matches'] or keyword in result['threat_hunting_matches']:
+        if keyword in result['good_keyword_matches']:
             found_keywords.append(keyword)
     
     if found_keywords:

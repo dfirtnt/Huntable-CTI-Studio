@@ -117,7 +117,7 @@
     </div>
 
     <!-- Keyword Matches Display -->
-    {% if article.metadata and (article.metadata.get('perfect_keyword_matches') or article.metadata.get('good_keyword_matches') or article.metadata.get('lolbas_matches') or article.metadata.get('threat_hunting_matches')) %}
+    {% if article.metadata and (article.metadata.get('perfect_keyword_matches') or article.metadata.get('good_keyword_matches') or article.metadata.get('lolbas_matches')) %}
     <div class="bg-white rounded-lg shadow-sm p-6">
         <h2 class="text-xl font-bold text-gray-900 mb-4">🎯 Keyword Matches</h2>
         
@@ -173,22 +173,6 @@
             </div>
             {% endif %}
             
-            <!-- Threat Hunting Terms -->
-            {% if article.metadata.get('threat_hunting_matches') %}
-            <div class="bg-purple-50 border border-purple-200 rounded-lg p-4">
-                <h3 class="text-sm font-semibold text-purple-800 mb-2 flex items-center">
-                    <span class="mr-2">🎯</span>
-                    Threat Hunting Terms
-                </h3>
-                <div class="flex flex-wrap gap-1">
-                    {% for keyword in article.metadata.get('threat_hunting_matches', []) %}
-                    <span class="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-purple-100 text-purple-800">
-                        {{ keyword }}
-                    </span>
-                    {% endfor %}
-                </div>
-            </div>
-            {% endif %}
         </div>
         
         <!-- Additional Metrics -->
@@ -472,20 +456,57 @@
                 
                 if (data.success && data.annotations) {
                     console.log(`Found ${data.annotations.length} existing annotations`);
-                    data.annotations.forEach(annotation => {
-                        console.log(`Loading annotation: ${annotation.annotation_type} - "${annotation.selected_text.substring(0, 50)}..."`);
-                        this.addUserClassification(
-                            annotation.start_position,
-                            annotation.end_position,
-                            annotation.annotation_type,
-                            annotation.selected_text
-                        );
-                    });
+                    
+                    // Wait a bit for the page to fully load before adding annotations
+                    setTimeout(() => {
+                        data.annotations.forEach(annotation => {
+                            console.log(`Loading annotation: ${annotation.annotation_type} - "${annotation.selected_text.substring(0, 50)}..."`);
+                            this.addExistingClassification(
+                                annotation.start_position,
+                                annotation.end_position,
+                                annotation.annotation_type,
+                                annotation.selected_text
+                            );
+                        });
+                    }, 100);
                 } else {
                     console.log('No existing annotations found');
                 }
             } catch (error) {
                 console.error('Failed to load existing classifications:', error);
+            }
+        }
+        
+        addExistingClassification(start, end, classification, text) {
+            console.log(`Checking existing annotation: ${classification} - "${text.substring(0, 50)}..."`);
+            
+            // Check if this text is already highlighted by looking for spans with our classes
+            const cssClass = classification === 'huntable' 
+                ? 'bg-blue-100' 
+                : 'bg-red-100';
+            
+            // Look for existing spans with our annotation classes
+            const existingSpans = this.contentElement.querySelectorAll(`span.${cssClass}`);
+            let alreadyHighlighted = false;
+            
+            for (const span of existingSpans) {
+                // Check if this span contains our text (or vice versa for partial matches)
+                const spanText = span.textContent.trim();
+                const searchText = text.trim();
+                
+                // More precise matching - check if the span text matches our annotation text
+                if (spanText === searchText || spanText.includes(searchText)) {
+                    alreadyHighlighted = true;
+                    console.log(`Text already highlighted in span: "${spanText.substring(0, 50)}..."`);
+                    break;
+                }
+            }
+            
+            if (!alreadyHighlighted) {
+                console.log('Text not yet highlighted, adding annotation');
+                this.addUserClassification(start, end, classification, text);
+            } else {
+                console.log('Skipping duplicate annotation');
             }
         }
         
@@ -516,7 +537,8 @@
             
             // Approach 1: Exact match
             if (content.includes(text)) {
-                newContent = content.replace(text, highlightSpan);
+                const index = content.indexOf(text);
+                newContent = content.substring(0, index) + highlightSpan + content.substring(index + text.length);
                 console.log('Found exact text match, replaced');
                 replaced = true;
             } else {
@@ -524,22 +546,27 @@
                 const escapedText = text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
                 const regex = new RegExp(`(?![^<]*>)\\b${escapedText}\\b(?![^<]*>)`, 'gi');
                 
-                if (regex.test(content)) {
-                    newContent = content.replace(regex, highlightSpan);
+                const match = regex.exec(content);
+                if (match) {
+                    const index = match.index;
+                    newContent = content.substring(0, index) + highlightSpan + content.substring(index + match[0].length);
                     console.log('Found regex match, replaced');
                     replaced = true;
                 } else {
                     // Approach 3: Try without word boundaries (for text with special chars)
                     const simpleRegex = new RegExp(escapedText, 'gi');
-                    if (simpleRegex.test(content)) {
-                        newContent = content.replace(simpleRegex, highlightSpan);
+                    const simpleMatch = simpleRegex.exec(content);
+                    if (simpleMatch) {
+                        const index = simpleMatch.index;
+                        newContent = content.substring(0, index) + highlightSpan + content.substring(index + simpleMatch[0].length);
                         console.log('Found simple regex match, replaced');
                         replaced = true;
                     } else {
                         // Approach 4: Try with a shorter substring
                         const shortText = text.substring(0, Math.min(50, text.length));
                         if (content.includes(shortText)) {
-                            newContent = content.replace(shortText, highlightSpan);
+                            const index = content.indexOf(shortText);
+                            newContent = content.substring(0, index) + highlightSpan + content.substring(index + shortText.length);
                             console.log('Found short text match, replaced');
                             replaced = true;
                         } else {
@@ -904,7 +931,9 @@
                 
                 // Remove the span from the DOM (replace with original text)
                 const originalText = this.pendingRemovalText;
-                this.pendingRemovalSpan.outerHTML = originalText;
+                const parent = this.pendingRemovalSpan.parentNode;
+                const textNode = document.createTextNode(originalText);
+                parent.replaceChild(textNode, this.pendingRemovalSpan);
                 
                 // Find and delete the annotation from the database
                 const response = await fetch(`/api/articles/{{ article.id }}/annotations`, {
