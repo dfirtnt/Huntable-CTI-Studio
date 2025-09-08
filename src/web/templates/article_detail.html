@@ -1678,8 +1678,9 @@
     document.addEventListener('DOMContentLoaded', function() {
         const articleContent = document.getElementById('article-content');
         if (articleContent) {
-            // Initialize annotation manager
-            window.annotationManager = new TextAnnotationManager(articleContent, {{ article.id }});
+            // Temporarily disable annotation manager to preserve keyword highlighting
+            console.log('TextAnnotationManager disabled to preserve keyword highlighting');
+            // window.annotationManager = new TextAnnotationManager(articleContent, {{ article.id }});
         }
     });
     
