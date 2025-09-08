@@ -224,6 +224,7 @@
                     <option value="source_id" {% if filters.sort_by == 'source_id' %}selected{% endif %}>Source</option>
                     <option value="quality_score" {% if filters.sort_by == 'quality_score' %}selected{% endif %}>Quality Score</option>
                     <option value="threat_hunting_score" {% if filters.sort_by == 'threat_hunting_score' %}selected{% endif %}>Threat Hunting Score</option>
+                    <option value="annotation_count" {% if filters.sort_by == 'annotation_count' %}selected{% endif %}>Annotation Count</option>
                     <option value="word_count" {% if filters.sort_by == 'word_count' %}selected{% endif %}>Word Count</option>
                     <option value="id" {% if filters.sort_by == 'id' %}selected{% endif %}>Article ID</option>
                 </select>
@@ -379,6 +380,20 @@
                                 {% else %}
                                     <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
                                         🔴 {{ "%.1f"|format(score) }}
+                                    </span>
+                                {% endif %}
+                            </span>
+                            {% endif %}
+                            {% if article.metadata and article.metadata.get('annotation_count') is not none %}
+                            <span>Annotations: 
+                                {% set annotation_count = article.metadata.get('annotation_count', 0) %}
+                                {% if annotation_count > 0 %}
+                                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                        📝 {{ annotation_count }}
+                                    </span>
+                                {% else %}
+                                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
+                                        📝 {{ annotation_count }}
                                     </span>
                                 {% endif %}
                             </span>

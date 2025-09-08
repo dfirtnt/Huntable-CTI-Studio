@@ -1004,6 +1004,12 @@ async def articles_list(
                 key=lambda x: float(x.metadata.get('threat_hunting_score', 0)) if x.metadata and x.metadata.get('threat_hunting_score') else 0,
                 reverse=(sort_order == 'desc')
             )
+        elif sort_by == "annotation_count":
+            # Special handling for annotation_count which is stored in metadata
+            filtered_articles.sort(
+                key=lambda x: int(x.metadata.get('annotation_count', 0)) if x.metadata and x.metadata.get('annotation_count') is not None else 0,
+                reverse=(sort_order == 'desc')
+            )
         else:
             # Get the attribute dynamically
             sort_attr = getattr(filtered_articles[0], sort_by, None) if filtered_articles else None
