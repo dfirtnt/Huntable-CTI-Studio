@@ -251,9 +251,20 @@
     <div class="bg-white rounded-lg shadow-sm">
         <div class="px-6 py-4 border-b border-gray-200">
             <div class="flex items-center justify-between">
-                <h3 class="text-lg font-medium text-gray-900">
-                    Articles ({{ pagination.start_idx }}-{{ pagination.end_idx }} of {{ pagination.total_articles }})
-                </h3>
+                <div class="flex items-center space-x-4">
+                    <h3 class="text-lg font-medium text-gray-900">
+                        Articles ({{ pagination.start_idx }}-{{ pagination.end_idx }} of {{ pagination.total_articles }})
+                    </h3>
+                    {% if articles %}
+                    <label class="flex items-center text-sm text-gray-600">
+                        <input type="checkbox" 
+                               id="select-all-matching" 
+                               class="mr-2 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                               onchange="toggleSelectAllMatching()">
+                        Select All Matching
+                    </label>
+                    {% endif %}
+                </div>
                 <div class="text-sm text-gray-500">
                     Page {{ pagination.page }} of {{ pagination.total_pages }}
                 </div>
@@ -1003,6 +1014,7 @@
         const checkboxes = document.querySelectorAll('.bulk-select-checkbox:checked');
         const toolbar = document.getElementById('bulk-actions-toolbar');
         const countSpan = document.getElementById('selected-count');
+        const selectAllCheckbox = document.getElementById('select-all-matching');
         
         countSpan.textContent = checkboxes.length;
         
@@ -1010,6 +1022,34 @@
             toolbar.classList.remove('hidden');
         } else {
             toolbar.classList.add('hidden');
+        }
+        
+        // Update the "Select All Matching" checkbox state
+        if (selectAllCheckbox) {
+            const allCheckboxes = document.querySelectorAll('.bulk-select-checkbox');
+            if (allCheckboxes.length === 0) {
+                selectAllCheckbox.indeterminate = false;
+                selectAllCheckbox.checked = false;
+            } else if (checkboxes.length === allCheckboxes.length) {
+                selectAllCheckbox.indeterminate = false;
+                selectAllCheckbox.checked = true;
+            } else if (checkboxes.length > 0) {
+                selectAllCheckbox.indeterminate = true;
+                selectAllCheckbox.checked = false;
+            } else {
+                selectAllCheckbox.indeterminate = false;
+                selectAllCheckbox.checked = false;
+            }
+        }
+    }
+    
+    async function toggleSelectAllMatching() {
+        const selectAllCheckbox = document.getElementById('select-all-matching');
+        
+        if (selectAllCheckbox.checked) {
+            await selectAllVisible();
+        } else {
+            clearSelection();
         }
     }
     
