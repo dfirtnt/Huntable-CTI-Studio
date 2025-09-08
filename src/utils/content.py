@@ -638,7 +638,6 @@ class ThreatHuntingScorer:
             - lolbas_matches: List[str]
             - threat_hunting_matches: List[str]
             - keyword_density: float
-            - technical_depth_score: float
         """
         if not content:
             return {
@@ -647,8 +646,7 @@ class ThreatHuntingScorer:
                 'good_keyword_matches': [],
                 'lolbas_matches': [],
                 'threat_hunting_matches': [],
-                'keyword_density': 0.0,
-                'technical_depth_score': 0.0
+                'keyword_density': 0.0
             }
         
         # Clean content for analysis
@@ -688,15 +686,12 @@ class ThreatHuntingScorer:
         lolbas_score = len(lolbas_matches) * 12    # 12 points per LOLBAS executable
         threat_hunting_score = len(threat_hunting_matches) * 10  # 10 points per threat hunting term
         
-        # Technical depth indicators
-        technical_depth_score = ThreatHuntingScorer._calculate_technical_depth(full_text)
-        
         # Keyword density (percentage of content containing technical keywords)
         total_keywords = len(perfect_matches) + len(good_matches) + len(lolbas_matches) + len(threat_hunting_matches)
         keyword_density = (total_keywords / max(len(full_text.split()), 1)) * 1000  # per 1000 words
         
         # Calculate final threat hunting score
-        threat_hunting_score = min(perfect_score + good_score + lolbas_score + threat_hunting_score + technical_depth_score, 100.0)
+        threat_hunting_score = min(perfect_score + good_score + lolbas_score + threat_hunting_score, 100.0)
         
         return {
             'threat_hunting_score': round(threat_hunting_score, 1),
@@ -704,8 +699,7 @@ class ThreatHuntingScorer:
             'good_keyword_matches': good_matches,
             'lolbas_matches': lolbas_matches,
             'threat_hunting_matches': threat_hunting_matches,
-            'keyword_density': round(keyword_density, 2),
-            'technical_depth_score': round(technical_depth_score, 1)
+            'keyword_density': round(keyword_density, 2)
         }
     
     @staticmethod
@@ -728,52 +722,3 @@ class ThreatHuntingScorer:
         
         return bool(re.search(pattern, text, re.IGNORECASE))
     
-    @staticmethod
-    def _calculate_technical_depth(text: str) -> float:
-        """
-        Calculate technical depth score based on technical indicators.
-        
-        Args:
-            text: Text to analyze
-            
-        Returns:
-            Technical depth score (0-30)
-        """
-        score = 0.0
-        
-        # CVE references
-        cve_pattern = r'CVE-\d{4}-\d{4,7}'
-        cve_matches = len(re.findall(cve_pattern, text, re.IGNORECASE))
-        score += min(cve_matches * 2, 10)  # Max 10 points for CVEs
-        
-        # Hex values
-        hex_pattern = r'\b[0-9a-fA-F]{8,}\b'
-        hex_matches = len(re.findall(hex_pattern, text))
-        score += min(hex_matches * 0.5, 5)  # Max 5 points for hex values
-        
-        # Registry paths
-        registry_pattern = r'HKLM\\|HKCU\\|HKCR\\|HKU\\'
-        registry_matches = len(re.findall(registry_pattern, text))
-        score += min(registry_matches * 1, 5)  # Max 5 points for registry paths
-        
-        # Windows paths
-        windows_path_pattern = r'[A-Za-z]:\\[^\\s]*'
-        windows_path_matches = len(re.findall(windows_path_pattern, text))
-        score += min(windows_path_matches * 0.3, 3)  # Max 3 points for Windows paths
-        
-        # IP addresses
-        ip_pattern = r'\b(?:\d{1,3}\.){3}\d{1,3}\b'
-        ip_matches = len(re.findall(ip_pattern, text))
-        score += min(ip_matches * 0.5, 3)  # Max 3 points for IP addresses
-        
-        # Hash values
-        hash_pattern = r'\b[a-fA-F0-9]{32,}\b'
-        hash_matches = len(re.findall(hash_pattern, text))
-        score += min(hash_matches * 0.5, 2)  # Max 2 points for hash values
-        
-        # Code blocks
-        code_pattern = r'```|`[^`]+`'
-        code_matches = len(re.findall(code_pattern, text))
-        score += min(code_matches * 1, 2)  # Max 2 points for code blocks
-        
-        return min(score, 30)  # Cap at 30 points
