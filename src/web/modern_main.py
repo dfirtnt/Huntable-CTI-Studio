@@ -94,11 +94,17 @@ def highlight_keywords(content: str, metadata: Dict[str, Any]) -> str:
         highlight_span = f'<span class="px-1 py-0.5 rounded text-xs font-medium border {css_classes}" title="{type_name.title()} discriminator: {keyword}">{keyword}</span>'
         
         # For certain keywords, allow partial matches (like "hunting" in "threat hunting")
-        partial_match_keywords = ['hunting', 'detection', 'monitor', 'alert', 'executable']
+        partial_match_keywords = ['hunting', 'detection', 'monitor', 'alert', 'executable', 'parent-child', 'defender query']
+        
+        # For wildcard keywords, use prefix matching
+        wildcard_keywords = ['spawn']
         
         if keyword.lower() in partial_match_keywords:
             # Allow partial matches for these keywords
             pattern = re.compile(escaped_keyword, re.IGNORECASE)
+        elif keyword.lower() in wildcard_keywords:
+            # Allow wildcard matching (e.g., "spawn" matches "spawns", "spawning", "spawned")
+            pattern = re.compile(escaped_keyword + r'\w*', re.IGNORECASE)
         else:
             # Use word boundaries for other keywords
             pattern = re.compile(r'\b' + escaped_keyword + r'\b', re.IGNORECASE)
@@ -803,8 +809,15 @@ async def api_source_stats(source_id: int):
         total_articles = len(articles)
         avg_content_length = sum(len(article.content or "") for article in articles) // max(total_articles, 1)
         
-        # Mock quality score for now (in production, this would be calculated from actual quality data)
-        avg_quality_score = 65  # Mock value
+        # Calculate actual average threat hunting score
+        threat_hunting_scores = []
+        for article in articles:
+            if article.metadata:
+                score = article.metadata.get('threat_hunting_score', 0)
+                if score > 0:
+                    threat_hunting_scores.append(score)
+        
+        avg_threat_hunting_score = sum(threat_hunting_scores) / len(threat_hunting_scores) if threat_hunting_scores else 0.0
         
         # Mock articles by date for now
         articles_by_date = {"2024-01-01": total_articles} if total_articles > 0 else {}
@@ -817,7 +830,7 @@ async def api_source_stats(source_id: int):
             "collection_method": "RSS" if source.rss_url else "Web Scraping",
             "total_articles": total_articles,
             "avg_content_length": avg_content_length,
-            "avg_quality_score": avg_quality_score,
+            "avg_threat_hunting_score": round(avg_threat_hunting_score, 1),
             "last_check": source.last_check.isoformat() if source.last_check else None,
             "articles_by_date": articles_by_date
         }
@@ -2230,7 +2243,7 @@ async def api_gpt4o_rank(article_id: int, request: Request):
 
 ## Your Role
 
-You are a detection engineer evaluating cybersecurity blog content specifically for its suitability to create SIGMA detection rules. Rate content based on how directly it maps to structured log data sources including Windows Event Logs, Sysmon, Linux auditd/Syslog, AND cloud service logs (AWS CloudTrail, Azure Activity, GCP Audit).
+You are a detection engineer evaluating cybersecurity blog content specifically for its suitability to create SIGMA detection rules. Rate content based on how directly it maps to structured log data sources including Windows Event Logs, Sysmon, Linux auditd/Syslog, macOS system logs, AND cloud service logs (AWS CloudTrail, Azure Activity, GCP Audit).
 
 ## SIGMA-Focused Scoring (1-10 Scale)
 
@@ -2240,53 +2253,67 @@ Only content that maps to structured log telemetry receives points. Ignore netwo
 
 - Do not award points for atomic IOCs (file hashes, IPs, or one-off domains).
 - Filename/path patterns and directory conventions are acceptable if they indicate repeatable behavior.
-- Only award points for observables that map directly to Windows Event Logs, Sysmon, or Linux auditd/Syslog.
+- Only award points for observables that map directly to Windows Event Logs, Sysmon, Linux auditd/Syslog, or macOS system logs.
 
 ### Category A – Process Creation & Command-Line Arguments (0-4 pts)
 
-**Data Sources:** Sysmon Event ID 1, Windows Security 4688, Linux process logs, cloud shell/CLI commands
+**Data Sources:** 
+- Windows: Sysmon Event ID 1, Security 4688
+- Linux: process logs, auditd
+- **macOS: Endpoint Security process events, unified logging (log show)**
+- Cloud: CLI commands in CloudTrail/Activity logs
+
 **Look For:**
 
 - Parent → child process chains with full paths
 - Exact command-line strings with arguments, switches, flags
 - Process execution sequences
-- **Cloud CLI commands** (aws, az, gcloud) with specific parameters
+- Cloud CLI commands (aws, az, gcloud) with specific parameters
+- **macOS-specific:** osascript commands, launchctl usage, security framework calls
 
 **Scoring:**
 
 - 0 = No process/command details
-- 1 = Vague mentions ("runs PowerShell" or "uses AWS CLI")
+- 1 = Vague mentions ("runs PowerShell", "uses AWS CLI", or "executes AppleScript")
 - 2 = Partial arguments or missing execution context
 - 3 = Detailed examples but limited coverage
 - 4 = Multiple detailed command chains with full arguments
 
 ### Category B – Persistence & System/Service Modification (0-3 pts)
 
-**Data Sources:** Sysmon Event IDs 12/13/19/7045, Security 4697, Linux auditd, AWS CloudTrail, Azure Activity
+**Data Sources:** 
+- Windows: Sysmon Event IDs 12/13/19/7045, Security 4697
+- Linux: auditd, systemd logs
+- **macOS: LaunchAgent/LaunchDaemon creation, login items, authorization database changes**
+- Cloud: AWS CloudTrail, Azure Activity
+
 **Look For:**
 
-- Registry keys with exact paths and values
+- Registry keys with exact paths and values (Windows)
 - Service creation/modification details
-- Scheduled tasks or cron job configurations
-- **Cloud service configurations** (IAM roles, SNS topics, Lambda functions, etc.)
+- Scheduled tasks, cron jobs, or **macOS LaunchAgents/LaunchDaemons**
+- Cloud service configurations (IAM roles, SNS topics, Lambda functions, etc.)
 - API calls that establish persistence or modify services
+- **macOS persistence:** ~/Library/LaunchAgents, /Library/LaunchDaemons, login items, authorization plugins
 
 **Scoring:**
 
 - 0 = No persistence/modification details
 - 1 = Generic mention ("creates persistence" or "modifies cloud config")
 - 2 = Specific mechanism but incomplete details
-- 3 = Exact configurations, API calls, or settings ready for SIGMA rules
+- 3 = Exact configurations, API calls, plist files, or settings ready for SIGMA rules
 
 ### Category C – Log-Correlated Behavior (0-2 pts)
 
-**Data Sources:** Multiple log sources in sequence (Windows/Linux/Cloud)
+**Data Sources:** Multiple log sources in sequence (Windows/Linux/macOS/Cloud)
+
 **Look For:**
 
 - Cross-log correlations (process → network, cloud API → local execution)
 - Event sequences that can be chained in SIGMA rules
 - Time-based correlations between different log types
-- **Cloud service chains** (EC2 → SNS → external endpoint)
+- Cloud service chains (EC2 → SNS → external endpoint)
+- **macOS correlations:** Endpoint Security events + unified logging + authorization logs
 
 **Scoring:**
 
@@ -2297,21 +2324,30 @@ Only content that maps to structured log telemetry receives points. Ignore netwo
 ### Category D – Structured Log Patterns (0-1 pt)
 
 **Data Sources:** Any structured log format (file creation, API calls, service events)
+
 **Look For:**
 
 - File path patterns or naming conventions (not hashes)
-- **API call patterns** with specific parameters
+- API call patterns with specific parameters
 - Service usage patterns or anomalous configurations
 - Structured event patterns in any log format
+- **macOS-specific:** .plist file patterns, app bundle structures, Gatekeeper/XProtect logs
 
 **Scoring:**
 
 - 0 = No usable structured patterns
 - 1 = Clear structured patterns present
 
-## Important: Cloud Native Content
+## Important: Multi-Platform Content
 
-**AWS CloudTrail, Azure Activity Logs, and GCP Audit Logs ARE valid SIGMA data sources.** Do not dismiss cloud-focused content. API calls, service configurations, and cloud command execution are all huntable through structured logs.
+**AWS CloudTrail, Azure Activity Logs, GCP Audit Logs, and macOS system logs ARE valid SIGMA data sources.** Do not dismiss cloud-focused or macOS content. API calls, service configurations, LaunchAgent creation, and command execution are all huntable through structured logs.
+
+**macOS SIGMA Data Sources Include:**
+- Endpoint Security Framework events
+- Unified Logging System (log show commands)  
+- Authorization database logs
+- LaunchAgent/LaunchDaemon plist files
+- Gatekeeper and XProtect logs
 
 ## Scoring Bands
 
@@ -2327,23 +2363,23 @@ Only content that maps to structured log telemetry receives points. Ignore netwo
 
 **CATEGORY BREAKDOWN:**
 
-- **Process/Command-Line (0-4):** [Score] - [Brief reasoning including cloud CLI if applicable]
-- **Persistence/System Mods (0-3):** [Score] - [Brief reasoning including cloud services if applicable]
+- **Process/Command-Line (0-4):** [Score] - [Brief reasoning, noting platform if applicable]
+- **Persistence/System Mods (0-3):** [Score] - [Brief reasoning, noting platform-specific mechanisms]
 - **Log Correlation (0-2):** [Score] - [Brief reasoning]
 - **Structured Patterns (0-1):** [Score] - [Brief reasoning]
 
 **SIGMA-READY OBSERVABLES:**
-[List specific elements that can directly become SIGMA rules, including cloud API calls]
+[List specific elements that can directly become SIGMA rules, noting target platform]
 
 **REQUIRED LOG SOURCES:**
-[Windows Event IDs, Sysmon events, Linux log types, OR cloud service logs needed]
+[Windows Event IDs, Sysmon events, Linux logs, macOS log sources, OR cloud service logs needed]
 
 **RULE FEASIBILITY:**
-[Assessment of how quickly detection rules could be created]
+[Assessment of how quickly detection rules could be created, noting any platform-specific considerations]
 
 ## Instructions
 
-Analyze the provided blog content using this SIGMA-focused rubric. Cloud service logs (CloudTrail, Azure Activity, etc.) are valid SIGMA data sources. Focus on structured log patterns regardless of platform. Ignore only unstructured data like network payloads or binary analysis.
+Analyze the provided blog content using this SIGMA-focused rubric. All major platforms (Windows, Linux, macOS) and cloud service logs are valid SIGMA data sources. Focus on structured log patterns regardless of platform. Ignore only unstructured data like network payloads or binary analysis.
 
 Please analyze the following blog content:
 

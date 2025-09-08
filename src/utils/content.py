@@ -601,22 +601,23 @@ WINDOWS_MALWARE_KEYWORDS = {
         'EventID', '.lnk', 'D:\\', '.iso', '<Command>', 'MZ',
         'svchost', '-accepteula', 'lsass.exe', 'WINDIR', 'wintmp',
         '\\temp\\', '\\pipe\\', '%WINDIR%', '%wintmp%', 'FromBase64String',
-        'MemoryStream', 'New-Object', 'DownloadString'
+        'MemoryStream', 'New-Object', 'DownloadString', 'Defender query'
     ],
-    'good_discriminators': [
-        'temp', '==', 'c:\\windows\\', 'Event ID', '.bat', '.ps1',
-        'pipe', '::', '[.]', '-->', 'currentversion', 'EventCode',
-        'Monitor', 'Executable', 'Detection', 'Alert on', 'Hunt for',
-        'Hunting', 'Create Detections', 'KQL', 'Search Query', '//',
-        'http:', 'hxxp', '->', '.exe', '--'
-    ],
+            'good_discriminators': [
+                'temp', '==', 'c:\\windows\\', 'Event ID', '.bat', '.ps1',
+                'pipe', '::', '[.]', '-->', 'currentversion', 'EventCode',
+                'Monitor', 'Executable', 'Detection', 'Alert on', 'Hunt for',
+                'Hunting', 'Create Detections', 'KQL', 'Search Query', '//',
+                'http:', 'hxxp', '->', '.exe', '--', 'cloudtrail',
+                '\\', '{', '}', '=', '<', '>', '[', ']', 'spawn', 'parent-child'
+            ],
     'lolbas_executables': [
         'certutil.exe', 'cmd.exe', 'reg.exe', 'schtasks.exe', 'wmic.exe',
         'bitsadmin.exe', 'ftp.exe', 'netsh.exe', 'cscript.exe', 'mshta.exe',
         'wscript.exe', 'msiexec.exe', 'regsvr32.exe', 'rundll32.exe',
         'forfiles.exe', 'explorer.exe', 'ieexec.exe', 'powershell.exe',
         'conhost.exe', 'svchost.exe', 'lsass.exe', 'winlogon.exe',
-        'csrss.exe', 'smss.exe', 'services.exe', 'wininit.exe'
+        'csrss.exe', 'smss.exe', 'services.exe', 'wininit.exe', 'nltest.exe'
     ],
 }
 
@@ -709,9 +710,15 @@ class ThreatHuntingScorer:
         # For certain keywords, allow partial matches (like "hunting" in "threat hunting")
         partial_match_keywords = ['hunting', 'detection', 'monitor', 'alert', 'executable']
         
+        # For wildcard keywords, use prefix matching
+        wildcard_keywords = ['spawn']
+        
         if keyword.lower() in partial_match_keywords:
             # Allow partial matches for these keywords
             pattern = escaped_keyword
+        elif keyword.lower() in wildcard_keywords:
+            # Allow wildcard matching (e.g., "spawn" matches "spawns", "spawning", "spawned")
+            pattern = escaped_keyword + r'\w*'
         else:
             # Use word boundaries for other keywords
             pattern = r'\b' + escaped_keyword + r'\b'

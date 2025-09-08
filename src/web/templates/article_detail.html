@@ -1566,7 +1566,7 @@
         // Estimate cost before proceeding
         const articleContent = `{{ article.content[:1000] }}`; // Get first 1000 chars for estimation
         const estimatedTokens = Math.ceil(articleContent.length / 4); // Rough estimate: 1 token ≈ 4 chars
-        const promptTokens = 2000; // Estimated prompt length
+        const promptTokens = 1500; // Updated prompt length (6,033 chars ≈ 1,508 tokens)
         const totalTokens = estimatedTokens + promptTokens;
         
         // GPT4o pricing: $5.00 per 1M input tokens, $15.00 per 1M output tokens
