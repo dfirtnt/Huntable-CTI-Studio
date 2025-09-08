@@ -2165,6 +2165,26 @@ async def get_article_annotations(article_id: int):
         logger.error(f"Failed to get annotations: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.delete("/api/articles/{article_id}/annotations/{annotation_id}")
+async def delete_annotation(article_id: int, annotation_id: int):
+    """Delete a specific annotation"""
+    try:
+        # Verify article exists
+        article = await async_db_manager.get_article(article_id)
+        if not article:
+            raise HTTPException(status_code=404, detail="Article not found")
+        
+        success = await async_db_manager.delete_annotation(annotation_id)
+        if success:
+            return {"success": True, "message": f"Annotation {annotation_id} deleted"}
+        else:
+            raise HTTPException(status_code=404, detail="Annotation not found")
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error deleting annotation {annotation_id}: {e}")
+        raise HTTPException(status_code=500, detail="Failed to delete annotation")
+
 @app.get("/api/annotations/stats")
 async def get_annotation_stats():
     """Get annotation statistics."""

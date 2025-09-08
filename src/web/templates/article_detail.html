@@ -443,7 +443,6 @@
             this.contentElement = document.getElementById('article-content');
             this.userClassifications = new Map();
             this.previousStates = []; // Store previous HTML states for undo
-            this.redoStates = []; // Store states for redo
             this.maxUndoStates = 10;
             
             this.init();
@@ -458,6 +457,9 @@
             
             // Enable keyboard shortcuts
             this.enableKeyboardShortcuts();
+            
+            // Enable clicking on annotations to remove them
+            this.enableAnnotationClicking();
         }
         
         async loadExistingClassifications() {
@@ -491,9 +493,9 @@
             console.log(`Attempting to add ${classification} classification for: "${text.substring(0, 100)}..."`);
             console.log(`Text length: ${text.length}, Start: ${start}, End: ${end}`);
             
-            // For very long text selections, use a different approach
-            if (text.length > 500) {
-                console.log('Long text selection detected, using position-based approach');
+            // For very long text selections, try to highlight more of it
+            if (text.length > 2000) {
+                console.log('Very long text selection detected, using position-based approach');
                 this.addLongTextClassification(start, end, classification, text);
                 return;
             }
@@ -559,7 +561,7 @@
         }
         
         addLongTextClassification(start, end, classification, text) {
-            // For very long text, try to highlight just the first part instead of using markers
+            // For very long text, try to highlight multiple parts of it
             const cssClass = classification === 'huntable' 
                 ? 'bg-blue-100 border-blue-300 text-blue-800' 
                 : 'bg-red-100 border-red-300 text-red-800';
@@ -567,23 +569,34 @@
             // Get the current HTML content
             const content = this.contentElement.innerHTML;
             
-            // Try to highlight just the first 200 characters of the selection
-            const shortText = text.substring(0, Math.min(200, text.length));
-            const highlightSpan = `<span class="px-1 py-0.5 rounded text-xs font-medium border ${cssClass}" title="${classification === 'huntable' ? 'Huntable' : 'Not Huntable'}: Long selection (${text.length} chars)">${shortText}${text.length > 200 ? '...' : ''}</span>`;
+            // Try to highlight the first 500 characters and add an indicator
+            const shortText = text.substring(0, Math.min(500, text.length));
+            const highlightSpan = `<span class="px-1 py-0.5 rounded text-xs font-medium border ${cssClass}" title="${classification === 'huntable' ? 'Huntable' : 'Not Huntable'}: Long selection (${text.length} chars)">${shortText}${text.length > 500 ? '...' : ''}</span>`;
             
-            // Try to find and replace the short text
+            // Try to find and replace the text
             if (content.includes(shortText)) {
-                const newContent = content.replace(shortText, highlightSpan);
+                let newContent = content.replace(shortText, highlightSpan);
+                
+                // Also try to highlight the end of the selection if it's very long
+                if (text.length > 1000) {
+                    const endText = text.substring(text.length - 100);
+                    const endHighlightSpan = `<span class="px-1 py-0.5 rounded text-xs font-medium border ${cssClass}" title="End of long ${classification} selection">...${endText}</span>`;
+                    
+                    if (newContent.includes(endText) && !newContent.includes(endHighlightSpan)) {
+                        newContent = newContent.replace(endText, endHighlightSpan);
+                    }
+                }
+                
                 this.contentElement.innerHTML = newContent;
-                console.log(`Added ${classification} highlight for first part of long text selection`);
+                console.log(`Added ${classification} highlight for long text selection (${text.length} chars)`);
             } else {
-                // If we can't find it, try an even shorter version
-                const veryShortText = text.substring(0, Math.min(50, text.length));
+                // Fallback to shorter text
+                const veryShortText = text.substring(0, Math.min(100, text.length));
                 if (content.includes(veryShortText)) {
                     const shortHighlightSpan = `<span class="px-1 py-0.5 rounded text-xs font-medium border ${cssClass}" title="${classification === 'huntable' ? 'Huntable' : 'Not Huntable'}: Long selection (${text.length} chars)">${veryShortText}...</span>`;
                     const newContent = content.replace(veryShortText, shortHighlightSpan);
                     this.contentElement.innerHTML = newContent;
-                    console.log(`Added ${classification} highlight for short part of long text selection`);
+                    console.log(`Added ${classification} highlight for part of long text selection`);
                 } else {
                     console.log(`Could not find text for long selection highlighting`);
                 }
@@ -594,27 +607,45 @@
             // Save current HTML state for undo functionality
             this.previousStates.push(this.contentElement.innerHTML);
             
-            // Clear redo states when a new action is performed
-            this.redoStates = [];
-            
             // Keep only the last maxUndoStates
             if (this.previousStates.length > this.maxUndoStates) {
                 this.previousStates.shift();
             }
         }
         
-        undo() {
+        async undo() {
             if (this.previousStates.length > 0) {
-                // Save current state for redo
-                this.redoStates.push(this.contentElement.innerHTML);
-                
-                // Keep only the last maxUndoStates for redo
-                if (this.redoStates.length > this.maxUndoStates) {
-                    this.redoStates.shift();
-                }
-                
                 const previousState = this.previousStates.pop();
                 this.contentElement.innerHTML = previousState;
+                
+                // Delete the last annotation from database
+                try {
+                    const response = await fetch(`/api/articles/{{ article.id }}/annotations`, {
+                        method: 'GET'
+                    });
+                    const data = await response.json();
+                    
+                    if (data.success && data.annotations.length > 0) {
+                        // Get the most recent annotation (highest ID)
+                        const lastAnnotation = data.annotations.reduce((prev, current) => 
+                            (prev.id > current.id) ? prev : current
+                        );
+                        
+                        // Delete it from database
+                        const deleteResponse = await fetch(`/api/articles/{{ article.id }}/annotations/${lastAnnotation.id}`, {
+                            method: 'DELETE'
+                        });
+                        
+                        if (deleteResponse.ok) {
+                            console.log(`Undid last classification and removed annotation ID ${lastAnnotation.id} from database`);
+                        } else {
+                            console.error('Failed to remove annotation from database');
+                        }
+                    }
+                } catch (error) {
+                    console.error('Error removing annotation from database:', error);
+                }
+                
                 console.log('Undid last classification');
                 return true;
             } else {
@@ -623,25 +654,6 @@
             }
         }
         
-        redo() {
-            if (this.redoStates.length > 0) {
-                // Save current state for undo
-                this.previousStates.push(this.contentElement.innerHTML);
-                
-                // Keep only the last maxUndoStates for undo
-                if (this.previousStates.length > this.maxUndoStates) {
-                    this.previousStates.shift();
-                }
-                
-                const redoState = this.redoStates.pop();
-                this.contentElement.innerHTML = redoState;
-                console.log('Redid last classification');
-                return true;
-            } else {
-                console.log('No states to redo');
-                return false;
-            }
-        }
         
         enableKeyboardShortcuts() {
             document.addEventListener('keydown', (e) => {
@@ -650,10 +662,29 @@
                     e.preventDefault();
                     this.undo();
                 }
-                // Ctrl+Y for redo
-                if (e.ctrlKey && e.key === 'y') {
-                    e.preventDefault();
-                    this.redo();
+            });
+        }
+        
+        enableAnnotationClicking() {
+            // Use event delegation to handle clicks on annotation spans
+            this.contentElement.addEventListener('click', (e) => {
+                // Check if clicked element is an annotation span
+                const clickedSpan = e.target.closest('span.px-1.py-0\\.5.rounded.text-xs.font-medium.border');
+                
+                if (clickedSpan) {
+                    // Check if it's a user annotation (not a keyword discriminator)
+                    const isHuntableAnnotation = clickedSpan.classList.contains('bg-blue-100');
+                    const isNotHuntableAnnotation = clickedSpan.classList.contains('bg-red-100');
+                    
+                    if (isHuntableAnnotation || isNotHuntableAnnotation) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        
+                        const annotationType = isHuntableAnnotation ? 'huntable' : 'not_huntable';
+                        const annotationText = clickedSpan.textContent;
+                        
+                        this.showRemoveAnnotationModal(clickedSpan, annotationType, annotationText);
+                    }
                 }
             });
         }
@@ -802,16 +833,6 @@
                                 class="flex-1 bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700">
                             Not Huntable
                         </button>
-                        <button onclick="simpleTextManager.undo()" 
-                                class="px-4 py-2 bg-yellow-500 text-white rounded hover:bg-yellow-600" 
-                                title="Undo last classification (Ctrl+Z)">
-                            Undo
-                        </button>
-                        <button onclick="simpleTextManager.redo()" 
-                                class="px-4 py-2 bg-orange-500 text-white rounded hover:bg-orange-600" 
-                                title="Redo last classification (Ctrl+Y)">
-                            Redo
-                        </button>
                         <button onclick="simpleTextManager.closeModal()" 
                                 class="px-4 py-2 border border-gray-300 rounded hover:bg-gray-50">
                             Cancel
@@ -835,11 +856,106 @@
             this.closeModal();
         }
         
+        showRemoveAnnotationModal(spanElement, annotationType, annotationText) {
+            // Store reference to the span element for removal
+            this.pendingRemovalSpan = spanElement;
+            this.pendingRemovalText = annotationText;
+            
+            // Create modal for removing annotation
+            const modal = document.createElement('div');
+            modal.className = 'fixed inset-0 bg-gray-600 bg-opacity-50 z-50 flex items-center justify-center';
+            modal.innerHTML = `
+                <div class="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+                    <h3 class="text-lg font-semibold mb-4">Remove Annotation</h3>
+                    <p class="text-sm text-gray-600 mb-2">
+                        <strong>Type:</strong> ${annotationType === 'huntable' ? 'Huntable' : 'Not Huntable'}
+                    </p>
+                    <p class="text-sm text-gray-600 mb-4">
+                        <strong>Text:</strong> "${annotationText.substring(0, 100)}${annotationText.length > 100 ? '...' : ''}"
+                    </p>
+                    <p class="text-sm text-gray-700 mb-4">
+                        Do you want to remove this annotation?
+                    </p>
+                    <div class="flex space-x-3">
+                        <button onclick="simpleTextManager.confirmRemoveAnnotation()" 
+                                class="flex-1 bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700">
+                            Remove
+                        </button>
+                        <button onclick="simpleTextManager.closeModal()" 
+                                class="flex-1 px-4 py-2 border border-gray-300 rounded hover:bg-gray-50">
+                            Cancel
+                        </button>
+                    </div>
+                </div>
+            `;
+            
+            document.body.appendChild(modal);
+        }
+        
+        async confirmRemoveAnnotation() {
+            if (!this.pendingRemovalSpan || !this.pendingRemovalText) {
+                console.error('No pending annotation removal');
+                return;
+            }
+            
+            try {
+                // Save state for undo
+                this.saveState();
+                
+                // Remove the span from the DOM (replace with original text)
+                const originalText = this.pendingRemovalText;
+                this.pendingRemovalSpan.outerHTML = originalText;
+                
+                // Find and delete the annotation from the database
+                const response = await fetch(`/api/articles/{{ article.id }}/annotations`, {
+                    method: 'GET'
+                });
+                const data = await response.json();
+                
+                if (data.success && data.annotations.length > 0) {
+                    // Find the annotation that matches our text
+                    const matchingAnnotation = data.annotations.find(annotation => 
+                        annotation.selected_text === originalText
+                    );
+                    
+                    if (matchingAnnotation) {
+                        // Delete it from database
+                        const deleteResponse = await fetch(`/api/articles/{{ article.id }}/annotations/${matchingAnnotation.id}`, {
+                            method: 'DELETE'
+                        });
+                        
+                        if (deleteResponse.ok) {
+                            console.log(`Removed annotation ID ${matchingAnnotation.id} from database`);
+                        } else {
+                            console.error('Failed to remove annotation from database');
+                        }
+                    } else {
+                        console.log('Could not find matching annotation in database');
+                    }
+                }
+                
+                // Clear pending removal references
+                this.pendingRemovalSpan = null;
+                this.pendingRemovalText = null;
+                
+                console.log('Annotation removed successfully');
+                
+            } catch (error) {
+                console.error('Error removing annotation:', error);
+            }
+            
+            this.closeModal();
+        }
+        
         closeModal() {
             const modal = document.querySelector('.fixed.inset-0.bg-gray-600');
             if (modal) {
                 modal.remove();
             }
+            
+            // Clear pending removal references when modal is closed
+            this.pendingRemovalSpan = null;
+            this.pendingRemovalText = null;
         }
         
         async saveClassification(start, end, text, classification) {
