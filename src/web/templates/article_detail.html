@@ -422,8 +422,6 @@
 <script>
     // Add syntax highlighting for matched text
     document.addEventListener('DOMContentLoaded', function() {
-        // Load existing annotations
-        loadExistingAnnotations();
         
         // Syntax highlighting for matched text
         const matchedTexts = document.querySelectorAll('.font-mono');
@@ -437,89 +435,445 @@
         localStorage.setItem('currentArticleClassification', currentClassification);
         
         // Load existing annotations
-        loadExistingAnnotations();
     });
     
-    // Load existing annotations and highlight them
-    async function loadExistingAnnotations() {
-        const articleId = {{ article.id }};
-        try {
-            const response = await fetch(`/api/articles/${articleId}/annotations`);
-            const data = await response.json();
+    // Simple Text Management System - Single Source of Truth
+    class SimpleTextManager {
+        constructor() {
+            this.contentElement = document.getElementById('article-content');
+            this.userClassifications = new Map();
+            this.previousStates = []; // Store previous HTML states for undo
+            this.redoStates = []; // Store states for redo
+            this.maxUndoStates = 10;
             
-            if (data.success && data.annotations.length > 0) {
-                highlightExistingAnnotations(data.annotations);
+            this.init();
+        }
+        
+        init() {
+            // Load existing user classifications
+            this.loadExistingClassifications();
+            
+            // Enable user text selection
+            this.enableUserSelection();
+            
+            // Enable keyboard shortcuts
+            this.enableKeyboardShortcuts();
+        }
+        
+        async loadExistingClassifications() {
+            try {
+                console.log('Loading existing classifications for article {{ article.id }}');
+                const response = await fetch(`/api/articles/{{ article.id }}/annotations`);
+                const data = await response.json();
+                
+                console.log('API response:', data);
+                
+                if (data.success && data.annotations) {
+                    console.log(`Found ${data.annotations.length} existing annotations`);
+                    data.annotations.forEach(annotation => {
+                        console.log(`Loading annotation: ${annotation.annotation_type} - "${annotation.selected_text.substring(0, 50)}..."`);
+                        this.addUserClassification(
+                            annotation.start_position,
+                            annotation.end_position,
+                            annotation.annotation_type,
+                            annotation.selected_text
+                        );
+                    });
+                } else {
+                    console.log('No existing annotations found');
+                }
+            } catch (error) {
+                console.error('Failed to load existing classifications:', error);
             }
-        } catch (error) {
-            console.error('Failed to load annotations:', error);
+        }
+        
+        addUserClassification(start, end, classification, text) {
+            console.log(`Attempting to add ${classification} classification for: "${text.substring(0, 100)}..."`);
+            console.log(`Text length: ${text.length}, Start: ${start}, End: ${end}`);
+            
+            // For very long text selections, use a different approach
+            if (text.length > 500) {
+                console.log('Long text selection detected, using position-based approach');
+                this.addLongTextClassification(start, end, classification, text);
+                return;
+            }
+            
+            // Get the current HTML content
+            const content = this.contentElement.innerHTML;
+            
+            // Create the highlight span
+            const cssClass = classification === 'huntable' 
+                ? 'bg-blue-100 border-blue-300 text-blue-800' 
+                : 'bg-red-100 border-red-300 text-red-800';
+            
+            const highlightSpan = `<span class="px-1 py-0.5 rounded text-xs font-medium border ${cssClass}" title="${classification === 'huntable' ? 'Huntable' : 'Not Huntable'}: ${text.substring(0, 50)}...">${text}</span>`;
+            
+            // Try multiple approaches to find and replace the text
+            let newContent = content;
+            let replaced = false;
+            
+            // Approach 1: Exact match
+            if (content.includes(text)) {
+                newContent = content.replace(text, highlightSpan);
+                console.log('Found exact text match, replaced');
+                replaced = true;
+            } else {
+                // Approach 2: Try with regex (word boundaries)
+                const escapedText = text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                const regex = new RegExp(`(?![^<]*>)\\b${escapedText}\\b(?![^<]*>)`, 'gi');
+                
+                if (regex.test(content)) {
+                    newContent = content.replace(regex, highlightSpan);
+                    console.log('Found regex match, replaced');
+                    replaced = true;
+                } else {
+                    // Approach 3: Try without word boundaries (for text with special chars)
+                    const simpleRegex = new RegExp(escapedText, 'gi');
+                    if (simpleRegex.test(content)) {
+                        newContent = content.replace(simpleRegex, highlightSpan);
+                        console.log('Found simple regex match, replaced');
+                        replaced = true;
+                    } else {
+                        // Approach 4: Try with a shorter substring
+                        const shortText = text.substring(0, Math.min(50, text.length));
+                        if (content.includes(shortText)) {
+                            newContent = content.replace(shortText, highlightSpan);
+                            console.log('Found short text match, replaced');
+                            replaced = true;
+                        } else {
+                            console.log('Could not find text to replace');
+                            console.log('Looking for:', text.substring(0, 100));
+                            console.log('In content:', content.substring(0, 200) + '...');
+                            return; // Don't update if we can't find the text
+                        }
+                    }
+                }
+            }
+            
+            // Save state before making changes
+            this.saveState();
+            
+            // Update the content
+            this.contentElement.innerHTML = newContent;
+            console.log(`Successfully added ${classification} classification`);
+        }
+        
+        addLongTextClassification(start, end, classification, text) {
+            // For very long text, try to highlight just the first part instead of using markers
+            const cssClass = classification === 'huntable' 
+                ? 'bg-blue-100 border-blue-300 text-blue-800' 
+                : 'bg-red-100 border-red-300 text-red-800';
+            
+            // Get the current HTML content
+            const content = this.contentElement.innerHTML;
+            
+            // Try to highlight just the first 200 characters of the selection
+            const shortText = text.substring(0, Math.min(200, text.length));
+            const highlightSpan = `<span class="px-1 py-0.5 rounded text-xs font-medium border ${cssClass}" title="${classification === 'huntable' ? 'Huntable' : 'Not Huntable'}: Long selection (${text.length} chars)">${shortText}${text.length > 200 ? '...' : ''}</span>`;
+            
+            // Try to find and replace the short text
+            if (content.includes(shortText)) {
+                const newContent = content.replace(shortText, highlightSpan);
+                this.contentElement.innerHTML = newContent;
+                console.log(`Added ${classification} highlight for first part of long text selection`);
+            } else {
+                // If we can't find it, try an even shorter version
+                const veryShortText = text.substring(0, Math.min(50, text.length));
+                if (content.includes(veryShortText)) {
+                    const shortHighlightSpan = `<span class="px-1 py-0.5 rounded text-xs font-medium border ${cssClass}" title="${classification === 'huntable' ? 'Huntable' : 'Not Huntable'}: Long selection (${text.length} chars)">${veryShortText}...</span>`;
+                    const newContent = content.replace(veryShortText, shortHighlightSpan);
+                    this.contentElement.innerHTML = newContent;
+                    console.log(`Added ${classification} highlight for short part of long text selection`);
+                } else {
+                    console.log(`Could not find text for long selection highlighting`);
+                }
+            }
+        }
+        
+        saveState() {
+            // Save current HTML state for undo functionality
+            this.previousStates.push(this.contentElement.innerHTML);
+            
+            // Clear redo states when a new action is performed
+            this.redoStates = [];
+            
+            // Keep only the last maxUndoStates
+            if (this.previousStates.length > this.maxUndoStates) {
+                this.previousStates.shift();
+            }
+        }
+        
+        undo() {
+            if (this.previousStates.length > 0) {
+                // Save current state for redo
+                this.redoStates.push(this.contentElement.innerHTML);
+                
+                // Keep only the last maxUndoStates for redo
+                if (this.redoStates.length > this.maxUndoStates) {
+                    this.redoStates.shift();
+                }
+                
+                const previousState = this.previousStates.pop();
+                this.contentElement.innerHTML = previousState;
+                console.log('Undid last classification');
+                return true;
+            } else {
+                console.log('No previous states to undo');
+                return false;
+            }
+        }
+        
+        redo() {
+            if (this.redoStates.length > 0) {
+                // Save current state for undo
+                this.previousStates.push(this.contentElement.innerHTML);
+                
+                // Keep only the last maxUndoStates for undo
+                if (this.previousStates.length > this.maxUndoStates) {
+                    this.previousStates.shift();
+                }
+                
+                const redoState = this.redoStates.pop();
+                this.contentElement.innerHTML = redoState;
+                console.log('Redid last classification');
+                return true;
+            } else {
+                console.log('No states to redo');
+                return false;
+            }
+        }
+        
+        enableKeyboardShortcuts() {
+            document.addEventListener('keydown', (e) => {
+                // Ctrl+Z for undo
+                if (e.ctrlKey && e.key === 'z') {
+                    e.preventDefault();
+                    this.undo();
+                }
+                // Ctrl+Y for redo
+                if (e.ctrlKey && e.key === 'y') {
+                    e.preventDefault();
+                    this.redo();
+                }
+            });
+        }
+        
+        enableUserSelection() {
+            let isSelecting = false;
+            let startPos = null;
+            let endPos = null;
+            
+            this.contentElement.addEventListener('mousedown', (e) => {
+                isSelecting = true;
+                startPos = this.getTextPositionFromEvent(e);
+            });
+            
+            this.contentElement.addEventListener('mousemove', (e) => {
+                if (isSelecting) {
+                    endPos = this.getTextPositionFromEvent(e);
+                    this.showSelectionPreview(startPos, endPos);
+                }
+            });
+            
+            this.contentElement.addEventListener('mouseup', (e) => {
+                if (isSelecting) {
+                    isSelecting = false;
+                    endPos = this.getTextPositionFromEvent(e);
+                    this.showClassificationOptions(startPos, endPos);
+                }
+            });
+        }
+        
+        getTextPositionFromEvent(e) {
+            const range = document.caretRangeFromPoint(e.clientX, e.clientY);
+            if (!range) return 0;
+            
+            // Find the character position in the text content (ignoring HTML)
+            const preCaretRange = range.cloneRange();
+            preCaretRange.selectNodeContents(this.contentElement);
+            preCaretRange.setEnd(range.endContainer, range.endOffset);
+            
+            return preCaretRange.toString().length;
+        }
+        
+        showSelectionPreview(start, end) {
+            // Clear previous preview
+            this.clearSelectionPreview();
+            
+            if (start === end) return;
+            
+            const min = Math.min(start, end);
+            const max = Math.max(start, end);
+            
+            const preview = document.createElement('div');
+            preview.className = 'absolute bg-yellow-200 bg-opacity-50 border border-yellow-400';
+            preview.id = 'selection-preview';
+            
+            try {
+                // Create a range based on text content positions
+                const range = document.createRange();
+                const textContent = this.contentElement.textContent;
+                
+                // Find the text nodes that contain our selection
+                const walker = document.createTreeWalker(
+                    this.contentElement,
+                    NodeFilter.SHOW_TEXT,
+                    null,
+                    false
+                );
+                
+                let currentPos = 0;
+                let startNode = null;
+                let endNode = null;
+                let startOffset = 0;
+                let endOffset = 0;
+                
+                while (walker.nextNode()) {
+                    const textNode = walker.currentNode;
+                    const nodeLength = textNode.textContent.length;
+                    
+                    if (!startNode && currentPos + nodeLength >= min) {
+                        startNode = textNode;
+                        startOffset = min - currentPos;
+                    }
+                    
+                    if (!endNode && currentPos + nodeLength >= max) {
+                        endNode = textNode;
+                        endOffset = max - currentPos;
+                        break;
+                    }
+                    
+                    currentPos += nodeLength;
+                }
+                
+                if (startNode && endNode) {
+                    range.setStart(startNode, startOffset);
+                    range.setEnd(endNode, endOffset);
+                    
+                    const rect = range.getBoundingClientRect();
+                    const containerRect = this.contentElement.getBoundingClientRect();
+                    
+                    preview.style.left = `${rect.left - containerRect.left}px`;
+                    preview.style.top = `${rect.top - containerRect.top}px`;
+                    preview.style.width = `${rect.width}px`;
+                    preview.style.height = `${rect.height}px`;
+                    
+                    this.contentElement.appendChild(preview);
+                }
+            } catch (error) {
+                console.error('Error showing selection preview:', error);
+            }
+        }
+        
+        clearSelectionPreview() {
+            const preview = document.getElementById('selection-preview');
+            if (preview) {
+                preview.remove();
+            }
+        }
+        
+        showClassificationOptions(start, end) {
+            this.clearSelectionPreview();
+            
+            if (start === end) return;
+            
+            const min = Math.min(start, end);
+            const max = Math.max(start, end);
+            const selectedText = this.contentElement.textContent.substring(min, max);
+            
+            // Show classification modal
+            this.showClassificationModal(selectedText, min, max);
+        }
+        
+        showClassificationModal(text, start, end) {
+            // Create modal for classification
+            const modal = document.createElement('div');
+            modal.className = 'fixed inset-0 bg-gray-600 bg-opacity-50 z-50 flex items-center justify-center';
+            modal.innerHTML = `
+                <div class="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+                    <h3 class="text-lg font-semibold mb-4">Classify Selected Text</h3>
+                    <p class="text-sm text-gray-600 mb-4">"${text.substring(0, 100)}${text.length > 100 ? '...' : ''}"</p>
+                    <div class="flex space-x-3">
+                        <button onclick="simpleTextManager.classifySelection(${start}, ${end}, 'huntable')" 
+                                class="flex-1 bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700">
+                            Huntable
+                        </button>
+                        <button onclick="simpleTextManager.classifySelection(${start}, ${end}, 'not_huntable')" 
+                                class="flex-1 bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700">
+                            Not Huntable
+                        </button>
+                        <button onclick="simpleTextManager.undo()" 
+                                class="px-4 py-2 bg-yellow-500 text-white rounded hover:bg-yellow-600" 
+                                title="Undo last classification (Ctrl+Z)">
+                            Undo
+                        </button>
+                        <button onclick="simpleTextManager.redo()" 
+                                class="px-4 py-2 bg-orange-500 text-white rounded hover:bg-orange-600" 
+                                title="Redo last classification (Ctrl+Y)">
+                            Redo
+                        </button>
+                        <button onclick="simpleTextManager.closeModal()" 
+                                class="px-4 py-2 border border-gray-300 rounded hover:bg-gray-50">
+                            Cancel
+                        </button>
+                    </div>
+                </div>
+            `;
+            
+            document.body.appendChild(modal);
+        }
+        
+        classifySelection(start, end, classification) {
+            const text = this.contentElement.textContent.substring(start, end);
+            
+            // Add the classification highlight
+            this.addUserClassification(start, end, classification, text);
+            
+            // Save to server
+            this.saveClassification(start, end, text, classification);
+            
+            this.closeModal();
+        }
+        
+        closeModal() {
+            const modal = document.querySelector('.fixed.inset-0.bg-gray-600');
+            if (modal) {
+                modal.remove();
+            }
+        }
+        
+        async saveClassification(start, end, text, classification) {
+            try {
+                const response = await fetch(`/api/articles/{{ article.id }}/annotations`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        selected_text: text,
+                        start_position: start,
+                        end_position: end,
+                        annotation_type: classification
+                    })
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Failed to save classification');
+                }
+                
+                console.log('Classification saved successfully');
+            } catch (error) {
+                console.error('Error saving classification:', error);
+                alert('Failed to save classification. Please try again.');
+            }
         }
     }
     
-    // Highlight existing annotations in the content
-    function highlightExistingAnnotations(annotations) {
-        const contentElement = document.getElementById('article-content');
-        if (!contentElement) return;
-        
-        // Temporarily disable annotation highlighting to preserve keyword highlighting
-        // The keyword highlighting from the server-side Jinja2 filter is more important
-        console.log('Annotation highlighting disabled to preserve keyword highlighting');
-        return;
-        
-        // Don't overwrite the content if there are no annotations to highlight
-        if (!annotations || annotations.length === 0) {
-            return;
-        }
-        
-        // Get the text content and work with text positions instead of HTML
-        const textContent = contentElement.textContent;
-        const textLength = textContent.length;
-        
-        // Create a mapping of text positions to HTML positions
-        let htmlPos = 0;
-        let textPos = 0;
-        const positionMap = [];
-        
-        while (htmlPos < contentElement.innerHTML.length && textPos < textLength) {
-            const char = contentElement.innerHTML[htmlPos];
-            if (char === '<') {
-                // Skip HTML tags
-                while (htmlPos < contentElement.innerHTML.length && contentElement.innerHTML[htmlPos] !== '>') {
-                    htmlPos++;
-                }
-                htmlPos++; // Skip the '>'
-            } else {
-                positionMap[textPos] = htmlPos;
-                htmlPos++;
-                textPos++;
-            }
-        }
-        
-        // Sort annotations by start position (descending) to avoid offset issues
-        const sortedAnnotations = annotations.sort((a, b) => b.start_position - a.start_position);
-        
-        let modifiedHTML = contentElement.innerHTML;
-        
-        sortedAnnotations.forEach(annotation => {
-            const { selected_text, start_position, end_position, annotation_type } = annotation;
-            
-            // Create highlight span with appropriate styling
-            const highlightClass = annotation_type === 'huntable' 
-                ? 'bg-green-100 border-green-300 text-green-800' 
-                : 'bg-red-100 border-red-300 text-red-800';
-            
-            const highlightSpan = `<span class="px-1 py-0.5 rounded text-xs font-medium border ${highlightClass}" title="${annotation_type === 'huntable' ? 'Huntable' : 'Not Huntable'}: ${selected_text.substring(0, 50)}...">${selected_text}</span>`;
-            
-            // Find the text in the HTML and replace it, but only if it's not already inside a span
-            const textToReplace = selected_text;
-            const escapedText = textToReplace.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-            
-            // Use a more sophisticated regex that avoids replacing text inside existing spans
-            const regex = new RegExp(`(?![^<]*>)\\b${escapedText}\\b(?![^<]*>)`, 'gi');
-            modifiedHTML = modifiedHTML.replace(regex, highlightSpan);
-        });
-        
-        contentElement.innerHTML = modifiedHTML;
-    }
+    // Initialize the simple text manager
+    let simpleTextManager;
+    document.addEventListener('DOMContentLoaded', function() {
+        simpleTextManager = new SimpleTextManager();
+    });
     
     // Classification functions
     async function classifyArticle(category) {
@@ -1674,15 +2028,7 @@
         generateAIAnalysis('iocs', true);
     }
     
-    // Initialize text annotation system
-    document.addEventListener('DOMContentLoaded', function() {
-        const articleContent = document.getElementById('article-content');
-        if (articleContent) {
-            // Temporarily disable annotation manager to preserve keyword highlighting
-            console.log('TextAnnotationManager disabled to preserve keyword highlighting');
-            // window.annotationManager = new TextAnnotationManager(articleContent, {{ article.id }});
-        }
-    });
+    // Text annotation system now handled by LayeredTextManager
     
     // Delete article function
     function deleteArticle(articleId) {
