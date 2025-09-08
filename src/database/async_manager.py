@@ -589,10 +589,10 @@ class AsyncDatabaseManager:
             return None
     
     async def delete_article(self, article_id: int) -> bool:
-        """Delete an article."""
+        """Delete an article and all related records."""
         try:
             async with self.get_session() as session:
-                # Get the article
+                # Get the article title for logging
                 result = await session.execute(
                     select(ArticleTable).where(ArticleTable.id == article_id)
                 )
@@ -601,11 +601,25 @@ class AsyncDatabaseManager:
                 if not db_article:
                     return False
                 
-                # Delete the article
-                await session.delete(db_article)
+                article_title = db_article.title
+                
+                # Delete related records first to avoid foreign key constraints
+                # Delete from simhash_buckets table
+                await session.execute(
+                    text("DELETE FROM simhash_buckets WHERE article_id = :article_id"),
+                    {"article_id": article_id}
+                )
+                
+                # Delete the article using raw SQL to avoid ORM issues
+                await session.execute(
+                    text("DELETE FROM articles WHERE id = :article_id"),
+                    {"article_id": article_id}
+                )
+                
+                # Commit all changes
                 await session.commit()
                 
-                logger.info(f"Deleted article: {db_article.title}")
+                logger.info(f"Deleted article: {article_title}")
                 return True
                 
         except Exception as e:
