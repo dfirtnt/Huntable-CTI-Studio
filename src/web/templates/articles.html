@@ -312,7 +312,7 @@
                         </div>
 
                         <!-- Keyword Matches (Compact) -->
-                        {% if article.metadata and (article.metadata.get('perfect_keyword_matches') or article.metadata.get('good_keyword_matches') or article.metadata.get('lolbas_matches') or article.metadata.get('threat_hunting_matches')) %}
+                        {% if article.metadata and (article.metadata.get('perfect_keyword_matches') or article.metadata.get('good_keyword_matches') or article.metadata.get('lolbas_matches')) %}
                         <div class="mb-3">
                             <div class="flex flex-wrap gap-1">
                                 {% if article.metadata.get('perfect_keyword_matches') %}
@@ -354,18 +354,6 @@
                                     {% endif %}
                                 {% endif %}
                                 
-                                {% if article.metadata.get('threat_hunting_matches') %}
-                                    {% for keyword in article.metadata.get('threat_hunting_matches', [])[:2] %}
-                                    <span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-800" title="Threat Hunting Term">
-                                        🎯 {{ keyword }}
-                                    </span>
-                                    {% endfor %}
-                                    {% if article.metadata.get('threat_hunting_matches', [])|length > 2 %}
-                                    <span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-800">
-                                        +{{ article.metadata.get('threat_hunting_matches', [])|length - 2 }}
-                                    </span>
-                                    {% endif %}
-                                {% endif %}
                             </div>
                         </div>
                         {% endif %}

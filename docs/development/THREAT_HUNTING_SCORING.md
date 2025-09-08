@@ -35,12 +35,6 @@ Living Off the Land Binaries and Scripts - 68 Chosen, 2 Rejected:
 - **File Operations**: `forfiles.exe`, `explorer.exe`, `ieexec.exe`
 - **And 150+ more legitimate Windows executables commonly abused by threat actors**
 
-### Threat Hunting Terminology (10 points each)
-Threat hunting and detection engineering concepts:
-
-- **LOLBAS**: Living Off the Land Binaries and Scripts
-- **LOLBINS**: Living Off the Land Binaries  
-- **RMM**: Remote Management and Monitoring tools
 
 ## Implementation
 
@@ -58,7 +52,7 @@ Threat hunting and detection engineering concepts:
 ### Scoring Algorithm
 
 ```
-Threat Hunting Score = Perfect Keywords × 15 + Good Keywords × 8 + LOLBAS × 12 + Threat Hunting Terms × 10 + Technical Depth (max 30)
+Threat Hunting Score = Perfect Keywords × 15 + Good Keywords × 8 + LOLBAS × 12 + Technical Depth (max 30)
 ```
 
 **Perfect Keywords** (15 points each):
@@ -76,10 +70,6 @@ Threat Hunting Score = Perfect Keywords × 15 + Good Keywords × 8 + LOLBAS × 1
 - 150+ legitimate Windows executables commonly abused by threat actors
 - Examples: `certutil.exe`, `cmd.exe`, `reg.exe`, `schtasks.exe`, `wmic.exe`
 - High correlation with threat hunting content (97.1% Chosen ratio)
-
-**Threat Hunting Terms** (10 points each):
-- `lolbas`, `lolbins`, `RMM`
-- Threat hunting and detection engineering concepts
 
 **Technical Depth** (up to 30 points):
 - CVE references, hex values, registry paths
