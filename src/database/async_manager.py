@@ -528,6 +528,26 @@ class AsyncDatabaseManager:
             logger.error(f"Failed to list articles: {e}")
             return []
     
+    async def get_articles_count(self, source_id: Optional[int] = None, processing_status: Optional[str] = None) -> int:
+        """Get total count of articles with optional filtering."""
+        try:
+            async with self.get_session() as session:
+                query = select(func.count(ArticleTable.id))
+                
+                # Apply same filters as list_articles
+                if source_id is not None:
+                    query = query.where(ArticleTable.source_id == source_id)
+                
+                if processing_status is not None:
+                    query = query.where(ArticleTable.processing_status == processing_status)
+                
+                result = await session.execute(query)
+                return result.scalar()
+                
+        except Exception as e:
+            logger.error(f"Failed to get articles count: {e}")
+            return 0
+    
     async def get_article(self, article_id: int) -> Optional[Article]:
         """Get a specific article by ID."""
         try:

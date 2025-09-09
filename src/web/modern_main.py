@@ -99,17 +99,22 @@ def highlight_keywords(content: str, metadata: Dict[str, Any]) -> str:
         # For wildcard keywords, use prefix matching
         wildcard_keywords = ['spawn']
         
-        if keyword.lower() in partial_match_keywords:
-            # Allow partial matches for these keywords
-            pattern = re.compile(escaped_keyword, re.IGNORECASE)
-        elif keyword.lower() in wildcard_keywords:
-            # Allow wildcard matching (e.g., "spawn" matches "spawns", "spawning", "spawned")
-            pattern = re.compile(escaped_keyword + r'\w*', re.IGNORECASE)
-        else:
-            # Use word boundaries for other keywords
-            pattern = re.compile(r'\b' + escaped_keyword + r'\b', re.IGNORECASE)
-        
-        highlighted_content = pattern.sub(highlight_span, highlighted_content)
+        try:
+            if keyword.lower() in partial_match_keywords:
+                # Allow partial matches for these keywords
+                pattern = re.compile(escaped_keyword, re.IGNORECASE)
+            elif keyword.lower() in wildcard_keywords:
+                # Allow wildcard matching (e.g., "spawn" matches "spawns", "spawning", "spawned")
+                pattern = re.compile(escaped_keyword + r'\w*', re.IGNORECASE)
+            else:
+                # Use word boundaries for other keywords
+                pattern = re.compile(r'\b' + escaped_keyword + r'\b', re.IGNORECASE)
+            
+            highlighted_content = pattern.sub(highlight_span, highlighted_content)
+        except re.error as e:
+            # If regex compilation fails, skip this keyword
+            logger.warning(f"Regex error for keyword '{keyword}': {e}")
+            continue
     
     return highlighted_content
 
@@ -1165,9 +1170,16 @@ async def api_articles_list(
         )
         
         articles = await async_db_manager.list_articles(article_filter=article_filter)
+        
+        # Get total count without limit for accurate pagination
+        total_count = await async_db_manager.get_articles_count(
+            source_id=source_id,
+            processing_status=processing_status
+        )
+        
         return {
             "articles": [article.dict() for article in articles],
-            "total": len(articles),
+            "total": total_count,
             "sort_by": sort_by,
             "sort_order": sort_order
         }
