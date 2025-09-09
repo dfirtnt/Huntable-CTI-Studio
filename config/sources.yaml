@@ -538,13 +538,13 @@ sources:
   # Assetnote Research
   - id: "assetnote_research"
     name: "Assetnote Research"
-    url: "https://www.assetnote.io/resources/research"
-    rss_url: "https://www.assetnote.io/resources/research/feed"
+    url: "https://blog.assetnote.io/"
+    rss_url: "https://blog.assetnote.io/feed.xml"
     check_frequency: 1800  # 30 minutes
     active: true
     config:
-      allow: ["assetnote.io"]
-      post_url_regex: ["^https://www\\.assetnote\\.io/resources/research/.*"]
+      allow: ["blog.assetnote.io"]
+      post_url_regex: ["^https://blog\\.assetnote\\.io/.*"]
       robots:
         enabled: true
         user_agent: "CTIScraper/2.0"
