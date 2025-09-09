@@ -1636,6 +1636,11 @@
                         `GPT4o analysis completed! Cost savings: $${opt.cost_savings.toFixed(4)} (${opt.tokens_saved.toLocaleString()} tokens saved, ${opt.chunks_removed} chunks removed)`, 
                         'success'
                     );
+                    
+                    // Show debug info if available
+                    if (data.debug_info && data.debug_info.removed_chunks.length > 0) {
+                        showRemovedChunksDialog(data.debug_info);
+                    }
                 } else {
                     showNotification('GPT4o analysis completed successfully!', 'success');
                 }
@@ -1771,6 +1776,71 @@
             };
             document.addEventListener('keydown', handleEscape);
         });
+    }
+
+    // Show removed chunks dialog for debugging
+    function showRemovedChunksDialog(debugInfo) {
+        const modal = document.createElement('div');
+        modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
+        
+        const chunksHtml = debugInfo.removed_chunks.map((chunk, index) => `
+            <div class="mb-4 p-3 bg-red-50 border border-red-200 rounded">
+                <div class="flex justify-between items-center mb-2">
+                    <h4 class="text-sm font-medium text-red-900">Chunk ${index + 1}</h4>
+                    <span class="text-xs text-red-600">${chunk.text.length} chars</span>
+                </div>
+                <div class="text-xs text-red-800 bg-white p-2 rounded border max-h-32 overflow-y-auto">
+                    ${chunk.text.replace(/\n/g, '<br>')}
+                </div>
+                <div class="text-xs text-red-600 mt-1">
+                    Reason: ${chunk.reason || 'Not huntable'} | Confidence: ${chunk.confidence ? chunk.confidence.toFixed(2) : 'N/A'}
+                </div>
+            </div>
+        `).join('');
+        
+        modal.innerHTML = `
+            <div class="bg-white rounded-lg p-6 max-w-4xl w-full mx-4 max-h-[80vh] overflow-y-auto">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-lg font-semibold text-gray-900">🗑️ Removed Content Chunks</h3>
+                    <button onclick="this.closest('.fixed').remove()" class="text-gray-400 hover:text-gray-600">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </button>
+                </div>
+                
+                <div class="mb-4 p-3 bg-blue-50 border border-blue-200 rounded">
+                    <div class="text-sm text-blue-800">
+                        <strong>Summary:</strong> ${debugInfo.chunks_removed} chunks removed 
+                        (${debugInfo.reduction_percent}% content reduction)
+                        <br>
+                        <strong>Original:</strong> ${debugInfo.original_length.toLocaleString()} chars → 
+                        <strong>Filtered:</strong> ${debugInfo.filtered_length.toLocaleString()} chars
+                    </div>
+                </div>
+                
+                <div class="space-y-2">
+                    ${chunksHtml}
+                </div>
+                
+                <div class="mt-6 flex justify-end">
+                    <button onclick="this.closest('.fixed').remove()" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
+                        Close
+                    </button>
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(modal);
+        
+        // Handle escape key
+        const handleEscape = (e) => {
+            if (e.key === 'Escape') {
+                modal.remove();
+                document.removeEventListener('keydown', handleEscape);
+            }
+        };
+        document.addEventListener('keydown', handleEscape);
     }
     
     function showCustomPromptModal() {
