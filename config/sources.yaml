@@ -264,6 +264,34 @@ sources:
         body_selectors: ["article", "main", ".content", ".post-content"]
     description: "Detection-focused research with hunting queries"
 
+  # Sekoia.io Threat Research & Intelligence
+  - id: "sekoia_io_blog"
+    name: "Sekoia.io Threat Research & Intelligence"
+    url: "https://blog.sekoia.io/"
+    rss_url: "https://blog.sekoia.io/feed/"
+    check_frequency: 1800  # 30 minutes
+    active: true
+    config:
+      allow: ["blog.sekoia.io"]
+      post_url_regex: ["^https://blog\\.sekoia\\.io/.*"]
+      robots:
+        enabled: true
+        user_agent: "CTIScraper/2.0"
+        respect_delay: true
+        max_requests_per_minute: 8
+        crawl_delay: 2.0
+      min_content_length: 1200
+      title_filter_keywords: ["newsletter", "subscription", "contact"]
+      extract:
+        prefer_jsonld: true
+        title_selectors: ["h1", "meta[property='og:title']::attr(content)"]
+        date_selectors: 
+          - "meta[property='article:published_time']::attr(content)"
+          - "time[datetime]::attr(datetime)"
+        body_selectors: ["article", "main", ".content", ".post-content"]
+        author_selectors: ["meta[name='author']::attr(content)", ".author-name"]
+    description: "High-quality CTI and SOC insights with actionable threat intelligence and detection engineering"
+
   # Check Point Research
   - id: "checkpoint_research"
     name: "Check Point Research"
@@ -452,3 +480,280 @@ sources:
     config:
       content_selector: "div.blog-content, article"
     description: "Detection-focused research with actionable hunting techniques and IOCs"
+
+  # CISA Cybersecurity Advisories
+  - id: "cisa_cybersecurity_advisories"
+    name: "CISA Cybersecurity Advisories"
+    url: "https://www.cisa.gov/news-events/cybersecurity-advisories"
+    rss_url: "https://www.cisa.gov/news-events/cybersecurity-advisories/feed"
+    check_frequency: 1800  # 30 minutes
+    active: true
+    config:
+      allow: ["cisa.gov"]
+      post_url_regex: ["^https://www\\.cisa\\.gov/news-events/cybersecurity-advisories/.*"]
+      robots:
+        enabled: true
+        user_agent: "CTIScraper/2.0"
+        respect_delay: true
+        max_requests_per_minute: 5
+        crawl_delay: 4.0
+      min_content_length: 800
+      extract:
+        prefer_jsonld: true
+        title_selectors: ["h1", "meta[property='og:title']::attr(content)"]
+        date_selectors: 
+          - "meta[property='article:published_time']::attr(content)"
+          - "time[datetime]::attr(datetime)"
+        body_selectors: ["article", "main", ".content", ".post-content", ".advisory-content"]
+        author_selectors: ["meta[name='author']::attr(content)", ".author-name"]
+    description: "Official CISA cybersecurity advisories and threat intelligence"
+
+  # CISA Directives
+  - id: "cisa_directives"
+    name: "CISA Directives"
+    url: "https://www.cisa.gov/news-events/directives"
+    rss_url: "https://www.cisa.gov/news-events/directives/feed"
+    check_frequency: 1800  # 30 minutes
+    active: true
+    config:
+      allow: ["cisa.gov"]
+      post_url_regex: ["^https://www\\.cisa\\.gov/news-events/directives/.*"]
+      robots:
+        enabled: true
+        user_agent: "CTIScraper/2.0"
+        respect_delay: true
+        max_requests_per_minute: 5
+        crawl_delay: 4.0
+      min_content_length: 1000
+      extract:
+        prefer_jsonld: true
+        title_selectors: ["h1", "meta[property='og:title']::attr(content)"]
+        date_selectors: 
+          - "meta[property='article:published_time']::attr(content)"
+          - "time[datetime]::attr(datetime)"
+        body_selectors: ["article", "main", ".content", ".post-content", ".directive-content"]
+        author_selectors: ["meta[name='author']::attr(content)", ".author-name"]
+    description: "Official CISA cybersecurity directives and guidance"
+
+  # Assetnote Research
+  - id: "assetnote_research"
+    name: "Assetnote Research"
+    url: "https://www.assetnote.io/resources/research"
+    rss_url: "https://www.assetnote.io/resources/research/feed"
+    check_frequency: 1800  # 30 minutes
+    active: true
+    config:
+      allow: ["assetnote.io"]
+      post_url_regex: ["^https://www\\.assetnote\\.io/resources/research/.*"]
+      robots:
+        enabled: true
+        user_agent: "CTIScraper/2.0"
+        respect_delay: true
+        max_requests_per_minute: 6
+        crawl_delay: 3.0
+      min_content_length: 1200
+      extract:
+        prefer_jsonld: true
+        title_selectors: ["h1", "meta[property='og:title']::attr(content)"]
+        date_selectors: 
+          - "meta[property='article:published_time']::attr(content)"
+          - "time[datetime]::attr(datetime)"
+        body_selectors: ["article", "main", ".content", ".post-content", ".research-content"]
+        author_selectors: ["meta[name='author']::attr(content)", ".author-name"]
+    description: "In-depth security research and vulnerability analysis"
+
+  # NCC Group Research Blog
+  - id: "ncc_group_research"
+    name: "NCC Group Research Blog"
+    url: "https://www.nccgroup.com/us/research-blog"
+    rss_url: "https://www.nccgroup.com/us/research-blog/feed/"
+    check_frequency: 1800  # 30 minutes
+    active: true
+    config:
+      allow: ["nccgroup.com"]
+      post_url_regex: ["^https://www\\.nccgroup\\.com/us/research-blog/.*"]
+      robots:
+        enabled: true
+        user_agent: "CTIScraper/2.0"
+        respect_delay: true
+        max_requests_per_minute: 8
+        crawl_delay: 2.0
+      min_content_length: 1500
+      title_filter_keywords: ["webinar", "training", "careers", "job posting", "event"]
+      extract:
+        prefer_jsonld: true
+        title_selectors: ["h1", "meta[property='og:title']::attr(content)"]
+        date_selectors: 
+          - "meta[property='article:published_time']::attr(content)"
+          - "time[datetime]::attr(datetime)"
+        body_selectors: ["article", "main", ".content", ".post-content", ".research-content"]
+        author_selectors: ["meta[name='author']::attr(content)", ".author-name"]
+    description: "High-quality cybersecurity research, technical advisories, and vulnerability analysis"
+
+  # ESET WeLiveSecurity
+  - id: "eset_welivesecurity"
+    name: "ESET WeLiveSecurity"
+    url: "https://www.welivesecurity.com/"
+    rss_url: "https://www.welivesecurity.com/en/rss/feed/"
+    check_frequency: 1800  # 30 minutes
+    active: true
+    config:
+      allow: ["welivesecurity.com"]
+      post_url_regex: ["^https://www\\.welivesecurity\\.com/.*"]
+      robots:
+        enabled: true
+        user_agent: "CTIScraper/2.0"
+        respect_delay: true
+        max_requests_per_minute: 8
+        crawl_delay: 2.0
+      min_content_length: 1200
+      title_filter_keywords: ["webinar", "training", "careers", "job posting", "event"]
+      extract:
+        prefer_jsonld: true
+        title_selectors: ["h1", "meta[property='og:title']::attr(content)"]
+        date_selectors: 
+          - "meta[property='article:published_time']::attr(content)"
+          - "time[datetime]::attr(datetime)"
+        body_selectors: ["article", "main", ".content", ".post-content", ".article-content"]
+        author_selectors: ["meta[name='author']::attr(content)", ".author-name"]
+    description: "ESET security research and threat intelligence"
+
+  # NCSC UK
+  - id: "ncsc_uk"
+    name: "NCSC UK"
+    url: "https://www.ncsc.gov.uk/news"
+    rss_url: "https://www.ncsc.gov.uk/rss/news.xml"
+    check_frequency: 3600  # 1 hour
+    active: true
+    config:
+      allow: ["ncsc.gov.uk"]
+      post_url_regex: ["^https://www\\.ncsc\\.gov\\.uk/news/.*"]
+      robots:
+        enabled: true
+        user_agent: "CTIScraper/2.0"
+        respect_delay: true
+        max_requests_per_minute: 5
+        crawl_delay: 4.0
+      min_content_length: 1000
+      title_filter_keywords: ["webinar", "training", "careers", "job posting", "event"]
+      extract:
+        prefer_jsonld: true
+        title_selectors: ["h1", "meta[property='og:title']::attr(content)"]
+        date_selectors: 
+          - "meta[property='article:published_time']::attr(content)"
+          - "time[datetime]::attr(datetime)"
+        body_selectors: ["article", "main", ".content", ".post-content", ".news-content"]
+        author_selectors: ["meta[name='author']::attr(content)", ".author-name"]
+    description: "UK National Cyber Security Centre official advisories and guidance"
+
+  # US-CERT
+  - id: "us_cert"
+    name: "US-CERT"
+    url: "https://us-cert.cisa.gov/"
+    rss_url: "https://us-cert.cisa.gov/rss.xml"
+    check_frequency: 3600  # 1 hour
+    active: true
+    config:
+      allow: ["us-cert.cisa.gov"]
+      post_url_regex: ["^https://us-cert\\.cisa\\.gov/.*"]
+      robots:
+        enabled: true
+        user_agent: "CTIScraper/2.0"
+        respect_delay: true
+        max_requests_per_minute: 5
+        crawl_delay: 4.0
+      min_content_length: 1000
+      title_filter_keywords: ["webinar", "training", "careers", "job posting", "event"]
+      extract:
+        prefer_jsonld: true
+        title_selectors: ["h1", "meta[property='og:title']::attr(content)"]
+        date_selectors: 
+          - "meta[property='article:published_time']::attr(content)"
+          - "time[datetime]::attr(datetime)"
+        body_selectors: ["article", "main", ".content", ".post-content", ".advisory-content"]
+        author_selectors: ["meta[name='author']::attr(content)", ".author-name"]
+    description: "US-CERT cybersecurity advisories and alerts"
+
+  # DoD Cybersecurity
+  - id: "dod_cybersecurity"
+    name: "DoD Cybersecurity"
+    url: "https://media.defense.gov/"
+    rss_url: "https://media.defense.gov/rss.xml"
+    check_frequency: 3600  # 1 hour
+    active: true
+    config:
+      allow: ["media.defense.gov"]
+      post_url_regex: ["^https://media\\.defense\\.gov/.*"]
+      robots:
+        enabled: true
+        user_agent: "CTIScraper/2.0"
+        respect_delay: true
+        max_requests_per_minute: 3
+        crawl_delay: 6.0
+      min_content_length: 1000
+      title_filter_keywords: ["webinar", "training", "careers", "job posting", "event"]
+      extract:
+        prefer_jsonld: true
+        title_selectors: ["h1", "meta[property='og:title']::attr(content)"]
+        date_selectors: 
+          - "meta[property='article:published_time']::attr(content)"
+          - "time[datetime]::attr(datetime)"
+        body_selectors: ["article", "main", ".content", ".post-content", ".news-content"]
+        author_selectors: ["meta[name='author']::attr(content)", ".author-name"]
+    description: "Department of Defense cybersecurity news and advisories"
+
+  # Splunk Security Research
+  - id: "splunk_security_research"
+    name: "Splunk Security Research"
+    url: "https://research.splunk.com/"
+    rss_url: "https://advisory.splunk.com/rss.xml"
+    check_frequency: 1800  # 30 minutes
+    active: true
+    config:
+      allow: ["research.splunk.com"]
+      post_url_regex: ["^https://research\\.splunk\\.com/.*"]
+      robots:
+        enabled: true
+        user_agent: "CTIScraper/2.0"
+        respect_delay: true
+        max_requests_per_minute: 8
+        crawl_delay: 2.0
+      min_content_length: 1200
+      title_filter_keywords: ["webinar", "training", "careers", "job posting", "event"]
+      extract:
+        prefer_jsonld: true
+        title_selectors: ["h1", "meta[property='og:title']::attr(content)"]
+        date_selectors: 
+          - "meta[property='article:published_time']::attr(content)"
+          - "time[datetime]::attr(datetime)"
+        body_selectors: ["article", "main", ".content", ".post-content", ".research-content"]
+        author_selectors: ["meta[name='author']::attr(content)", ".author-name"]
+    description: "Splunk security research and threat intelligence"
+
+  # Symantec Enterprise Security
+  - id: "symantec_enterprise"
+    name: "Symantec Enterprise Security"
+    url: "https://symantec-enterprise-blogs.security.com/"
+    rss_url: "https://sed-cms.broadcom.com/rss/v1/blogs/rss.xml"
+    check_frequency: 1800  # 30 minutes
+    active: true
+    config:
+      allow: ["symantec-enterprise-blogs.security.com", "sed-cms.broadcom.com"]
+      post_url_regex: ["^https://symantec-enterprise-blogs\\.security\\.com/.*"]
+      robots:
+        enabled: true
+        user_agent: "CTIScraper/2.0"
+        respect_delay: true
+        max_requests_per_minute: 8
+        crawl_delay: 2.0
+      min_content_length: 1200
+      title_filter_keywords: ["webinar", "training", "careers", "job posting", "event"]
+      extract:
+        prefer_jsonld: true
+        title_selectors: ["h1", "meta[property='og:title']::attr(content)"]
+        date_selectors: 
+          - "meta[property='article:published_time']::attr(content)"
+          - "time[datetime]::attr(datetime)"
+        body_selectors: ["article", "main", ".content", ".post-content", ".blog-content"]
+        author_selectors: ["meta[name='author']::attr(content)", ".author-name"]
+    description: "Symantec Enterprise Security blog and threat intelligence"
