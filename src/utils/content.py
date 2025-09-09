@@ -717,12 +717,18 @@ class ThreatHuntingScorer:
         # For wildcard keywords, use prefix matching
         wildcard_keywords = ['spawn']
         
+        # For symbol keywords, don't use word boundaries
+        symbol_keywords = ['==', '!=', '<=', '>=', '::', '-->', '->', '//', '--', '=', '<', '>', '[', ']', '{', '}', '\\']
+        
         if keyword.lower() in partial_match_keywords:
             # Allow partial matches for these keywords
             pattern = escaped_keyword
         elif keyword.lower() in wildcard_keywords:
             # Allow wildcard matching (e.g., "spawn" matches "spawns", "spawning", "spawned")
             pattern = escaped_keyword + r'\w*'
+        elif keyword in symbol_keywords:
+            # For symbols, don't use word boundaries
+            pattern = escaped_keyword
         else:
             # Use word boundaries for other keywords
             pattern = r'\b' + escaped_keyword + r'\b'
