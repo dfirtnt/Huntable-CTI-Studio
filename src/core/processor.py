@@ -48,6 +48,7 @@ class ContentProcessor:
         self.seen_urls: Set[str] = set()
         self.seen_url_titles: Set[str] = set()  # url||title combinations
         self.content_fingerprints: Dict[str, str] = {}  # fingerprint -> content_hash
+        self.source_fingerprints: Dict[int, Set[str]] = {}  # source_id -> set of fingerprints
         
         # Processing statistics
         self.stats = {
@@ -395,6 +396,7 @@ class ContentProcessor:
     def _check_duplicates(self, article: ArticleCreate) -> Optional[str]:
         """
         Check for duplicates using multiple strategies.
+        Only applies content similarity within the same source.
         
         Returns:
             Duplicate reason string or None if not a duplicate
@@ -419,11 +421,18 @@ class ContentProcessor:
             logger.debug(f"URL+title duplicate detected: {url_title_key[:50]}...")
             return "url_title"
         
-        # Check content similarity using fingerprinting
-        fingerprint = self._generate_content_fingerprint(article)
-        if fingerprint in self.content_fingerprints:
-            logger.debug(f"Content similarity duplicate detected: {fingerprint[:10]}...")
-            return "content_similarity"
+        # Check content similarity using fingerprinting - ONLY within same source
+        if hasattr(article, 'source_id') and article.source_id:
+            fingerprint = self._generate_content_fingerprint(article)
+            
+            # Initialize source fingerprints if not exists
+            if article.source_id not in self.source_fingerprints:
+                self.source_fingerprints[article.source_id] = set()
+            
+            # Only check similarity within the same source
+            if fingerprint in self.source_fingerprints[article.source_id]:
+                logger.debug(f"Content similarity duplicate detected within source {article.source_id}: {fingerprint[:10]}...")
+                return "content_similarity"
         
         return None
     
@@ -494,8 +503,16 @@ class ContentProcessor:
         if hasattr(article, 'content_hash') and article.content_hash:
             self.seen_hashes.add(article.content_hash)
             
-            fingerprint = self._generate_content_fingerprint(article)
-            self.content_fingerprints[fingerprint] = article.content_hash
+            # Track content fingerprint per source for similarity detection
+            if hasattr(article, 'source_id') and article.source_id:
+                fingerprint = self._generate_content_fingerprint(article)
+                
+                # Initialize source fingerprints if not exists
+                if article.source_id not in self.source_fingerprints:
+                    self.source_fingerprints[article.source_id] = set()
+                
+                # Add fingerprint to this source's set
+                self.source_fingerprints[article.source_id].add(fingerprint)
     
     def _detect_content_type(self, article: ArticleCreate) -> str:
         """Detect the type of content based on title, content, and metadata."""
