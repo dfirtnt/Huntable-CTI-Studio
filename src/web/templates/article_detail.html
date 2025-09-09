@@ -117,13 +117,12 @@
     </div>
 
     <!-- Keyword Matches Display -->
-    {% if article.metadata and (article.metadata.get('perfect_keyword_matches') or article.metadata.get('good_keyword_matches') or article.metadata.get('lolbas_matches')) %}
+    {% if article.metadata %}
     <div class="bg-white rounded-lg shadow-sm p-6">
         <h2 class="text-xl font-bold text-gray-900 mb-4">🎯 Keyword Matches</h2>
         
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
             <!-- Perfect Discriminators -->
-            {% if article.metadata.get('perfect_keyword_matches') %}
             <div class="bg-green-50 border border-green-200 rounded-lg p-4">
                 <h3 class="text-sm font-semibold text-green-800 mb-2 flex items-center">
                     <span class="mr-2">✅</span>
@@ -135,12 +134,13 @@
                         {{ keyword }}
                     </span>
                     {% endfor %}
+                    {% if not article.metadata.get('perfect_keyword_matches') %}
+                    <span class="text-xs text-gray-500 italic">No matches</span>
+                    {% endif %}
                 </div>
             </div>
-            {% endif %}
             
             <!-- Good Discriminators -->
-            {% if article.metadata.get('good_keyword_matches') %}
             <div class="bg-purple-50 border border-purple-200 rounded-lg p-4">
                 <h3 class="text-sm font-semibold text-purple-800 mb-2 flex items-center">
                     <span class="mr-2">🟣</span>
@@ -152,12 +152,13 @@
                         {{ keyword }}
                     </span>
                     {% endfor %}
+                    {% if not article.metadata.get('good_keyword_matches') %}
+                    <span class="text-xs text-gray-500 italic">No matches</span>
+                    {% endif %}
                 </div>
             </div>
-            {% endif %}
             
             <!-- LOLBAS Executables -->
-            {% if article.metadata.get('lolbas_matches') %}
             <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
                 <h3 class="text-sm font-semibold text-blue-800 mb-2 flex items-center">
                     <span class="mr-2">🔧</span>
@@ -169,9 +170,47 @@
                         {{ keyword }}
                     </span>
                     {% endfor %}
+                    {% if not article.metadata.get('lolbas_matches') %}
+                    <span class="text-xs text-gray-500 italic">No matches</span>
+                    {% endif %}
                 </div>
             </div>
-            {% endif %}
+            
+            <!-- Intelligence Indicators -->
+            <div class="bg-red-50 border border-red-200 rounded-lg p-4">
+                <h3 class="text-sm font-semibold text-red-800 mb-2 flex items-center">
+                    <span class="mr-2">🎯</span>
+                    Intelligence Indicators
+                </h3>
+                <div class="flex flex-wrap gap-1">
+                    {% for keyword in article.metadata.get('intelligence_matches', []) %}
+                    <span class="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-red-100 text-red-800">
+                        {{ keyword }}
+                    </span>
+                    {% endfor %}
+                    {% if not article.metadata.get('intelligence_matches') %}
+                    <span class="text-xs text-gray-500 italic">No matches</span>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <!-- Negative Indicators -->
+            <div class="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                <h3 class="text-sm font-semibold text-gray-800 mb-2 flex items-center">
+                    <span class="mr-2">⚠️</span>
+                    Negative Indicators
+                </h3>
+                <div class="flex flex-wrap gap-1">
+                    {% for keyword in article.metadata.get('negative_matches', []) %}
+                    <span class="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-gray-100 text-gray-800">
+                        {{ keyword }}
+                    </span>
+                    {% endfor %}
+                    {% if not article.metadata.get('negative_matches') %}
+                    <span class="text-xs text-gray-500 italic">No matches</span>
+                    {% endif %}
+                </div>
+            </div>
             
         </div>
         

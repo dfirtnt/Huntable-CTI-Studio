@@ -605,9 +605,7 @@ WINDOWS_MALWARE_KEYWORDS = {
             # Promoted from LOLBAS (100% avg scores in high-scoring articles)
             'reg.exe', 'winlogon.exe', 'conhost.exe', 'msiexec.exe', 'wscript.exe', 'services.exe',
             # Promoted from Good discriminators (100% avg scores)
-            'EventCode', 'parent-child', 'KQL',
-            # Defender Advanced Hunting KQL line continuation
-            '| '
+            'EventCode', 'parent-child', 'KQL'
         ],
             'good_discriminators': [
                 'temp', '==', 'c:\\windows\\', 'Event ID', '.bat', '.ps1',
@@ -615,15 +613,48 @@ WINDOWS_MALWARE_KEYWORDS = {
                 'Monitor', 'Executable', 'Detection', 'Alert on', 'Hunt for',
                 'Hunting', 'Create Detections', 'Search Query', '//',
                 'http:', 'hxxp', '->', '.exe', '--', 'cloudtrail',
-                '\\', '{', '}', '=', '<', '>', '[', ']', 'spawn', '|'
+                '\\', 'spawn', '|'
             ],
+    'intelligence_indicators': [
+        # Real threat activity - specific indicators
+        'APT', 'threat actor', 'attribution', 'campaign', 'incident',
+        'breach', 'compromise', 'malware family', 'IOC', 'indicator',
+        'TTP', 'technique', 'observed', 'discovered', 'detected in wild',
+        'real-world', 'in the wild', 'active campaign', 'ongoing threat',
+        'victim', 'targeted', 'exploited', 'compromised', 'infiltrated',
+        
+        # Specific threat groups
+        'FIN', 'TA', 'UNC', 'APT1', 'APT28', 'APT29', 'Lazarus', 'Carbanak',
+        'Cozy Bear', 'Fancy Bear', 'Wizard Spider', 'Ryuk', 'Maze',
+        
+        # Real incidents and attacks
+        'ransomware', 'data breach', 'cyber attack', 'espionage',
+        'sophisticated attack', 'advanced persistent threat'
+    ],
+    'negative_indicators': [
+        # Educational/marketing content that should be penalized
+        'what is', 'how to', 'guide to', 'tutorial', 'best practices',
+        'statistics', 'survey', 'report shows', 'study reveals',
+        'learn more', 'read more', 'click here', 'download now',
+        'free trial', 'contact us', 'get started', 'sign up',
+        'blog post', 'newsletter', 'webinar', 'training',
+        'overview', 'introduction', 'basics', 'fundamentals'
+    ],
     'lolbas_executables': [
-        'certutil.exe', 'cmd.exe', 'schtasks.exe', 'wmic.exe',
-        'bitsadmin.exe', 'ftp.exe', 'netsh.exe', 'cscript.exe', 'mshta.exe',
-        'regsvr32.exe', 'rundll32.exe',
-        'forfiles.exe', 'explorer.exe', 'ieexec.exe', 'powershell.exe',
-        'conhost.exe', 'svchost.exe', 'lsass.exe',
-        'csrss.exe', 'smss.exe', 'wininit.exe', 'nltest.exe'
+        'certutil', 'cmd', 'schtasks', 'wmic',
+        'bitsadmin', 'ftp', 'netsh', 'cscript', 'mshta',
+        'regsvr32', 'rundll32',
+        'forfiles', 'explorer', 'ieexec', 'powershell',
+        'conhost', 'svchost', 'lsass',
+        'csrss', 'smss', 'wininit', 'nltest', 'odbcconf', 'scrobj',
+        # Additional LOLBAS from comprehensive list
+        'addinutil', 'appinstaller', 'aspnet_compiler', 'at.exe', 'atbroker', 'bash',
+        'certoc', 'certreq', 'cipher', 'cmdkey', 'cmdl32', 'cmstp', 'colorcpl',
+        'computerdefaults', 'configsecuritypolicy', 'control.exe', 'csc', 'customshellhost',
+        'datasvcutil', 'desktopimgdownldr', 'devicecredentialdeployment', 'dfsvc',
+        'diantz', 'diskshadow', 'dnscmd', 'esentutl', 'eventvwr', 'expand.exe',
+        'extexport', 'extrac32', 'findstr', 'finger.exe', 'fltmc', 'gpscript',
+        'replace.exe', 'sc', 'print.exe', 'ssh', 'teams.exe'
     ],
 }
 
@@ -642,6 +673,8 @@ class ThreatHuntingScorer:
             - perfect_keyword_matches: List[str]
             - good_keyword_matches: List[str]
             - lolbas_matches: List[str]
+            - intelligence_matches: List[str]
+            - negative_matches: List[str]
             - keyword_density: float
         """
         if not content:
@@ -650,6 +683,8 @@ class ThreatHuntingScorer:
                 'perfect_keyword_matches': [],
                 'good_keyword_matches': [],
                 'lolbas_matches': [],
+                'intelligence_matches': [],
+                'negative_matches': [],
                 'keyword_density': 0.0
             }
         
@@ -662,6 +697,7 @@ class ThreatHuntingScorer:
         perfect_matches = []
         good_matches = []
         lolbas_matches = []
+        intelligence_matches = []
         
         # Check perfect discriminators
         for keyword in WINDOWS_MALWARE_KEYWORDS['perfect_discriminators']:
@@ -678,23 +714,49 @@ class ThreatHuntingScorer:
             if ThreatHuntingScorer._keyword_matches(executable, full_text):
                 lolbas_matches.append(executable)
         
-        # Calculate scores
-        perfect_score = len(perfect_matches) * 15  # 15 points per perfect keyword
-        good_score = len(good_matches) * 8         # 8 points per good keyword
-        lolbas_score = len(lolbas_matches) * 12    # 12 points per LOLBAS executable
+        # Check intelligence indicators
+        for indicator in WINDOWS_MALWARE_KEYWORDS['intelligence_indicators']:
+            if ThreatHuntingScorer._keyword_matches(indicator, full_text):
+                intelligence_matches.append(indicator)
+        
+        # Check negative indicators (penalize educational/marketing content)
+        negative_matches = []
+        for negative in WINDOWS_MALWARE_KEYWORDS['negative_indicators']:
+            if ThreatHuntingScorer._keyword_matches(negative, full_text):
+                negative_matches.append(negative)
+        
+        # Calculate scores using logarithmic bucket system with diminishing returns
+        import math
+        
+        # Perfect Discriminators: 30 points max (highest ceiling for technical depth)
+        perfect_score = min(15 * math.log(len(perfect_matches) + 1), 30.0)
+        
+        # LOLBAS Executables: 20 points max (practical attack techniques)
+        lolbas_score = min(10 * math.log(len(lolbas_matches) + 1), 20.0)
+        
+        # Intelligence Indicators: 20 points max (core threat intelligence value)
+        intelligence_score = min(8 * math.log(len(intelligence_matches) + 1), 20.0)
+        
+        # Good Discriminators: 10 points max (supporting technical content)
+        good_score = min(5 * math.log(len(good_matches) + 1), 10.0)
+        
+        # Negative Penalties: -10 points max (educational/marketing content penalty)
+        negative_penalty = min(3 * math.log(len(negative_matches) + 1), 10.0)
         
         # Keyword density (percentage of content containing technical keywords)
-        total_keywords = len(perfect_matches) + len(good_matches) + len(lolbas_matches)
+        total_keywords = len(perfect_matches) + len(good_matches) + len(lolbas_matches) + len(intelligence_matches)
         keyword_density = (total_keywords / max(len(full_text.split()), 1)) * 1000  # per 1000 words
         
-        # Calculate final threat hunting score
-        threat_hunting_score = min(perfect_score + good_score + lolbas_score, 100.0)
+        # Calculate final threat hunting score (0-100 range)
+        threat_hunting_score = max(0.0, min(100.0, perfect_score + good_score + lolbas_score + intelligence_score - negative_penalty))
         
         return {
             'threat_hunting_score': round(threat_hunting_score, 1),
             'perfect_keyword_matches': perfect_matches,
             'good_keyword_matches': good_matches,
             'lolbas_matches': lolbas_matches,
+            'intelligence_matches': intelligence_matches,
+            'negative_matches': negative_matches,
             'keyword_density': round(keyword_density, 2)
         }
     
@@ -720,7 +782,7 @@ class ThreatHuntingScorer:
         wildcard_keywords = ['spawn']
         
         # For symbol keywords, don't use word boundaries
-        symbol_keywords = ['==', '!=', '<=', '>=', '::', '-->', '->', '//', '--', '=', '<', '>', '[', ']', '{', '}', '\\', '|', '| ']
+        symbol_keywords = ['==', '!=', '<=', '>=', '::', '-->', '->', '//', '--', '\\', '|']
         
         if keyword.lower() in partial_match_keywords:
             # Allow partial matches for these keywords
