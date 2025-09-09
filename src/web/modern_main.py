@@ -2744,6 +2744,12 @@ Please analyze the following blog content:
                 "tokens_saved": tokens_saved,
                 "chunks_removed": chunks_removed,
                 "min_confidence": min_confidence if use_filtering else None
+            },
+            "debug_info": {
+                "removed_chunks": optimization_result.get('removed_chunks', []) if use_filtering and optimization_result.get('success') else [],
+                "original_length": len(article.content),
+                "filtered_length": len(content_to_analyze),
+                "reduction_percent": round((len(article.content) - len(content_to_analyze)) / len(article.content) * 100, 1) if use_filtering else 0
             }
         }
         
