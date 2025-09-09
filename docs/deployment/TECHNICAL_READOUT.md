@@ -427,7 +427,7 @@ source .venv/bin/activate
 pip install -r requirements.txt
 
 # Configure database
-export DATABASE_URL="postgresql+asyncpg://cti_user:cti_password_2024@localhost:5432/cti_scraper"
+export DATABASE_URL="postgresql+asyncpg://cti_user:cti_password_2024@postgres:5432/cti_scraper"
 
 # Run web application
 uvicorn src.web.modern_main:app --host 0.0.0.0 --port 8000 --reload

@@ -118,9 +118,9 @@ Services once healthy:
 - Health: http://localhost:8000/health
 - API: http://localhost:8000/api/*
 - Nginx (production): http://localhost
-- PostgreSQL: localhost:5432
-- Redis: localhost:6379
-- Ollama: localhost:11434
+- PostgreSQL: postgres:5432 (Docker container)
+- Redis: redis:6379 (Docker container)
+- Ollama: ollama:11434 (Docker container)
 
 ### CLI Commands
 

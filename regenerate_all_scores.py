@@ -19,18 +19,11 @@ async def regenerate_all_threat_hunting_scores():
         print("Finding articles missing threat hunting scores...")
         print("=" * 80)
         
-        # Find articles missing threat hunting scores
-        missing_score_articles = []
-        for article in articles:
-            if not article.metadata or 'threat_hunting_score' not in article.metadata:
-                missing_score_articles.append(article)
-        
+        # Force regenerate ALL articles (not just missing ones)
         print(f"Total articles: {len(articles)}")
-        print(f"Articles missing threat hunting scores: {len(missing_score_articles)}")
+        print("🔄 FORCE REGENERATING ALL threat hunting scores with updated LOLBAS list...")
         
-        if not missing_score_articles:
-            print("✅ All articles already have threat hunting scores!")
-            return
+        missing_score_articles = articles  # Process all articles
         
         # Create processor
         processor = ContentProcessor(enable_content_enhancement=True)
