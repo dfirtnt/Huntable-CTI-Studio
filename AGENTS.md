@@ -50,5 +50,15 @@
 - **Documentation**: Create in Markdown (.md) files when requested
 - **Testing**: Use Docker containers for all testing and validation
 
+## Terminal Command Execution
+- **Default Pattern**: Always pipe commands to `cat` to prevent pagination hanging
+- **Simple Commands**: `command | cat` for basic operations
+- **Analysis Commands**: Use temp files when output needs processing: `command > /tmp/output.txt 2>&1`
+- **Cleanup**: Remove temp files after analysis: `rm /tmp/output.txt`
+- **Timeout**: Add `timeout` wrapper for potentially long-running commands
+- **Examples**: 
+  - `docker exec -it cti_postgres psql -U cti_user -d cti_scraper -c "SELECT * FROM articles;" | cat`
+  - `git log --oneline | cat`
+
 ## User Preferences
 - **Communication**: Concise, technical responses
