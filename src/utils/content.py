@@ -595,25 +595,27 @@ def _has_compression_failure_indicators(content: str) -> bool:
 
 # Windows Malware Keywords for Threat Hunting Scoring
 WINDOWS_MALWARE_KEYWORDS = {
-    'perfect_discriminators': [
-        'rundll32', 'comspec', 'msiexec', 'wmic', 'iex', 'findstr',
-        'hklm', 'appdata', 'programdata', 'powershell.exe', 'wbem',
-        'EventID', '.lnk', 'D:\\', '.iso', '<Command>', 'MZ',
-        'svchost', '-accepteula', 'lsass.exe', 'WINDIR', 'wintmp',
-        '\\temp\\', '\\pipe\\', '%WINDIR%', '%wintmp%', 'FromBase64String',
-        'MemoryStream', 'New-Object', 'DownloadString', 'Defender query',
-        # Promoted from LOLBAS (100% avg scores in high-scoring articles)
-        'reg.exe', 'winlogon.exe', 'conhost.exe', 'msiexec.exe', 'wscript.exe', 'services.exe',
-        # Promoted from Good discriminators (100% avg scores)
-        'EventCode', 'parent-child', 'KQL'
-    ],
+        'perfect_discriminators': [
+            'rundll32', 'comspec', 'msiexec', 'wmic', 'iex', 'findstr',
+            'hklm', 'appdata', 'programdata', 'powershell.exe', 'wbem',
+            'EventID', '.lnk', 'D:\\', '.iso', '<Command>', 'MZ',
+            'svchost', '-accepteula', 'lsass.exe', 'WINDIR', 'wintmp',
+            '\\temp\\', '\\pipe\\', '%WINDIR%', '%wintmp%', 'FromBase64String',
+            'MemoryStream', 'New-Object', 'DownloadString', 'Defender query',
+            # Promoted from LOLBAS (100% avg scores in high-scoring articles)
+            'reg.exe', 'winlogon.exe', 'conhost.exe', 'msiexec.exe', 'wscript.exe', 'services.exe',
+            # Promoted from Good discriminators (100% avg scores)
+            'EventCode', 'parent-child', 'KQL',
+            # Defender Advanced Hunting KQL line continuation
+            '| '
+        ],
             'good_discriminators': [
                 'temp', '==', 'c:\\windows\\', 'Event ID', '.bat', '.ps1',
                 'pipe', '::', '[.]', '-->', 'currentversion',
                 'Monitor', 'Executable', 'Detection', 'Alert on', 'Hunt for',
                 'Hunting', 'Create Detections', 'Search Query', '//',
                 'http:', 'hxxp', '->', '.exe', '--', 'cloudtrail',
-                '\\', '{', '}', '=', '<', '>', '[', ']', 'spawn'
+                '\\', '{', '}', '=', '<', '>', '[', ']', 'spawn', '|'
             ],
     'lolbas_executables': [
         'certutil.exe', 'cmd.exe', 'schtasks.exe', 'wmic.exe',
@@ -718,7 +720,7 @@ class ThreatHuntingScorer:
         wildcard_keywords = ['spawn']
         
         # For symbol keywords, don't use word boundaries
-        symbol_keywords = ['==', '!=', '<=', '>=', '::', '-->', '->', '//', '--', '=', '<', '>', '[', ']', '{', '}', '\\']
+        symbol_keywords = ['==', '!=', '<=', '>=', '::', '-->', '->', '//', '--', '=', '<', '>', '[', ']', '{', '}', '\\', '|', '| ']
         
         if keyword.lower() in partial_match_keywords:
             # Allow partial matches for these keywords
