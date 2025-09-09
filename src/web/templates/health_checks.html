@@ -7,88 +7,88 @@
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <!-- Header -->
         <div class="mb-8">
-            <h1 class="text-3xl font-bold text-gray-900 dark:text-white">🏥 System Health Checks</h1>
-            <p class="mt-2 text-gray-600 dark:text-gray-300">Monitor system performance, deduplication, and service health</p>
+            <h1 class="text-3xl font-bold text-gray-900">🏥 System Health Checks</h1>
+            <p class="mt-2 text-gray-700">Monitor system performance, deduplication, and service health</p>
         </div>
 
         <!-- Health Check Controls -->
-        <div class="mb-8 bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
+        <div class="mb-8 bg-white rounded-lg shadow-sm p-6">
             <div class="flex flex-wrap gap-4">
                 <button id="runAllChecks" 
                         class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
                     🔄 Run All Checks
                 </button>
                 <button id="runDatabaseCheck" 
-                        class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white dark:bg-gray-800 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
+                        class="inline-flex items-center px-4 py-2 border border-gray-400 text-sm font-medium rounded-md text-gray-800 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
                     🗄️ Database Health
                 </button>
                 <button id="runDeduplicationCheck" 
-                        class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white dark:bg-gray-800 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
+                        class="inline-flex items-center px-4 py-2 border border-gray-400 text-sm font-medium rounded-md text-gray-800 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
                     🔍 Deduplication Health
                 </button>
                 <button id="runServicesCheck" 
-                        class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white dark:bg-gray-800 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
+                        class="inline-flex items-center px-4 py-2 border border-gray-400 text-sm font-medium rounded-md text-gray-800 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
                     🔧 Services Health
                 </button>
                 <button id="runCeleryCheck" 
-                        class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white dark:bg-gray-800 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
+                        class="inline-flex items-center px-4 py-2 border border-gray-400 text-sm font-medium rounded-md text-gray-800 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
                     ⚙️ Celery Health
                 </button>
                 <button id="runIngestionCheck" 
-                        class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white dark:bg-gray-800 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
+                        class="inline-flex items-center px-4 py-2 border border-gray-400 text-sm font-medium rounded-md text-gray-800 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
                     📊 Ingestion Analytics
                 </button>
                 <button id="refreshTimestamp" 
-                        class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white dark:bg-gray-800 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
+                        class="inline-flex items-center px-4 py-2 border border-gray-400 text-sm font-medium rounded-md text-gray-800 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
                     ⏰ Refresh Timestamp
                 </button>
             </div>
         </div>
 
         <!-- Overall Status -->
-        <div id="overallStatus" class="mb-8 bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
-            <h2 class="text-xl font-bold text-gray-900 dark:text-white mb-4">📊 Overall System Status</h2>
-            <div id="overallStatusContent" class="text-gray-500 dark:text-gray-400">
+        <div id="overallStatus" class="mb-8 bg-white rounded-lg shadow-sm p-6">
+            <h2 class="text-xl font-bold text-gray-900 mb-4">📊 Overall System Status</h2>
+            <div id="overallStatusContent" class="text-gray-600">
                 Click "Run All Checks" to get system status
             </div>
         </div>
 
         <!-- Database Health -->
-        <div class="mb-8 bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
-            <h2 class="text-xl font-bold text-gray-900 dark:text-white mb-4">🗄️ Database Health</h2>
-            <div id="databaseHealthContent" class="text-gray-500 dark:text-gray-400">
+        <div class="mb-8 bg-white rounded-lg shadow-sm p-6">
+            <h2 class="text-xl font-bold text-gray-900 mb-4">🗄️ Database Health</h2>
+            <div id="databaseHealthContent" class="text-gray-600">
                 Click "Database Health" to check database status
             </div>
         </div>
 
         <!-- Deduplication Health -->
-        <div class="mb-8 bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
-            <h2 class="text-xl font-bold text-gray-900 dark:text-white mb-4">🔍 Deduplication System Health</h2>
-            <div id="deduplicationHealthContent" class="text-gray-500 dark:text-gray-400">
+        <div class="mb-8 bg-white rounded-lg shadow-sm p-6">
+            <h2 class="text-xl font-bold text-gray-900 mb-4">🔍 Deduplication System Health</h2>
+            <div id="deduplicationHealthContent" class="text-gray-600">
                 Click "Deduplication Health" to check deduplication status
             </div>
         </div>
 
         <!-- Services Health -->
-        <div class="mb-8 bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
-            <h2 class="text-xl font-bold text-gray-900 dark:text-white mb-4">🔧 External Services Health</h2>
-            <div id="servicesHealthContent" class="text-gray-500 dark:text-gray-400">
+        <div class="mb-8 bg-white rounded-lg shadow-sm p-6">
+            <h2 class="text-xl font-bold text-gray-900 mb-4">🔧 External Services Health</h2>
+            <div id="servicesHealthContent" class="text-gray-600">
                 Click "Services Health" to check external services
             </div>
         </div>
 
         <!-- Celery Health -->
-        <div class="mb-8 bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
-            <h2 class="text-xl font-bold text-gray-900 dark:text-white mb-4">⚙️ Celery Workers Health</h2>
-            <div id="celeryHealthContent" class="text-gray-500 dark:text-gray-400">
+        <div class="mb-8 bg-white rounded-lg shadow-sm p-6">
+            <h2 class="text-xl font-bold text-gray-900 mb-4">⚙️ Celery Workers Health</h2>
+            <div id="celeryHealthContent" class="text-gray-600">
                 Click "Celery Health" to check background task processing
             </div>
         </div>
 
         <!-- Ingestion Analytics -->
-        <div class="mb-8 bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
-            <h2 class="text-xl font-bold text-gray-900 dark:text-white mb-4">📊 Article Ingestion Analytics</h2>
-            <div id="ingestionAnalyticsContent" class="text-gray-500 dark:text-gray-400">
+        <div class="mb-8 bg-white rounded-lg shadow-sm p-6">
+            <h2 class="text-xl font-bold text-gray-900 mb-4">📊 Article Ingestion Analytics</h2>
+            <div id="ingestionAnalyticsContent" class="text-gray-600">
                 Click "Ingestion Analytics" to view article collection trends
             </div>
         </div>
@@ -97,7 +97,7 @@
 
 <!-- Loading Overlay -->
 <div id="loadingOverlay" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50 hidden">
-    <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white dark:bg-gray-800">
+    <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
         <div class="mt-3 text-center">
             <div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-blue-100">
                 <svg class="animate-spin h-6 w-6 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -105,9 +105,9 @@
                     <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                 </svg>
             </div>
-            <h3 class="text-lg font-medium text-gray-900 dark:text-white mt-4">Running Health Checks</h3>
+            <h3 class="text-lg font-medium text-gray-900 mt-4">Running Health Checks</h3>
             <div class="mt-2 px-7 py-3">
-                <p class="text-sm text-gray-500 dark:text-gray-400" id="loadingMessage">Please wait...</p>
+                <p class="text-sm text-gray-600" id="loadingMessage">Please wait...</p>
             </div>
         </div>
     </div>
@@ -169,30 +169,30 @@
         const content = document.getElementById('overallStatusContent');
         content.innerHTML = `
             <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div class="p-4 bg-gray-50 rounded-lg">
+                <div class="p-4 bg-blue-50 border border-blue-200 rounded-lg">
                     <div class="flex items-center">
                         <span class="text-2xl mr-2">${getStatusIcon(data.status)}</span>
                         <div>
-                            <h3 class="font-medium text-gray-900 dark:text-white">System Status</h3>
-                            <p class="text-sm ${getStatusColor(data.status)}">${data.status.toUpperCase()}</p>
+                            <h3 class="font-medium text-blue-900">System Status</h3>
+                            <p class="text-sm font-bold ${getStatusColor(data.status)}">${data.status.toUpperCase()}</p>
                         </div>
                     </div>
                 </div>
-                <div class="p-4 bg-gray-50 rounded-lg">
+                <div class="p-4 bg-green-50 border border-green-200 rounded-lg">
                     <div class="flex items-center">
                         <span class="text-2xl mr-2">🕒</span>
                         <div>
-                            <h3 class="font-medium text-gray-900 dark:text-white">Last Check</h3>
-                            <p class="text-sm text-gray-600 dark:text-gray-300">${formatTimestamp(data.timestamp)}</p>
+                            <h3 class="font-medium text-green-900">Last Check</h3>
+                            <p class="text-sm font-bold text-green-700">${formatTimestamp(data.timestamp)}</p>
                         </div>
                     </div>
                 </div>
-                <div class="p-4 bg-gray-50 rounded-lg">
+                <div class="p-4 bg-purple-50 border border-purple-200 rounded-lg">
                     <div class="flex items-center">
                         <span class="text-2xl mr-2">📦</span>
                         <div>
-                            <h3 class="font-medium text-gray-900 dark:text-white">Version</h3>
-                            <p class="text-sm text-gray-600 dark:text-gray-300">${data.version || '1.0.0'}</p>
+                            <h3 class="font-medium text-purple-900">Version</h3>
+                            <p class="text-sm font-bold text-purple-700">${data.version || '1.0.0'}</p>
                         </div>
                     </div>
                 </div>
@@ -238,34 +238,34 @@
                     </div>
 
                     <!-- Deduplication Stats -->
-                    <div class="p-4 bg-gray-50 border border-gray-200 rounded-lg">
-                        <h3 class="font-medium text-gray-900 dark:text-white mb-3">Deduplication Statistics</h3>
+                    <div class="p-4 bg-orange-50 border border-orange-200 rounded-lg">
+                        <h3 class="font-medium text-orange-900 mb-3">Deduplication Statistics</h3>
                         <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                             <div>
-                                <p class="text-sm text-gray-600 dark:text-gray-300">Total Articles</p>
-                                <p class="font-bold text-gray-900 dark:text-white">${db.deduplication.total_articles}</p>
+                                <p class="text-sm text-orange-700">Total Articles</p>
+                                <p class="font-bold text-orange-900">${db.deduplication.total_articles}</p>
                             </div>
                             <div>
-                                <p class="text-sm text-gray-600 dark:text-gray-300">Unique URLs</p>
-                                <p class="font-bold text-gray-900 dark:text-white">${db.deduplication.unique_urls}</p>
+                                <p class="text-sm text-orange-700">Unique URLs</p>
+                                <p class="font-bold text-orange-900">${db.deduplication.unique_urls}</p>
                             </div>
                             <div>
-                                <p class="text-sm text-gray-600 dark:text-gray-300">Duplicate Rate</p>
+                                <p class="text-sm text-orange-700">Duplicate Rate</p>
                                 <p class="font-bold ${db.deduplication.duplicate_rate === '0%' ? 'text-green-600' : 'text-red-600'}">${db.deduplication.duplicate_rate}</p>
                             </div>
                         </div>
                     </div>
 
                     <!-- Performance Metrics -->
-                    <div class="p-4 bg-gray-50 border border-gray-200 rounded-lg">
-                        <h3 class="font-medium text-gray-900 dark:text-white mb-3">Performance Metrics</h3>
+                    <div class="p-4 bg-indigo-50 border border-indigo-200 rounded-lg">
+                        <h3 class="font-medium text-indigo-900 mb-3">Performance Metrics</h3>
                         <div class="space-y-2">
                             ${db.performance.map(perf => `
-                                <div class="flex justify-between items-center p-2 bg-white dark:bg-gray-800 rounded border">
-                                    <span class="font-medium">${perf.test}</span>
+                                <div class="flex justify-between items-center p-3 bg-indigo-100 rounded border border-indigo-200">
+                                    <span class="font-medium text-indigo-900">${perf.test}</span>
                                     <div class="text-right">
-                                        <span class="text-sm text-gray-600 dark:text-gray-300">${perf.query_time_ms}ms</span>
-                                        <span class="text-xs text-gray-500 dark:text-gray-400 ml-2">(${perf.rows_returned} rows)</span>
+                                        <span class="text-sm font-bold text-indigo-700">${perf.query_time_ms}ms</span>
+                                        <span class="text-xs text-indigo-600 ml-2">(${perf.rows_returned} rows)</span>
                                     </div>
                                 </div>
                             `).join('')}
@@ -309,8 +309,8 @@
                         </div>
                         ${dedup.exact_duplicates.duplicate_details.length > 0 ? `
                             <div class="mt-3">
-                                <h4 class="text-sm font-medium text-gray-700 mb-2">Duplicate Details:</h4>
-                                <ul class="text-sm text-gray-600 dark:text-gray-300 space-y-1">
+                                <h4 class="text-sm font-medium text-gray-800 mb-2">Duplicate Details:</h4>
+                                <ul class="text-sm text-gray-700 space-y-1">
                                     ${dedup.exact_duplicates.duplicate_details.map(detail => `
                                         <li>Hash ${detail.hash}: ${detail.count} occurrences</li>
                                     `).join('')}
@@ -328,22 +328,22 @@
                                 <p class="text-sm ${dedup.near_duplicates.potential_near_duplicates === 0 ? 'text-green-700' : 'text-yellow-700'}">${dedup.near_duplicates.potential_near_duplicates} potential near-duplicates found</p>
                             </div>
                         </div>
-                        <p class="text-sm text-gray-600 dark:text-gray-300">SimHash Coverage: ${dedup.near_duplicates.simhash_coverage}</p>
+                        <p class="text-sm text-gray-700">SimHash Coverage: ${dedup.near_duplicates.simhash_coverage}</p>
                     </div>
 
                     <!-- SimHash Buckets -->
-                    <div class="p-4 bg-gray-50 border border-gray-200 rounded-lg">
-                        <h3 class="font-medium text-gray-900 dark:text-white mb-3">SimHash Bucket Distribution</h3>
+                    <div class="p-4 bg-teal-50 border border-teal-200 rounded-lg">
+                        <h3 class="font-medium text-teal-900 mb-3">SimHash Bucket Distribution</h3>
                         <div class="grid grid-cols-2 md:grid-cols-5 gap-2">
                             ${dedup.simhash_buckets.bucket_distribution.map(bucket => `
-                                <div class="p-2 bg-white dark:bg-gray-800 border rounded text-center">
-                                    <div class="text-sm font-medium text-gray-900 dark:text-white">Bucket ${bucket.bucket_id}</div>
-                                    <div class="text-lg font-bold text-blue-600">${bucket.articles_count}</div>
+                                <div class="p-2 bg-teal-100 border border-teal-200 rounded text-center">
+                                    <div class="text-sm font-medium text-teal-900">Bucket ${bucket.bucket_id}</div>
+                                    <div class="text-lg font-bold text-teal-700">${bucket.articles_count}</div>
                                 </div>
                             `).join('')}
                         </div>
                         ${dedup.simhash_buckets.most_active_bucket ? `
-                            <div class="mt-3 text-sm text-gray-600 dark:text-gray-300">
+                            <div class="mt-3 text-sm text-teal-700">
                                 Most active bucket: ${dedup.simhash_buckets.most_active_bucket[0]} (${dedup.simhash_buckets.most_active_bucket[1]} articles)
                             </div>
                         ` : ''}
@@ -385,17 +385,17 @@
                                     </div>
                                 </div>
                                 ${serviceData.status === 'healthy' ? `
-                                    <div class="text-right text-sm text-gray-600 dark:text-gray-300">
+                                    <div class="text-right text-sm text-gray-700">
                                         ${serviceName === 'ollama' ? `
-                                            <p>${serviceData.models_available} models available</p>
-                                            <p class="text-xs">${serviceData.models.join(', ')}</p>
+                                            <p class="font-medium">${serviceData.models_available} models available</p>
+                                            <p class="text-xs text-gray-600">${serviceData.models.join(', ')}</p>
                                         ` : serviceName === 'redis' ? `
-                                            <p>Memory: ${Math.round(serviceData.info.used_memory / 1024 / 1024)}MB</p>
+                                            <p class="font-medium">Memory: ${Math.round(serviceData.info.used_memory / 1024 / 1024)}MB</p>
                                         ` : ''}
                                     </div>
                                 ` : `
-                                    <div class="text-right text-sm text-red-600">
-                                        <p>${serviceData.error}</p>
+                                    <div class="text-right text-sm text-red-700">
+                                        <p class="font-medium">${serviceData.error}</p>
                                     </div>
                                 `}
                             </div>
@@ -460,25 +460,25 @@
                     </div>
 
                     <!-- Daily Trends Chart -->
-                    <div class="p-4 bg-gray-50 border border-gray-200 rounded-lg">
-                        <h3 class="font-medium text-gray-900 dark:text-white mb-4">📈 Daily Article Ingestion (Last 30 Days)</h3>
+                    <div class="p-4 bg-slate-50 border border-slate-200 rounded-lg">
+                        <h3 class="font-medium text-slate-900 mb-4">📈 Daily Article Ingestion (Last 30 Days)</h3>
                         <canvas id="dailyChart" width="400" height="200"></canvas>
                     </div>
 
                     <!-- Hourly Distribution Chart -->
-                    <div class="p-4 bg-gray-50 border border-gray-200 rounded-lg">
-                        <h3 class="font-medium text-gray-900 dark:text-white mb-4">🕐 Hourly Distribution (Today)</h3>
+                    <div class="p-4 bg-slate-50 border border-slate-200 rounded-lg">
+                        <h3 class="font-medium text-slate-900 mb-4">🕐 Hourly Distribution (Today)</h3>
                         <canvas id="hourlyChart" width="400" height="200"></canvas>
                     </div>
 
                     <!-- Source Breakdown -->
-                    <div class="p-4 bg-gray-50 border border-gray-200 rounded-lg">
-                        <h3 class="font-medium text-gray-900 dark:text-white mb-4">📰 Top Sources (Last 7 Days)</h3>
+                    <div class="p-4 bg-slate-50 border border-slate-200 rounded-lg">
+                        <h3 class="font-medium text-slate-900 mb-4">📰 Top Sources (Last 7 Days)</h3>
                         <div class="space-y-3">
                             ${ingestion.source_breakdown.map(source => `
-                                <div class="p-3 bg-white dark:bg-gray-800 rounded border">
+                                <div class="p-3 bg-white rounded border border-slate-200">
                                     <div class="flex justify-between items-start mb-2">
-                                        <span class="font-medium text-gray-900 dark:text-white">${source.source_name}</span>
+                                        <span class="font-medium text-slate-900">${source.source_name}</span>
                                         <span class="text-sm font-bold text-blue-600">${source.articles_count} articles</span>
                                     </div>
                                     <div class="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
@@ -489,17 +489,17 @@
                                         <div class="text-center p-2 bg-green-50 rounded">
                                             <div class="font-medium text-green-900">Chosen</div>
                                             <div class="text-sm font-bold text-green-600">${source.chosen_ratio}</div>
-                                            <div class="text-xs text-gray-600 dark:text-gray-300">${source.chosen_count}</div>
+                                            <div class="text-xs text-gray-600">${source.chosen_count}</div>
                                         </div>
                                         <div class="text-center p-2 bg-red-50 rounded">
                                             <div class="font-medium text-red-900">Rejected</div>
                                             <div class="text-sm font-bold text-red-600">${source.rejected_ratio}</div>
-                                            <div class="text-xs text-gray-600 dark:text-gray-300">${source.rejected_count}</div>
+                                            <div class="text-xs text-gray-600">${source.rejected_count}</div>
                                         </div>
                                         <div class="text-center p-2 bg-gray-50 rounded">
-                                            <div class="font-medium text-gray-900 dark:text-white">Unclassified</div>
-                                            <div class="text-sm font-bold text-gray-600 dark:text-gray-300">${source.unclassified_ratio}</div>
-                                            <div class="text-xs text-gray-600 dark:text-gray-300">${source.unclassified_count}</div>
+                                            <div class="font-medium text-gray-900">Unclassified</div>
+                                            <div class="text-sm font-bold text-gray-600">${source.unclassified_ratio}</div>
+                                            <div class="text-xs text-gray-600">${source.unclassified_count}</div>
                                         </div>
                                     </div>
                                 </div>
@@ -547,18 +547,18 @@
                                     </div>
                                 </div>
                                 ${componentData.status === 'healthy' ? `
-                                    <div class="text-right text-sm text-gray-600 dark:text-gray-300">
+                                    <div class="text-right text-sm text-gray-700">
                                         ${component === 'workers' ? `
-                                            <p>${componentData.active_workers} active workers</p>
+                                            <p class="font-medium">${componentData.active_workers} active workers</p>
                                         ` : component === 'broker' ? `
-                                            <p>${componentData.url}</p>
+                                            <p class="font-medium">${componentData.url}</p>
                                         ` : component === 'result_backend' ? `
-                                            <p>${componentData.backend}</p>
+                                            <p class="font-medium">${componentData.backend}</p>
                                         ` : ''}
                                     </div>
                                 ` : `
-                                    <div class="text-right text-sm text-red-600">
-                                        <p>${componentData.error}</p>
+                                    <div class="text-right text-sm text-red-700">
+                                        <p class="font-medium">${componentData.error}</p>
                                     </div>
                                 `}
                             </div>
