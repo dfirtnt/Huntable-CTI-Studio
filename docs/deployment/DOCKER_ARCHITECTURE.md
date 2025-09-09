@@ -113,9 +113,9 @@ Services communicate using Docker service names:
 
 For development and external access:
 - Web UI: `localhost:8000`
-- Database: `localhost:5432`
-- Redis: `localhost:6379`
-- Ollama: `localhost:11434`
+- Database: `postgres:5432` (Docker container)
+- Redis: `redis:6379` (Docker container)
+- Ollama: `ollama:11434` (Docker container)
 
 ## CLI Tool Integration
 

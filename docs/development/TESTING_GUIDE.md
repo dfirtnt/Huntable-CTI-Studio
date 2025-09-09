@@ -231,7 +231,7 @@ markers =
 ```bash
 # .env
 TESTING=true
-DATABASE_URL=postgresql://user:pass@localhost/test_db
+DATABASE_URL=postgresql://user:pass@postgres/test_db
 REDIS_URL=redis://localhost:6379
 ```
 
