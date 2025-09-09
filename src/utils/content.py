@@ -601,23 +601,27 @@ WINDOWS_MALWARE_KEYWORDS = {
         'EventID', '.lnk', 'D:\\', '.iso', '<Command>', 'MZ',
         'svchost', '-accepteula', 'lsass.exe', 'WINDIR', 'wintmp',
         '\\temp\\', '\\pipe\\', '%WINDIR%', '%wintmp%', 'FromBase64String',
-        'MemoryStream', 'New-Object', 'DownloadString', 'Defender query'
+        'MemoryStream', 'New-Object', 'DownloadString', 'Defender query',
+        # Promoted from LOLBAS (100% avg scores in high-scoring articles)
+        'reg.exe', 'winlogon.exe', 'conhost.exe', 'msiexec.exe', 'wscript.exe', 'services.exe',
+        # Promoted from Good discriminators (100% avg scores)
+        'EventCode', 'parent-child', 'KQL'
     ],
             'good_discriminators': [
                 'temp', '==', 'c:\\windows\\', 'Event ID', '.bat', '.ps1',
-                'pipe', '::', '[.]', '-->', 'currentversion', 'EventCode',
+                'pipe', '::', '[.]', '-->', 'currentversion',
                 'Monitor', 'Executable', 'Detection', 'Alert on', 'Hunt for',
-                'Hunting', 'Create Detections', 'KQL', 'Search Query', '//',
+                'Hunting', 'Create Detections', 'Search Query', '//',
                 'http:', 'hxxp', '->', '.exe', '--', 'cloudtrail',
-                '\\', '{', '}', '=', '<', '>', '[', ']', 'spawn', 'parent-child'
+                '\\', '{', '}', '=', '<', '>', '[', ']', 'spawn'
             ],
     'lolbas_executables': [
-        'certutil.exe', 'cmd.exe', 'reg.exe', 'schtasks.exe', 'wmic.exe',
+        'certutil.exe', 'cmd.exe', 'schtasks.exe', 'wmic.exe',
         'bitsadmin.exe', 'ftp.exe', 'netsh.exe', 'cscript.exe', 'mshta.exe',
-        'wscript.exe', 'msiexec.exe', 'regsvr32.exe', 'rundll32.exe',
+        'regsvr32.exe', 'rundll32.exe',
         'forfiles.exe', 'explorer.exe', 'ieexec.exe', 'powershell.exe',
-        'conhost.exe', 'svchost.exe', 'lsass.exe', 'winlogon.exe',
-        'csrss.exe', 'smss.exe', 'services.exe', 'wininit.exe', 'nltest.exe'
+        'conhost.exe', 'svchost.exe', 'lsass.exe',
+        'csrss.exe', 'smss.exe', 'wininit.exe', 'nltest.exe'
     ],
 }
 
@@ -708,7 +712,7 @@ class ThreatHuntingScorer:
         escaped_keyword = re.escape(keyword)
         
         # For certain keywords, allow partial matches (like "hunting" in "threat hunting")
-        partial_match_keywords = ['hunting', 'detection', 'monitor', 'alert', 'executable']
+        partial_match_keywords = ['hunting', 'detection', 'monitor', 'alert', 'executable', 'parent-child', 'defender query']
         
         # For wildcard keywords, use prefix matching
         wildcard_keywords = ['spawn']

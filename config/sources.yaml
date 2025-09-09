@@ -166,6 +166,87 @@ sources:
         body_selectors: ["article", "main", ".content", ".post-content"]
     description: "Good threat research with detection context"
 
+  # Microsoft Security Blog (Defender Section)
+  - id: "microsoft_security_blog"
+    name: "Microsoft Security Blog - Defender"
+    url: "https://www.microsoft.com/en-us/security/blog/product/microsoft-defender/"
+    rss_url: "https://www.microsoft.com/en-us/security/blog/product/microsoft-defender/feed/"
+    check_frequency: 1800  # 30 minutes
+    active: true
+    config:
+      allow: ["microsoft.com"]
+      post_url_regex: ["^https://www\\.microsoft\\.com/en-us/security/blog/.*"]
+      robots:
+        enabled: true
+        user_agent: "CTIScraper/2.0"
+        respect_delay: true
+        max_requests_per_minute: 5
+        crawl_delay: 4.0
+      min_content_length: 1000
+      extract:
+        prefer_jsonld: true
+        title_selectors: ["h1", "meta[property='og:title']::attr(content)"]
+        date_selectors: 
+          - "meta[property='article:published_time']::attr(content)"
+          - "time[datetime]::attr(datetime)"
+        body_selectors: ["article", "main", ".content", ".post-content", ".entry-content"]
+        author_selectors: ["meta[name='author']::attr(content)", ".author-name"]
+    description: "Official Microsoft Security Blog covering Defender products and threat intelligence"
+
+  # Microsoft Defender for Endpoint Blog
+  - id: "microsoft_defender_endpoint"
+    name: "Microsoft Defender for Endpoint Blog"
+    url: "https://techcommunity.microsoft.com/category/microsoft-defender-for-endpoint/blog/microsoftdefenderatpblog"
+    rss_url: "https://techcommunity.microsoft.com/gxcuf89792/rss/board?board.id=MicrosoftDefenderATPBlog"
+    check_frequency: 1800  # 30 minutes
+    active: true
+    config:
+      allow: ["techcommunity.microsoft.com"]
+      post_url_regex: ["^https://techcommunity\\.microsoft\\.com/.*"]
+      robots:
+        enabled: true
+        user_agent: "CTIScraper/2.0"
+        respect_delay: true
+        max_requests_per_minute: 6
+        crawl_delay: 3.0
+      min_content_length: 800
+      extract:
+        prefer_jsonld: true
+        title_selectors: ["h1", "meta[property='og:title']::attr(content)"]
+        date_selectors: 
+          - "meta[property='article:published_time']::attr(content)"
+          - "time[datetime]::attr(datetime)"
+        body_selectors: ["article", "main", ".content", ".post-content", ".message-body"]
+        author_selectors: ["meta[name='author']::attr(content)", ".author-name"]
+    description: "Official Microsoft Defender for Endpoint security updates and detection capabilities"
+
+  # SOC Prime Blog
+  - id: "soc_prime_blog"
+    name: "SOC Prime Blog"
+    url: "https://socprime.com/blog/"
+    rss_url: "https://socprime.com/blog/feed/"
+    check_frequency: 1800  # 30 minutes
+    active: true
+    config:
+      allow: ["socprime.com"]
+      post_url_regex: ["^https://socprime\\.com/blog/.*"]
+      robots:
+        enabled: true
+        user_agent: "CTIScraper/2.0"
+        respect_delay: true
+        max_requests_per_minute: 8
+        crawl_delay: 2.0
+      min_content_length: 1000
+      extract:
+        prefer_jsonld: true
+        title_selectors: ["h1", "meta[property='og:title']::attr(content)"]
+        date_selectors: 
+          - "meta[property='article:published_time']::attr(content)"
+          - "time[datetime]::attr(datetime)"
+        body_selectors: ["article", "main", ".content", ".post-content", ".blog-content"]
+        author_selectors: ["meta[name='author']::attr(content)", ".author-name"]
+    description: "Threat detection marketplace with Sigma rules and detection engineering content"
+
   # Elastic Security Labs
   - id: "elastic_security_labs"
     name: "Elastic Security Labs"

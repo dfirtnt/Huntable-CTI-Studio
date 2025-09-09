@@ -224,6 +224,34 @@
             </div>
         </div>
 
+        <!-- Data Export -->
+        <div class="bg-white rounded-lg shadow-sm p-6">
+            <h2 class="text-xl font-bold text-gray-900 mb-4">📤 Data Export</h2>
+            
+            <div class="space-y-4">
+                <!-- Export Annotations -->
+                <div>
+                    <h3 class="text-lg font-medium text-gray-900 mb-2">Export Annotations</h3>
+                    <p class="text-sm text-gray-600 mb-4">Download all text classifications (huntable/not huntable) as a CSV file</p>
+                    
+                    <button id="exportAnnotationsBtn" 
+                            class="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
+                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                        </svg>
+                        Export Annotations CSV
+                    </button>
+                    
+                    <div id="exportProgress" class="hidden mt-2">
+                        <div class="flex items-center">
+                            <div class="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-2"></div>
+                            <span class="text-sm text-gray-600">Generating CSV...</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- API Configuration -->
         <div id="apiConfigurationSection" class="bg-white rounded-lg shadow-sm p-6" style="display: none;">
             <h2 class="text-xl font-bold text-gray-900 mb-4">🔑 API Configuration</h2>
@@ -552,6 +580,9 @@
         // Refresh backups button
         document.getElementById('refreshBackupsBtn').addEventListener('click', loadBackups);
         
+        // Export annotations button
+        document.getElementById('exportAnnotationsBtn').addEventListener('click', exportAnnotations);
+        
         // File upload handling
         const fileInput = document.getElementById('backupFile');
         const restoreBtn = document.getElementById('restoreBackupBtn');
@@ -731,6 +762,56 @@
         } catch (error) {
             console.error('Delete backup error:', error);
             showNotification(`Failed to delete backup: ${error.message}`, 'error');
+        }
+    }
+    
+    async function exportAnnotations() {
+        const exportBtn = document.getElementById('exportAnnotationsBtn');
+        const progressDiv = document.getElementById('exportProgress');
+        
+        try {
+            // Show progress
+            exportBtn.disabled = true;
+            progressDiv.classList.remove('hidden');
+            
+            const response = await fetch('/api/export/annotations', {
+                method: 'GET'
+            });
+            
+            if (response.ok) {
+                // Get filename from Content-Disposition header or use default
+                const contentDisposition = response.headers.get('Content-Disposition');
+                let filename = 'annotations.csv';
+                if (contentDisposition) {
+                    const filenameMatch = contentDisposition.match(/filename="(.+)"/);
+                    if (filenameMatch) {
+                        filename = filenameMatch[1];
+                    }
+                }
+                
+                // Create blob and download
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = filename;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                window.URL.revokeObjectURL(url);
+                
+                showNotification('Annotations exported successfully!', 'success');
+            } else {
+                const result = await response.json();
+                throw new Error(result.detail || 'Export failed');
+            }
+        } catch (error) {
+            console.error('Export error:', error);
+            showNotification(`Failed to export annotations: ${error.message}`, 'error');
+        } finally {
+            // Hide progress
+            exportBtn.disabled = false;
+            progressDiv.classList.add('hidden');
         }
     }
     
