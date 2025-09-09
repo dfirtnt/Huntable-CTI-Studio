@@ -68,7 +68,9 @@ def highlight_keywords(content: str, metadata: Dict[str, Any]) -> str:
     keyword_types = {
         'perfect_keyword_matches': ('perfect', 'bg-green-100 text-green-800 border-green-300'),
         'good_keyword_matches': ('good', 'bg-purple-100 text-purple-800 border-purple-300'),
-        'lolbas_matches': ('lolbas', 'bg-blue-100 text-blue-800 border-blue-300')
+        'lolbas_matches': ('lolbas', 'bg-blue-100 text-blue-800 border-blue-300'),
+        'intelligence_matches': ('intelligence', 'bg-red-100 text-red-800 border-red-300'),
+        'negative_matches': ('negative', 'bg-gray-100 text-gray-800 border-gray-300')
     }
     
     for key, (type_name, css_classes) in keyword_types.items():
