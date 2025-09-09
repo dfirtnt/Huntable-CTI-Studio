@@ -619,10 +619,10 @@
                             console.log('Found short text match, replaced');
                             replaced = true;
                         } else {
-                            console.log('Could not find text to replace');
-                            console.log('Looking for:', text.substring(0, 100));
-                            console.log('In content:', content.substring(0, 200) + '...');
-                            return; // Don't update if we can't find the text
+                            console.log('Could not find text to replace, trying position-based approach');
+                            // Try position-based highlighting as fallback
+                            this.highlightTextAtPosition(start, end, classification, text);
+                            return;
                         }
                     }
                 }
@@ -636,6 +636,100 @@
             // Update the content
             this.contentElement.innerHTML = newContent;
             console.log(`Successfully added ${classification} classification`);
+        }
+        
+        highlightTextAtPosition(start, end, classification, text) {
+            console.log('Using position-based highlighting:', { start, end, textLength: text.length });
+            
+            // Create a range to select the text at the exact position
+            const range = document.createRange();
+            const walker = document.createTreeWalker(
+                this.contentElement,
+                NodeFilter.SHOW_TEXT,
+                null,
+                false
+            );
+            
+            let currentPos = 0;
+            let startNode = null;
+            let startOffset = 0;
+            let endNode = null;
+            let endOffset = 0;
+            
+            // Find the text nodes that contain our selection
+            let node;
+            while (node = walker.nextNode()) {
+                const nodeLength = node.textContent.length;
+                
+                if (!startNode && currentPos + nodeLength >= start) {
+                    startNode = node;
+                    startOffset = start - currentPos;
+                }
+                
+                if (!endNode && currentPos + nodeLength >= end) {
+                    endNode = node;
+                    endOffset = end - currentPos;
+                    break;
+                }
+                
+                currentPos += nodeLength;
+            }
+            
+            if (startNode && endNode) {
+                try {
+                    range.setStart(startNode, startOffset);
+                    range.setEnd(endNode, endOffset);
+                    
+                    // Create highlight span
+                    const cssClass = classification === 'huntable' 
+                        ? 'bg-blue-100 border-blue-300 text-blue-800' 
+                        : 'bg-red-100 border-red-300 text-red-800';
+                    
+                    const highlightSpan = document.createElement('span');
+                    highlightSpan.className = `px-1 py-0.5 rounded text-xs font-medium border ${cssClass}`;
+                    highlightSpan.title = `${classification === 'huntable' ? 'Huntable' : 'Not Huntable'}: ${text.substring(0, 50)}...`;
+                    highlightSpan.textContent = text;
+                    
+                    // Replace the range content with our highlight span
+                    range.deleteContents();
+                    range.insertNode(highlightSpan);
+                    
+                    console.log('Position-based highlighting successful');
+                    
+                    // Save state for undo
+                    this.saveState();
+                    
+                } catch (error) {
+                    console.error('Error in position-based highlighting:', error);
+                    // Fallback: just add a visual indicator
+                    this.addVisualIndicator(start, end, classification, text);
+                }
+            } else {
+                console.error('Could not find text nodes for position-based highlighting');
+                this.addVisualIndicator(start, end, classification, text);
+            }
+        }
+        
+        addVisualIndicator(start, end, classification, text) {
+            console.log('Adding visual indicator as last resort');
+            
+            // Create a simple visual indicator at the top of the content
+            const indicator = document.createElement('div');
+            indicator.className = `p-2 mb-2 rounded border-l-4 ${classification === 'huntable' ? 'bg-blue-50 border-blue-400' : 'bg-red-50 border-red-400'}`;
+            indicator.innerHTML = `
+                <div class="text-sm font-medium ${classification === 'huntable' ? 'text-blue-800' : 'text-red-800'}">
+                    ${classification === 'huntable' ? '✓ Huntable' : '✗ Not Huntable'} Text Annotated
+                </div>
+                <div class="text-xs text-gray-600 mt-1">
+                    "${text.substring(0, 100)}${text.length > 100 ? '...' : ''}"
+                </div>
+            `;
+            
+            // Insert at the beginning of the content
+            this.contentElement.insertBefore(indicator, this.contentElement.firstChild);
+            
+            // Save state for undo
+            this.saveState();
         }
         
         addLongTextClassification(start, end, classification, text) {
@@ -791,6 +885,56 @@
                     this.showClassificationOptions(startPos, endPos);
                 }
             });
+            
+            // Also listen for native text selection events (as backup)
+            document.addEventListener('mouseup', (e) => {
+                // Only handle if the click was within our content area
+                if (this.contentElement.contains(e.target)) {
+                    setTimeout(() => {
+                        const selection = window.getSelection();
+                        const selectedText = selection.toString().trim();
+                        
+                        if (selectedText.length > 0) {
+                            console.log('Native selection detected:', {
+                                text: selectedText.substring(0, 100),
+                                fullLength: selectedText.length
+                            });
+                            
+                            try {
+                                const range = selection.getRangeAt(0);
+                                const startPos = this.getTextPositionFromRange(range.startContainer, range.startOffset);
+                                const endPos = this.getTextPositionFromRange(range.endContainer, range.endOffset);
+                                
+                                if (startPos !== endPos && endPos - startPos === selectedText.length) {
+                                    console.log('Position calculation successful:', {
+                                        start: startPos,
+                                        end: endPos,
+                                        calculatedLength: endPos - startPos,
+                                        actualLength: selectedText.length
+                                    });
+                                    this.showClassificationOptions(startPos, endPos);
+                                } else {
+                                    console.log('Position calculation mismatch, using fallback');
+                                    // Fallback: try to find the text in the content
+                                    const contentText = this.contentElement.textContent;
+                                    const textIndex = contentText.indexOf(selectedText);
+                                    if (textIndex !== -1) {
+                                        this.showClassificationOptions(textIndex, textIndex + selectedText.length);
+                                    }
+                                }
+                            } catch (error) {
+                                console.error('Error processing native selection:', error);
+                                // Fallback: try to find the text in the content
+                                const contentText = this.contentElement.textContent;
+                                const textIndex = contentText.indexOf(selectedText);
+                                if (textIndex !== -1) {
+                                    this.showClassificationOptions(textIndex, textIndex + selectedText.length);
+                                }
+                            }
+                        }
+                    }, 50);
+                }
+            });
         }
         
         getTextPositionFromEvent(e) {
@@ -803,6 +947,16 @@
             preCaretRange.setEnd(range.endContainer, range.endOffset);
             
             return preCaretRange.toString().length;
+        }
+        
+        getTextPositionFromRange(container, offset) {
+            // Create a range from the start of the content to the given position
+            const range = document.createRange();
+            range.setStart(this.contentElement, 0);
+            range.setEnd(container, offset);
+            
+            // Return the length of text content up to this point
+            return range.toString().length;
         }
         
         showSelectionPreview(start, end) {
@@ -890,6 +1044,13 @@
             const max = Math.max(start, end);
             const selectedText = this.contentElement.textContent.substring(min, max);
             
+            console.log('Showing classification options:', {
+                start: min,
+                end: max,
+                textLength: selectedText.length,
+                textPreview: selectedText.substring(0, 100)
+            });
+            
             // Show classification modal
             this.showClassificationModal(selectedText, min, max);
         }
@@ -922,16 +1083,25 @@
             document.body.appendChild(modal);
         }
         
-        classifySelection(start, end, classification) {
+        async classifySelection(start, end, classification) {
             const text = this.contentElement.textContent.substring(start, end);
+            
+            console.log('Classifying selection:', {
+                start: start,
+                end: end,
+                textLength: text.length,
+                textPreview: text.substring(0, 100),
+                classification: classification
+            });
+            
+            // Close modal first to prevent double-click issues
+            this.closeModal();
             
             // Add the classification highlight
             this.addUserClassification(start, end, classification, text);
             
             // Save to server
-            this.saveClassification(start, end, text, classification);
-            
-            this.closeModal();
+            await this.saveClassification(start, end, text, classification);
         }
         
         showRemoveAnnotationModal(spanElement, annotationType, annotationText) {
@@ -1040,6 +1210,14 @@
         
         async saveClassification(start, end, text, classification) {
             try {
+                console.log('Saving classification:', {
+                    start: start,
+                    end: end,
+                    textLength: text.length,
+                    textPreview: text.substring(0, 100),
+                    classification: classification
+                });
+                
                 const response = await fetch(`/api/articles/{{ article.id }}/annotations`, {
                     method: 'POST',
                     headers: {
@@ -1054,13 +1232,20 @@
                 });
                 
                 if (!response.ok) {
-                    throw new Error('Failed to save classification');
+                    const errorText = await response.text();
+                    console.error('API Error Response:', errorText);
+                    throw new Error(`Failed to save classification: ${response.status} - ${errorText}`);
                 }
                 
-                console.log('Classification saved successfully');
+                const result = await response.json();
+                console.log('Classification saved successfully:', result);
+                
+                // Show success notification
+                showNotification(`Annotation saved successfully!`, 'success');
+                
             } catch (error) {
                 console.error('Error saving classification:', error);
-                alert('Failed to save classification. Please try again.');
+                showNotification(`Failed to save annotation: ${error.message}`, 'error');
             }
         }
     }
