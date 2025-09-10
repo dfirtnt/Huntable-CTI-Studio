@@ -13,7 +13,7 @@ from src.models.source import Source
 from src.utils.http import HTTPClient, normalize_url, is_same_domain
 from src.utils.content import (
     ContentCleaner, DateExtractor, MetadataExtractor, 
-    QualityScorer, validate_content
+    validate_content
 )
 
 logger = logging.getLogger(__name__)
@@ -440,12 +440,7 @@ class ModernScraper:
                 metadata={
                     'structured_data': structured_data,
                     'extraction_method': 'modern_scraping',
-                    'jsonld_available': bool(jsonld_article),
-                    'quality_score': QualityScorer.score_article(
-                        article_data['title'],
-                        article_data['content'],
-                        article_data
-                    )
+                    'jsonld_available': bool(jsonld_article)
                 }
             )
             

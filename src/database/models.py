@@ -80,7 +80,6 @@ class ArticleTable(Base):
     processing_status = Column(String(50), nullable=False, default='pending', index=True)
     
     # Quality metrics
-    quality_score = Column(Float, nullable=True)
     word_count = Column(Integer, nullable=True)
     
     # Timestamps

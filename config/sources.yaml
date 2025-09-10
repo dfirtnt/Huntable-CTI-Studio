@@ -2,6 +2,126 @@ version: "1.0"
 
 sources:
   # =============================================================================
+  # GOOGLE SEARCH THREAT INTELLIGENCE DISCOVERY (Highest Priority)
+  # =============================================================================
+  
+  # Google Custom Search for Threat Intelligence
+  - id: "google_threat_intel"
+    name: "Google Threat Intelligence Search"
+    url: "https://www.google.com/search"
+    rss_url: null
+    check_frequency: 3600  # 1 hour
+    active: true
+    config:
+      source_type: "google_search"
+      search_config:
+        api_key: "${GOOGLE_SEARCH_API_KEY}"
+        search_engine_id: "${GOOGLE_SEARCH_ENGINE_ID}"
+        queries:
+          - '(breach OR attack OR persistence OR compromise OR "lateral movement" OR campaign OR "hunt" OR "detection guidance" OR "threat actor" OR hacker OR "threat intelligence") (execution OR rundll32 OR cmd.exe OR powershell.exe OR base64 OR "event id" OR sysmon OR wmic OR appdata OR programdata OR hklm OR regasm OR regsvr32 OR hxxp OR spawn) -forensics -learn -guide -gartner'
+        site_restrictions:
+          - "blog.talosintelligence.com"
+          - "huntress.com"
+          - "unit42.paloaltonetworks.com"
+          - "blog.malwarebytes.com"
+          - "www.crowdstrike.com"
+          - "www.fireeye.com"
+        exclude_domains:
+          - "linkedin.com"
+          - "twitter.com"
+          - "facebook.com"
+          - "youtube.com"
+          - "reddit.com"
+        date_range: "past_month"
+        max_results: 50
+        rate_limit_delay: 2.0
+    description: "Google Custom Search for discovering high-quality threat intelligence articles"
+
+  # Hunt.io Threat Hunting Blog
+  - id: "hunt_io"
+    name: "Hunt.io Threat Hunting Blog"
+    url: "https://hunt.io/blog"
+    rss_url: "https://hunt.io/blog/rss"
+    check_frequency: 1800  # 30 minutes
+    active: true
+    config:
+      allow: ["hunt.io"]
+      post_url_regex: ["^https://hunt\\.io/blog/.*"]
+      robots:
+        enabled: true
+        user_agent: "CTIScraper/2.0"
+        respect_delay: true
+        max_requests_per_minute: 10
+        crawl_delay: 1.0
+      min_content_length: 1500
+      title_filter_keywords: ["product news", "announcing", "introducing"]
+      extract:
+        prefer_jsonld: true
+        title_selectors: ["h1", "meta[property='og:title']::attr(content)"]
+        date_selectors: 
+          - "meta[property='article:published_time']::attr(content)"
+          - "time[datetime]::attr(datetime)"
+        body_selectors: ["article", "main", ".content", ".post-content"]
+        author_selectors: ["meta[name='author']::attr(content)", ".author-name"]
+    description: "High-quality threat hunting content with technical depth and actionable intelligence"
+
+  # Picus Security Blog
+  - id: "picus_security"
+    name: "Picus Security Blog"
+    url: "https://www.picussecurity.com/resource/blog"
+    rss_url: "https://www.picussecurity.com/resource/blog/rss"
+    check_frequency: 1800  # 30 minutes
+    active: true
+    config:
+      allow: ["picussecurity.com"]
+      post_url_regex: ["^https://www\\.picussecurity\\.com/resource/blog/.*"]
+      robots:
+        enabled: true
+        user_agent: "CTIScraper/2.0"
+        respect_delay: true
+        max_requests_per_minute: 10
+        crawl_delay: 1.0
+      min_content_length: 1500
+      title_filter_keywords: ["webinar", "training", "careers", "job posting"]
+      extract:
+        prefer_jsonld: true
+        title_selectors: ["h1", "meta[property='og:title']::attr(content)"]
+        date_selectors: 
+          - "meta[property='article:published_time']::attr(content)"
+          - "time[datetime]::attr(datetime)"
+        body_selectors: ["article", "main", ".content", ".post-content"]
+        author_selectors: ["meta[name='author']::attr(content)", ".author-name"]
+    description: "MITRE ATT&CK technique analysis and threat simulation intelligence"
+
+  # VMRay Blog
+  - id: "vmray_blog"
+    name: "VMRay Blog"
+    url: "https://www.vmray.com/blog/"
+    rss_url: "https://www.vmray.com/blog/rss"
+    check_frequency: 1800  # 30 minutes
+    active: true
+    config:
+      allow: ["vmray.com"]
+      post_url_regex: ["^https://www\\.vmray\\.com/blog/.*"]
+      robots:
+        enabled: true
+        user_agent: "CTIScraper/2.0"
+        respect_delay: true
+        max_requests_per_minute: 10
+        crawl_delay: 1.0
+      min_content_length: 1500
+      title_filter_keywords: ["webinar", "training", "careers", "job posting"]
+      extract:
+        prefer_jsonld: true
+        title_selectors: ["h1", "meta[property='og:title']::attr(content)"]
+        date_selectors: 
+          - "meta[property='article:published_time']::attr(content)"
+          - "time[datetime]::attr(datetime)"
+        body_selectors: ["article", "main", ".content", ".post-content"]
+        author_selectors: ["meta[name='author']::attr(content)", ".author-name"]
+    description: "Advanced malware analysis, detection engineering, and actionable threat intelligence"
+
+  # =============================================================================
   # PREMIUM THREAT INTELLIGENCE SOURCES (Highest Actionable Value)
   # =============================================================================
   
