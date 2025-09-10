@@ -535,7 +535,24 @@ WINDOWS_MALWARE_KEYWORDS = {
             # Promoted from Good discriminators (100% avg scores)
             'EventCode', 'parent-child', 'KQL', '2>&1',
             # PowerShell attack techniques (100% chosen rate)
-            'invoke-mimikatz', 'hashdump', 'invoke-shellcode', 'invoke-eternalblue'
+            'invoke-mimikatz', 'hashdump', 'invoke-shellcode', 'invoke-eternalblue',
+            # Cmd.exe obfuscation regex patterns (advanced threat techniques)
+            r'%[A-Za-z0-9_]+:~[0-9]+(,[0-9]+)?%',  # env-var substring access
+            r'%[A-Za-z0-9_]+:[^=%%]+=[^%]*%',  # env-var string substitution
+            r'![A-Za-z0-9_]+!',  # delayed expansion markers
+            r'\bcmd(\.exe)?\s*/V(?::[^ \t/]+)?',  # /V:ON obfuscated variants
+            r'\bset\s+[A-Za-z0-9_]+\s*=',  # multiple SET stages
+            r'\bcall\s+(set|%[A-Za-z0-9_]+%|![A-Za-z0-9_]+!)',  # CALL invocation
+            r'(%[^%]+%){4,}',  # adjacent env-var concatenation
+            r'\bfor\s+/?[A-Za-z]*\s+%[A-Za-z]\s+in\s*\(',  # FOR loops
+            r'![A-Za-z0-9_]+:~%[A-Za-z],1!',  # FOR-indexed substring extraction
+            r'\bfor\s+/L\s+%[A-Za-z]\s+in\s*\([^)]+\)',  # reversal via /L
+            r'%[A-Za-z0-9_]+:~-[0-9]+%|%[A-Za-z0-9_]+:~[0-9]+%',  # tail trimming
+            r'%[A-Za-z0-9_]+:\*[^!%]+=!%',  # asterisk-based substitution
+            r'[^\w](s\^+e\^*t|s\^*e\^+t)[^\w]',  # caret-obfuscated set
+            r'[^\w](c\^+a\^*l\^*l|c\^*a\^+l\^*l|c\^*a\^*l\^+l)[^\w]',  # caret-obfuscated call
+            r'\^|\"',  # caret or quote splitting
+            r'%[^%]+%<[^>]*|set\s+[A-Za-z0-9_]+\s*=\s*[^&|>]*\|'  # stdin piping patterns
         ],
             'good_discriminators': [
                 'temp', '==', 'c:\\windows\\', 'Event ID', '.bat', '.ps1',
@@ -698,16 +715,40 @@ class ThreatHuntingScorer:
     @staticmethod
     def _keyword_matches(keyword: str, text: str) -> bool:
         """
-        Check if keyword matches in text using word boundaries.
+        Check if keyword matches in text using word boundaries or regex patterns.
         
         Args:
-            keyword: Keyword to search for
+            keyword: Keyword to search for (can be regex pattern)
             text: Text to search in
             
         Returns:
-            True if keyword is found with proper word boundaries
+            True if keyword is found with proper word boundaries or regex match
         """
-        # Escape special regex characters
+        # Regex patterns for cmd.exe obfuscation techniques
+        regex_patterns = [
+            r'%[A-Za-z0-9_]+:~[0-9]+(,[0-9]+)?%',  # env-var substring access
+            r'%[A-Za-z0-9_]+:[^=%%]+=[^%]*%',  # env-var string substitution
+            r'![A-Za-z0-9_]+!',  # delayed expansion markers
+            r'\bcmd(\.exe)?\s*/V(?::[^ \t/]+)?',  # /V:ON obfuscated variants
+            r'\bset\s+[A-Za-z0-9_]+\s*=',  # multiple SET stages
+            r'\bcall\s+(set|%[A-Za-z0-9_]+%|![A-Za-z0-9_]+!)',  # CALL invocation
+            r'(%[^%]+%){4,}',  # adjacent env-var concatenation
+            r'\bfor\s+/?[A-Za-z]*\s+%[A-Za-z]\s+in\s*\(',  # FOR loops
+            r'![A-Za-z0-9_]+:~%[A-Za-z],1!',  # FOR-indexed substring extraction
+            r'\bfor\s+/L\s+%[A-Za-z]\s+in\s*\([^)]+\)',  # reversal via /L
+            r'%[A-Za-z0-9_]+:~-[0-9]+%|%[A-Za-z0-9_]+:~[0-9]+%',  # tail trimming
+            r'%[A-Za-z0-9_]+:\*[^!%]+=!%',  # asterisk-based substitution
+            r'[^\w](s\^+e\^*t|s\^*e\^+t)[^\w]',  # caret-obfuscated set
+            r'[^\w](c\^+a\^*l\^*l|c\^*a\^+l\^*l|c\^*a\^*l\^+l)[^\w]',  # caret-obfuscated call
+            r'\^|\"',  # caret or quote splitting
+            r'%[^%]+%<[^>]*|set\s+[A-Za-z0-9_]+\s*=\s*[^&|>]*\|'  # stdin piping patterns
+        ]
+        
+        # Check if keyword is a regex pattern
+        if keyword in regex_patterns:
+            return bool(re.search(keyword, text, re.IGNORECASE))
+        
+        # Escape special regex characters for literal matching
         escaped_keyword = re.escape(keyword)
         
         # For certain keywords, allow partial matches (like "hunting" in "threat hunting")

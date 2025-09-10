@@ -32,7 +32,7 @@ The CTI Scraper uses a microservices architecture with the following components:
    - Manages periodic task scheduling
    - Triggers source checks and maintenance tasks
 
-6. **Ollama LLM Service** (`ollama`)
+6. **Ollama LLM Service** (`cti_ollama`)
    - Local large language model for content analysis
    - Provides threat hunting and detection engineering analysis
    - Runs Mistral model for content processing
@@ -115,7 +115,7 @@ For development and external access:
 - Web UI: `localhost:8000`
 - Database: `postgres:5432` (Docker container)
 - Redis: `redis:6379` (Docker container)
-- Ollama: `ollama:11434` (Docker container)
+- Ollama: `cti_ollama:11434` (Docker container)
 
 ## CLI Tool Integration
 

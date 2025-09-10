@@ -49,6 +49,8 @@ Analysis Results + Cost Savings
 **Key Features:**
 - 17 huntable patterns (commands, technical terms, IOCs)
 - 11 not huntable patterns (acknowledgments, marketing, general statements)
+- **Perfect discriminator protection** - chunks containing threat hunting keywords are never filtered
+- **Command line obfuscation pattern support** - advanced regex patterns for cmd.exe obfuscation
 - RandomForestClassifier with 80% accuracy
 - 23 extracted features per chunk
 - Configurable confidence thresholds
@@ -104,6 +106,7 @@ The ML model extracts 23 features and classifies each chunk:
 
 ### Step 4: Filtering Decision
 Chunks are kept or removed based on:
+- **Perfect discriminator check** - chunks with threat hunting keywords are always preserved
 - ML model confidence score
 - User-defined threshold (0.5-0.8)
 - Pattern match analysis

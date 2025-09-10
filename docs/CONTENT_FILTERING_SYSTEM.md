@@ -16,6 +16,8 @@ I've successfully designed and implemented a machine learning-based content filt
 
 ### 1. Content Filter (`src/utils/content_filter.py`)
 - **Pattern-based classification** with regex rules for huntable/not huntable content
+- **Perfect discriminator protection** - chunks containing threat hunting keywords are never filtered
+- **Command line obfuscation pattern support** - advanced regex patterns for cmd.exe obfuscation techniques
 - **ML model** using RandomForestClassifier with 80% accuracy
 - **Feature extraction** including command patterns, technical terms, text characteristics
 - **Chunking system** to analyze content in manageable pieces
@@ -77,6 +79,8 @@ I've successfully designed and implemented a machine learning-based content filt
 
 ### 2. Quality Maintenance
 - **Preserves technical content** essential for SIGMA rule creation
+- **Perfect discriminator protection** ensures threat hunting keywords are never filtered
+- **Command line obfuscation support** protects advanced attack techniques
 - **Maintains analysis quality** while reducing costs
 - **Fallback mechanisms** ensure system reliability
 
