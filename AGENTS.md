@@ -45,7 +45,12 @@
 - **Active Sources**: Monitor source health via database queries
 
 ## Development Workflow
-- **User Shortcuts**:: Accept "lg" user prompt as a request to git commit and push to main
+- **User Shortcuts**: Accept "lg" user prompt as a request to git commit and push to main, PLUS execute GitHub-ready tasks:
+  - **Security & Setup**: Scan for hardcoded credentials/API keys, create comprehensive .gitignore, add .env.example, move config to external files
+  - **Dependency Security**: Check requirements for latest versions and CVE vulnerabilities, update if patches available, alert if no patches
+  - **Documentation & Standards**: Create professional README.md, add LICENSE (MIT), pin dependencies, add type hints/docstrings, remove debug prints
+  - **Repository Files**: Add GitHub Actions CI workflow, create .github/SECURITY.md, consider CHANGELOG.md and CONTRIBUTING.md
+  - **Final Verification**: Ensure no secrets in code, comprehensive .gitignore, professional README, proper license, documented dependencies/code
 - **Documentation Updates**: Accept "mdu" user prompt as a request to examine entire codebase and ensure MD documentation files are accurate and up-to-date with current code, architecture, workflow and heuristics
 - **File Management**: Don't delete files without user confirmation
 - **Documentation**: Create in Markdown (.md) files when requested
