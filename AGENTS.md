@@ -35,6 +35,7 @@
 
 ## Scoring System Management
 - **Keyword Updates**: Always regenerate threat hunting scores when updating LOLBAS lists or keyword discriminators
+- **Junk Filter Sync**: When updating "perfect" keywords list, also update the content filter (`src/utils/content_filter.py`) to maintain perfect discriminator protection
 - ***User Shortcuts***: Accept "rs" from user as a prompt to rescore all articles.
 - **Score Regeneration**: Use `regenerate_all_scores.py` after keyword changes
 
@@ -45,6 +46,7 @@
 
 ## Development Workflow
 - **User Shortcuts**:: Accept "lg" user prompt as a request to git commit and push to main
+- **Documentation Updates**: Accept "mdu" user prompt as a request to examine entire codebase and ensure MD documentation files are accurate and up-to-date with current code, architecture, workflow and heuristics
 - **File Management**: Don't delete files without user confirmation
 - **Documentation**: Create in Markdown (.md) files when requested
 - **Testing**: Use Docker containers for all testing and validation

@@ -18,6 +18,9 @@ import numpy as np
 import pandas as pd
 from pathlib import Path
 
+# Import perfect discriminators from threat hunting scorer
+from .content import WINDOWS_MALWARE_KEYWORDS
+
 @dataclass
 class FilterResult:
     """Result of content filtering."""
@@ -41,6 +44,63 @@ class ContentFilter:
         self.pattern_rules = self._load_pattern_rules()
         self.model_path = model_path or "models/content_filter.pkl"
         
+    def _has_perfect_keywords(self, text: str) -> bool:
+        """Check if text contains any perfect discriminators from threat hunting scorer."""
+        text_lower = text.lower()
+        
+        # Check all perfect discriminators
+        for keyword in WINDOWS_MALWARE_KEYWORDS['perfect_discriminators']:
+            if self._keyword_matches(keyword, text_lower):
+                return True
+        
+        return False
+    
+    def _keyword_matches(self, keyword: str, text: str) -> bool:
+        """Check if keyword matches in text using word boundaries or regex patterns."""
+        # Regex patterns for cmd.exe obfuscation techniques
+        regex_patterns = [
+            r'%[A-Za-z0-9_]+:~[0-9]+(,[0-9]+)?%',  # env-var substring access
+            r'%[A-Za-z0-9_]+:[^=%%]+=[^%]*%',  # env-var string substitution
+            r'![A-Za-z0-9_]+!',  # delayed expansion markers
+            r'\bcmd(\.exe)?\s*/V(?::[^ \t/]+)?',  # /V:ON obfuscated variants
+            r'\bset\s+[A-Za-z0-9_]+\s*=',  # multiple SET stages
+            r'\bcall\s+(set|%[A-Za-z0-9_]+%|![A-Za-z0-9_]+!)',  # CALL invocation
+            r'(%[^%]+%){4,}',  # adjacent env-var concatenation
+            r'\bfor\s+/?[A-Za-z]*\s+%[A-Za-z]\s+in\s*\(',  # FOR loops
+            r'![A-Za-z0-9_]+:~%[A-Za-z],1!',  # FOR-indexed substring extraction
+            r'\bfor\s+/L\s+%[A-Za-z]\s+in\s*\([^)]+\)',  # reversal via /L
+            r'%[A-Za-z0-9_]+:~-[0-9]+%|%[A-Za-z0-9_]+:~[0-9]+%',  # tail trimming
+            r'%[A-Za-z0-9_]+:\*[^!%]+=!%',  # asterisk-based substitution
+            r'[^\w](s\^+e\^*t|s\^*e\^+t)[^\w]',  # caret-obfuscated set
+            r'[^\w](c\^+a\^*l\^*l|c\^*a\^+l\^*l|c\^*a\^*l\^+l)[^\w]',  # caret-obfuscated call
+            r'\^|\"',  # caret or quote splitting
+            r'%[^%]+%<[^>]*|set\s+[A-Za-z0-9_]+\s*=\s*[^&|>]*\|'  # stdin piping patterns
+        ]
+        
+        # Check if keyword is a regex pattern
+        if keyword in regex_patterns:
+            return bool(re.search(keyword, text, re.IGNORECASE))
+        
+        # Escape special regex characters for literal matching
+        escaped_keyword = re.escape(keyword)
+        
+        # For certain keywords, allow partial matches
+        partial_match_keywords = ['hunting', 'detection', 'monitor', 'alert', 'executable', 'parent-child', 'defender query']
+        
+        # For symbol keywords, don't use word boundaries
+        symbol_keywords = ['==', '!=', '<=', '>=', '::', '-->', '->', '//', '--', '\\', '|']
+        
+        if keyword.lower() in partial_match_keywords:
+            # Allow partial matches for these keywords
+            return keyword.lower() in text
+        elif keyword in symbol_keywords:
+            # For symbols, don't use word boundaries
+            return keyword in text
+        else:
+            # Use word boundaries for exact matches
+            pattern = r'\b' + escaped_keyword + r'\b'
+            return bool(re.search(pattern, text))
+    
     def _load_pattern_rules(self) -> Dict[str, List[str]]:
         """Load pattern-based rules for content classification."""
         return {
@@ -302,6 +362,11 @@ class ContentFilter:
         removed_chunks = []
         
         for start_offset, end_offset, chunk_text in chunks:
+            # Always preserve chunks containing perfect discriminators
+            if self._has_perfect_keywords(chunk_text):
+                huntable_chunks.append((start_offset, end_offset, chunk_text))
+                continue
+            
             is_huntable, confidence = self.predict_huntability(chunk_text)
             
             if is_huntable and confidence >= min_confidence:
