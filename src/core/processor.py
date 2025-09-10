@@ -9,7 +9,7 @@ import hashlib
 from src.models.article import Article, ArticleCreate
 from src.models.source import Source
 from src.utils.content import (
-    ContentCleaner, DateExtractor, QualityScorer, 
+    ContentCleaner, DateExtractor, 
     validate_content, MetadataExtractor, ThreatHuntingScorer
 )
 
@@ -220,14 +220,6 @@ class ContentProcessor:
         enhanced = {}
         
         try:
-            # Calculate quality score
-            quality_score = QualityScorer.score_article(
-                article.title,
-                article.content,
-                article.metadata
-            )
-            enhanced['quality_score'] = quality_score
-            
             # Extract additional metadata from content
             if '<' in article.content:  # HTML content
                 from bs4 import BeautifulSoup

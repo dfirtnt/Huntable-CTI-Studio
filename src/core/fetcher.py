@@ -10,6 +10,7 @@ from src.models.source import Source
 from src.utils.http import HTTPClient
 from core.rss_parser import RSSParser
 from core.modern_scraper import ModernScraper, LegacyScraper
+from src.core.google_search import GoogleSearchFetcher
 
 logger = logging.getLogger(__name__)
 
@@ -69,6 +70,7 @@ class ContentFetcher:
         self.rss_parser = RSSParser(self.http_client)
         self.modern_scraper = ModernScraper(self.http_client)
         self.legacy_scraper = LegacyScraper(self.http_client)
+        self.google_search_fetcher = GoogleSearchFetcher(self.http_client)
         
         # Statistics
         self.stats = {
@@ -79,6 +81,7 @@ class ContentFetcher:
             'rss_successes': 0,
             'modern_scraping_successes': 0,
             'legacy_scraping_successes': 0,
+            'google_search_successes': 0,
             'avg_response_time': 0.0
         }
     
@@ -105,6 +108,38 @@ class ContentFetcher:
         start_time = datetime.utcnow()
         
         try:
+            # Tier 0: Google Search if configured
+            if source.config.get('source_type') == 'google_search':
+                try:
+                    logger.debug(f"Attempting Google Search fetch for {source.name}")
+                    articles = await self.google_search_fetcher.fetch_source(source)
+                    
+                    if articles:
+                        response_time = (datetime.utcnow() - start_time).total_seconds()
+                        self._update_stats('google_search_successes', len(articles), response_time, True)
+                        
+                        logger.info(f"Google Search fetch successful for {source.name}: {len(articles)} articles")
+                        return FetchResult(
+                            source=source,
+                            articles=articles,
+                            method="google_search",
+                            success=True,
+                            response_time=response_time
+                        )
+                    else:
+                        logger.warning(f"Google Search returned no articles for {source.name}")
+                        
+                except Exception as e:
+                    logger.warning(f"Google Search fetch failed for {source.name}: {e}")
+                    return FetchResult(
+                        source=source,
+                        articles=[],
+                        method="google_search",
+                        success=False,
+                        response_time=(datetime.utcnow() - start_time).total_seconds(),
+                        error=str(e)
+                    )
+            
             # Tier 1: Try RSS first if available
             if source.rss_url and source.rss_url.strip():
                 try:
