@@ -1038,6 +1038,12 @@ async def articles_list(
                 key=lambda x: int(x.metadata.get('annotation_count', 0)) if x.metadata and x.metadata.get('annotation_count') is not None else 0,
                 reverse=(sort_order == 'desc')
             )
+        elif sort_by == "word_count":
+            # Special handling for word_count field
+            filtered_articles.sort(
+                key=lambda x: x.word_count or 0,
+                reverse=(sort_order == 'desc')
+            )
         else:
             # Get the attribute dynamically
             sort_attr = getattr(filtered_articles[0], sort_by, None) if filtered_articles else None
