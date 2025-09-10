@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Database Chat - CTI Scraper</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .chat-container {
+            height: calc(100vh - 200px);
+            overflow-y: auto;
+        }
+        .message {
+            animation: fadeIn 0.3s ease-in;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .typing-indicator {
+            animation: pulse 1.5s ease-in-out infinite;
+        }
+        .result-table {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .sql-code {
+            font-family: 'Courier New', monospace;
+            background-color: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 4px;
+            padding: 8px;
+        }
+    </style>
+</head>
+<body class="bg-gray-100">
+    <!-- Navigation -->
+    <nav class="bg-white shadow-sm border-b">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16">
+                <div class="flex items-center">
+                    <a href="/" class="text-xl font-bold text-gray-900">CTI Scraper</a>
+                    <div class="ml-10 flex items-baseline space-x-4">
+                        <a href="/" class="text-gray-500 hover:text-gray-900 px-3 py-2 rounded-md text-sm font-medium">Dashboard</a>
+                        <a href="/articles" class="text-gray-500 hover:text-gray-900 px-3 py-2 rounded-md text-sm font-medium">Articles</a>
+                        <a href="/sources" class="text-gray-500 hover:text-gray-900 px-3 py-2 rounded-md text-sm font-medium">Sources</a>
+                        <a href="/database-chat" class="bg-blue-100 text-blue-700 px-3 py-2 rounded-md text-sm font-medium">Database Chat</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <div class="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
+        <div class="bg-white rounded-lg shadow">
+            <!-- Header -->
+            <div class="px-6 py-4 border-b border-gray-200">
+                <h1 class="text-2xl font-bold text-gray-900">Database Chat</h1>
+                <p class="mt-1 text-sm text-gray-600">Ask questions about your threat intelligence data in natural language</p>
+            </div>
+
+            <!-- Chat Interface -->
+            <div class="flex flex-col h-96">
+                <!-- Messages Container -->
+                <div id="chatContainer" class="chat-container p-6 space-y-4">
+                    <!-- Welcome Message -->
+                    <div class="message flex items-start space-x-3">
+                        <div class="flex-shrink-0">
+                            <div class="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
+                                <i class="fas fa-robot text-white text-sm"></i>
+                            </div>
+                        </div>
+                        <div class="flex-1">
+                            <div class="bg-gray-100 rounded-lg p-4">
+                                <p class="text-sm text-gray-800">Hello! I can help you query your threat intelligence database. Try asking questions like:</p>
+                                <ul class="mt-2 text-sm text-gray-600 space-y-1">
+                                    <li>• "What are the top 10 sources by article count?"</li>
+                                    <li>• "Show me articles about APT41 from the last 30 days"</li>
+                                    <li>• "What's the average threat hunting score by source?"</li>
+                                    <li>• "How many articles were published this week?"</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Input Area -->
+                <div class="border-t border-gray-200 p-4">
+                    <div class="flex space-x-3">
+                        <div class="flex-1">
+                            <textarea 
+                                id="queryInput" 
+                                placeholder="Ask a question about your data..." 
+                                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                                rows="2"
+                            ></textarea>
+                        </div>
+                        <button 
+                            id="sendButton" 
+                            class="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                            <i class="fas fa-paper-plane"></i>
+                        </button>
+                    </div>
+                    <div class="mt-2 flex justify-between items-center text-xs text-gray-500">
+                        <span>Powered by Mistral 7B</span>
+                        <span id="statusText"></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Export Modal -->
+    <div id="exportModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden">
+        <div class="flex items-center justify-center min-h-screen p-4">
+            <div class="bg-white rounded-lg p-6 max-w-md w-full">
+                <h3 class="text-lg font-medium text-gray-900 mb-4">Export Results</h3>
+                <div class="space-y-3">
+                    <button id="exportCsv" class="w-full px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700">
+                        <i class="fas fa-file-csv mr-2"></i>Export as CSV
+                    </button>
+                    <button id="exportJson" class="w-full px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">
+                        <i class="fas fa-file-code mr-2"></i>Export as JSON
+                    </button>
+                </div>
+                <div class="mt-4 flex justify-end">
+                    <button id="closeExportModal" class="px-4 py-2 text-gray-600 hover:text-gray-800">Cancel</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        class DatabaseChat {
+            constructor() {
+                this.chatContainer = document.getElementById('chatContainer');
+                this.queryInput = document.getElementById('queryInput');
+                this.sendButton = document.getElementById('sendButton');
+                this.statusText = document.getElementById('statusText');
+                this.exportModal = document.getElementById('exportModal');
+                this.currentResults = null;
+                
+                this.initializeEventListeners();
+            }
+
+            initializeEventListeners() {
+                this.sendButton.addEventListener('click', () => this.sendQuery());
+                this.queryInput.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        this.sendQuery();
+                    }
+                });
+
+                // Export modal
+                document.getElementById('exportCsv').addEventListener('click', () => this.exportResults('csv'));
+                document.getElementById('exportJson').addEventListener('click', () => this.exportResults('json'));
+                document.getElementById('closeExportModal').addEventListener('click', () => this.closeExportModal());
+            }
+
+            async sendQuery() {
+                const query = this.queryInput.value.trim();
+                if (!query) return;
+
+                // Add user message
+                this.addMessage(query, 'user');
+                
+                // Clear input and disable button
+                this.queryInput.value = '';
+                this.sendButton.disabled = true;
+                this.statusText.textContent = 'Generating SQL and executing query...';
+
+                // Add typing indicator
+                const typingId = this.addTypingIndicator();
+
+                try {
+                    const response = await fetch('/api/database-chat', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({ query })
+                    });
+
+                    const data = await response.json();
+                    
+                    // Remove typing indicator
+                    this.removeTypingIndicator(typingId);
+
+                    if (data.success) {
+                        this.addBotMessage(data);
+                        this.currentResults = data.results;
+                    } else {
+                        this.addErrorMessage(data.error);
+                    }
+                } catch (error) {
+                    this.removeTypingIndicator(typingId);
+                    this.addErrorMessage('Failed to process query: ' + error.message);
+                } finally {
+                    this.sendButton.disabled = false;
+                    this.statusText.textContent = '';
+                }
+            }
+
+            addMessage(content, type) {
+                const messageDiv = document.createElement('div');
+                messageDiv.className = 'message flex items-start space-x-3';
+                
+                if (type === 'user') {
+                    messageDiv.innerHTML = `
+                        <div class="flex-shrink-0">
+                            <div class="w-8 h-8 bg-gray-500 rounded-full flex items-center justify-center">
+                                <i class="fas fa-user text-white text-sm"></i>
+                            </div>
+                        </div>
+                        <div class="flex-1">
+                            <div class="bg-blue-500 text-white rounded-lg p-4 ml-auto max-w-2xl">
+                                <p class="text-sm">${this.escapeHtml(content)}</p>
+                            </div>
+                        </div>
+                    `;
+                }
+                
+                this.chatContainer.appendChild(messageDiv);
+                this.scrollToBottom();
+            }
+
+            addBotMessage(data) {
+                const messageDiv = document.createElement('div');
+                messageDiv.className = 'message flex items-start space-x-3';
+                
+                let resultsHtml = '';
+                if (data.results && data.results.length > 0) {
+                    resultsHtml = this.formatResults(data.results, data.columns);
+                } else {
+                    resultsHtml = '<p class="text-sm text-gray-600">No results found.</p>';
+                }
+
+                messageDiv.innerHTML = `
+                    <div class="flex-shrink-0">
+                        <div class="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
+                            <i class="fas fa-robot text-white text-sm"></i>
+                        </div>
+                    </div>
+                    <div class="flex-1">
+                        <div class="bg-gray-100 rounded-lg p-4 max-w-4xl">
+                            <div class="mb-3">
+                                <p class="text-sm text-gray-800">${this.escapeHtml(data.explanation)}</p>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <details class="sql-code">
+                                    <summary class="cursor-pointer text-sm font-medium text-gray-700">Generated SQL</summary>
+                                    <pre class="mt-2 text-xs text-gray-600 overflow-x-auto">${this.escapeHtml(data.generated_sql)}</pre>
+                                </details>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <div class="flex items-center justify-between text-xs text-gray-500">
+                                    <span>${data.row_count} rows • ${data.execution_time}s</span>
+                                    <button onclick="databaseChat.showExportModal()" class="text-blue-600 hover:text-blue-800">
+                                        <i class="fas fa-download mr-1"></i>Export
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <div class="result-table">
+                                ${resultsHtml}
+                            </div>
+                        </div>
+                    </div>
+                `;
+                
+                this.chatContainer.appendChild(messageDiv);
+                this.scrollToBottom();
+            }
+
+            addErrorMessage(error) {
+                const messageDiv = document.createElement('div');
+                messageDiv.className = 'message flex items-start space-x-3';
+                
+                messageDiv.innerHTML = `
+                    <div class="flex-shrink-0">
+                        <div class="w-8 h-8 bg-red-500 rounded-full flex items-center justify-center">
+                            <i class="fas fa-exclamation-triangle text-white text-sm"></i>
+                        </div>
+                    </div>
+                    <div class="flex-1">
+                        <div class="bg-red-100 border border-red-300 rounded-lg p-4 max-w-2xl">
+                            <p class="text-sm text-red-800">${this.escapeHtml(error)}</p>
+                        </div>
+                    </div>
+                `;
+                
+                this.chatContainer.appendChild(messageDiv);
+                this.scrollToBottom();
+            }
+
+            addTypingIndicator() {
+                const typingId = 'typing-' + Date.now();
+                const messageDiv = document.createElement('div');
+                messageDiv.id = typingId;
+                messageDiv.className = 'message flex items-start space-x-3';
+                
+                messageDiv.innerHTML = `
+                    <div class="flex-shrink-0">
+                        <div class="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
+                            <i class="fas fa-robot text-white text-sm"></i>
+                        </div>
+                    </div>
+                    <div class="flex-1">
+                        <div class="bg-gray-100 rounded-lg p-4 max-w-xs">
+                            <div class="typing-indicator flex space-x-1">
+                                <div class="w-2 h-2 bg-gray-400 rounded-full"></div>
+                                <div class="w-2 h-2 bg-gray-400 rounded-full"></div>
+                                <div class="w-2 h-2 bg-gray-400 rounded-full"></div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                
+                this.chatContainer.appendChild(messageDiv);
+                this.scrollToBottom();
+                return typingId;
+            }
+
+            removeTypingIndicator(typingId) {
+                const element = document.getElementById(typingId);
+                if (element) {
+                    element.remove();
+                }
+            }
+
+            formatResults(results, columns) {
+                if (!results || results.length === 0) {
+                    return '<p class="text-sm text-gray-600">No results found.</p>';
+                }
+
+                let html = '<div class="overflow-x-auto"><table class="min-w-full text-xs">';
+                
+                // Header
+                html += '<thead class="bg-gray-50"><tr>';
+                columns.forEach(col => {
+                    html += `<th class="px-3 py-2 text-left font-medium text-gray-700">${this.escapeHtml(col)}</th>`;
+                });
+                html += '</tr></thead>';
+                
+                // Rows
+                html += '<tbody class="divide-y divide-gray-200">';
+                results.slice(0, 20).forEach(row => { // Limit to 20 rows for display
+                    html += '<tr>';
+                    columns.forEach(col => {
+                        const value = row[col];
+                        const displayValue = value === null ? '<span class="text-gray-400">null</span>' : this.escapeHtml(String(value));
+                        html += `<td class="px-3 py-2 text-gray-900">${displayValue}</td>`;
+                    });
+                    html += '</tr>';
+                });
+                html += '</tbody></table></div>';
+                
+                if (results.length > 20) {
+                    html += `<p class="mt-2 text-xs text-gray-500">Showing first 20 of ${results.length} results</p>`;
+                }
+                
+                return html;
+            }
+
+            showExportModal() {
+                this.exportModal.classList.remove('hidden');
+            }
+
+            closeExportModal() {
+                this.exportModal.classList.add('hidden');
+            }
+
+            exportResults(format) {
+                if (!this.currentResults) return;
+                
+                let content, filename, mimeType;
+                
+                if (format === 'csv') {
+                    content = this.convertToCSV(this.currentResults);
+                    filename = 'query_results.csv';
+                    mimeType = 'text/csv';
+                } else {
+                    content = JSON.stringify(this.currentResults, null, 2);
+                    filename = 'query_results.json';
+                    mimeType = 'application/json';
+                }
+                
+                const blob = new Blob([content], { type: mimeType });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = filename;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                
+                this.closeExportModal();
+            }
+
+            convertToCSV(data) {
+                if (!data || data.length === 0) return '';
+                
+                const headers = Object.keys(data[0]);
+                const csvContent = [
+                    headers.join(','),
+                    ...data.map(row => headers.map(header => {
+                        const value = row[header];
+                        return typeof value === 'string' && value.includes(',') ? `"${value}"` : value;
+                    }).join(','))
+                ].join('\n');
+                
+                return csvContent;
+            }
+
+            escapeHtml(text) {
+                const div = document.createElement('div');
+                div.textContent = text;
+                return div.innerHTML;
+            }
+
+            scrollToBottom() {
+                this.chatContainer.scrollTop = this.chatContainer.scrollHeight;
+            }
+        }
+
+        // Initialize the chat interface
+        const databaseChat = new DatabaseChat();
+    </script>
+</body>
+</html>

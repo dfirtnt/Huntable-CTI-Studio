@@ -270,9 +270,9 @@ class ContentFilter:
             y_pred = self.model.predict(X_test)
             accuracy = accuracy_score(y_test, y_pred)
             
-            print(f"Model trained successfully. Accuracy: {accuracy:.3f}")
-            print("\nClassification Report:")
-            print(classification_report(y_test, y_pred, target_names=['Not Huntable', 'Huntable']))
+            logger.info(f"Model trained successfully. Accuracy: {accuracy:.3f}")
+            logger.info("Classification Report:")
+            logger.info(classification_report(y_test, y_pred, target_names=['Not Huntable', 'Huntable']))
             
             # Save model
             import joblib
@@ -282,7 +282,7 @@ class ContentFilter:
             return True
             
         except Exception as e:
-            print(f"Error training model: {e}")
+            logger.error(f"Error training model: {e}")
             return False
     
     def load_model(self) -> bool:
@@ -292,7 +292,7 @@ class ContentFilter:
             self.model = joblib.load(self.model_path)
             return True
         except Exception as e:
-            print(f"Error loading model: {e}")
+            logger.error(f"Error loading model: {e}")
             return False
     
     def predict_huntability(self, text: str) -> Tuple[bool, float]:
@@ -318,7 +318,7 @@ class ContentFilter:
             return bool(prediction), confidence
             
         except Exception as e:
-            print(f"Error in ML prediction: {e}")
+            logger.error(f"Error in ML prediction: {e}")
             return self._pattern_based_classification(text)
     
     def _pattern_based_classification(self, text: str) -> Tuple[bool, float]:
@@ -402,11 +402,11 @@ if __name__ == "__main__":
     filter_system = ContentFilter()
     
     # Train model on existing data
-    print("Training content filter model...")
+    logger.info("Training content filter model...")
     success = filter_system.train_model()
     
     if success:
-        print("\nTesting filter on sample content...")
+        logger.info("Testing filter on sample content...")
         
         # Test with sample content
         sample_content = """
@@ -419,9 +419,9 @@ if __name__ == "__main__":
         
         result = filter_system.filter_content(sample_content)
         
-        print(f"Filter Result:")
-        print(f"  Is Huntable: {result.is_huntable}")
-        print(f"  Confidence: {result.confidence:.3f}")
-        print(f"  Cost Savings: {result.cost_savings:.1%}")
-        print(f"  Removed Chunks: {len(result.removed_chunks)}")
-        print(f"  Filtered Content: {result.filtered_content[:200]}...")
+        logger.info(f"Filter Result:")
+        logger.info(f"  Is Huntable: {result.is_huntable}")
+        logger.info(f"  Confidence: {result.confidence:.3f}")
+        logger.info(f"  Cost Savings: {result.cost_savings:.1%}")
+        logger.info(f"  Removed Chunks: {len(result.removed_chunks)}")
+        logger.info(f"  Filtered Content: {result.filtered_content[:200]}...")

@@ -305,7 +305,7 @@ async def api_services_health():
         # Check Redis
         try:
             import redis
-            redis_client = redis.Redis(host='redis', port=6379, password='cti_redis_2024', decode_responses=True)
+            redis_client = redis.Redis(host='redis', port=6379, password=os.getenv('REDIS_PASSWORD', ''), decode_responses=True)
             redis_info = redis_client.info()
             services_status["redis"] = {
                 "status": "healthy",
@@ -534,6 +534,17 @@ async def sources_list(request: Request):
             {"request": request, "error": str(e)},
             status_code=500
         )
+
+@app.get("/database-chat", response_class=HTMLResponse)
+async def database_chat_page(request: Request):
+    """Database chat interface page."""
+    try:
+        return templates.TemplateResponse("database_chat.html", {
+            "request": request
+        })
+    except Exception as e:
+        logger.error(f"Database chat page error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/sources")
 async def api_sources_list(filter_params: SourceFilter = Depends()):
@@ -3322,6 +3333,165 @@ async def api_delete_backup(backup_filename: str):
         
     except Exception as e:
         logger.error(f"Backup deletion error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# Database Chat API Endpoints
+from src.services.sql_generator import SQLGenerator
+from src.services.query_executor import DatabaseQueryExecutor
+
+# Initialize services
+sql_generator = SQLGenerator()
+query_executor = DatabaseQueryExecutor()
+
+@app.post("/api/database-chat")
+async def api_database_chat(request: Request):
+    """Handle natural language database queries."""
+    try:
+        body = await request.json()
+        user_query = body.get("query", "").strip()
+        
+        if not user_query:
+            raise HTTPException(status_code=400, detail="Query is required")
+        
+        # Generate SQL from natural language with timeout
+        import asyncio
+        try:
+            sql_result = await asyncio.wait_for(sql_generator.generate_sql(user_query), timeout=30.0)
+        except asyncio.TimeoutError:
+            return {
+                "success": False,
+                "error": "Query generation timed out. Please try a simpler query.",
+                "user_query": user_query
+            }
+        
+        if not sql_result["success"]:
+            return {
+                "success": False,
+                "error": f"SQL generation failed: {sql_result.get('error', 'Unknown error')}",
+                "user_query": user_query
+            }
+        
+        sql_query = sql_result["sql"]
+        
+        # Execute the SQL query
+        execution_result = await query_executor.execute_query(sql_query)
+        
+        if not execution_result["success"]:
+            return {
+                "success": False,
+                "error": f"Query execution failed: {execution_result.get('error', 'Unknown error')}",
+                "user_query": user_query,
+                "generated_sql": sql_query
+            }
+        
+        # Generate explanation of results
+        explanation = await sql_generator.explain_query(
+            sql_query, 
+            execution_result["results"], 
+            user_query
+        )
+        
+        return {
+            "success": True,
+            "user_query": user_query,
+            "generated_sql": sql_query,
+            "results": execution_result["results"],
+            "columns": execution_result["columns"],
+            "row_count": execution_result["row_count"],
+            "execution_time": execution_result["execution_time"],
+            "explanation": explanation,
+            "metadata": {
+                "model_used": sql_result.get("model_used"),
+                "query_info": execution_result.get("query_info", {}),
+                "warnings": execution_result.get("warnings", [])
+            }
+        }
+        
+    except Exception as e:
+        logger.error(f"Database chat error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/database-chat/paginated")
+async def api_database_chat_paginated(request: Request):
+    """Handle paginated natural language database queries."""
+    try:
+        body = await request.json()
+        user_query = body.get("query", "").strip()
+        page = body.get("page", 1)
+        page_size = body.get("page_size", 50)
+        
+        if not user_query:
+            raise HTTPException(status_code=400, detail="Query is required")
+        
+        # Generate SQL from natural language
+        sql_result = await sql_generator.generate_sql(user_query)
+        
+        if not sql_result["success"]:
+            return {
+                "success": False,
+                "error": f"SQL generation failed: {sql_result.get('error', 'Unknown error')}",
+                "user_query": user_query
+            }
+        
+        sql_query = sql_result["sql"]
+        
+        # Execute the SQL query with pagination
+        execution_result = await query_executor.execute_with_pagination(sql_query, page, page_size)
+        
+        if not execution_result["success"]:
+            return {
+                "success": False,
+                "error": f"Query execution failed: {execution_result.get('error', 'Unknown error')}",
+                "user_query": user_query,
+                "generated_sql": sql_query
+            }
+        
+        # Generate explanation of results
+        explanation = await sql_generator.explain_query(
+            sql_query, 
+            execution_result["results"], 
+            user_query
+        )
+        
+        return {
+            "success": True,
+            "user_query": user_query,
+            "generated_sql": sql_query,
+            "results": execution_result["results"],
+            "columns": execution_result["columns"],
+            "row_count": execution_result["row_count"],
+            "execution_time": execution_result["execution_time"],
+            "explanation": explanation,
+            "pagination": execution_result.get("pagination", {}),
+            "metadata": {
+                "model_used": sql_result.get("model_used"),
+                "query_info": execution_result.get("query_info", {}),
+                "warnings": execution_result.get("warnings", [])
+            }
+        }
+        
+    except Exception as e:
+        logger.error(f"Database chat paginated error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/database-chat/sample/{table_name}")
+async def api_get_table_sample(table_name: str, limit: int = 5):
+    """Get sample data from a table."""
+    try:
+        result = await query_executor.get_sample_data(table_name, limit)
+        return result
+    except Exception as e:
+        logger.error(f"Table sample error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/database-chat/info/{table_name}")
+async def api_get_table_info(table_name: str):
+    """Get table schema information."""
+    try:
+        result = await query_executor.get_table_info(table_name)
+        return result
+    except Exception as e:
+        logger.error(f"Table info error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 if __name__ == "__main__":

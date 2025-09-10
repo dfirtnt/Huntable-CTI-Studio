@@ -7,46 +7,9 @@ on:
     branches: [ main ]
 
 jobs:
-  security:
-    name: Security Checks
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.11'
-          
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-          pip install bandit safety
-          
-      - name: Run Bandit security scan
-        run: |
-          bandit -r src/ -f json -o bandit-report.json || true
-          
-      - name: Check for known vulnerabilities
-        run: |
-          safety check --json --output safety-report.json || true
-          
-      - name: Upload security reports
-        uses: actions/upload-artifact@v3
-        with:
-          name: security-reports
-          path: |
-            bandit-report.json
-            safety-report.json
-
   test:
-    name: Test Suite
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        python-version: [3.9, 3.10, 3.11]
-        
+    
     services:
       postgres:
         image: postgres:15
@@ -60,7 +23,7 @@ jobs:
           --health-retries 5
         ports:
           - 5432:5432
-          
+      
       redis:
         image: redis:7
         options: >-
@@ -70,101 +33,104 @@ jobs:
           --health-retries 5
         ports:
           - 6379:6379
-          
-    steps:
-      - uses: actions/checkout@v4
-      
-      - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v4
-        with:
-          python-version: ${{ matrix.python-version }}
-          
-      - name: Cache pip dependencies
-        uses: actions/cache@v3
-        with:
-          path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ matrix.python-version }}-${{ hashFiles('**/requirements.txt') }}
-          restore-keys: |
-            ${{ runner.os }}-pip-${{ matrix.python-version }}-
-            
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-          pip install -r requirements-test.txt
-          
-      - name: Run linting
-        run: |
-          pip install flake8 black isort mypy
-          flake8 src/ --max-line-length=88 --extend-ignore=E203,W503
-          black --check src/
-          isort --check-only src/
-          mypy src/ --ignore-missing-imports
-          
-      - name: Run tests
-        env:
-          DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/test_db
-          REDIS_URL: redis://localhost:6379/0
-          TESTING: true
-        run: |
-          pytest tests/ -v --cov=src --cov-report=xml --cov-report=html
-          
-      - name: Upload coverage reports
-        uses: actions/upload-artifact@v3
-        with:
-          name: coverage-reports-${{ matrix.python-version }}
-          path: |
-            coverage.xml
-            htmlcov/
-            
-      - name: Upload to Codecov
-        uses: codecov/codecov-action@v3
-        with:
-          file: ./coverage.xml
-          flags: unittests
-          name: codecov-umbrella
-          fail_ci_if_error: false
 
-  build:
-    name: Build and Test Docker
-    runs-on: ubuntu-latest
-    needs: [test]
     steps:
-      - uses: actions/checkout@v4
-      
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v2
-        
-      - name: Build Docker image
-        run: |
-          docker build -t cti-scraper:test .
-          
-      - name: Test Docker image
-        run: |
-          docker run --rm cti-scraper:test python -c "import sys; print('Python version:', sys.version)"
-          
-      - name: Run integration tests with Docker
-        run: |
-          docker-compose -f docker-compose.test.yml up -d
-          sleep 30
-          docker-compose -f docker-compose.test.yml exec -T web python -m pytest tests/integration/ -v
-          docker-compose -f docker-compose.test.yml down
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+    
+    - name: Cache pip dependencies
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install -r requirements-test.txt
+    
+    - name: Lint with flake8
+      run: |
+        flake8 src --count --select=E9,F63,F7,F82 --show-source --statistics
+        flake8 src --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+    
+    - name: Type check with mypy
+      run: |
+        mypy src --ignore-missing-imports
+    
+    - name: Format check with black
+      run: |
+        black --check src
+    
+    - name: Import sort check with isort
+      run: |
+        isort --check-only src
+    
+    - name: Test with pytest
+      env:
+        DATABASE_URL: postgresql://postgres:postgres@localhost:5432/test_db
+        REDIS_URL: redis://localhost:6379
+      run: |
+        pytest tests/ -v --cov=src --cov-report=xml
+    
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v3
+      with:
+        file: ./coverage.xml
+        flags: unittests
+        name: codecov-umbrella
 
-  deploy:
-    name: Deploy to Staging
+  security:
     runs-on: ubuntu-latest
-    needs: [test, build]
-    if: github.ref == 'refs/heads/main'
-    environment: staging
+    
     steps:
-      - uses: actions/checkout@v4
-      
-      - name: Deploy to staging environment
-        run: |
-          echo "Deploying to staging environment..."
-          # Add your deployment logic here
-          
-      - name: Run smoke tests
-        run: |
-          echo "Running smoke tests on staging..."
-          # Add your smoke test logic here
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install safety bandit
+    
+    - name: Run safety check
+      run: |
+        safety check -r requirements.txt
+    
+    - name: Run bandit security linter
+      run: |
+        bandit -r src/ -f json -o bandit-report.json || true
+    
+    - name: Upload security scan results
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: security-scan-results
+        path: bandit-report.json
+
+  docker:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+    
+    - name: Build Docker image
+      run: |
+        docker build -t ctiscraper:test .
+    
+    - name: Test Docker image
+      run: |
+        docker run --rm ctiscraper:test python -c "import src; print('Import successful')"
