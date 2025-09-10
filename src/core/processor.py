@@ -176,11 +176,14 @@ class ContentProcessor:
             # Generate or update content hash
             content_hash = ContentCleaner.calculate_content_hash(normalized_title, normalized_content)
             
+            # Calculate word count consistently
+            word_count = len(normalized_content.split())
+            
             # Extract/enhance metadata if enabled
             enhanced_metadata = article.metadata.copy()
             enhanced_metadata.update({
                 'content_type': content_type,
-                'word_count': len(normalized_content.split()),
+                'word_count': word_count,
                 'content_length': len(normalized_content),
                 'processing_timestamp': datetime.utcnow().isoformat()
             })
@@ -206,7 +209,8 @@ class ContentProcessor:
                 summary=summary,
                 content=normalized_content,
                 content_hash=content_hash,  # Set hash during creation
-                metadata=enhanced_metadata
+                metadata=enhanced_metadata,
+                word_count=word_count  # Ensure word_count is always set
             )
             
             return processed_article
@@ -225,12 +229,13 @@ class ContentProcessor:
                 from bs4 import BeautifulSoup
                 soup = BeautifulSoup(article.content, 'lxml')
                 
-                # Extract word count
-                text_content = ContentCleaner.html_to_text(article.content)
-                enhanced['word_count'] = len(text_content.split())
+                # Word count already calculated in main processing
+                # No need to recalculate here
                 
                 # Extract reading time estimate (average 200 words per minute)
-                enhanced['reading_time_minutes'] = max(1, enhanced['word_count'] // 200)
+                # Use word_count from metadata if available
+                word_count = enhanced_metadata.get('word_count', 0)
+                enhanced['reading_time_minutes'] = max(1, word_count // 200)
                 
                 # Extract image count
                 images = soup.find_all('img')
