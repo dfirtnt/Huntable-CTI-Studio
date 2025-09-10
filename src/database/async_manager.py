@@ -142,12 +142,58 @@ class AsyncDatabaseManager:
                 estimated_total_bytes = int(total_content_bytes * 1.2)
                 db_size_mb = round(estimated_total_bytes / (1024 * 1024), 2)
                 
+                # Score range analytics
+                score_ranges = {}
+                for min_score, max_score, label in [
+                    (0, 20, "low"),
+                    (20, 40, "low_medium"), 
+                    (40, 60, "medium"),
+                    (60, 80, "high"),
+                    (80, 100, "very_high")
+                ]:
+                    score_count_result = await session.execute(
+                        text(f"""
+                            SELECT COUNT(*) FROM articles 
+                            WHERE CAST(article_metadata ->> 'threat_hunting_score' AS FLOAT) 
+                            BETWEEN {min_score} AND {max_score}
+                        """)
+                    )
+                    score_ranges[label] = score_count_result.scalar() or 0
+                
+                # Annotation analytics
+                annotation_stats = {}
+                
+                # Total annotations
+                total_annotations_result = await session.execute(
+                    text("SELECT COUNT(*) FROM article_annotations")
+                )
+                annotation_stats["total_annotations"] = total_annotations_result.scalar() or 0
+                
+                # Huntable vs not_huntable annotations
+                huntable_result = await session.execute(
+                    text("SELECT COUNT(*) FROM article_annotations WHERE annotation_type = 'huntable'")
+                )
+                annotation_stats["huntable_annotations"] = huntable_result.scalar() or 0
+                
+                not_huntable_result = await session.execute(
+                    text("SELECT COUNT(*) FROM article_annotations WHERE annotation_type = 'not_huntable'")
+                )
+                annotation_stats["not_huntable_annotations"] = not_huntable_result.scalar() or 0
+                
+                # Articles with annotations
+                articles_with_annotations_result = await session.execute(
+                    text("SELECT COUNT(DISTINCT article_id) FROM article_annotations")
+                )
+                annotation_stats["articles_with_annotations"] = articles_with_annotations_result.scalar() or 0
+                
                 return {
                     "total_sources": total_sources or 0,
                     "active_sources": active_sources or 0,
                     "total_articles": total_articles or 0,
                     "articles_last_24h": articles_last_24h or 0,
-                    "database_size_mb": db_size_mb
+                    "database_size_mb": db_size_mb,
+                    "score_ranges": score_ranges,
+                    "annotation_stats": annotation_stats
                 }
                 
         except Exception as e:
@@ -157,7 +203,9 @@ class AsyncDatabaseManager:
                 "active_sources": 0,
                 "total_articles": 0,
                 "articles_last_24h": 0,
-                "database_size_mb": 0.0
+                "database_size_mb": 0.0,
+                "score_ranges": {"low": 0, "low_medium": 0, "medium": 0, "high": 0, "very_high": 0},
+                "annotation_stats": {"total_annotations": 0, "huntable_annotations": 0, "not_huntable_annotations": 0, "articles_with_annotations": 0}
             }
     
     async def list_sources(self, filter_params: Optional[SourceFilter] = None) -> List[Source]:
@@ -510,7 +558,6 @@ class AsyncDatabaseManager:
                         'content': db_article.content,
                         'content_hash': db_article.content_hash,
                         'metadata': dict(db_article.article_metadata) if db_article.article_metadata else {},
-                        'quality_score': db_article.quality_score,
                         'word_count': db_article.word_count,
                         'discovered_at': db_article.discovered_at,
                         'processing_status': db_article.processing_status
@@ -807,7 +854,6 @@ class AsyncDatabaseManager:
             content=db_article.content,
             content_hash=db_article.content_hash,
             metadata=db_article.article_metadata,
-            quality_score=db_article.quality_score,
             word_count=db_article.word_count,
             discovered_at=db_article.discovered_at,
             processing_status=db_article.processing_status
