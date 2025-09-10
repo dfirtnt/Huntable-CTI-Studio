@@ -512,6 +512,7 @@ class DatabaseManager:
             content=db_article.content,
             content_hash=db_article.content_hash,
             metadata=db_article.article_metadata,
+            word_count=db_article.word_count,
             discovered_at=db_article.discovered_at,
             processing_status=db_article.processing_status
         )
