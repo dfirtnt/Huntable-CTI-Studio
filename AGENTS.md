@@ -32,7 +32,6 @@
 ## Threat Intelligence Focus
 - **Scope**: Focus solely on threat intelligence content
 - **Detection Engineering**: Best practices for detection engineers are out of scope
-- **Content Quality**: Prioritize substantial articles (2000+ characters minimum)
 
 ## Scoring System Management
 - **Keyword Updates**: Always regenerate threat hunting scores when updating LOLBAS lists or keyword discriminators
@@ -45,7 +44,7 @@
 - **Active Sources**: Monitor source health via database queries
 
 ## Development Workflow
-- **User Shortcuts**:: Accept "lg" user prompt git commit and push to main
+- **User Shortcuts**:: Accept "lg" user prompt as a request to git commit and push to main
 - **File Management**: Don't delete files without user confirmation
 - **Documentation**: Create in Markdown (.md) files when requested
 - **Testing**: Use Docker containers for all testing and validation
@@ -53,7 +52,7 @@
 ## Terminal Command Execution
 - **Default Pattern**: Always pipe commands to `cat` to prevent pagination hanging
 - **Simple Commands**: `command | cat` for basic operations
-- **Analysis Commands**: Use temp files when output needs processing: `command > /tmp/output.txt 2>&1`
+- **Analysis Commands**: Use temp files when output needs processing: `command > /tmp/output.txt`
 - **Cleanup**: Remove temp files after analysis: `rm /tmp/output.txt`
 - **Timeout**: Add `timeout` wrapper for potentially long-running commands
 - **Examples**: 
