@@ -376,78 +376,6 @@ class MetadataExtractor:
         return sorted(list(tags))[:10]  # Limit to 10 tags
 
 
-class QualityScorer:
-    """Utility class for scoring content quality."""
-    
-    @staticmethod
-    def score_article(title: str, content: str, metadata: Dict[str, Any]) -> float:
-        """
-        Score article quality from 0.0 to 1.0.
-        
-        Factors:
-        - Title length and quality
-        - Content length and structure
-        - Metadata completeness
-        - Date presence
-        - Author information
-        """
-        score = 0.0
-        
-        # Title scoring (0.2 max)
-        if title:
-            title_len = len(title.strip())
-            if 10 <= title_len <= 200:
-                score += 0.2
-            elif title_len > 5:
-                score += 0.1
-        
-        # Content scoring (0.4 max)
-        if content:
-            text_content = ContentCleaner.html_to_text(content)
-            content_len = len(text_content.strip())
-            
-            if content_len >= 500:
-                score += 0.4
-            elif content_len >= 200:
-                score += 0.3
-            elif content_len >= 50:
-                score += 0.2
-            elif content_len > 0:
-                score += 0.1
-            
-            # Bonus for structured content
-            if '<p>' in content or '<div>' in content:
-                score += 0.05
-        
-        # Metadata scoring (0.2 max)
-        meta_score = 0.0
-        
-        # Author presence
-        if metadata.get('authors'):
-            meta_score += 0.05
-        
-        # Publication date
-        if metadata.get('published_at'):
-            meta_score += 0.05
-        
-        # Tags/categories
-        if metadata.get('tags'):
-            meta_score += 0.05
-        
-        # Summary/description
-        if metadata.get('summary') or metadata.get('description'):
-            meta_score += 0.05
-        
-        score += meta_score
-        
-        # Deduction for obvious issues
-        if not title or not content:
-            score *= 0.5
-        
-        # Ensure score is between 0 and 1
-        return max(0.0, min(1.0, score))
-
-
 def validate_content(title: str, content: str, url: str, source_config: Optional[Dict[str, Any]] = None) -> List[str]:
     """
     Validate content and return list of issues.
@@ -605,7 +533,9 @@ WINDOWS_MALWARE_KEYWORDS = {
             # Promoted from LOLBAS (100% avg scores in high-scoring articles)
             'reg.exe', 'winlogon.exe', 'conhost.exe', 'msiexec.exe', 'wscript.exe', 'services.exe',
             # Promoted from Good discriminators (100% avg scores)
-            'EventCode', 'parent-child', 'KQL', '2>&1'
+            'EventCode', 'parent-child', 'KQL', '2>&1',
+            # PowerShell attack techniques (100% chosen rate)
+            'invoke-mimikatz', 'hashdump', 'invoke-shellcode', 'invoke-eternalblue'
         ],
             'good_discriminators': [
                 'temp', '==', 'c:\\windows\\', 'Event ID', '.bat', '.ps1',
@@ -613,7 +543,9 @@ WINDOWS_MALWARE_KEYWORDS = {
                 'Monitor', 'Executable', 'Detection', 'Alert on', 'Hunt for',
                 'Hunting', 'Create Detections', 'Search Query', '//',
                 'http:', 'hxxp', '->', '.exe', '--', 'cloudtrail',
-                '\\', 'spawn', '|'
+                '\\', 'spawn', '|',
+                # PowerShell attack techniques (high chosen rate)
+                'mimikatz', 'kerberoast', 'psexec'
             ],
     'intelligence_indicators': [
         # Real threat activity - specific indicators
@@ -629,7 +561,10 @@ WINDOWS_MALWARE_KEYWORDS = {
         
         # Real incidents and attacks
         'ransomware', 'data breach', 'cyber attack', 'espionage',
-        'sophisticated attack', 'advanced persistent threat'
+        'sophisticated attack', 'advanced persistent threat',
+        
+        # Rare Kerberos attack techniques (future content detection)
+        'golden-ticket', 'silver-ticket'
     ],
     'negative_indicators': [
         # Educational/marketing content that should be penalized
