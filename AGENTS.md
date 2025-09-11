@@ -66,5 +66,37 @@
   - `docker exec -it cti_postgres psql -U cti_user -d cti_scraper -c "SELECT * FROM articles;" | cat`
   - `git log --oneline | cat`
 
+## Classification System Architecture
+
+### Two-Level Classification System
+
+**ARTICLE CLASSIFICATION** (Whole Article Level):
+- **Purpose**: Binary decision on article relevance
+- **Labels**: `"chosen"`, `"rejected"`, `"unclassified"`
+- **Scope**: Entire article content
+- **Usage**: Filter articles for further analysis
+
+**ANNOTATION CLASSIFICATION** (Text Chunk Level):
+- **Purpose**: Classify specific text excerpts within articles
+- **Labels**: `"huntable"`, `"not huntable"`
+- **Scope**: Individual text chunks/excerpts
+- **Usage**: Identify actionable intelligence within articles
+
+### Critical Distinction
+- **Articles** are classified as chosen/rejected/unclassified
+- **Text chunks** within articles are annotated as huntable/not huntable
+- **Never mix these levels**: Articles cannot be "huntable" - only text excerpts can be
+
+### Clarification Protocol
+**MANDATORY**: When users ask questions that conflate these systems (e.g., "How many articles are huntable?"), immediately clarify:
+1. **Identify the confusion**: "Articles are classified as chosen/rejected/unclassified, not huntable"
+2. **Explain the distinction**: "Only text excerpts within articles get huntable/not huntable labels"
+3. **Offer correct alternatives**: "Did you mean articles classified as 'chosen' or text excerpts marked as 'huntable'?"
+
+### Database Schema Context
+- `articles.classification` → chosen/rejected/unclassified
+- `annotations.label` → huntable/not huntable
+- `annotations.article_id` → links annotations to articles
+
 ## User Preferences
 - **Communication**: Concise, technical responses
