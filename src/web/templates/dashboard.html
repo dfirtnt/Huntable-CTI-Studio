@@ -2,231 +2,482 @@
 
 {% block title %}Dashboard - CTI Scraper{% endblock %}
 
+{% block extra_head %}
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<!-- Custom Styles -->
+<style>
+    :root {
+        --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        --glass-bg: rgba(255, 255, 255, 0.1);
+        --glass-border: rgba(255, 255, 255, 0.2);
+    }
+
+    .glass-card {
+        background: rgba(255, 255, 255, 0.8);
+        backdrop-filter: blur(20px);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+    }
+
+    .floating-animation {
+        animation: float 6s ease-in-out infinite;
+    }
+
+    @keyframes float {
+        0%, 100% { transform: translateY(0px); }
+        50% { transform: translateY(-10px); }
+    }
+
+    .gradient-text {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+    }
+
+    .hover-lift {
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .hover-lift:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+    }
+
+    .pulse-ring {
+        animation: pulse-ring 2s cubic-bezier(0.455, 0.03, 0.515, 0.955) infinite;
+    }
+
+    @keyframes pulse-ring {
+        0% {
+            transform: scale(0.33);
+        }
+        40%, 50% {
+            opacity: 1;
+        }
+        100% {
+            opacity: 0;
+            transform: scale(1.2);
+        }
+    }
+
+    .progress-ring {
+        transition: stroke-dashoffset 1s ease-in-out;
+    }
+
+    .chart-container {
+        position: relative;
+        height: 300px;
+    }
+
+    .metric-card {
+        background: linear-gradient(135deg, rgba(255,255,255,0.9) 0%, rgba(255,255,255,0.7) 100%);
+        backdrop-filter: blur(20px);
+        border: 1px solid rgba(255, 255, 255, 0.3);
+    }
+
+    .hero-gradient {
+        background: linear-gradient(135deg, #1e293b 0%, #1e40af 50%, #1e293b 100%);
+    }
+
+    .status-indicator {
+        position: relative;
+    }
+
+    .status-indicator::before {
+        content: '';
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: 100%;
+        height: 100%;
+        border-radius: 50%;
+        background: currentColor;
+        opacity: 0.3;
+        animation: pulse-ring 2s infinite;
+    }
+</style>
+{% endblock %}
+
 {% block content %}
-<div class="space-y-6">
-    <!-- Header -->
-    <div class="bg-white rounded-lg shadow-sm p-6">
+<!-- Hero Section -->
+<div class="relative overflow-hidden hero-gradient mb-8">
+    <div class="absolute inset-0 bg-black/20"></div>
+    <div class="absolute inset-0 bg-gradient-to-br from-blue-600/20 to-purple-600/20"></div>
+    
+    <!-- Animated background elements -->
+    <div class="absolute top-10 left-10 w-20 h-20 bg-blue-400/10 rounded-full floating-animation"></div>
+    <div class="absolute top-32 right-20 w-16 h-16 bg-purple-400/10 rounded-full floating-animation" style="animation-delay: -2s;"></div>
+    <div class="absolute bottom-20 left-1/4 w-12 h-12 bg-cyan-400/10 rounded-full floating-animation" style="animation-delay: -4s;"></div>
+    
+    <div class="relative px-6 py-16 sm:px-8 lg:px-12">
+        <div class="max-w-7xl mx-auto">
         <div class="flex items-center justify-between">
             <div>
-                <h1 class="text-3xl font-bold text-gray-900">Threat Intelligence Dashboard</h1>
-                <p class="mt-2 text-gray-600">Real-time overview of collected threat intelligence and analysis</p>
+                    <h1 class="text-4xl font-bold text-white sm:text-6xl">
+                        Threat Intelligence
+                        <span class="block gradient-text bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent">
+                            Command Center
+                        </span>
+                    </h1>
+                    <p class="mt-6 text-xl text-blue-100 max-w-2xl">
+                        Real-time threat hunting and intelligence analysis with advanced scoring and annotation systems
+                    </p>
+                    <div class="mt-8 flex items-center space-x-6">
+                        <div class="flex items-center space-x-3">
+                            <div class="status-indicator w-3 h-3 bg-green-400 rounded-full"></div>
+                            <span class="text-green-400 font-medium">System Online</span>
+                        </div>
+                        <div class="flex items-center space-x-3">
+                            <div class="w-3 h-3 bg-blue-400 rounded-full animate-pulse"></div>
+                            <span class="text-blue-400 font-medium">Live Data</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="hidden lg:block">
+                    <div class="text-right">
+                        <p class="text-sm text-blue-200">Last Updated</p>
+                        <p class="text-2xl font-semibold text-white">{{ current_time }}</p>
+                        <div class="mt-4 flex items-center justify-end space-x-4">
+                            <div class="text-center">
+                                <div class="text-3xl font-bold text-white">{{ stats.total_articles }}</div>
+                                <div class="text-sm text-blue-200">Articles</div>
+                            </div>
+                            <div class="text-center">
+                                <div class="text-3xl font-bold text-white">{{ stats.total_sources }}</div>
+                                <div class="text-sm text-blue-200">Sources</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
-            <div class="text-right">
-                <p class="text-sm text-gray-500">Last Updated</p>
-                <p class="text-lg font-semibold text-gray-900">{{ current_time }}</p>
             </div>
         </div>
     </div>
 
-    <!-- Statistics Cards -->
+<!-- Floating Metric Cards -->
+<div class="relative -mt-12 px-6 sm:px-8 lg:px-12 mb-8">
+    <div class="max-w-7xl mx-auto">
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <!-- Total Articles -->
-        <div class="bg-white rounded-lg shadow-sm p-6 card-hover">
-            <div class="flex items-center">
-                <div class="flex-shrink-0">
-                    <div class="w-8 h-8 bg-blue-500 rounded-md flex items-center justify-center">
-                        <span class="text-white text-lg">📰</span>
-                    </div>
-                </div>
-                <div class="ml-4">
-                    <p class="text-sm font-medium text-gray-500">Total Articles</p>
-                    <p class="text-2xl font-bold text-gray-900">{{ stats.total_articles }}</p>
-                </div>
-            </div>
-        </div>
-
-        <!-- Total Sources -->
-        <div class="bg-white rounded-lg shadow-sm p-6 card-hover">
-            <div class="flex items-center">
-                <div class="flex-shrink-0">
-                    <div class="w-8 h-8 bg-green-500 rounded-md flex items-center justify-center">
-                        <span class="text-white text-lg">🔗</span>
-                    </div>
-                </div>
-                <div class="ml-4">
-                    <p class="text-sm font-medium text-gray-500">Active Sources</p>
-                    <p class="text-2xl font-bold text-gray-900">{{ stats.total_sources }}</p>
-                </div>
-            </div>
-        </div>
-
-        <!-- Recent Activity -->
-        <div class="bg-white rounded-lg shadow-sm p-6 card-hover">
-            <div class="flex items-center">
-                <div class="flex-shrink-0">
-                    <div class="w-8 h-8 bg-yellow-500 rounded-md flex items-center justify-center">
-                        <span class="text-white text-lg">⚡</span>
-                    </div>
-                </div>
-                <div class="ml-4">
-                    <p class="text-sm font-medium text-gray-500">Last 24h</p>
-                    <p class="text-2xl font-bold text-gray-900">{{ stats.articles_last_24h }}</p>
-                </div>
-            </div>
-        </div>
-
-        <!-- Database Size -->
-        <div class="bg-white rounded-lg shadow-sm p-6 card-hover">
-            <div class="flex items-center">
-                <div class="flex-shrink-0">
-                    <div class="w-8 h-8 bg-purple-500 rounded-md flex items-center justify-center">
-                        <span class="text-white text-lg">💾</span>
-                    </div>
-                </div>
-                <div class="ml-4">
-                    <p class="text-sm font-medium text-gray-500">Database Size</p>
-                    <p class="text-2xl font-bold text-gray-900">{{ "%.1f"|format(stats.database_size_mb) }} MB</p>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Score Range Analytics -->
-    <div class="bg-white rounded-lg shadow-sm p-6">
-        <h3 class="text-lg font-medium text-gray-900 mb-4">Threat Hunting Score Distribution</h3>
-        <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
-            <div class="text-center">
-                <div class="text-2xl font-bold text-red-600">{{ stats.score_ranges.low }}</div>
-                <div class="text-sm text-gray-500">Low (0-20)</div>
-            </div>
-            <div class="text-center">
-                <div class="text-2xl font-bold text-orange-600">{{ stats.score_ranges.low_medium }}</div>
-                <div class="text-sm text-gray-500">Low-Medium (20-40)</div>
-            </div>
-            <div class="text-center">
-                <div class="text-2xl font-bold text-yellow-600">{{ stats.score_ranges.medium }}</div>
-                <div class="text-sm text-gray-500">Medium (40-60)</div>
-            </div>
-            <div class="text-center">
-                <div class="text-2xl font-bold text-green-600">{{ stats.score_ranges.high }}</div>
-                <div class="text-sm text-gray-500">High (60-80)</div>
-            </div>
-            <div class="text-center">
-                <div class="text-2xl font-bold text-blue-600">{{ stats.score_ranges.very_high }}</div>
-                <div class="text-sm text-gray-500">Very High (80-100)</div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Annotation Analytics -->
-    <div class="bg-white rounded-lg shadow-sm p-6">
-        <h3 class="text-lg font-medium text-gray-900 mb-4">Annotation Metrics</h3>
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div class="text-center">
-                <div class="text-2xl font-bold text-purple-600">{{ stats.annotation_stats.total_annotations }}</div>
-                <div class="text-sm text-gray-500">Total Annotations</div>
-            </div>
-            <div class="text-center">
-                <div class="text-2xl font-bold text-green-600">{{ stats.annotation_stats.huntable_annotations }}</div>
-                <div class="text-sm text-gray-500">Huntable</div>
-            </div>
-            <div class="text-center">
-                <div class="text-2xl font-bold text-red-600">{{ stats.annotation_stats.not_huntable_annotations }}</div>
-                <div class="text-sm text-gray-500">Not Huntable</div>
-            </div>
-            <div class="text-center">
-                <div class="text-2xl font-bold text-blue-600">{{ stats.annotation_stats.articles_with_annotations }}</div>
-                <div class="text-sm text-gray-500">Articles Annotated</div>
-            </div>
-        </div>
-    </div>
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <!-- Recent Articles -->
-        <div class="lg:col-span-2">
-            <div class="bg-white rounded-lg shadow-sm">
-                <div class="px-6 py-4 border-b border-gray-200">
-                    <h3 class="text-lg font-medium text-gray-900">Recent Articles</h3>
-                    <p class="text-sm text-gray-500">Latest threat intelligence collected</p>
-                </div>
-                <div class="divide-y divide-gray-200">
-                    {% for article in recent_articles %}
-                    <div class="px-6 py-4 hover:bg-gray-50 transition-colors">
-                        <div class="flex items-start justify-between">
-                            <div class="flex-1 min-w-0">
-                                <a href="/articles/{{ article.id }}" class="text-sm font-medium text-blue-600 hover:text-blue-800">
-                                    {{ article.title[:80] }}{% if article.title|length > 80 %}...{% endif %}
-                                </a>
-                                <p class="mt-1 text-xs text-gray-500">
-                                    Source: {{ article.source_id }} | 
-                                    {% if article.published_at %}
-                                        {{ article.published_at.strftime('%Y-%m-%d %H:%M') }}
-                                    {% else %}
-                                        Unknown date
-                                    {% endif %}
-                                </p>
-                                <p class="mt-2 text-sm text-gray-600">
-                                    {{ article.content[:150] }}{% if article.content|length > 150 %}...{% endif %}
-                                </p>
-                            </div>
-                            <div class="ml-4 flex-shrink-0">
-                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
-                                    {{ article.content|length }} chars
-                                </span>
-                            </div>
+            <!-- Total Articles Card -->
+            <div class="group relative metric-card rounded-2xl p-6 shadow-xl hover-lift">
+                <div class="absolute inset-0 bg-gradient-to-br from-blue-500/10 to-purple-500/10 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                <div class="relative">
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center shadow-lg">
+                            <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z"></path>
+                            </svg>
+                        </div>
+                        <div class="text-right">
+                            <p class="text-sm font-medium text-gray-500">Total Articles</p>
+                            <p class="text-3xl font-bold text-gray-900">{{ stats.total_articles }}</p>
                         </div>
                     </div>
-                    {% endfor %}
+                    <div class="flex items-center text-sm text-gray-600">
+                        <svg class="w-4 h-4 text-green-500 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M5.293 9.707a1 1 0 010-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 01-1.414 1.414L11 7.414V15a1 1 0 11-2 0V7.414L6.707 9.707a1 1 0 01-1.414 0z" clip-rule="evenodd"></path>
+                        </svg>
+                        <span class="text-green-600 font-medium">+{{ stats.articles_last_24h }} today</span>
+                    </div>
                 </div>
-                <div class="px-6 py-4 bg-gray-50 border-t border-gray-200">
-                    <a href="/articles" class="text-sm font-medium text-blue-600 hover:text-blue-800">
-                        View all articles →
-                    </a>
+            </div>
+
+            <!-- Active Sources Card -->
+            <div class="group relative metric-card rounded-2xl p-6 shadow-xl hover-lift">
+                <div class="absolute inset-0 bg-gradient-to-br from-green-500/10 to-emerald-500/10 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                <div class="relative">
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="w-12 h-12 bg-gradient-to-br from-green-500 to-green-600 rounded-xl flex items-center justify-center shadow-lg">
+                            <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"></path>
+                            </svg>
+                        </div>
+                        <div class="text-right">
+                            <p class="text-sm font-medium text-gray-500">Active Sources</p>
+                            <p class="text-3xl font-bold text-gray-900">{{ stats.total_sources }}</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center text-sm text-gray-600">
+                        <div class="w-2 h-2 bg-green-500 rounded-full mr-2"></div>
+                        <span class="text-green-600 font-medium">All operational</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Recent Activity Card -->
+            <div class="group relative metric-card rounded-2xl p-6 shadow-xl hover-lift">
+                <div class="absolute inset-0 bg-gradient-to-br from-yellow-500/10 to-orange-500/10 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                <div class="relative">
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="w-12 h-12 bg-gradient-to-br from-yellow-500 to-orange-500 rounded-xl flex items-center justify-center shadow-lg">
+                            <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                            </svg>
+                        </div>
+                        <div class="text-right">
+                            <p class="text-sm font-medium text-gray-500">Last 24h</p>
+                            <p class="text-3xl font-bold text-gray-900">{{ stats.articles_last_24h }}</p>
+            </div>
+        </div>
+                    <div class="flex items-center text-sm text-gray-600">
+                        <svg class="w-4 h-4 text-yellow-500 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd"></path>
+                        </svg>
+                        <span class="text-yellow-600 font-medium">Peak activity</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Database Size Card -->
+            <div class="group relative metric-card rounded-2xl p-6 shadow-xl hover-lift">
+                <div class="absolute inset-0 bg-gradient-to-br from-purple-500/10 to-pink-500/10 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                <div class="relative">
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="w-12 h-12 bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg">
+                            <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4"></path>
+                            </svg>
+                        </div>
+                        <div class="text-right">
+                            <p class="text-sm font-medium text-gray-500">Database Size</p>
+                            <p class="text-3xl font-bold text-gray-900">{{ "%.1f"|format(stats.database_size_mb) }}</p>
+                            <p class="text-sm text-gray-500">MB</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center text-sm text-gray-600">
+                        <svg class="w-4 h-4 text-purple-500 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M3 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clip-rule="evenodd"></path>
+                        </svg>
+                        <span class="text-purple-600 font-medium">Optimized</span>
+                    </div>
+                </div>
+            </div>
                 </div>
             </div>
         </div>
 
-        <!-- Quick Actions -->
-        <div class="space-y-6">
-            <!-- Quick Actions -->
-            <div class="bg-white rounded-lg shadow-sm p-6">
-                <h3 class="text-lg font-medium text-gray-900 mb-4">Quick Actions</h3>
-                <div class="space-y-3">
-                    <a href="/sources" class="w-full flex items-center px-4 py-3 border border-gray-300 rounded-md shadow-sm bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors">
-                        <span class="mr-3">⚙️</span>
-                        Manage Sources
-                    </a>
+<!-- Interactive Data Visualization -->
+<div class="px-6 sm:px-8 lg:px-12 py-12">
+    <div class="max-w-7xl mx-auto">
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <!-- Score Distribution Chart -->
+            <div class="glass-card rounded-2xl p-8">
+                <div class="flex items-center justify-between mb-6">
+                    <div>
+                        <h3 class="text-xl font-bold text-gray-900">Threat Score Distribution</h3>
+                        <p class="text-gray-600">Quality assessment across all articles</p>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <div class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                        <span class="text-sm text-gray-600">Live Data</span>
+                    </div>
+                </div>
+                
+                <div class="chart-container">
+                    <canvas id="scoreDistributionChart"></canvas>
+                </div>
+                
+                <div class="mt-6 grid grid-cols-2 gap-4">
+                    <div class="text-center p-4 bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl border border-green-200">
+                        <div class="text-2xl font-bold text-green-600">{{ stats.score_ranges.high + stats.score_ranges.very_high }}</div>
+                        <div class="text-sm text-green-700">High Value</div>
+                        <div class="text-xs text-green-600">{{ "%.1f"|format((stats.score_ranges.high + stats.score_ranges.very_high) / stats.total_articles * 100) }}%</div>
+            </div>
+                    <div class="text-center p-4 bg-gradient-to-br from-blue-50 to-cyan-50 rounded-xl border border-blue-200">
+                        <div class="text-2xl font-bold text-blue-600">{{ stats.score_ranges.medium }}</div>
+                        <div class="text-sm text-blue-700">Medium Value</div>
+                        <div class="text-xs text-blue-600">{{ "%.1f"|format(stats.score_ranges.medium / stats.total_articles * 100) }}%</div>
+                    </div>
                 </div>
             </div>
-
-            <!-- Source Status -->
-            <div class="bg-white rounded-lg shadow-sm p-6">
-                <h3 class="text-lg font-medium text-gray-900 mb-4">Source Status</h3>
-                <div class="space-y-3">
-                    {% for source in sources[:5] %}
-                    <div class="flex items-center justify-between">
-                        <div class="flex items-center">
-                            <div class="w-2 h-2 rounded-full {% if source.active %}bg-green-400{% else %}bg-red-400{% endif %} mr-3"></div>
-                            <span class="text-sm font-medium text-gray-900">{{ source.name[:20] }}{% if source.name|length > 20 %}...{% endif %}</span>
-                        </div>
+            
+            <!-- Annotation Progress -->
+            <div class="glass-card rounded-2xl p-8">
+                <div class="flex items-center justify-between mb-6">
+                    <div>
+                        <h3 class="text-xl font-bold text-gray-900">Annotation Progress</h3>
+                        <p class="text-gray-600">Manual classification status</p>
                     </div>
-                    {% endfor %}
-                    {% if sources|length > 5 %}
-                    <div class="pt-2 border-t border-gray-200">
-                        <a href="/sources" class="text-sm text-blue-600 hover:text-blue-800">
-                            View all {{ sources|length }} sources →
-                        </a>
-                    </div>
-                    {% endif %}
+                    <a href="/articles?classification=unclassified" class="text-blue-600 hover:text-blue-800 font-medium text-sm">
+                        View Unclassified →
+                    </a>
                 </div>
+                
+                <div class="space-y-6">
+                    <!-- Progress Ring -->
+                    <div class="relative w-32 h-32 mx-auto">
+                        <svg class="w-32 h-32 transform -rotate-90" viewBox="0 0 100 100">
+                            <circle cx="50" cy="50" r="40" stroke="#e5e7eb" stroke-width="8" fill="none"></circle>
+                            <circle cx="50" cy="50" r="40" stroke="#3b82f6" stroke-width="8" fill="none" 
+                                    stroke-dasharray="251.2" 
+                                    stroke-dashoffset="{{ 251.2 - (stats.annotation_stats.articles_with_annotations / stats.total_articles * 251.2) }}"
+                                    class="progress-ring"></circle>
+                        </svg>
+                        <div class="absolute inset-0 flex items-center justify-center">
+                            <div class="text-center">
+                                <div class="text-2xl font-bold text-gray-900">{{ "%.1f"|format(stats.annotation_stats.articles_with_annotations / stats.total_articles * 100) }}%</div>
+                                <div class="text-xs text-gray-500">Complete</div>
             </div>
         </div>
     </div>
 
-    <!-- System Health -->
-    <div class="bg-white rounded-lg shadow-sm p-6">
-        <h3 class="text-lg font-medium text-gray-900 mb-4">System Health</h3>
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div class="text-center">
-                <div class="text-2xl font-bold text-green-600">{{ stats.total_articles }}</div>
-                <div class="text-sm text-gray-500">Articles Collected</div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="text-center p-3 bg-gradient-to-br from-green-50 to-emerald-50 rounded-lg border border-green-200">
+                            <div class="text-lg font-bold text-green-600">{{ stats.annotation_stats.huntable_annotations }}</div>
+                            <div class="text-xs text-green-700">Huntable</div>
             </div>
-            <div class="text-center">
-                <div class="text-2xl font-bold text-blue-600">{{ stats.total_sources }}</div>
-                <div class="text-sm text-gray-500">Sources Active</div>
+                        <div class="text-center p-3 bg-gradient-to-br from-red-50 to-rose-50 rounded-lg border border-red-200">
+                            <div class="text-lg font-bold text-red-600">{{ stats.annotation_stats.not_huntable_annotations }}</div>
+                            <div class="text-xs text-red-700">Not Huntable</div>
+        </div>
+    </div>
+
+                    <div class="text-center p-3 bg-gradient-to-br from-blue-50 to-cyan-50 rounded-lg border border-blue-200">
+                        <div class="text-sm text-blue-700 font-medium">{{ "%.1f"|format(stats.annotation_stats.huntable_annotations / stats.annotation_stats.total_annotations * 100) }}% positive classification rate</div>
             </div>
-            <div class="text-center">
-                <div class="text-2xl font-bold text-purple-600">{{ "%.1f"|format(stats.database_size_mb) }}</div>
-                <div class="text-sm text-gray-500">Database Size (MB)</div>
+            </div>
+            </div>
+        </div>
+    </div>
+                </div>
+
+<!-- Smart Quick Actions -->
+<div class="px-6 sm:px-8 lg:px-12 pb-12">
+    <div class="max-w-7xl mx-auto">
+        <div class="bg-gradient-to-r from-blue-50 via-indigo-50 to-purple-50 rounded-2xl p-8 border border-blue-100">
+            <h3 class="text-2xl font-bold text-gray-900 mb-2">Intelligent Actions</h3>
+            <p class="text-gray-600 mb-8">AI-powered recommendations for threat hunting workflow</p>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <!-- Start Triage Button -->
+                <a href="/articles?classification=unclassified&threat_hunting_range=40-100&sort_by=threat_hunting_score&sort_order=desc" class="group bg-white rounded-xl p-6 shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1 border border-gray-100">
+                    <div class="flex items-center mb-4">
+                        <div class="w-12 h-12 bg-gradient-to-br from-red-500 to-red-600 rounded-lg flex items-center justify-center mr-4">
+                            <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"></path>
+                            </svg>
+                            </div>
+                        <div>
+                            <div class="font-semibold text-gray-900">Start Triage</div>
+                            <div class="text-sm text-gray-600">Priority Review</div>
+                            <div class="text-lg font-bold text-red-600 mt-1">13 articles</div>
+                        </div>
+                    </div>
+                    <p class="text-sm text-gray-600">Unclassified articles with hunt score >40, sorted by highest score</p>
+                    <div class="mt-4 flex items-center text-sm text-red-600">
+                        <span>Begin Triage</span>
+                        <svg class="w-4 h-4 ml-1 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                        </svg>
+                </div>
+                </a>
+
+                <a href="/articles?threat_hunting_range=80-100&sort_by=threat_hunting_score&sort_order=desc" class="group bg-white rounded-xl p-6 shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1 border border-gray-100">
+                    <div class="flex items-center mb-4">
+                        <div class="w-12 h-12 bg-gradient-to-br from-green-500 to-green-600 rounded-lg flex items-center justify-center mr-4">
+                            <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                        </div>
+                        <div>
+                            <div class="font-semibold text-gray-900">High-Value Articles</div>
+                            <div class="text-sm text-gray-600">Priority Review</div>
+                            <div class="text-lg font-bold text-green-600 mt-1">{{ stats.score_ranges.high + stats.score_ranges.very_high }} articles</div>
+                        </div>
+                    </div>
+                    <p class="text-sm text-gray-600">Priority threat intelligence requiring immediate attention</p>
+                    <div class="mt-4 flex items-center text-sm text-green-600">
+                        <span>View Articles</span>
+                        <svg class="w-4 h-4 ml-1 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                        </svg>
+                    </div>
+                </a>
+                
+                <a href="/articles?classification=unclassified" class="group bg-white rounded-xl p-6 shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1 border border-gray-100">
+                    <div class="flex items-center mb-4">
+                        <div class="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center mr-4">
+                            <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+                            </svg>
+                        </div>
+                        <div>
+                            <div class="font-semibold text-gray-900">Needs Classification</div>
+                            <div class="text-sm text-gray-600">{{ stats.total_articles - stats.annotation_stats.articles_with_annotations }} articles</div>
+                </div>
+            </div>
+                    <p class="text-sm text-gray-600">Unclassified content awaiting manual review</p>
+                    <div class="mt-4 flex items-center text-sm text-blue-600">
+                        <span>Start Annotation</span>
+                        <svg class="w-4 h-4 ml-1 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                        </svg>
+                    </div>
+                </a>
+                
+                <a href="/database-chat" class="group bg-white rounded-xl p-6 shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1 border border-gray-100">
+                    <div class="flex items-center mb-4">
+                        <div class="w-12 h-12 bg-gradient-to-br from-purple-500 to-purple-600 rounded-lg flex items-center justify-center mr-4">
+                            <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path>
+                            </svg>
+                        </div>
+                        <div>
+                            <div class="font-semibold text-gray-900">AI Database Chat</div>
+                            <div class="text-sm text-gray-600">Natural language queries</div>
+                        </div>
+                    </div>
+                    <p class="text-sm text-gray-600">Ask questions about your threat intelligence data</p>
+                    <div class="mt-4 flex items-center text-sm text-purple-600">
+                        <span>Start Chatting</span>
+                        <svg class="w-4 h-4 ml-1 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                        </svg>
+                    </div>
+                </a>
+            </div>
+            </div>
+        </div>
+    </div>
+
+<!-- Recent Articles Section -->
+<div class="px-6 sm:px-8 lg:px-12 pb-12">
+    <div class="max-w-7xl mx-auto">
+        <div class="glass-card rounded-2xl p-8">
+            <div class="flex items-center justify-between mb-6">
+                <div>
+                    <h3 class="text-xl font-bold text-gray-900">Recent Threat Intelligence</h3>
+                    <p class="text-gray-600">Latest articles from active sources</p>
+                </div>
+                <a href="/articles" class="text-blue-600 hover:text-blue-800 font-medium text-sm">
+                    View All Articles →
+                </a>
+            </div>
+            
+            <div class="space-y-4">
+                {% for article in recent_articles %}
+                <div class="flex items-start p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl border border-blue-100 hover:shadow-md transition-all">
+                    <div class="w-2 h-2 bg-blue-500 rounded-full mt-2 mr-4"></div>
+                    <div class="flex-1">
+                        <h4 class="font-semibold text-gray-900 mb-1">
+                            <a href="/articles/{{ article.id }}" class="hover:text-blue-600 transition-colors">
+                                {{ article.title[:80] }}{% if article.title|length > 80 %}...{% endif %}
+                            </a>
+                        </h4>
+                        <p class="text-sm text-gray-600 mb-2">{{ article.content[:150] }}{% if article.content|length > 150 %}...{% endif %}</p>
+                        <div class="flex items-center text-xs text-gray-500 space-x-4">
+                            <span>{{ article.source_id }}</span>
+                            <span>{% if article.published_at %}{{ article.published_at.strftime('%Y-%m-%d %H:%M') }}{% else %}Unknown date{% endif %}</span>
+                            {% if article.metadata and article.metadata.get('threat_hunting_score') %}
+                            <span class="px-2 py-1 bg-green-100 text-green-700 rounded-full">Score: {{ article.metadata.threat_hunting_score }}</span>
+                            {% endif %}
+                        </div>
+                    </div>
+            </div>
+                {% endfor %}
             </div>
         </div>
     </div>
@@ -235,10 +486,104 @@
 
 {% block scripts %}
 <script>
+    // Initialize Chart.js for score distribution
+    const ctx = document.getElementById('scoreDistributionChart').getContext('2d');
+    new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: ['Low (0-20)', 'Low-Medium (20-40)', 'Medium (40-60)', 'High (60-80)', 'Very High (80-100)'],
+            datasets: [{
+                data: [
+                    {{ stats.score_ranges.low }}, 
+                    {{ stats.score_ranges.low_medium }}, 
+                    {{ stats.score_ranges.medium }}, 
+                    {{ stats.score_ranges.high }}, 
+                    {{ stats.score_ranges.very_high }}
+                ],
+                backgroundColor: [
+                    '#ef4444',
+                    '#f97316', 
+                    '#eab308',
+                    '#22c55e',
+                    '#3b82f6'
+                ],
+                borderWidth: 0,
+                cutout: '60%'
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    labels: {
+                        padding: 20,
+                        usePointStyle: true,
+                        font: {
+                            family: 'Inter',
+                            size: 12
+                        }
+                    }
+                },
+                tooltip: {
+                    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                    titleFont: {
+                        family: 'Inter'
+                    },
+                    bodyFont: {
+                        family: 'Inter'
+                    }
+                }
+            },
+            animation: {
+                animateRotate: true,
+                animateScale: true,
+                duration: 2000
+            }
+        }
+    });
+
+    // Animate progress ring on load
+    setTimeout(() => {
+        const progressRing = document.querySelector('.progress-ring');
+        if (progressRing) {
+            progressRing.style.strokeDashoffset = '{{ 251.2 - (stats.annotation_stats.articles_with_annotations / stats.total_articles * 251.2) }}';
+        }
+    }, 500);
+
+    // Add smooth scroll behavior
+    document.documentElement.style.scrollBehavior = 'smooth';
+
+    // Add intersection observer for animations
+    const observerOptions = {
+        threshold: 0.1,
+        rootMargin: '0px 0px -50px 0px'
+    };
+
+    const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                entry.target.style.opacity = '1';
+                entry.target.style.transform = 'translateY(0)';
+            }
+        });
+    }, observerOptions);
+
+    // Observe all cards for animation
+    document.querySelectorAll('.metric-card, .glass-card').forEach(card => {
+        card.style.opacity = '0';
+        card.style.transform = 'translateY(20px)';
+        card.style.transition = 'opacity 0.6s ease, transform 0.6s ease';
+        observer.observe(card);
+    });
+
     // Auto-refresh dashboard data every 30 seconds
     setInterval(() => {
         // Refresh only the statistics and recent articles
+        if (typeof htmx !== 'undefined') {
         htmx.ajax('GET', '/', {target: 'main', swap: 'innerHTML'});
+        }
     }, 30000);
 </script>
 {% endblock %}
