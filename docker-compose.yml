@@ -35,7 +35,7 @@ services:
     restart: unless-stopped
     command: redis-server --appendonly yes --requirepass cti_redis_2024
     healthcheck:
-      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      test: ["CMD-SHELL", "timeout 3 redis-cli -a cti_redis_2024 --no-auth-warning ping | grep -q PONG"]
       interval: 30s
       timeout: 10s
       retries: 3

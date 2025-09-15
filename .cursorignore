@@ -1,0 +1,76 @@
+# Large model files and directories
+models/
+*.gguf
+*.bin
+*.safetensors
+*.pkl
+*.pth
+*.pt
+*.onnx
+
+# Virtual environments
+venv-ml/
+.venv/
+venv/
+env/
+.env/
+
+# Backup directories
+backup_old_architecture/
+backups/
+
+# Large data files
+*.csv
+*.xlsx
+*.xls
+data/
+uploads/
+
+# Git directory (already ignored by default in most editors)
+.git/
+
+# Other large/temporary files
+*.zip
+*.tar.gz
+*.log
+logs/
+
+# Additional CTI Scraper specific files
+# Jupyter notebooks (often large with embedded outputs)
+notebooks/
+*.ipynb
+
+# LM Studio and Ollama files
+Modelfile.*
+*.modelfile
+
+# Generated documentation and demos
+*demo*.html
+*dashboard*.html
+*visualization*.html
+
+# Test data and temporary files
+GPTCTIHelp*.csv
+Huntable_Table_*.csv
+highlighted_text_classifications_*.xlsx
+highlighted_text_classifications_*.csv
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
+# Alembic migrations directory
+alembic/
+
+# Terraform and infrastructure
+terraform/
+*.tfstate
+*.tfstate.*
+
+# Additional output directories
+outputs/
+
+# Cache directories
+.pytest_cache/
+.cache/

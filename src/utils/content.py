@@ -129,6 +129,13 @@ class ContentCleaner:
     def clean_text_characters(text: str) -> str:
         """Clean text by removing non-printable and control characters."""
         try:
+            # First, ensure we have proper UTF-8 encoding
+            if isinstance(text, bytes):
+                text = text.decode('utf-8', errors='replace')
+            
+            # Remove Unicode replacement characters ()
+            text = text.replace('\ufffd', '')
+            
             # Remove control characters and other problematic characters
             # Keep only printable ASCII and common Unicode characters
             cleaned = ''.join(char for char in text if (
@@ -137,6 +144,14 @@ class ContentCleaner:
             
             # Remove any remaining problematic sequences
             cleaned = re.sub(r'[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]', '', cleaned)
+            
+            # Fix common UTF-8 to Latin-1 corruption patterns
+            # Fix possessive apostrophes: ‚Äö√Ñ√¥s -> 's
+            cleaned = re.sub(r'‚Äö√Ñ√¥s', "'s", cleaned)
+            cleaned = re.sub(r'‚Äö√Ñ√¥', "'", cleaned)
+            
+            # Additional cleanup for other encoding issues
+            cleaned = re.sub(r'[^\x00-\x7F]+', ' ', cleaned)  # Replace remaining non-ASCII with spaces
             
             return cleaned
         except Exception as e:

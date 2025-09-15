@@ -135,3 +135,12 @@ backup_old_architecture/
 
 # Models directory
 models/
+
+# Python virtual environments
+venv*/
+env*/
+.venv/
+.env/
+
+# ML specific
+venv-ml/

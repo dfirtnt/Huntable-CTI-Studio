@@ -305,7 +305,8 @@ async def api_services_health():
         # Check Redis
         try:
             import redis
-            redis_client = redis.Redis(host='redis', port=6379, password=os.getenv('REDIS_PASSWORD', ''), decode_responses=True)
+            redis_url = os.getenv('REDIS_URL', 'redis://redis:6379/0')
+            redis_client = redis.from_url(redis_url, decode_responses=True)
             redis_info = redis_client.info()
             services_status["redis"] = {
                 "status": "healthy",
@@ -1162,6 +1163,86 @@ async def article_detail(request: Request, article_id: int):
         return templates.TemplateResponse(
             "error.html",
             {"request": request, "error": str(e)},
+            status_code=500
+        )
+
+@app.get("/articles/{article_id}/export-chunks")
+async def export_article_chunks(article_id: int):
+    """Export article content as CSV chunks."""
+    try:
+        article = await async_db_manager.get_article(article_id)
+        if not article:
+            return JSONResponse(
+                {"error": "Article not found"},
+                status_code=404
+            )
+        
+        # Generate chunks of 500 characters with 100 character overlap
+        chunks = []
+        content = article.content
+        chunk_size = 500
+        overlap = 100
+        start = 0
+        
+        while start < len(content):
+            end = min(start + chunk_size, len(content))
+            chunk_text = content[start:end]
+            
+            chunks.append({
+                "chunk_id": len(chunks) + 1,
+                "article_id": article_id,
+                "title": article.title,
+                "start_position": start,
+                "end_position": end,
+                "content": chunk_text,
+                "length": len(chunk_text)
+            })
+            
+            # Move start position with overlap
+            start = end - overlap
+            if start >= len(content):
+                break
+        
+        # Convert to CSV
+        import csv
+        import io
+        
+        output = io.StringIO()
+        writer = csv.writer(output)
+        
+        # Write header
+        writer.writerow(["chunk_id", "article_id", "title", "start_position", "end_position", "content", "length"])
+        
+        # Write data
+        for chunk in chunks:
+            writer.writerow([
+                chunk["chunk_id"],
+                chunk["article_id"],
+                chunk["title"],
+                chunk["start_position"],
+                chunk["end_position"],
+                chunk["content"],
+                chunk["length"]
+            ])
+        
+        csv_content = output.getvalue()
+        output.close()
+        
+        # Return CSV as downloadable file
+        from fastapi.responses import Response
+        
+        return Response(
+            content=csv_content,
+            media_type="text/csv",
+            headers={
+                "Content-Disposition": f"attachment; filename=article_{article_id}_chunks.csv"
+            }
+        )
+        
+    except Exception as e:
+        logger.error(f"Export chunks error: {e}")
+        return JSONResponse(
+            {"error": str(e)},
             status_code=500
         )
 

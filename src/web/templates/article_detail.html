@@ -345,15 +345,27 @@
         <div class="bg-gray-50 rounded-lg p-4">
             <div class="flex items-center justify-between mb-4">
                 <h3 class="text-lg font-semibold text-gray-800">Article Content</h3>
-                <div class="flex items-center space-x-2">
-                    <span class="text-sm text-gray-500">Select text to annotate</span>
-                    <div class="flex items-center space-x-1">
-                        <span class="w-3 h-3 bg-green-100 border border-green-300 rounded"></span>
-                        <span class="text-xs text-gray-600">Huntable</span>
-                    </div>
-                    <div class="flex items-center space-x-1">
-                        <span class="w-3 h-3 bg-red-100 border border-red-300 rounded"></span>
-                        <span class="text-xs text-gray-600">Not Huntable</span>
+                <div class="flex items-center space-x-4">
+                    <button 
+                        id="exportChunksBtn" 
+                        class="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+                        onclick="exportChunks()"
+                    >
+                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                        </svg>
+                        Export Chunks (CSV)
+                    </button>
+                    <div class="flex items-center space-x-2">
+                        <span class="text-sm text-gray-500">Select text to annotate</span>
+                        <div class="flex items-center space-x-1">
+                            <span class="w-3 h-3 bg-green-100 border border-green-300 rounded"></span>
+                            <span class="text-xs text-gray-600">Huntable</span>
+                        </div>
+                        <div class="flex items-center space-x-1">
+                            <span class="w-3 h-3 bg-red-100 border border-red-300 rounded"></span>
+                            <span class="text-xs text-gray-600">Not Huntable</span>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -466,6 +478,38 @@
 
 {% block scripts %}
 <script>
+    // Export chunks function
+    function exportChunks() {
+        const articleId = {{ article.id }};
+        const button = document.getElementById('exportChunksBtn');
+        
+        // Show loading state
+        const originalText = button.innerHTML;
+        button.innerHTML = `
+            <svg class="w-4 h-4 mr-2 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+            </svg>
+            Exporting...
+        `;
+        button.disabled = true;
+        
+        // Create download link
+        const link = document.createElement('a');
+        link.href = `/articles/${articleId}/export-chunks`;
+        link.download = `article_${articleId}_chunks.csv`;
+        
+        // Trigger download
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        // Reset button after a short delay
+        setTimeout(() => {
+            button.innerHTML = originalText;
+            button.disabled = false;
+        }, 1000);
+    }
+
     // Add syntax highlighting for matched text
     document.addEventListener('DOMContentLoaded', function() {
         

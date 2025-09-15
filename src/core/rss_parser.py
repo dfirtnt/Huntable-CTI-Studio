@@ -521,7 +521,7 @@ class RSSParser:
             'advertisement', 'sponsored', 'promotion', 'sale', 'discount',
             'product launch', 'new product', 'feature update', 'version',
             'maintenance', 'downtime', 'scheduled maintenance', 'outage',
-            'trends', 'the state of'
+            'trends', 'the state of', 'office hours'
         ]
         
         # Get source-specific filter keywords if configured
