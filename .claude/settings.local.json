@@ -1,0 +1,21 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(chmod:*)",
+      "Bash(./setup_ml_env.sh)",
+      "Bash(source:*)",
+      "Bash(python:*)",
+      "Bash(jupyter lab --version)",
+      "Bash(jupyter lab:*)",
+      "Read(//Users/starlord/**)",
+      "Bash(pip install:*)",
+      "Bash(curl:*)",
+      "Bash(pkill:*)",
+      "Bash(lsof:*)",
+      "Bash(xargs kill:*)",
+      "Bash(pip show:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

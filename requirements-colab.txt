@@ -1,0 +1,10 @@
+# Colab Integration Requirements
+jupyter_http_over_ws>=0.0.6
+requests>=2.28.0
+flask>=2.0.0
+transformers>=4.21.0
+datasets>=2.0.0
+torch>=1.12.0
+pandas>=1.4.0
+numpy>=1.21.0
+huggingface_hub>=0.16.0

@@ -11,78 +11,101 @@ We release patches for security vulnerabilities in the following versions:
 
 ## Reporting a Vulnerability
 
-We take security vulnerabilities seriously. If you discover a security vulnerability, please follow these steps:
+We take security vulnerabilities seriously. If you discover a security vulnerability within SousChef, please report it to us as described below.
 
-### 1. **DO NOT** create a public GitHub issue
+### How to Report
 
-Security vulnerabilities should be reported privately to prevent potential exploitation.
+**Please do not report security vulnerabilities through public GitHub issues.**
 
-### 2. Email Security Team
+Instead, please report them via one of the following methods:
 
-Send an email to: **security@ctiscraper.dev**
+1. **Email**: Send details to security@souschef.dev (if this email exists)
+2. **GitHub Security Advisory**: Use GitHub's private vulnerability reporting feature
+3. **Direct Contact**: Contact the maintainers directly through GitHub
 
-Include the following information:
-- Description of the vulnerability
-- Steps to reproduce the issue
-- Potential impact assessment
-- Any suggested fixes or mitigations
+### What to Include
 
-### 3. Response Timeline
+When reporting a vulnerability, please include:
+
+- **Description**: A clear description of the vulnerability
+- **Steps to Reproduce**: Detailed steps to reproduce the issue
+- **Impact**: Potential impact and severity assessment
+- **Affected Versions**: Which versions are affected
+- **Suggested Fix**: If you have suggestions for fixing the issue
+
+### Response Timeline
 
 - **Initial Response**: Within 48 hours
 - **Status Update**: Within 7 days
-- **Resolution**: Within 30 days (depending on complexity)
+- **Resolution**: Depends on severity and complexity
 
-### 4. What to Expect
+### Security Considerations
 
-- We will acknowledge receipt of your report
-- We will investigate the vulnerability
-- We will provide regular updates on our progress
-- We will coordinate the release of any fixes
-- We will credit you in our security advisories (unless you prefer to remain anonymous)
+#### API Keys and Credentials
 
-## Security Best Practices
+- **Never commit API keys** or credentials to the repository
+- Use environment variables for all sensitive configuration
+- Follow the `.env.example` template for configuration
 
-### For Users
+#### Dependencies
 
-- Keep your installation updated to the latest version
-- Use strong, unique passwords for all accounts
-- Enable two-factor authentication where available
-- Regularly review access logs and permissions
-- Follow the principle of least privilege
+- We regularly audit dependencies for known vulnerabilities
+- Critical vulnerabilities are addressed immediately
+- Moderate vulnerabilities are addressed in regular update cycles
 
-### For Developers
+#### Data Handling
 
-- Never commit secrets, API keys, or passwords to version control
-- Use environment variables for sensitive configuration
-- Implement proper input validation and sanitization
-- Follow secure coding practices
-- Regular security audits and dependency updates
+- SousChef processes data locally when possible
+- OpenAI API calls are made only for recipe generation
+- No sensitive data is stored or logged unnecessarily
 
-## Security Features
+### Security Best Practices
 
-This project includes several security features:
+#### For Users
 
-- **Input Validation**: All user inputs are validated and sanitized
-- **SQL Injection Protection**: Parameterized queries prevent SQL injection
-- **Rate Limiting**: API endpoints are protected against abuse
-- **Authentication**: Secure authentication mechanisms
-- **Encryption**: Sensitive data is encrypted at rest and in transit
-- **Audit Logging**: Comprehensive logging for security monitoring
+1. **Environment Variables**: Always use environment variables for API keys
+2. **Regular Updates**: Keep dependencies updated
+3. **Input Validation**: Validate all inputs before processing
+4. **Network Security**: Use HTTPS in production environments
 
-## Dependencies
+#### For Developers
 
-We regularly update dependencies to address security vulnerabilities. Our CI/CD pipeline includes:
+1. **Code Review**: All code changes require review
+2. **Dependency Scanning**: Regular security audits
+3. **Input Sanitization**: Sanitize all user inputs
+4. **Error Handling**: Avoid exposing sensitive information in errors
 
-- Automated security scanning with `safety`
-- Static analysis with `bandit`
-- Dependency vulnerability checks
-- Regular security updates
+### Known Security Considerations
 
-## Contact
+#### OpenAI API Usage
 
-For general security questions or concerns, please contact:
-- **Email**: security@ctiscraper.dev
-- **GitHub**: Create a private security advisory
+- API keys are required for LLM features
+- Keys should be kept secure and not shared
+- Consider using API key rotation in production
 
-Thank you for helping keep CTI Scraper secure!
+#### CyberChef Operations
+
+- Some operations may be computationally expensive
+- Large inputs may cause memory issues
+- Certain cryptographic operations may have side effects
+
+### Security Updates
+
+Security updates are released as:
+
+- **Critical**: Immediate patch release
+- **High**: Within 7 days
+- **Medium**: Next regular release cycle
+- **Low**: Next major release
+
+### Contact Information
+
+For security-related questions or concerns:
+
+- **Primary**: GitHub Security Advisory
+- **Secondary**: Direct contact with maintainers
+- **Emergency**: Create a private issue with security label
+
+---
+
+**Thank you for helping keep SousChef and our users safe!**

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-Configurable Fine-tuning Web UI
-Users can select base model and start new fine-tuning sessions
+Configurable Fine-tuning Web UI with Colab Integration
+Users can select base model and start new fine-tuning sessions with local IDE + Colab GPU
 """
 
 from flask import Flask, render_template, request, jsonify, redirect, url_for
@@ -14,6 +14,12 @@ from datetime import datetime
 from pathlib import Path
 import logging
 import torch
+import sys
+
+# Add src/utils to path for shared training module
+sys.path.append(os.path.join(os.path.dirname(__file__), 'src', 'utils'))
+from colab_integration import IDEColabIntegration
+from shared_training import FineTuningTrainer, AVAILABLE_MODELS, create_training_data_from_csv
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -34,27 +40,9 @@ training_status = {"status": "idle", "progress": 0, "message": ""}
 current_model_name = None
 current_model_info = None
 
-# Available base models for fine-tuning
-AVAILABLE_MODELS = {
-    "microsoft/Phi-3-mini-4k-instruct": {
-        "name": "Phi-3 Mini (4K)",
-        "description": "Microsoft Phi-3 Mini with 4K context",
-        "size": "3.8B parameters",
-        "recommended": True
-    },
-    "microsoft/Phi-3.5-mini-instruct": {
-        "name": "Phi-3.5 Mini",
-        "description": "Microsoft Phi-3.5 Mini (newer)",
-        "size": "3.8B parameters",
-        "recommended": False
-    },
-    "microsoft/phi-2": {
-        "name": "Phi-2",
-        "description": "Microsoft Phi-2 (smaller, faster)",
-        "size": "2.7B parameters",
-        "recommended": False
-    }
-}
+# Initialize Colab integration and shared trainer
+colab_integration = IDEColabIntegration()
+shared_trainer = FineTuningTrainer(device="auto")
 
 def load_base_model(model_name="microsoft/Phi-3-mini-4k-instruct"):
     """Load the specified base model"""
@@ -62,26 +50,6 @@ def load_base_model(model_name="microsoft/Phi-3-mini-4k-instruct"):
     
     try:
         logger.info(f"Loading base model: {model_name}")
-        
-        # Unload previous model to free memory
-        if model is not None:
-            logger.info("Unloading previous model to free memory...")
-            del model
-            model = None
-        if tokenizer is not None:
-            del tokenizer
-            tokenizer = None
-        
-        # Force garbage collection
-        import gc
-        gc.collect()
-        if torch.cuda.is_available():
-            torch.cuda.empty_cache()
-        
-        # Small delay to ensure cleanup completes
-        import time
-        time.sleep(1)
-        
         current_model_name = model_name
         current_model_info = AVAILABLE_MODELS.get(model_name, {"name": model_name})
         device = "mps" if torch.backends.mps.is_available() else "cpu"
@@ -105,32 +73,13 @@ def load_base_model(model_name="microsoft/Phi-3-mini-4k-instruct"):
         return False
 
 def process_csv_data(file_path):
-    """Process uploaded CSV data for training"""
+    """Process uploaded CSV data for training using shared module"""
     global training_data
     
     try:
-        df = pd.read_csv(file_path)
-        
-        # Validate CSV structure
-        required_columns = ['input', 'output']
-        if not all(col in df.columns for col in required_columns):
-            return False, f"CSV must contain columns: {required_columns}"
-        
-        # Prepare training data
-        training_examples = []
-        
-        for _, row in df.iterrows():
-            if pd.isna(row['input']) or pd.isna(row['output']):
-                continue
-                
-            training_examples.append({
-                "input": str(row['input']).strip(),
-                "output": str(row['output']).strip()
-            })
-        
-        training_data = training_examples
-        logger.info(f"Processed {len(training_examples)} training examples")
-        return True, f"Successfully processed {len(training_examples)} training examples"
+        training_data = create_training_data_from_csv(file_path)
+        logger.info(f"Processed {len(training_data)} training examples")
+        return True, f"Successfully processed {len(training_data)} training examples"
         
     except Exception as e:
         logger.error(f"Process CSV error: {str(e)}")
@@ -169,102 +118,208 @@ def upload_file():
 
 @app.route('/start_training', methods=['POST'])
 def start_training():
+    """Start local training using shared training module"""
     global training_status, current_model_name
     
     try:
         if not training_data:
             return jsonify({'success': False, 'error': 'No training data loaded'})
         
-        if not model or not tokenizer:
-            if not load_base_model(current_model_name or "microsoft/Phi-3-mini-4k-instruct"):
-                return jsonify({'success': False, 'error': 'Failed to load base model'})
+        if not current_model_name:
+            return jsonify({'success': False, 'error': 'No model selected'})
         
-        training_status = {"status": "starting", "progress": 10, "message": "Preparing training data..."}
+        # Check if model is local-compatible
+        model_info = AVAILABLE_MODELS.get(current_model_name, {})
+        if model_info.get('location') != 'local':
+            return jsonify({'success': False, 'error': 'Selected model is not local-compatible'})
         
-        # Prepare training dataset
-        def tokenize_function(examples):
-            full_texts = [example["input"] + example["output"] + tokenizer.eos_token for example in examples]
-            tokenized = tokenizer(full_texts, truncation=True, padding=True, max_length=512)
-            tokenized["labels"] = tokenized["input_ids"].copy()
-            return tokenized
+        training_status = {"status": "starting", "progress": 10, "message": "Starting local training..."}
         
-        # Create dataset from training data
-        dataset = Dataset.from_list(training_data)
-        tokenized_dataset = dataset.map(tokenize_function, batched=False)
+        # Get model name for training (remove -colab suffix if present)
+        training_model_name = current_model_name.replace('-colab', '')
         
-        training_status = {"status": "training", "progress": 30, "message": "Configuring training parameters..."}
+        # Check if user wants to push to Hugging Face Hub
+        push_to_hub = request.json.get('push_to_hub', False) if request.is_json else False
+        hub_model_id = request.json.get('hub_model_id', None) if request.is_json else None
         
-        # Setup training arguments
-        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-        model_short_name = current_model_name.split('/')[-1].replace('-', '_')
-        output_dir = f"./models/fine_tuned/{model_short_name}_cti_hunt_{timestamp}"
-        Path(output_dir).mkdir(parents=True, exist_ok=True)
-        
-        training_args = TrainingArguments(
-            output_dir=output_dir,
-            overwrite_output_dir=True,
-            num_train_epochs=3,
-            per_device_train_batch_size=1,
-            gradient_accumulation_steps=8,
-            warmup_steps=100,
-            logging_steps=10,
-            save_steps=500,
-            evaluation_strategy="no",
-            save_strategy="epoch",
-            load_best_model_at_end=False,
-            report_to=None,
-            remove_unused_columns=False,
-            dataloader_num_workers=0,
-            fp16=False,
+        # Use shared trainer for local training
+        trainer, output_dir = shared_trainer.fine_tune_model(
+            training_model_name,
+            training_data,
+            epochs=3,
             learning_rate=5e-5,
-            lr_scheduler_type="cosine",
-            weight_decay=0.01,
+            output_dir="./models/fine_tuned",
+            push_to_hub=push_to_hub,
+            hub_model_id=hub_model_id
         )
         
-        training_status = {"status": "training", "progress": 50, "message": "Initializing trainer..."}
+        training_status = {"status": "completed", "progress": 100, "message": f"Local training completed! Model saved to {output_dir}"}
         
-        # Create trainer
-        trainer = Trainer(
-            model=model,
-            args=training_args,
-            train_dataset=tokenized_dataset,
-            tokenizer=tokenizer,
-        )
-        
-        training_status = {"status": "training", "progress": 70, "message": "Fine-tuning in progress..."}
-        
-        # Start training
-        trainer.train()
-        
-        training_status = {"status": "training", "progress": 90, "message": "Saving fine-tuned model..."}
-        
-        # Save the fine-tuned model
-        trainer.save_model()
-        tokenizer.save_pretrained(output_dir)
-        
-        # Save training info
-        training_info = {
-            "model_name": f"{AVAILABLE_MODELS[current_model_name]['name']} CTI Hunt Logic",
-            "base_model": current_model_name,
-            "training_examples": len(training_data),
-            "epochs": 3,
-            "learning_rate": 5e-5,
-            "batch_size": 1,
-            "created_at": datetime.now().isoformat(),
-            "output_dir": output_dir
+        response_data = {
+            'success': True, 
+            'message': 'Local training completed successfully',
+            'method': 'Local Training',
+            'model_name': training_model_name,
+            'training_examples': len(training_data),
+            'output_dir': output_dir
         }
         
-        with open(os.path.join(output_dir, "training_info.json"), "w") as f:
-            json.dump(training_info, f, indent=2)
+        if push_to_hub and hub_model_id:
+            response_data['hub_model_id'] = hub_model_id
+            response_data['message'] += f' and pushed to Hugging Face Hub as {hub_model_id}'
         
-        training_status = {"status": "completed", "progress": 100, "message": f"Training completed! Model saved to {output_dir}"}
-        
-        return jsonify({'success': True, 'message': 'Training completed successfully'})
+        return jsonify(response_data)
         
     except Exception as e:
         training_status = {"status": "error", "progress": 0, "message": str(e)}
-        logger.error(f"Training error: {str(e)}")
+        logger.error(f"Local training error: {str(e)}")
         return jsonify({'success': False, 'error': str(e)})
+
+@app.route('/start_colab_training', methods=['POST'])
+def start_colab_training():
+    """Start training using IDE + Colab GPU"""
+    global training_data, current_model_name, training_status
+    
+    try:
+        if not training_data:
+            return jsonify({'success': False, 'error': 'No training data loaded'})
+        
+        if not current_model_name:
+            return jsonify({'success': False, 'error': 'No model selected'})
+        
+        # Check if model is Colab-compatible
+        model_info = AVAILABLE_MODELS.get(current_model_name, {})
+        if model_info.get('location') != 'colab':
+            return jsonify({'success': False, 'error': 'Selected model is not Colab-compatible'})
+        
+        training_status = {"status": "starting", "progress": 10, "message": "Setting up Colab runtime..."}
+        
+        # Setup Colab integration
+        if not colab_integration.setup_colab_runtime():
+            return jsonify({'success': False, 'error': 'Failed to setup Colab runtime'})
+        
+        training_status = {"status": "starting", "progress": 20, "message": "Creating Colab notebook..."}
+        
+        # Create Colab notebook
+        if not colab_integration.create_colab_notebook():
+            return jsonify({'success': False, 'error': 'Failed to create Colab notebook'})
+        
+        training_status = {"status": "training", "progress": 30, "message": "Starting Colab GPU training..."}
+        
+        # Get model name for Colab (remove -colab suffix if present)
+        colab_model_name = current_model_name.replace('-colab', '')
+        
+        # Check if user wants to push to Hugging Face Hub
+        push_to_hub = request.json.get('push_to_hub', False) if request.is_json else False
+        hub_model_id = request.json.get('hub_model_id', None) if request.is_json else None
+        
+        # Start training with Colab GPU
+        result = colab_integration.execute_training_from_ide(
+            colab_model_name, 
+            training_data,
+            epochs=3,
+            learning_rate=5e-5,
+            push_to_hub=push_to_hub,
+            hub_model_id=hub_model_id
+        )
+        
+        if result and result.get('success'):
+            training_status = {"status": "completed", "progress": 100, "message": "Training completed with Colab GPU!"}
+            
+            response_data = {
+                'success': True,
+                'message': 'Training completed successfully with Colab GPU',
+                'method': 'IDE + Colab GPU',
+                'model_name': colab_model_name,
+                'training_examples': len(training_data),
+                'estimated_time': '10-20 minutes'
+            }
+            
+            if push_to_hub and hub_model_id:
+                response_data['hub_model_id'] = hub_model_id
+                response_data['message'] += f' and pushed to Hugging Face Hub as {hub_model_id}'
+            
+            return jsonify(response_data)
+        else:
+            training_status = {"status": "error", "progress": 0, "message": "Colab training failed"}
+            return jsonify({
+                'success': False,
+                'error': 'Failed to execute Colab training'
+            })
+            
+    except Exception as e:
+        training_status = {"status": "error", "progress": 0, "message": str(e)}
+        logger.error(f"Colab training error: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)})
+
+@app.route('/colab_status')
+def colab_status():
+    """Check Colab runtime status"""
+    try:
+        status = colab_integration.get_runtime_status()
+        return jsonify({
+            'colab_runtime_running': status['running'],
+            'kernels': status['kernels'],
+            'notebook_exists': status['notebook_exists'],
+            'kernel_id': status['kernel_id']
+        })
+    except Exception as e:
+        return jsonify({
+            'colab_runtime_running': False,
+            'kernels': 0,
+            'notebook_exists': False,
+            'kernel_id': None,
+            'error': str(e)
+        })
+
+@app.route('/setup_huggingface', methods=['POST'])
+def setup_huggingface():
+    """Setup Hugging Face Hub authentication"""
+    try:
+        from shared_training import setup_huggingface_hub
+        
+        if setup_huggingface_hub():
+            return jsonify({
+                'success': True,
+                'message': 'Hugging Face Hub authentication successful'
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'error': 'Hugging Face Hub authentication failed. Please check your HF_TOKEN.'
+            })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        })
+
+@app.route('/huggingface_status')
+def huggingface_status():
+    """Check Hugging Face Hub authentication status"""
+    try:
+        import os
+        from huggingface_hub import whoami
+        
+        if not os.getenv('HF_TOKEN'):
+            return jsonify({
+                'authenticated': False,
+                'message': 'HF_TOKEN not set'
+            })
+        
+        # Try to get user info
+        user_info = whoami()
+        return jsonify({
+            'authenticated': True,
+            'username': user_info.get('name', 'Unknown'),
+            'message': f'Authenticated as {user_info.get("name", "Unknown")}'
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'authenticated': False,
+            'message': f'Authentication check failed: {str(e)}'
+        })
 
 @app.route('/training_status')
 def get_training_status():
@@ -274,6 +329,9 @@ def get_training_status():
 def status():
     current_model_info = AVAILABLE_MODELS.get(current_model_name, {})
     
+    # Get Colab status
+    colab_status_info = colab_integration.get_runtime_status()
+    
     return jsonify({
         'model_loaded': model is not None,
         'training_data_loaded': training_data is not None,
@@ -281,7 +339,9 @@ def status():
         'device': device,
         'current_model': current_model_name,
         'current_model_info': current_model_info,
-        'available_models': AVAILABLE_MODELS
+        'available_models': AVAILABLE_MODELS,
+        'colab_runtime_running': colab_status_info['running'],
+        'colab_notebook_exists': colab_status_info['notebook_exists']
     })
 
 @app.route('/select_model', methods=['POST'])
@@ -312,12 +372,13 @@ def select_model():
         return jsonify({'success': False, 'error': str(e)})
 
 if __name__ == '__main__':
-    print("🚀 Starting Configurable Fine-tuning Web UI...")
+    print("🚀 Starting Configurable Fine-tuning Web UI with Colab Integration...")
     print("📤 Select base model and upload CSV files to fine-tune")
+    print("🎯 Choose from local or Colab GPU training options")
     print("📍 Open: http://localhost:5003")
-    print("🎯 Choose from multiple base models")
+    print("🔧 Colab integration: IDE + GPU workflow")
     
-    # Load default model
+    # Load default model (local fallback)
     load_base_model("microsoft/Phi-3-mini-4k-instruct")
     
     app.run(host='0.0.0.0', port=5003, debug=False)

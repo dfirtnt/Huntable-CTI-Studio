@@ -89,8 +89,6 @@
         .model-card.selected {
             border-color: #667eea;
             background: #f0f4ff;
-            box-shadow: 0 0 10px rgba(102, 126, 234, 0.5);
-            transform: scale(1.02);
         }
         
         .model-card h3 {
@@ -114,12 +112,105 @@
             border-color: #4caf50;
         }
         
-        .recommended::after {
-            content: "⭐ Recommended";
+        .model-card.colab {
+            background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+            border-color: #2196f3;
+        }
+        
+        .model-card.local {
+            background: linear-gradient(135deg, #f3e5f5 0%, #e1bee7 100%);
+            border-color: #9c27b0;
+        }
+        
+        .model-card.colab::after {
+            content: "🚀 Colab GPU";
             display: block;
-            color: #4caf50;
+            color: #1976d2;
             font-weight: bold;
             margin-top: 10px;
+        }
+        
+        .model-card.local::after {
+            content: "💻 Local";
+            display: block;
+            color: #7b1fa2;
+            font-weight: bold;
+            margin-top: 10px;
+        }
+        
+        .colab-status {
+            background: #e8f5e8;
+            border: 1px solid #4caf50;
+            border-radius: 6px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .colab-status.error {
+            background: #ffebee;
+            border-color: #f44336;
+        }
+        
+        .colab-status h3 {
+            color: #2e7d32;
+            margin-bottom: 10px;
+        }
+        
+        .colab-status.error h3 {
+            color: #c62828;
+        }
+        
+        .training-method {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        
+        .method-btn {
+            flex: 1;
+            padding: 12px 20px;
+            border: 2px solid #e0e0e0;
+            border-radius: 6px;
+            background: white;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-align: center;
+            font-weight: 500;
+        }
+        
+        .method-btn:hover {
+            border-color: #667eea;
+            background: #f0f4ff;
+        }
+        
+        .method-btn.selected {
+            border-color: #667eea;
+            background: #667eea;
+            color: white;
+        }
+        
+        .method-btn.colab {
+            border-color: #2196f3;
+        }
+        
+        .method-btn.colab:hover {
+            background: #e3f2fd;
+        }
+        
+        .method-btn.colab.selected {
+            background: #2196f3;
+        }
+        
+        .method-btn.local {
+            border-color: #9c27b0;
+        }
+        
+        .method-btn.local:hover {
+            background: #f3e5f5;
+        }
+        
+        .method-btn.local.selected {
+            background: #9c27b0;
         }
         
         .upload-area {
@@ -250,15 +341,43 @@
         </div>
         
         <div class="content">
+            <!-- Hugging Face Hub Status -->
+            <div class="colab-status" id="huggingfaceStatus">
+                <h3>🤗 Hugging Face Hub Status</h3>
+                <p id="huggingfaceStatusInfo">Checking Hugging Face authentication...</p>
+            </div>
+            
+            <!-- Colab Status -->
+            <div class="colab-status" id="colabStatus">
+                <h3>🚀 Colab Runtime Status</h3>
+                <p id="colabStatusInfo">Checking Colab runtime...</p>
+            </div>
+            
             <!-- Current Model Status -->
             <div class="current-model" id="currentModelStatus">
                 <h3>📊 Current Model Status</h3>
                 <p id="currentModelInfo">Loading...</p>
             </div>
             
+            <!-- Training Method Selection -->
+            <div class="section">
+                <h2>🎯 Step 1: Choose Training Method</h2>
+                <p>Select how you want to train your model:</p>
+                <div class="training-method">
+                    <div class="method-btn colab selected" id="colabMethod" onclick="selectTrainingMethod('colab')">
+                        <div>🚀 Colab GPU Training</div>
+                        <small>Free GPU access, larger models, IDE integration</small>
+                    </div>
+                    <div class="method-btn local" id="localMethod" onclick="selectTrainingMethod('local')">
+                        <div>💻 Local Training</div>
+                        <small>Local hardware, smaller models, offline</small>
+                    </div>
+                </div>
+            </div>
+            
             <!-- Model Selection -->
             <div class="section">
-                <h2>🎯 Step 1: Select Base Model</h2>
+                <h2>🎯 Step 2: Select Base Model</h2>
                 <p>Choose which base model to fine-tune:</p>
                 <div class="model-selection" id="modelSelection">
                     <!-- Models will be loaded dynamically -->
@@ -267,7 +386,7 @@
             
             <!-- Data Upload -->
             <div class="section">
-                <h2>📤 Step 2: Upload Training Data</h2>
+                <h2>📤 Step 3: Upload Training Data</h2>
                 <p>Upload a CSV file with 'input' and 'output' columns:</p>
                 <div class="upload-area" id="uploadArea">
                     <p>📁 Drag and drop your CSV file here, or click to browse</p>
@@ -281,8 +400,23 @@
             
             <!-- Training -->
             <div class="section">
-                <h2>🚀 Step 3: Start Training</h2>
+                <h2>🚀 Step 4: Start Training</h2>
                 <p>Begin fine-tuning your model:</p>
+                
+                <!-- Hugging Face Hub Options -->
+                <div class="hub-options" style="margin-bottom: 20px;">
+                    <h4>🤗 Hugging Face Hub Options (Optional)</h4>
+                    <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 10px;">
+                        <input type="checkbox" id="pushToHub" onchange="toggleHubOptions()">
+                        <label for="pushToHub">Push model to Hugging Face Hub</label>
+                    </div>
+                    <div id="hubModelIdContainer" style="display: none;">
+                        <label for="hubModelId">Model ID (e.g., username/my-cti-model):</label>
+                        <input type="text" id="hubModelId" placeholder="username/my-cti-model" style="width: 100%; padding: 8px; margin-top: 5px;">
+                        <small style="color: #666;">Your model will be publicly available on Hugging Face Hub</small>
+                    </div>
+                </div>
+                
                 <div id="trainingStatus"></div>
                 <div class="progress-bar" id="progressBar" style="display: none;">
                     <div class="progress-fill" id="progressFill"></div>
@@ -298,6 +432,7 @@
         let availableModels = {};
         let selectedModel = null;
         let trainingDataLoaded = false;
+        let selectedTrainingMethod = 'colab';
         
         async function loadModels() {
             try {
@@ -309,12 +444,10 @@
                 
                 for (const [key, model] of Object.entries(availableModels)) {
                     const modelCard = document.createElement('div');
-                    modelCard.className = `model-card ${model.recommended ? 'recommended' : ''}`;
+                    const locationClass = model.location || 'local';
+                    modelCard.className = `model-card ${locationClass} ${model.recommended ? 'recommended' : ''}`;
                     modelCard.setAttribute('data-model', key);
-                    modelCard.onclick = () => {
-                        console.log('Card clicked for model:', key);
-                        selectModel(key);
-                    };
+                    modelCard.onclick = () => selectModel(key);
                     
                     modelCard.innerHTML = `
                         <h3>${model.name}</h3>
@@ -323,7 +456,6 @@
                     `;
                     
                     modelSelection.appendChild(modelCard);
-                    console.log('Created model card for:', key, 'with data-model:', modelCard.getAttribute('data-model'));
                 }
                 
                 // Select recommended model by default
@@ -338,7 +470,6 @@
         }
         
         async function selectModel(modelKey) {
-            console.log('selectModel called with:', modelKey);
             try {
                 const response = await fetch('/select_model', {
                     method: 'POST',
@@ -347,7 +478,6 @@
                 });
                 
                 const data = await response.json();
-                console.log('API response:', data);
                 
                 if (data.success) {
                     selectedModel = modelKey;
@@ -358,20 +488,13 @@
                     });
                     // Find the clicked card by modelKey
                     const clickedCard = document.querySelector(`[data-model="${modelKey}"]`);
-                    console.log('Found clicked card:', clickedCard);
                     if (clickedCard) {
                         clickedCard.classList.add('selected');
-                        console.log('Added selected class to card');
-                        alert(`Model selected: ${data.model_info.name}`);
                     }
                     
                     // Update status
-                    const statusElement = document.getElementById('currentModelInfo');
-                    if (statusElement) {
-                        statusElement.textContent = 
-                            `Selected: ${data.model_info.name} - ${data.model_info.description}`;
-                        console.log('Updated status element');
-                    }
+                    document.getElementById('currentModelInfo').textContent = 
+                        `Selected: ${data.model_info.name} - ${data.model_info.description}`;
                     
                     showStatus('success', data.message);
                 } else {
@@ -379,7 +502,6 @@
                 }
                 
             } catch (error) {
-                console.error('Error in selectModel:', error);
                 showStatus('error', 'Error selecting model: ' + error.message);
             }
         }
@@ -461,6 +583,45 @@
             }
         }
         
+        function selectTrainingMethod(method) {
+            selectedTrainingMethod = method;
+            
+            // Update UI
+            document.querySelectorAll('.method-btn').forEach(btn => {
+                btn.classList.remove('selected');
+            });
+            document.getElementById(method + 'Method').classList.add('selected');
+            
+            // Filter models based on method
+            filterModelsByMethod();
+        }
+        
+        function filterModelsByMethod() {
+            const modelSelection = document.getElementById('modelSelection');
+            const cards = modelSelection.querySelectorAll('.model-card');
+            
+            cards.forEach(card => {
+                const modelKey = card.getAttribute('data-model');
+                const model = availableModels[modelKey];
+                const modelLocation = model.location || 'local';
+                
+                if (selectedTrainingMethod === 'colab' && modelLocation === 'colab') {
+                    card.style.display = 'block';
+                } else if (selectedTrainingMethod === 'local' && modelLocation === 'local') {
+                    card.style.display = 'block';
+                } else {
+                    card.style.display = 'none';
+                }
+            });
+            
+            // Select first visible model
+            const visibleCards = Array.from(cards).filter(card => card.style.display !== 'none');
+            if (visibleCards.length > 0) {
+                const firstVisibleKey = visibleCards[0].getAttribute('data-model');
+                selectModel(firstVisibleKey);
+            }
+        }
+        
         async function startTraining() {
             const trainBtn = document.getElementById('trainBtn');
             const progressBar = document.getElementById('progressBar');
@@ -472,10 +633,32 @@
             progressBar.style.display = 'block';
             
             try {
-                const response = await fetch('/start_training', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' }
-                });
+                let response;
+                
+                // Get Hugging Face Hub options
+                const pushToHub = document.getElementById('pushToHub').checked;
+                const hubModelId = document.getElementById('hubModelId').value;
+                
+                const requestData = {
+                    push_to_hub: pushToHub,
+                    hub_model_id: hubModelId || null
+                };
+                
+                if (selectedTrainingMethod === 'colab') {
+                    // Use Colab training
+                    response = await fetch('/start_colab_training', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(requestData)
+                    });
+                } else {
+                    // Use local training
+                    response = await fetch('/start_training', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(requestData)
+                    });
+                }
                 
                 const data = await response.json();
                 
@@ -492,6 +675,17 @@
                 showTrainingStatus('error', 'Training error: ' + error.message);
                 trainBtn.disabled = false;
                 trainBtn.textContent = 'Start Fine-tuning';
+            }
+        }
+        
+        function toggleHubOptions() {
+            const pushToHub = document.getElementById('pushToHub');
+            const hubModelIdContainer = document.getElementById('hubModelIdContainer');
+            
+            if (pushToHub.checked) {
+                hubModelIdContainer.style.display = 'block';
+            } else {
+                hubModelIdContainer.style.display = 'none';
             }
         }
         
@@ -542,11 +736,84 @@
             }
         }
         
+        async function updateHuggingfaceStatus() {
+            try {
+                const response = await fetch('/huggingface_status');
+                const status = await response.json();
+                
+                const huggingfaceStatusDiv = document.getElementById('huggingfaceStatus');
+                const huggingfaceStatusInfo = document.getElementById('huggingfaceStatusInfo');
+                
+                if (status.authenticated) {
+                    huggingfaceStatusDiv.className = 'colab-status';
+                    huggingfaceStatusInfo.textContent = `✅ ${status.message} - Ready to push models`;
+                } else {
+                    huggingfaceStatusDiv.className = 'colab-status error';
+                    huggingfaceStatusInfo.textContent = `❌ ${status.message} - Set HF_TOKEN to enable Hub features`;
+                }
+                
+            } catch (error) {
+                const huggingfaceStatusDiv = document.getElementById('huggingfaceStatus');
+                const huggingfaceStatusInfo = document.getElementById('huggingfaceStatusInfo');
+                huggingfaceStatusDiv.className = 'colab-status error';
+                huggingfaceStatusInfo.textContent = '❌ Error checking Hugging Face status: ' + error.message;
+            }
+        }
+        
+        async function setupHuggingface() {
+            try {
+                const response = await fetch('/setup_huggingface', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    showStatus('success', data.message);
+                    updateHuggingfaceStatus();
+                } else {
+                    showStatus('error', data.error);
+                }
+                
+            } catch (error) {
+                showStatus('error', 'Setup error: ' + error.message);
+            }
+        }
+        
+        async function setupColab() {
+            try {
+                const response = await fetch('/setup_colab', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    showStatus('success', data.message);
+                    updateColabStatus();
+                } else {
+                    showStatus('error', data.error);
+                }
+                
+            } catch (error) {
+                showStatus('error', 'Setup error: ' + error.message);
+            }
+        }
+        
         // Initialize
         document.addEventListener('DOMContentLoaded', () => {
             loadModels();
             setupFileUpload();
             updateCurrentModelStatus();
+            updateHuggingfaceStatus();
+            updateColabStatus();
+            
+            // Filter models by default method
+            setTimeout(() => {
+                filterModelsByMethod();
+            }, 1000);
         });
     </script>
 </body>

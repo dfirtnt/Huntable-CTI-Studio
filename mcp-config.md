@@ -7,9 +7,18 @@
   "mcpServers": {
     "cti-scraper": {
       "command": "python",
-      "args": ["/path/to/CTIScraper/mcp-server.py"],
+      "args": ["/Users/starlord/CTIScraper/mcp-server.py"],
       "env": {
-        "PYTHONPATH": "/path/to/CTIScraper"
+        "PYTHONPATH": "/Users/starlord/CTIScraper"
+      }
+    },
+    "lmstudio": {
+      "command": "python",
+      "args": ["/Users/starlord/CTIScraper/lmstudio-mcp-server.py"],
+      "env": {
+        "PYTHONPATH": "/Users/starlord/CTIScraper",
+        "LMSTUDIO_BASE_URL": "http://localhost:1234",
+        "LMSTUDIO_API_KEY": ""
       }
     }
   }
@@ -25,9 +34,18 @@ Add this to your Cursor settings.json:
   "mcp.servers": {
     "cti-scraper": {
       "command": "python",
-      "args": ["/path/to/CTIScraper/mcp-server.py"],
+      "args": ["/Users/starlord/CTIScraper/mcp-server.py"],
       "env": {
-        "PYTHONPATH": "/path/to/CTIScraper"
+        "PYTHONPATH": "/Users/starlord/CTIScraper"
+      }
+    },
+    "lmstudio": {
+      "command": "python",
+      "args": ["/Users/starlord/CTIScraper/lmstudio-mcp-server.py"],
+      "env": {
+        "PYTHONPATH": "/Users/starlord/CTIScraper",
+        "LMSTUDIO_BASE_URL": "http://localhost:1234",
+        "LMSTUDIO_API_KEY": ""
       }
     }
   }
