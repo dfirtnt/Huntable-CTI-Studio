@@ -33,6 +33,14 @@ jobs:
           --health-retries 5
         ports:
           - 6379:6379
+      
+      playwright:
+        image: mcr.microsoft.com/playwright:v1.40.0
+        options: >-
+          --health-cmd "npx playwright --version"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
 
     steps:
     - uses: actions/checkout@v4
@@ -56,6 +64,11 @@ jobs:
         pip install -r requirements.txt
         pip install -r requirements-test.txt
     
+    - name: Install Playwright
+      run: |
+        pip install playwright pytest-playwright
+        playwright install chromium
+    
     - name: Lint with flake8
       run: |
         flake8 src/ --count --select=E9,F63,F7,F82 --show-source --statistics
@@ -77,6 +90,49 @@ jobs:
         ENVIRONMENT: test
       run: |
         pytest tests/ -v --cov=src --cov-report=xml --cov-report=html
+    
+    - name: Start CTIScraper for E2E tests
+      env:
+        DATABASE_URL: postgresql://postgres:postgres@localhost:5432/cti_scraper_test
+        REDIS_URL: redis://localhost:6379/0
+        SECRET_KEY: test-secret-key
+        ENVIRONMENT: test
+        HOST: 0.0.0.0
+        PORT: 8000
+      run: |
+        python -m uvicorn src.main:app --host 0.0.0.0 --port 8000 &
+        sleep 10  # Wait for server to start
+    
+    - name: Run E2E tests with Playwright
+      run: |
+        pytest tests/e2e/ -v --browser chromium --headed=false
+    
+    - name: Upload E2E test artifacts
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: playwright-report
+        path: |
+          playwright-report/
+          test-results/
+          screenshots/
+        retention-days: 30
+    
+    - name: Upload E2E test videos
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: playwright-videos
+        path: test-results/videos/
+        retention-days: 7
+    
+    - name: Upload E2E test traces
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: playwright-traces
+        path: test-results/traces/
+        retention-days: 7
     
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v3
