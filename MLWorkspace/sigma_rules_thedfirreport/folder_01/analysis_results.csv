@@ -1,0 +1,115 @@
+Filename,Excerpts of Supporting Language from DFIR Report Blog Article,LogSource and Detection Sections of SIGMA Rule
+create_remote_thread_win_malware_bumblebee.yml,"**Process Injection:** ""The BumbleBee loader chooses from three specific processes: wabmig.exe, wab.exe, ImagingDevices.exe"" **Remote Thread:** ""Used CreateRemoteThread Win32 function to execute code in rundll32.exe""","logsource:
+  product: windows
+  category: create_remote_thread
+detection:
+  selection:
+    SourceImage|endswith:
+      - '\wabmig.exe'
+      - '\wab.exe'
+      - '\ImagingDevices.exe'
+    TargetImage|endswith: '\rundll32.exe'
+  condition: selection"
+dns_query_win_ufile_io_query.yml,"""dumped lsass using Task Manager and uploaded the dump file to ufile.io using Internet Explorer"" during Diavol ransomware incident","logsource:
+  product: windows
+  category: dns_query
+detection:
+  selection:
+    QueryName|contains: 'ufile.io'
+  condition: selection"
+file_event_executable_and_script_creation_by_office_using_file_ext.yml,"""Initial execution of the document writes a file to: C:\Users\Public\microsoft.security. The Excel file called wmic to execute the file with regsrv32""","logsource:
+  product: windows
+  category: file_event
+detection:
+  selection1:
+    Image|endswith:
+      - '\winword.exe'
+      - '\excel.exe'
+      - '\powerpnt.exe'
+      - '\outlook.exe'
+  selection2:
+    TargetFilename|endswith:
+      - '.exe', '.dll', '.ocx', '.com'
+      - '.ps1', '.vbs', '.sys', '.bat'
+      - '.scr', '.proj'
+  selection3:
+    TargetFilename|startswith: '4D5A'
+  condition: selection1 and (selection2 or selection3)"
+file_event_win_advanced_ip_scanner.yml,"""Advanced IP Scanner was used to scan the environment"" with screenshot showing tool usage","logsource:
+  category: file_event
+  product: windows
+detection:
+  selection:
+    TargetFilename|contains: '\AppData\Local\Temp\Advanced IP Scanner 2'
+  condition: selection"
+file_event_win_anydesk_writing_susp_binaries.yml,"""powershell DownloadFile AnyDesk.msi"" and ""AnyDeskMSI.exe started, start type set to auto"" for remote access","logsource:
+  product: windows
+  category: file_event
+detection:
+  selection:
+    Image|endswith:
+      - '\AnyDesk.exe'
+      - '\AnyDeskMSI.exe'
+    TargetFilename|endswith:
+      - '.dll'
+      - '.exe'
+  filter_dlls:
+    TargetFilename|endswith: '\gcapi.dll'
+  condition: selection and not 1 of filter_*"
+file_event_win_cve_2021_44077_poc_default_files.yml,"""C:\Program Files\ManageEngine\SupportCenterPlus\bin\msiexec.exe"" with timestamp ""Thu Nov 14 12:00:07 2075"" to ""blend into environment""","logsource:
+  category: file_event
+  product: windows
+detection:
+  selection:
+    TargetFilename|endswith: '\ManageEngine\SupportCenterPlus\bin\msiexec.exe'
+  condition: selection"
+file_event_win_hktl_inveigh_artefacts.yml,"""Inveigh was run on a domain controller"" during PYSA/Mespinoza ransomware credential access phase","logsource:
+  product: windows
+  category: file_event
+detection:
+  selection:
+    TargetFilename|endswith:
+      - '\Inveigh-Log.txt'
+      - '\Inveigh-Cleartext.txt'
+      - '\Inveigh-NTLMv1Users.txt'
+      - '\Inveigh-NTLMv2Users.txt'
+      - '\Inveigh-NTLMv1.txt'
+      - '\Inveigh-NTLMv2.txt'
+      - '\Inveigh-FormInput.txt'
+      - '\Inveigh.dll', '\Inveigh.exe'
+      - '\Inveigh.ps1', '\Inveigh-Relay.ps1'
+  condition: selection"
+file_event_win_impacket_file_indicators.yml,"""Secretsdump.exe created files with pattern: sessionresume_[random characters]"" for dumping hashes without agents","logsource:
+  product: windows
+  category: file_event
+detection:
+  selection_names_re:
+    TargetFilename|re: '\sessionresume_[a-zA-Z]{8}$'
+  condition: selection_names_re"
+file_event_win_office_susp_file_extension.yml,"""Excel file called wmic to execute file with regsrv32"" and ransomware kills Office apps: ""powerpnt, outlook, winword, excel, onenote, msaccess""","logsource:
+  product: windows
+  category: file_event
+detection:
+  selection1:
+    Image|endswith:
+      - '\excel.exe', '\msaccess.exe'
+      - '\mspub.exe', '\powerpnt.exe'
+      - '\visio.exe', '\winword.exe'
+  selection2:
+    TargetFilename|endswith:
+      - '.bat', '.cmd', '.com', '.dll'
+      - '.exe', '.hta', '.ocx', '.proj'
+      - '.ps1', '.scf', '.scr', '.sys'
+      - '.vbe', '.vbs', '.wsf', '.wsh'
+  condition: all of selection*"
+file_event_win_susp_public_folder_extension.yml,"""%PUBLIC%\\Music\\svchosts.exe"" with persistence: ""Set-ItemProperty Run App Value '%PUBLIC%\\Music\\svchosts.exe'""","logsource:
+  category: file_event
+  product: windows
+detection:
+  selection:
+    TargetFilename|contains: ':\Users\Public\'
+    TargetFilename|endswith:
+      - '.bat', '.dll', '.exe'
+      - '.hta', '.js', '.ps1'
+      - '.vbe', '.vbs'
+  condition: selection"

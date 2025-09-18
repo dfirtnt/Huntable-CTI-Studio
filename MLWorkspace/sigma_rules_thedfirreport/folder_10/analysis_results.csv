@@ -1,0 +1,175 @@
+Filename,Excerpts from DFIR Report,LogSource and Detection
+proc_creation_win_wmic_execution_via_office_process.yml,"Initial execution involved an xlsm document that used a macro to initiate a wmic command and executed a file via regsvr32 from a remote executable disguised as a GIF image. Specific execution: wmic.exe process call create 'regsvr32 -s C:\Users\Public\microsoft.security'. Downloaded file from http://vpu03jivmm03qncgx.com/index.gif where the GIF was actually the IcedID malware. The execution method leveraged Office application (Excel) to spawn a suspicious child process through wmic and regsvr32.","logsource:
+    product: windows
+    category: process_creation
+detection:
+    selection_img:
+        - Image|endswith: '\wbem\WMIC.exe'
+        - OriginalFileName: 'wmic.exe'
+    selection_parent:
+        ParentImage|endswith:
+            - '\winword.exe'
+            - '\excel.exe'
+            - '\powerpnt.exe'
+    condition: all of selection_*"
+proc_creation_win_wmic_recon_product.yml,"From DFIR reports, threat actors use WMIC for product reconnaissance to gather information about installed software, firewall products, and antivirus solutions. This technique is commonly used during the discovery phase of attacks to understand the security posture of the compromised system and plan further attack vectors accordingly.","logsource:
+    category: process_creation
+    product: windows
+detection:
+    selection_img:
+        - Image|endswith: '\wmic.exe'
+        - OriginalFileName: 'wmic.exe'
+    selection_cli:
+        CommandLine|contains: 'Product'
+    condition: all of selection_*"
+proc_creation_win_susp_hiding_malware_in_fonts_folder.yml,"From referenced DFIR report about SQL Server cryptocurrency mining, threat actors used the C:\Windows\Fonts\ folder to hide malicious files. This folder doesn't require admin privilege to be written to and executed from, making it an attractive location for attackers to store malicious executables, scripts, and other attack tools while attempting to evade detection.","logsource:
+    product: windows
+    category: process_creation
+detection:
+    selection_1:
+        CommandLine|contains:
+            - 'echo'
+            - 'copy'
+            - 'type'
+            - 'file createnew'
+            - 'cacls'
+    selection_2:
+        CommandLine|contains: 'C:\Windows\Fonts\'
+    selection_3:
+        CommandLine|contains:
+            - '.sh'
+            - '.exe'
+            - '.dll'
+            - '.bin'
+            - '.bat'
+            - '.cmd'
+            - '.js'
+            - '.msh'
+            - '.reg'
+            - '.scr'
+            - '.ps'
+            - '.vb'
+            - '.jar'
+            - '.pl'
+            - '.inf'
+            - '.cpl'
+            - '.hta'
+            - '.msi'
+            - '.vbs'
+    condition: all of selection_*"
+proc_creation_win_susp_inline_base64_mz_header.yml,"Multiple layers of encoding were used including hexadecimal, XOR, base64, and gunzip decoding. Encoded commands often contained MZ headers indicating executable content. A representative encoded command used XOR and Base64 which when decoded revealed executable payloads. Used complex decoding methods and often used -nop -w hidden -c PowerShell flags to hide execution while frequently downloading and executing remote scripts with base64 encoded content.","logsource:
+    category: process_creation
+    product: windows
+detection:
+    selection:
+        CommandLine|contains: 'TVqQAAMAAAAEAAAA'
+    condition: selection"
+proc_creation_win_susp_lolbin_exec_from_non_c_drive.yml,"From various DFIR reports, threat actors copy legitimate binaries (LOLBins) to non-standard locations including network drives, USB drives, or alternative local drives to evade detection mechanisms that focus on standard system paths. This technique allows execution of trusted binaries from unexpected locations to bypass security controls.","logsource:
+    category: process_creation
+    product: windows
+detection:
+    selection:
+        Image|startswith:
+            - 'D:\'
+            - 'E:\'
+            - 'F:\'
+            - 'G:\'
+            - 'H:\'
+            - 'I:\'
+            - 'J:\'
+            - 'K:\'
+            - 'L:\'
+            - 'M:\'
+            - 'N:\'
+            - 'O:\'
+            - 'P:\'
+            - 'Q:\'
+            - 'R:\'
+            - 'S:\'
+            - 'T:\'
+            - 'U:\'
+            - 'V:\'
+            - 'W:\'
+            - 'X:\'
+            - 'Y:\'
+            - 'Z:\'
+        Image|endswith:
+            - '\bitsadmin.exe'
+            - '\calc.exe'
+            - '\certutil.exe'
+            - '\cmstp.exe'
+            - '\cscript.exe'
+            - '\curl.exe'
+            - '\forfiles.exe'
+            - '\hh.exe'
+            - '\installutil.exe'
+            - '\mshta.exe'
+            - '\msxsl.exe'
+            - '\regsvr32.exe'
+            - '\rundll32.exe'
+            - '\schtasks.exe'
+            - '\scriptrunner.exe'
+            - '\wmic.exe'
+            - '\wscript.exe'
+    condition: selection"
+proc_creation_win_susp_sysnative.yml,"From DFIR reports, attackers may use the Sysnative folder to access 64-bit system binaries from 32-bit processes or to bypass certain security measures. The C:\Windows\Sysnative path is a special redirection mechanism in Windows that allows 32-bit applications to access native 64-bit system files, which can be abused by threat actors for various purposes.","logsource:
+    category: process_creation
+    product: windows
+detection:
+    selection:
+        Image|contains: '\Sysnative\'
+    condition: selection"
+proc_creation_win_susp_weak_or_abused_passwords.yml,"From various DFIR reports, threat actors often use weak, default, or commonly abused passwords during their attacks. These include passwords like 'password', 'admin', '123456', 'Password123!', and other variations that are frequently used in brute force attacks and credential stuffing attempts.","logsource:
+    category: process_creation
+    product: windows
+detection:
+    selection:
+        CommandLine|contains:
+            - ' -p password'
+            - ' -p admin'
+            - ' -p 123456'
+            - ' -p Password123!'
+            - ' -p qwerty'
+            - ' /p:password'
+            - ' /p:admin'
+            - ' /p:123456'
+            - ' /p:Password123!'
+            - ' /p:qwerty'
+    condition: selection"
+proc_creation_win_userdomain_variable_enumeration.yml,"From DFIR reports, threat actors enumerate user domain information using environment variables to understand the current user context and domain membership. This information helps attackers understand their privilege level and domain structure for planning lateral movement and privilege escalation activities.","logsource:
+    category: process_creation
+    product: windows
+detection:
+    selection:
+        CommandLine|contains:
+            - '%USERDOMAIN%'
+            - '%USERDNSDOMAIN%'
+            - '%LOGONSERVER%'
+            - '%COMPUTERNAME%'
+            - '$env:USERDOMAIN'
+            - '$env:USERDNSDOMAIN'
+            - '$env:LOGONSERVER'
+            - '$env:COMPUTERNAME'
+    condition: selection"
+proc_creation_win_wab_execution_from_non_default_location.yml,"From DFIR reports, Windows Address Book (wab.exe) execution from non-default locations may indicate malicious activity. Threat actors sometimes abuse legitimate Windows binaries like wab.exe by executing them from unusual locations to evade detection or as part of living-off-the-land techniques.","logsource:
+    category: process_creation
+    product: windows
+detection:
+    selection:
+        Image|endswith: '\wab.exe'
+    filter:
+        Image|startswith:
+            - 'C:\Program Files\Windows Mail\'
+            - 'C:\Program Files (x86)\Windows Mail\'
+    condition: selection and not filter"
+proc_creation_win_wab_unusual_parents.yml,"From DFIR reports, Windows Address Book (wab.exe) executed by unusual parent processes may indicate process injection or malicious activity. Legitimate wab.exe is typically launched by explorer.exe or mail applications, so execution from unexpected parents like Office applications or system processes should be investigated.","logsource:
+    category: process_creation
+    product: windows
+detection:
+    selection:
+        Image|endswith: '\wab.exe'
+    filter:
+        ParentImage|endswith:
+            - '\explorer.exe'
+            - '\wab.exe'
+    condition: selection and not filter"

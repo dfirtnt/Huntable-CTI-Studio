@@ -534,6 +534,7 @@
             this.userClassifications = new Map();
             this.previousStates = []; // Store previous HTML states for undo
             this.maxUndoStates = 10;
+            this.isSubmitting = false; // Prevent duplicate submissions
             
             this.init();
         }
@@ -1140,11 +1141,11 @@
                     <h3 class="text-lg font-semibold mb-4">Classify Selected Text</h3>
                     <p class="text-sm text-gray-600 mb-4">"${text.substring(0, 100)}${text.length > 100 ? '...' : ''}"</p>
                     <div class="flex space-x-3">
-                        <button onclick="simpleTextManager.classifySelection(${start}, ${end}, 'huntable')" 
+                        <button onclick="event.stopPropagation(); simpleTextManager.classifySelection(${start}, ${end}, 'huntable'); simpleTextManager.closeModal();" 
                                 class="flex-1 bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700">
                             Huntable
                         </button>
-                        <button onclick="simpleTextManager.classifySelection(${start}, ${end}, 'not_huntable')" 
+                        <button onclick="event.stopPropagation(); simpleTextManager.classifySelection(${start}, ${end}, 'not_huntable'); simpleTextManager.closeModal();" 
                                 class="flex-1 bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700">
                             Not Huntable
                         </button>
@@ -1160,24 +1161,42 @@
         }
         
         async classifySelection(start, end, classification) {
-            const text = this.contentElement.textContent.substring(start, end);
+            // Prevent duplicate submissions - check immediately
+            if (this.isSubmitting) {
+                console.log('Preventing duplicate submission - already submitting');
+                return;
+            }
+            this.isSubmitting = true;
             
-            console.log('Classifying selection:', {
-                start: start,
-                end: end,
-                textLength: text.length,
-                textPreview: text.substring(0, 100),
-                classification: classification
-            });
-            
-            // Close modal first to prevent double-click issues
-            this.closeModal();
-            
-            // Add the classification highlight
-            this.addUserClassification(start, end, classification, text);
-            
-            // Save to server
-            await this.saveClassification(start, end, text, classification);
+            try {
+                const text = this.contentElement.textContent.substring(start, end);
+                
+                console.log('Classifying selection:', {
+                    start: start,
+                    end: end,
+                    textLength: text.length,
+                    textPreview: text.substring(0, 100),
+                    classification: classification
+                });
+                
+                // Close modal immediately to provide visual feedback
+                this.closeModal();
+                
+                // Add the classification highlight
+                this.addUserClassification(start, end, classification, text);
+                
+                // Save to server
+                await this.saveClassification(start, end, text, classification);
+                
+                // Show success message
+                this.showSuccessMessage('Text classified as ' + (classification === 'huntable' ? 'Huntable' : 'Not Huntable'));
+                
+            } finally {
+                // Reset submission state after a short delay to prevent rapid clicking
+                setTimeout(() => {
+                    this.isSubmitting = false;
+                }, 500);
+            }
         }
         
         showRemoveAnnotationModal(spanElement, annotationType, annotationText) {
@@ -1274,14 +1293,25 @@
         }
         
         closeModal() {
-            const modal = document.querySelector('.fixed.inset-0.bg-gray-600');
+            const modal = document.querySelector('.fixed.inset-0.bg-gray-600.bg-opacity-50');
             if (modal) {
                 modal.remove();
             }
+        }
+        
+        showSuccessMessage(message) {
+            // Create a temporary success message
+            const successDiv = document.createElement('div');
+            successDiv.className = 'fixed top-4 right-4 bg-green-500 text-white px-4 py-2 rounded shadow-lg z-50';
+            successDiv.textContent = message;
+            document.body.appendChild(successDiv);
             
-            // Clear pending removal references when modal is closed
-            this.pendingRemovalSpan = null;
-            this.pendingRemovalText = null;
+            // Remove after 2 seconds
+            setTimeout(() => {
+                if (successDiv.parentNode) {
+                    successDiv.parentNode.removeChild(successDiv);
+                }
+            }, 2000);
         }
         
         async saveClassification(start, end, text, classification) {

