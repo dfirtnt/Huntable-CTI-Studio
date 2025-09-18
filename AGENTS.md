@@ -98,5 +98,31 @@
 - `annotations.label` → huntable/not huntable
 - `annotations.article_id` → links annotations to articles
 
+## Web Application Testing
+
+### **Testing Tool Guidelines**
+- **Primary Testing**: Use Docker Playwright suite for production-grade E2E testing
+- **Development Testing**: Use IDE Playwright/Puppeteer MCPs for test development and debugging
+- **Comprehensive Guide**: See `WebAppDevtestingGuide.md` for detailed instructions on:
+  - Tool selection and usage patterns
+  - Development workflows and best practices
+  - Debugging strategies and troubleshooting
+  - CTIScraper-specific test scenarios
+  - Performance optimization and quality assurance
+
+### **Testing Workflow**
+1. **Development**: Use IDE MCPs for test creation and debugging
+2. **Validation**: Run Docker Playwright suite for comprehensive testing
+3. **CI/CD**: Automated testing via GitHub Actions
+4. **Artifacts**: Collect videos, traces, and reports for analysis
+
+### **Key Testing Areas**
+- Source management (add/edit/delete threat intelligence sources)
+- Article processing (content collection and threat hunting scoring)
+- API endpoints (REST API functionality)
+- User interface (navigation, forms, interactions)
+- Performance (page load times, responsiveness)
+- Accessibility (basic compliance)
+
 ## User Preferences
 - **Communication**: Concise, technical responses
