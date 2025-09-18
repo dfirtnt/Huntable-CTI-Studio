@@ -1,188 +1,227 @@
-# SousChef - LLM-Enhanced CyberChef
+# CTI Scraper
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Node.js Version](https://img.shields.io/badge/node-%3E%3D18.0.0-brightgreen.svg)](https://nodejs.org/)
-[![CyberChef Fork](https://img.shields.io/badge/CyberChef-Fork-blue.svg)](https://github.com/gchq/CyberChef)
+[![Python Version](https://img.shields.io/badge/python-3.8%2B-blue.svg)](https://python.org)
+[![Docker](https://img.shields.io/badge/docker-compose-blue.svg)](https://docker.com)
 
-SousChef is a fork of the original [CyberChef](https://github.com/gchq/CyberChef) with integrated LLM capabilities, enabling natural language processing for cryptographic operations and data analysis.
+A comprehensive threat intelligence aggregation and analysis platform designed for security researchers and threat hunters.
 
-## 🚀 Features
+## 🎯 Features
 
-### Core CyberChef Capabilities
-- **300+ Operations**: Complete suite of encoding, encryption, compression, and analysis tools
-- **Web Interface**: Full-featured React-based UI with drag-and-drop recipe building
-- **Node.js API**: Programmatic access to all operations
-- **Batch Processing**: Handle multiple files and data streams
-- **Recipe Sharing**: Save and load processing workflows
+### Threat Intelligence Collection
+- **Multi-Source Aggregation**: Automated collection from RSS feeds, blogs, and security vendor sites
+- **Smart Content Processing**: Advanced text extraction and cleaning with readability scoring
+- **Duplicate Detection**: Intelligent deduplication using content hashing and similarity analysis
+- **Source Health Monitoring**: Automatic source validation and failure tracking
 
-### LLM Enhancements
-- **Natural Language Processing**: Convert prompts like "Decode base64 then redact 'secret'" into valid recipes
-- **Intelligent Recipe Generation**: GPT-4 powered recipe creation from natural language descriptions
-- **Recipe Explanation**: Understand what each recipe does in plain English
-- **Error Correction**: Automatic recipe fixing and validation
-- **CLI Interface**: Command-line tool for automation and scripting
+### Advanced Analysis
+- **Threat Hunting Scoring**: ML-powered relevance scoring using keyword density and classification models
+- **Text Annotation System**: Web-based interface for marking huntable vs non-huntable content
+- **Keyword Classification**: Multi-tier keyword matching (perfect, good, LOLBAS, intelligence indicators)
+- **Content Filtering**: Automated junk detection and quality assessment
 
-## 📦 Installation
+### AI-Powered Features
+- **LLM Integration**: Support for Ollama (local) and OpenAI models
+- **Intelligent Classification**: GPT-4 powered article relevance assessment
+- **Natural Language Queries**: Database chat interface for threat intelligence exploration
+- **IOC Extraction**: Automated indicator of compromise detection
+
+### Web Interface
+- **Modern UI**: Responsive web interface built with FastAPI and modern JavaScript
+- **Real-time Updates**: Live monitoring of collection and processing status
+- **Interactive Analytics**: Visual dashboards for source health and content metrics
+- **Export Capabilities**: CSV export for annotations and classified content
+
+## 🚀 Quick Start
 
 ### Prerequisites
-- Node.js 18.0.0 or higher
-- OpenAI API key
+- Docker and Docker Compose
+- Python 3.8+ (for development)
+- PostgreSQL and Redis (handled by Docker)
 
-### Quick Start
+### Installation
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/dfirtnt/SousChef.git
-   cd SousChef
+   git clone https://github.com/your-org/CTIScraper.git
+   cd CTIScraper
    ```
 
-2. **Install dependencies**
+2. **Configure environment**
    ```bash
-   npm install
+   cp env.example .env
+   # Edit .env with your configuration
    ```
 
-3. **Configure environment**
+3. **Start with Docker**
    ```bash
-   cp .env.example .env
-   # Edit .env and add your OpenAI API key
+   docker-compose up -d
    ```
 
-4. **Start the web interface**
-   ```bash
-   npm run dev
-   ```
-   Open http://localhost:13337/CyberChef_v10.19.4.html
+4. **Access the web interface**
+   - Main interface: http://localhost:8000
+   - Health checks: http://localhost:8000/health-checks
 
-## 🛠️ Usage
-
-### Web Interface
-The full CyberChef web interface is available with all original features plus LLM enhancements:
-
-- **Operations Panel**: Browse 300+ operations by category
-- **Recipe Building**: Drag-and-drop operations to create processing chains
-- **Natural Language Input**: Describe what you want to do in plain English
-- **Auto-Bake**: Real-time processing with automatic execution
-
-### CLI Usage
-
-```bash
-# Generate a recipe from natural language
-npm run cli -- generate "Decode base64 then extract IP addresses"
-
-# Execute a recipe
-npm run cli -- execute recipe.json input.txt
-
-# Batch process files
-npm run cli -- batch recipe.json ./input-files/
-
-# Interactive mode
-npm run cli -- interactive
-```
-
-### API Usage
-
-```javascript
-import { SousChef } from './src/souschef/index.js';
-
-const chef = new SousChef(process.env.OPENAI_API_KEY);
-
-// Generate and execute in one call
-const { recipe, result } = await chef.generateAndExecute(
-  "Decode base64 then extract IP addresses",
-  "SGVsbG8gV29ybGQ="
-);
-
-console.log('Recipe:', recipe);
-console.log('Result:', result.output);
-```
-
-## 🔧 Configuration
+## 📋 Configuration
 
 ### Environment Variables
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `OPENAI_API_KEY` | OpenAI API key for LLM features | Required |
-| `OPENAI_MODEL` | OpenAI model to use | `gpt-4` |
-| `OPENAI_TEMPERATURE` | Temperature for recipe generation | `0.1` |
-| `OPENAI_MAX_TOKENS` | Maximum tokens per response | `2000` |
-| `LOG_LEVEL` | Logging level | `info` |
-| `PORT` | Web server port | `13337` |
+Key configuration options in `.env`:
 
-### Recipe Schema
+```bash
+# Database
+POSTGRES_USER=cti_user
+POSTGRES_PASSWORD=your_secure_password
+POSTGRES_DB=cti_scraper
 
-```json
-{
-  "steps": [
-    {
-      "op": "OperationNameExactlyAsInCyberChef",
-      "args": [/* ordered args per op */]
-    }
-  ],
-  "notes": "optional free text"
-}
+# Redis
+REDIS_PASSWORD=your_redis_password
+
+# LLM Configuration (Optional)
+CHATGPT_API_KEY=your_openai_api_key_here
+OLLAMA_HOST=http://ollama:11434
+
+# Application
+LOG_LEVEL=INFO
+WORKERS=4
+```
+
+### Source Configuration
+
+Sources are configured in `config/sources.yaml`:
+
+```yaml
+sources:
+  - name: "Example Security Blog"
+    url: "https://example.com/feed.xml"
+    type: "rss"
+    tier: 1
+    check_frequency: 900  # 15 minutes
 ```
 
 ## 🏗️ Architecture
 
-### Project Structure
-```
-SousChef/
-├── src/
-│   ├── core/           # Original CyberChef core
-│   ├── web/            # React web interface
-│   ├── node/           # Node.js API
-│   └── souschef/       # LLM enhancements
-│       ├── index.js    # Main SousChef class
-│       ├── generator.js # Recipe generation
-│       ├── orchestrator.js # Execution engine
-│       ├── validation.js # Schema validation
-│       └── cli.js      # Command-line interface
-├── tests/              # Test suite
-├── build/              # Pre-built web assets
-└── docs/               # Documentation
-```
+### Components
+- **Web Server**: FastAPI application with modern web interface
+- **Worker Processes**: Celery workers for background scraping and processing
+- **Scheduler**: Automated source checking and maintenance tasks
+- **Database**: PostgreSQL for structured data storage
+- **Cache**: Redis for session management and task queuing
+- **Reverse Proxy**: Nginx for production deployments
 
-### Key Components
+### Classification System
 
-- **SousChef**: Main orchestrator class combining LLM and CyberChef capabilities
-- **RecipeGenerator**: GPT-4 powered natural language to recipe conversion
-- **CyberChefOrchestrator**: Lightweight execution engine for recipes
-- **Validation**: Schema validation and operation allowlist management
+**Article Classification** (Whole Article Level):
+- `chosen`: Relevant threat intelligence
+- `rejected`: Not relevant
+- `unclassified`: Needs review
 
-## 🧪 Testing
+**Annotation Classification** (Text Chunk Level):
+- `huntable`: Actionable threat intelligence
+- `not_huntable`: Informational content
+
+## 🔧 Development
+
+### Local Development Setup
+
+1. **Create virtual environment**
+   ```bash
+   python -m venv venv
+   source venv/bin/activate  # Linux/Mac
+   # or
+   venv\Scripts\activate     # Windows
+   ```
+
+2. **Install dependencies**
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+3. **Run database migrations**
+   ```bash
+   alembic upgrade head
+   ```
+
+4. **Start development server**
+   ```bash
+   uvicorn src.web.modern_main:app --reload --host 0.0.0.0 --port 8000
+   ```
+
+### Testing
 
 ```bash
 # Run all tests
-npm test
+pytest
 
-# Run specific test suites
-npm run test:unit
-npm run test:integration
-npm run test:e2e
+# Run with coverage
+pytest --cov=src tests/
 
-# Test LLM features (requires API key)
-npm run test:llm
+# Test specific components
+pytest tests/test_scraping.py
 ```
+
+## 📊 Usage Examples
+
+### Adding Sources
+1. Navigate to Sources page in web interface
+2. Click "Add Source"
+3. Configure RSS URL, check frequency, and tier
+4. Save and monitor collection status
+
+### Annotation Workflow
+1. Browse to Articles page
+2. Select an unclassified article
+3. Mark article as "chosen" or "rejected"
+4. For chosen articles, select text and annotate as "huntable" or "not huntable"
+5. Export annotations for threat hunting use
+
+### Database Queries
+Use the AI Chat interface for natural language queries:
+- "Show me all articles about PowerShell from the last week"
+- "Find huntable content related to persistence techniques"
+- "What sources have been most active recently?"
+
+## 📈 Monitoring
+
+### Health Checks
+- **Application Health**: `/health-checks`
+- **Database Connectivity**: Automatic monitoring
+- **Source Status**: Real-time failure tracking
+- **Worker Health**: Celery task monitoring
+
+### Metrics
+- Article collection rates
+- Processing success/failure rates
+- Classification accuracy
+- Source availability
+
+## 🔒 Security
+
+### Best Practices
+- All secrets managed via environment variables
+- Database connections use encrypted connections
+- Rate limiting on API endpoints
+- Input validation and sanitization
+- Regular dependency updates
+
+### Data Privacy
+- No external data transmission without explicit configuration
+- Local LLM support via Ollama
+- Configurable data retention policies
 
 ## 🤝 Contributing
 
-We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details.
-
-### Development Setup
-
 1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Add tests for new functionality
-5. Submit a pull request
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
 
-### Code Standards
-
-- Follow existing code style and patterns
-- Add comprehensive tests for new features
-- Update documentation for API changes
-- Ensure all tests pass before submitting
+### Development Guidelines
+- Follow PEP 8 style guidelines
+- Add tests for new features
+- Update documentation
+- Use type hints where possible
 
 ## 📄 License
 
@@ -190,27 +229,23 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 🙏 Acknowledgments
 
-- **GCHQ**: Original CyberChef creators and maintainers
-- **OpenAI**: GPT-4 API for natural language processing
-- **Contributors**: All community contributors and maintainers
+- Built with FastAPI, SQLAlchemy, and modern web technologies
+- Inspired by the threat intelligence community's need for better aggregation tools
+- Special thanks to the open-source security tool ecosystem
 
-## 🔗 Links
+## 📚 Documentation
 
-- [Original CyberChef](https://github.com/gchq/CyberChef)
-- [CyberChef Web App](https://gchq.github.io/CyberChef/)
-- [OpenAI API](https://platform.openai.com/)
-- [Documentation](docs/)
+- [Development Workflow](DEVELOPMENT_WORKFLOW.md)
+- [AWS Deployment Guide](AWS_DEPLOYMENT_README.md)
+- [Contributing Guidelines](CONTRIBUTING.md)
+- [Changelog](CHANGELOG.md)
 
-## 📊 Status
+## 💬 Support
 
-- ✅ **Core CyberChef**: Fully functional with 300+ operations
-- ✅ **LLM Integration**: Natural language recipe generation
-- ✅ **Web Interface**: Complete React-based UI
-- ✅ **CLI Tools**: Command-line automation
-- ✅ **API**: Programmatic access
-- 🚧 **Advanced Features**: Recipe variations, error correction
-- 🚧 **Performance**: Optimization and caching
+- Create an issue for bug reports or feature requests
+- Check existing documentation for common questions
+- Review health checks for system status
 
 ---
 
-**SousChef** - The LLM-Enhanced Cyber Swiss Army Knife 🍳
+**Note**: This tool is designed for legitimate security research and threat intelligence purposes. Users are responsible for compliance with applicable laws and regulations.

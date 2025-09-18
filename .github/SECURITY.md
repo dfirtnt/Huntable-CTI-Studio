@@ -2,110 +2,97 @@
 
 ## Supported Versions
 
-We release patches for security vulnerabilities in the following versions:
+We actively support the following versions with security updates:
 
 | Version | Supported          |
 | ------- | ------------------ |
-| 1.x.x   | :white_check_mark: |
+| 1.0.x   | :white_check_mark: |
 | < 1.0   | :x:                |
 
 ## Reporting a Vulnerability
 
-We take security vulnerabilities seriously. If you discover a security vulnerability within SousChef, please report it to us as described below.
+We take security vulnerabilities seriously. If you discover a security vulnerability in CTI Scraper, please report it responsibly.
 
 ### How to Report
 
-**Please do not report security vulnerabilities through public GitHub issues.**
+1. **Do NOT** create a public GitHub issue for security vulnerabilities
+2. Send an email to [security@your-domain.com] with:
+   - Description of the vulnerability
+   - Steps to reproduce the issue
+   - Potential impact assessment
+   - Any suggested fixes or mitigations
 
-Instead, please report them via one of the following methods:
+### What to Expect
 
-1. **Email**: Send details to security@souschef.dev (if this email exists)
-2. **GitHub Security Advisory**: Use GitHub's private vulnerability reporting feature
-3. **Direct Contact**: Contact the maintainers directly through GitHub
-
-### What to Include
-
-When reporting a vulnerability, please include:
-
-- **Description**: A clear description of the vulnerability
-- **Steps to Reproduce**: Detailed steps to reproduce the issue
-- **Impact**: Potential impact and severity assessment
-- **Affected Versions**: Which versions are affected
-- **Suggested Fix**: If you have suggestions for fixing the issue
-
-### Response Timeline
-
-- **Initial Response**: Within 48 hours
-- **Status Update**: Within 7 days
-- **Resolution**: Depends on severity and complexity
-
-### Security Considerations
-
-#### API Keys and Credentials
-
-- **Never commit API keys** or credentials to the repository
-- Use environment variables for all sensitive configuration
-- Follow the `.env.example` template for configuration
-
-#### Dependencies
-
-- We regularly audit dependencies for known vulnerabilities
-- Critical vulnerabilities are addressed immediately
-- Moderate vulnerabilities are addressed in regular update cycles
-
-#### Data Handling
-
-- SousChef processes data locally when possible
-- OpenAI API calls are made only for recipe generation
-- No sensitive data is stored or logged unnecessarily
+- **Acknowledgment**: We will acknowledge receipt within 48 hours
+- **Initial Assessment**: We will provide an initial assessment within 5 business days
+- **Resolution Timeline**: Critical vulnerabilities will be addressed within 30 days
+- **Disclosure**: We follow coordinated disclosure practices
 
 ### Security Best Practices
 
-#### For Users
+When deploying CTI Scraper:
 
-1. **Environment Variables**: Always use environment variables for API keys
-2. **Regular Updates**: Keep dependencies updated
-3. **Input Validation**: Validate all inputs before processing
-4. **Network Security**: Use HTTPS in production environments
+#### Environment Security
+- [ ] Use strong, unique passwords for all database connections
+- [ ] Enable TLS/SSL for all network connections
+- [ ] Regularly rotate API keys and secrets
+- [ ] Use environment variables for all sensitive configuration
+- [ ] Enable firewall rules to restrict network access
 
-#### For Developers
+#### Application Security
+- [ ] Deploy behind a reverse proxy (nginx)
+- [ ] Enable rate limiting on public endpoints
+- [ ] Regular security updates for all dependencies
+- [ ] Monitor application logs for suspicious activity
+- [ ] Implement proper backup and recovery procedures
 
-1. **Code Review**: All code changes require review
-2. **Dependency Scanning**: Regular security audits
-3. **Input Sanitization**: Sanitize all user inputs
-4. **Error Handling**: Avoid exposing sensitive information in errors
+#### Data Protection
+- [ ] Encrypt data at rest and in transit
+- [ ] Implement proper access controls
+- [ ] Regular security audits of collected data
+- [ ] Compliance with applicable data protection regulations
+- [ ] Secure deletion of sensitive data when no longer needed
 
 ### Known Security Considerations
 
-#### OpenAI API Usage
+#### LLM Integration
+- API keys for external LLM services should be properly secured
+- Content sent to external services may be logged by providers
+- Consider using local LLM models (Ollama) for sensitive data
 
-- API keys are required for LLM features
-- Keys should be kept secure and not shared
-- Consider using API key rotation in production
+#### Web Interface
+- The annotation interface allows arbitrary text selection and classification
+- Admin access should be properly secured and monitored
+- Regular session management and timeout policies should be enforced
 
-#### CyberChef Operations
-
-- Some operations may be computationally expensive
-- Large inputs may cause memory issues
-- Certain cryptographic operations may have side effects
+#### Database Security
+- PostgreSQL connections should use encrypted connections
+- Regular database security patches should be applied
+- Backup files should be encrypted and stored securely
 
 ### Security Updates
 
-Security updates are released as:
+We will notify users of security updates through:
+- GitHub Security Advisories
+- Release notes with security patches
+- Direct notification for critical vulnerabilities
 
-- **Critical**: Immediate patch release
-- **High**: Within 7 days
-- **Medium**: Next regular release cycle
-- **Low**: Next major release
+### Bug Bounty
 
-### Contact Information
+We currently do not offer a formal bug bounty program, but we recognize and appreciate security researchers who responsibly disclose vulnerabilities.
 
-For security-related questions or concerns:
+### Compliance
 
-- **Primary**: GitHub Security Advisory
-- **Secondary**: Direct contact with maintainers
-- **Emergency**: Create a private issue with security label
+CTI Scraper is designed to support:
+- SOC 2 compliance requirements
+- GDPR data protection standards
+- Industry-standard security frameworks
+- Audit logging and monitoring requirements
+
+For compliance-specific questions, please contact our security team.
 
 ---
 
-**Thank you for helping keep SousChef and our users safe!**
+**Last Updated**: January 2025
+**Next Review**: July 2025

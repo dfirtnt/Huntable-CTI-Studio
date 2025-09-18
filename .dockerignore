@@ -1,0 +1,27 @@
+# Models folder - exclude from Docker builds
+models/
+
+# Common exclusions
+.git/
+.gitignore
+README.md
+*.md
+.env
+.env.*
+venv*/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+.coverage
+.pytest_cache/
+.tox/
+.DS_Store
+.vscode/
+.idea/
+*.log
+logs/
+*.tmp
+*.temp

