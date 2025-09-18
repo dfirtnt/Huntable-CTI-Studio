@@ -121,6 +121,43 @@ sources:
         author_selectors: ["meta[name='author']::attr(content)", ".author-name"]
     description: "Advanced malware analysis, detection engineering, and actionable threat intelligence"
 
+  # Group-IB Threat Intelligence Blog (Content-Filtered)
+  - id: "group_ib_threat_intel"
+    name: "Group-IB Threat Intelligence Blog"
+    url: "https://www.group-ib.com/blog/"
+    rss_url: "https://www.group-ib.com/blog/rss.xml"  # RSS feed found and working
+    check_frequency: 1800  # 30 minutes
+    active: true
+    config:
+      allow: ["group-ib.com"]
+      post_url_regex: ["^https://www\\.group-ib\\.com/blog/.*"]
+      robots:
+        enabled: true
+        user_agent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36"
+        respect_delay: true
+        max_requests_per_minute: 8
+        crawl_delay: 2.0
+      min_content_length: 2000
+      # Enhanced filtering for threat intelligence content only
+      title_filter_keywords: ["webinar", "training", "careers", "job posting", "event", "podcast", "newsletter"]
+      content_filter_keywords: [
+        "threat", "intelligence", "apt", "malware", "ransomware", "campaign", 
+        "attribution", "ioc", "ttp", "attack", "muddywater", "lazarus", 
+        "cobalt", "unc", "hacker", "cybercrime", "breach", "compromise",
+        "persistence", "lateral movement", "defense evasion", "credential access"
+      ]
+      require_threat_intel_keywords: true  # Only collect articles with threat intelligence keywords
+      extract:
+        prefer_jsonld: true
+        title_selectors: ["h1", "meta[property='og:title']::attr(content)"]
+        date_selectors: 
+          - "meta[property='article:published_time']::attr(content)"
+          - "time[datetime]::attr(datetime)"
+        body_selectors: ["article", "main", ".content", ".post-content", ".blog-content"]
+        author_selectors: ["meta[name='author']::attr(content)", ".author-name"]
+      min_content_length: 2000
+    description: "Group-IB threat intelligence research and analysis blog - Content-filtered to threat intelligence only (57.8% of RSS feed)"
+
   # =============================================================================
   # PREMIUM THREAT INTELLIGENCE SOURCES (Highest Actionable Value)
   # =============================================================================

@@ -567,7 +567,11 @@ WINDOWS_MALWARE_KEYWORDS = {
             r'[^\w](s\^+e\^*t|s\^*e\^+t)[^\w]',  # caret-obfuscated set
             r'[^\w](c\^+a\^*l\^*l|c\^*a\^+l\^*l|c\^*a\^*l\^+l)[^\w]',  # caret-obfuscated call
             r'\^|\"',  # caret or quote splitting
-            r'%[^%]+%<[^>]*|set\s+[A-Za-z0-9_]+\s*=\s*[^&|>]*\|'  # stdin piping patterns
+            r'%[^%]+%<[^>]*|set\s+[A-Za-z0-9_]+\s*=\s*[^&|>]*\|',  # stdin piping patterns
+            # macOS-specific perfect discriminators (100% chosen rate)
+            'homebrew', '/users/shared/', 'chmod 777',
+            # macOS telemetry and security controls (100% chosen rate)
+            'tccd', 'spctl', 'csrutil'
         ],
             'good_discriminators': [
                 'temp', '==', 'c:\\windows\\', 'Event ID', '.bat', '.ps1',
@@ -577,7 +581,11 @@ WINDOWS_MALWARE_KEYWORDS = {
                 'http:', 'hxxp', '->', '.exe', '--', 'cloudtrail',
                 '\\', 'spawn', '|',
                 # PowerShell attack techniques (high chosen rate)
-                'mimikatz', 'kerberoast', 'psexec'
+                'mimikatz', 'kerberoast', 'psexec',
+                # macOS-specific good discriminators (high chosen rate)
+                'codesign', 'mach-o', 'plist',
+                # macOS attack vectors and telemetry (60%+ chosen rate)
+                'osascript', 'TCC.db'
             ],
     'intelligence_indicators': [
         # Real threat activity - specific indicators
