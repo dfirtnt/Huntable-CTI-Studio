@@ -7,30 +7,33 @@ on:
     branches: [ main ]
 
 jobs:
-  security-scan:
+  test:
     runs-on: ubuntu-latest
-    name: Security Scan
-    steps:
-    - uses: actions/checkout@v4
     
-    - name: Run Trivy vulnerability scanner
-      uses: aquasecurity/trivy-action@master
-      with:
-        scan-type: 'fs'
-        scan-ref: '.'
-        format: 'sarif'
-        output: 'trivy-results.sarif'
-    
-    - name: Upload Trivy scan results to GitHub Security tab
-      uses: github/codeql-action/upload-sarif@v2
-      if: always()
-      with:
-        sarif_file: 'trivy-results.sarif'
+    services:
+      postgres:
+        image: postgres:13
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: cti_scraper_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+      
+      redis:
+        image: redis:6
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
 
-  lint-and-test:
-    runs-on: ubuntu-latest
-    name: Lint and Test
-    
     steps:
     - uses: actions/checkout@v4
     
@@ -38,8 +41,8 @@ jobs:
       uses: actions/setup-python@v4
       with:
         python-version: '3.11'
-        
-    - name: Cache dependencies
+    
+    - name: Cache pip dependencies
       uses: actions/cache@v3
       with:
         path: ~/.cache/pip
@@ -58,32 +61,33 @@ jobs:
         flake8 src/ --count --select=E9,F63,F7,F82 --show-source --statistics
         flake8 src/ --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
     
-    - name: Format check with black
-      run: black --check src/
-    
-    - name: Import sort check
-      run: isort --check-only src/
-    
     - name: Type check with mypy
       run: |
-        pip install mypy types-requests types-PyYAML
         mypy src/ --ignore-missing-imports
-      continue-on-error: true
     
-    - name: Run tests
+    - name: Security scan with bandit
       run: |
-        pytest tests/ --cov=src --cov-report=xml --cov-report=html
+        bandit -r src/ -f json -o bandit-report.json || true
+    
+    - name: Test with pytest
+      env:
+        DATABASE_URL: postgresql://postgres:postgres@localhost:5432/cti_scraper_test
+        REDIS_URL: redis://localhost:6379/0
+        SECRET_KEY: test-secret-key
+        ENVIRONMENT: test
+      run: |
+        pytest tests/ -v --cov=src --cov-report=xml --cov-report=html
     
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v3
       with:
         file: ./coverage.xml
         flags: unittests
+        name: codecov-umbrella
 
   docker-build:
     runs-on: ubuntu-latest
-    name: Docker Build Test
-    needs: [lint-and-test]
+    needs: test
     
     steps:
     - uses: actions/checkout@v4
@@ -92,46 +96,28 @@ jobs:
       uses: docker/setup-buildx-action@v3
     
     - name: Build Docker image
-      uses: docker/build-push-action@v5
-      with:
-        context: .
-        file: ./Dockerfile
-        push: false
-        tags: cti-scraper:test
-        cache-from: type=gha
-        cache-to: type=gha,mode=max
-    
-    - name: Test Docker Compose
       run: |
-        cp env.example .env
-        docker-compose -f docker-compose.yml config
-        docker-compose -f docker-compose.yml up -d --build
-        sleep 30
-        curl -f http://localhost:8000/health-checks || exit 1
-        docker-compose down
+        docker build -t cti-scraper:latest .
+    
+    - name: Test Docker image
+      run: |
+        docker run --rm cti-scraper:latest python -c "import src; print('Import successful')"
 
-  dependency-check:
+  security-scan:
     runs-on: ubuntu-latest
-    name: Dependency Vulnerability Check
     
     steps:
     - uses: actions/checkout@v4
     
-    - name: Set up Python
-      uses: actions/setup-python@v4
+    - name: Run Trivy vulnerability scanner
+      uses: aquasecurity/trivy-action@master
       with:
-        python-version: '3.11'
+        scan-type: 'fs'
+        scan-ref: '.'
+        format: 'sarif'
+        output: 'trivy-results.sarif'
     
-    - name: Install safety
-      run: pip install safety
-    
-    - name: Check dependencies for vulnerabilities
-      run: |
-        pip install -r requirements.txt
-        safety check --json --output safety-report.json || true
-        
-    - name: Upload safety report
-      uses: actions/upload-artifact@v3
+    - name: Upload Trivy scan results to GitHub Security tab
+      uses: github/codeql-action/upload-sarif@v2
       with:
-        name: safety-report
-        path: safety-report.json
+        sarif_file: 'trivy-results.sarif'

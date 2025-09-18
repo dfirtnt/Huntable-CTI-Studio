@@ -3,34 +3,51 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python Version](https://img.shields.io/badge/python-3.8%2B-blue.svg)](https://python.org)
 [![Docker](https://img.shields.io/badge/docker-compose-blue.svg)](https://docker.com)
+[![CI/CD](https://github.com/your-org/CTIScraper/workflows/CI/badge.svg)](https://github.com/your-org/CTIScraper/actions)
 
-A comprehensive threat intelligence aggregation and analysis platform designed for security researchers and threat hunters.
+A comprehensive threat intelligence aggregation and analysis platform designed for security researchers and threat hunters. CTI Scraper automates the collection, processing, and analysis of threat intelligence from multiple sources, providing actionable insights for cybersecurity professionals.
 
-## 🎯 Features
+## 🎯 Key Features
 
-### Threat Intelligence Collection
-- **Multi-Source Aggregation**: Automated collection from RSS feeds, blogs, and security vendor sites
-- **Smart Content Processing**: Advanced text extraction and cleaning with readability scoring
+### 🔍 Intelligent Threat Intelligence Collection
+- **Multi-Source Aggregation**: Automated collection from 50+ RSS feeds, security blogs, and vendor sites
+- **Smart Content Processing**: Advanced text extraction with readability scoring and content validation
 - **Duplicate Detection**: Intelligent deduplication using content hashing and similarity analysis
-- **Source Health Monitoring**: Automatic source validation and failure tracking
+- **Source Health Monitoring**: Real-time monitoring with automatic failure detection and recovery
 
-### Advanced Analysis
+### 🤖 AI-Powered Analysis
 - **Threat Hunting Scoring**: ML-powered relevance scoring using keyword density and classification models
+- **LLM Integration**: Support for Ollama (local), OpenAI GPT models, and LM Studio
+- **Intelligent Classification**: GPT-4 powered article relevance assessment and categorization
+- **IOC Extraction**: Automated indicator of compromise detection and analysis
+
+### 📊 Advanced Analytics
 - **Text Annotation System**: Web-based interface for marking huntable vs non-huntable content
 - **Keyword Classification**: Multi-tier keyword matching (perfect, good, LOLBAS, intelligence indicators)
 - **Content Filtering**: Automated junk detection and quality assessment
+- **Interactive Dashboards**: Real-time analytics for source health and content metrics
 
-### AI-Powered Features
-- **LLM Integration**: Support for Ollama (local) and OpenAI models
-- **Intelligent Classification**: GPT-4 powered article relevance assessment
-- **Natural Language Queries**: Database chat interface for threat intelligence exploration
-- **IOC Extraction**: Automated indicator of compromise detection
-
-### Web Interface
-- **Modern UI**: Responsive web interface built with FastAPI and modern JavaScript
+### 🌐 Modern Web Interface
+- **Responsive Design**: Modern UI built with FastAPI and contemporary JavaScript
 - **Real-time Updates**: Live monitoring of collection and processing status
-- **Interactive Analytics**: Visual dashboards for source health and content metrics
 - **Export Capabilities**: CSV export for annotations and classified content
+- **RESTful API**: Comprehensive API for integration with other security tools
+
+## 🏗️ Architecture
+
+### Core Components
+- **FastAPI Backend**: High-performance async web framework with automatic API documentation
+- **PostgreSQL Database**: Robust data storage with advanced indexing and query optimization
+- **Redis Cache**: High-speed caching and task queue management
+- **Celery Workers**: Distributed task processing for scalable content collection
+- **Docker Containers**: Containerized deployment for consistent environments
+
+### Data Flow
+1. **Collection**: Automated RSS feed parsing and web scraping
+2. **Processing**: Content extraction, cleaning, and deduplication
+3. **Analysis**: AI-powered scoring and classification
+4. **Storage**: Structured data storage with full-text search capabilities
+5. **Presentation**: Real-time web interface and API endpoints
 
 ## 🚀 Quick Start
 
@@ -43,24 +60,34 @@ A comprehensive threat intelligence aggregation and analysis platform designed f
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/your-org/CTIScraper.git
+   git clone https://github.com/your-username/CTIScraper.git
    cd CTIScraper
    ```
 
 2. **Configure environment**
    ```bash
    cp env.example .env
-   # Edit .env with your configuration
+   # Edit .env with your configuration (API keys, database credentials, etc.)
    ```
 
-3. **Start with Docker**
+3. **Start the application**
    ```bash
    docker-compose up -d
    ```
 
-4. **Access the web interface**
-   - Main interface: http://localhost:8000
-   - Health checks: http://localhost:8000/health-checks
+4. **Verify installation**
+   ```bash
+   # Check container status
+   docker-compose ps
+   
+   # View logs
+   docker-compose logs -f
+   ```
+
+5. **Access the application**
+   - **Web Interface**: http://localhost:8000
+   - **API Documentation**: http://localhost:8000/docs
+   - **Health Check**: http://localhost:8000/health
 
 ## 📋 Configuration
 

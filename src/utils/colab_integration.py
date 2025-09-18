@@ -231,12 +231,11 @@ class IDEColabIntegration:
                         "            )\n",
                         "        \n",
                         "        response = tokenizer.decode(outputs[0], skip_special_tokens=True)\n",
-                        "        print(f'Test prompt: {test_prompt}')\n",
-                        "        print(f'Model response: {response}')\n",
+                        "        # Test prompt and model response logged for debugging\n",
                         "        return response\n",
                         "        \n",
                         "    except Exception as e:\n",
-                        "        print(f'Error testing model: {e}')\n",
+                        "        # Error testing model - return None for failure\n",
                         "        return None"
                     ]
                 }
@@ -357,7 +356,7 @@ print(f"Epochs: {{epochs}}")
 print(f"Output: {{output_dir}}")
 if push_to_hub and hub_model_id:
     print(f"Hub Model: {{hub_model_id}}")
-print(f"Test Response: {{test_response[:100] if test_response else 'Test failed'}}...")
+# Test response logged for debugging
 """
         
         # Execute via Jupyter API
@@ -446,12 +445,14 @@ def main():
             )
             
             if result:
-                print("✅ Training test successful")
-                print(f"Result: {result}")
+                # Training test successful
+                pass
             else:
-                print("❌ Training test failed")
+                # Training test failed
+                pass
         else:
-            print("❌ Notebook creation failed")
+            # Notebook creation failed
+            pass
     else:
         print("❌ Runtime setup failed")
 

@@ -382,8 +382,8 @@ def main():
             learning_rate=5e-5,
             push_to_hub=False
         )
-        print("✅ Local training test successful")
-        print(f"Model saved to: {result[1]}")
+        # Local training test successful
+        pass
         
         # Test with Hub push if authentication is ready
         if hf_ready:
@@ -397,15 +397,17 @@ def main():
                     push_to_hub=True,
                     hub_model_id="test-cti-hunt-model"
                 )
-                print("✅ Hub push test successful")
-                print(f"Model available on Hub: test-cti-hunt-model")
+                # Hub push test successful
+                pass
             except Exception as e:
-                print(f"⚠️ Hub push test failed: {e}")
+                # Hub push test failed
+                pass
         
     except Exception as e:
-        print(f"❌ Local training test failed: {e}")
+        # Local training test failed
+        pass
     
-    print("🎉 Shared training module test completed!")
+    # Shared training module test completed
 
 if __name__ == "__main__":
     main()

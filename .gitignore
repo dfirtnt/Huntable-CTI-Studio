@@ -144,3 +144,78 @@ env*/
 
 # ML specific
 venv-ml/
+
+# CTI Scraper specific
+uploads/
+outputs/
+data/
+sigma_rules_thedfirreport_combined.csv
+sigma_rules_thedfirreport_raw_fixed.csv
+*.xlsx
+*.csv
+GPTCTIHelp*.csv
+Huntable_Table*.csv
+
+# Docker
+docker-compose.override.yml
+
+# Terraform
+terraform.tfvars
+*.tfplan
+.terraform/
+
+# AWS
+.env.aws
+
+# Hugging Face
+.huggingface/
+
+# Jupyter notebooks checkpoints
+.ipynb_checkpoints/
+
+# Model files
+*.bin
+*.safetensors
+*.gguf
+*.pt
+*.pth
+
+# Temporary files
+*.tmp
+*.temp
+/tmp/
+
+# IDE specific
+.cursor/
+.vscode/settings.json
+.vscode/launch.json
+
+# OS specific
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Logs and debugging
+debug.log
+error.log
+access.log
+*.log
+
+# Backup files
+*.bak
+*.backup
+*~
+
+# Test outputs
+test_outputs/
+pytest_cache/
+.coverage
+htmlcov/
+
+# Documentation builds
+docs/_build/
+site/
