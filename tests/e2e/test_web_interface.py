@@ -13,8 +13,8 @@ class TestCTIScraperWebInterface:
     
     def test_homepage_loads(self, page: Page):
         """Test that the homepage loads successfully"""
-        expect(page).to_have_title("CTI Scraper")
-        expect(page.locator("h1")).to_be_visible()
+        expect(page).to_have_title("Dashboard - CTI Scraper")
+        expect(page.locator("h1").first).to_be_visible()
     
     def test_navigation_menu(self, page: Page):
         """Test navigation menu functionality"""
@@ -61,7 +61,7 @@ class TestCTIScraperWebInterface:
         response = page.request.get("http://localhost:8000/api/sources")
         expect(response).to_be_ok()
         data = response.json()
-        expect(data).to_have_property("sources")
+        assert "sources" in data, "API response should contain 'sources' key"
     
     def test_search_functionality(self, page: Page):
         """Test search functionality"""
