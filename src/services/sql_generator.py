@@ -1,5 +1,5 @@
 """
-SQL Generation Service using Mistral 7B for natural language to SQL conversion.
+SQL Generation Service using Local LLM for natural language to SQL conversion.
 """
 
 import os
@@ -13,11 +13,11 @@ logger = logging.getLogger(__name__)
 
 
 class SQLGenerator:
-    """Generate SQL queries from natural language using Mistral 7B."""
+    """Generate SQL queries from natural language using Phi-3 Mini (optimized for speed)."""
     
     def __init__(self):
         self.ollama_url = os.getenv('LLM_API_URL', 'http://ollama:11434')
-        self.model = os.getenv('LLM_MODEL', 'codellama:7b')
+        self.model = os.getenv('LLM_MODEL', 'phi3:mini')  # Switched to faster, smaller model
         self.schema_context = self._build_schema_context()
     
     def _build_schema_context(self) -> str:
@@ -132,11 +132,11 @@ Common query patterns:
                         "stream": False,
                         "options": {
                             "temperature": 0.0,  # Deterministic SQL generation
-                            "num_predict": 200,
+                            "num_predict": 100,  # Reduced from 200 for faster generation
                             "stop": ["```", "---", "Explanation:", "To get", "Here is", "You can", "The query", "This query"]
                         }
                     },
-                    timeout=120.0
+                    timeout=30.0  # Reduced timeout for faster failure
                 )
                 
                 logger.info(f"Ollama response status: {response.status_code}")
@@ -148,6 +148,25 @@ Common query patterns:
                     
                     # Extract SQL from the response
                     sql_query = self._extract_sql_from_response(generated_text)
+                    
+                    # If no SQL extracted, fall back to simple pattern matching
+                    if sql_query is None:
+                        simple_sql = self._try_simple_patterns(natural_language_query)
+                        if simple_sql:
+                            return {
+                                "success": True,
+                                "sql": simple_sql,
+                                "raw_response": f"Fallback pattern matching: {simple_sql}",
+                                "model_used": "pattern_matching_fallback",
+                                "timestamp": datetime.now().isoformat()
+                            }
+                        else:
+                            return {
+                                "success": False,
+                                "error": "Could not generate valid SQL from query. Please try rephrasing your question.",
+                                "sql": None,
+                                "raw_response": generated_text
+                            }
                     
                     return {
                         "success": True,
@@ -177,6 +196,10 @@ Common query patterns:
         """Try to match common query patterns."""
         query_lower = query.lower()
         
+        # System status check
+        if any(phrase in query_lower for phrase in ['is this thing on', 'is it working', 'system status', 'database status']):
+            return "SELECT COUNT(*) as total_articles, COUNT(DISTINCT source_id) as active_sources FROM articles"
+        
         # Count articles
         if any(word in query_lower for word in ['how many', 'count', 'number of']) and 'article' in query_lower:
             return "SELECT COUNT(*) as article_count FROM articles"
@@ -194,7 +217,7 @@ Common query patterns:
             return "SELECT a.title, s.name as source, (a.article_metadata->>'threat_hunting_score')::float as threat_score FROM articles a JOIN sources s ON a.source_id = s.id WHERE a.article_metadata->>'threat_hunting_score' IS NOT NULL ORDER BY threat_score DESC LIMIT 100"
         
         # Articles with specific keywords
-        if 'contain' in query_lower or 'about' in query_lower or 'from the last' in query_lower:
+        if 'contain' in query_lower or 'about' in query_lower or 'from the last' in query_lower or 'show me' in query_lower:
             # Extract potential keywords from the query - look for capitalized words (likely proper nouns)
             words = query_lower.split()
             keywords = []
@@ -206,6 +229,10 @@ Common query patterns:
                         if orig_word.lower() == word and orig_word[0].isupper():
                             keywords.append(word)
                             break
+                    # If no capitalized version found, use the word as-is for common threat terms
+                    if not keywords or keywords[-1] != word:
+                        if word in ['ransomware', 'malware', 'apt', 'phishing', 'trojan', 'virus', 'backdoor', 'rootkit', 'botnet', 'cryptocurrency', 'bitcoin', 'ethereum']:
+                            keywords.append(word)
             
             if keywords:
                 keyword = keywords[0]
@@ -214,7 +241,7 @@ Common query patterns:
                     if 'days' in query_lower:
                         return f"SELECT a.title, s.name as source, a.published_at FROM articles a JOIN sources s ON a.source_id = s.id WHERE a.content ILIKE '%{keyword}%' AND a.published_at >= NOW() - INTERVAL '30 days' ORDER BY a.published_at DESC LIMIT 100"
                     elif 'weeks' in query_lower:
-                        return f"SELECT a.title, s.name as source, a.published_at FROM articles a JOIN sources s ON a.source_id = s.id WHERE a.content ILIKE '%{keyword}%' AND a.published_at >= NOW() - INTERVAL '4 weeks' ORDER BY a.published_at DESC LIMIT 100"
+                        return f"SELECT a.title, s.name as source, a.published_at FROM articles a JOIN sources s ON a.source_id = s.id WHERE a.content ILIKE '%{keyword}%' AND a.published_at >= NOW() - INTERVAL '1 week' ORDER BY a.published_at DESC LIMIT 100"
                     elif 'months' in query_lower:
                         return f"SELECT a.title, s.name as source, a.published_at FROM articles a JOIN sources s ON a.source_id = s.id WHERE a.content ILIKE '%{keyword}%' AND a.published_at >= NOW() - INTERVAL '3 months' ORDER BY a.published_at DESC LIMIT 100"
                 else:
@@ -224,10 +251,19 @@ Common query patterns:
     
     def _build_sql_prompt(self, query: str) -> str:
         """Build the prompt for SQL generation."""
-        return f"""-- PostgreSQL query for: {query}
--- Tables: articles(id,title,content,published_at,source_id), sources(id,name,active)
+        return f"""Generate a PostgreSQL SQL query for: {query}
 
-SELECT COUNT(*) FROM articles;"""
+Database schema:
+- articles(id, title, content, published_at, source_id, article_metadata)
+- sources(id, name, active)
+
+Rules:
+- Only output the SQL query
+- Use SELECT statements only
+- No explanations or comments
+- Use proper PostgreSQL syntax
+
+Query:"""
     
     def _extract_sql_from_response(self, response: str) -> str:
         """Extract SQL query from the LLM response."""
@@ -244,14 +280,15 @@ SELECT COUNT(*) FROM articles;"""
             if len(parts) >= 3:
                 return parts[1].strip()
         
-        # Look for SELECT statement
+        # Look for SELECT statement in the response
         lines = response.split('\n')
         for line in lines:
             if line.strip().upper().startswith('SELECT'):
                 return line.strip()
         
-        # If no markers, return the whole response
-        return response.strip()
+        # If no SQL found, fall back to simple pattern matching
+        # This prevents returning explanatory text that contains forbidden keywords
+        return None
     
     async def explain_query(self, sql: str, results: List[Dict], user_question: str) -> str:
         """
@@ -265,6 +302,21 @@ SELECT COUNT(*) FROM articles;"""
         Returns:
             Natural language explanation
         """
+        # Simple explanation for pattern matching queries (fast)
+        if "COUNT(*)" in sql.upper():
+            count = results[0].get('article_count', results[0].get('total_articles', 0))
+            return f"The query result indicates that there are {count:,} articles available in the database."
+        
+        if "ILIKE" in sql.upper() and "ORDER BY" in sql.upper():
+            count = len(results)
+            keyword = sql.split("ILIKE '%")[1].split("%'")[0] if "ILIKE '%" in sql else "the specified keyword"
+            return f"Found {count} articles containing '{keyword}' in their content, ordered by publication date."
+        
+        if "JOIN" in sql.upper() and "ORDER BY" in sql.upper():
+            count = len(results)
+            return f"Retrieved {count} articles with source information, ordered by publication date."
+        
+        # Fall back to LLM for complex queries
         prompt = f"""Explain these query results briefly:
 
 Question: {user_question}
