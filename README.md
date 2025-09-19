@@ -20,6 +20,7 @@ A comprehensive threat intelligence aggregation and analysis platform designed f
 - **LLM Integration**: Support for Ollama (local), OpenAI GPT models, and LM Studio
 - **Intelligent Classification**: GPT-4 powered article relevance assessment and categorization
 - **IOC Extraction**: Automated indicator of compromise detection and analysis
+- **SIGMA Rule Generation**: AI-powered generation of detection rules with pySIGMA validation
 
 ### 📊 Advanced Analytics
 - **Text Annotation System**: Web-based interface for marking huntable vs non-huntable content
@@ -208,6 +209,15 @@ Use the AI Chat interface for natural language queries:
 - "Find huntable content related to persistence techniques"
 - "What sources have been most active recently?"
 
+### SIGMA Rule Generation
+Generate detection rules from threat intelligence articles:
+1. Navigate to any article with threat hunting score > 70
+2. Click "Generate SIGMA Rules" button
+3. AI analyzes content and generates detection rules
+4. Rules are validated using pySIGMA for compliance
+5. Failed rules are automatically retried with error feedback (up to 3 attempts)
+6. Valid rules are stored with metadata and validation results
+
 ## 📈 Monitoring
 
 ### Health Checks
@@ -266,6 +276,9 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - [AWS Deployment Guide](AWS_DEPLOYMENT_README.md)
 - [Contributing Guidelines](CONTRIBUTING.md)
 - [Changelog](CHANGELOG.md)
+- [SIGMA Rule Generation](SIGMA_RULE_GENERATION.md)
+- [Web App Testing Guide](WebAppDevtestingGuide.md)
+- [Agent Guidelines](AGENTS.md)
 
 ## 💬 Support
 

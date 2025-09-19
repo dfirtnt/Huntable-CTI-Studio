@@ -253,6 +253,130 @@ def test_source_connectivity(self, source_id: int):
 
 
 @celery_app.task(bind=True, max_retries=3)
+def check_source(self, source_identifier: str):
+    """Check a specific source by identifier for new content."""
+    try:
+        import asyncio
+        from src.database.async_manager import AsyncDatabaseManager
+        from src.core.rss_parser import RSSParser
+        from src.core.processor import ContentProcessor
+        from src.utils.http import HTTPClient
+        
+        async def run_source_check():
+            """Run the actual source checking."""
+            db = AsyncDatabaseManager()
+            try:
+                # Get the specific source by identifier
+                sources = await db.list_sources()
+                source = None
+                for s in sources:
+                    if hasattr(s, 'identifier') and s.identifier == source_identifier:
+                        source = s
+                        break
+                
+                if not source:
+                    return {"status": "error", "message": f"Source '{source_identifier}' not found"}
+                
+                if not source.active:
+                    return {"status": "error", "message": f"Source '{source.name}' is not active"}
+                
+                logger.info(f"Checking source {source.name} (ID: {source.id}) for new content...")
+                
+                # Initialize processor for deduplication
+                processor = ContentProcessor(
+                    similarity_threshold=0.85,
+                    max_age_days=90,
+                    enable_content_enhancement=True
+                )
+                
+                # Get existing content hashes for deduplication
+                existing_hashes = await db.get_existing_content_hashes()
+                
+                async with HTTPClient() as http_client:
+                    rss_parser = RSSParser(http_client)
+                    
+                    # Track timing for health metrics
+                    start_time = time.time()
+                    
+                    try:
+                        # Parse RSS feed for new articles
+                        articles = await rss_parser.parse_feed(source)
+                        
+                        if articles:
+                            logger.info(f"  ✓ {source.name}: {len(articles)} articles collected")
+                            
+                            # Process articles through deduplication
+                            dedup_result = await processor.process_articles(articles, existing_hashes)
+                            
+                            # Save deduplicated articles
+                            saved_count = 0
+                            if dedup_result.unique_articles:
+                                for article in dedup_result.unique_articles:
+                                    try:
+                                        await db.create_article(article)
+                                        saved_count += 1
+                                    except Exception as e:
+                                        logger.error(f"Error storing article from {source.name}: {e}")
+                                        continue
+                            
+                            # Log filtering statistics
+                            filtered_count = len(dedup_result.duplicates)
+                            duplicates_filtered = filtered_count
+                            
+                            logger.info(f"    - Saved: {saved_count} articles")
+                            logger.info(f"    - Duplicates filtered: {duplicates_filtered} articles")
+                            
+                            return {
+                                "status": "success",
+                                "source_id": source.id,
+                                "source_name": source.name,
+                                "articles_collected": len(articles),
+                                "articles_saved": saved_count,
+                                "duplicates_filtered": duplicates_filtered,
+                                "message": f"Successfully collected {saved_count} new articles from {source.name}"
+                            }
+                        else:
+                            logger.info(f"  ✓ {source.name}: No new articles found")
+                            return {
+                                "status": "success",
+                                "source_id": source.id,
+                                "source_name": source.name,
+                                "articles_collected": 0,
+                                "articles_saved": 0,
+                                "duplicates_filtered": 0,
+                                "message": f"No new articles found for {source.name}"
+                            }
+                            
+                    except Exception as e:
+                        logger.error(f"Error collecting from {source.name}: {e}")
+                        return {"status": "error", "source_id": source.id, "message": str(e)}
+                    finally:
+                        # Update source health metrics regardless of success/failure
+                        try:
+                            response_time = time.time() - start_time
+                            await db.update_source_health(source.id, True, response_time)
+                            await db.update_source_article_count(source.id)
+                            logger.info(f"Updated source {source.id} health and article count")
+                        except Exception as health_error:
+                            logger.error(f"Failed to update health for source {source.id}: {health_error}")
+                
+            except Exception as e:
+                logger.error(f"Source check failed: {e}")
+                raise e
+            finally:
+                await db.close()
+        
+        # Run the async function
+        result = asyncio.run(run_source_check())
+        return result
+        
+    except Exception as exc:
+        logger.error(f"Source check task failed: {exc}")
+        # Retry with exponential backoff
+        raise self.retry(exc=exc, countdown=60 * (2 ** self.request.retries))
+
+
+@celery_app.task(bind=True, max_retries=3)
 def collect_from_source(self, source_id: int):
     """Collect new content from a specific source."""
     try:

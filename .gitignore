@@ -212,6 +212,7 @@ access.log
 
 # Test outputs
 test_outputs/
+test-results/
 pytest_cache/
 .coverage
 htmlcov/

@@ -230,7 +230,7 @@
                         {% endif %}
 
                         <div class="flex items-center space-x-2">
-                            <button onclick="openSourceConfig({{ source.id }}, {{ source.lookback_days }}, {{ source.config.min_content_length if source.config and source.config.min_content_length else 200 }})" class="inline-flex items-center px-3 py-1.5 border border-gray-300 rounded text-xs font-medium text-gray-700 bg-white hover:bg-gray-50 transition-colors">
+                            <button onclick="openSourceConfig({{ source.id }}, {{ source.lookback_days }}, {{ source.check_frequency // 60 }}, {{ source.config.min_content_length if source.config and source.config.min_content_length else 200 }})" class="inline-flex items-center px-3 py-1.5 border border-gray-300 rounded text-xs font-medium text-gray-700 bg-white hover:bg-gray-50 transition-colors">
                                 <span class="mr-2">⚙️</span>
                                 Configure
                             </button>
@@ -600,6 +600,19 @@ document.getElementById('resultModal').addEventListener('click', function(e) {
                                 </p>
                             </div>
 
+                            <!-- Check Frequency Configuration -->
+                            <div>
+                                <label for="configCheckFrequency" class="block text-sm font-medium text-gray-700 mb-2">
+                                    Check Frequency (minutes)
+                                </label>
+                                <input type="number" id="configCheckFrequency" min="1" max="1440" 
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                                       placeholder="Enter minutes (1-1440)">
+                                <p class="mt-1 text-xs text-gray-500">
+                                    How often this source should be checked for new content (minimum 1 minute).
+                                </p>
+                            </div>
+
                             <!-- Minimum Content Length Configuration -->
                             <div>
                                 <label for="configMinContentLength" class="block text-sm font-medium text-gray-700 mb-2">
@@ -633,9 +646,10 @@ document.getElementById('resultModal').addEventListener('click', function(e) {
 <script>
 let currentSourceId = null;
 
-function openSourceConfig(sourceId, currentDays, currentMinLength) {
+function openSourceConfig(sourceId, currentDays, currentCheckFrequencyMinutes, currentMinLength) {
     currentSourceId = sourceId;
     document.getElementById('configLookbackDays').value = currentDays;
+    document.getElementById('configCheckFrequency').value = currentCheckFrequencyMinutes;
     document.getElementById('configMinContentLength').value = currentMinLength;
     document.getElementById('sourceConfigModal').classList.remove('hidden');
 }
@@ -647,10 +661,16 @@ function closeSourceConfig() {
 
 function saveSourceConfig() {
     const days = parseInt(document.getElementById('configLookbackDays').value);
+    const checkFrequencyMinutes = parseInt(document.getElementById('configCheckFrequency').value);
     const minLength = parseInt(document.getElementById('configMinContentLength').value);
     
     if (!days || days < 1 || days > 365) {
         alert('Please enter a valid number between 1 and 365 days for lookback window.');
+        return;
+    }
+    
+    if (!checkFrequencyMinutes || checkFrequencyMinutes < 1 || checkFrequencyMinutes > 1440) {
+        alert('Please enter a valid number between 1 and 1440 minutes for check frequency.');
         return;
     }
     
@@ -665,12 +685,17 @@ function saveSourceConfig() {
     saveBtn.textContent = 'Saving...';
     saveBtn.disabled = true;
     
-    // Update both settings
+    // Update all three settings
     Promise.all([
         fetch(`/api/sources/${currentSourceId}/lookback`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ lookback_days: days })
+        }),
+        fetch(`/api/sources/${currentSourceId}/check_frequency`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ check_frequency: checkFrequencyMinutes * 60 }) // Convert minutes to seconds
         }),
         fetch(`/api/sources/${currentSourceId}/min_content_length`, {
             method: 'PUT',
@@ -816,6 +841,12 @@ document.getElementById('sourceConfigModal').addEventListener('click', function(
 
 // Handle Enter key in inputs
 document.getElementById('configLookbackDays').addEventListener('keypress', function(e) {
+    if (e.key === 'Enter') {
+        saveSourceConfig();
+    }
+});
+
+document.getElementById('configCheckFrequency').addEventListener('keypress', function(e) {
     if (e.key === 'Enter') {
         saveSourceConfig();
     }

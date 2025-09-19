@@ -234,7 +234,7 @@ class ContentProcessor:
                 
                 # Extract reading time estimate (average 200 words per minute)
                 # Use word_count from metadata if available
-                word_count = enhanced_metadata.get('word_count', 0)
+                word_count = article.metadata.get('word_count', 0) if article.metadata else 0
                 enhanced['reading_time_minutes'] = max(1, word_count // 200)
                 
                 # Extract image count
