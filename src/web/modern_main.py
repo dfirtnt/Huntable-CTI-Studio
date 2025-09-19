@@ -123,7 +123,7 @@ templates.env.filters["highlight_keywords"] = highlight_keywords
 
 # Application lifespan
 @asynccontextmanager
-async def lifespan(app: FastAPI):
+async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """Application startup and shutdown events."""
     # Startup
     logger.info("Starting CTI Scraper application...")
@@ -182,7 +182,7 @@ async def get_db_session() -> AsyncSession:
 
 # Health check endpoint
 @app.get("/health")
-async def health_check():
+async def health_check() -> Dict[str, Any]:
     """Health check endpoint for monitoring."""
     try:
         stats = await async_db_manager.get_database_stats()
@@ -202,7 +202,7 @@ async def health_check():
 
 # Health check API endpoints
 @app.get("/api/health")
-async def api_health_check():
+async def api_health_check() -> Dict[str, Any]:
     """API health check endpoint."""
     try:
         stats = await async_db_manager.get_database_stats()
@@ -225,7 +225,7 @@ async def api_health_check():
         }
 
 @app.get("/api/health/database")
-async def api_database_health():
+async def api_database_health() -> Dict[str, Any]:
     """Database health check with detailed statistics."""
     try:
         stats = await async_db_manager.get_database_stats()
