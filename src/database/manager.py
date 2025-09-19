@@ -55,7 +55,7 @@ class DatabaseManager:
         # Initialize database
         self.create_tables()
     
-    def create_tables(self):
+    def create_tables(self) -> None:
         """Create all database tables."""
         try:
             Base.metadata.create_all(bind=self.engine)
@@ -192,7 +192,7 @@ class DatabaseManager:
                 logger.error(f"Failed to delete source {source_id}: {e}")
                 raise
     
-    def update_source_health(self, source_id: int, success: bool, response_time: float = 0.0):
+    def update_source_health(self, source_id: int, success: bool, response_time: float = 0.0) -> None:
         """Update source health metrics."""
         with self.get_session() as session:
             try:
@@ -518,14 +518,14 @@ class DatabaseManager:
             processing_status=db_article.processing_status
         )
     
-    def _update_source_article_count(self, session: Session, source_id: int):
+    def _update_source_article_count(self, session: Session, source_id: int) -> None:
         """Update the total article count for a source."""
         count = session.query(ArticleTable).filter(ArticleTable.source_id == source_id).count()
         session.query(SourceTable).filter(SourceTable.id == source_id).update(
             {'total_articles': count}
         )
     
-    def cleanup_old_data(self, days_to_keep: int = 90):
+    def cleanup_old_data(self, days_to_keep: int = 90) -> Dict[str, int]:
         """Clean up old data to manage database size."""
         cutoff_date = datetime.utcnow() - timedelta(days=days_to_keep)
         
