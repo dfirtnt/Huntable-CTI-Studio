@@ -51,7 +51,7 @@ The CTI Scraper uses a microservices architecture with the following components:
 
 ## Environment Configurations
 
-### Development Environment (`docker-compose.dev.yml`)
+### Development Environment (`docker-compose.yml`)
 
 - **Purpose**: Local development and testing
 - **Features**:
@@ -63,7 +63,7 @@ The CTI Scraper uses a microservices architecture with the following components:
 
 - **Usage**:
   ```bash
-  ./start_development.sh
+  ./start.sh
   ./run_cli.sh <command>
   ```
 
@@ -79,7 +79,7 @@ The CTI Scraper uses a microservices architecture with the following components:
 
 - **Usage**:
   ```bash
-  ./start_production.sh
+  ./start.sh
   docker-compose run --rm cli <command>
   ```
 
@@ -210,7 +210,7 @@ curl http://localhost:8000/api/sources
 
 2. **CLI Tool Issues**
    - Use `./run_cli.sh` instead of running CLI locally
-   - Ensure development stack is running: `./start_development.sh`
+   - Ensure development stack is running: `./start.sh`
    - Check CLI logs: `docker-compose logs cli`
 
 3. **Port Conflicts**
@@ -222,8 +222,8 @@ curl http://localhost:8000/api/sources
 
 For debugging, use the development environment:
 ```bash
-./start_development.sh
-docker-compose -f docker-compose.dev.yml logs -f
+./start.sh
+docker-compose logs -f
 ```
 
 ## Migration from Local Development
@@ -232,7 +232,7 @@ If you were previously running components locally:
 
 1. **Stop local services**: Stop any local PostgreSQL, Redis, or Python processes
 2. **Backup data**: Export any important data from local databases
-3. **Start Docker stack**: `./start_development.sh`
+3. **Start Docker stack**: `./start.sh`
 4. **Migrate data**: Import data into Docker PostgreSQL if needed
 5. **Use CLI script**: Replace direct CLI calls with `./run_cli.sh`
 

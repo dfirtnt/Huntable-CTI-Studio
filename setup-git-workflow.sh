@@ -349,7 +349,7 @@ create_workflow_docs() {
 ### Make Changes Locally
 ```bash
 # Start local development
-./start_development.sh
+./start.sh
 
 # Edit files:
 # - UI: src/web/templates/*.html
@@ -467,7 +467,7 @@ main() {
     print_status "Next steps:"
     echo "1. Configure AWS CLI: aws configure"
     echo "2. Deploy infrastructure: ./deploy-aws.sh"
-    echo "3. Start developing: ./start_development.sh"
+    echo "3. Start developing: ./start.sh"
     echo "4. Deploy changes: ./quick-deploy.sh dev 'Your changes'"
     echo "5. Check status: ./check-deployment.sh dev"
     echo

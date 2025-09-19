@@ -64,8 +64,8 @@ CTIScraper/
 ├── 📁 tests/                 # Test suite
 ├── 📚 README.md              # Modern documentation
 ├── 📋 requirements.txt       # Dependencies
-├── 🚀 start_production.sh   # Production startup
-├── 🛠️ start_development.sh  # Development startup
+├── 🚀 start.sh   # Production startup
+├── 🛠️ start.sh  # Development startup
 └── 📦 backup_old_architecture/ # Complete backup
 ```
 
@@ -108,7 +108,7 @@ Your CTI Scraper is now clean and ready for:
 - **All old files are safely backed up** in `backup_old_architecture/`
 - **Restore any file** by copying from the backup if needed
 - **Old database data** is preserved in the backup
-- **Virtual environment** can be recreated using `start_development.sh`
+- **Virtual environment** can be recreated using `start.sh`
 
 ## 🎉 **Cleanup Complete!**
 

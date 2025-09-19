@@ -169,7 +169,7 @@ def main():
             print("✅ CTI Scraper app is running on http://localhost:8000")
         else:
             print("❌ CTI Scraper app is not running")
-            print("💡 Start the app first with: ./start_production.sh")
+            print("💡 Start the app first with: ./start.sh")
             if not args.install:
                 return False
     

@@ -244,7 +244,7 @@ show_post_change_instructions() {
     echo
     echo "2. Or manually pull changes:"
     echo "   git pull origin main"
-    echo "   ./start_development.sh"
+    echo "   ./start.sh"
     echo
     print_status "Your AWS changes will now be available locally!"
 }
