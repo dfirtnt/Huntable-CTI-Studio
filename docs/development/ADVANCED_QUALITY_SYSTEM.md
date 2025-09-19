@@ -27,19 +27,19 @@ The Advanced Quality Assessment System represents a comprehensive refactor of th
 
 ### **Core Components**
 
-1. **Advanced Quality Assessor** (`src/utils/advanced_quality_assessor.py`)
+1. **Content Quality Assessor** (`src/utils/content_filter.py`)
    - Multi-dimensional quality scoring
    - Platform-specific analysis
    - Artifact coverage assessment
    - Confidence scoring
 
-2. **Enhanced TTP Extractor** (`src/utils/enhanced_ttp_extractor.py`)
+2. **IOC Extractor** (`src/utils/ioc_extractor.py`)
    - Comprehensive technique detection
    - Threat actor identification
    - Malware family recognition
    - Attack vector analysis
 
-3. **Integrated Quality System** (`src/utils/integrated_quality_system.py`)
+3. **Content Processing System** (`src/utils/content.py`)
    - Unified interface
    - Result integration
    - Comprehensive reporting
@@ -175,10 +175,10 @@ The Advanced Quality Assessment System represents a comprehensive refactor of th
 ### **Basic Usage**
 
 ```python
-from src.utils.integrated_quality_system import analyze_content_integrated
+from src.utils.content import process_content
 
 # Analyze content
-result = analyze_content_integrated(
+result = process_content(
     content="Your threat intelligence content here",
     article_id=123,
     article_title="APT29 Analysis",
@@ -196,26 +196,26 @@ print(f"Platforms: {', '.join(result.platforms_covered)}")
 ### **Individual Components**
 
 ```python
-from src.utils.advanced_quality_assessor import assess_content_quality_advanced
-from src.utils.enhanced_ttp_extractor import extract_enhanced_techniques
+from src.utils.content_filter import assess_content_quality
+from src.utils.ioc_extractor import extract_iocs
 
 # Quality assessment only
-quality_result = assess_content_quality_advanced(content)
+quality_result = assess_content_quality(content)
 
-# TTP extraction only
-ttp_result = extract_enhanced_techniques(content)
+# IOC extraction only
+ttp_result = extract_iocs(content)
 ```
 
 ### **Detailed Reporting**
 
 ```python
-from src.utils.integrated_quality_system import IntegratedQualitySystem
+from src.utils.content import ContentProcessor
 
-system = IntegratedQualitySystem()
-result = system.analyze_content(content, article_id, title, url)
+processor = ContentProcessor()
+result = processor.process_content(content, article_id, title, url)
 
 # Generate comprehensive report
-report = system.generate_integrated_report(result)
+report = processor.generate_report(result)
 print(report)
 ```
 
@@ -276,7 +276,7 @@ The original system remains available in:
 ### **Test Script**
 Run the comprehensive test:
 ```bash
-python3 test_advanced_quality_system.py
+python3 test_content_length_config.py
 ```
 
 ### **Test Coverage**
@@ -323,11 +323,10 @@ python3 test_advanced_quality_system.py
 ## 📚 Documentation
 
 ### **Related Files**
-- `backup_old_architecture/quality_assessment/BACKUP_MANIFEST.md`: Migration guide
-- `test_advanced_quality_system.py`: Comprehensive test script
-- `src/utils/advanced_quality_assessor.py`: Core quality assessment
-- `src/utils/enhanced_ttp_extractor.py`: Enhanced TTP extraction
-- `src/utils/integrated_quality_system.py`: Unified interface
+- `test_content_length_config.py`: Comprehensive test script
+- `src/utils/content_filter.py`: Core quality assessment
+- `src/utils/ioc_extractor.py`: IOC extraction
+- `src/utils/content.py`: Unified interface
 
 ### **API Reference**
 See individual module docstrings for detailed API documentation.
