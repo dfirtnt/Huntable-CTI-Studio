@@ -22,7 +22,7 @@ def run_migration():
     """Run the SimHash migration."""
     try:
         # Connect to PostgreSQL database using environment variables
-        database_url = "postgresql://cti_user:cti_password_2024@postgres:5432/cti_scraper"
+        database_url = os.getenv("DATABASE_URL", "postgresql://cti_user:cti_password_2024@postgres:5432/cti_scraper")
         
         # Create synchronous engine for migration
         engine = create_engine(database_url)
@@ -64,7 +64,7 @@ def backfill_simhash():
     """Backfill SimHash values for existing articles."""
     try:
         # Connect to database
-        database_url = "postgresql://cti_user:cti_password_2024@postgres:5432/cti_scraper"
+        database_url = os.getenv("DATABASE_URL", "postgresql://cti_user:cti_password_2024@postgres:5432/cti_scraper")
         engine = create_engine(database_url)
         SessionLocal = sessionmaker(bind=engine)
         

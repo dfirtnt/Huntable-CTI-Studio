@@ -18,7 +18,7 @@ def main():
     print("🔍 Fixing Corrupted Articles with Unicode/Binary Content")
     print("=" * 60)
     
-    db = DatabaseManager(database_url="postgresql://cti_user:cti_password_2024@postgres:5432/cti_scraper")
+    db = DatabaseManager(database_url=os.getenv("DATABASE_URL", "postgresql://cti_user:cti_password_2024@postgres:5432/cti_scraper"))
     
     # Find articles with unicode corruption
     with db.engine.connect() as conn:
