@@ -37,6 +37,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Iteration Counter Bug**: Fixed off-by-one error in SIGMA rule generation attempt counting
 - **SQL Query Safety**: Enhanced query validation and safety checks
 - **Content Filtering**: Improved non-English word detection and filtering
+- **Documentation Accuracy**: Fixed README.md to accurately reflect disabled readability scoring feature
 - Fixed potential SQL injection vulnerabilities
 - Updated cryptography library to latest version
 - Removed debug prints and sensitive TODOs

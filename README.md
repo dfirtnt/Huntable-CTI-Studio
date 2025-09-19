@@ -10,8 +10,8 @@ A comprehensive threat intelligence aggregation and analysis platform designed f
 ## 🎯 Key Features
 
 ### 🔍 Intelligent Threat Intelligence Collection
-- **Multi-Source Aggregation**: Automated collection from 50+ RSS feeds, security blogs, and vendor sites
-- **Smart Content Processing**: Advanced text extraction with readability scoring and content validation
+- **Multi-Source Aggregation**: Automated collection from 30+ RSS feeds, security blogs, and vendor sites
+- **Smart Content Processing**: Advanced text extraction with content validation and HTML cleaning
 - **Duplicate Detection**: Intelligent deduplication using content hashing and similarity analysis
 - **Source Health Monitoring**: Real-time monitoring with automatic failure detection and recovery
 
