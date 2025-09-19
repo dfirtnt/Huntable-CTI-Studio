@@ -141,7 +141,7 @@ RSS Feed/Web URL → RSS Parser → Modern Scraper → Legacy Scraper → Proces
 - **Processor**: Content cleaning, normalization, deduplication, quality scoring
 
 **Quality Assessment**:
-- Content length and readability scoring
+- Content length and HTML cleaning validation
 - Source reputation weighting
 - Technical depth analysis
 - Threat intelligence relevance scoring
@@ -275,7 +275,7 @@ sources:
 - **Help System**: Collapsible syntax guide
 
 ### 2. Quality Assessment
-- **Content Scoring**: Length, readability, technical depth
+- **Content Scoring**: Length, HTML cleaning validation, technical depth
 - **Source Weighting**: Tier-based reputation scoring
 - **Threat Relevance**: Intelligence value assessment
 - **Classification**: Chosen/Rejected/Unclassified articles
