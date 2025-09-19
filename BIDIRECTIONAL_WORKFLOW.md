@@ -20,7 +20,7 @@ The CTIScraper architecture supports **bidirectional development**:
 git pull origin main
 
 # Continue development locally
-./start_development.sh
+./start.sh
 # Your AWS changes are now in your local environment
 ```
 
@@ -35,7 +35,7 @@ terraform apply # Apply changes locally
 
 # Pull application changes
 git pull origin main
-./start_development.sh
+./start.sh
 ```
 
 ### **Scenario 3: AWS Database Changes → Local**
@@ -46,7 +46,7 @@ aws rds describe-db-instances --db-instance-identifier your-db
 
 # Pull application changes that use the new schema
 git pull origin main
-./start_development.sh
+./start.sh
 ```
 
 ## 🛠️ **Methods to Make Changes in AWS**
@@ -119,7 +119,7 @@ git push origin main
 git pull origin main
 
 # Restart local development with new changes
-./start_development.sh
+./start.sh
 
 # Verify changes are applied
 curl http://localhost:8000/health
@@ -158,7 +158,7 @@ vim src/web/templates/dashboard.html
 
 # Local: Pull and see changes
 git pull origin main
-./start_development.sh
+./start.sh
 # Changes are now in your local environment
 ```
 
@@ -182,7 +182,7 @@ vim src/core/modern_scraper.py
 
 # Local: Pull and continue development
 git pull origin main
-./start_development.sh
+./start.sh
 # AWS changes are now in your local environment
 ```
 
@@ -261,7 +261,7 @@ I've created scripts to make bidirectional sync easier:
 ### **Local → AWS → Local Cycle**
 ```bash
 # 1. Start with local development
-./start_development.sh
+./start.sh
 
 # 2. Make changes locally
 vim src/web/templates/dashboard.html
@@ -278,7 +278,7 @@ vim src/utils/content.py
 ./sync-from-aws.sh
 
 # 7. Continue development locally with AWS changes
-./start_development.sh
+./start.sh
 ```
 
 ## 🎯 **Key Benefits of Bidirectional Workflow**

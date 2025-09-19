@@ -100,7 +100,7 @@ CTIScraper/
 ├── 📄 README.md                     # Main project documentation
 ├── 📄 DATABASE_QUERY_GUIDE.md       # Database access guide
 ├── 📄 BOOLEAN_SEARCH_IMPLEMENTATION.md # Search feature documentation
-└── 📄 start_production.sh           # Production startup script
+└── 📄 start.sh           # Production startup script
 ```
 
 ## Key Components Deep Dive

@@ -190,8 +190,8 @@ restart_local_environment() {
     fi
     
     # Start with updated configuration
-    if [ -f "start_development.sh" ]; then
-        ./start_development.sh
+    if [ -f "start.sh" ]; then
+        ./start.sh
     else
         docker-compose up --build -d
     fi

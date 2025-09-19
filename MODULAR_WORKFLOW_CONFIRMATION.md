@@ -50,7 +50,7 @@ src/core/
 ```bash
 # Start local environment
 cd CTIScraper
-./start_development.sh
+./start.sh
 
 # Make your changes:
 # - Edit UI: src/web/templates/dashboard.html
@@ -148,7 +148,7 @@ Git Push → CodePipeline → CodeBuild → ECR → ECS → Live!
 ### **Daily Development**
 ```bash
 # 1. Start local development
-./start_development.sh
+./start.sh
 
 # 2. Make your changes (UI, scoring, etc.)
 
@@ -248,7 +248,7 @@ You can develop locally on macOS/Docker, make changes to UI and scoring logic, c
 
 1. Run `./deploy-aws.sh` to set up AWS infrastructure
 2. Run `./setup-git-workflow.sh` to configure git workflow  
-3. Start developing with `./start_development.sh`
+3. Start developing with `./start.sh`
 4. Deploy changes with `./quick-deploy.sh dev "Your changes"`
 
 Your development-to-AWS workflow is ready! 🚀

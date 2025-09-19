@@ -47,7 +47,7 @@ src/core/
 ```bash
 # Start local development environment
 cd CTIScraper
-./start_development.sh
+./start.sh
 
 # Make your changes to:
 # - UI: src/web/templates/*.html
@@ -232,7 +232,7 @@ curl http://localhost:8000/health
 ### **Docker Development**
 ```bash
 # Hot reload for development
-docker-compose -f docker-compose.dev.yml up --build
+docker-compose up --build
 
 # Run specific tests
 docker-compose run --rm web pytest tests/test_scoring.py
