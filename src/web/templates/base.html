@@ -55,7 +55,7 @@
         }
     </style>
 </head>
-<body class="bg-gray-50 dark:bg-gray-900 min-h-screen">
+<body class="bg-gray-50 dark:bg-gray-900 min-h-screen flex flex-col">
     <!-- Environment Banner -->
     <div id="environment-banner" class="w-full py-2 text-center text-sm font-medium">
         <!-- Banner content will be populated by JavaScript -->
@@ -102,12 +102,12 @@
     </nav>
 
     <!-- Main Content -->
-    <main class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+    <main class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8 flex-grow">
         {% block content %}{% endblock %}
     </main>
 
     <!-- Footer -->
-    <footer class="bg-gray-800 text-white mt-16">
+    <footer class="bg-gray-800 text-white">
         <div class="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
             <div class="text-center text-sm text-gray-300">
                 <p>&copy; 2025 CTI Scraper. Modern threat intelligence aggregation and analysis platform.</p>
