@@ -26,9 +26,7 @@ from fastapi.middleware.trustedhost import TrustedHostMiddleware
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-# Add src to path for imports
-src_path = Path(__file__).parent.parent.parent
-sys.path.insert(0, str(src_path))
+from src.services.sigma_validator import validate_sigma_rule
 
 from src.database.async_manager import async_db_manager
 from src.models.source import Source, SourceUpdate, SourceFilter
@@ -810,6 +808,54 @@ async def api_update_source_lookback(source_id: int, request: dict):
         raise
     except Exception as e:
         logger.error(f"Failed to update source lookback window: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.put("/api/sources/{source_id}/check_frequency")
+async def api_update_source_check_frequency(source_id: int, request: dict):
+    """Update source check frequency."""
+    try:
+        check_frequency = request.get('check_frequency')
+        
+        if not check_frequency or not isinstance(check_frequency, int):
+            raise HTTPException(status_code=400, detail="check_frequency must be a valid integer")
+        
+        if check_frequency < 60:
+            raise HTTPException(status_code=400, detail="check_frequency must be at least 60 seconds")
+        
+        # Get the source to verify it exists
+        source = await async_db_manager.get_source(source_id)
+        if not source:
+            raise HTTPException(status_code=404, detail="Source not found")
+        
+        # Update the source directly using raw SQL since SourceUpdate model doesn't exist
+        from sqlalchemy import update
+        from src.database.models import SourceTable
+        from datetime import datetime
+        
+        async with async_db_manager.get_session() as session:
+            result = await session.execute(
+                update(SourceTable)
+                .where(SourceTable.id == source_id)
+                .values(check_frequency=check_frequency, updated_at=datetime.now())
+            )
+            await session.commit()
+            
+            if result.rowcount == 0:
+                raise HTTPException(status_code=404, detail="Source not found")
+        
+        logger.info(f"Updated check frequency for source {source_id} to {check_frequency} seconds")
+        
+        return {
+            "success": True, 
+            "message": f"Check frequency updated to {check_frequency} seconds ({check_frequency//60} minutes)",
+            "check_frequency": check_frequency
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to update source check frequency: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -2019,13 +2065,17 @@ CRITICAL SIGMA SYNTAX REQUIREMENTS:
 - Use proper YAML indentation and syntax
 
 EXAMPLE VALID SIGMA STRUCTURE:
-```yaml
+title: Process Creation Event
+logsource:
+  category: process_creation
+  product: windows
 detection:
   selection:
     EventID: 4688
     CommandLine|contains: 'powershell'
   condition: selection
-```
+
+IMPORTANT: Output ONLY clean YAML without markdown formatting. Do not wrap the rule in ```yaml code blocks.
 
 IMPORTANT: Focus on TTPs (Tactics, Techniques, and Procedures) rather than atomic IOCs (Indicators of Compromise). Avoid rules that could easily be replaced by simple IOC matching (specific IP addresses, file hashes, etc.). Instead, focus on:
 
@@ -2039,7 +2089,9 @@ IMPORTANT: Focus on TTPs (Tactics, Techniques, and Procedures) rather than atomi
 - Persistence mechanisms
 - Domain/URL patterns (when they indicate technique, not just specific domains)
 
-The rule should detect the technique or behavior, not just specific artifacts. Domain/URL patterns are acceptable when they represent a technique (e.g., specific TLDs, URL structures, or domain patterns that indicate malicious behavior)."""
+The rule should detect the technique or behavior, not just specific artifacts. Domain/URL patterns are acceptable when they represent a technique (e.g., specific TLDs, URL structures, or domain patterns that indicate malicious behavior).
+
+CRITICAL: Generate ONLY clean YAML output without any markdown formatting, code blocks, or additional text. The output must be valid YAML that can be directly parsed."""
         else:
             # Metadata-only prompt
             prompt = f"""As a senior cybersecurity detection engineer specializing in SIGMA rule creation and threat hunting, analyze this threat intelligence article metadata and provide guidance for SIGMA rule generation.
@@ -2074,54 +2126,162 @@ Based on the article title and metadata, provide:
 
 Please provide a brief but insightful analysis based on the available metadata."""
         
-        # Use ChatGPT API (no fallback to Ollama for SIGMA generation)
+        # Use ChatGPT API with iterative fixing (up to 3 attempts)
         chatgpt_api_url = os.getenv('CHATGPT_API_URL', 'https://api.openai.com/v1/chat/completions')
         
         logger.info(f"Sending SIGMA request to OpenAI for article {article_id}, content length: {len(content) if include_content else 'metadata only'}")
         
+        # Enhanced system prompt with compliance requirements
+        system_prompt = """You are a senior cybersecurity detection engineer specializing in SIGMA rule creation and threat hunting. Generate high-quality, actionable SIGMA rules based on threat intelligence articles. Always use proper SIGMA syntax and include all required fields according to SigmaHQ standards. Focus on TTPs (Tactics, Techniques, and Procedures) rather than atomic IOCs (Indicators of Compromise). Create rules that detect behavioral patterns and techniques, not just specific artifacts like IP addresses or file hashes. Domain/URL patterns are acceptable when they represent techniques or behavioral patterns.
+
+CRITICAL COMPLIANCE REQUIREMENTS:
+- Use ONLY valid SIGMA condition syntax. NEVER use SQL-like syntax (count(), group by, where, stats, etc.) or aggregation functions in conditions
+- Valid conditions are: 'selection', 'selection1 and selection2', 'selection1 or selection2', 'all of selection*', '1 of selection*'
+- Always reference defined selections above the condition
+- Output ONLY clean YAML without markdown formatting, code blocks, or additional text
+- The output must be valid YAML that can be directly parsed by pySIGMA
+- Ensure all required fields are present: title, logsource, detection
+- Use proper YAML indentation and syntax
+
+The rules you generate MUST pass pySIGMA validation. If validation fails, you will be asked to fix the issues."""
+
+        # Iterative fixing loop (up to 3 attempts)
+        sigma_rules = None
+        validation_results = []
+        attempt = 0  # Start at 0, increment at beginning of loop
+        max_attempts = 3
+        
         async with httpx.AsyncClient() as client:
-            response = await client.post(
-                chatgpt_api_url,
-                headers={
-                    "Authorization": f"Bearer {api_key}",
-                    "Content-Type": "application/json"
-                },
-                json={
-                    "model": "gpt-4",
-                    "messages": [
-                        {
-                            "role": "system",
-                            "content": "You are a senior cybersecurity detection engineer specializing in SIGMA rule creation and threat hunting. Generate high-quality, actionable SIGMA rules based on threat intelligence articles. Always use proper SIGMA syntax and include all required fields according to SigmaHQ standards. Focus on TTPs (Tactics, Techniques, and Procedures) rather than atomic IOCs (Indicators of Compromise). Create rules that detect behavioral patterns and techniques, not just specific artifacts like IP addresses or file hashes. Domain/URL patterns are acceptable when they represent techniques or behavioral patterns.\n\nCRITICAL: Use ONLY valid SIGMA condition syntax. NEVER use SQL-like syntax (count(), group by, where, stats, etc.) or aggregation functions in conditions. Valid conditions are: 'selection', 'selection1 and selection2', 'selection1 or selection2', 'all of selection*', '1 of selection*'. Always reference defined selections above the condition."
-                        },
-                        {
+            while attempt < max_attempts:
+                attempt += 1  # Increment at beginning of loop
+                logger.info(f"SIGMA generation attempt {attempt}/{max_attempts} for article {article_id}")
+                
+                # Prepare messages for this attempt
+                messages = [
+                    {
+                        "role": "system",
+                        "content": system_prompt
+                    },
+                    {
+                        "role": "user",
+                        "content": prompt
+                    }
+                ]
+                
+                # Add validation feedback if this is a retry
+                if attempt > 1 and validation_results:
+                    last_validation = validation_results[-1]
+                    if not last_validation.get('is_valid', False):
+                        feedback_prompt = f"""The previous SIGMA rule failed validation. Please fix the following issues:
+
+VALIDATION ERRORS:
+{chr(10).join(last_validation.get('errors', []))}
+
+VALIDATION WARNINGS:
+{chr(10).join(last_validation.get('warnings', []))}
+
+Please generate a corrected SIGMA rule that addresses these validation issues. Ensure the rule follows proper SIGMA syntax and structure."""
+                        
+                        messages.append({
                             "role": "user",
-                            "content": prompt
-                        }
-                    ],
-                    "max_tokens": 2048,  # Reduced from 4096 to stay within limits
-                    "temperature": 0.2   # Lower temperature for more consistent rule generation
-                },
-                timeout=120.0  # Longer timeout for SIGMA generation
-            )
-            
-            if response.status_code != 200:
-                error_detail = f"Failed to generate SIGMA rules: {response.status_code}"
-                if response.status_code == 401:
-                    error_detail = "Invalid API key. Please check your OpenAI API key in Settings."
-                elif response.status_code == 429:
-                    error_detail = "Rate limit exceeded. Please try again later."
-                elif response.status_code == 400:
-                    # Log the actual error from OpenAI
-                    try:
-                        error_response = response.json()
-                        logger.error(f"OpenAI API 400 error details: {error_response}")
-                        error_detail = f"OpenAI API error: {error_response.get('error', {}).get('message', 'Bad request')}"
-                    except:
-                        error_detail = "OpenAI API error: Bad request - check prompt format"
-                raise HTTPException(status_code=500, detail=error_detail)
-            
-            result = response.json()
-            sigma_rules = result['choices'][0]['message']['content']
+                            "content": feedback_prompt
+                        })
+                
+                try:
+                    response = await client.post(
+                        chatgpt_api_url,
+                        headers={
+                            "Authorization": f"Bearer {api_key}",
+                            "Content-Type": "application/json"
+                        },
+                        json={
+                            "model": "gpt-4",
+                            "messages": messages,
+                            "max_tokens": 2048,
+                            "temperature": 0.2
+                        },
+                        timeout=120.0
+                    )
+                    
+                    if response.status_code != 200:
+                        error_detail = f"Failed to generate SIGMA rules: {response.status_code}"
+                        if response.status_code == 401:
+                            error_detail = "Invalid API key. Please check your OpenAI API key in Settings."
+                        elif response.status_code == 429:
+                            error_detail = "Rate limit exceeded. Please try again later."
+                        elif response.status_code == 400:
+                            try:
+                                error_response = response.json()
+                                logger.error(f"OpenAI API 400 error details: {error_response}")
+                                error_detail = f"OpenAI API error: {error_response.get('error', {}).get('message', 'Bad request')}"
+                            except:
+                                error_detail = "OpenAI API error: Bad request - check prompt format"
+                        raise HTTPException(status_code=500, detail=error_detail)
+                    
+                    result = response.json()
+                    sigma_rules = result['choices'][0]['message']['content']
+                    
+                    # Validate the generated rules
+                    if sigma_rules:
+                        try:
+                            # Split rules if multiple rules are generated
+                            rules_text = sigma_rules.strip()
+                            if '---' in rules_text:
+                                individual_rules = [rule.strip() for rule in rules_text.split('---') if rule.strip()]
+                            else:
+                                individual_rules = [rules_text]
+                            
+                            attempt_validation_results = []
+                            all_valid = True
+                            
+                            for i, rule_text in enumerate(individual_rules):
+                                validation_result = validate_sigma_rule(rule_text)
+                                attempt_validation_results.append({
+                                    'rule_index': i + 1,
+                                    'is_valid': validation_result.is_valid,
+                                    'errors': validation_result.errors,
+                                    'warnings': validation_result.warnings,
+                                    'rule_info': validation_result.rule_info
+                                })
+                                
+                                if not validation_result.is_valid:
+                                    all_valid = False
+                            
+                            validation_results = attempt_validation_results
+                            
+                            # If all rules are valid, break out of the loop
+                            if all_valid:
+                                logger.info(f"SIGMA rules passed validation on attempt {attempt}")
+                                break
+                            else:
+                                logger.warning(f"SIGMA rules failed validation on attempt {attempt}")
+                                if attempt == max_attempts:
+                                    logger.error(f"SIGMA rules failed validation after {max_attempts} attempts")
+                                    break
+                                
+                        except Exception as e:
+                            logger.warning(f"SIGMA validation failed on attempt {attempt}: {e}")
+                            validation_results = [{
+                                'rule_index': 1,
+                                'is_valid': False,
+                                'errors': [f"Validation error: {e}"],
+                                'warnings': [],
+                                'rule_info': None
+                            }]
+                            
+                            if attempt == max_attempts:
+                                break
+                    
+                except Exception as e:
+                    logger.error(f"SIGMA generation attempt {attempt} failed: {e}")
+                    if attempt == max_attempts:
+                        raise HTTPException(status_code=500, detail=f"SIGMA generation failed after {max_attempts} attempts: {e}")
+        # Check if we have valid rules after all attempts
+        if not sigma_rules:
+            raise HTTPException(status_code=500, detail="Failed to generate SIGMA rules after all attempts")
+        
+        # Determine if rules passed validation
+        all_rules_valid = all(result.get('is_valid', False) for result in validation_results)
         
         # Store the SIGMA rules in article metadata
         current_metadata = article.metadata.copy() if article.metadata else {}
@@ -2130,22 +2290,37 @@ Please provide a brief but insightful analysis based on the available metadata."
             'generated_at': datetime.now().isoformat(),
             'content_type': 'full content' if include_content else 'metadata only',
             'model_used': 'chatgpt',
-            'model_name': 'gpt-4'
+            'model_name': 'gpt-4',
+            'validation_results': validation_results,
+            'validation_passed': all_rules_valid,
+            'attempts_made': attempt
         }
         
         # Update the article
         update_data = ArticleUpdate(metadata=current_metadata)
         await async_db_manager.update_article(article_id, update_data)
         
-        return {
+        # Prepare response with validation status
+        response_data = {
             "success": True,
             "article_id": article_id,
             "sigma_rules": sigma_rules,
             "generated_at": current_metadata['sigma_rules']['generated_at'],
             "content_type": current_metadata['sigma_rules']['content_type'],
             "model_used": current_metadata['sigma_rules']['model_used'],
-            "model_name": current_metadata['sigma_rules']['model_name']
+            "model_name": current_metadata['sigma_rules']['model_name'],
+            "validation_results": validation_results,
+            "validation_passed": all_rules_valid,
+            "attempts_made": attempt
         }
+        
+        # Add appropriate message based on validation status
+        if all_rules_valid:
+            response_data["message"] = f"✅ SIGMA rules generated successfully and passed pySIGMA validation after {attempt} attempt(s)."
+        else:
+            response_data["message"] = f"⚠️ SIGMA rules generated but failed pySIGMA validation after {max_attempts} attempts. Please review the validation errors and consider manual correction."
+        
+        return response_data
         
     except HTTPException:
         raise

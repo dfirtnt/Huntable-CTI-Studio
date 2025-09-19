@@ -8,6 +8,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **SIGMA Rule Generation**: AI-powered detection rule generation from threat intelligence articles
+- **pySIGMA Validation**: Automatic validation of generated SIGMA rules for compliance
+- **Iterative Rule Fixing**: Automatic retry mechanism with error feedback (up to 3 attempts)
+- **Rule Metadata Storage**: Complete audit trail of generation attempts and validation results
+- **Source Management Enhancements**: Individual source refresh and check frequency configuration
+- **CISA Analysis Reports**: New threat intelligence source for CISA cybersecurity advisories
+- **Group-IB Threat Intelligence**: Content-filtered source for threat intelligence research
+- **Non-English Word Analysis**: Advanced keyword analysis for threat hunting discriminators
+- **Enhanced Keyword Lists**: Updated perfect and good discriminators based on analysis
+- **Performance Optimizations**: Faster LLM model (Phi-3 Mini) for database queries
 - GitHub Actions CI/CD pipeline with security scanning
 - Comprehensive security policy and contributing guidelines
 - Enhanced .gitignore with security-focused patterns
@@ -15,13 +25,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Automated dependency vulnerability scanning
 
 ### Changed
+- **Database Chatbot**: Switched from Mistral 7B to Phi-3 Mini for faster query processing
+- **Keyword Scoring**: Enhanced threat hunting discriminators based on non-English word analysis
+- **Source Configuration**: Improved content filtering and threat intelligence focus
 - Updated all dependencies to latest secure versions
 - Removed hardcoded credentials from configuration
 - Improved code documentation and type hints
 - Enhanced security practices and guidelines
 
-### Security
+### Fixed
+- **Iteration Counter Bug**: Fixed off-by-one error in SIGMA rule generation attempt counting
+- **SQL Query Safety**: Enhanced query validation and safety checks
+- **Content Filtering**: Improved non-English word detection and filtering
 - Fixed potential SQL injection vulnerabilities
+- Updated cryptography library to latest version
+- Removed debug prints and sensitive TODOs
+- Implemented proper environment variable handling
+
+### Security
+- Enhanced input validation for SIGMA rule generation
+- Improved query safety validation for database chatbot
 - Updated cryptography library to latest version
 - Removed debug prints and sensitive TODOs
 - Implemented proper environment variable handling

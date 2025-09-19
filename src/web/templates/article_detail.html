@@ -2744,6 +2744,57 @@
         
         const modelUsed = data?.model_name || 'gpt-4';
         const generatedAt = data?.generated_at ? new Date(data.generated_at).toLocaleString() : 'Unknown';
+        const validationResults = data?.validation_results || [];
+        
+        // Build validation status display
+        let validationStatusHtml = '';
+        if (validationResults.length > 0) {
+            validationStatusHtml = '<div class="mb-4 p-3 bg-gray-50 rounded-lg">';
+            validationStatusHtml += '<h4 class="font-medium text-gray-900 mb-2">🔍 Validation Results</h4>';
+            
+            validationResults.forEach((result, index) => {
+                const statusIcon = result.is_valid ? '✅' : '❌';
+                const statusColor = result.is_valid ? 'text-green-600' : 'text-red-600';
+                const statusText = result.is_valid ? 'Valid' : 'Invalid';
+                
+                validationStatusHtml += `<div class="mb-2 p-2 border rounded ${result.is_valid ? 'border-green-200 bg-green-50' : 'border-red-200 bg-red-50'}">`;
+                validationStatusHtml += `<div class="flex items-center mb-1">`;
+                validationStatusHtml += `<span class="mr-2">${statusIcon}</span>`;
+                validationStatusHtml += `<span class="font-medium ${statusColor}">Rule ${result.rule_index}: ${statusText}</span>`;
+                validationStatusHtml += `</div>`;
+                
+                if (result.errors && result.errors.length > 0) {
+                    validationStatusHtml += `<div class="text-sm text-red-600 mb-1">`;
+                    validationStatusHtml += `<strong>Errors:</strong><ul class="list-disc list-inside ml-2">`;
+                    result.errors.forEach(error => {
+                        validationStatusHtml += `<li>${error}</li>`;
+                    });
+                    validationStatusHtml += `</ul></div>`;
+                }
+                
+                if (result.warnings && result.warnings.length > 0) {
+                    validationStatusHtml += `<div class="text-sm text-yellow-600 mb-1">`;
+                    validationStatusHtml += `<strong>Warnings:</strong><ul class="list-disc list-inside ml-2">`;
+                    result.warnings.forEach(warning => {
+                        validationStatusHtml += `<li>${warning}</li>`;
+                    });
+                    validationStatusHtml += `</ul></div>`;
+                }
+                
+                if (result.rule_info) {
+                    validationStatusHtml += `<div class="text-sm text-gray-600">`;
+                    validationStatusHtml += `<strong>Rule Info:</strong> ${result.rule_info.title || 'Untitled'} `;
+                    if (result.rule_info.level) {
+                        validationStatusHtml += `(${result.rule_info.level})`;
+                    }
+                    validationStatusHtml += `</div>`;
+                }
+                
+                validationStatusHtml += `</div>`;
+            });
+            
+            validationStatusHtml += '</div>';
+        }
         
         modal.innerHTML = `
             <div class="relative top-10 mx-auto p-5 border w-11/12 max-w-6xl shadow-lg rounded-md bg-white">
@@ -2761,6 +2812,8 @@
                     <span class="font-medium">Generated at:</span> ${generatedAt}
                     ${data?.cached ? ' | <span class="font-medium text-blue-600">(Cached)</span>' : ''}
                 </div>
+                
+                ${validationStatusHtml}
                 
                 <div class="bg-gray-50 p-4 rounded-lg max-h-96 overflow-y-auto">
                     <pre class="text-sm font-mono whitespace-pre-wrap text-gray-800">${sigmaRules}</pre>

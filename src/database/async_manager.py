@@ -1104,6 +1104,35 @@ class AsyncDatabaseManager:
                 
                 analytics['source_breakdown'] = source_breakdown
                 
+                # Hunt score ranges (last 30 days)
+                hunt_score_query = """
+                SELECT 
+                    DATE(discovered_at) as date,
+                    COUNT(CASE WHEN CAST(article_metadata->>'threat_hunting_score' AS NUMERIC) >= 80 THEN 1 END) as excellent_count,
+                    COUNT(CASE WHEN CAST(article_metadata->>'threat_hunting_score' AS NUMERIC) BETWEEN 60 AND 79 THEN 1 END) as good_count,
+                    COUNT(CASE WHEN CAST(article_metadata->>'threat_hunting_score' AS NUMERIC) BETWEEN 40 AND 59 THEN 1 END) as moderate_count,
+                    COUNT(CASE WHEN CAST(article_metadata->>'threat_hunting_score' AS NUMERIC) BETWEEN 20 AND 39 THEN 1 END) as low_count,
+                    COUNT(CASE WHEN CAST(article_metadata->>'threat_hunting_score' AS NUMERIC) < 20 OR article_metadata->>'threat_hunting_score' IS NULL THEN 1 END) as minimal_count
+                FROM articles 
+                WHERE discovered_at >= NOW() - INTERVAL '30 days'
+                GROUP BY DATE(discovered_at)
+                ORDER BY date DESC
+                LIMIT 30
+                """
+                result = await session.execute(text(hunt_score_query))
+                hunt_score_ranges = [
+                    {
+                        'date': row[0].strftime('%Y-%m-%d'),
+                        'excellent': row[1] or 0,
+                        'good': row[2] or 0,
+                        'moderate': row[3] or 0,
+                        'low': row[4] or 0,
+                        'minimal': row[5] or 0
+                    }
+                    for row in result.fetchall()
+                ]
+                analytics['hunt_score_ranges'] = hunt_score_ranges
+                
                 return analytics
                 
         except Exception as e:

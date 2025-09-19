@@ -32,6 +32,8 @@
 ## Threat Intelligence Focus
 - **Scope**: Focus solely on threat intelligence content
 - **Detection Engineering**: Best practices for detection engineers are out of scope
+- **SIGMA Rule Generation**: AI-powered detection rule generation with pySIGMA validation
+- **Rule Validation**: Automatic validation and iterative fixing (up to 3 attempts)
 
 ## Scoring System Management
 - **Keyword Updates**: Always regenerate threat hunting scores when updating LOLBAS lists or keyword discriminators

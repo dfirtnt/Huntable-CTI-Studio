@@ -50,3 +50,6 @@ flake8==7.0.0
 certifi==2025.8.3
 urllib3==2.5.0
 charset-normalizer==3.4.3
+
+# SIGMA rule validation
+pysigma==1.0.0rc2

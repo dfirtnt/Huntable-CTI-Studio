@@ -29,7 +29,7 @@ async def test_with_llm_validation():
         extractor = HybridIOCExtractor(use_llm_validation=True)
         
         print("1. Testing with fake API key (should fallback)...")
-        result = await extractor.extract_iocs(content, api_key='fake_key', ai_model='ollama')
+        result = await extractor.extract_iocs(content, api_key=os.getenv('OPENAI_API_KEY', 'fake_key'), ai_model='ollama')
         print(f"   Result: {result.extraction_method}")
         print(f"   IOCs: {result.iocs}")
         print(f"   Success: {result is not None}")

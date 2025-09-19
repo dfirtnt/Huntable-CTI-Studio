@@ -571,7 +571,9 @@ WINDOWS_MALWARE_KEYWORDS = {
             # macOS-specific perfect discriminators (100% chosen rate)
             'homebrew', '/users/shared/', 'chmod 777',
             # macOS telemetry and security controls (100% chosen rate)
-            'tccd', 'spctl', 'csrutil'
+            'tccd', 'spctl', 'csrutil',
+            # Added from non-English word analysis
+            'xor'
         ],
             'good_discriminators': [
                 'temp', '==', 'c:\\windows\\', 'Event ID', '.bat', '.ps1',
@@ -579,13 +581,15 @@ WINDOWS_MALWARE_KEYWORDS = {
                 'Monitor', 'Executable', 'Detection', 'Alert on', 'Hunt for',
                 'Hunting', 'Create Detections', 'Search Query', '//',
                 'http:', 'hxxp', '->', '.exe', '--', 'cloudtrail',
-                '\\', 'spawn', '|',
+                '\\\\', 'spawn', '|',
                 # PowerShell attack techniques (high chosen rate)
                 'mimikatz', 'kerberoast', 'psexec',
                 # macOS-specific good discriminators (high chosen rate)
                 'codesign', 'mach-o', 'plist',
                 # macOS attack vectors and telemetry (60%+ chosen rate)
-                'osascript', 'TCC.db'
+                'osascript', 'TCC.db',
+                # Added from non-English word analysis
+                'payload', 'sftp', 'downloader', 'jss'
             ],
     'intelligence_indicators': [
         # Real threat activity - specific indicators

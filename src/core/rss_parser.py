@@ -563,7 +563,7 @@ class RSSParser:
         
         # Ensure sufficient content length and word count
         words = text.split()
-        if len(words) < 30:  # Reduced from 50 to 30 words
+        if len(words) < 100:  # Minimum 100 words for quality content
             return False
         
         # Check for reasonable content structure (paragraphs, sentences)
