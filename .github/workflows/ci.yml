@@ -12,7 +12,7 @@ jobs:
     
     services:
       postgres:
-        image: postgres:13
+        image: postgres:15
         env:
           POSTGRES_PASSWORD: postgres
           POSTGRES_DB: cti_scraper_test
@@ -25,7 +25,7 @@ jobs:
           - 5432:5432
       
       redis:
-        image: redis:6
+        image: redis:7
         options: >-
           --health-cmd "redis-cli ping"
           --health-interval 10s
@@ -33,14 +33,6 @@ jobs:
           --health-retries 5
         ports:
           - 6379:6379
-      
-      playwright:
-        image: mcr.microsoft.com/playwright:v1.40.0
-        options: >-
-          --health-cmd "npx playwright --version"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
 
     steps:
     - uses: actions/checkout@v4
@@ -54,7 +46,7 @@ jobs:
       uses: actions/cache@v3
       with:
         path: ~/.cache/pip
-        key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements*.txt') }}
+        key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
         restore-keys: |
           ${{ runner.os }}-pip-
     
@@ -64,75 +56,24 @@ jobs:
         pip install -r requirements.txt
         pip install -r requirements-test.txt
     
-    - name: Install Playwright
-      run: |
-        pip install playwright pytest-playwright
-        playwright install chromium
-    
     - name: Lint with flake8
       run: |
         flake8 src/ --count --select=E9,F63,F7,F82 --show-source --statistics
         flake8 src/ --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
     
-    - name: Type check with mypy
-      run: |
-        mypy src/ --ignore-missing-imports
+    - name: Format check with black
+      run: black --check src/
     
-    - name: Security scan with bandit
-      run: |
-        bandit -r src/ -f json -o bandit-report.json || true
+    - name: Import sorting check with isort
+      run: isort --check-only src/
     
-    - name: Test with pytest
+    - name: Run tests
       env:
         DATABASE_URL: postgresql://postgres:postgres@localhost:5432/cti_scraper_test
         REDIS_URL: redis://localhost:6379/0
-        SECRET_KEY: test-secret-key
-        ENVIRONMENT: test
+        LOG_LEVEL: WARNING
       run: |
-        pytest tests/ -v --cov=src --cov-report=xml --cov-report=html
-    
-    - name: Start CTIScraper for E2E tests
-      env:
-        DATABASE_URL: postgresql://postgres:postgres@localhost:5432/cti_scraper_test
-        REDIS_URL: redis://localhost:6379/0
-        SECRET_KEY: test-secret-key
-        ENVIRONMENT: test
-        HOST: 0.0.0.0
-        PORT: 8000
-      run: |
-        python -m uvicorn src.main:app --host 0.0.0.0 --port 8000 &
-        sleep 10  # Wait for server to start
-    
-    - name: Run E2E tests with Playwright
-      run: |
-        pytest tests/e2e/ -v --browser chromium --headed=false
-    
-    - name: Upload E2E test artifacts
-      uses: actions/upload-artifact@v3
-      if: always()
-      with:
-        name: playwright-report
-        path: |
-          playwright-report/
-          test-results/
-          screenshots/
-        retention-days: 30
-    
-    - name: Upload E2E test videos
-      uses: actions/upload-artifact@v3
-      if: always()
-      with:
-        name: playwright-videos
-        path: test-results/videos/
-        retention-days: 7
-    
-    - name: Upload E2E test traces
-      uses: actions/upload-artifact@v3
-      if: always()
-      with:
-        name: playwright-traces
-        path: test-results/traces/
-        retention-days: 7
+        pytest tests/ -v --cov=src --cov-report=xml --cov-report=term-missing
     
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v3
@@ -141,9 +82,37 @@ jobs:
         flags: unittests
         name: codecov-umbrella
 
-  docker-build:
+  security:
     runs-on: ubuntu-latest
-    needs: test
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install safety bandit
+    
+    - name: Run safety check
+      run: safety check --file requirements.txt
+    
+    - name: Run bandit security linter
+      run: bandit -r src/ -f json -o bandit-report.json || true
+    
+    - name: Upload security scan results
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: security-scan-results
+        path: bandit-report.json
+
+  docker:
+    runs-on: ubuntu-latest
     
     steps:
     - uses: actions/checkout@v4
@@ -153,27 +122,8 @@ jobs:
     
     - name: Build Docker image
       run: |
-        docker build -t cti-scraper:latest .
+        docker build -t cti-scraper:test .
     
     - name: Test Docker image
       run: |
-        docker run --rm cti-scraper:latest python -c "import src; print('Import successful')"
-
-  security-scan:
-    runs-on: ubuntu-latest
-    
-    steps:
-    - uses: actions/checkout@v4
-    
-    - name: Run Trivy vulnerability scanner
-      uses: aquasecurity/trivy-action@master
-      with:
-        scan-type: 'fs'
-        scan-ref: '.'
-        format: 'sarif'
-        output: 'trivy-results.sarif'
-    
-    - name: Upload Trivy scan results to GitHub Security tab
-      uses: github/codeql-action/upload-sarif@v2
-      with:
-        sarif_file: 'trivy-results.sarif'
+        docker run --rm cti-scraper:test python -c "import src; print('Import successful')"

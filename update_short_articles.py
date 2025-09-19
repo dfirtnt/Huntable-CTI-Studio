@@ -25,7 +25,7 @@ async def update_short_articles():
     print("=" * 50)
     
     # Create database manager
-    db = DatabaseManager(database_url="postgresql://cti_user:cti_password_2024@postgres:5432/cti_scraper")
+    db = DatabaseManager(database_url=os.getenv("DATABASE_URL", "postgresql://cti_user:cti_password_2024@postgres:5432/cti_scraper"))
     
     # Create HTTP client
     http_client = HTTPClient()
