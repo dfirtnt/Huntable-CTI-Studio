@@ -52,6 +52,40 @@
         hyphens: auto;
         max-width: 100%;
     }
+    .result-table {
+        max-width: 100%;
+        overflow-x: auto;
+    }
+    .result-table table {
+        table-layout: fixed;
+        width: 100%;
+    }
+    .result-table td {
+        word-wrap: break-word;
+        word-break: break-word;
+        overflow-wrap: break-word;
+        hyphens: auto;
+        max-width: 0;
+    }
+    .result-table th {
+        word-wrap: break-word;
+        word-break: break-word;
+        overflow-wrap: break-word;
+        hyphens: auto;
+        max-width: 0;
+    }
+    /* Ensure footer doesn't overflow */
+    footer {
+        word-wrap: break-word;
+        word-break: break-word;
+        overflow-wrap: break-word;
+        max-width: 100%;
+    }
+    /* Ensure main content doesn't cause horizontal overflow */
+    .space-y-6 {
+        max-width: 100%;
+        overflow-x: hidden;
+    }
 </style>
 {% endblock %}
 
@@ -346,12 +380,12 @@
                     return '<p class="text-sm text-gray-600">No results found.</p>';
                 }
 
-                let html = '<div class="overflow-x-auto"><table class="min-w-full text-xs">';
+                let html = '<div class="overflow-x-auto"><table class="min-w-full text-xs table-fixed">';
                 
                 // Header
                 html += '<thead class="bg-gray-50"><tr>';
                 columns.forEach(col => {
-                    html += `<th class="px-3 py-2 text-left font-medium text-gray-700">${this.escapeHtml(col)}</th>`;
+                    html += `<th class="px-3 py-2 text-left font-medium text-gray-700 break-words">${this.escapeHtml(col)}</th>`;
                 });
                 html += '</tr></thead>';
                 
@@ -362,7 +396,7 @@
                     columns.forEach(col => {
                         const value = row[col];
                         const displayValue = value === null ? '<span class="text-gray-400">null</span>' : this.escapeHtml(String(value));
-                        html += `<td class="px-3 py-2 text-gray-900">${displayValue}</td>`;
+                        html += `<td class="px-3 py-2 text-gray-900 break-words">${displayValue}</td>`;
                     });
                     html += '</tr>';
                 });
