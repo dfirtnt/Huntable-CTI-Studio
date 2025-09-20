@@ -73,7 +73,7 @@ class ContentFilter:
             r'%[A-Za-z0-9_]+:\*[^!%]+=!%',  # asterisk-based substitution
             r'[^\w](s\^+e\^*t|s\^*e\^+t)[^\w]',  # caret-obfuscated set
             r'[^\w](c\^+a\^*l\^*l|c\^*a\^+l\^*l|c\^*a\^*l\^+l)[^\w]',  # caret-obfuscated call
-            r'\^|\"',  # caret or quote splitting
+            r'\^|"',  # caret or quote splitting
             r'%[^%]+%<[^>]*|set\s+[A-Za-z0-9_]+\s*=\s*[^&|>]*\|'  # stdin piping patterns
         ]
         

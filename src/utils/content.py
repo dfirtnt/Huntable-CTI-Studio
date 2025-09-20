@@ -566,7 +566,7 @@ WINDOWS_MALWARE_KEYWORDS = {
             r'%[A-Za-z0-9_]+:\*[^!%]+=!%',  # asterisk-based substitution
             r'[^\w](s\^+e\^*t|s\^*e\^+t)[^\w]',  # caret-obfuscated set
             r'[^\w](c\^+a\^*l\^*l|c\^*a\^+l\^*l|c\^*a\^*l\^+l)[^\w]',  # caret-obfuscated call
-            r'\^|\"',  # caret or quote splitting
+            r'\^|"',  # caret or quote splitting
             r'%[^%]+%<[^>]*|set\s+[A-Za-z0-9_]+\s*=\s*[^&|>]*\|',  # stdin piping patterns
             # macOS-specific perfect discriminators (100% chosen rate)
             'homebrew', '/users/shared/', 'chmod 777',
@@ -769,7 +769,7 @@ class ThreatHuntingScorer:
             r'%[A-Za-z0-9_]+:\*[^!%]+=!%',  # asterisk-based substitution
             r'[^\w](s\^+e\^*t|s\^*e\^+t)[^\w]',  # caret-obfuscated set
             r'[^\w](c\^+a\^*l\^*l|c\^*a\^+l\^*l|c\^*a\^*l\^+l)[^\w]',  # caret-obfuscated call
-            r'\^|\"',  # caret or quote splitting
+            r'\^|"',  # caret or quote splitting
             r'%[^%]+%<[^>]*|set\s+[A-Za-z0-9_]+\s*=\s*[^&|>]*\|'  # stdin piping patterns
         ]
         
