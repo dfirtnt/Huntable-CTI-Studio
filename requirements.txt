@@ -28,7 +28,10 @@ redis==5.2.1
 
 # Classification and ML
 scikit-learn==1.7.2
+# Machine learning and embeddings
 sentence-transformers==3.1.0
+ollama==0.3.1
+pgvector==0.3.4
 lightgbm==4.6.0
 joblib==1.4.2
 

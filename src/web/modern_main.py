@@ -11,13 +11,14 @@ import asyncio
 import logging
 import httpx
 from pathlib import Path
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, AsyncGenerator
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta
 from collections import defaultdict
 
 from fastapi import FastAPI, HTTPException, Depends, BackgroundTasks, Request
 from fastapi.responses import HTMLResponse, JSONResponse, Response
+# from src.web.rag_api import router as rag_router  # Disabled - not needed for core scraper
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from fastapi.middleware.cors import CORSMiddleware
@@ -179,6 +180,9 @@ async def get_db_session() -> AsyncSession:
     """Get database session for dependency injection."""
     async with async_db_manager.get_session() as session:
         yield session
+
+# Include RAG router
+# app.include_router(rag_router)  # Disabled - not needed for core scraper
 
 # Health check endpoint
 @app.get("/health")
@@ -1285,6 +1289,59 @@ async def api_get_next_unclassified(current_article_id: Optional[int] = None):
         
     except Exception as e:
         logger.error(f"API get next unclassified error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/articles/next")
+async def api_get_next_article(current_article_id: int):
+    """API endpoint for getting the next article by ID."""
+    try:
+        # Get all articles ordered by ID to ensure consistent ordering
+        articles = await async_db_manager.list_articles()
+        
+        # Sort by ID to ensure we get the next article ID
+        articles.sort(key=lambda x: x.id)
+        
+        # Find the next article after the current one
+        found_current = False
+        for article in articles:
+            if article.id == current_article_id:
+                found_current = True
+                continue
+            
+            if found_current:
+                return {"article_id": article.id}
+        
+        # If no next article found
+        return {"article_id": None, "message": "No next article found"}
+        
+    except Exception as e:
+        logger.error(f"API get next article error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/articles/previous")
+async def api_get_previous_article(current_article_id: int):
+    """API endpoint for getting the previous article by ID."""
+    try:
+        # Get all articles ordered by ID to ensure consistent ordering
+        articles = await async_db_manager.list_articles()
+        
+        # Sort by ID to ensure we get the previous article ID
+        articles.sort(key=lambda x: x.id)
+        
+        # Find the previous article before the current one
+        previous_article = None
+        for article in articles:
+            if article.id == current_article_id:
+                break
+            previous_article = article
+        
+        if previous_article:
+            return {"article_id": previous_article.id}
+        else:
+            return {"article_id": None, "message": "No previous article found"}
+        
+    except Exception as e:
+        logger.error(f"API get previous article error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/articles/{article_id}")

@@ -1,7 +1,7 @@
 services:
-  # PostgreSQL Database
+  # PostgreSQL Database with pgvector extension
   postgres:
-    image: postgres:15-alpine
+    image: pgvector/pgvector:pg15
     container_name: cti_postgres
     environment:
       POSTGRES_DB: cti_scraper
