@@ -335,23 +335,26 @@ def setup_huggingface_hub():
     try:
         from huggingface_hub import login
         import os
+        import logging
+        
+        logger = logging.getLogger(__name__)
         
         # Check if HF_TOKEN is set
         if not os.getenv('HF_TOKEN'):
-            print("⚠️ HF_TOKEN environment variable not set")
-            print("To use Hugging Face Hub features:")
-            print("1. Get your token from: https://huggingface.co/settings/tokens")
-            print("2. Set environment variable: export HF_TOKEN=your_token_here")
-            print("3. Or login interactively: huggingface-cli login")
+            logger.warning("HF_TOKEN environment variable not set")
+            logger.info("To use Hugging Face Hub features:")
+            logger.info("1. Get your token from: https://huggingface.co/settings/tokens")
+            logger.info("2. Set environment variable: export HF_TOKEN=your_token_here")
+            logger.info("3. Or login interactively: huggingface-cli login")
             return False
         
         # Login with token
         login(token=os.getenv('HF_TOKEN'))
-        print("✅ Hugging Face Hub authentication successful")
+        logger.info("✅ Hugging Face Hub authentication successful")
         return True
         
     except Exception as e:
-        print(f"❌ Hugging Face Hub setup failed: {e}")
+        logger.error(f"❌ Hugging Face Hub setup failed: {e}")
         return False
 
 def main():
