@@ -522,11 +522,19 @@ async def sources_list(request: Request):
         # Create a lookup for quality stats by source ID
         quality_lookup = {stat["source_id"]: stat for stat in quality_stats}
         
+        # Sort sources by acceptance rate (%chosen) with highest on top
+        def get_acceptance_rate(source):
+            if source.id in quality_lookup:
+                return quality_lookup[source.id].get('acceptance_rate', 0)
+            return 0
+        
+        sources_sorted = sorted(sources, key=get_acceptance_rate, reverse=True)
+        
         return templates.TemplateResponse(
             "sources.html",
             {
                 "request": request, 
-                "sources": sources,
+                "sources": sources_sorted,
                 "quality_stats": quality_lookup
             }
         )

@@ -120,8 +120,16 @@
     <!-- Sources List -->
     <div class="bg-white rounded-lg shadow-sm">
         <div class="px-6 py-4 border-b border-gray-200">
-            <h3 class="text-lg font-medium text-gray-900">Configured Sources</h3>
-            <p class="text-sm text-gray-500">All threat intelligence sources and their current status</p>
+            <div class="flex items-center justify-between">
+                <div>
+                    <h3 class="text-lg font-medium text-gray-900">Configured Sources</h3>
+                    <p class="text-sm text-gray-500">All threat intelligence sources and their current status</p>
+                </div>
+                <div class="text-right">
+                    <p class="text-xs text-gray-500">Sorted by</p>
+                    <p class="text-sm font-medium text-green-600">% Chosen (highest first)</p>
+                </div>
+            </div>
         </div>
 
         {% if sources %}
@@ -132,6 +140,10 @@
                 <div class="flex items-start justify-between">
                     <div class="flex-1 min-w-0">
                         <div class="flex items-center space-x-2 mb-2">
+                            <!-- Rank indicator -->
+                            <div class="flex items-center justify-center w-6 h-6 bg-green-100 text-green-800 text-xs font-bold rounded-full">
+                                {{ loop.index }}
+                            </div>
                             <h4 class="text-lg font-medium text-gray-900">
                                 <a href="/articles?source_id={{ source.id }}" class="text-blue-600 hover:text-blue-800 hover:underline transition-colors">
                                     {{ source.name }}
