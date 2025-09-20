@@ -404,8 +404,8 @@ sources:
   # Sekoia.io Threat Research & Intelligence
   - id: "sekoia_io_blog"
     name: "Sekoia.io Threat Research & Intelligence"
-    url: "https://blog.sekoia.io/"
-    rss_url: "https://blog.sekoia.io/feed/"
+    url: "https://blog.sekoia.io/category/threat-research/"
+    rss_url: "https://blog.sekoia.io/category/threat-research/feed/"
     check_frequency: 1800  # 30 minutes
     active: true
     config:
