@@ -451,16 +451,16 @@
         </a>
         
         <div class="flex space-x-2">
-            {% if article.id > 1 %}
-            <a href="/articles/{{ article.id - 1 }}" class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition-colors">
+            <button onclick="navigateToPrevious()" 
+                    class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition-colors">
                 Previous Article
-            </a>
-            {% endif %}
+            </button>
             
-            <a href="/articles/{{ article.id + 1 }}" class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition-colors">
+            <button onclick="navigateToNext()" 
+                    class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition-colors">
                 Next Article
                 <span class="ml-2">→</span>
-            </a>
+            </button>
         </div>
     </div>
 </div>
@@ -1511,14 +1511,36 @@
         }
     }
     
-    function navigateToPrevious() {
-        const currentId = {{ article.id }};
-        window.location.href = `/articles/${currentId - 1}`;
+    async function navigateToPrevious() {
+        try {
+            const currentId = {{ article.id }};
+            const response = await fetch(`/api/articles/previous?current_article_id=${currentId}`);
+            const data = await response.json();
+            
+            if (data.article_id) {
+                window.location.href = `/articles/${data.article_id}`;
+            } else {
+                showNotification('No previous article found', 'info');
+            }
+        } catch (error) {
+            showNotification(`Error: ${error.message}`, 'error');
+        }
     }
     
-    function navigateToNext() {
-        const currentId = {{ article.id }};
-        window.location.href = `/articles/${currentId + 1}`;
+    async function navigateToNext() {
+        try {
+            const currentId = {{ article.id }};
+            const response = await fetch(`/api/articles/next?current_article_id=${currentId}`);
+            const data = await response.json();
+            
+            if (data.article_id) {
+                window.location.href = `/articles/${data.article_id}`;
+            } else {
+                showNotification('No next article found', 'info');
+            }
+        } catch (error) {
+            showNotification(`Error: ${error.message}`, 'error');
+        }
     }
     
     // AI Assistant Functions

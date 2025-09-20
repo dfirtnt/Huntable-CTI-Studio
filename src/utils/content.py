@@ -589,7 +589,9 @@ WINDOWS_MALWARE_KEYWORDS = {
                 # macOS attack vectors and telemetry (60%+ chosen rate)
                 'osascript', 'TCC.db',
                 # Added from non-English word analysis
-                'payload', 'sftp', 'downloader', 'jss'
+                'payload', 'sftp', 'downloader', 'jss',
+                # Character pattern discriminators (high correlation analysis)
+                '{}', '<>', '[]'
             ],
     'intelligence_indicators': [
         # Real threat activity - specific indicators
