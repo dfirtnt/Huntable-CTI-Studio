@@ -34,16 +34,14 @@ class HybridIOCExtractor:
     Phase 2: Optional LLM validation for context and categorization
     """
     
-    def __init__(self, use_llm_validation: bool = True, ai_model: str = 'chatgpt'):
+    def __init__(self, use_llm_validation: bool = True):
         """
         Initialize the hybrid IOC extractor.
         
         Args:
             use_llm_validation: Whether to use LLM for validation/categorization
-            ai_model: AI model to use ('chatgpt' or 'ollama')
         """
         self.use_llm_validation = use_llm_validation
-        self.ai_model = ai_model
         self.iocextract = iocextract
         
     def extract_raw_iocs(self, content: str) -> Dict[str, List[str]]:
@@ -161,76 +159,40 @@ Output format (return ONLY this JSON structure):
   "event_id": []
 }}"""
 
-            # Generate response based on AI model
-            if self.ai_model == 'chatgpt':
-                # Use ChatGPT API for validation
-                chatgpt_api_url = os.getenv('CHATGPT_API_URL', 'https://api.openai.com/v1/chat/completions')
-                
-                async with httpx.AsyncClient() as client:
-                    response = await client.post(
-                        chatgpt_api_url,
-                        headers={
-                            "Authorization": f"Bearer {api_key}",
-                            "Content-Type": "application/json"
-                        },
-                        json={
-                            "model": "gpt-4",
-                            "messages": [
-                                {
-                                    "role": "system",
-                                    "content": "You are a cybersecurity analyst specializing in IOC validation. Validate and categorize IOCs from threat intelligence articles and return them in valid JSON format only. NEVER include explanatory text, comments, or markdown formatting. Return ONLY the JSON object."
-                                },
-                                {
-                                    "role": "user",
-                                    "content": prompt
-                                }
-                            ],
-                            "max_tokens": 2048,
-                            "temperature": 0.1
-                        },
-                        timeout=60.0
-                    )
-                    
-                    if response.status_code != 200:
-                        logger.error(f"ChatGPT API error: {response.status_code} - {response.text}")
-                        return raw_iocs
-                    
-                    result = response.json()
-                    validated_json = result['choices'][0]['message']['content']
-            else:
-                # Use Ollama API
-                ollama_url = os.getenv('LLM_API_URL', 'http://cti_ollama:11434')
-                ollama_model = os.getenv('LLM_MODEL', 'mistral')
-                
-                logger.info(f"Using Ollama at {ollama_url} with model {ollama_model}")
-                
-                async with httpx.AsyncClient() as client:
-                    try:
-                        response = await client.post(
-                            f"{ollama_url}/api/generate",
-                            json={
-                                "model": ollama_model,
-                                "prompt": prompt,
-                                "stream": False,
-                                "options": {
-                                    "temperature": 0.1,
-                                    "num_predict": 2048
-                                }
+            # Use ChatGPT API for validation
+            chatgpt_api_url = os.getenv('CHATGPT_API_URL', 'https://api.openai.com/v1/chat/completions')
+            
+            async with httpx.AsyncClient() as client:
+                response = await client.post(
+                    chatgpt_api_url,
+                    headers={
+                        "Authorization": f"Bearer {api_key}",
+                        "Content-Type": "application/json"
+                    },
+                    json={
+                        "model": "gpt-4",
+                        "messages": [
+                            {
+                                "role": "system",
+                                "content": "You are a cybersecurity analyst specializing in IOC validation. Validate and categorize IOCs from threat intelligence articles and return them in valid JSON format only. NEVER include explanatory text, comments, or markdown formatting. Return ONLY the JSON object."
                             },
-                            timeout=180.0
-                        )
-                        
-                        if response.status_code != 200:
-                            logger.error(f"Ollama API error: {response.status_code} - {response.text}")
-                            return raw_iocs
-                        
-                        result = response.json()
-                        validated_json = result.get('response', '{}')
-                        logger.info(f"Successfully got IOC validation from Ollama: {len(validated_json)} characters")
-                        
-                    except Exception as e:
-                        logger.error(f"Ollama API request failed: {e}")
-                        return raw_iocs
+                            {
+                                "role": "user",
+                                "content": prompt
+                            }
+                        ],
+                        "max_tokens": 2048,
+                        "temperature": 0.1
+                    },
+                    timeout=60.0
+                )
+                
+                if response.status_code != 200:
+                    logger.error(f"LLM validation failed: {response.status_code}")
+                    return raw_iocs  # Return raw IOCs if LLM fails
+                
+                result = response.json()
+                validated_json = result['choices'][0]['message']['content']
                 
                 # Parse the validated JSON
                 try:

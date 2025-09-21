@@ -709,17 +709,17 @@ class ThreatHuntingScorer:
         # Calculate scores using logarithmic bucket system with diminishing returns
         import math
         
-        # Perfect Discriminators: 30 points max (highest ceiling for technical depth)
-        perfect_score = min(15 * math.log(len(perfect_matches) + 1), 30.0)
+        # Perfect Discriminators: 75 points max (dominant weight for technical depth)
+        perfect_score = min(35 * math.log(len(perfect_matches) + 1), 75.0)
         
-        # LOLBAS Executables: 20 points max (practical attack techniques)
-        lolbas_score = min(10 * math.log(len(lolbas_matches) + 1), 20.0)
+        # LOLBAS Executables: 10 points max (practical attack techniques)
+        lolbas_score = min(5 * math.log(len(lolbas_matches) + 1), 10.0)
         
-        # Intelligence Indicators: 20 points max (core threat intelligence value)
-        intelligence_score = min(8 * math.log(len(intelligence_matches) + 1), 20.0)
+        # Intelligence Indicators: 10 points max (core threat intelligence value)
+        intelligence_score = min(4 * math.log(len(intelligence_matches) + 1), 10.0)
         
-        # Good Discriminators: 10 points max (supporting technical content)
-        good_score = min(5 * math.log(len(good_matches) + 1), 10.0)
+        # Good Discriminators: 5 points max (supporting technical content)
+        good_score = min(2.5 * math.log(len(good_matches) + 1), 5.0)
         
         # Negative Penalties: -10 points max (educational/marketing content penalty)
         negative_penalty = min(3 * math.log(len(negative_matches) + 1), 10.0)

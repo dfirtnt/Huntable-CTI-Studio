@@ -1,13 +1,9 @@
-# PDF processing
-PyPDF2==3.0.1
-pdfplumber==0.11.4
-
 # Core scraping and processing
 requests==2.32.5
 aiohttp==3.12.15
 httpx==0.28.1
 beautifulsoup4==4.13.5
-lxml>=4.9.0,<6.0
+lxml==5.3.0
 feedparser==6.0.12
 extruct==0.16.0
 # readability-lxml==0.3.0  # Disabled - using enhanced HTML cleaning instead
@@ -15,7 +11,7 @@ iocextract==1.16.1
 
 # Data processing and storage
 pandas==2.3.2
-numpy>=1.23.2,<2.0.0
+numpy==1.26.4
 sqlalchemy[asyncio]==2.0.43
 asyncpg==0.29.0
 psycopg2-binary==2.9.9
@@ -57,6 +53,7 @@ flake8==7.0.0
 certifi==2025.8.3
 urllib3==2.5.0
 charset-normalizer==3.4.3
+python-multipart==0.0.18
 
 # SIGMA rule validation
 pysigma==1.0.0rc2

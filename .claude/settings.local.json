@@ -13,7 +13,13 @@
       "Bash(pkill:*)",
       "Bash(lsof:*)",
       "Bash(xargs kill:*)",
-      "Bash(pip show:*)"
+      "Bash(pip show:*)",
+      "Bash(./start.sh:*)",
+      "Bash(docker-compose restart:*)",
+      "Bash(docker-compose logs:*)",
+      "Bash(docker-compose:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)"
     ],
     "deny": [],
     "ask": []
