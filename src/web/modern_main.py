@@ -28,6 +28,7 @@ from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.services.sigma_validator import validate_sigma_rule
+from src.utils.prompt_loader import format_prompt
 
 from src.database.async_manager import async_db_manager
 from src.models.source import Source, SourceUpdate, SourceFilter
@@ -1513,72 +1514,22 @@ async def api_analyze_threat_hunting(article_id: int, request: Request):
                 content += f"\n\n[Content truncated at {content_limit:,} characters. Full article has {len(article.content):,} characters.]"
             
             # Analyze both URL and content
-            prompt = f"""As a cybersecurity expert specializing in threat hunting and detection engineering, analyze this threat intelligence article for its usefulness to security professionals.
-
-Article Title: {article.title}
-Source URL: {article.canonical_url or 'N/A'}
-Published Date: {article.published_at or 'N/A'}
-
-Article Content:
-{content}
-
-Please provide a comprehensive analysis covering:
-
-1. **Threat Hunting Value** (1-10 scale):
-   - How useful is this for threat hunters?
-   - What indicators of compromise (IOCs) are mentioned?
-   - What attack techniques are described?
-
-2. **Detection Engineering Value** (1-10 scale):
-   - How useful is this for creating detection rules?
-   - What detection opportunities are present?
-   - What log sources would be relevant?
-
-3. **Key Technical Details**:
-   - Specific malware families, tools, or techniques
-   - Network indicators, file hashes, registry keys
-   - Process names, command lines, or behaviors
-
-4. **Actionable Intelligence**:
-   - Specific detection rules that could be created
-   - Threat hunting queries that could be used
-   - Recommended monitoring areas
-
-5. **Overall Assessment**:
-   - Summary of the article's value
-   - Priority level for security teams
-   - Recommended next steps
-
-Please be specific and actionable in your analysis."""
+            prompt = format_prompt("huntability_ranking", 
+                title=article.title,
+                source=article.canonical_url or 'N/A',
+                url=article.canonical_url or 'N/A',
+                content_length=len(content),
+                content=content
+            )
         else:
             # Analyze URL and metadata only
-            prompt = f"""As a cybersecurity expert specializing in threat hunting and detection engineering, analyze this threat intelligence article for its potential usefulness to security professionals.
-
-Article Title: {article.title}
-Source URL: {article.canonical_url or 'N/A'}
-Published Date: {article.published_at or 'N/A'}
-Source: {article.source_id}
-Content Length: {len(article.content)} characters
-
-Based on the title, source, and metadata, please provide an initial assessment:
-
-1. **Potential Threat Hunting Value** (1-10 scale):
-   - How promising does this article look for threat hunters?
-   - What types of threats might be discussed?
-
-2. **Potential Detection Engineering Value** (1-10 scale):
-   - How promising does this look for detection rule creation?
-   - What detection opportunities might be present?
-
-3. **Source Credibility**:
-   - How reliable is this source typically?
-   - What is the source's reputation in the security community?
-
-4. **Recommended Next Steps**:
-   - Should the full content be analyzed?
-   - What specific aspects should be focused on?
-
-Please provide a brief but insightful analysis based on the available metadata."""
+            prompt = format_prompt("huntability_ranking_alt", 
+                title=article.title,
+                source=article.canonical_url or 'N/A',
+                url=article.canonical_url or 'N/A',
+                published_date=article.published_at or 'N/A',
+                content_length=len(article.content)
+            )
         
         # Get CustomGPT configuration from environment
         customgpt_api_url = os.getenv('CUSTOMGPT_API_URL')
@@ -1689,27 +1640,28 @@ Please provide a brief but insightful analysis based on the available metadata."
 
 @app.post("/api/articles/{article_id}/chatgpt-summary")
 async def api_chatgpt_summary(article_id: int, request: Request):
-    """API endpoint for generating a ChatGPT summary of an article."""
+    """API endpoint for generating a summary of an article using ChatGPT or local LLM."""
     try:
         # Get the article
         article = await async_db_manager.get_article(article_id)
         if not article:
             raise HTTPException(status_code=404, detail="Article not found")
         
-        # Get request body to determine what to summarize and API key
+        # Get request body to determine what to summarize and AI model
         body = await request.json()
         include_content = body.get('include_content', True)  # Default to full content
         api_key = body.get('api_key')  # Get API key from request
+        ai_model = body.get('ai_model', 'chatgpt')  # Get AI model from request
         force_regenerate = body.get('force_regenerate', False)  # Force regeneration
         
-        logger.info(f"ChatGPT summary request for article {article_id}, api_key provided: {bool(api_key)}, force_regenerate: {force_regenerate}")
+        logger.info(f"Summary request for article {article_id}, ai_model: {ai_model}, api_key provided: {bool(api_key)}, force_regenerate: {force_regenerate}")
         
         # If force regeneration is requested, skip cache check
         if not force_regenerate:
             # Check if summary already exists and return cached version
             existing_summary = article.metadata.get('chatgpt_summary', {}) if article.metadata else {}
             if existing_summary and existing_summary.get('summary'):
-                logger.info(f"Returning cached ChatGPT summary for article {article_id}")
+                logger.info(f"Returning cached summary for article {article_id}")
                 return {
                     "success": True,
                     "article_id": article_id,
@@ -1721,16 +1673,19 @@ async def api_chatgpt_summary(article_id: int, request: Request):
                     "cached": True
                 }
         
-        # Check if API key is provided
-        if not api_key:
-            raise HTTPException(status_code=400, detail="OpenAI API key is required. Please configure it in Settings.")
+        # Check if API key is provided (only required for ChatGPT)
+        if ai_model == 'chatgpt' and not api_key:
+            raise HTTPException(status_code=400, detail="OpenAI API key is required for ChatGPT. Please configure it in Settings.")
         
         # Prepare the summary prompt
         if include_content:
             # Smart content truncation based on model
-            # Using ChatGPT - can handle more content
-            # GPT-4 Turbo: ~50k chars, GPT-4: ~20k chars, GPT-3.5: ~15k chars
-            content_limit = int(os.getenv('CHATGPT_CONTENT_LIMIT', '20000'))
+            if ai_model == 'chatgpt':
+                # Using ChatGPT - can handle more content
+                content_limit = int(os.getenv('CHATGPT_CONTENT_LIMIT', '20000'))
+            else:
+                # Using Ollama - more conservative limit
+                content_limit = int(os.getenv('OLLAMA_CONTENT_LIMIT', '4000'))
             
             # Truncate content intelligently
             content = article.content[:content_limit]
@@ -1738,43 +1693,29 @@ async def api_chatgpt_summary(article_id: int, request: Request):
                 content += f"\n\n[Content truncated at {content_limit:,} characters. Full article has {len(article.content):,} characters.]"
             
             # Summarize both URL and content
-            prompt = f"""Please provide a comprehensive summary of this threat intelligence article.
-
-Article Title: {article.title}
-Source URL: {article.canonical_url or 'N/A'}
-Published Date: {article.published_at or 'N/A'}
-
-Article Content:
-{content}
-
-Please provide a summary that includes:
-
-1. **Key Points**: Main findings and important details
-2. **Threat Actors**: Any mentioned threat actors or groups
-3. **Techniques**: Attack techniques, tools, or methods described
-4. **Indicators**: Any IOCs, hashes, IPs, or domains mentioned
-5. **Impact**: Potential impact or severity of the threat
-6. **Recommendations**: Any suggested mitigations or actions
-
-Please be concise but comprehensive, focusing on actionable intelligence."""
+            prompt = format_prompt("article_summary", 
+                title=article.title,
+                source=article.canonical_url or 'N/A',
+                url=article.canonical_url or 'N/A',
+                content=content
+            )
         else:
             # Summarize URL and metadata only
-            prompt = f"""Please provide a brief summary of this threat intelligence article based on its metadata.
-
-Article Title: {article.title}
-Source URL: {article.canonical_url or 'N/A'}
-Published Date: {article.published_at or 'N/A'}
-Source: {article.source_id}
-Content Length: {len(article.content)} characters
-
-Based on the title, source, and metadata, please provide a brief assessment of what this article likely covers and its potential importance for security professionals."""
+            prompt = format_prompt("metadata_summary", 
+                title=article.title,
+                source=article.canonical_url or 'N/A',
+                url=article.canonical_url or 'N/A',
+                published_date=article.published_at or 'N/A',
+                content_length=len(article.content)
+            )
         
-        # Use ChatGPT API with provided key
-        chatgpt_api_url = os.getenv('CHATGPT_API_URL', 'https://api.openai.com/v1/chat/completions')
-        
-        # Use ChatGPT API
-        async with httpx.AsyncClient() as client:
-            response = await client.post(
+        # Generate summary based on AI model
+        if ai_model == 'chatgpt':
+            # Use ChatGPT API
+            chatgpt_api_url = os.getenv('CHATGPT_API_URL', 'https://api.openai.com/v1/chat/completions')
+            
+            async with httpx.AsyncClient() as client:
+                response = await client.post(
                 chatgpt_api_url,
                 headers={
                     "Authorization": f"Bearer {api_key}",
@@ -1808,6 +1749,48 @@ Based on the title, source, and metadata, please provide a brief assessment of w
             
             result = response.json()
             summary = result['choices'][0]['message']['content']
+            model_used = 'chatgpt'
+            model_name = 'gpt-4'
+        else:
+            # Use Ollama API
+            ollama_url = os.getenv('LLM_API_URL', 'http://cti_ollama:11434')
+            ollama_model = os.getenv('LLM_MODEL', 'mistral')
+            
+            logger.info(f"Using Ollama at {ollama_url} with model {ollama_model}")
+            
+            async with httpx.AsyncClient() as client:
+                try:
+                    response = await client.post(
+                        f"{ollama_url}/api/generate",
+                        json={
+                            "model": ollama_model,
+                            "prompt": prompt,
+                            "stream": False,
+                            "options": {
+                                "temperature": 0.3,
+                                "num_predict": 2048
+                            }
+                        },
+                        timeout=180.0
+                    )
+                    
+                    if response.status_code != 200:
+                        logger.error(f"Ollama API error: {response.status_code} - {response.text}")
+                        raise HTTPException(status_code=500, detail=f"Failed to get summary from Ollama: {response.status_code}")
+                    
+                    result = response.json()
+                    summary = result.get('response', 'No summary available')
+                    model_used = 'ollama'
+                    model_name = ollama_model
+                    logger.info(f"Successfully got summary from Ollama: {len(summary)} characters")
+                    
+                except Exception as e:
+                    logger.error(f"Ollama API request failed: {e}")
+                    logger.error(f"Exception type: {type(e)}")
+                    logger.error(f"Exception args: {e.args}")
+                    import traceback
+                    logger.error(f"Traceback: {traceback.format_exc()}")
+                    raise HTTPException(status_code=500, detail=f"Failed to get summary from Ollama: {str(e)}")
         
         # Store the summary in article metadata
         current_metadata = article.metadata.copy() if article.metadata else {}
@@ -1815,8 +1798,8 @@ Based on the title, source, and metadata, please provide a brief assessment of w
             'summary': summary,
             'summarized_at': datetime.now().isoformat(),
             'content_type': 'full content' if include_content else 'metadata only',
-            'model_used': 'chatgpt',
-            'model_name': 'gpt-4'
+            'model_used': model_used,
+            'model_name': model_name
         }
         
         # Update the article
@@ -1852,16 +1835,22 @@ async def api_custom_prompt(article_id: int, request: Request):
         body = await request.json()
         custom_prompt = body.get('prompt')
         api_key = body.get('api_key')
+        ai_model = body.get('ai_model', 'chatgpt')  # Get AI model from request
         
         if not custom_prompt:
             raise HTTPException(status_code=400, detail="Custom prompt is required")
         
-        if not api_key:
-            raise HTTPException(status_code=400, detail="OpenAI API key is required")
+        # Check if API key is provided (only required for ChatGPT)
+        if ai_model == 'chatgpt' and not api_key:
+            raise HTTPException(status_code=400, detail="OpenAI API key is required for ChatGPT. Please configure it in Settings.")
         
         # Smart content truncation based on model
-        # Using ChatGPT - can handle more content
-        content_limit = int(os.getenv('CHATGPT_CONTENT_LIMIT', '15000'))
+        if ai_model == 'chatgpt':
+            # Using ChatGPT - can handle more content
+            content_limit = int(os.getenv('CHATGPT_CONTENT_LIMIT', '15000'))
+        else:
+            # Using Ollama - more conservative limit
+            content_limit = int(os.getenv('OLLAMA_CONTENT_LIMIT', '4000'))
         
         # Truncate content intelligently
         content = article.content[:content_limit]
@@ -1869,24 +1858,22 @@ async def api_custom_prompt(article_id: int, request: Request):
             content += f"\n\n[Content truncated at {content_limit:,} characters. Full article has {len(article.content):,} characters.]"
         
         # Prepare the custom prompt
-        full_prompt = f"""As a cybersecurity expert, please answer the following question about this threat intelligence article.
-
-Article Title: {article.title}
-Source URL: {article.canonical_url or 'N/A'}
-Published Date: {article.published_at or 'N/A'}
-
-Article Content:
-{content}
-
-User Question: {custom_prompt}
-
-Please provide a comprehensive and helpful response based on the article content. Be specific, actionable, and focus on cybersecurity insights."""
+        full_prompt = format_prompt("database_chat", 
+            title=article.title,
+            source=article.canonical_url or 'N/A',
+            url=article.canonical_url or 'N/A',
+            published_date=article.published_at or 'N/A',
+            question=custom_prompt,
+            content=content
+        )
         
-        # Use ChatGPT API
-        chatgpt_api_url = os.getenv('CHATGPT_API_URL', 'https://api.openai.com/v1/chat/completions')
-        
-        async with httpx.AsyncClient() as client:
-            response = await client.post(
+        # Generate response based on AI model
+        if ai_model == 'chatgpt':
+            # Use ChatGPT API
+            chatgpt_api_url = os.getenv('CHATGPT_API_URL', 'https://api.openai.com/v1/chat/completions')
+            
+            async with httpx.AsyncClient() as client:
+                response = await client.post(
                 chatgpt_api_url,
                 headers={
                     "Authorization": f"Bearer {api_key}",
@@ -1920,6 +1907,44 @@ Please provide a comprehensive and helpful response based on the article content
             
             result = response.json()
             ai_response = result['choices'][0]['message']['content']
+            model_used = 'chatgpt'
+            model_name = 'gpt-4'
+        else:
+            # Use Ollama API
+            ollama_url = os.getenv('LLM_API_URL', 'http://cti_ollama:11434')
+            ollama_model = os.getenv('LLM_MODEL', 'mistral')
+            
+            logger.info(f"Using Ollama at {ollama_url} with model {ollama_model}")
+            
+            async with httpx.AsyncClient() as client:
+                try:
+                    response = await client.post(
+                        f"{ollama_url}/api/generate",
+                        json={
+                            "model": ollama_model,
+                            "prompt": full_prompt,
+                            "stream": False,
+                            "options": {
+                                "temperature": 0.3,
+                                "num_predict": 2048
+                            }
+                        },
+                        timeout=180.0
+                    )
+                    
+                    if response.status_code != 200:
+                        logger.error(f"Ollama API error: {response.status_code} - {response.text}")
+                        raise HTTPException(status_code=500, detail=f"Failed to get response from Ollama: {response.status_code}")
+                    
+                    result = response.json()
+                    ai_response = result.get('response', 'No response available')
+                    model_used = 'ollama'
+                    model_name = ollama_model
+                    logger.info(f"Successfully got response from Ollama: {len(ai_response)} characters")
+                    
+                except Exception as e:
+                    logger.error(f"Ollama API request failed: {e}")
+                    raise HTTPException(status_code=500, detail=f"Failed to get response from Ollama: {str(e)}")
         
         # Store the custom prompt response in article metadata
         current_metadata = article.metadata.copy() if article.metadata else {}
@@ -1930,8 +1955,8 @@ Please provide a comprehensive and helpful response based on the article content
             'prompt': custom_prompt,
             'response': ai_response,
             'responded_at': datetime.now().isoformat(),
-            'model_used': 'chatgpt',
-            'model_name': 'gpt-4'
+            'model_used': model_used,
+            'model_name': model_name
         })
         
         # Update the article
@@ -1943,8 +1968,8 @@ Please provide a comprehensive and helpful response based on the article content
             "article_id": article_id,
             "response": ai_response,
             "responded_at": current_metadata['custom_prompts'][-1]['responded_at'],
-            "model_used": "chatgpt",
-            "model_name": "gpt-4"
+            "model_used": model_used,
+            "model_name": model_name
         }
         
     except HTTPException:
@@ -2080,18 +2105,25 @@ async def api_generate_sigma(article_id: int, request: Request):
         body = await request.json()
         include_content = body.get('include_content', True)  # Default to full content
         api_key = body.get('api_key')  # Get API key from request
+        ai_model = body.get('ai_model', 'chatgpt')  # Get AI model from request
         author_name = body.get('author_name', 'CTIScraper User')  # Get author name from request
         
-        logger.info(f"SIGMA generation request for article {article_id}, api_key provided: {bool(api_key)}, author: {author_name}")
+        logger.info(f"SIGMA generation request for article {article_id}, ai_model: {ai_model}, api_key provided: {bool(api_key)}, author: {author_name}")
         
-        if not api_key:
+        # Check if API key is provided (only required for ChatGPT)
+        if ai_model == 'chatgpt' and not api_key:
             logger.warning(f"SIGMA generation failed: No API key provided for article {article_id}")
-            raise HTTPException(status_code=400, detail="OpenAI API key is required. Please configure it in Settings.")
+            raise HTTPException(status_code=400, detail="OpenAI API key is required for ChatGPT. Please configure it in Settings.")
         
         # Prepare the SIGMA generation prompt
         if include_content:
-            # Smart content truncation for SIGMA generation - much more conservative
-            content_limit = int(os.getenv('CHATGPT_CONTENT_LIMIT', '8000'))  # Reduced from 20000
+            # Smart content truncation based on model
+            if ai_model == 'chatgpt':
+                # Using ChatGPT - can handle more content
+                content_limit = int(os.getenv('CHATGPT_CONTENT_LIMIT', '8000'))
+            else:
+                # Using Ollama - more conservative limit
+                content_limit = int(os.getenv('OLLAMA_CONTENT_LIMIT', '4000'))
             
             # Truncate content intelligently
             content = article.content[:content_limit]
@@ -2099,116 +2131,27 @@ async def api_generate_sigma(article_id: int, request: Request):
                 content += f"\n\n[Content truncated at {content_limit:,} characters. Full article has {len(article.content):,} characters.]"
             
             # Enhanced SIGMA-specific prompt based on SigmaHQ best practices - simplified
-            prompt = f"""Generate a Sigma detection rule based on this threat intelligence:
-
-Article Title: {article.title}
-Source URL: {article.canonical_url or 'N/A'}
-
-Content:
-{content}
-
-Create one high-quality Sigma rule in YAML format with:
-- title: under 50 chars, title case
-- id: valid UUID v4
-- status: experimental
-- description: what it detects
-- author: {author_name}
-- date: YYYY/MM/DD
-- tags: relevant MITRE ATT&CK tags
-- logsource: product and category
-- detection: selection and condition
-- fields: relevant fields
-- falsepositives: potential false positives
-- level: high/medium/low
-
-CRITICAL SIGMA SYNTAX REQUIREMENTS:
-- Use ONLY valid SIGMA condition syntax: 'selection' or 'selection1 and selection2' or 'selection1 or selection2'
-- NEVER use SQL-like syntax like 'count()', 'group by', 'where', 'stats', etc.
-- NEVER use aggregation functions in conditions
-- Valid conditions: 'selection', 'selection and selection', 'selection or selection', 'all of selection*', '1 of selection*'
-- Selection must reference defined filters above it
-- Use proper YAML indentation and syntax
-
-EXAMPLE VALID SIGMA STRUCTURE:
-title: Process Creation Event
-logsource:
-  category: process_creation
-  product: windows
-detection:
-  selection:
-    EventID: 4688
-    CommandLine|contains: 'powershell'
-  condition: selection
-
-IMPORTANT: Output ONLY clean YAML without markdown formatting. Do not wrap the rule in ```yaml code blocks.
-
-IMPORTANT: Focus on TTPs (Tactics, Techniques, and Procedures) rather than atomic IOCs (Indicators of Compromise). Avoid rules that could easily be replaced by simple IOC matching (specific IP addresses, file hashes, etc.). Instead, focus on:
-
-- Behavioral patterns and techniques
-- Process execution chains
-- Network communication patterns
-- File system activities
-- Registry modifications
-- Authentication anomalies
-- Command execution patterns
-- Persistence mechanisms
-- Domain/URL patterns (when they indicate technique, not just specific domains)
-
-The rule should detect the technique or behavior, not just specific artifacts. Domain/URL patterns are acceptable when they represent a technique (e.g., specific TLDs, URL structures, or domain patterns that indicate malicious behavior).
-
-CRITICAL: Generate ONLY clean YAML output without any markdown formatting, code blocks, or additional text. The output must be valid YAML that can be directly parsed."""
+            prompt = format_prompt("sigma_generation", 
+                title=article.title,
+                source=article.canonical_url or 'N/A',
+                url=article.canonical_url or 'N/A',
+                content=content
+            )
         else:
             # Metadata-only prompt
-            prompt = f"""As a senior cybersecurity detection engineer specializing in SIGMA rule creation and threat hunting, analyze this threat intelligence article metadata and provide guidance for SIGMA rule generation.
-
-Article Title: {article.title}
-Source URL: {article.canonical_url or 'N/A'}
-Published Date: {article.published_at or 'N/A'}
-Source: {article.source_id}
-Content Length: {len(article.content)} characters
-
-Based on the article title and metadata, provide:
-
-1. **Potential Detection Opportunities**:
-   - What types of threats might be discussed?
-   - What detection categories would be most relevant?
-   - What log sources should be considered?
-
-2. **Recommended SIGMA Rule Types**:
-   - Process creation rules
-   - Network activity rules
-   - File system rules
-   - Registry rules
-   - Authentication rules
-
-3. **MITRE ATT&CK Techniques**:
-   - Likely techniques based on the title
-   - Recommended technique mappings
-
-4. **Next Steps**:
-   - Should the full content be analyzed?
-   - What specific aspects should be focused on?
-
-Please provide a brief but insightful analysis based on the available metadata."""
+            prompt = format_prompt("sigma_guidance", 
+                title=article.title,
+                source=article.canonical_url or 'N/A',
+                url=article.canonical_url or 'N/A',
+                published_date=article.published_at or 'N/A',
+                content_length=len(article.content)
+            )
         
-        # Use ChatGPT API with iterative fixing (up to 3 attempts)
-        chatgpt_api_url = os.getenv('CHATGPT_API_URL', 'https://api.openai.com/v1/chat/completions')
-        
-        logger.info(f"Sending SIGMA request to OpenAI for article {article_id}, content length: {len(content) if include_content else 'metadata only'}")
+        # Generate SIGMA rules based on AI model
+        logger.info(f"Sending SIGMA request to {ai_model} for article {article_id}, content length: {len(content) if include_content else 'metadata only'}")
         
         # Enhanced system prompt with compliance requirements
-        system_prompt = """You are a senior cybersecurity detection engineer specializing in SIGMA rule creation and threat hunting. Generate high-quality, actionable SIGMA rules based on threat intelligence articles. Always use proper SIGMA syntax and include all required fields according to SigmaHQ standards. Focus on TTPs (Tactics, Techniques, and Procedures) rather than atomic IOCs (Indicators of Compromise). Create rules that detect behavioral patterns and techniques, not just specific artifacts like IP addresses or file hashes. Domain/URL patterns are acceptable when they represent techniques or behavioral patterns.
-
-CRITICAL COMPLIANCE REQUIREMENTS:
-- Use ONLY valid SIGMA condition syntax. NEVER use SQL-like syntax (count(), group by, where, stats, etc.) or aggregation functions in conditions
-- Valid conditions are: 'selection', 'selection1 and selection2', 'selection1 or selection2', 'all of selection*', '1 of selection*'
-- Always reference defined selections above the condition
-- Output ONLY clean YAML without markdown formatting, code blocks, or additional text
-- The output must be valid YAML that can be directly parsed by pySIGMA
-- Ensure all required fields are present: title, logsource, detection
-- Use proper YAML indentation and syntax
-
-The rules you generate MUST pass pySIGMA validation. If validation fails, you will be asked to fix the issues."""
+        system_prompt = format_prompt("sigma_system")
 
         # Iterative fixing loop (up to 3 attempts)
         sigma_rules = None
@@ -2237,15 +2180,10 @@ The rules you generate MUST pass pySIGMA validation. If validation fails, you wi
                 if attempt > 1 and validation_results:
                     last_validation = validation_results[-1]
                     if not last_validation.get('is_valid', False):
-                        feedback_prompt = f"""The previous SIGMA rule failed validation. Please fix the following issues:
-
-VALIDATION ERRORS:
-{chr(10).join(last_validation.get('errors', []))}
-
-VALIDATION WARNINGS:
-{chr(10).join(last_validation.get('warnings', []))}
-
-Please generate a corrected SIGMA rule that addresses these validation issues. Ensure the rule follows proper SIGMA syntax and structure."""
+                        feedback_prompt = format_prompt("sigma_feedback", 
+                            validation_errors=chr(10).join(last_validation.get('errors', [])),
+                            original_rule="[Previous rule content]"
+                        )
                         
                         messages.append({
                             "role": "user",
@@ -2253,38 +2191,77 @@ Please generate a corrected SIGMA rule that addresses these validation issues. E
                         })
                 
                 try:
-                    response = await client.post(
-                        chatgpt_api_url,
-                        headers={
-                            "Authorization": f"Bearer {api_key}",
-                            "Content-Type": "application/json"
-                        },
-                        json={
-                            "model": "gpt-4",
-                            "messages": messages,
-                            "max_tokens": 2048,
-                            "temperature": 0.2
-                        },
-                        timeout=120.0
-                    )
-                    
-                    if response.status_code != 200:
-                        error_detail = f"Failed to generate SIGMA rules: {response.status_code}"
-                        if response.status_code == 401:
-                            error_detail = "Invalid API key. Please check your OpenAI API key in Settings."
-                        elif response.status_code == 429:
-                            error_detail = "Rate limit exceeded. Please try again later."
-                        elif response.status_code == 400:
-                            try:
-                                error_response = response.json()
-                                logger.error(f"OpenAI API 400 error details: {error_response}")
-                                error_detail = f"OpenAI API error: {error_response.get('error', {}).get('message', 'Bad request')}"
-                            except:
-                                error_detail = "OpenAI API error: Bad request - check prompt format"
-                        raise HTTPException(status_code=500, detail=error_detail)
-                    
-                    result = response.json()
-                    sigma_rules = result['choices'][0]['message']['content']
+                    if ai_model == 'chatgpt':
+                        # Use ChatGPT API
+                        chatgpt_api_url = os.getenv('CHATGPT_API_URL', 'https://api.openai.com/v1/chat/completions')
+                        
+                        response = await client.post(
+                            chatgpt_api_url,
+                            headers={
+                                "Authorization": f"Bearer {api_key}",
+                                "Content-Type": "application/json"
+                            },
+                            json={
+                                "model": "gpt-4",
+                                "messages": messages,
+                                "max_tokens": 2048,
+                                "temperature": 0.2
+                            },
+                            timeout=120.0
+                        )
+
+                        if response.status_code != 200:
+                            error_detail = f"Failed to generate SIGMA rules: {response.status_code}"
+                            if response.status_code == 401:
+                                error_detail = "Invalid API key. Please check your OpenAI API key in Settings."
+                            elif response.status_code == 429:
+                                error_detail = "Rate limit exceeded. Please try again later."
+                            elif response.status_code == 400:
+                                try:
+                                    error_response = response.json()
+                                    logger.error(f"OpenAI API 400 error details: {error_response}")
+                                    error_detail = f"OpenAI API error: {error_response.get('error', {}).get('message', 'Bad request')}"
+                                except Exception:
+                                    error_detail = "OpenAI API error: Bad request - check prompt format"
+                            raise HTTPException(status_code=500, detail=error_detail)
+
+                        result = response.json()
+                        sigma_rules = result['choices'][0]['message']['content']
+                        model_used = 'chatgpt'
+                        model_name = 'gpt-4'
+                    else:
+                        # Use Ollama API
+                        ollama_url = os.getenv('LLM_API_URL', 'http://cti_ollama:11434')
+                        ollama_model = os.getenv('LLM_MODEL', 'mistral')
+                        
+                        logger.info(f"Using Ollama at {ollama_url} with model {ollama_model}")
+                        
+                        # Combine system prompt and user prompt for Ollama
+                        full_prompt = f"{system_prompt}\n\n{prompt}"
+                        
+                        response = await client.post(
+                            f"{ollama_url}/api/generate",
+                            json={
+                                "model": ollama_model,
+                                "prompt": full_prompt,
+                                "stream": False,
+                                "options": {
+                                    "temperature": 0.2,
+                                    "num_predict": 2048
+                                }
+                            },
+                            timeout=180.0
+                        )
+                        
+                        if response.status_code != 200:
+                            logger.error(f"Ollama API error: {response.status_code} - {response.text}")
+                            raise HTTPException(status_code=500, detail=f"Failed to get SIGMA rules from Ollama: {response.status_code}")
+                        
+                        result = response.json()
+                        sigma_rules = result.get('response', 'No SIGMA rules available')
+                        model_used = 'ollama'
+                        model_name = ollama_model
+                        logger.info(f"Successfully got SIGMA rules from Ollama: {len(sigma_rules)} characters")
                     
                     # Validate the generated rules
                     if sigma_rules:
@@ -2354,8 +2331,8 @@ Please generate a corrected SIGMA rule that addresses these validation issues. E
             'rules': sigma_rules,
             'generated_at': datetime.now().isoformat(),
             'content_type': 'full content' if include_content else 'metadata only',
-            'model_used': 'chatgpt',
-            'model_name': 'gpt-4',
+            'model_used': model_used,
+            'model_name': model_name,
             'validation_results': validation_results,
             'validation_passed': all_rules_valid,
             'attempts_made': attempt
@@ -2406,10 +2383,15 @@ async def api_extract_iocs(article_id: int, request: Request):
         body = await request.json()
         include_content = body.get('include_content', True)  # Default to full content
         api_key = body.get('api_key')  # Get API key from request
+        ai_model = body.get('ai_model', 'chatgpt')  # Get AI model from request
         force_regenerate = body.get('force_regenerate', False)  # Force regeneration
         use_llm_validation = body.get('use_llm_validation', True)  # Use LLM validation
         
-        logger.info(f"IOC extraction request for article {article_id}, api_key provided: {bool(api_key)}, force_regenerate: {force_regenerate}, use_llm_validation: {use_llm_validation}")
+        logger.info(f"IOC extraction request for article {article_id}, ai_model: {ai_model}, api_key provided: {bool(api_key)}, force_regenerate: {force_regenerate}, use_llm_validation: {use_llm_validation}")
+        
+        # Check if API key is provided (only required for ChatGPT)
+        if ai_model == 'chatgpt' and not api_key:
+            raise HTTPException(status_code=400, detail="OpenAI API key is required for ChatGPT. Please configure it in Settings.")
         
         # If force regeneration is requested, skip cache check
         if not force_regenerate:
@@ -2431,7 +2413,7 @@ async def api_extract_iocs(article_id: int, request: Request):
                 }
         
         # Initialize hybrid IOC extractor
-        ioc_extractor = HybridIOCExtractor(use_llm_validation=use_llm_validation)
+        ioc_extractor = HybridIOCExtractor(use_llm_validation=use_llm_validation, ai_model=ai_model)
         
         # Prepare content for extraction
         if include_content:
@@ -2449,8 +2431,8 @@ async def api_extract_iocs(article_id: int, request: Request):
             'iocs': extraction_result.iocs,
             'extracted_at': datetime.now().isoformat(),
             'content_type': 'full content' if include_content else 'metadata only',
-            'model_used': 'hybrid' if extraction_result.extraction_method == 'hybrid' else 'regex',
-            'model_name': 'gpt-4' if extraction_result.extraction_method == 'hybrid' else 'custom-regex',
+            'model_used': ai_model if extraction_result.extraction_method == 'hybrid' else 'regex',
+            'model_name': ai_model if extraction_result.extraction_method == 'hybrid' else 'custom-regex',
             'extraction_method': extraction_result.extraction_method,
             'confidence': extraction_result.confidence,
             'processing_time': extraction_result.processing_time,
@@ -2484,7 +2466,160 @@ async def api_extract_iocs(article_id: int, request: Request):
         logger.error(f"IOC extraction error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.post("/api/articles/{article_id}/gpt4o-rank")
+@app.post("/api/articles/{article_id}/rank-with-gpt4o")
+async def api_rank_with_gpt4o(article_id: int, request: Request):
+    """API endpoint for GPT4o SIGMA huntability ranking (frontend-compatible endpoint)."""
+    try:
+        # Get the article
+        article = await async_db_manager.get_article(article_id)
+        if not article:
+            raise HTTPException(status_code=404, detail="Article not found")
+        
+        # Get request body
+        body = await request.json()
+        article_url = body.get('url')
+        api_key = body.get('api_key')  # Get API key from request
+        ai_model = body.get('ai_model', 'chatgpt')  # Get AI model from request
+        optimization_options = body.get('optimization_options', {})
+        
+        logger.info(f"Ranking request for article {article_id}, ai_model: {ai_model}, api_key provided: {bool(api_key)}")
+        
+        # Check if API key is provided (only required for ChatGPT)
+        if ai_model == 'chatgpt' and not api_key:
+            raise HTTPException(status_code=400, detail="OpenAI API key is required for ChatGPT. Please configure it in Settings.")
+        
+        # Prepare the article content for analysis
+        if not article.content:
+            raise HTTPException(status_code=400, detail="Article content is required for analysis")
+        
+        # Smart content truncation based on model
+        if ai_model == 'chatgpt':
+            # Using ChatGPT - can handle more content
+            max_chars = 400000  # Leave room for prompt
+        else:
+            # Using Ollama - more conservative limit
+            max_chars = 100000  # Much smaller for local LLM
+        
+        content_to_analyze = article.content
+        if len(content_to_analyze) > max_chars:
+            content_to_analyze = content_to_analyze[:max_chars] + "\n\n[Content truncated due to length]"
+        
+        # Get the source name from source_id
+        source = await async_db_manager.get_source(article.source_id)
+        source_name = source.name if source else f"Source {article.source_id}"
+        
+        # SIGMA-focused prompt
+        sigma_prompt = format_prompt("gpt4o_sigma_ranking", 
+            title=article.title,
+            source=source_name,
+            url=article.canonical_url or 'N/A',
+            content=content_to_analyze
+        )
+        
+        # Generate ranking based on AI model
+        if ai_model == 'chatgpt':
+            # Use ChatGPT API
+            chatgpt_api_url = os.getenv('CHATGPT_API_URL', 'https://api.openai.com/v1/chat/completions')
+            
+            async with httpx.AsyncClient() as client:
+                response = await client.post(
+                    chatgpt_api_url,
+                    headers={
+                        "Authorization": f"Bearer {api_key}",
+                        "Content-Type": "application/json"
+                    },
+                    json={
+                        "model": "gpt-4o",
+                        "messages": [
+                            {
+                                "role": "user",
+                                "content": sigma_prompt
+                            }
+                        ],
+                        "max_tokens": 2000,
+                        "temperature": 0.3
+                    },
+                    timeout=60.0
+                )
+                
+                if response.status_code != 200:
+                    error_detail = response.text
+                    logger.error(f"OpenAI API error: {error_detail}")
+                    raise HTTPException(status_code=500, detail=f"OpenAI API error: {error_detail}")
+                
+                result = response.json()
+                analysis = result['choices'][0]['message']['content']
+                model_used = 'chatgpt'
+                model_name = 'gpt-4o'
+        else:
+            # Use Ollama API
+            ollama_url = os.getenv('LLM_API_URL', 'http://cti_ollama:11434')
+            ollama_model = os.getenv('LLM_MODEL', 'mistral')
+            
+            logger.info(f"Using Ollama at {ollama_url} with model {ollama_model}")
+            
+            async with httpx.AsyncClient() as client:
+                try:
+                    response = await client.post(
+                        f"{ollama_url}/api/generate",
+                        json={
+                            "model": ollama_model,
+                            "prompt": sigma_prompt,
+                            "stream": False,
+                            "options": {
+                                "temperature": 0.3,
+                                "num_predict": 2000
+                            }
+                        },
+                        timeout=180.0
+                    )
+                    
+                    if response.status_code != 200:
+                        logger.error(f"Ollama API error: {response.status_code} - {response.text}")
+                        raise HTTPException(status_code=500, detail=f"Failed to get ranking from Ollama: {response.status_code}")
+                    
+                    result = response.json()
+                    analysis = result.get('response', 'No analysis available')
+                    model_used = 'ollama'
+                    model_name = ollama_model
+                    logger.info(f"Successfully got ranking from Ollama: {len(analysis)} characters")
+                    
+                except Exception as e:
+                    logger.error(f"Ollama API request failed: {e}")
+                    raise HTTPException(status_code=500, detail=f"Failed to get ranking from Ollama: {str(e)}")
+        
+        # Save the analysis to the article's metadata
+        if article.metadata is None:
+            article.metadata = {}
+        
+        article.metadata['gpt4o_ranking'] = {
+            'analysis': analysis,
+            'analyzed_at': datetime.now().isoformat(),
+            'model_used': model_used,
+            'model_name': model_name,
+            'optimization_options': optimization_options
+        }
+        
+        # Update the article
+        update_data = ArticleUpdate(metadata=article.metadata)
+        await async_db_manager.update_article(article_id, update_data)
+        
+        return {
+            "success": True,
+            "article_id": article_id,
+            "analysis": analysis,
+            "analyzed_at": article.metadata['gpt4o_ranking']['analyzed_at'],
+            "model_used": model_used,
+            "model_name": model_name,
+            "optimization_options": optimization_options
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"API GPT4o ranking error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 async def api_gpt4o_rank(article_id: int, request: Request):
     """API endpoint for GPT4o SIGMA huntability ranking."""
     try:
@@ -2511,161 +2646,17 @@ async def api_gpt4o_rank(article_id: int, request: Request):
         if len(content_to_analyze) > max_chars:
             content_to_analyze = content_to_analyze[:max_chars] + "\n\n[Content truncated due to length]"
         
-        # SIGMA-focused prompt
-        sigma_prompt = """# Blog Content SIGMA-Suitability Huntability Ranking System
-
-## Your Role
-
-You are a detection engineer evaluating cybersecurity blog content specifically for its suitability to create SIGMA detection rules. Rate content based on how directly it maps to structured log data sources including Windows Event Logs, Sysmon, Linux auditd/Syslog, macOS system logs, AND cloud service logs (AWS CloudTrail, Azure Activity, GCP Audit).
-
-## SIGMA-Focused Scoring (1-10 Scale)
-
-Only content that maps to structured log telemetry receives points. Ignore network payloads, binary analysis, or packet-level details.
-
-## Important Notes
-
-- Do not award points for atomic IOCs (file hashes, IPs, or one-off domains).
-- Filename/path patterns and directory conventions are acceptable if they indicate repeatable behavior.
-- Only award points for observables that map directly to Windows Event Logs, Sysmon, Linux auditd/Syslog, or macOS system logs.
-
-### Category A – Process Creation & Command-Line Arguments (0-4 pts)
-
-**Data Sources:** 
-- Windows: Sysmon Event ID 1, Security 4688
-- Linux: process logs, auditd
-- **macOS: Endpoint Security process events, unified logging (log show)**
-- Cloud: CLI commands in CloudTrail/Activity logs
-
-**Look For:**
-
-- Parent → child process chains with full paths
-- Exact command-line strings with arguments, switches, flags
-- Process execution sequences
-- Cloud CLI commands (aws, az, gcloud) with specific parameters
-- **macOS-specific:** osascript commands, launchctl usage, security framework calls
-
-**Scoring:**
-
-- 0 = No process/command details
-- 1 = Vague mentions ("runs PowerShell", "uses AWS CLI", or "executes AppleScript")
-- 2 = Partial arguments or missing execution context
-- 3 = Detailed examples but limited coverage
-- 4 = Multiple detailed command chains with full arguments
-
-### Category B – Persistence & System/Service Modification (0-3 pts)
-
-**Data Sources:** 
-- Windows: Sysmon Event IDs 12/13/19/7045, Security 4697
-- Linux: auditd, systemd logs
-- **macOS: LaunchAgent/LaunchDaemon creation, login items, authorization database changes**
-- Cloud: AWS CloudTrail, Azure Activity
-
-**Look For:**
-
-- Registry keys with exact paths and values (Windows)
-- Service creation/modification details
-- Scheduled tasks, cron jobs, or **macOS LaunchAgents/LaunchDaemons**
-- Cloud service configurations (IAM roles, SNS topics, Lambda functions, etc.)
-- API calls that establish persistence or modify services
-- **macOS persistence:** ~/Library/LaunchAgents, /Library/LaunchDaemons, login items, authorization plugins
-
-**Scoring:**
-
-- 0 = No persistence/modification details
-- 1 = Generic mention ("creates persistence" or "modifies cloud config")
-- 2 = Specific mechanism but incomplete details
-- 3 = Exact configurations, API calls, plist files, or settings ready for SIGMA rules
-
-### Category C – Log-Correlated Behavior (0-2 pts)
-
-**Data Sources:** Multiple log sources in sequence (Windows/Linux/macOS/Cloud)
-
-**Look For:**
-
-- Cross-log correlations (process → network, cloud API → local execution)
-- Event sequences that can be chained in SIGMA rules
-- Time-based correlations between different log types
-- Cloud service chains (EC2 → SNS → external endpoint)
-- **macOS correlations:** Endpoint Security events + unified logging + authorization logs
-
-**Scoring:**
-
-- 0 = Single log source only
-- 1 = Limited correlation opportunities
-- 2 = Clear multi-log correlation patterns
-
-### Category D – Structured Log Patterns (0-1 pt)
-
-**Data Sources:** Any structured log format (file creation, API calls, service events)
-
-**Look For:**
-
-- File path patterns or naming conventions (not hashes)
-- API call patterns with specific parameters
-- Service usage patterns or anomalous configurations
-- Structured event patterns in any log format
-- **macOS-specific:** .plist file patterns, app bundle structures, Gatekeeper/XProtect logs
-
-**Scoring:**
-
-- 0 = No usable structured patterns
-- 1 = Clear structured patterns present
-
-## Important: Multi-Platform Content
-
-**AWS CloudTrail, Azure Activity Logs, GCP Audit Logs, and macOS system logs ARE valid SIGMA data sources.** Do not dismiss cloud-focused or macOS content. API calls, service configurations, LaunchAgent creation, and command execution are all huntable through structured logs.
-
-**macOS SIGMA Data Sources Include:**
-- Endpoint Security Framework events
-- Unified Logging System (log show commands)  
-- Authorization database logs
-- LaunchAgent/LaunchDaemon plist files
-- Gatekeeper and XProtect logs
-
-## Scoring Bands
-
-- **1-2:** Mostly strategic content, minimal SIGMA applicability
-- **3-4:** Limited SIGMA potential, too generic for reliable rules
-- **5-6:** Moderate SIGMA candidates with some specificity
-- **7-8:** Strong SIGMA potential, multiple rule-ready observables
-- **9-10:** Excellent SIGMA content, rules can be drafted immediately
-
-## Output Format
-
-**SIGMA HUNTABILITY SCORE: [1-10]**
-
-**CATEGORY BREAKDOWN:**
-
-- **Process/Command-Line (0-4):** [Score] - [Brief reasoning, noting platform if applicable]
-- **Persistence/System Mods (0-3):** [Score] - [Brief reasoning, noting platform-specific mechanisms]
-- **Log Correlation (0-2):** [Score] - [Brief reasoning]
-- **Structured Patterns (0-1):** [Score] - [Brief reasoning]
-
-**SIGMA-READY OBSERVABLES:**
-[List specific elements that can directly become SIGMA rules, noting target platform]
-
-**REQUIRED LOG SOURCES:**
-[Windows Event IDs, Sysmon events, Linux logs, macOS log sources, OR cloud service logs needed]
-
-**RULE FEASIBILITY:**
-[Assessment of how quickly detection rules could be created, noting any platform-specific considerations]
-
-## Instructions
-
-Analyze the provided blog content using this SIGMA-focused rubric. All major platforms (Windows, Linux, macOS) and cloud service logs are valid SIGMA data sources. Focus on structured log patterns regardless of platform. Ignore only unstructured data like network payloads or binary analysis.
-
-Please analyze the following blog content:
-
-**Title:** {title}
-**Source:** {source}
-**URL:** {url}
-
-**Content:**
-{content}"""
-        
         # Get the source name from source_id
         source = await async_db_manager.get_source(article.source_id)
         source_name = source.name if source else f"Source {article.source_id}"
+        
+        # SIGMA-focused prompt
+        sigma_prompt = format_prompt("gpt4o_sigma_ranking", 
+            title=article.title,
+            source=source_name,
+            url=article.canonical_url or 'N/A',
+            content=content_to_analyze
+        )
         
         # Prepare the prompt with the article content
         full_prompt = sigma_prompt.format(
@@ -2792,161 +2783,17 @@ async def api_gpt4o_rank_optimized(article_id: int, request: Request):
         if len(content_to_analyze) > max_chars:
             content_to_analyze = content_to_analyze[:max_chars] + "\n\n[Content truncated due to length]"
         
-        # SIGMA-focused prompt (same as original)
-        sigma_prompt = """# Blog Content SIGMA-Suitability Huntability Ranking System
-
-## Your Role
-
-You are a detection engineer evaluating cybersecurity blog content specifically for its suitability to create SIGMA detection rules. Rate content based on how directly it maps to structured log data sources including Windows Event Logs, Sysmon, Linux auditd/Syslog, macOS system logs, AND cloud service logs (AWS CloudTrail, Azure Activity, GCP Audit).
-
-## SIGMA-Focused Scoring (1-10 Scale)
-
-Only content that maps to structured log telemetry receives points. Ignore network payloads, binary analysis, or packet-level details.
-
-## Important Notes
-
-- Do not award points for atomic IOCs (file hashes, IPs, or one-off domains).
-- Filename/path patterns and directory conventions are acceptable if they indicate repeatable behavior.
-- Only award points for observables that map directly to Windows Event Logs, Sysmon, Linux auditd/Syslog, or macOS system logs.
-
-### Category A – Process Creation & Command-Line Arguments (0-4 pts)
-
-**Data Sources:** 
-- Windows: Sysmon Event ID 1, Security 4688
-- Linux: process logs, auditd
-- **macOS: Endpoint Security process events, unified logging (log show)**
-- Cloud: CLI commands in CloudTrail/Activity logs
-
-**Look For:**
-
-- Parent → child process chains with full paths
-- Exact command-line strings with arguments, switches, flags
-- Process execution sequences
-- Cloud CLI commands (aws, az, gcloud) with specific parameters
-- **macOS-specific:** osascript commands, launchctl usage, security framework calls
-
-**Scoring:**
-
-- 0 = No process/command details
-- 1 = Vague mentions ("runs PowerShell", "uses AWS CLI", or "executes AppleScript")
-- 2 = Partial arguments or missing execution context
-- 3 = Detailed examples but limited coverage
-- 4 = Multiple detailed command chains with full arguments
-
-### Category B – Persistence & System/Service Modification (0-3 pts)
-
-**Data Sources:** 
-- Windows: Sysmon Event IDs 12/13/19/7045, Security 4697
-- Linux: auditd, systemd logs
-- **macOS: LaunchAgent/LaunchDaemon creation, login items, authorization database changes**
-- Cloud: AWS CloudTrail, Azure Activity
-
-**Look For:**
-
-- Registry keys with exact paths and values (Windows)
-- Service creation/modification details
-- Scheduled tasks, cron jobs, or **macOS LaunchAgents/LaunchDaemons**
-- Cloud service configurations (IAM roles, SNS topics, Lambda functions, etc.)
-- API calls that establish persistence or modify services
-- **macOS persistence:** ~/Library/LaunchAgents, /Library/LaunchDaemons, login items, authorization plugins
-
-**Scoring:**
-
-- 0 = No persistence/modification details
-- 1 = Generic mention ("creates persistence" or "modifies cloud config")
-- 2 = Specific mechanism but incomplete details
-- 3 = Exact configurations, API calls, plist files, or settings ready for SIGMA rules
-
-### Category C – Log-Correlated Behavior (0-2 pts)
-
-**Data Sources:** Multiple log sources in sequence (Windows/Linux/macOS/Cloud)
-
-**Look For:**
-
-- Cross-log correlations (process → network, cloud API → local execution)
-- Event sequences that can be chained in SIGMA rules
-- Time-based correlations between different log types
-- Cloud service chains (EC2 → SNS → external endpoint)
-- **macOS correlations:** Endpoint Security events + unified logging + authorization logs
-
-**Scoring:**
-
-- 0 = Single log source only
-- 1 = Limited correlation opportunities
-- 2 = Clear multi-log correlation patterns
-
-### Category D – Structured Log Patterns (0-1 pt)
-
-**Data Sources:** Any structured log format (file creation, API calls, service events)
-
-**Look For:**
-
-- File path patterns or naming conventions (not hashes)
-- API call patterns with specific parameters
-- Service usage patterns or anomalous configurations
-- Structured event patterns in any log format
-- **macOS-specific:** .plist file patterns, app bundle structures, Gatekeeper/XProtect logs
-
-**Scoring:**
-
-- 0 = No usable structured patterns
-- 1 = Clear structured patterns present
-
-## Important: Multi-Platform Content
-
-**AWS CloudTrail, Azure Activity Logs, GCP Audit Logs, and macOS system logs ARE valid SIGMA data sources.** Do not dismiss cloud-focused or macOS content. API calls, service configurations, LaunchAgent creation, and command execution are all huntable through structured logs.
-
-**macOS SIGMA Data Sources Include:**
-- Endpoint Security Framework events
-- Unified Logging System (log show commands)  
-- Authorization database logs
-- LaunchAgent/LaunchDaemon plist files
-- Gatekeeper and XProtect logs
-
-## Scoring Bands
-
-- **1-2:** Mostly strategic content, minimal SIGMA applicability
-- **3-4:** Limited SIGMA potential, too generic for reliable rules
-- **5-6:** Moderate SIGMA candidates with some specificity
-- **7-8:** Strong SIGMA potential, multiple rule-ready observables
-- **9-10:** Excellent SIGMA content, rules can be drafted immediately
-
-## Output Format
-
-**SIGMA HUNTABILITY SCORE: [1-10]**
-
-**CATEGORY BREAKDOWN:**
-
-- **Process/Command-Line (0-4):** [Score] - [Brief reasoning, noting platform if applicable]
-- **Persistence/System Mods (0-3):** [Score] - [Brief reasoning, noting platform-specific mechanisms]
-- **Log Correlation (0-2):** [Score] - [Brief reasoning]
-- **Structured Patterns (0-1):** [Score] - [Brief reasoning]
-
-**SIGMA-READY OBSERVABLES:**
-[List specific elements that can directly become SIGMA rules, noting target platform]
-
-**REQUIRED LOG SOURCES:**
-[Windows Event IDs, Sysmon events, Linux logs, macOS log sources, OR cloud service logs needed]
-
-**RULE FEASIBILITY:**
-[Assessment of how quickly detection rules could be created, noting any platform-specific considerations]
-
-## Instructions
-
-Analyze the provided blog content using this SIGMA-focused rubric. All major platforms (Windows, Linux, macOS) and cloud service logs are valid SIGMA data sources. Focus on structured log patterns regardless of platform. Ignore only unstructured data like network payloads or binary analysis.
-
-Please analyze the following blog content:
-
-**Title:** {title}
-**Source:** {source}
-**URL:** {url}
-
-**Content:**
-{content}"""
-        
         # Get the source name from source_id
         source = await async_db_manager.get_source(article.source_id)
         source_name = source.name if source else f"Source {article.source_id}"
+        
+        # SIGMA-focused prompt (same as original)
+        sigma_prompt = format_prompt("gpt4o_sigma_ranking", 
+            title=article.title,
+            source=source_name,
+            url=article.canonical_url or 'N/A',
+            content=content_to_analyze
+        )
         
         # Prepare the prompt with the article content
         full_prompt = sigma_prompt.format(

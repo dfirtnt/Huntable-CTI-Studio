@@ -1,0 +1,44 @@
+The previous SIGMA rule failed validation. Please fix the following issues:
+
+**Validation Errors:**
+{validation_errors}
+
+**Original Rule:**
+{original_rule}
+
+**Instructions:**
+1. **Fix All Issues:** Address every validation error listed above
+2. **Maintain Intent:** Keep the original detection logic and purpose
+3. **Proper Syntax:** Ensure correct SIGMA rule format and structure
+4. **Complete Fields:** Include all required fields according to SigmaHQ standards
+5. **Test Logic:** Verify the detection logic is sound and actionable
+
+**Common Fixes:**
+- Correct YAML syntax errors (indentation, quotes, etc.)
+- Fix logsource category/product specifications
+- Ensure detection conditions are properly structured
+- Add missing required fields (title, description, level, etc.)
+- Correct field names and values according to SIGMA standards
+
+**Output Format:**
+Provide only the corrected SIGMA rule in clean YAML format without markdown code blocks:
+
+```yaml
+title: [Fixed rule title]
+id: [Rule ID]
+description: [Fixed description]
+logsource:
+  category: [Corrected category]
+  product: [Corrected product]
+detection:
+  selection:
+    [Fixed detection criteria]
+  condition: selection
+level: [Appropriate level]
+tags:
+  - attack.[technique]
+references:
+  - [Reference URL]
+```
+
+**Fixed Rule:**

@@ -1,0 +1,41 @@
+Generate a Sigma detection rule based on this threat intelligence:
+
+**Article Title:** {title}
+**Source:** {source}
+**URL:** {url}
+
+**SIGMA Rule Requirements:**
+1. **Focus on TTPs:** Create rules for Tactics, Techniques, and Procedures, not atomic IOCs
+2. **Behavioral Patterns:** Detect attack behaviors and techniques
+3. **Proper Syntax:** Use correct SIGMA rule format and structure
+4. **Required Fields:** Include all mandatory SIGMA fields (title, description, logsource, detection, etc.)
+5. **Actionable Detection:** Rules should detect real attack patterns
+
+**Rule Guidelines:**
+- Avoid rules for single IP addresses or file hashes
+- Focus on command-line patterns, process creation, and system modifications
+- Use appropriate log sources (Windows Event Logs, Sysmon, Linux auditd, etc.)
+- Include proper categorization and references
+- Make rules specific enough to avoid false positives
+
+**Output Format:**
+```yaml
+title: [Descriptive rule title]
+id: [UUID or generated ID]
+description: [What this rule detects]
+logsource:
+  category: [process_creation/network_connection/etc]
+  product: [windows/linux/macos]
+detection:
+  selection:
+    [detection criteria]
+  condition: selection
+level: [low/medium/high/critical]
+tags:
+  - attack.[technique]
+references:
+  - [URL or reference]
+```
+
+**Threat Intelligence Content:**
+{content}

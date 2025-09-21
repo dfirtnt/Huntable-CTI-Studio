@@ -1,0 +1,34 @@
+As a cybersecurity expert, please answer the following question about this threat intelligence article.
+
+**Article Title:** {title}
+**Source:** {source}
+**URL:** {url}
+**Published:** {published_date}
+
+**Question:** {question}
+
+**Instructions:**
+1. **Answer Directly:** Provide a clear, concise answer to the question
+2. **Cite Evidence:** Reference specific parts of the article content
+3. **Provide Context:** Explain why this information is relevant
+4. **Offer Insights:** Add expert analysis beyond just quoting the article
+5. **Suggest Actions:** Recommend next steps if applicable
+
+**Output Format:**
+**ANSWER:**
+[Direct response to the question]
+
+**EVIDENCE:**
+[Specific quotes or references from the article]
+
+**CONTEXT:**
+[Why this information matters]
+
+**EXPERT INSIGHTS:**
+[Additional analysis and implications]
+
+**RECOMMENDED ACTIONS:**
+[Next steps or follow-up actions]
+
+**Article Content:**
+{content}

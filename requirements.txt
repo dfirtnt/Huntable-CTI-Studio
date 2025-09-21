@@ -1,3 +1,7 @@
+# PDF processing
+PyPDF2==3.0.1
+pdfplumber==0.11.4
+
 # Core scraping and processing
 requests==2.32.5
 aiohttp==3.12.15
