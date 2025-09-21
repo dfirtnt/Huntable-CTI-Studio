@@ -16,7 +16,7 @@ from contextlib import asynccontextmanager
 from datetime import datetime, timedelta
 from collections import defaultdict
 
-from fastapi import FastAPI, HTTPException, Depends, BackgroundTasks, Request
+from fastapi import FastAPI, HTTPException, Depends, BackgroundTasks, Request, UploadFile, File
 from fastapi.responses import HTMLResponse, JSONResponse, Response
 # from src.web.rag_api import router as rag_router  # Disabled - not needed for core scraper
 from fastapi.staticfiles import StaticFiles
@@ -1713,44 +1713,44 @@ async def api_chatgpt_summary(article_id: int, request: Request):
         if ai_model == 'chatgpt':
             # Use ChatGPT API
             chatgpt_api_url = os.getenv('CHATGPT_API_URL', 'https://api.openai.com/v1/chat/completions')
-            
+
             async with httpx.AsyncClient() as client:
                 response = await client.post(
-                chatgpt_api_url,
-                headers={
-                    "Authorization": f"Bearer {api_key}",
-                    "Content-Type": "application/json"
-                },
-                json={
-                    "model": "gpt-4",  # or your specific ChatGPT model
-                    "messages": [
-                        {
-                            "role": "system",
-                            "content": "You are a cybersecurity expert specializing in threat intelligence analysis. Provide clear, concise summaries of threat intelligence articles."
-                        },
-                        {
-                            "role": "user",
-                            "content": prompt
-                        }
-                    ],
-                    "max_tokens": 2048,
-                    "temperature": 0.3
-                },
-                timeout=60.0
-            )
+                    chatgpt_api_url,
+                    headers={
+                        "Authorization": f"Bearer {api_key}",
+                        "Content-Type": "application/json"
+                    },
+                    json={
+                        "model": "gpt-4",  # or your specific ChatGPT model
+                        "messages": [
+                            {
+                                "role": "system",
+                                "content": "You are a cybersecurity expert specializing in threat intelligence analysis. Provide clear, concise summaries of threat intelligence articles."
+                            },
+                            {
+                                "role": "user",
+                                "content": prompt
+                            }
+                        ],
+                        "max_tokens": 2048,
+                        "temperature": 0.3
+                    },
+                    timeout=60.0
+                )
             
-            if response.status_code != 200:
-                error_detail = f"Failed to get summary from ChatGPT: {response.status_code}"
-                if response.status_code == 401:
-                    error_detail = "Invalid API key. Please check your OpenAI API key in Settings."
-                elif response.status_code == 429:
-                    error_detail = "Rate limit exceeded. Please try again later."
-                raise HTTPException(status_code=500, detail=error_detail)
-            
-            result = response.json()
-            summary = result['choices'][0]['message']['content']
-            model_used = 'chatgpt'
-            model_name = 'gpt-4'
+                if response.status_code != 200:
+                    error_detail = f"Failed to get summary from ChatGPT: {response.status_code}"
+                    if response.status_code == 401:
+                        error_detail = "Invalid API key. Please check your OpenAI API key in Settings."
+                    elif response.status_code == 429:
+                        error_detail = "Rate limit exceeded. Please try again later."
+                    raise HTTPException(status_code=500, detail=error_detail)
+
+                result = response.json()
+                summary = result['choices'][0]['message']['content']
+                model_used = 'chatgpt'
+                model_name = 'gpt-4'
         else:
             # Use Ollama API
             ollama_url = os.getenv('LLM_API_URL', 'http://cti_ollama:11434')
@@ -1871,44 +1871,44 @@ async def api_custom_prompt(article_id: int, request: Request):
         if ai_model == 'chatgpt':
             # Use ChatGPT API
             chatgpt_api_url = os.getenv('CHATGPT_API_URL', 'https://api.openai.com/v1/chat/completions')
-            
+
             async with httpx.AsyncClient() as client:
                 response = await client.post(
-                chatgpt_api_url,
-                headers={
-                    "Authorization": f"Bearer {api_key}",
-                    "Content-Type": "application/json"
-                },
-                json={
-                    "model": "gpt-4",
-                    "messages": [
-                        {
-                            "role": "system",
-                            "content": "You are a cybersecurity expert specializing in threat intelligence analysis. Provide clear, helpful responses to questions about threat intelligence articles."
-                        },
-                        {
-                            "role": "user",
-                            "content": full_prompt
-                        }
-                    ],
-                    "max_tokens": 2048,
-                    "temperature": 0.3
-                },
-                timeout=60.0
-            )
+                    chatgpt_api_url,
+                    headers={
+                        "Authorization": f"Bearer {api_key}",
+                        "Content-Type": "application/json"
+                    },
+                    json={
+                        "model": "gpt-4",
+                        "messages": [
+                            {
+                                "role": "system",
+                                "content": "You are a cybersecurity expert specializing in threat intelligence analysis. Provide clear, helpful responses to questions about threat intelligence articles."
+                            },
+                            {
+                                "role": "user",
+                                "content": full_prompt
+                            }
+                        ],
+                        "max_tokens": 2048,
+                        "temperature": 0.3
+                    },
+                    timeout=60.0
+                )
             
-            if response.status_code != 200:
-                error_detail = f"Failed to get response from ChatGPT: {response.status_code}"
-                if response.status_code == 401:
-                    error_detail = "Invalid API key. Please check your OpenAI API key in Settings."
-                elif response.status_code == 429:
-                    error_detail = "Rate limit exceeded. Please try again later."
-                raise HTTPException(status_code=500, detail=error_detail)
-            
-            result = response.json()
-            ai_response = result['choices'][0]['message']['content']
-            model_used = 'chatgpt'
-            model_name = 'gpt-4'
+                if response.status_code != 200:
+                    error_detail = f"Failed to get response from ChatGPT: {response.status_code}"
+                    if response.status_code == 401:
+                        error_detail = "Invalid API key. Please check your OpenAI API key in Settings."
+                    elif response.status_code == 429:
+                        error_detail = "Rate limit exceeded. Please try again later."
+                    raise HTTPException(status_code=500, detail=error_detail)
+
+                result = response.json()
+                ai_response = result['choices'][0]['message']['content']
+                model_used = 'chatgpt'
+                model_name = 'gpt-4'
         else:
             # Use Ollama API
             ollama_url = os.getenv('LLM_API_URL', 'http://cti_ollama:11434')
@@ -2194,7 +2194,7 @@ async def api_generate_sigma(article_id: int, request: Request):
                     if ai_model == 'chatgpt':
                         # Use ChatGPT API
                         chatgpt_api_url = os.getenv('CHATGPT_API_URL', 'https://api.openai.com/v1/chat/completions')
-                        
+
                         response = await client.post(
                             chatgpt_api_url,
                             headers={
@@ -3582,6 +3582,112 @@ async def api_get_table_info(table_name: str):
     except Exception as e:
         logger.error(f"Table info error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/pdf-upload")
+async def pdf_upload_page():
+    """PDF upload page."""
+    return templates.TemplateResponse("pdf_upload.html", {"request": {}})
+
+
+@app.post("/api/pdf/upload")
+async def api_pdf_upload(file: UploadFile = File(...)):
+    """API endpoint for uploading and processing PDF threat reports."""
+    try:
+        from src.services.pdf_processor import pdf_processor
+        from src.models.article import ArticleCreate
+        import tempfile
+        import os
+
+        # Validate file
+        if not file:
+            raise HTTPException(status_code=400, detail="No file provided")
+
+        if not file.filename or not file.filename.lower().endswith('.pdf'):
+            raise HTTPException(status_code=400, detail="File must be a PDF")
+
+        # Check file size (max 50MB)
+        file_content = await file.read()
+        if len(file_content) > 50 * 1024 * 1024:  # 50MB
+            raise HTTPException(status_code=400, detail="File too large. Maximum size is 50MB.")
+        
+        # Save uploaded file to temporary location
+        with tempfile.NamedTemporaryFile(delete=False, suffix='.pdf') as temp_file:
+            temp_file.write(file_content)
+            temp_file_path = temp_file.name
+        
+        try:
+            # Process the PDF
+            logger.info(f"Processing PDF: {file.filename}")
+            result = await pdf_processor.process_pdf(temp_file_path, file.filename)
+            
+            if not result.success:
+                raise HTTPException(status_code=400, detail=f"PDF processing failed: {result.error_message}")
+            
+            # Create article from PDF content
+            article_data = ArticleCreate(
+                title=f"PDF Report: {file.filename}",
+                content=result.text_content,
+                canonical_url=f"pdf://{file.filename}",
+                published_at=datetime.now(),
+                source_id=1,  # Default source ID for PDF uploads
+                metadata={
+                    'pdf_metadata': result.metadata,
+                    'processing_time': result.processing_time,
+                    'page_count': result.page_count,
+                    'file_size': result.file_size,
+                    'upload_type': 'pdf',
+                    'original_filename': file.filename
+                }
+            )
+            
+            # Save article to database
+            article_id = await async_db_manager.create_article(article_data)
+            
+            # Generate threat hunting score for the PDF content
+            try:
+                from src.utils.content import ThreatHuntingScorer
+                scorer = ThreatHuntingScorer()
+                score_result = scorer.score_content(result.text_content)
+                
+                # Update article with threat hunting score
+                current_metadata = article_data.metadata.copy()
+                current_metadata['threat_hunting_score'] = score_result.score
+                current_metadata['threat_hunting_details'] = score_result.details
+                current_metadata['threat_hunting_keywords'] = score_result.keywords
+                
+                from src.models.article import ArticleUpdate
+                update_data = ArticleUpdate(metadata=current_metadata)
+                await async_db_manager.update_article(article_id, update_data)
+                
+                logger.info(f"PDF processed successfully: Article ID {article_id}, Score: {score_result.score}")
+                
+            except Exception as e:
+                logger.warning(f"Failed to generate threat hunting score for PDF: {e}")
+            
+            return {
+                "success": True,
+                "article_id": article_id,
+                "filename": file.filename,
+                "page_count": result.page_count,
+                "file_size": result.file_size,
+                "content_length": len(result.text_content),
+                "processing_time": result.processing_time,
+                "threat_hunting_score": current_metadata.get('threat_hunting_score', 'Not calculated')
+            }
+            
+        finally:
+            # Clean up temporary file
+            try:
+                os.unlink(temp_file_path)
+            except Exception as e:
+                logger.warning(f"Failed to delete temporary file: {e}")
+                
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"PDF upload error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 
 if __name__ == "__main__":
     import uvicorn
