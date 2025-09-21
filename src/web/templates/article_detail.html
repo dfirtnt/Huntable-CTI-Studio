@@ -309,13 +309,6 @@
                 <span class="mr-2">🤖</span>
                 AI Assistant
             </button>
-            
-            <!-- GPT4o Ranking Button -->
-            <button onclick="rankWithGPT4o()" 
-                    class="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
-                <span class="mr-2">📊</span>
-                Rank with GPT4o
-            </button>
         </div>
         
         <!-- Navigation Buttons -->
@@ -1582,6 +1575,9 @@
         };
         document.addEventListener('keydown', handleEsc);
         
+        // Get AI model from settings to determine button text
+        const rankingButtonText = aiModel === 'chatgpt' ? 'Rank with GPT4o' : 'Rank with Local AI';
+        
         modal.innerHTML = `
             <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
                 <div class="mt-3 text-center">
@@ -1610,6 +1606,12 @@
                                 class="w-full inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-orange-600 hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500 transition-colors">
                             <span class="mr-2">🔍</span>
                             ${hasIOCs ? 'Display IOCs' : 'Extract IOCs'}
+                        </button>
+                        
+                        <button onclick="generateAIAnalysis('ranking')" 
+                                class="w-full inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors">
+                            <span class="mr-2">📊</span>
+                            ${rankingButtonText}
                         </button>
                         
                         <button onclick="showCustomPromptModal()" 
@@ -1699,8 +1701,8 @@
         const operationData = {
             id: operationId,
             type: type,
-            typeText: type === 'summary' ? 'Summary' : type === 'sigma' ? 'SIGMA Rules' : 'IOCs',
-            typeIcon: type === 'summary' ? '📝' : type === 'sigma' ? '🔍' : '🔍',
+            typeText: type === 'summary' ? 'Summary' : type === 'sigma' ? 'SIGMA Rules' : type === 'ranking' ? (aiModel === 'chatgpt' ? 'GPT4o Ranking' : 'Local AI Ranking') : 'IOCs',
+            typeIcon: type === 'summary' ? '📝' : type === 'sigma' ? '🔍' : type === 'ranking' ? '📊' : '🔍',
             articleId: articleId,
             articleTitle: '{{ article.title }}',
             startedAt: Date.now(),
@@ -1744,8 +1746,8 @@
                             <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                         </svg>
                     </div>
-                    <h3 class="text-lg font-medium text-gray-900 mt-4">${typeIcon} ${type === 'summary' ? 'Generating' : type === 'sigma' ? 'Generating' : 'Extracting'} ${typeText}...</h3>
-                    <p class="text-sm text-gray-500 mt-2">${type === 'summary' ? 'Creating a comprehensive summary' : type === 'sigma' ? 'Creating detection rules' : 'Extracting indicators of compromise'} - this may take a few moments.</p>
+                    <h3 class="text-lg font-medium text-gray-900 mt-4">${typeIcon} ${type === 'summary' ? 'Generating' : type === 'sigma' ? 'Generating' : type === 'ranking' ? 'Generating' : 'Extracting'} ${typeText}...</h3>
+                    <p class="text-sm text-gray-500 mt-2">${type === 'summary' ? 'Creating a comprehensive summary' : type === 'sigma' ? 'Creating detection rules' : type === 'ranking' ? (aiModel === 'chatgpt' ? 'Analyzing content with GPT-4o' : 'Analyzing content with local AI') : 'Extracting indicators of compromise'} - this may take a few moments.</p>
                     <p class="text-xs text-gray-400 mt-3">💡 Press <kbd class="px-1 py-0.5 bg-gray-200 rounded text-xs">ESC</kbd> to leave while generation continues</p>
                 </div>
             </div>
@@ -1759,19 +1761,35 @@
             });
             
             // Create the fetch promise
-            const endpoint = type === 'summary' ? 'chatgpt-summary' : type === 'sigma' ? 'generate-sigma' : 'extract-iocs';
+            const endpoint = type === 'summary' ? 'chatgpt-summary' : type === 'sigma' ? 'generate-sigma' : type === 'ranking' ? 'rank-with-gpt4o' : 'extract-iocs';
             
             // Prepare request body
             const requestBody = {
                 include_content: true,
                 api_key: apiKey,
-                force_regenerate: forceRegenerate
+                force_regenerate: forceRegenerate,
+                ai_model: aiModel
             };
             
             // Add author name for SIGMA rules
             if (type === 'sigma') {
                 const sigmaAuthor = settings.sigmaAuthor || 'CTIScraper User';
                 requestBody.author_name = sigmaAuthor;
+            }
+            
+            // Add optimization options for ranking
+            if (type === 'ranking') {
+                const optimizationOptions = await showOptimizationDialog();
+                if (!optimizationOptions) {
+                    // User cancelled - clean up and return
+                    const loadingModal = document.getElementById('loadingModal');
+                    if (loadingModal) {
+                        loadingModal.remove();
+                        document.removeEventListener('keydown', handleEsc);
+                    }
+                    return;
+                }
+                requestBody.optimization_options = optimizationOptions;
             }
             
             const fetchPromise = fetch(`/api/articles/{{ article.id }}/${endpoint}`, {
@@ -1801,13 +1819,13 @@
                 const error = await response.json();
                 console.log('API Error:', error);
                 markOperationComplete(operationId, 'failed');
-                showNotification(`${typeText} ${type === 'summary' ? 'generation' : type === 'sigma' ? 'generation' : 'extraction'} failed: ${error.detail}`, 'error');
+                showNotification(`${typeText} ${type === 'summary' ? 'generation' : type === 'sigma' ? 'generation' : type === 'ranking' ? 'generation' : 'extraction'} failed: ${error.detail}`, 'error');
             }
         } catch (error) {
             console.log('Caught error:', error);
             markOperationComplete(operationId, 'failed');
             if (error.message.includes('timed out')) {
-                showNotification(`${typeText} ${type === 'summary' ? 'generation' : type === 'sigma' ? 'generation' : 'extraction'} timed out after 60 seconds. Try using a different model or check your settings.`, 'error');
+                showNotification(`${typeText} ${type === 'summary' ? 'generation' : type === 'sigma' ? 'generation' : type === 'ranking' ? 'generation' : 'extraction'} timed out after 60 seconds. Try using a different model or check your settings.`, 'error');
             } else {
                 showNotification(`Error: ${error.message}`, 'error');
             }
@@ -2592,8 +2610,9 @@
         // Get API key from settings
         const settings = JSON.parse(localStorage.getItem('ctiScraperSettings') || '{}');
         const apiKey = settings.openaiApiKey;
+        const aiModel = settings.aiModel || 'chatgpt';
         
-        if (!apiKey) {
+        if (aiModel === 'chatgpt' && !apiKey) {
             showNotification('Please configure your OpenAI API key in Settings first', 'error');
             return;
         }
@@ -2633,7 +2652,8 @@
                 },
                 body: JSON.stringify({
                     include_content: true,  // Set to false to send only URL
-                    api_key: apiKey  // Send API key from settings
+                    api_key: apiKey,  // Send API key from settings
+                    ai_model: aiModel  // Send AI model setting
                 })
             });
             

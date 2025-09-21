@@ -1,0 +1,43 @@
+As a senior cybersecurity detection engineer specializing in SIGMA rule creation and threat hunting, analyze this threat intelligence article metadata and provide guidance for SIGMA rule generation.
+
+**Article Title:** {title}
+**Source:** {source}
+**URL:** {url}
+**Published:** {published_date}
+**Content Length:** {content_length} characters
+
+**Analysis Focus:**
+1. **TTP Assessment:** What Tactics, Techniques, and Procedures are likely present
+2. **Detection Opportunities:** What behaviors can be detected through logs
+3. **Rule Complexity:** Estimate the complexity of potential SIGMA rules
+4. **Log Source Requirements:** What log sources would be needed
+5. **Implementation Priority:** How urgent/important these rules would be
+
+**Guidance Requirements:**
+- **Rule Feasibility:** Can effective SIGMA rules be created from this content?
+- **Technical Depth:** Does the article likely contain sufficient technical detail?
+- **Detection Value:** How valuable would the resulting rules be?
+- **Implementation Effort:** Estimated effort to create and tune rules
+- **False Positive Risk:** Likelihood of false positives
+
+**Output Format:**
+**TTP ASSESSMENT:**
+[Likely tactics, techniques, and procedures]
+
+**DETECTION OPPORTUNITIES:**
+[What can be detected through logs]
+
+**RULE FEASIBILITY:**
+[Assessment of SIGMA rule creation potential]
+
+**RECOMMENDED LOG SOURCES:**
+[Required log sources for detection]
+
+**IMPLEMENTATION PRIORITY:**
+[Urgency and importance rating]
+
+**EXPECTED COMPLEXITY:**
+[Rule complexity and tuning requirements]
+
+**FALSE POSITIVE RISK:**
+[Risk assessment and mitigation strategies]
