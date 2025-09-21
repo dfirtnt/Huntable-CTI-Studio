@@ -40,8 +40,8 @@ class Article(BaseModel):
     @validator('canonical_url')
     def validate_url(cls, v):
         """Validate URL format."""
-        if not v.startswith(('http://', 'https://')):
-            raise ValueError('URL must start with http:// or https://')
+        if not v.startswith(('http://', 'https://', 'pdf://')):
+            raise ValueError('URL must start with http://, https://, or pdf://')
         return v.strip()
     
     @validator('processing_status')

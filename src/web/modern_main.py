@@ -1713,7 +1713,7 @@ async def api_chatgpt_summary(article_id: int, request: Request):
         if ai_model == 'chatgpt':
             # Use ChatGPT API
             chatgpt_api_url = os.getenv('CHATGPT_API_URL', 'https://api.openai.com/v1/chat/completions')
-
+            
             async with httpx.AsyncClient() as client:
                 response = await client.post(
                     chatgpt_api_url,
@@ -1738,7 +1738,7 @@ async def api_chatgpt_summary(article_id: int, request: Request):
                     },
                     timeout=60.0
                 )
-            
+                
                 if response.status_code != 200:
                     error_detail = f"Failed to get summary from ChatGPT: {response.status_code}"
                     if response.status_code == 401:
@@ -1746,7 +1746,7 @@ async def api_chatgpt_summary(article_id: int, request: Request):
                     elif response.status_code == 429:
                         error_detail = "Rate limit exceeded. Please try again later."
                     raise HTTPException(status_code=500, detail=error_detail)
-
+                
                 result = response.json()
                 summary = result['choices'][0]['message']['content']
                 model_used = 'chatgpt'
@@ -1871,7 +1871,7 @@ async def api_custom_prompt(article_id: int, request: Request):
         if ai_model == 'chatgpt':
             # Use ChatGPT API
             chatgpt_api_url = os.getenv('CHATGPT_API_URL', 'https://api.openai.com/v1/chat/completions')
-
+            
             async with httpx.AsyncClient() as client:
                 response = await client.post(
                     chatgpt_api_url,
@@ -1897,18 +1897,18 @@ async def api_custom_prompt(article_id: int, request: Request):
                     timeout=60.0
                 )
             
-                if response.status_code != 200:
-                    error_detail = f"Failed to get response from ChatGPT: {response.status_code}"
-                    if response.status_code == 401:
-                        error_detail = "Invalid API key. Please check your OpenAI API key in Settings."
-                    elif response.status_code == 429:
-                        error_detail = "Rate limit exceeded. Please try again later."
-                    raise HTTPException(status_code=500, detail=error_detail)
-
-                result = response.json()
-                ai_response = result['choices'][0]['message']['content']
-                model_used = 'chatgpt'
-                model_name = 'gpt-4'
+            if response.status_code != 200:
+                error_detail = f"Failed to get response from ChatGPT: {response.status_code}"
+                if response.status_code == 401:
+                    error_detail = "Invalid API key. Please check your OpenAI API key in Settings."
+                elif response.status_code == 429:
+                    error_detail = "Rate limit exceeded. Please try again later."
+                raise HTTPException(status_code=500, detail=error_detail)
+            
+            result = response.json()
+            ai_response = result['choices'][0]['message']['content']
+            model_used = 'chatgpt'
+            model_name = 'gpt-4'
         else:
             # Use Ollama API
             ollama_url = os.getenv('LLM_API_URL', 'http://cti_ollama:11434')
@@ -2194,7 +2194,7 @@ async def api_generate_sigma(article_id: int, request: Request):
                     if ai_model == 'chatgpt':
                         # Use ChatGPT API
                         chatgpt_api_url = os.getenv('CHATGPT_API_URL', 'https://api.openai.com/v1/chat/completions')
-
+                        
                         response = await client.post(
                             chatgpt_api_url,
                             headers={
@@ -2209,7 +2209,7 @@ async def api_generate_sigma(article_id: int, request: Request):
                             },
                             timeout=120.0
                         )
-
+                        
                         if response.status_code != 200:
                             error_detail = f"Failed to generate SIGMA rules: {response.status_code}"
                             if response.status_code == 401:
@@ -2221,10 +2221,10 @@ async def api_generate_sigma(article_id: int, request: Request):
                                     error_response = response.json()
                                     logger.error(f"OpenAI API 400 error details: {error_response}")
                                     error_detail = f"OpenAI API error: {error_response.get('error', {}).get('message', 'Bad request')}"
-                                except Exception:
+                                except:
                                     error_detail = "OpenAI API error: Bad request - check prompt format"
                             raise HTTPException(status_code=500, detail=error_detail)
-
+                        
                         result = response.json()
                         sigma_rules = result['choices'][0]['message']['content']
                         model_used = 'chatgpt'
@@ -3593,10 +3593,10 @@ async def pdf_upload_page():
 async def api_pdf_upload(file: UploadFile = File(...)):
     """API endpoint for uploading and processing PDF threat reports."""
     try:
-        from src.services.pdf_processor import pdf_processor
         from src.models.article import ArticleCreate
         import tempfile
         import os
+        import PyPDF2
 
         # Validate file
         if not file:
@@ -3609,79 +3609,90 @@ async def api_pdf_upload(file: UploadFile = File(...)):
         file_content = await file.read()
         if len(file_content) > 50 * 1024 * 1024:  # 50MB
             raise HTTPException(status_code=400, detail="File too large. Maximum size is 50MB.")
-        
+
         # Save uploaded file to temporary location
         with tempfile.NamedTemporaryFile(delete=False, suffix='.pdf') as temp_file:
             temp_file.write(file_content)
             temp_file_path = temp_file.name
-        
+
         try:
-            # Process the PDF
+            # Process the PDF using PyPDF2
             logger.info(f"Processing PDF: {file.filename}")
-            result = await pdf_processor.process_pdf(temp_file_path, file.filename)
-            
-            if not result.success:
-                raise HTTPException(status_code=400, detail=f"PDF processing failed: {result.error_message}")
-            
-            # Create article from PDF content
+
+            text_content = ""
+            page_count = 0
+
+            with open(temp_file_path, 'rb') as pdf_file:
+                pdf_reader = PyPDF2.PdfReader(pdf_file)
+                page_count = len(pdf_reader.pages)
+
+                for page_num, page in enumerate(pdf_reader.pages, 1):
+                    text_content += f"--- Page {page_num} ---\n"
+                    text_content += page.extract_text() + "\n\n"
+
+            if not text_content.strip():
+                raise HTTPException(status_code=400, detail="Could not extract text from PDF")
+
+            # Create article from PDF content using Manual source (ID 53)
             article_data = ArticleCreate(
                 title=f"PDF Report: {file.filename}",
-                content=result.text_content,
+                content=text_content,
                 canonical_url=f"pdf://{file.filename}",
                 published_at=datetime.now(),
-                source_id=1,  # Default source ID for PDF uploads
+                source_id=53,  # Manual source ID
                 metadata={
-                    'pdf_metadata': result.metadata,
-                    'processing_time': result.processing_time,
-                    'page_count': result.page_count,
-                    'file_size': result.file_size,
+                    'page_count': page_count,
+                    'file_size': len(file_content),
                     'upload_type': 'pdf',
                     'original_filename': file.filename
                 }
             )
-            
+
+            # Initialize metadata for return value
+            current_metadata = article_data.metadata.copy()
+
             # Save article to database
             article_id = await async_db_manager.create_article(article_data)
-            
-            # Generate threat hunting score for the PDF content
+
+            # Generate threat hunting score for the PDF content using proper scoring system
             try:
                 from src.utils.content import ThreatHuntingScorer
-                scorer = ThreatHuntingScorer()
-                score_result = scorer.score_content(result.text_content)
-                
-                # Update article with threat hunting score
-                current_metadata = article_data.metadata.copy()
-                current_metadata['threat_hunting_score'] = score_result.score
-                current_metadata['threat_hunting_details'] = score_result.details
-                current_metadata['threat_hunting_keywords'] = score_result.keywords
-                
+
+                # Use the proper threat hunting scoring system
+                threat_hunting_result = ThreatHuntingScorer.score_threat_hunting_content(
+                    article_data.title, text_content
+                )
+
+                # Update metadata with all scoring results
+                current_metadata.update(threat_hunting_result)
+
                 from src.models.article import ArticleUpdate
                 update_data = ArticleUpdate(metadata=current_metadata)
                 await async_db_manager.update_article(article_id, update_data)
-                
-                logger.info(f"PDF processed successfully: Article ID {article_id}, Score: {score_result.score}")
-                
+
+                score = threat_hunting_result.get('threat_hunting_score', 0)
+                logger.info(f"PDF processed successfully: Article ID {article_id}, Score: {score}")
+
             except Exception as e:
                 logger.warning(f"Failed to generate threat hunting score for PDF: {e}")
-            
+
             return {
                 "success": True,
                 "article_id": article_id,
                 "filename": file.filename,
-                "page_count": result.page_count,
-                "file_size": result.file_size,
-                "content_length": len(result.text_content),
-                "processing_time": result.processing_time,
+                "page_count": page_count,
+                "file_size": len(file_content),
+                "content_length": len(text_content),
                 "threat_hunting_score": current_metadata.get('threat_hunting_score', 'Not calculated')
             }
-            
+
         finally:
             # Clean up temporary file
             try:
                 os.unlink(temp_file_path)
             except Exception as e:
                 logger.warning(f"Failed to delete temporary file: {e}")
-                
+
     except HTTPException:
         raise
     except Exception as e:
