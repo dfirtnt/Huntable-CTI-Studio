@@ -359,10 +359,10 @@ def setup_huggingface_hub():
 
 def main():
     """Test the shared training module"""
-    print("🧪 Testing Shared Fine-tuning Module...")
+    logger.info("🧪 Testing Shared Fine-tuning Module...")
     
     # Test Hugging Face Hub setup
-    print("\n🔐 Testing Hugging Face Hub setup...")
+    logger.info("\n🔐 Testing Hugging Face Hub setup...")
     hf_ready = setup_huggingface_hub()
     
     # Test with sample data
@@ -390,7 +390,7 @@ def main():
         
         # Test with Hub push if authentication is ready
         if hf_ready:
-            print("\n🚀 Testing Hugging Face Hub push...")
+            logger.info("\n🚀 Testing Hugging Face Hub push...")
             try:
                 hub_result = trainer.fine_tune_model(
                     "microsoft/Phi-3-mini-4k-instruct",

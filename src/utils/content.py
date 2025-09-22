@@ -576,19 +576,25 @@ WINDOWS_MALWARE_KEYWORDS = {
             'xor',
             # High-performing keywords from analysis (80%+ chosen rate)
             'tcp://', 'CN=', '-ComObject', 'Chcp', 'tostring', 'HKCU', 'System32',
-            'Hxxp', 'Cmd', '8080', 'XOR', 'User-Agent', 'sshd', 'Base64'
+            'Hxxp', 'Cmd', '8080', 'XOR', 'User-Agent', 'sshd', 'Base64',
+            # Low-rejection keywords from analysis (0-2 rejected)
+            'System.IO', 'New-Object', 'StreamReader', 'ByteArray', '127.0.0.1', '>1', 'admin$',
+            'MpPreference', 'Whoami', 'C$', 'MSBuild', '7z',
+            # High-performing non-Windows keywords (>90% chosen rate)
+            'auditd', 'systemd', 'xattr', 'EndpointSecurity', 'osquery',
+            'zeek', 'dns_query', 'ja3'
         ],
             'good_discriminators': [
                 'temp', '==', 'c:\\windows\\', 'Event ID', '.bat', '.ps1',
                 'pipe', '::', '[.]', '-->', 'currentversion',
                 'Monitor', 'Executable', 'Detection', 'Alert on', 'Hunt for',
                 'Hunting', 'Create Detections', 'Search Query', '//',
-                'http:', 'hxxp', '->', '.exe', '--', 'cloudtrail',
+                'http:', 'hxxp', '->', '.exe', '--',
                 '\\\\', 'spawn', '|',
                 # PowerShell attack techniques (high chosen rate)
                 'mimikatz', 'kerberoast', 'psexec',
                 # macOS-specific good discriminators (high chosen rate)
-                'codesign', 'mach-o', 'plist',
+                'mach-o', 'plist',
                 # macOS attack vectors and telemetry (60%+ chosen rate)
                 'osascript', 'TCC.db',
                 # Added from non-English word analysis
@@ -596,7 +602,14 @@ WINDOWS_MALWARE_KEYWORDS = {
                 # Character pattern discriminators (high correlation analysis)
                 '{}', '<>', '[]',
                 # Medium-performing keywords from analysis (50%+ chosen rate)
-                'win32_', 'Httpd', 'Int64', '/usr/', 'echo', '/tmp/', '/etc/'
+                'win32_', 'Httpd', 'Int64', '/usr/', 'echo', '/tmp/', '/etc/',
+                # Additional non-Windows keywords for comprehensive coverage
+                'syslog', 'sudo', 'cron', 'LD_PRELOAD', 'launchd',
+                'auditlog', 'iam', 'snort', 'proxy', 'http_request', 'anomaly',
+                'linux', 'macos', 'cloud', 'aws', 'azure', 'network', 'ssl',
+                # Moved from Perfect (didn't meet 90% threshold)
+                'codesign', 'cloudtrail', 'guardduty', 's3', 'ec2', 'gcp',
+                'suricata', 'netflow', 'beaconing', 'user-agent'
             ],
     'intelligence_indicators': [
         # Real threat activity - specific indicators
