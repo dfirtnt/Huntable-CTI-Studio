@@ -12,6 +12,32 @@ document.addEventListener('DOMContentLoaded', function() {
 
     let currentArticleData = null;
 
+    // Check if URL is from non-routable IP address
+    function isNonRoutableIP(url) {
+        try {
+            const urlObj = new URL(url);
+            const hostname = urlObj.hostname;
+            
+            // Check for non-routable IP addresses
+            const nonRoutablePatterns = [
+                /^127\./,                    // 127.0.0.0/8 (localhost)
+                /^10\./,                     // 10.0.0.0/8 (private)
+                /^172\.(1[6-9]|2[0-9]|3[0-1])\./, // 172.16.0.0/12 (private)
+                /^192\.168\./,               // 192.168.0.0/16 (private)
+                /^169\.254\./,               // 169.254.0.0/16 (link-local)
+                /^::1$/,                     // IPv6 localhost
+                /^fe80:/,                    // IPv6 link-local
+                /^fc00:/,                    // IPv6 unique local
+                /^fd00:/                     // IPv6 unique local
+            ];
+            
+            // Check if hostname matches any non-routable pattern
+            return nonRoutablePatterns.some(pattern => pattern.test(hostname));
+        } catch (e) {
+            return false; // If URL parsing fails, allow it
+        }
+    }
+
     // Load saved configuration
     chrome.storage.local.get(['apiUrl', 'forceScrape'], (result) => {
         if (result.apiUrl) {
@@ -24,6 +50,12 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Save configuration when changed
     apiUrlInput.addEventListener('change', () => {
+        const apiUrl = apiUrlInput.value.trim();
+        if (apiUrl && isNonRoutableIP(apiUrl)) {
+            showError('❌ Cannot use non-routable IP addresses for API URL');
+            apiUrlInput.value = 'http://127.0.0.1:8000'; // Reset to default
+            return;
+        }
         chrome.storage.local.set({ apiUrl: apiUrlInput.value });
     });
 
@@ -188,6 +220,14 @@ document.addEventListener('DOMContentLoaded', function() {
         articleDomain.textContent = data.domain || '';
         wordCount.textContent = `${data.wordCount || 0} words`;
         
+        // Check if URL is from non-routable IP and show warning
+        if (isNonRoutableIP(data.url)) {
+            showError('⚠️ Current page is from non-routable IP - cannot ingest');
+            scrapeBtn.disabled = true;
+            scrapeBtn.textContent = 'Non-routable IP';
+            return;
+        }
+        
         // Enable/disable scrape button based on content
         if (data.wordCount < 50) {
             scrapeBtn.disabled = true;
@@ -229,6 +269,12 @@ document.addEventListener('DOMContentLoaded', function() {
     function scrapeToCTIScraper() {
         if (!currentArticleData) {
             showError('No article data available. Try clicking Refresh first.');
+            return;
+        }
+
+        // Check if current page URL is from non-routable IP
+        if (isNonRoutableIP(currentArticleData.url)) {
+            showError('❌ Cannot ingest from non-routable IP addresses (127.0.0.1, 192.168.x.x, etc.)');
             return;
         }
 

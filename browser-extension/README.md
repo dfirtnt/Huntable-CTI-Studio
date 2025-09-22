@@ -74,6 +74,12 @@ The extension works on most websites with articles, including:
 - Check that the `/api/scrape-url` endpoint is working
 - Verify network connectivity to your CTIScraper instance
 
+**Non-routable IP error?**
+- The extension blocks ingestion from private/local IP addresses (127.0.0.1, 192.168.x.x, etc.)
+- This prevents accidental ingestion of internal documentation or local content
+- Use public URLs or domain names instead of IP addresses
+- If you need to ingest from a private IP, contact your administrator
+
 ## Development
 
 To modify the extension:
@@ -100,3 +106,4 @@ browser-extension/
 - No data is sent to external services
 - All API calls are made directly to your local/configured server
 - Content extraction happens locally in your browser
+- **Non-routable IP protection**: The extension prevents ingestion from non-routable IP addresses (127.0.0.1, 192.168.x.x, 10.x.x.x, etc.) to prevent accidental ingestion of local/internal content
