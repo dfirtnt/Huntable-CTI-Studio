@@ -10,13 +10,13 @@ A comprehensive threat intelligence aggregation and analysis platform designed f
 ## 🎯 Key Features
 
 ### 🔍 Intelligent Threat Intelligence Collection
-- **Multi-Source Aggregation**: Automated collection from 30+ RSS feeds, security blogs, and vendor sites
+- **Multi-Source Aggregation**: Automated collection from 40+ RSS feeds, security blogs, and vendor sites
 - **Smart Content Processing**: Advanced text extraction with content validation and HTML cleaning
 - **Duplicate Detection**: Intelligent deduplication using content hashing and similarity analysis
 - **Source Health Monitoring**: Real-time monitoring with automatic failure detection and recovery
 
 ### 🤖 AI-Powered Analysis
-- **Threat Hunting Scoring**: ML-powered relevance scoring using keyword density and classification models
+- **Threat Hunting Scoring**: Rule-based relevance scoring using keyword density and logarithmic formulas
 - **LLM Integration**: Support for Ollama (local), OpenAI GPT models, and LM Studio
 - **Intelligent Classification**: GPT-4 powered article relevance assessment and categorization
 - **IOC Extraction**: Automated indicator of compromise detection and analysis
@@ -46,7 +46,7 @@ A comprehensive threat intelligence aggregation and analysis platform designed f
 ### Data Flow
 1. **Collection**: Automated RSS feed parsing and web scraping
 2. **Processing**: Content extraction, cleaning, and deduplication
-3. **Analysis**: AI-powered scoring and classification
+3. **Analysis**: Rule-based scoring and AI-powered classification
 4. **Storage**: Structured data storage with full-text search capabilities
 5. **Presentation**: Real-time web interface and API endpoints
 
@@ -204,7 +204,7 @@ pytest tests/test_scraping.py
 5. Export annotations for threat hunting use
 
 ### Database Queries
-Use the AI Chat interface for natural language queries:
+Use the Database Chat interface for natural language queries:
 - "Show me all articles about PowerShell from the last week"
 - "Find huntable content related to persistence techniques"
 - "What sources have been most active recently?"
@@ -221,10 +221,11 @@ Generate detection rules from threat intelligence articles:
 ## 📈 Monitoring
 
 ### Health Checks
-- **Application Health**: `/health-checks`
-- **Database Connectivity**: Automatic monitoring
+- **Application Health**: `/health` and `/api/health`
+- **Database Connectivity**: `/api/health/database` with detailed stats
 - **Source Status**: Real-time failure tracking
-- **Worker Health**: Celery task monitoring
+- **Worker Health**: `/api/health/celery` for Celery task monitoring
+- **Services Health**: `/api/health/services` for Redis, Ollama status
 
 ### Metrics
 - Article collection rates
