@@ -573,7 +573,10 @@ WINDOWS_MALWARE_KEYWORDS = {
             # macOS telemetry and security controls (100% chosen rate)
             'tccd', 'spctl', 'csrutil',
             # Added from non-English word analysis
-            'xor'
+            'xor',
+            # High-performing keywords from analysis (80%+ chosen rate)
+            'tcp://', 'CN=', '-ComObject', 'Chcp', 'tostring', 'HKCU', 'System32',
+            'Hxxp', 'Cmd', '8080', 'XOR', 'User-Agent', 'sshd', 'Base64'
         ],
             'good_discriminators': [
                 'temp', '==', 'c:\\windows\\', 'Event ID', '.bat', '.ps1',
@@ -591,7 +594,9 @@ WINDOWS_MALWARE_KEYWORDS = {
                 # Added from non-English word analysis
                 'payload', 'sftp', 'downloader', 'jss',
                 # Character pattern discriminators (high correlation analysis)
-                '{}', '<>', '[]'
+                '{}', '<>', '[]',
+                # Medium-performing keywords from analysis (50%+ chosen rate)
+                'win32_', 'Httpd', 'Int64', '/usr/', 'echo', '/tmp/', '/etc/'
             ],
     'intelligence_indicators': [
         # Real threat activity - specific indicators
