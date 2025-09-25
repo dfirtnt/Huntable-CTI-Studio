@@ -12,15 +12,6 @@
         "PYTHONPATH": "/Users/starlord/CTIScraper"
       }
     },
-    "lmstudio": {
-      "command": "python",
-      "args": ["/Users/starlord/CTIScraper/lmstudio-mcp-server.py"],
-      "env": {
-        "PYTHONPATH": "/Users/starlord/CTIScraper",
-        "LMSTUDIO_BASE_URL": "http://localhost:1234",
-        "LMSTUDIO_API_KEY": ""
-      }
-    }
   }
 }
 ```
@@ -39,15 +30,6 @@ Add this to your Cursor settings.json:
         "PYTHONPATH": "/Users/starlord/CTIScraper"
       }
     },
-    "lmstudio": {
-      "command": "python",
-      "args": ["/Users/starlord/CTIScraper/lmstudio-mcp-server.py"],
-      "env": {
-        "PYTHONPATH": "/Users/starlord/CTIScraper",
-        "LMSTUDIO_BASE_URL": "http://localhost:1234",
-        "LMSTUDIO_API_KEY": ""
-      }
-    }
   }
 }
 ```
