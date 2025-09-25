@@ -31,18 +31,11 @@ celery_app.autodiscover_tasks()
 def setup_periodic_tasks(sender, **kwargs):
     """Setup periodic tasks for the CTI Scraper."""
     
-    # Check all sources every hour
+    # Check all sources every 30 minutes
     sender.add_periodic_task(
-        crontab(minute=0),  # Every hour at minute 0
+        crontab(minute='*/30'),  # Every 30 minutes
         check_all_sources.s(),
-        name='check-all-sources-hourly'
-    )
-    
-    # Check Tier 1 sources every 15 minutes
-    sender.add_periodic_task(
-        crontab(minute='*/15'),  # Every 15 minutes
-        check_tier1_sources.s(),
-        name='check-tier1-sources-quarterly'
+        name='check-all-sources-every-30min'
     )
     
     # Clean up old data daily at 2 AM
@@ -113,7 +106,7 @@ def check_all_sources(self):
                                 logger.info(f"  ✓ {source.name}: {len(articles)} articles collected")
                                 
                                 # Process articles through deduplication with source-specific config
-                                source_config = source.config if hasattr(source, 'config') else None
+                                source_config = source.config.model_dump() if (hasattr(source, 'config') and source.config) else None
                                 dedup_result = await processor.process_articles(articles, existing_hashes, source_config=source_config)
                                 
                                 # Save deduplicated articles
@@ -183,20 +176,6 @@ def check_all_sources(self):
         # Retry with exponential backoff
         raise self.retry(exc=exc, countdown=60 * (2 ** self.request.retries))
 
-
-@celery_app.task(bind=True, max_retries=3)
-def check_tier1_sources(self):
-    """Check Tier 1 sources more frequently."""
-    try:
-        logger.info("Checking Tier 1 sources for new content...")
-        
-        # Tier 1 source checking implementation
-        # This would check high-priority sources more frequently
-        
-        return {"status": "success", "message": "Tier 1 sources checked"}
-        
-    except Exception as exc:
-        raise self.retry(exc=exc, countdown=30 * (2 ** self.request.retries))
 
 
 @celery_app.task(bind=True, max_retries=2)

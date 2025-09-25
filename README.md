@@ -263,8 +263,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 📚 Documentation
 
-- [Development Workflow](DEVELOPMENT_WORKFLOW.md)
-- [AWS Deployment Guide](AWS_DEPLOYMENT_README.md)
 - [Contributing Guidelines](CONTRIBUTING.md)
 - [Changelog](CHANGELOG.md)
 - [SIGMA Rule Generation](SIGMA_RULE_GENERATION.md)

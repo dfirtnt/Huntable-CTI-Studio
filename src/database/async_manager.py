@@ -847,7 +847,53 @@ class AsyncDatabaseManager:
         except Exception as e:
             logger.error(f"Failed to get source quality stats: {e}")
             return []
-    
+
+    async def get_source_hunt_scores(self) -> List[Dict[str, Any]]:
+        """Get hunt score statistics for all sources."""
+        try:
+            async with self.get_session() as session:
+                # Raw SQL query for hunt score statistics
+                query = """
+                SELECT
+                    s.id,
+                    s.name,
+                    s.identifier,
+                    s.active,
+                    COUNT(a.id) as total_articles,
+                    COUNT(CASE WHEN (a.article_metadata->>'threat_hunting_score')::float > 0 THEN 1 END) as scored_articles,
+                    CASE
+                        WHEN COUNT(CASE WHEN (a.article_metadata->>'threat_hunting_score')::float > 0 THEN 1 END) > 0 THEN
+                            ROUND(AVG((a.article_metadata->>'threat_hunting_score')::float)::numeric, 2)
+                        ELSE 0
+                    END as avg_hunt_score,
+                    MAX((a.article_metadata->>'threat_hunting_score')::float) as max_hunt_score
+                FROM sources s
+                LEFT JOIN articles a ON s.id = a.source_id
+                GROUP BY s.id, s.name, s.identifier, s.active
+                ORDER BY avg_hunt_score DESC NULLS LAST
+                """
+
+                result = await session.execute(text(query))
+                rows = result.fetchall()
+
+                return [
+                    {
+                        "source_id": row.id,
+                        "name": row.name,
+                        "identifier": row.identifier,
+                        "active": row.active,
+                        "total_articles": row.total_articles,
+                        "scored_articles": row.scored_articles,
+                        "avg_hunt_score": float(row.avg_hunt_score) if row.avg_hunt_score else 0.0,
+                        "max_hunt_score": float(row.max_hunt_score) if row.max_hunt_score else 0.0
+                    }
+                    for row in rows
+                ]
+
+        except Exception as e:
+            logger.error(f"Failed to get source hunt scores: {e}")
+            return []
+
     def _db_source_to_model(self, db_source: SourceTable) -> Source:
         """Convert database source to Pydantic model."""
         from src.models.source import SourceConfig
