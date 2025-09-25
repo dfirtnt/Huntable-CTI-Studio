@@ -184,11 +184,11 @@
                                     <div class="flex text-sm text-gray-600">
                                         <label for="backupFile" class="relative cursor-pointer bg-white rounded-md font-medium text-blue-600 hover:text-blue-500 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-blue-500">
                                             <span>Upload a file</span>
-                                            <input id="backupFile" name="backupFile" type="file" accept=".sql.gz,.gz" class="sr-only">
+                                            <input id="backupFile" name="backupFile" type="file" accept=".sql.gz,.gz,.sql" class="sr-only">
                                         </label>
                                         <p class="pl-1">or drag and drop</p>
                                     </div>
-                                    <p class="text-xs text-gray-500">SQL.gz files up to 100MB</p>
+                                    <p class="text-xs text-gray-500">SQL or SQL.gz files up to 100MB</p>
                                 </div>
                             </div>
                         </div>
@@ -617,6 +617,13 @@
                 }
             });
             
+            // Check if response is JSON
+            const contentType = response.headers.get('content-type');
+            if (!contentType || !contentType.includes('application/json')) {
+                const text = await response.text();
+                throw new Error(`Server returned non-JSON response: ${text.substring(0, 200)}...`);
+            }
+            
             const result = await response.json();
             
             if (response.ok && result.success) {
@@ -720,6 +727,13 @@
                 method: 'POST',
                 body: formData
             });
+            
+            // Check if response is JSON
+            const contentType = response.headers.get('content-type');
+            if (!contentType || !contentType.includes('application/json')) {
+                const text = await response.text();
+                throw new Error(`Server returned non-JSON response: ${text.substring(0, 200)}...`);
+            }
             
             const result = await response.json();
             

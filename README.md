@@ -3,7 +3,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python Version](https://img.shields.io/badge/python-3.8%2B-blue.svg)](https://python.org)
 [![Docker](https://img.shields.io/badge/docker-compose-blue.svg)](https://docker.com)
-[![CI/CD](https://github.com/your-org/CTIScraper/workflows/CI/badge.svg)](https://github.com/your-org/CTIScraper/actions)
+[![CI/CD](https://github.com/starlord/CTIScraper/workflows/CI/badge.svg)](https://github.com/starlord/CTIScraper/actions)
 
 A comprehensive threat intelligence aggregation and analysis platform designed for security researchers and threat hunters. CTI Scraper automates the collection, processing, and analysis of threat intelligence from multiple sources, providing actionable insights for cybersecurity professionals.
 
@@ -61,7 +61,7 @@ A comprehensive threat intelligence aggregation and analysis platform designed f
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/your-username/CTIScraper.git
+   git clone https://github.com/starlord/CTIScraper.git
    cd CTIScraper
    ```
 
