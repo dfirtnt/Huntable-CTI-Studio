@@ -1,12 +1,18 @@
-# Models and ML workspace - exclude from Docker builds
-models/
-MLWorkspace/
+# Large directories and files
+backups/
+data/
+uploads/
+outputs/
+test-results/
+archived/
+node_modules/
+venv*/
 venv-ml/
 venv-lg/
-venv*/
+MLWorkspace/
+models/
 
-# Large files and directories
-backups/
+# Model files
 *.safetensors
 *.bin
 *.pt
@@ -15,26 +21,117 @@ backups/
 *.metallib
 *.dylib
 *.so
+*.onnx
+*.tflite
+*.h5
+*.pkl
+*.joblib
 
-# Common exclusions
-.git/
-.gitignore
-README.md
+# Documentation and config
 *.md
+README.md
+CHANGELOG.md
+CONTRIBUTING.md
+LICENSE
 .env
 .env.*
+.gitignore
+.dockerignore
+
+# Git and version control
+.git/
+.gitattributes
+
+# Python cache and build artifacts
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
 .Python
+build/
+dist/
+*.egg-info/
 .coverage
 .pytest_cache/
 .tox/
-.DS_Store
+.mypy_cache/
+.ruff_cache/
+
+# IDE and editor files
 .vscode/
 .idea/
-*.log
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Logs and temporary files
 logs/
+*.log
 *.tmp
 *.temp
+*.bak
+*.backup
+
+# Test files
+tests/
+test_*
+*_test.py
+pytest.ini
+.pytest_cache/
+
+# Development tools
+.venv/
+venv/
+env/
+ENV/
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Large data files
+*.csv
+*.json
+*.jsonl
+*.parquet
+*.feather
+*.hdf5
+*.sqlite
+*.db
+
+# Archives
+*.zip
+*.tar
+*.tar.gz
+*.rar
+*.7z
+
+# Media files
+*.mp4
+*.avi
+*.mov
+*.wmv
+*.flv
+*.webm
+*.mp3
+*.wav
+*.flac
+*.aac
+*.ogg
+*.jpg
+*.jpeg
+*.png
+*.gif
+*.bmp
+*.tiff
+*.svg
+*.ico

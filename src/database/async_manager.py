@@ -746,16 +746,17 @@ class AsyncDatabaseManager:
         """Delete an article and all related records."""
         try:
             async with self.get_session() as session:
-                # Get the article title for logging
+                # Get the article title for logging (handle duplicates by taking first)
                 result = await session.execute(
                     select(ArticleTable).where(ArticleTable.id == article_id)
                 )
-                db_article = result.scalar_one_or_none()
+                db_articles = result.scalars().all()
                 
-                if not db_article:
+                if not db_articles:
                     return False
                 
-                article_title = db_article.title
+                # Use first article for logging (they should all have same title)
+                article_title = db_articles[0].title
                 
                 # Delete related records first to avoid foreign key constraints
                 # Delete from simhash_buckets table
@@ -764,7 +765,7 @@ class AsyncDatabaseManager:
                     {"article_id": article_id}
                 )
                 
-                # Delete the article using raw SQL to avoid ORM issues
+                # Delete ALL articles with this ID (handles duplicates)
                 await session.execute(
                     text("DELETE FROM articles WHERE id = :article_id"),
                     {"article_id": article_id}
