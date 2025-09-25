@@ -547,29 +547,33 @@ async def sources_list(request: Request):
     try:
         sources = await async_db_manager.list_sources()
         quality_stats = await async_db_manager.get_source_quality_stats()
-        
+        hunt_scores = await async_db_manager.get_source_hunt_scores()
+
         # Debug logging
         logger.info(f"Quality stats returned: {len(quality_stats)} entries")
+        logger.info(f"Hunt scores returned: {len(hunt_scores)} entries")
         for stat in quality_stats[:5]:  # Log first 5 entries
             logger.info(f"Source {stat['source_id']}: {stat['name']} - Rejection rate: {stat['rejection_rate']}%")
-        
-        # Create a lookup for quality stats by source ID
+
+        # Create lookups for stats by source ID
         quality_lookup = {stat["source_id"]: stat for stat in quality_stats}
-        
-        # Sort sources by acceptance rate (%chosen) with highest on top
-        def get_acceptance_rate(source):
-            if source.id in quality_lookup:
-                return quality_lookup[source.id].get('acceptance_rate', 0)
+        hunt_score_lookup = {stat["source_id"]: stat for stat in hunt_scores}
+
+        # Sort sources by hunt score with highest on top
+        def get_hunt_score(source):
+            if source.id in hunt_score_lookup:
+                return hunt_score_lookup[source.id].get('avg_hunt_score', 0)
             return 0
-        
-        sources_sorted = sorted(sources, key=get_acceptance_rate, reverse=True)
-        
+
+        sources_sorted = sorted(sources, key=get_hunt_score, reverse=True)
+
         return templates.TemplateResponse(
             "sources.html",
             {
-                "request": request, 
+                "request": request,
                 "sources": sources_sorted,
-                "quality_stats": quality_lookup
+                "quality_stats": quality_lookup,
+                "hunt_score_lookup": hunt_score_lookup
             }
         )
     except Exception as e:

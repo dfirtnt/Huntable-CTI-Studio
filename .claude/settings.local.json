@@ -19,7 +19,12 @@
       "Bash(docker-compose logs:*)",
       "Bash(docker-compose:*)",
       "Bash(git add:*)",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "Bash(docker exec:*)",
+      "Bash(docker logs:*)",
+      "Bash(find:*)",
+      "Bash(docker restart:*)",
+      "Bash(cat:*)"
     ],
     "deny": [],
     "ask": []

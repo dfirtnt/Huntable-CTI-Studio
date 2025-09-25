@@ -220,3 +220,6 @@ htmlcov/
 # Documentation builds
 docs/_build/
 site/
+
+# Archived functionality
+archived/

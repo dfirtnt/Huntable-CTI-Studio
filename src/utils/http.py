@@ -321,14 +321,30 @@ class HTTPClient:
             request_headers.update(conditional_headers)
         
         try:
-            # Make request
-            start_time = time.time()
-            response = await self._client.get(
-                url,
-                headers=request_headers or None,
-                follow_redirects=allow_redirects
-            )
-            response_time = time.time() - start_time
+            # Special handling for posts.specterops.io SSL certificate issues
+            domain = urlparse(url).netloc.lower()
+            if domain == 'posts.specterops.io' and self.verify_ssl:
+                logger.info(f"Using SSL bypass for {domain} due to certificate issues")
+                # Create a temporary client with SSL verification disabled for this request
+                client_config = self.client_config.copy()
+                client_config['verify'] = False
+                async with httpx.AsyncClient(**client_config) as temp_client:
+                    start_time = time.time()
+                    response = await temp_client.get(
+                        url,
+                        headers=request_headers or None,
+                        follow_redirects=allow_redirects
+                    )
+                    response_time = time.time() - start_time
+            else:
+                # Make request with normal client
+                start_time = time.time()
+                response = await self._client.get(
+                    url,
+                    headers=request_headers or None,
+                    follow_redirects=allow_redirects
+                )
+                response_time = time.time() - start_time
             
             # Record success
             self.rate_limiter.record_success(url)
