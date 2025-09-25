@@ -5,9 +5,19 @@ from typing import Any, Dict, List, Optional
 from pydantic import BaseModel, Field, validator
 
 
+class RobotsConfig(BaseModel):
+    """Robots.txt handling configuration."""
+
+    enabled: bool = Field(default=True, description="Whether to respect robots.txt rules")
+    user_agent: Optional[str] = Field(default=None, description="User agent string")
+    respect_delay: bool = Field(default=True, description="Respect crawl delays")
+    max_requests_per_minute: Optional[int] = Field(default=None, description="Max requests per minute")
+    crawl_delay: Optional[float] = Field(default=None, description="Explicit crawl delay in seconds")
+
+
 class SourceConfig(BaseModel):
     """Configuration model for source scraping settings."""
-    
+
     # Scope configuration
     allow: List[str] = Field(default_factory=list, description="Allowed domains")
     post_url_regex: List[str] = Field(default_factory=list, description="Post URL patterns")
@@ -20,10 +30,18 @@ class SourceConfig(BaseModel):
     
     # Content quality configuration
     min_content_length: Optional[int] = Field(None, description="Minimum content length in characters")
-    
+    content_filter_keywords: Optional[List[str]] = Field(None, description="Required content keywords")
+    require_threat_intel_keywords: Optional[bool] = Field(
+        default=None,
+        description="Require threat intelligence keyword matches"
+    )
+
     # Title filtering configuration
     title_filter_keywords: Optional[List[str]] = Field(None, description="Additional keywords to filter out by title")
-    
+
+    # Robots configuration
+    robots: Optional[RobotsConfig] = Field(None, description="Robots.txt configuration")
+
     # Legacy fallback
     content_selector: Optional[str] = Field(None, description="Legacy content selector")
 
@@ -68,7 +86,8 @@ class Source(BaseModel):
     name: str = Field(..., min_length=1, description="Human readable name")
     url: str = Field(..., description="Base URL of the source")
     rss_url: Optional[str] = Field(None, description="RSS/Atom feed URL")
-    tier: int = Field(default=2, ge=1, le=3, description="Source tier (1=premium, 2=standard, 3=basic)")
+    tier: int = Field(default=2, ge=1, le=3, description='Source tier (1=premium, 2=standard, 3=basic)')
+    weight: float = Field(default=1.0, ge=0.0, le=5.0, description="Relative scoring weight")
     check_frequency: int = Field(default=3600, ge=60, description="Check frequency in seconds")
     lookback_days: int = Field(default=90, ge=1, le=3650, description="Lookback window in days for article collection")
     active: bool = Field(default=True, description="Whether source is active")
@@ -177,11 +196,13 @@ class SourceCreate(BaseModel):
     check_frequency: int = 3600
     lookback_days: int = 90
     active: bool = True
+    tier: int = 2
+    weight: float = 1.0
     config: SourceConfig = Field(default_factory=SourceConfig)
     
     def to_source(self) -> Source:
         """Convert to full Source model."""
-        return Source(**self.dict())
+        return Source(**self.model_dump())
 
 
 class SourceUpdate(BaseModel):
@@ -193,6 +214,8 @@ class SourceUpdate(BaseModel):
     check_frequency: Optional[int] = None
     lookback_days: Optional[int] = None
     active: Optional[bool] = None
+    tier: Optional[int] = None
+    weight: Optional[float] = None
     config: Optional[SourceConfig] = None
 
 

@@ -4,9 +4,9 @@ import os
 from typing import Optional
 from pathlib import Path
 
-from database.manager import DatabaseManager
-from core.source_manager import SourceManager
-from utils.http import HTTPClient
+from src.database.manager import DatabaseManager
+from src.core.source_manager import SourceManager
+from src.utils.http import HTTPClient
 
 
 class CLIContext:

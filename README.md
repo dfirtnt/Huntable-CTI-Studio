@@ -196,18 +196,8 @@ pytest tests/test_scraping.py
 3. Configure RSS URL, check frequency, and tier
 4. Save and monitor collection status
 
-### Annotation Workflow
-1. Browse to Articles page
-2. Select an unclassified article
-3. Mark article as "chosen" or "rejected"
-4. For chosen articles, select text and annotate as "huntable" or "not huntable"
-5. Export annotations for threat hunting use
 
-### Database Queries
-Use the Database Chat interface for natural language queries:
-- "Show me all articles about PowerShell from the last week"
-- "Find huntable content related to persistence techniques"
-- "What sources have been most active recently?"
+
 
 ### SIGMA Rule Generation
 Generate detection rules from threat intelligence articles:

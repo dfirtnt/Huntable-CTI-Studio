@@ -242,6 +242,11 @@
                         {% endif %}
 
                         <div class="flex items-center space-x-2">
+                            <button onclick="collectFromSource({{ source.id }})" class="inline-flex items-center px-3 py-1.5 border border-blue-300 rounded text-xs font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 transition-colors">
+                                <span class="mr-2">🚀</span>
+                                Collect Now
+                            </button>
+
                             <button onclick="openSourceConfig({{ source.id }}, {{ source.lookback_days }}, {{ source.check_frequency // 60 }}, {{ source.config.min_content_length if source.config and source.config.min_content_length else 200 }})" class="inline-flex items-center px-3 py-1.5 border border-gray-300 rounded text-xs font-medium text-gray-700 bg-white hover:bg-gray-50 transition-colors">
                                 <span class="mr-2">⚙️</span>
                                 Configure
@@ -869,6 +874,48 @@ document.getElementById('configMinContentLength').addEventListener('keypress', f
         saveSourceConfig();
     }
 });
+
+// Manual collection function
+function collectFromSource(sourceId) {
+    const statusDiv = document.getElementById('collectionStatus');
+    const statusText = document.getElementById('collectionStatusText');
+    
+    // Show status
+    statusDiv.classList.remove('hidden');
+    statusText.textContent = 'Starting collection...';
+    
+    // Make API call
+    fetch(`/api/sources/${sourceId}/collect`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            statusText.textContent = 'Collection started successfully!';
+            showNotification(`Collection task started for source ${sourceId}`, 'success');
+            
+            // Hide status after delay
+            setTimeout(() => {
+                statusDiv.classList.add('hidden');
+            }, 3000);
+        } else {
+            throw new Error(data.error || 'Failed to start collection');
+        }
+    })
+    .catch(error => {
+        console.error('Error starting collection:', error);
+        statusText.textContent = 'Collection failed to start';
+        showNotification('Failed to start collection: ' + error.message, 'error');
+        
+        // Hide status after delay
+        setTimeout(() => {
+            statusDiv.classList.add('hidden');
+        }, 3000);
+    });
+}
 </script>
 
     <!-- Manual URL Scraping Section -->
@@ -949,6 +996,16 @@ document.getElementById('configMinContentLength').addEventListener('keypress', f
                     <div class="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-3"></div>
                     <span class="text-sm text-blue-800" id="scrapingStatusText">Scraping URL...</span>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Collection Status -->
+    <div id="collectionStatus" class="mt-4 hidden">
+        <div class="bg-blue-50 border border-blue-200 rounded-md p-4">
+            <div class="flex items-center">
+                <div class="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-3"></div>
+                <span class="text-sm text-blue-800" id="collectionStatusText">Starting collection...</span>
             </div>
         </div>
     </div>

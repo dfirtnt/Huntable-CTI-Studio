@@ -10,7 +10,7 @@ import logging
 from src.models.source import Source, SourceCreate, SourceConfig
 from src.database.manager import DatabaseManager
 from src.utils.http import HTTPClient
-from core.rss_parser import FeedValidator
+from src.core.rss_parser import FeedValidator
 
 logger = logging.getLogger(__name__)
 
@@ -127,31 +127,31 @@ class SourceConfigLoader:
         url = source_data['url']
         rss_url = source_data.get('rss_url', '')
         check_frequency = source_data.get('check_frequency', 3600)
-        lookback_days = source_data.get('lookback_days', 90)
+        lookback_days = source_data.get('lookback_days', 180)
         active = source_data.get('active', True)
+        tier = source_data.get('tier', 2)
+        weight = float(source_data.get('weight', 1.0))
         
-        # Parse configuration
-        config_dict = {}
-        
-        # Scope configuration
-        if 'scope' in source_data:
-            scope = source_data['scope']
-            config_dict['allow'] = scope.get('allow', [])
-            config_dict['post_url_regex'] = scope.get('post_url_regex', [])
-        
-        # Discovery configuration
-        if 'discovery' in source_data:
-            config_dict['discovery'] = source_data['discovery']
-        
-        # Extraction configuration
-        if 'extract' in source_data:
-            config_dict['extract'] = source_data['extract']
-        
-        # Legacy content selector
-        if 'content_selector' in source_data:
-            config_dict['content_selector'] = source_data['content_selector']
-        
-        config = SourceConfig.parse_obj(config_dict)
+        # Parse configuration (prefer unified "config" structure, fall back to legacy fields)
+        config_dict = source_data.get('config')
+
+        if config_dict is None:
+            config_dict = {}
+            scope = source_data.get('scope', {})
+            if scope:
+                config_dict['allow'] = scope.get('allow', [])
+                config_dict['post_url_regex'] = scope.get('post_url_regex', [])
+
+            if 'discovery' in source_data:
+                config_dict['discovery'] = source_data['discovery']
+
+            if 'extract' in source_data:
+                config_dict['extract'] = source_data['extract']
+
+            if 'content_selector' in source_data:
+                config_dict['content_selector'] = source_data['content_selector']
+
+        config = SourceConfig.model_validate(config_dict or {})
         
         return SourceCreate(
             identifier=identifier,
@@ -161,6 +161,8 @@ class SourceConfigLoader:
             check_frequency=check_frequency,
             lookback_days=lookback_days,
             active=active,
+            tier=tier,
+            weight=weight,
             config=config
         )
 
@@ -178,7 +180,8 @@ class SourceManager:
         self,
         config_path: str,
         sync_to_db: bool = True,
-        validate_feeds: bool = True
+        validate_feeds: bool = True,
+        remove_missing: bool = True
     ) -> List[Source]:
         """
         Load sources from configuration file and optionally sync to database.
@@ -201,19 +204,21 @@ class SourceManager:
         
         logger.info(f"Loaded {len(source_configs)} source configurations")
         
-        # Configure robots.txt settings for each source
-        await self._configure_robots_settings(source_configs)
-        
         # Validate feeds if requested
         if validate_feeds:
             source_configs = await self._validate_source_feeds(source_configs)
         
+        # Configure robots.txt settings for each source
+        await self._configure_robots_settings(source_configs)
+        
         # Sync to database if requested
         if sync_to_db:
-            return await self._sync_sources_to_db(source_configs)
+            return await self._sync_sources_to_db(source_configs, remove_missing=remove_missing)
         else:
             # Convert to Source objects (without IDs)
-            return [config.to_source() for config in source_configs]
+            sources = [config.to_source() for config in source_configs]
+            await self._configure_robots_settings(source_configs)
+            return sources
     
     async def _validate_source_feeds(self, source_configs: List[SourceCreate]) -> List[SourceCreate]:
         """Validate RSS feeds for sources that have them."""
@@ -257,49 +262,71 @@ class SourceManager:
         for config in source_configs:
             if hasattr(config.config, 'robots') and config.config.robots:
                 robots_config = config.config.robots
-                self.http_client.configure_source_robots(config.identifier, robots_config)
+                robots_payload = robots_config.model_dump(exclude_none=True)
+                self.http_client.configure_source_robots(config.identifier, robots_payload)
                 logger.debug(f"Configured robots.txt settings for {config.identifier}")
     
-    async def _sync_sources_to_db(self, source_configs: List[SourceCreate]) -> List[Source]:
+    async def _sync_sources_to_db(
+        self,
+        source_configs: List[SourceCreate],
+        remove_missing: bool = True
+    ) -> List[Source]:
         """Synchronize source configurations with database."""
         logger.info(f"Synchronizing {len(source_configs)} sources to database")
-        
+
         synced_sources = []
-        
-        for config in source_configs:
+
+        # Map configs by identifier for quick access
+        config_map = {config.identifier: config for config in source_configs}
+
+        # Existing sources from database
+        existing_sources = await self.db.list_sources()
+        existing_by_identifier = {src.identifier: src for src in existing_sources}
+
+        # Create or update sources present in config
+        for identifier, config in config_map.items():
             try:
-                # Check if source already exists
-                existing_source = self.db.get_source_by_identifier(config.identifier)
-                
+                existing_source = existing_by_identifier.get(identifier)
+
                 if existing_source:
-                    # Update existing source
-                    from models.source import SourceUpdate
-                    
-                    update_data = SourceUpdate(
+                    from src.models.source import SourceUpdate
+
+                    updated_source = await self.db.update_source(existing_source.id, SourceUpdate(
                         name=config.name,
                         url=config.url,
                         rss_url=config.rss_url,
                         check_frequency=config.check_frequency,
                         lookback_days=config.lookback_days,
                         active=config.active,
+                        tier=config.tier,
+                        weight=config.weight,
                         config=config.config
-                    )
-                    
-                    updated_source = self.db.update_source(existing_source.id, update_data)
+                    ))
                     if updated_source:
                         synced_sources.append(updated_source)
-                        logger.info(f"Updated source: {config.identifier}")
-                    
+                        logger.info(f"Updated source: {identifier}")
+
                 else:
-                    # Create new source
-                    new_source = self.db.create_source(config)
-                    synced_sources.append(new_source)
-                    logger.info(f"Created source: {config.identifier}")
-                    
+                    new_source = await self.db.create_source(config)
+                    if new_source:
+                        synced_sources.append(new_source)
+                        logger.info(f"Created source: {identifier}")
+
             except Exception as e:
-                logger.error(f"Failed to sync source {config.identifier}: {e}")
+                logger.error(f"Failed to sync source {identifier}: {e}")
                 continue
-        
+
+        # Remove sources missing from configuration
+        if remove_missing:
+            config_identifiers = set(config_map.keys())
+            for existing in existing_sources:
+                if existing.identifier not in config_identifiers:
+                    try:
+                        await self.db.delete_source(existing.id)
+                        logger.info(f"Removed source not in config: {existing.identifier}")
+                    except Exception as e:
+                        logger.error(f"Failed to remove source {existing.identifier}: {e}")
+
         logger.info(f"Synchronized {len(synced_sources)} sources to database")
         return synced_sources
     
