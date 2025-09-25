@@ -2,11 +2,11 @@
 
 ## Supported Versions
 
-We actively support the following versions of CTI Scraper:
+We release patches for security vulnerabilities in the following versions:
 
 | Version | Supported          |
 | ------- | ------------------ |
-| 1.x.x   | :white_check_mark: |
+| 1.0.x   | :white_check_mark: |
 | < 1.0   | :x:                |
 
 ## Reporting a Vulnerability
@@ -16,80 +16,84 @@ We take security vulnerabilities seriously. If you discover a security vulnerabi
 ### 1. **DO NOT** create a public GitHub issue
 Security vulnerabilities should be reported privately to prevent exploitation.
 
-### 2. Email us directly
-Send details to: `security@cti-scraper.dev` (replace with actual email)
+### 2. Email Security Report
+Send an email to: `security@ctiscraper.dev` (or your security contact email)
 
 Include the following information:
 - Description of the vulnerability
-- Steps to reproduce
-- Potential impact
-- Suggested fix (if any)
+- Steps to reproduce the issue
+- Potential impact assessment
+- Any suggested fixes or mitigations
 - Your contact information
 
-### 3. Response timeline
-- **Initial response**: Within 48 hours
-- **Status update**: Within 7 days
-- **Resolution**: Depends on complexity, typically 30-90 days
+### 3. Response Timeline
+- **Initial Response**: Within 48 hours
+- **Status Update**: Within 7 days
+- **Resolution**: Depends on severity and complexity
 
-### 4. What to expect
-- We will acknowledge receipt of your report
-- We will investigate and validate the vulnerability
-- We will work on a fix and coordinate disclosure
-- We will credit you in our security advisories (unless you prefer anonymity)
+### 4. Vulnerability Severity Levels
+
+| Severity | Response Time | Description |
+|----------|---------------|-------------|
+| **Critical** | 24 hours | Remote code execution, authentication bypass, data exposure |
+| **High** | 72 hours | Privilege escalation, significant data leakage |
+| **Medium** | 1 week | Information disclosure, denial of service |
+| **Low** | 2 weeks | Minor security improvements |
 
 ## Security Best Practices
 
 ### For Users
-- Keep your installation updated
+- Keep your dependencies updated
 - Use strong passwords for database and Redis
-- Regularly rotate API keys
-- Monitor access logs
-- Use HTTPS in production
-- Keep dependencies updated
+- Enable HTTPS in production
+- Regularly review access logs
+- Use environment variables for sensitive configuration
 
 ### For Developers
 - Follow secure coding practices
-- Validate all inputs
+- Validate all user inputs
 - Use parameterized queries
-- Implement proper authentication
-- Regular security audits
-- Dependency vulnerability scanning
+- Implement proper authentication and authorization
+- Regular security audits of dependencies
 
 ## Security Features
 
-CTI Scraper includes several security features:
+### Built-in Security Measures
+- **Input Validation**: All user inputs are validated and sanitized
+- **SQL Injection Protection**: Uses SQLAlchemy ORM with parameterized queries
+- **Rate Limiting**: API endpoints have rate limiting enabled
+- **CORS Protection**: Configurable CORS policies
+- **Secret Management**: All secrets managed via environment variables
+- **Dependency Scanning**: Regular security scans of dependencies
 
-- **Environment-based configuration**: All secrets via environment variables
-- **Input validation**: Comprehensive validation of all inputs
-- **SQL injection protection**: Parameterized queries throughout
-- **Rate limiting**: API rate limiting to prevent abuse
-- **CORS protection**: Configurable CORS policies
-- **Security headers**: Proper security headers in responses
-- **Dependency scanning**: Regular security updates
+### Configuration Security
+- Database connections use encrypted connections
+- Redis authentication enabled
+- Secure session management
+- Configurable security headers
+
+## Disclosure Policy
+
+We follow responsible disclosure principles:
+
+1. **Private Disclosure**: Vulnerabilities are reported privately first
+2. **Coordinated Release**: We coordinate with reporters on disclosure timing
+3. **Credit**: We credit security researchers who responsibly report vulnerabilities
+4. **No Retaliation**: We do not pursue legal action against security researchers acting in good faith
 
 ## Security Updates
 
 Security updates are released as:
-- **Critical**: Immediate patch release
-- **High**: Next minor release
-- **Medium/Low**: Next major release
+- **Patch releases** for critical vulnerabilities
+- **Minor releases** for high/medium severity issues
+- **Major releases** for significant security improvements
 
-All security updates are documented in our [CHANGELOG](CHANGELOG.md).
+## Contact Information
 
-## Responsible Disclosure
+- **Security Email**: `security@ctiscraper.dev`
+- **General Issues**: GitHub Issues
+- **Documentation**: See README.md
 
-We follow responsible disclosure principles:
-1. Report privately first
-2. Allow reasonable time for fixes
-3. Coordinate public disclosure
-4. Credit researchers appropriately
+## Acknowledgments
 
-## Contact
-
-For security-related questions or concerns:
-- Email: `security@cti-scraper.dev`
-- PGP Key: Available upon request
-
----
-
-**Note**: This security policy applies to the CTI Scraper project. Users are responsible for securing their own deployments and data.
+We appreciate the security research community's efforts in helping us maintain a secure codebase. Security researchers who responsibly disclose vulnerabilities will be acknowledged in our security advisories.
