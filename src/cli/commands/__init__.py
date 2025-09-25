@@ -6,5 +6,6 @@ from .search import search
 from .export import export
 from .stats import stats
 from .backup import backup
+from .sync_sources import sync_sources
 
-__all__ = ['init', 'collect', 'search', 'export', 'stats', 'backup']
+__all__ = ['init', 'collect', 'search', 'export', 'stats', 'backup', 'sync_sources']

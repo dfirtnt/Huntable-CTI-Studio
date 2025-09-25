@@ -31,6 +31,7 @@ from src.services.sigma_validator import validate_sigma_rule
 from src.utils.prompt_loader import format_prompt
 
 from src.database.async_manager import async_db_manager
+from src.services.source_sync import SourceSyncService
 from src.models.source import Source, SourceUpdate, SourceFilter
 from src.models.article import Article, ArticleUpdate
 from src.models.annotation import ArticleAnnotationCreate, ArticleAnnotationUpdate
@@ -140,8 +141,40 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     
     # Health check
     try:
+        sync_service = SourceSyncService(Path(os.getenv("SOURCES_CONFIG", "config/sources.yaml")), async_db_manager)
+        await sync_service.sync()
+
         stats = await async_db_manager.get_database_stats()
         logger.info(f"Database connection successful: {stats['total_sources']} sources, {stats['total_articles']} articles")
+        
+        # Trigger immediate collection on startup
+        try:
+            from celery import Celery
+            celery_app = Celery('cti_scraper')
+            celery_app.config_from_object('src.worker.celeryconfig')
+            
+            # Get all active sources
+            sources = await async_db_manager.list_sources()
+            active_sources = [s for s in sources if getattr(s, 'active', True)]
+            
+            logger.info(f"Triggering startup collection for {len(active_sources)} active sources...")
+            
+            # Trigger collection for each active source
+            for source in active_sources:
+                try:
+                    task = celery_app.send_task(
+                        'src.worker.celery_app.collect_from_source',
+                        args=[source.id],
+                        queue='collection'
+                    )
+                    logger.info(f"Started collection task for {source.name} (ID: {source.id}) - Task: {task.id}")
+                except Exception as e:
+                    logger.error(f"Failed to start collection for {source.name}: {e}")
+                    
+        except Exception as e:
+            logger.error(f"Failed to trigger startup collection: {e}")
+            # Don't fail startup if collection trigger fails
+            
     except Exception as e:
         logger.error(f"Database connection failed: {e}")
         raise
@@ -589,11 +622,48 @@ async def api_toggle_source_status(source_id: int):
         result = await async_db_manager.toggle_source_status(source_id)
         if not result:
             raise HTTPException(status_code=404, detail="Source not found")
-        return result
+        
+        return {
+            "success": True,
+            "source_id": result["source_id"],
+            "source_name": result["source_name"],
+            "old_status": result["old_status"],
+            "new_status": result["new_status"],
+            "message": f"Source {result['source_name']} status changed from {'Active' if result['old_status'] else 'Inactive'} to {'Active' if result['new_status'] else 'Inactive'}",
+            "database_updated": True
+        }
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"API toggle source status error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/sources/{source_id}/collect")
+async def api_collect_from_source(source_id: int):
+    """Manually trigger collection from a specific source."""
+    try:
+        from celery import Celery
+        
+        # Get Celery app instance
+        celery_app = Celery('cti_scraper')
+        celery_app.config_from_object('src.worker.celeryconfig')
+        
+        # Trigger the collection task
+        task = celery_app.send_task(
+            'src.worker.celery_app.collect_from_source',
+            args=[source_id],
+            queue='collection'
+        )
+        
+        return {
+            "success": True,
+            "message": f"Collection task started for source {source_id}",
+            "task_id": task.id
+        }
+        
+    except Exception as e:
+        logger.error(f"API collect from source error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -690,7 +760,7 @@ async def api_scrape_url(request: dict):
                 url="https://manual.example.com",  # Provide a valid URL
                 rss_url="",
                 check_frequency=3600,  # 1 hour
-                lookback_days=90,  # 90 days
+                lookback_days=180,  # 180 days
                 active=True,
                 config=SourceConfig()  # Use proper SourceConfig object
             )
@@ -885,7 +955,7 @@ async def api_source_stats(source_id: int):
         
         # Calculate statistics
         total_articles = len(articles)
-        avg_content_length = sum(len(article.content or "") for article in articles) // max(total_articles, 1)
+        avg_content_length = sum(len(article.content or "") for article in articles) / max(total_articles, 1)
         
         # Calculate actual average threat hunting score
         threat_hunting_scores = []
@@ -897,8 +967,12 @@ async def api_source_stats(source_id: int):
         
         avg_threat_hunting_score = sum(threat_hunting_scores) / len(threat_hunting_scores) if threat_hunting_scores else 0.0
         
-        # Mock articles by date for now
-        articles_by_date = {"2024-01-01": total_articles} if total_articles > 0 else {}
+        # Calculate articles by date from actual article data
+        articles_by_date = {}
+        for article in articles:
+            if article.published_at:
+                date_key = article.published_at.strftime("%Y-%m-%d")
+                articles_by_date[date_key] = articles_by_date.get(date_key, 0) + 1
         
         stats = {
             "source_id": source_id,
@@ -2869,7 +2943,7 @@ async def api_gpt4o_rank_optimized(article_id: int, request: Request):
                 "removed_chunks": optimization_result.get('removed_chunks', []) if use_filtering and optimization_result.get('success') else [],
                 "original_length": len(article.content),
                 "filtered_length": len(content_to_analyze),
-                "reduction_percent": round((len(article.content) - len(content_to_analyze)) / len(article.content) * 100, 1) if use_filtering else 0
+                "reduction_percent": round((len(article.content) - len(content_to_analyze)) / max(len(article.content), 1) * 100, 1) if use_filtering else 0
             }
         }
         

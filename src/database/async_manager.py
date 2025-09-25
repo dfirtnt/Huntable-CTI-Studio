@@ -7,7 +7,7 @@ Uses PostgreSQL with SQLAlchemy async for production-grade performance.
 import os
 import asyncio
 import logging
-from typing import List, Optional, Dict, Any, AsyncGenerator
+from typing import List, Optional, Dict, Any, AsyncGenerator, Set
 from datetime import datetime, timedelta
 from contextlib import asynccontextmanager
 
@@ -237,6 +237,17 @@ class AsyncDatabaseManager:
         except Exception as e:
             logger.error(f"Failed to list sources: {e}")
             return []
+
+    async def list_source_identifiers(self) -> Set[str]:
+        """Return set of all source identifiers."""
+        try:
+            async with self.get_session() as session:
+                result = await session.execute(select(SourceTable.identifier))
+                identifiers = result.scalars().all()
+                return {identifier for identifier in identifiers}
+        except Exception as e:
+            logger.error(f"Failed to list source identifiers: {e}")
+            return set()
     
     async def create_source(self, source_data: SourceCreate) -> Optional[Source]:
         """Create a new source."""
@@ -251,7 +262,9 @@ class AsyncDatabaseManager:
                     check_frequency=source_data.check_frequency,
                     lookback_days=source_data.lookback_days,
                     active=source_data.active,
-                    config=source_data.config.dict() if source_data.config else {},
+                    tier=source_data.tier,
+                    weight=source_data.weight,
+                    config=source_data.config.model_dump(exclude_none=True) if source_data.config else {},
                     consecutive_failures=0,
                     total_articles=0,
                     success_rate=0.0,
@@ -339,10 +352,13 @@ class AsyncDatabaseManager:
                     return None
                 
                 # Update fields
-                update_dict = update_data.dict(exclude_unset=True)
+                update_dict = update_data.model_dump(exclude_unset=True, exclude_none=True)
                 for field, value in update_dict.items():
                     if field == 'config' and value:
-                        setattr(db_source, field, value.dict())
+                        if hasattr(value, 'model_dump'):
+                            setattr(db_source, field, value.model_dump(exclude_none=True))
+                        else:
+                            setattr(db_source, field, value)
                     else:
                         setattr(db_source, field, value)
                 
@@ -357,6 +373,21 @@ class AsyncDatabaseManager:
                 
         except Exception as e:
             logger.error(f"Failed to update source {source_id}: {e}")
+            raise
+
+    async def delete_source(self, source_id: int) -> bool:
+        """Delete source by ID."""
+        try:
+            async with self.get_session() as session:
+                db_source = await session.get(SourceTable, source_id)
+                if not db_source:
+                    return False
+                await session.delete(db_source)
+                await session.commit()
+                logger.info(f"Deleted source: {db_source.identifier}")
+                return True
+        except Exception as e:
+            logger.error(f"Failed to delete source {source_id}: {e}")
             raise
     
     async def toggle_source_status(self, source_id: int) -> Optional[Dict[str, Any]]:
@@ -830,7 +861,7 @@ class AsyncDatabaseManager:
             check_frequency=db_source.check_frequency,
             lookback_days=db_source.lookback_days,
             active=db_source.active,
-            config=SourceConfig.parse_obj(db_source.config),
+            config=SourceConfig.model_validate(db_source.config) if db_source.config else SourceConfig(),
             last_check=db_source.last_check,
             last_success=db_source.last_success,
             consecutive_failures=db_source.consecutive_failures,

@@ -10,9 +10,9 @@ from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 import logging
 
-from database.models import Base, SourceTable, ArticleTable, SourceCheckTable, ContentHashTable, URLTrackingTable, SimHashBucketTable
-from models.source import Source, SourceCreate, SourceUpdate, SourceFilter, SourceHealth
-from models.article import Article, ArticleCreate, ArticleUpdate, ArticleFilter
+from src.database.models import Base, SourceTable, ArticleTable, SourceCheckTable, ContentHashTable, URLTrackingTable, SimHashBucketTable
+from src.models.source import Source, SourceCreate, SourceUpdate, SourceFilter, SourceHealth
+from src.models.article import Article, ArticleCreate, ArticleUpdate, ArticleFilter
 from src.services.deduplication import DeduplicationService
 
 logger = logging.getLogger(__name__)
@@ -486,10 +486,12 @@ class DatabaseManager:
             name=db_source.name,
             url=db_source.url,
             rss_url=db_source.rss_url,
+            tier=db_source.tier,
+            weight=db_source.weight,
             check_frequency=db_source.check_frequency,
             lookback_days=db_source.lookback_days,
             active=db_source.active,
-            config=SourceConfig.parse_obj(db_source.config),
+            config=SourceConfig.model_validate(db_source.config) if db_source.config else SourceConfig(),
             last_check=db_source.last_check,
             last_success=db_source.last_success,
             consecutive_failures=db_source.consecutive_failures,
