@@ -135,7 +135,7 @@ sources:
 - **Scheduler**: Automated source checking and maintenance tasks
 - **Database**: PostgreSQL for structured data storage
 - **Cache**: Redis for session management and task queuing
-- **Reverse Proxy**: Nginx for production deployments
+- **Reverse Proxy**: Nginx for production deployments with SSL termination and rate limiting
 
 ### Classification System
 
@@ -207,6 +207,48 @@ Generate detection rules from threat intelligence articles:
 4. Rules are validated using pySIGMA for compliance
 5. Failed rules are automatically retried with error feedback (up to 3 attempts)
 6. Valid rules are stored with metadata and validation results
+
+## 🚀 Production Deployment
+
+### Nginx Reverse Proxy
+The Nginx container provides production-ready features:
+
+**Security Features:**
+- **SSL/TLS Termination**: HTTPS encryption with TLS 1.2/1.3
+- **HTTP→HTTPS Redirect**: Forces secure connections
+- **Rate Limiting**: API protection (10 req/s) and web traffic (30 req/s)
+- **Request Size Limits**: 100MB max upload protection
+
+**Performance Optimizations:**
+- **Gzip Compression**: Reduces bandwidth for text content
+- **Connection Keepalive**: Maintains persistent connections
+- **Static File Caching**: 1-year cache headers for assets
+- **WebSocket Support**: Real-time communication capability
+
+**Configuration:**
+- **Ports**: 80 (HTTP) → 443 (HTTPS) → 8000 (FastAPI)
+- **SSL Certificates**: Located in `nginx/ssl/` directory
+- **Health Check**: `/health` endpoint for monitoring
+- **Load Balancing**: Upstream configuration for FastAPI backend
+
+### SSL Setup
+1. **Generate SSL certificates**:
+   ```bash
+   mkdir -p nginx/ssl
+   openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+     -keyout nginx/ssl/key.pem \
+     -out nginx/ssl/cert.pem
+   ```
+
+2. **Update domain** in `nginx/nginx.conf`:
+   ```nginx
+   server_name your-domain.com;
+   ```
+
+3. **Deploy with SSL**:
+   ```bash
+   docker-compose up -d
+   ```
 
 ## 📈 Monitoring
 
