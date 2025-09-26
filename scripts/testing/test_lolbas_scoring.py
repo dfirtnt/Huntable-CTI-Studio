@@ -113,7 +113,6 @@ def test_threat_hunting_scoring_with_lolbas():
         
         print(f"Threat Hunting Score: {result['threat_hunting_score']}/100")
         print(f"Technical Depth Score: {result['technical_depth_score']}/30")
-        print(f"Keyword Density: {result['keyword_density']} per 1000 words")
         
         if result['perfect_keyword_matches']:
             print(f"Perfect Keywords: {', '.join(result['perfect_keyword_matches'])}")

@@ -9,7 +9,7 @@ sources:
   - id: "hunt_io"
     name: "Hunt.io Threat Hunting Blog"
     url: "https://hunt.io/blog"
-    rss_url: "https://hunt.io/blog/rss"
+    rss_url: "https://hunt.io/blog/feed"
     check_frequency: 1800  # 30 minutes
     active: true
     config:
@@ -37,7 +37,7 @@ sources:
   - id: "picus_security"
     name: "Picus Security Blog"
     url: "https://www.picussecurity.com/resource/blog"
-    rss_url: "https://www.picussecurity.com/resource/blog/rss"
+    rss_url: "https://www.picussecurity.com/resource/blog/feed"
     check_frequency: 1800  # 30 minutes
     active: true
     config:
@@ -65,7 +65,7 @@ sources:
   - id: "vmray_blog"
     name: "VMRay Blog"
     url: "https://www.vmray.com/blog/"
-    rss_url: "https://www.vmray.com/blog/rss"
+    rss_url: "https://www.vmray.com/blog/feed/"
     check_frequency: 1800  # 30 minutes
     active: true
     config:
@@ -93,7 +93,7 @@ sources:
   - id: "group_ib_threat_intel"
     name: "Group-IB Threat Intelligence Blog"
     url: "https://www.group-ib.com/blog/"
-    rss_url: "https://www.group-ib.com/blog/rss.xml"  # RSS feed found and working
+    rss_url: "https://www.group-ib.com/blog/feed/"  # Updated to working feed URL
     check_frequency: 1800  # 30 minutes
     active: true
     config:
@@ -223,7 +223,6 @@ sources:
         title_selectors: ["h1", "meta[property='og:title']::attr(content)"]
         date_selectors: ["meta[property='article:published_time']::attr(content)"]
         body_selectors: ["article", "main", ".content", ".post-content"]
-      min_content_length: 2000
       min_content_length: 2000  # Unit 42 requires 1200+ chars
     description: "Exceptional threat research with detailed IOCs and TTPs"
 
@@ -401,7 +400,7 @@ sources:
       min_content_length: 2000
     description: "Detection-focused research with hunting queries"
 
-  # Sekoia.io Threat Research & Intelligence
+  # Sekoia.io Threat Research & Intelligence (RSS-Only)
   - id: "sekoia_io_blog"
     name: "Sekoia.io Threat Research & Intelligence"
     url: "https://blog.sekoia.io/category/threat-research/"
@@ -412,23 +411,21 @@ sources:
       allow: ["blog.sekoia.io"]
       post_url_regex: ["^https://blog\\.sekoia\\.io/.*"]
       robots:
-        enabled: true
+        enabled: false  # Disable robots.txt checking for RSS-only
         user_agent: "CTIScraper/2.0"
-        respect_delay: true
-        max_requests_per_minute: 8
-        crawl_delay: 2.0
-      min_content_length: 2000
+        respect_delay: false
+        max_requests_per_minute: 0  # No web scraping
+        crawl_delay: 0.0
+      min_content_length: 1000  # Lower threshold for RSS content
       title_filter_keywords: ["newsletter", "subscription", "contact"]
+      rss_only: true  # Force RSS-only collection to bypass anti-bot protection
       extract:
-        prefer_jsonld: true
-        title_selectors: ["h1", "meta[property='og:title']::attr(content)"]
-        date_selectors: 
-          - "meta[property='article:published_time']::attr(content)"
-          - "time[datetime]::attr(datetime)"
-        body_selectors: ["article", "main", ".content", ".post-content"]
-        author_selectors: ["meta[name='author']::attr(content)", ".author-name"]
-      min_content_length: 2000
-    description: "High-quality CTI and SOC insights with actionable threat intelligence and detection engineering"
+        prefer_jsonld: false  # Disable modern scraping
+        title_selectors: []  # No selectors needed for RSS-only
+        date_selectors: []  # No selectors needed for RSS-only
+        body_selectors: []  # No selectors needed for RSS-only
+        author_selectors: []  # No selectors needed for RSS-only
+    description: "High-quality CTI and SOC insights with actionable threat intelligence and detection engineering (RSS-only to bypass anti-bot protection)"
 
   # Check Point Research
   - id: "checkpoint_research"
@@ -486,7 +483,6 @@ sources:
         title_selectors: ["h1", "meta[property='og:title']::attr(content)"]
         date_selectors: ["meta[property='article:published_time']::attr(content)"]
         body_selectors: ["article", "main", ".content", ".post-content"]
-      min_content_length: 2000
       min_content_length: 2000
     description: "Good security news with malware analysis"
 
@@ -560,7 +556,6 @@ sources:
         date_selectors: ["meta[property='article:published_time']::attr(content)"]
         body_selectors: ["article", "main", ".content", ".post-content"]
       min_content_length: 2000
-      min_content_length: 2000
     description: "Daily security incident analysis and threat intelligence"
 
   # =============================================================================
@@ -575,6 +570,25 @@ sources:
     check_frequency: 1800  # 30 minutes
     lookback_days: 3650  # 10 years to capture all historical articles (~80 total)
     active: true
+    config:
+      allow: ["thedfirreport.com"]
+      post_url_regex: ["^https://thedfirreport\\.com/.*"]
+      robots:
+        enabled: true
+        user_agent: "CTIScraper/2.0"
+        respect_delay: true
+        max_requests_per_minute: 10
+        crawl_delay: 1.0
+      min_content_length: 2000
+      extract:
+        prefer_jsonld: true
+        title_selectors: ["h1.entry-title", "h1", "meta[property='og:title']::attr(content)"]
+        date_selectors:
+          - "meta[property='article:published_time']::attr(content)"
+          - "time.entry-date::attr(datetime)"
+          - "time[datetime]::attr(datetime)"
+        body_selectors: [".entry-content", "article", "main", ".content", ".post-content"]
+        author_selectors: [".author-name", ".entry-author", "meta[name='author']::attr(content)"]
 
   # CrowdStrike Blog (existing)
   - id: "crowdstrike_blog"
@@ -604,6 +618,21 @@ sources:
     rss_url: "https://www.mandiant.com/resources/blog/rss.xml"
     check_frequency: 1800
     active: true
+    config:
+      allow: ["mandiant.com"]
+      post_url_regex: ["^https://www\\.mandiant\\.com/resources/blog/.*"]
+      robots:
+        enabled: true
+        user_agent: "CTIScraper/2.0"
+        respect_delay: true
+        max_requests_per_minute: 6
+        crawl_delay: 3.0
+      min_content_length: 2000
+      extract:
+        prefer_jsonld: true
+        title_selectors: ["h1", "meta[property='og:title']::attr(content)"]
+        date_selectors: ["meta[property='article:published_time']::attr(content)"]
+        body_selectors: ["article", "main", ".content", ".post-content"]
 
   # SpecterOps Blog (existing)
   - id: "specterops_blog"
@@ -809,7 +838,7 @@ sources:
   - id: "ncsc_uk"
     name: "NCSC UK"
     url: "https://www.ncsc.gov.uk/news"
-    rss_url: "https://www.ncsc.gov.uk/rss/news.xml"
+    rss_url: "https://www.ncsc.gov.uk/rss.xml"  # Updated to working feed URL
     check_frequency: 3600  # 1 hour
     active: true
     config:
@@ -896,7 +925,7 @@ sources:
   - id: "splunk_security_research"
     name: "Splunk Security Research"
     url: "https://research.splunk.com/"
-    rss_url: "https://advisory.splunk.com/rss.xml"
+    rss_url: "https://research.splunk.com/rss.xml"  # Updated to working feed URL
     check_frequency: 1800  # 30 minutes
     active: true
     config:

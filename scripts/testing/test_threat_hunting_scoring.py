@@ -89,7 +89,6 @@ def test_threat_hunting_scoring():
         
         print(f"Threat Hunting Score: {result['threat_hunting_score']}/100")
         print(f"Technical Depth Score: {result['technical_depth_score']}/30")
-        print(f"Keyword Density: {result['keyword_density']} per 1000 words")
         
         if result['perfect_keyword_matches']:
             print(f"Perfect Keywords Found: {', '.join(result['perfect_keyword_matches'])}")

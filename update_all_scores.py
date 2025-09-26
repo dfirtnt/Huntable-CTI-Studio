@@ -53,8 +53,7 @@ async def regenerate_all_scores():
                     'threat_hunting_score': score_result['threat_hunting_score'],
                     'perfect_keyword_matches': score_result['perfect_keyword_matches'],
                     'good_keyword_matches': score_result['good_keyword_matches'],
-                    'lolbas_matches': score_result['lolbas_matches'],
-                    'keyword_density': score_result['keyword_density']
+                    'lolbas_matches': score_result['lolbas_matches']
                 })
                 
                 # Save updated article
