@@ -47,8 +47,8 @@ services:
       dockerfile: Dockerfile
     container_name: cti_web
     environment:
-      - DATABASE_URL=postgresql+asyncpg://cti_user:cti_password_2024@postgres:5432/cti_scraper
-      - REDIS_URL=redis://:cti_redis_2024@redis:6379/0
+      - DATABASE_URL=${DATABASE_URL}
+      - REDIS_URL=${REDIS_URL}
       - ENVIRONMENT=development
       - LOG_LEVEL=DEBUG
       - LLM_API_URL=http://cti_ollama:11434
@@ -56,6 +56,7 @@ services:
       - LLM_TEMPERATURE=0.3
       - LLM_MAX_TOKENS=2048
       - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - CHATGPT_API_KEY=${CHATGPT_API_KEY}
     ports:
       - "8000:8000"
     volumes:
@@ -79,11 +80,12 @@ services:
       dockerfile: Dockerfile
     container_name: cti_worker
     environment:
-      - DATABASE_URL=postgresql+asyncpg://cti_user:cti_password_2024@postgres:5432/cti_scraper
-      - REDIS_URL=redis://:cti_redis_2024@redis:6379/0
+      - DATABASE_URL=${DATABASE_URL}
+      - REDIS_URL=${REDIS_URL}
       - ENVIRONMENT=development
       - LOG_LEVEL=DEBUG
       - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - CHATGPT_API_KEY=${CHATGPT_API_KEY}
     volumes:
       - ./src:/app/src
       - ./logs:/app/logs
@@ -104,8 +106,8 @@ services:
       dockerfile: Dockerfile
     container_name: cti_scheduler
     environment:
-      - DATABASE_URL=postgresql+asyncpg://cti_user:cti_password_2024@postgres:5432/cti_scraper
-      - REDIS_URL=redis://:cti_redis_2024@redis:6379/0
+      - DATABASE_URL=${DATABASE_URL}
+      - REDIS_URL=${REDIS_URL}
       - ENVIRONMENT=development
       - LOG_LEVEL=DEBUG
     volumes:
@@ -171,12 +173,13 @@ services:
       dockerfile: Dockerfile
     container_name: cti_cli
     environment:
-      - DATABASE_URL=postgresql+asyncpg://cti_user:cti_password_2024@postgres:5432/cti_scraper
-      - REDIS_URL=redis://:cti_redis_2024@redis:6379/0
+      - DATABASE_URL=${DATABASE_URL}
+      - REDIS_URL=${REDIS_URL}
       - ENVIRONMENT=development
       - LOG_LEVEL=DEBUG
       - SOURCES_CONFIG=/app/config/sources.yaml
       - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - CHATGPT_API_KEY=${CHATGPT_API_KEY}
     volumes:
       - ./src:/app/src
       - ./config:/app/config

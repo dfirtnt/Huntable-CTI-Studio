@@ -8,6 +8,7 @@ and exclude "not huntable" content before sending to GPT-4o.
 import re
 import json
 import hashlib
+import logging
 from typing import List, Dict, Tuple, Optional
 from dataclasses import dataclass
 from sklearn.feature_extraction.text import TfidfVectorizer
@@ -17,6 +18,8 @@ from sklearn.metrics import classification_report, accuracy_score
 import numpy as np
 import pandas as pd
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 # Import perfect discriminators from threat hunting scorer
 from .content import WINDOWS_MALWARE_KEYWORDS

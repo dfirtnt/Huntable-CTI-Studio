@@ -26,7 +26,7 @@ class DatabaseBackup:
             'port': '5432', 
             'database': 'cti_scraper',
             'user': 'cti_user',
-            'password': 'cti_password_2024'
+            'password': 'cti_password'
         }
         self.backup_dir = Path('backups')
         self.backup_dir.mkdir(exist_ok=True)

@@ -361,9 +361,8 @@ def collect_from_source(self, source_id: int):
     try:
         import asyncio
         from src.database.async_manager import AsyncDatabaseManager
-        from src.core.rss_parser import RSSParser
+        from src.core.fetcher import ContentFetcher
         from src.core.processor import ContentProcessor
-        from src.utils.http import HTTPClient
         
         async def run_source_collection():
             """Run the actual source collection."""
@@ -389,21 +388,20 @@ def collect_from_source(self, source_id: int):
                 # Get existing content hashes for deduplication
                 existing_hashes = await db.get_existing_content_hashes()
                 
-                async with HTTPClient() as http_client:
-                    rss_parser = RSSParser(http_client)
-                    
+                # Use ContentFetcher with fallback strategy (RSS → Modern Scraping → Legacy Scraping)
+                async with ContentFetcher() as fetcher:
                     # Track timing for health metrics
                     start_time = time.time()
                     
                     try:
-                        # Parse RSS feed for new articles
-                        articles = await rss_parser.parse_feed(source)
+                        # Fetch articles using hierarchical strategy
+                        fetch_result = await fetcher.fetch_source(source)
                         
-                        if articles:
-                            logger.info(f"  ✓ {source.name}: {len(articles)} articles collected")
+                        if fetch_result.success and fetch_result.articles:
+                            logger.info(f"  ✓ {source.name}: {len(fetch_result.articles)} articles collected via {fetch_result.method}")
                             
                             # Process articles through deduplication
-                            dedup_result = await processor.process_articles(articles, existing_hashes)
+                            dedup_result = await processor.process_articles(fetch_result.articles, existing_hashes)
                             
                             # Save deduplicated articles
                             saved_count = 0
@@ -427,10 +425,12 @@ def collect_from_source(self, source_id: int):
                                 "status": "success", 
                                 "source_id": source_id,
                                 "source_name": source.name,
-                                "articles_collected": len(articles),
+                                "articles_collected": len(fetch_result.articles),
                                 "articles_saved": saved_count,
                                 "articles_filtered": filtered_count,
-                                "message": f"Collected {len(articles)} articles, saved {saved_count} after deduplication"
+                                "method": fetch_result.method,
+                                "response_time": fetch_result.response_time,
+                                "message": f"Collected {len(fetch_result.articles)} articles via {fetch_result.method}, saved {saved_count} after deduplication"
                             }
                         else:
                             logger.info(f"  ✓ {source.name}: 0 articles found")
@@ -441,6 +441,8 @@ def collect_from_source(self, source_id: int):
                                 "articles_collected": 0,
                                 "articles_saved": 0,
                                 "articles_filtered": 0,
+                                "method": fetch_result.method if fetch_result else "none",
+                                "response_time": fetch_result.response_time if fetch_result else 0,
                                 "message": f"No new articles found for {source.name}"
                             }
                             

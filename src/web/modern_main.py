@@ -2490,8 +2490,8 @@ async def api_extract_iocs(article_id: int, request: Request):
                     "cached": True
                 }
         
-        # Initialize hybrid IOC extractor
-        ioc_extractor = HybridIOCExtractor(use_llm_validation=use_llm_validation, ai_model=ai_model)
+        # Initialize hybrid IOC extractor (default: iocextract only)
+        ioc_extractor = HybridIOCExtractor(use_llm_validation=use_llm_validation)
         
         # Prepare content for extraction
         if include_content:

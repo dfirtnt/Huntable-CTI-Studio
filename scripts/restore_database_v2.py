@@ -28,7 +28,7 @@ class DatabaseRestore:
             'port': '5432',
             'database': 'cti_scraper', 
             'user': 'cti_user',
-            'password': 'cti_password_2024'
+            'password': 'cti_password'
         }
         self.backup_dir = Path('backups')
         self.temp_dir = Path('/tmp')

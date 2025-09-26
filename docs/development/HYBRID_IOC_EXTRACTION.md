@@ -28,10 +28,12 @@ The Hybrid IOC Extraction System combines the speed and reliability of specializ
 ## Key Components
 
 ### 1. Web Frontend (`src/web/templates/article_detail.html`)
-- **IOC Button**: Triggers extraction from article detail pages
-- **Results Modal**: Displays extracted IOCs in categorized format
+- **IOC Button**: Triggers extraction from article detail pages (shows "Extract IOCs" or "Display IOCs" based on cache)
+- **Results Modal**: Displays extracted IOCs in categorized format via `generateAIAnalysis('iocs')`
+- **LLM Validation Toggle**: Checkbox in IOC modal to enable/disable LLM validation for regeneration (default: unchecked)
 - **Metadata Display**: Shows extraction method, confidence, processing time, and counts
-- **Regenerate Option**: Allows force regeneration of cached results
+- **Regenerate Option**: Allows force regeneration of cached results with user-selected LLM validation setting
+- **Integration**: Uses JavaScript to call `/api/articles/{id}/extract-iocs` endpoint
 
 ### 2. API Endpoint (`src/web/modern_main.py`)
 - **Route**: `/api/articles/{article_id}/extract-iocs`
@@ -39,13 +41,18 @@ The Hybrid IOC Extraction System combines the speed and reliability of specializ
 - **Parameters**:
   - `include_content`: Boolean (default: true)
   - `force_regenerate`: Boolean (default: false)
-  - `use_llm_validation`: Boolean (default: true)
+  - `use_llm_validation`: Boolean (default: false)
+  - `api_key`: String (required for ChatGPT model)
+  - `ai_model`: String (default: 'chatgpt')
 - **Response**: JSON with IOCs, metadata, and processing information
 
 ### 3. Hybrid IOC Extractor (`src/utils/ioc_extractor.py`)
-- **Phase 1**: Fast extraction using `iocextract` library
-- **Phase 2**: Optional LLM validation for context and categorization
+- **Phase 1**: Fast extraction using `iocextract` library (default)
+- **Phase 2**: Optional LLM validation with filtered content for context and categorization
+- **Content Filtering**: Uses `ContentFilter` to send only high-value chunks to LLM
 - **Fallback**: Graceful degradation when LLM is unavailable
+- **Constructor**: `HybridIOCExtractor(use_llm_validation: bool = False)`
+- **Note**: `ai_model` parameter is handled by the API endpoint, not the extractor class
 
 ### 4. Database Storage
 - **Table**: `articles` metadata field
@@ -113,9 +120,10 @@ httpx==0.27.0      # Async HTTP client
 
 ### Web Interface
 1. Navigate to article detail page
-2. Click "Extract IOCs" button
+2. Click "Extract IOCs" button (uses iocextract by default)
 3. View results in modal with metadata
-4. Optionally click "Regenerate" for fresh extraction
+4. Optionally toggle "Use LLM Validation" checkbox for enhanced validation
+5. Click "Regenerate" for fresh extraction with selected validation setting
 
 ### API Usage
 ```bash
@@ -134,7 +142,9 @@ curl -X POST "http://localhost:8000/api/articles/1070/extract-iocs" \
   -d '{
     "include_content": true,
     "force_regenerate": true,
-    "use_llm_validation": true
+    "use_llm_validation": true,
+    "api_key": "your_openai_api_key_here",
+    "ai_model": "chatgpt"
   }'
 ```
 
@@ -193,7 +203,7 @@ print(f"IOCs: {result.iocs}")
 ```json
 {
   "success": false,
-  "error": "OpenAI API key is required. Please configure it in Settings.",
+  "error": "OpenAI API key is required for ChatGPT. Please configure it in Settings.",
   "article_id": 1070
 }
 ```
@@ -246,7 +256,7 @@ curl -X POST "http://localhost:8000/api/articles/1070/extract-iocs" \
 # Test hybrid approach
 curl -X POST "http://localhost:8000/api/articles/1070/extract-iocs" \
   -H "Content-Type: application/json" \
-  -d '{"include_content": true, "force_regenerate": true, "use_llm_validation": true}'
+  -d '{"include_content": true, "force_regenerate": true, "use_llm_validation": true, "api_key": "your_api_key", "ai_model": "chatgpt"}'
 ```
 
 ## Future Enhancements
@@ -285,6 +295,8 @@ curl "http://localhost:8000/settings"
 # Test API connectivity
 curl -H "Authorization: Bearer YOUR_API_KEY" \
   "https://api.openai.com/v1/models"
+
+# Note: The system gracefully falls back to iocextract-only mode if LLM validation fails
 ```
 
 #### 3. No IOCs Found
@@ -302,10 +314,10 @@ LOG_LEVEL=DEBUG
 ## Contributing
 
 ### Adding New IOC Types
-1. Update `HybridIOCExtractor.extract_raw_iocs()` method
-2. Add regex patterns for new IOC types
-3. Update LLM validation prompts
-4. Add tests for new functionality
+1. Update `HybridIOCExtractor.extract_raw_iocs()` method in `src/utils/ioc_extractor.py`
+2. Add regex patterns for new IOC types (iocextract handles standard types automatically)
+3. Update LLM validation prompts in `validate_with_llm()` method
+4. Add tests for new functionality using `validate_ioc_system.py`
 
 ### Improving Accuracy
 1. Analyze false positive/negative cases

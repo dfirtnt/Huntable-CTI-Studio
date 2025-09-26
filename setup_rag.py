@@ -27,7 +27,7 @@ async def setup_rag_system():
     logger.info("Starting RAG system setup...")
     
     # Get database URL
-    db_url = os.getenv('DATABASE_URL', 'postgresql://cti_user:cti_password_2024@localhost:5432/cti_scraper')
+    db_url = os.getenv('DATABASE_URL', 'postgresql://cti_user:cti_password@localhost:5432/cti_scraper')
     
     # Initialize RAG system
     rag_system = CTIRAGSystem(db_url)
@@ -59,7 +59,7 @@ async def test_rag_system():
     """Test the RAG system with a sample query"""
     logger.info("Testing RAG system...")
     
-    db_url = os.getenv('DATABASE_URL', 'postgresql://cti_user:cti_password_2024@localhost:5432/cti_scraper')
+    db_url = os.getenv('DATABASE_URL', 'postgresql://cti_user:cti_password@localhost:5432/cti_scraper')
     rag_system = CTIRAGSystem(db_url)
     
     try:

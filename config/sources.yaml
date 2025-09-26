@@ -5,11 +5,11 @@ sources:
   # PREMIUM THREAT INTELLIGENCE SOURCES (Highest Actionable Value)
   # =============================================================================
   
-  # Hunt.io Threat Hunting Blog
+  # Hunt.io Threat Hunting Blog (No RSS - Web Scraping Only)
   - id: "hunt_io"
     name: "Hunt.io Threat Hunting Blog"
     url: "https://hunt.io/blog"
-    rss_url: "https://hunt.io/blog/feed"
+    rss_url: null  # No RSS feed available
     check_frequency: 1800  # 30 minutes
     active: true
     config:
@@ -21,23 +21,24 @@ sources:
         respect_delay: true
         max_requests_per_minute: 10
         crawl_delay: 1.0
-      min_content_length: 1500
+      min_content_length: 1000  # Reduced from 1500
       title_filter_keywords: ["product news", "announcing", "introducing"]
+      rss_only: false  # Force web scraping since no RSS
       extract:
         prefer_jsonld: true
         title_selectors: ["h1", "meta[property='og:title']::attr(content)"]
-        date_selectors: 
+        date_selectors:
           - "meta[property='article:published_time']::attr(content)"
           - "time[datetime]::attr(datetime)"
-        body_selectors: ["article", "main", ".content", ".post-content"]
+        body_selectors: ["div.markdown", "div[class*='markdown']", "article", "main", ".content", ".post-content"]
         author_selectors: ["meta[name='author']::attr(content)", ".author-name"]
-    description: "High-quality threat hunting content with technical depth and actionable intelligence"
+    description: "High-quality threat hunting content with technical depth and actionable intelligence (Web scraping only)"
 
-  # Picus Security Blog
+  # Picus Security Blog (No RSS - Web Scraping Only)
   - id: "picus_security"
     name: "Picus Security Blog"
     url: "https://www.picussecurity.com/resource/blog"
-    rss_url: "https://www.picussecurity.com/resource/blog/feed"
+    rss_url: null  # No RSS feed available
     check_frequency: 1800  # 30 minutes
     active: true
     config:
@@ -51,15 +52,16 @@ sources:
         crawl_delay: 1.0
       min_content_length: 1500
       title_filter_keywords: ["webinar", "training", "careers", "job posting"]
+      rss_only: false  # Force web scraping since no RSS
       extract:
         prefer_jsonld: true
         title_selectors: ["h1", "meta[property='og:title']::attr(content)"]
-        date_selectors: 
+        date_selectors:
           - "meta[property='article:published_time']::attr(content)"
           - "time[datetime]::attr(datetime)"
         body_selectors: ["article", "main", ".content", ".post-content"]
         author_selectors: ["meta[name='author']::attr(content)", ".author-name"]
-    description: "MITRE ATT&CK technique analysis and threat simulation intelligence"
+    description: "MITRE ATT&CK technique analysis and threat simulation intelligence (Web scraping only)"
 
   # VMRay Blog
   - id: "vmray_blog"
@@ -568,7 +570,7 @@ sources:
     url: "https://thedfirreport.com"
     rss_url: "https://thedfirreport.com/feed/"
     check_frequency: 1800  # 30 minutes
-    lookback_days: 3650  # 10 years to capture all historical articles (~80 total)
+    lookback_days: 7300  # 20 years to ensure all historical articles are captured
     active: true
     config:
       allow: ["thedfirreport.com"]
@@ -580,6 +582,10 @@ sources:
         max_requests_per_minute: 10
         crawl_delay: 1.0
       min_content_length: 2000
+      rss_only: false  # Enable fallback - RSS only contains summaries (~200 chars)
+      archive_pages: true  # Enable archive page scraping for historical articles
+      archive_url_pattern: "https://thedfirreport.com/page/{page}/"
+      max_archive_pages: 20  # Scrape up to 20 pages of archives (~200 articles)
       extract:
         prefer_jsonld: true
         title_selectors: ["h1.entry-title", "h1", "meta[property='og:title']::attr(content)"]
@@ -690,7 +696,7 @@ sources:
   - id: "cisa_directives"
     name: "CISA Directives"
     url: "https://www.cisa.gov/news-events/directives"
-    rss_url: "https://www.cisa.gov/news-events/directives/feed"
+    rss_url: null  # RSS feed returns 404
     check_frequency: 1800  # 30 minutes
     active: true
     config:
@@ -702,7 +708,8 @@ sources:
         respect_delay: true
         max_requests_per_minute: 5
         crawl_delay: 4.0
-      min_content_length: 2000
+      min_content_length: 1000  # Reduced from 2000
+      rss_only: false  # Force web scraping since RSS is broken
       extract:
         prefer_jsonld: true
         title_selectors: ["h1", "meta[property='og:title']::attr(content)"]
@@ -711,7 +718,6 @@ sources:
           - "time[datetime]::attr(datetime)"
         body_selectors: ["article", "main", ".content", ".post-content", ".directive-content"]
         author_selectors: ["meta[name='author']::attr(content)", ".author-name"]
-      min_content_length: 2000
     description: "Official CISA cybersecurity directives and guidance"
 
   # CISA Analysis Reports
@@ -776,7 +782,7 @@ sources:
       min_content_length: 2000
     description: "In-depth security research and vulnerability analysis"
 
-  # NCC Group Research Blog
+  # NCC Group Research Blog (RSS Primary + Web Scraping Fallback)
   - id: "ncc_group_research"
     name: "NCC Group Research Blog"
     url: "https://www.nccgroup.com/us/research-blog"
@@ -793,17 +799,18 @@ sources:
         max_requests_per_minute: 8
         crawl_delay: 2.0
       min_content_length: 2000
+      rss_only: false  # Enable fallback to web scraping when RSS content is too short
       title_filter_keywords: ["webinar", "training", "careers", "job posting", "event"]
       extract:
         prefer_jsonld: true
         title_selectors: ["h1", "meta[property='og:title']::attr(content)"]
-        date_selectors: 
+        date_selectors:
           - "meta[property='article:published_time']::attr(content)"
           - "time[datetime]::attr(datetime)"
         body_selectors: ["article", "main", ".content", ".post-content", ".research-content"]
         author_selectors: ["meta[name='author']::attr(content)", ".author-name"]
       min_content_length: 2000
-    description: "High-quality cybersecurity research, technical advisories, and vulnerability analysis"
+    description: "High-quality cybersecurity research, technical advisories, and vulnerability analysis (RSS primary with web scraping fallback)"
 
   # ESET WeLiveSecurity
   - id: "eset_welivesecurity"

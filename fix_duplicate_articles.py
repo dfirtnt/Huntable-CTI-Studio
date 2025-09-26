@@ -13,7 +13,7 @@ from sqlalchemy import select, update, delete, func, text
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 
 # Database configuration
-DATABASE_URL = "postgresql+asyncpg://cti_user:cti_password@cti_postgres:5432/cti_scraper"
+DATABASE_URL = os.getenv("DATABASE_URL", "postgresql+asyncpg://cti_user:cti_password@cti_postgres:5432/cti_scraper")
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)

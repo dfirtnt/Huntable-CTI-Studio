@@ -5,11 +5,11 @@ from typing import List, Optional, Dict, Any, Tuple
 from datetime import datetime, timedelta
 import logging
 
-from models.article import ArticleCreate
+from src.models.article import ArticleCreate
 from src.models.source import Source
 from src.utils.http import HTTPClient
-from core.rss_parser import RSSParser
-from core.modern_scraper import ModernScraper, LegacyScraper
+from src.core.rss_parser import RSSParser
+from src.core.modern_scraper import ModernScraper, LegacyScraper
 from src.core.google_search import GoogleSearchFetcher
 
 logger = logging.getLogger(__name__)
@@ -109,7 +109,7 @@ class ContentFetcher:
         
         try:
             # Tier 0: Google Search if configured
-            if source.config.get('source_type') == 'google_search':
+            if hasattr(source.config, 'source_type') and source.config.source_type == 'google_search':
                 try:
                     logger.debug(f"Attempting Google Search fetch for {source.name}")
                     articles = await self.google_search_fetcher.fetch_source(source)
@@ -341,14 +341,14 @@ class ContentFetcher:
         
         # Check for discovery strategies
         discovery = getattr(config, 'discovery', {})
-        if discovery and discovery.get('strategies'):
+        if discovery and hasattr(discovery, 'strategies') and discovery.strategies:
             return True
         
         # Check for extraction configuration beyond basic selectors
         extract = getattr(config, 'extract', {})
-        if extract and (extract.get('title_selectors') or 
-            extract.get('date_selectors') or 
-            extract.get('body_selectors')):
+        if extract and (hasattr(extract, 'title_selectors') and extract.title_selectors or 
+            hasattr(extract, 'date_selectors') and extract.date_selectors or 
+            hasattr(extract, 'body_selectors') and extract.body_selectors):
             return True
         
         return False
