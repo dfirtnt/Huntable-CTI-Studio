@@ -163,6 +163,10 @@ sigma_rules_thedfirreport_raw_fixed.csv
 *.csv
 GPTCTIHelp*.csv
 Huntable_Table*.csv
+cti_scraper.db
+*.db
+*.sqlite
+*.sqlite3
 
 # Docker
 docker-compose.override.yml
