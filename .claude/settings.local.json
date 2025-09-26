@@ -24,7 +24,8 @@
       "Bash(docker logs:*)",
       "Bash(find:*)",
       "Bash(docker restart:*)",
-      "Bash(cat:*)"
+      "Bash(cat:*)",
+      "Bash(awk:*)"
     ],
     "deny": [],
     "ask": []

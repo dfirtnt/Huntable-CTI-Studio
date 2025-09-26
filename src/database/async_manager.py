@@ -488,24 +488,8 @@ class AsyncDatabaseManager:
         """List articles with optional filtering and sorting."""
         try:
             async with self.get_session() as session:
-                # Create a subquery to get annotation counts per article
-                annotation_count_subquery = (
-                    select(
-                        ArticleAnnotationTable.article_id,
-                        func.count(ArticleAnnotationTable.id).label('annotation_count')
-                    )
-                    .group_by(ArticleAnnotationTable.article_id)
-                    .subquery()
-                )
-                
-                # Main query with left join to get annotation counts
-                query = (
-                    select(
-                        ArticleTable,
-                        func.coalesce(annotation_count_subquery.c.annotation_count, 0).label('annotation_count')
-                    )
-                    .outerjoin(annotation_count_subquery, ArticleTable.id == annotation_count_subquery.c.article_id)
-                )
+                # Simple query without annotation counts to test for duplication
+                query = select(ArticleTable)
                 
                 # Apply filters if provided
                 if article_filter:
@@ -540,12 +524,12 @@ class AsyncDatabaseManager:
                         else:
                             query = query.order_by(threat_score_expr)
                     elif article_filter.sort_by == 'annotation_count':
-                        # Sort by annotation count
-                        annotation_count_expr = func.coalesce(annotation_count_subquery.c.annotation_count, 0)
+                        # Sort by annotation count (simplified - no annotation count available)
+                        # Default to discovered_at sorting
                         if article_filter.sort_order == 'desc':
-                            query = query.order_by(desc(annotation_count_expr))
+                            query = query.order_by(desc(ArticleTable.discovered_at))
                         else:
-                            query = query.order_by(annotation_count_expr)
+                            query = query.order_by(ArticleTable.discovered_at)
                     else:
                         sort_field = getattr(ArticleTable, article_filter.sort_by, ArticleTable.discovered_at)
                         if article_filter.sort_order == 'desc':
@@ -568,12 +552,35 @@ class AsyncDatabaseManager:
                 
                 result = await session.execute(query)
                 rows = result.all()
+                logger.info(f"Query executed, returned {len(rows)} rows")
                 
-                # Convert to Article models with annotation counts
+                # Debug: Check for duplicates
+                try:
+                    dfir_rows = []
+                    for i, row in enumerate(rows):
+                        db_article = row[0] if hasattr(row, '__getitem__') else row
+                        if hasattr(db_article, 'source_id'):
+                            if db_article.source_id == 25:
+                                dfir_rows.append(db_article)
+                                logger.info(f"Found DFIR article {len(dfir_rows)}: ID={db_article.id}, Title={db_article.title[:30]}...")
+                    
+                    logger.info(f"Query returned {len(rows)} total rows, {len(dfir_rows)} DFIR rows")
+                except Exception as debug_e:
+                    logger.error(f"Debug error: {debug_e}")
+                
+                # Convert to Article models
                 articles = []
                 for row in rows:
-                    db_article = row[0]  # ArticleTable object
-                    annotation_count = row[1]  # annotation_count
+                    try:
+                        # Row is a SQLAlchemy Row object, access the ArticleTable object
+                        db_article = row[0] if hasattr(row, '__getitem__') else row
+                        annotation_count = 0  # Default annotation count
+                        
+                        # Debug: Check what type of object we have
+                        logger.info(f"Row type: {type(row)}, Article type: {type(db_article)}, has id: {hasattr(db_article, 'id')}")
+                    except Exception as row_e:
+                        logger.error(f"Error processing row: {row_e}")
+                        continue
                     
                     # Create article with updated metadata including annotation count
                     article_data = {

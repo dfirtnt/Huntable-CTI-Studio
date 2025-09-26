@@ -102,36 +102,36 @@ def test_threat_hunting_scoring_with_lolbas():
         ("General Security News", sample3_title, sample3_content)
     ]
     
-    print("Enhanced Threat Hunting Scoring with LOLBAS")
-    print("=" * 60)
+    # Enhanced Threat Hunting Scoring with LOLBAS
+    # ============================================
     
     for name, title, content in samples:
-        print(f"\n📄 {name}")
-        print("-" * 40)
+        # Processing: {name}
+        # ------------------------
         
         result = ThreatHuntingScorer.score_threat_hunting_content(title, content)
         
-        print(f"Threat Hunting Score: {result['threat_hunting_score']}/100")
-        print(f"Technical Depth Score: {result['technical_depth_score']}/30")
+        # Threat Hunting Score: {result['threat_hunting_score']}/100
+        # Technical Depth Score: {result['technical_depth_score']}/30
         
         if result['perfect_keyword_matches']:
-            print(f"Perfect Keywords: {', '.join(result['perfect_keyword_matches'])}")
+            # Perfect Keywords: {', '.join(result['perfect_keyword_matches'])}
         
         if result['good_keyword_matches']:
-            print(f"Good Keywords: {', '.join(result['good_keyword_matches'])}")
+            # Good Keywords: {', '.join(result['good_keyword_matches'])}
         
         if result['lolbas_matches']:
-            print(f"LOLBAS Executables: {', '.join(result['lolbas_matches'])}")
+            # LOLBAS Executables: {', '.join(result['lolbas_matches'])}
         
         # Score interpretation
         if result['threat_hunting_score'] >= 80:
-            print("🎯 EXCELLENT - High-quality threat hunting content")
+            # 🎯 EXCELLENT - High-quality threat hunting content
         elif result['threat_hunting_score'] >= 60:
-            print("🟡 GOOD - Decent threat hunting content")
+            # 🟡 GOOD - Decent threat hunting content
         elif result['threat_hunting_score'] >= 40:
-            print("🟠 FAIR - Some threat hunting elements")
+            # 🟠 FAIR - Some threat hunting elements
         else:
-            print("🔴 POOR - Limited threat hunting value")
+            # 🔴 POOR - Limited threat hunting value
 
 if __name__ == "__main__":
     test_threat_hunting_scoring_with_lolbas()

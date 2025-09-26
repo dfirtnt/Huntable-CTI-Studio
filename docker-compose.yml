@@ -52,7 +52,7 @@ services:
       - ENVIRONMENT=development
       - LOG_LEVEL=DEBUG
       - LLM_API_URL=http://cti_ollama:11434
-      - LLM_MODEL=mistral
+      - LLM_MODEL=llama3.1:8b
       - LLM_TEMPERATURE=0.3
       - LLM_MAX_TOKENS=2048
       - OPENAI_API_KEY=${OPENAI_API_KEY}

@@ -15,11 +15,11 @@ import tempfile
 
 # Database configuration
 DB_CONFIG = {
-    'host': 'postgres',
-    'port': '5432',
-    'database': 'cti_scraper',
-    'user': 'cti_user',
-    'password': 'cti_password_2024'
+    'host': os.getenv('POSTGRES_HOST', 'postgres'),
+    'port': os.getenv('POSTGRES_PORT', '5432'),
+    'database': os.getenv('POSTGRES_DB', 'cti_scraper'),
+    'user': os.getenv('POSTGRES_USER', 'cti_user'),
+    'password': os.getenv('POSTGRES_PASSWORD', 'cti_password')
 }
 
 # Logging setup
