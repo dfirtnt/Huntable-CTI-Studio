@@ -2269,6 +2269,17 @@
         const loadingModal = document.createElement('div');
         loadingModal.id = 'loadingModal';
         loadingModal.className = 'fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50';
+        
+        // Add ESC key handler to close loading modal
+        const handleEsc = function(e) {
+            if (e.key === 'Escape') {
+                loadingModal.remove();
+                document.removeEventListener('keydown', handleEsc);
+                showNotification('Custom prompt generation continues in the background. You can return to this article later to view the results.', 'info');
+            }
+        };
+        document.addEventListener('keydown', handleEsc);
+        
         loadingModal.innerHTML = `
             <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
                 <div class="mt-3 text-center">
@@ -2280,6 +2291,7 @@
                     </div>
                     <h3 class="text-lg font-medium text-gray-900 mt-4">🤖 Processing Custom Request...</h3>
                     <p class="text-sm text-gray-500 mt-2">This may take a few moments.</p>
+                    <p class="text-xs text-gray-400 mt-3">💡 Press <kbd class="px-1 py-0.5 bg-gray-200 rounded text-xs">ESC</kbd> to leave while generation continues</p>
                 </div>
             </div>
         `;
@@ -2320,10 +2332,12 @@
                 showNotification(`Error: ${error.message}`, 'error');
             }
         } finally {
-            // Remove loading modal
+            // Remove loading modal and clean up ESC handler
             const loadingModal = document.getElementById('loadingModal');
             if (loadingModal) {
                 loadingModal.remove();
+                // Clean up the ESC key handler
+                document.removeEventListener('keydown', handleEsc);
             }
         }
     }
