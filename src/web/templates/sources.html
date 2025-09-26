@@ -142,7 +142,7 @@
                         <div class="flex items-center space-x-2 mb-2">
                             <!-- Rank indicator -->
                             <div class="flex items-center justify-center w-6 h-6 bg-green-100 text-green-800 text-xs font-bold rounded-full">
-                                {{ loop.index }}
+                                {{ source.total_articles or 0 }}
                             </div>
                             <h4 class="text-lg font-medium text-gray-900">
                                 <a href="/articles?source_id={{ source.id }}" class="text-blue-600 hover:text-blue-800 hover:underline transition-colors">

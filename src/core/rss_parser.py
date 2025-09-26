@@ -287,15 +287,77 @@ class RSSParser:
         Priority:
         1. Full content from feed
         2. Summary/description from feed
-        3. If RSS content < 1000 chars, try modern scraping
-        4. Fetch full article from URL (with Red Canary protection)
+        3. If RSS content < 1000 chars, try modern scraping (unless rss_only is enabled)
+        4. Fetch full article from URL (with Red Canary protection) (unless rss_only is enabled)
         """
+        # Check if RSS-only mode is enabled
+        rss_only = False
+        if hasattr(source, 'config'):
+            # Try to get from Pydantic model first
+            rss_only = getattr(source.config, 'rss_only', False)
+            # If not found, try to get from raw dict
+            if not rss_only and hasattr(source.config, 'model_dump'):
+                config_dict = source.config.model_dump()
+                rss_only = config_dict.get('rss_only', False)
+            elif not rss_only and hasattr(source.config, 'dict'):
+                config_dict = source.config.dict()
+                rss_only = config_dict.get('rss_only', False)
+        
+        # If still not found, try to read directly from database
+        if not rss_only and hasattr(source, 'id'):
+            try:
+                from src.database.async_manager import AsyncDatabaseManager
+                import asyncio
+                
+                async def get_raw_config():
+                    db_manager = AsyncDatabaseManager()
+                    async with db_manager.get_session() as session:
+                        from sqlalchemy import text
+                        result = await session.execute(
+                            text("SELECT config FROM sources WHERE id = :source_id"),
+                            {"source_id": source.id}
+                        )
+                        row = result.fetchone()
+                        if row:
+                            import json
+                            config_json = row[0]
+                            if isinstance(config_json, str):
+                                config_dict = json.loads(config_json)
+                            else:
+                                config_dict = config_json
+                            return config_dict.get('rss_only', False)
+                        return False
+                
+                # Run the async function
+                loop = asyncio.get_event_loop()
+                if loop.is_running():
+                    # We're already in an async context, create a new task
+                    import concurrent.futures
+                    with concurrent.futures.ThreadPoolExecutor() as executor:
+                        future = executor.submit(asyncio.run, get_raw_config())
+                        rss_only = future.result()
+                else:
+                    rss_only = asyncio.run(get_raw_config())
+            except Exception as e:
+                logger.warning(f"Failed to read rss_only from database for {source.name}: {e}")
+        
+        logger.info(f"RSS-only mode for {source.name}: {rss_only}")
+        
         # Try to get full content from feed first
         content = self._get_feed_content(entry)
         
         if content and len(ContentCleaner.html_to_text(content).strip()) > 1500:
             # We have substantial content from the feed (at least 1500 chars)
             return ContentCleaner.clean_html(content)
+        
+        # If RSS-only mode is enabled, use RSS content regardless of length
+        if rss_only:
+            if content:
+                logger.info(f"RSS-only mode enabled for {source.name}, using RSS content: {len(ContentCleaner.html_to_text(content).strip())} chars")
+                return ContentCleaner.clean_html(content)
+            else:
+                logger.warning(f"RSS-only mode enabled but no RSS content available for {url}")
+                return None
         
         # Check if RSS content is too short (< 1000 chars) and try modern scraping
         if content:
