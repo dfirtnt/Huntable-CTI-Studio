@@ -1769,9 +1769,10 @@
         document.body.appendChild(loadingModal);
         
         try {
-            // Create a timeout promise
+            // Create a timeout promise - longer for LLM operations
             const timeoutPromise = new Promise((_, reject) => {
-                setTimeout(() => reject(new Error('Request timed out after 60 seconds')), 60000);
+                const timeoutMs = aiModel === 'chatgpt' ? 60000 : 200000; // 60s for ChatGPT, 200s for LLM
+                setTimeout(() => reject(new Error(`Request timed out after ${timeoutMs/1000} seconds`)), timeoutMs);
             });
             
             // Create the fetch promise
@@ -1844,7 +1845,8 @@
             console.log('Caught error:', error);
             markOperationComplete(operationId, 'failed');
             if (error.message.includes('timed out')) {
-                showNotification(`${typeText} ${type === 'summary' ? 'generation' : type === 'sigma' ? 'generation' : type === 'ranking' ? 'generation' : 'extraction'} timed out after 60 seconds. Try using a different model or check your settings.`, 'error');
+                const timeoutMsg = aiModel === 'chatgpt' ? '60 seconds' : '200 seconds';
+                showNotification(`${typeText} ${type === 'summary' ? 'generation' : type === 'sigma' ? 'generation' : type === 'ranking' ? 'generation' : 'extraction'} timed out after ${timeoutMsg}. Try using a different model or check your settings.`, 'error');
             } else {
                 showNotification(`Error: ${error.message}`, 'error');
             }
@@ -2298,9 +2300,10 @@
         document.body.appendChild(loadingModal);
         
         try {
-            // Create a timeout promise
+            // Create a timeout promise - longer for LLM operations
             const timeoutPromise = new Promise((_, reject) => {
-                setTimeout(() => reject(new Error('Request timed out after 60 seconds')), 60000);
+                const timeoutMs = aiModel === 'chatgpt' ? 60000 : 200000; // 60s for ChatGPT, 200s for LLM
+                setTimeout(() => reject(new Error(`Request timed out after ${timeoutMs/1000} seconds`)), timeoutMs);
             });
             
             // Create the fetch promise
@@ -2327,7 +2330,8 @@
             }
         } catch (error) {
             if (error.message.includes('timed out')) {
-                showNotification('Custom prompt timed out after 60 seconds. Try using a different model or check your settings.', 'error');
+                const timeoutMsg = aiModel === 'chatgpt' ? '60 seconds' : '200 seconds';
+                showNotification(`Custom prompt timed out after ${timeoutMsg}. Try using a different model or check your settings.`, 'error');
             } else {
                 showNotification(`Error: ${error.message}`, 'error');
             }
@@ -2688,9 +2692,10 @@
         try {
             console.log('Making API request to ChatGPT summary endpoint...'); // Debug log
             
-            // Create a timeout promise
+            // Create a timeout promise - longer for LLM operations
             const timeoutPromise = new Promise((_, reject) => {
-                setTimeout(() => reject(new Error('Request timed out after 60 seconds')), 60000);
+                const timeoutMs = aiModel === 'chatgpt' ? 60000 : 200000; // 60s for ChatGPT, 200s for LLM
+                setTimeout(() => reject(new Error(`Request timed out after ${timeoutMs/1000} seconds`)), timeoutMs);
             });
             
             // Create the fetch promise
@@ -2723,7 +2728,8 @@
         } catch (error) {
             console.error('JavaScript error:', error); // Debug log
             if (error.message.includes('timed out')) {
-                showNotification('ChatGPT Summary timed out after 60 seconds. Try using metadata-only analysis or configure OpenAI API key for faster results.', 'error');
+                const timeoutMsg = aiModel === 'chatgpt' ? '60 seconds' : '200 seconds';
+                showNotification(`Summary timed out after ${timeoutMsg}. Try using metadata-only analysis or configure OpenAI API key for faster results.`, 'error');
             } else {
                 showNotification(`Error: ${error.message}`, 'error');
             }
