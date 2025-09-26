@@ -102,7 +102,6 @@ Each article now includes:
 - `lolbas_matches`: List of LOLBAS executables found
 - `intelligence_matches`: List of intelligence indicators found
 - `negative_matches`: List of negative indicators found
-- `keyword_density`: Keywords per 1000 words
 
 ## Current Performance
 
@@ -127,7 +126,6 @@ Each article now includes:
 ### LOLBAS-Focused Malware Analysis
 **Score: 78.4/100**
 - Multiple LOLBAS executables (`certutil.exe`, `cmd.exe`, `regsvr32.exe`)
-- High keyword density (129.03 per 1000 words)
 - Excellent technical depth with command examples
 - Perfect for detection engineering and threat hunting
 
@@ -140,7 +138,6 @@ Each article now includes:
 ### Technical Malware Analysis
 **Score: 77.9/100**
 - Multiple perfect keywords (`rundll32`, `iex`, `lsass.exe`)
-- High keyword density (158.73 per 1000 words)
 - Excellent technical depth with code blocks and indicators
 
 ## Benefits

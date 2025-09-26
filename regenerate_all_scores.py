@@ -59,7 +59,6 @@ async def regenerate_all_threat_hunting_scores():
                     article.metadata['perfect_keyword_matches'] = enhanced_metadata.get('perfect_keyword_matches', [])
                     article.metadata['good_keyword_matches'] = enhanced_metadata.get('good_keyword_matches', [])
                     article.metadata['lolbas_matches'] = enhanced_metadata.get('lolbas_matches', [])
-                    article.metadata['keyword_density'] = enhanced_metadata.get('keyword_density', 0.0)
                     article.metadata['technical_depth_score'] = enhanced_metadata.get('technical_depth_score', 0.0)
                     
                     # Save the updated article

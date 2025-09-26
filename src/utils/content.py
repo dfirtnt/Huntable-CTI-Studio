@@ -674,7 +674,6 @@ class ThreatHuntingScorer:
             - lolbas_matches: List[str]
             - intelligence_matches: List[str]
             - negative_matches: List[str]
-            - keyword_density: float
         """
         if not content:
             return {
@@ -683,8 +682,7 @@ class ThreatHuntingScorer:
                 'good_keyword_matches': [],
                 'lolbas_matches': [],
                 'intelligence_matches': [],
-                'negative_matches': [],
-                'keyword_density': 0.0
+                'negative_matches': []
             }
         
         # Clean content for analysis
@@ -741,22 +739,17 @@ class ThreatHuntingScorer:
         
         # Negative Penalties: -10 points max (educational/marketing content penalty)
         negative_penalty = min(3 * math.log(len(negative_matches) + 1), 10.0)
-        
-        # Keyword density (percentage of content containing technical keywords)
-        total_keywords = len(perfect_matches) + len(good_matches) + len(lolbas_matches) + len(intelligence_matches)
-        keyword_density = (total_keywords / max(len(full_text.split()), 1)) * 1000  # per 1000 words
-        
+
         # Calculate final threat hunting score (0-100 range)
         threat_hunting_score = max(0.0, min(100.0, perfect_score + good_score + lolbas_score + intelligence_score - negative_penalty))
-        
+
         return {
             'threat_hunting_score': round(threat_hunting_score, 1),
             'perfect_keyword_matches': perfect_matches,
             'good_keyword_matches': good_matches,
             'lolbas_matches': lolbas_matches,
             'intelligence_matches': intelligence_matches,
-            'negative_matches': negative_matches,
-            'keyword_density': round(keyword_density, 2)
+            'negative_matches': negative_matches
         }
     
     @staticmethod

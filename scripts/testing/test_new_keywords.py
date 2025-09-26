@@ -45,7 +45,6 @@ def test_new_keywords():
     
     print(f"Threat Hunting Score: {result['threat_hunting_score']}/100")
     print(f"Technical Depth Score: {result['technical_depth_score']}/30")
-    print(f"Keyword Density: {result['keyword_density']} per 1000 words")
     
     if result['good_keyword_matches']:
         print(f"Good Keywords: {', '.join(result['good_keyword_matches'])}")
