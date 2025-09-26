@@ -5,34 +5,34 @@ sources:
   # PREMIUM THREAT INTELLIGENCE SOURCES (Highest Actionable Value)
   # =============================================================================
   
-  # Hunt.io Threat Hunting Blog (No RSS - Web Scraping Only)
-  - id: "hunt_io"
-    name: "Hunt.io Threat Hunting Blog"
-    url: "https://hunt.io/blog"
-    rss_url: null  # No RSS feed available
-    check_frequency: 1800  # 30 minutes
-    active: true
-    config:
-      allow: ["hunt.io"]
-      post_url_regex: ["^https://hunt\\.io/blog/.*"]
-      robots:
-        enabled: true
-        user_agent: "CTIScraper/2.0"
-        respect_delay: true
-        max_requests_per_minute: 10
-        crawl_delay: 1.0
-      min_content_length: 1000  # Reduced from 1500
-      title_filter_keywords: ["product news", "announcing", "introducing"]
-      rss_only: false  # Force web scraping since no RSS
-      extract:
-        prefer_jsonld: true
-        title_selectors: ["h1", "meta[property='og:title']::attr(content)"]
-        date_selectors:
-          - "meta[property='article:published_time']::attr(content)"
-          - "time[datetime]::attr(datetime)"
-        body_selectors: ["div.markdown", "div[class*='markdown']", "article", "main", ".content", ".post-content"]
-        author_selectors: ["meta[name='author']::attr(content)", ".author-name"]
-    description: "High-quality threat hunting content with technical depth and actionable intelligence (Web scraping only)"
+  # Hunt.io Threat Hunting Blog (No RSS - Web Scraping Only) - DISABLED
+  # - id: "hunt_io"
+  #   name: "Hunt.io Threat Hunting Blog"
+  #   url: "https://hunt.io/blog"
+  #   rss_url: null  # No RSS feed available
+  #   check_frequency: 1800  # 30 minutes
+  #   active: true
+  #   config:
+  #     allow: ["hunt.io"]
+  #     post_url_regex: ["^https://hunt\\.io/blog/.*"]
+  #     robots:
+  #       enabled: true
+  #       user_agent: "CTIScraper/2.0"
+  #       respect_delay: true
+  #       max_requests_per_minute: 10
+  #       crawl_delay: 1.0
+  #     min_content_length: 1000  # Reduced from 1500
+  #     title_filter_keywords: ["product news", "announcing", "introducing"]
+  #     rss_only: false  # Force web scraping since no RSS
+  #     extract:
+  #       prefer_jsonld: true
+  #       title_selectors: ["h1", "meta[property='og:title']::attr(content)"]
+  #       date_selectors:
+  #         - "meta[property='article:published_time']::attr(content)"
+  #         - "time[datetime]::attr(datetime)"
+  #       body_selectors: ["div.markdown", "div[class*='markdown']", "article", "main", ".content", ".post-content"]
+  #       author_selectors: ["meta[name='author']::attr(content)", ".author-name"]
+  #   description: "High-quality threat hunting content with technical depth and actionable intelligence (Web scraping only)"
 
   # Picus Security Blog (No RSS - Web Scraping Only)
   - id: "picus_security"
@@ -570,7 +570,7 @@ sources:
     url: "https://thedfirreport.com"
     rss_url: "https://thedfirreport.com/feed/"
     check_frequency: 1800  # 30 minutes
-    lookback_days: 7300  # 20 years to ensure all historical articles are captured
+    lookback_days: 180  # 6 months - reduced from 20 years due to validation limits
     active: true
     config:
       allow: ["thedfirreport.com"]
@@ -770,17 +770,29 @@ sources:
         respect_delay: true
         max_requests_per_minute: 6
         crawl_delay: 3.0
-      min_content_length: 2000
+      min_content_length: 1000  # Reduced from 2000 to be more permissive
+      rss_only: false  # Explicitly enable web scraping fallback
       extract:
         prefer_jsonld: true
-        title_selectors: ["h1", "meta[property='og:title']::attr(content)"]
-        date_selectors: 
+        title_selectors: ["h1", "meta[property='og:title']::attr(content)", ".post-title", ".entry-title"]
+        date_selectors:
           - "meta[property='article:published_time']::attr(content)"
           - "time[datetime]::attr(datetime)"
-        body_selectors: ["article", "main", ".content", ".post-content", ".research-content"]
-        author_selectors: ["meta[name='author']::attr(content)", ".author-name"]
-      min_content_length: 2000
-    description: "In-depth security research and vulnerability analysis"
+          - ".post-date"
+          - ".entry-date"
+        body_selectors: [
+          ".post-content",
+          ".entry-content",
+          "article .content",
+          ".blog-post-content",
+          "main article",
+          ".research-content",
+          "article",
+          "main",
+          ".content"
+        ]
+        author_selectors: ["meta[name='author']::attr(content)", ".author-name", ".post-author"]
+    description: "In-depth security research and vulnerability analysis (RSS + web scraping fallback)"
 
   # NCC Group Research Blog (RSS Primary + Web Scraping Fallback)
   - id: "ncc_group_research"
