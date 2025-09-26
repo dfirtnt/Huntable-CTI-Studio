@@ -16,24 +16,24 @@ These keywords appear **exclusively** in "Chosen" content:
 - **Technical Patterns**: `MZ`, `-accepteula`, `wintmp`
 - **Path Patterns**: `\temp\`, `\pipe\`, `%WINDIR%`, `%wintmp%`
 
-### Good Discriminators (High Chosen ratio)
-These keywords have >90% correlation with "Chosen" content:
+### Good Discriminators (Supporting technical content)
+These keywords provide supporting technical context:
 
-- **Windows Paths**: `c:\windows\` (98.1% Chosen)
-- **File Extensions**: `.bat` (97.1% Chosen), `.ps1` (94.4% Chosen)
-- **Technical Patterns**: `==` (94% Chosen), `[.]` (96.7% Chosen), `-->` (detection engineering focus)
+- **Windows Paths**: `c:\windows\` (high technical value)
+- **File Extensions**: `.bat`, `.ps1` (high technical value)
+- **Technical Patterns**: `==`, `[.]`, `-->` (detection engineering focus)
 - **Registry Patterns**: `currentversion` (detection engineering focus)
 - **Event Log Patterns**: `EventCode` (detection engineering focus)
 
-### LOLBAS Executables (97.1% Chosen ratio)
-Living Off the Land Binaries and Scripts - 68 Chosen, 2 Rejected:
+### LOLBAS Executables (High technical value)
+Living Off the Land Binaries and Scripts - High technical value:
 
 - **System Tools**: `certutil.exe`, `cmd.exe`, `reg.exe`, `schtasks.exe`
 - **Network Tools**: `bitsadmin.exe`, `ftp.exe`, `netsh.exe`, `wmic.exe`
 - **Script Engines**: `cscript.exe`, `mshta.exe`, `wscript.exe`
 - **Installation Tools**: `msiexec.exe`, `regsvr32.exe`, `rundll32.exe`
 - **File Operations**: `forfiles.exe`, `explorer.exe`, `ieexec.exe`
-- **And 150+ more legitimate Windows executables commonly abused by threat actors**
+- **And 40+ more legitimate Windows executables commonly abused by threat actors**
 
 
 ## Implementation
@@ -59,16 +59,16 @@ Living Off the Land Binaries and Scripts - 68 Chosen, 2 Rejected:
 The system uses logarithmic buckets with diminishing returns to provide realistic score distributions:
 
 ```
-Perfect Score = min(15 × log(matches + 1), 30.0)     # 30 points max
-LOLBAS Score = min(10 × log(matches + 1), 20.0)       # 20 points max  
-Intelligence Score = min(8 × log(matches + 1), 20.0) # 20 points max
-Good Score = min(5 × log(matches + 1), 10.0)          # 10 points max
+Perfect Score = min(35 × log(matches + 1), 75.0)     # 75 points max (dominant weight)
+LOLBAS Score = min(5 × log(matches + 1), 10.0)       # 10 points max  
+Intelligence Score = min(4 × log(matches + 1), 10.0) # 10 points max
+Good Score = min(2.5 × log(matches + 1), 5.0)        # 5 points max
 Negative Penalty = min(3 × log(matches + 1), 10.0)   # -10 points max
 
 Final Score = max(0.0, min(100.0, perfect + good + lolbas + intelligence - negative))
 ```
 
-**Perfect Discriminators** (30 points max):
+**Perfect Discriminators** (75 points max):
 - `rundll32`, `comspec`, `msiexec`, `wmic`, `iex`, `findstr`
 - `hklm`, `appdata`, `programdata`, `powershell.exe`, `wbem`
 - `EventID`, `.lnk`, `D:\`, `.iso`, `<Command>`, `MZ`
@@ -76,17 +76,17 @@ Final Score = max(0.0, min(100.0, perfect + good + lolbas + intelligence - negat
 - `\temp\`, `\pipe\`, `%WINDIR%`, `%wintmp%`, `Defender query`
 - **Cmd.exe obfuscation regex patterns**: `%VAR:~0,4%`, `!VAR!`, `cmd /V:ON`, `s^e^t`, `c^a^l^l`
 
-**LOLBAS Executables** (20 points max):
-- 150+ legitimate Windows executables commonly abused by threat actors
+**LOLBAS Executables** (10 points max):
+- 40+ legitimate Windows executables commonly abused by threat actors
 - Examples: `certutil.exe`, `cmd.exe`, `reg.exe`, `schtasks.exe`, `wmic.exe`
-- High correlation with threat hunting content (97.1% Chosen ratio)
+- Practical attack techniques with high technical value
 
-**Intelligence Indicators** (20 points max):
+**Intelligence Indicators** (10 points max):
 - Real threat activity: `APT`, `threat actor`, `campaign`, `ransomware`
 - Specific threat groups: `FIN`, `TA`, `UNC`, `Lazarus`, `Carbanak`
 - Real incidents: `breach`, `compromise`, `in the wild`, `active campaign`
 
-**Good Discriminators** (10 points max):
+**Good Discriminators** (5 points max):
 - `temp`, `==`, `c:\windows\`, `Event ID`, `.bat`, `.ps1`
 - `pipe`, `::`, `[.]`, `-->`, `currentversion`, `EventCode`
 
@@ -105,26 +105,26 @@ Each article now includes:
 
 ## Current Performance
 
-**Score Distribution** (1,508 articles):
-- **0-19**: 801 articles (53.1%) - Low threat hunting value
-- **20-39**: 479 articles (31.8%) - Moderate value  
-- **40-59**: 135 articles (9.0%) - Good value
-- **60-79**: 93 articles (6.2%) - High value
+**Score Distribution** (754 articles):
+- **0-19**: 730 articles (96.8%) - Low threat hunting value
+- **20-39**: 12 articles (1.6%) - Moderate value  
+- **40-59**: 8 articles (1.1%) - Good value
+- **60-79**: 3 articles (0.4%) - High value
 - **80-100**: 0 articles (0%) - No articles reach highest tier
 
-**Score Range**: 0.0 - 79.2
-**Average Score**: 21.2
+**Score Range**: 0.0 - 67.5
+**Average Score**: 4.0
 
 ## Usage Examples
 
 ### High-Quality Threat Hunting Content
-**Score: 79.2/100**
+**Score: 67.5/100** (Current maximum)
 - Contains multiple perfect keywords (`rundll32`, `wmic`, `hklm`)
 - High technical depth with CVE references, registry paths
 - Excellent for threat hunters and detection engineers
 
 ### LOLBAS-Focused Malware Analysis
-**Score: 78.4/100**
+**Score: 63.6/100**
 - Multiple LOLBAS executables (`certutil.exe`, `cmd.exe`, `regsvr32.exe`)
 - Excellent technical depth with command examples
 - Perfect for detection engineering and threat hunting
@@ -136,7 +136,7 @@ Each article now includes:
 - Limited value for threat hunting
 
 ### Technical Malware Analysis
-**Score: 77.9/100**
+**Score: 63.5/100**
 - Multiple perfect keywords (`rundll32`, `iex`, `lsass.exe`)
 - Excellent technical depth with code blocks and indicators
 
