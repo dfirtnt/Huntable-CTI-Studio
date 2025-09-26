@@ -70,6 +70,7 @@ terraform/
 
 # Additional output directories
 outputs/
+archived/
 
 # Cache directories
 .pytest_cache/

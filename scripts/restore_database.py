@@ -23,7 +23,7 @@ DB_CONFIG = {
     'port': '5432',
     'database': 'cti_scraper',
     'user': 'cti_user',
-    'password': 'cti_password_2024'
+    'password': 'cti_password'
 }
 
 def get_docker_exec_cmd(container_name: str, command: str) -> list:

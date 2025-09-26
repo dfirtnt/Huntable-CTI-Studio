@@ -304,7 +304,7 @@ class RSSParser:
                 rss_only = config_dict.get('rss_only', False)
         
         # If still not found, try to read directly from database
-        if not rss_only and hasattr(source, 'id'):
+        if not rss_only and hasattr(source, 'id') and source.id is not None:
             try:
                 from src.database.async_manager import AsyncDatabaseManager
                 import asyncio
@@ -346,8 +346,24 @@ class RSSParser:
         # Try to get full content from feed first
         content = self._get_feed_content(entry)
         
-        if content and len(ContentCleaner.html_to_text(content).strip()) > 1500:
-            # We have substantial content from the feed (at least 1500 chars)
+        # Get source-specific minimum content length
+        source_min_length = 2000  # Default
+        if hasattr(source, 'config') and source.config:
+            if hasattr(source.config, 'min_content_length'):
+                source_min_length = source.config.min_content_length or 2000
+            elif hasattr(source.config, 'model_dump'):
+                config_dict = source.config.model_dump()
+                source_min_length = config_dict.get('min_content_length') or 2000
+            elif hasattr(source.config, 'dict'):
+                config_dict = source.config.dict()
+                source_min_length = config_dict.get('min_content_length') or 2000
+
+        # Ensure source_min_length is never None
+        if source_min_length is None:
+            source_min_length = 2000
+
+        if content and len(ContentCleaner.html_to_text(content).strip()) >= source_min_length:
+            # We have substantial content from the feed (meets source requirements)
             return ContentCleaner.clean_html(content)
         
         # If RSS-only mode is enabled, use RSS content regardless of length
@@ -364,14 +380,14 @@ class RSSParser:
             cleaned_rss_content = ContentCleaner.clean_html(content)
             rss_text_length = len(ContentCleaner.html_to_text(cleaned_rss_content).strip())
             
-            if rss_text_length < 1000:  # Increased from 500 to 1000
-                logger.info(f"RSS content too short ({rss_text_length} chars) for {url}, trying modern scraping")
+            if rss_text_length < source_min_length:  # Use source-specific minimum
+                logger.info(f"RSS content too short ({rss_text_length} chars) for {url}, trying modern scraping (target: {source_min_length} chars)")
                 try:
                     # Try modern scraping to get full content
                     modern_content = await self._extract_with_modern_scraping(url, source)
                     if modern_content:
                         modern_text_length = len(ContentCleaner.html_to_text(modern_content).strip())
-                        if modern_text_length > rss_text_length and modern_text_length >= 1000:  # Ensure minimum 1000 chars
+                        if modern_text_length > rss_text_length and modern_text_length >= source_min_length:  # Ensure meets source requirements
                             logger.info(f"Modern scraping successful: {modern_text_length} chars vs {rss_text_length} chars from RSS")
                             # Mark that modern scraping was used
                             entry._used_modern_fallback = True

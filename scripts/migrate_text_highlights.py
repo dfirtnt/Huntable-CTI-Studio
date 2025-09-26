@@ -19,7 +19,7 @@ def run_migration():
     """Run the text highlights migration."""
     try:
         # Connect to PostgreSQL database using environment variables
-        database_url = os.getenv("DATABASE_URL", "postgresql://cti_user:cti_password_2024@postgres:5432/cti_scraper")
+        database_url = os.getenv("DATABASE_URL", "postgresql://cti_user:cti_password@postgres:5432/cti_scraper")
         
         # Create synchronous engine for migration
         engine = create_engine(database_url)
@@ -60,7 +60,7 @@ def run_migration():
 def verify_migration():
     """Verify the migration was successful."""
     try:
-        database_url = os.getenv("DATABASE_URL", "postgresql://cti_user:cti_password_2024@postgres:5432/cti_scraper")
+        database_url = os.getenv("DATABASE_URL", "postgresql://cti_user:cti_password@postgres:5432/cti_scraper")
         engine = create_engine(database_url)
         
         with engine.connect() as conn:
