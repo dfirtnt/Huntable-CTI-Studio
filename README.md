@@ -11,7 +11,7 @@ A comprehensive threat intelligence aggregation and analysis platform designed f
 
 ### 🔍 Intelligent Threat Intelligence Collection
 - **Multi-Source Aggregation**: Automated collection from 40+ RSS feeds, security blogs, and vendor sites
-- **Smart Content Processing**: Advanced text extraction with content validation and HTML cleaning
+- **Smart Content Processing**: RSS-first collection with basic web scraping fallback and HTML cleaning
 - **Duplicate Detection**: Intelligent deduplication using content hashing and similarity analysis
 - **Source Health Monitoring**: Real-time monitoring with automatic failure detection and recovery
 
@@ -44,7 +44,7 @@ A comprehensive threat intelligence aggregation and analysis platform designed f
 - **Docker Containers**: Containerized deployment for consistent environments
 
 ### Data Flow
-1. **Collection**: Automated RSS feed parsing and web scraping
+1. **Collection**: RSS feed parsing (primary) with basic web scraping fallback
 2. **Processing**: Content extraction, cleaning, and deduplication
 3. **Analysis**: Rule-based scoring and AI-powered classification
 4. **Storage**: Structured data storage with full-text search capabilities
@@ -299,7 +299,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 🙏 Acknowledgments
 
-- Built with FastAPI, SQLAlchemy, and modern web technologies
+- Built with FastAPI, SQLAlchemy, BeautifulSoup, and RSS-first collection strategy
 - Inspired by the threat intelligence community's need for better aggregation tools
 - Special thanks to the open-source security tool ecosystem
 

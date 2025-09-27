@@ -1,4 +1,4 @@
-"""Hierarchical content fetcher orchestrating the three-tier collection strategy."""
+"""Hierarchical content fetcher with RSS-first strategy and basic web scraping fallback."""
 
 import asyncio
 from typing import List, Optional, Dict, Any, Tuple
@@ -44,8 +44,8 @@ class ContentFetcher:
     """
     Hierarchical content fetcher implementing three-tier strategy:
     Tier 1: RSS Feeds (Primary) → Fast, standardized, efficient
-    Tier 2: Modern Web Scraping (Fallback) → JSON-LD, structured data extraction  
-    Tier 3: Legacy HTML Scraping (Last Resort) → CSS selectors, basic content
+    Tier 2: Basic Web Scraping (Fallback) → CSS selectors, basic JSON-LD parsing
+    Tier 3: Simple HTML Scraping (Last Resort) → Basic CSS selectors only
     """
     
     def __init__(
@@ -164,33 +164,33 @@ class ContentFetcher:
                 except Exception as e:
                     logger.warning(f"RSS fetch failed for {source.name}: {e}")
             
-            # Tier 2: Modern scraping if RSS failed and modern config available
+            # Tier 2: Basic scraping if RSS failed and scraping config available
             if self._has_modern_config(source):
                 try:
-                    logger.debug(f"Attempting modern scraping for {source.name}")
+                    logger.debug(f"Attempting basic web scraping for {source.name}")
                     articles = await self.modern_scraper.scrape_source(source)
                     
                     if articles:
                         response_time = (datetime.utcnow() - start_time).total_seconds()
                         self._update_stats('modern_scraping_successes', len(articles), response_time, True)
                         
-                        logger.info(f"Modern scraping successful for {source.name}: {len(articles)} articles")
+                        logger.info(f"Basic scraping successful for {source.name}: {len(articles)} articles")
                         return FetchResult(
                             source=source,
                             articles=articles,
-                            method="modern_scraping",
+                            method="basic_scraping",
                             success=True,
                             response_time=response_time
                         )
                     else:
-                        logger.warning(f"Modern scraping returned no articles for {source.name}")
+                        logger.warning(f"Basic scraping returned no articles for {source.name}")
                         
                 except Exception as e:
-                    logger.warning(f"Modern scraping failed for {source.name}: {e}")
+                    logger.warning(f"Basic scraping failed for {source.name}: {e}")
             
-            # Tier 3: Legacy HTML scraping as last resort
+            # Tier 3: Simple HTML scraping as last resort
             try:
-                logger.debug(f"Attempting legacy scraping for {source.name}")
+                logger.debug(f"Attempting simple HTML scraping for {source.name}")
                 articles = await self.legacy_scraper.scrape_source(source)
                 
                 response_time = (datetime.utcnow() - start_time).total_seconds()
