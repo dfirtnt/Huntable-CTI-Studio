@@ -25,7 +25,7 @@
         <h3 class="text-lg font-medium text-gray-900 mb-4">📊 Overall Quality Summary</h3>
         <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
             <div class="text-center">
-                <p class="text-2xl font-bold text-gray-900">{{ quality_stats.values()|sum(attribute='total_articles') }}</p>
+                <p class="text-2xl font-bold text-gray-900">{{ total_articles }}</p>
                 <p class="text-sm text-gray-500">Total Articles</p>
             </div>
             <div class="text-center">
@@ -37,7 +37,6 @@
                 <p class="text-sm text-gray-500">Total Chosen</p>
             </div>
             <div class="text-center">
-                {% set total_articles = quality_stats.values()|sum(attribute='total_articles') %}
                 {% set total_rejected = quality_stats.values()|sum(attribute='rejected_count') %}
                 {% if total_articles > 0 %}
                     <p class="text-2xl font-bold text-blue-600">{{ (total_rejected / total_articles * 100)|round(1) }}%</p>

@@ -555,6 +555,9 @@ async def sources_list(request: Request):
         for stat in quality_stats[:5]:  # Log first 5 entries
             logger.info(f"Source {stat['source_id']}: {stat['name']} - Rejection rate: {stat['rejection_rate']}%")
 
+        # Get actual total article count from database
+        total_articles = await async_db_manager.get_total_article_count()
+        
         # Create lookups for stats by source ID
         quality_lookup = {stat["source_id"]: stat for stat in quality_stats}
         hunt_score_lookup = {stat["source_id"]: stat for stat in hunt_scores}
@@ -573,7 +576,8 @@ async def sources_list(request: Request):
                 "request": request,
                 "sources": sources_sorted,
                 "quality_stats": quality_lookup,
-                "hunt_score_lookup": hunt_score_lookup
+                "hunt_score_lookup": hunt_score_lookup,
+                "total_articles": total_articles
             }
         )
     except Exception as e:
