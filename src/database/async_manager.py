@@ -802,6 +802,17 @@ class AsyncDatabaseManager:
             logger.error(f"Failed to get existing content hashes: {e}")
             return set()
     
+    async def get_total_article_count(self) -> int:
+        """Get the actual total count of articles in the database."""
+        try:
+            async with self.get_session() as session:
+                result = await session.execute(text("SELECT COUNT(*) FROM articles"))
+                count = result.scalar()
+                return count or 0
+        except Exception as e:
+            logger.error(f"Failed to get total article count: {e}")
+            return 0
+    
     async def get_source_quality_stats(self) -> List[Dict[str, Any]]:
         """Get quality statistics for all sources."""
         try:
