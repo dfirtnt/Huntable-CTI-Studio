@@ -35,7 +35,7 @@ from src.services.source_sync import SourceSyncService
 from src.models.source import Source, SourceUpdate, SourceFilter
 from src.models.article import Article, ArticleUpdate
 from src.models.annotation import ArticleAnnotationCreate, ArticleAnnotationUpdate
-from src.worker.celery_app import test_source_connectivity, collect_from_source
+from src.worker.celery_app import test_source_connectivity, collect_from_source, celery_app
 from src.utils.search_parser import parse_boolean_search, get_search_help_text
 from src.utils.ioc_extractor import HybridIOCExtractor, IOCExtractionResult
 
@@ -710,14 +710,55 @@ async def api_scrape_url(request: dict):
         if not url:
             raise HTTPException(status_code=400, detail="URL is required")
         
-        # Use httpx to fetch the URL content directly
+        # Use httpx with proper headers and automatic decompression
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
+            "Accept-Language": "en-US,en;q=0.9",
+            "Accept-Encoding": "gzip, deflate, br",
+            "DNT": "1",
+            "Connection": "keep-alive",
+            "Upgrade-Insecure-Requests": "1",
+            "Sec-Fetch-Dest": "document",
+            "Sec-Fetch-Mode": "navigate",
+            "Sec-Fetch-Site": "none",
+            "Sec-Fetch-User": "?1",
+            "Cache-Control": "max-age=0"
+        }
+        
         async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
             try:
-                response = await client.get(url)
+                response = await client.get(url, headers=headers)
                 response.raise_for_status()
+                
+                # Check if content is compressed and handle decompression
+                content_encoding = response.headers.get('content-encoding', '').lower()
                 html_content = response.text
+                
+                # If httpx didn't handle decompression properly, try manual decompression
+                if not html_content or len(html_content) < 100 or html_content.startswith('U'):
+                    if content_encoding == 'br':
+                        import brotli
+                        try:
+                            html_content = brotli.decompress(response.content).decode('utf-8', errors='replace')
+                        except Exception:
+                            html_content = response.content.decode('utf-8', errors='replace')
+                    elif content_encoding == 'gzip':
+                        import gzip
+                        try:
+                            html_content = gzip.decompress(response.content).decode('utf-8', errors='replace')
+                        except Exception:
+                            html_content = response.content.decode('utf-8', errors='replace')
+                    else:
+                        html_content = response.content.decode('utf-8', errors='replace')
+                
+                # Clean up any remaining issues
+                html_content = html_content.replace('\x00', '').replace('\ufffd', '')
+                    
             except httpx.RequestError as e:
                 raise HTTPException(status_code=400, detail=f"Failed to fetch URL: {str(e)}")
+            except UnicodeDecodeError as e:
+                raise HTTPException(status_code=400, detail=f"Failed to decode content: {str(e)}")
         
         # Simple content extraction (basic implementation)
         import re
@@ -3925,6 +3966,131 @@ async def api_pdf_upload(file: UploadFile = File(...)):
     except Exception as e:
         logger.error(f"PDF upload error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# Celery Job Monitoring Endpoints
+@app.get("/api/jobs/status")
+async def api_jobs_status():
+    """Get current status of all Celery jobs."""
+    try:
+        from celery import current_app
+        
+        # Get active tasks
+        inspect = celery_app.control.inspect()
+        active_tasks = inspect.active()
+        scheduled_tasks = inspect.scheduled()
+        reserved_tasks = inspect.reserved()
+        
+        # Get worker stats
+        stats = inspect.stats()
+        
+        # Get registered tasks
+        registered_tasks = inspect.registered()
+        
+        return {
+            "status": "success",
+            "timestamp": datetime.now().isoformat(),
+            "active_tasks": active_tasks or {},
+            "scheduled_tasks": scheduled_tasks or {},
+            "reserved_tasks": reserved_tasks or {},
+            "worker_stats": stats or {},
+            "registered_tasks": registered_tasks or {}
+        }
+    except Exception as e:
+        logger.error(f"Failed to get job status: {e}")
+        return {
+            "status": "error",
+            "timestamp": datetime.now().isoformat(),
+            "error": str(e)
+        }
+
+
+@app.get("/api/jobs/queues")
+async def api_jobs_queues():
+    """Get queue information and lengths."""
+    try:
+        import redis
+        redis_url = os.getenv('REDIS_URL', 'redis://redis:6379/0')
+        redis_client = redis.from_url(redis_url, decode_responses=True)
+        
+        # Get queue lengths
+        queues = {
+            'default': redis_client.llen('celery'),
+            'source_checks': redis_client.llen('source_checks'),
+            'priority_checks': redis_client.llen('priority_checks'),
+            'maintenance': redis_client.llen('maintenance'),
+            'reports': redis_client.llen('reports'),
+            'connectivity': redis_client.llen('connectivity'),
+            'collection': redis_client.llen('collection')
+        }
+        
+        return {
+            "status": "success",
+            "timestamp": datetime.now().isoformat(),
+            "queues": queues
+        }
+    except Exception as e:
+        logger.error(f"Failed to get queue info: {e}")
+        return {
+            "status": "error",
+            "timestamp": datetime.now().isoformat(),
+            "error": str(e)
+        }
+
+
+@app.get("/api/jobs/history")
+async def api_jobs_history(limit: int = 50):
+    """Get recent job history from Redis."""
+    try:
+        import redis
+        redis_url = os.getenv('REDIS_URL', 'redis://redis:6379/0')
+        redis_client = redis.from_url(redis_url, decode_responses=True)
+        
+        # Get recent task results (this is a simplified approach)
+        # In production, you might want to store task history in a database
+        task_keys = redis_client.keys('celery-task-meta-*')
+        recent_tasks = []
+        
+        for key in task_keys[:limit]:
+            try:
+                task_data = redis_client.get(key)
+                if task_data:
+                    import json
+                    task_info = json.loads(task_data)
+                    recent_tasks.append({
+                        'task_id': key.replace('celery-task-meta-', ''),
+                        'status': task_info.get('status'),
+                        'result': task_info.get('result'),
+                        'date_done': task_info.get('date_done')
+                    })
+            except Exception as e:
+                logger.warning(f"Failed to parse task data for key {key}: {e}")
+                continue
+        
+        # Sort by date_done (most recent first)
+        recent_tasks.sort(key=lambda x: x.get('date_done', ''), reverse=True)
+        
+        return {
+            "status": "success",
+            "timestamp": datetime.now().isoformat(),
+            "recent_tasks": recent_tasks[:limit]
+        }
+    except Exception as e:
+        logger.error(f"Failed to get job history: {e}")
+        return {
+            "status": "error",
+            "timestamp": datetime.now().isoformat(),
+            "error": str(e)
+        }
+
+
+@app.get("/jobs", response_class=HTMLResponse)
+async def jobs_page(request: Request):
+    """Job monitoring page."""
+    return templates.TemplateResponse(
+        "jobs.html",
+        {"request": request, "environment": ENVIRONMENT}
+    )
 
 
 if __name__ == "__main__":

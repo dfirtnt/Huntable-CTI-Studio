@@ -1,0 +1,395 @@
+{% extends "base.html" %}
+
+{% block title %}Job Monitor - CTI Scraper{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+    <div class="mb-8">
+        <h1 class="text-3xl font-bold text-gray-900 dark:text-white mb-2">🔄 Job Monitor</h1>
+        <p class="text-gray-600 dark:text-gray-400">Monitor Celery background tasks and job queues</p>
+    </div>
+
+    <!-- Auto-refresh toggle -->
+    <div class="mb-6 flex items-center justify-between">
+        <div class="flex items-center space-x-4">
+            <label class="flex items-center">
+                <input type="checkbox" id="autoRefresh" class="rounded border-gray-300 text-blue-600 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50" checked>
+                <span class="ml-2 text-sm text-gray-700 dark:text-gray-300">Auto-refresh (5s)</span>
+            </label>
+            <button id="refreshBtn" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+                🔄 Refresh Now
+            </button>
+        </div>
+        <div class="text-sm text-gray-500 dark:text-gray-400">
+            Last updated: <span id="lastUpdated">Never</span>
+        </div>
+    </div>
+
+    <!-- Worker Status -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+            <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">👥 Worker Status</h2>
+            <div id="workerStatus" class="space-y-3">
+                <div class="animate-pulse">
+                    <div class="h-4 bg-gray-200 dark:bg-gray-700 rounded w-3/4"></div>
+                    <div class="h-4 bg-gray-200 dark:bg-gray-700 rounded w-1/2 mt-2"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+            <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">📊 Queue Status</h2>
+            <div id="queueStatus" class="space-y-3">
+                <div class="animate-pulse">
+                    <div class="h-4 bg-gray-200 dark:bg-gray-700 rounded w-3/4"></div>
+                    <div class="h-4 bg-gray-200 dark:bg-gray-700 rounded w-1/2 mt-2"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Active Tasks -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-8">
+        <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">⚡ Active Tasks</h2>
+        <div id="activeTasks" class="space-y-3">
+            <div class="animate-pulse">
+                <div class="h-4 bg-gray-200 dark:bg-gray-700 rounded w-full"></div>
+                <div class="h-4 bg-gray-200 dark:bg-gray-700 rounded w-2/3 mt-2"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Job History -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+        <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">📋 Recent Job History</h2>
+        <div id="jobHistory" class="space-y-3">
+            <div class="animate-pulse">
+                <div class="h-4 bg-gray-200 dark:bg-gray-700 rounded w-full"></div>
+                <div class="h-4 bg-gray-200 dark:bg-gray-700 rounded w-3/4 mt-2"></div>
+                <div class="h-4 bg-gray-200 dark:bg-gray-700 rounded w-1/2 mt-2"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let autoRefreshInterval;
+let isAutoRefresh = true;
+
+// Initialize
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('DOM loaded, initializing job monitor...');
+    
+    // Test if elements exist
+    const workerStatus = document.getElementById('workerStatus');
+    const queueStatus = document.getElementById('queueStatus');
+    const activeTasks = document.getElementById('activeTasks');
+    const jobHistory = document.getElementById('jobHistory');
+    
+    console.log('Elements found:', {
+        workerStatus: !!workerStatus,
+        queueStatus: !!queueStatus,
+        activeTasks: !!activeTasks,
+        jobHistory: !!jobHistory
+    });
+    
+    if (workerStatus && queueStatus && activeTasks && jobHistory) {
+        loadJobData();
+        setupAutoRefresh();
+        setupEventListeners();
+    } else {
+        console.error('Required DOM elements not found');
+        showError('Failed to initialize job monitor - missing DOM elements');
+    }
+});
+
+function setupEventListeners() {
+    const autoRefreshEl = document.getElementById('autoRefresh');
+    const refreshBtn = document.getElementById('refreshBtn');
+    
+    if (autoRefreshEl) {
+        autoRefreshEl.addEventListener('change', function(e) {
+            isAutoRefresh = e.target.checked;
+            if (isAutoRefresh) {
+                setupAutoRefresh();
+            } else {
+                clearInterval(autoRefreshInterval);
+            }
+        });
+    } else {
+        console.error('autoRefresh element not found');
+    }
+
+    if (refreshBtn) {
+        refreshBtn.addEventListener('click', function() {
+            loadJobData();
+        });
+    } else {
+        console.error('refreshBtn element not found');
+    }
+}
+
+function setupAutoRefresh() {
+    if (autoRefreshInterval) {
+        clearInterval(autoRefreshInterval);
+    }
+    
+    if (isAutoRefresh) {
+        autoRefreshInterval = setInterval(loadJobData, 5000);
+    }
+}
+
+async function loadJobData() {
+    try {
+        console.log('Loading job data...');
+        
+        // Load all data in parallel
+        const [statusResponse, queueResponse, historyResponse] = await Promise.all([
+            fetch('/api/jobs/status'),
+            fetch('/api/jobs/queues'),
+            fetch('/api/jobs/history?limit=20')
+        ]);
+
+        const statusData = await statusResponse.json();
+        const queueData = await queueResponse.json();
+        const historyData = await historyResponse.json();
+
+        console.log('Status data:', statusData);
+        console.log('Queue data:', queueData);
+        console.log('History data:', historyData);
+
+        updateWorkerStatus(statusData);
+        updateQueueStatus(queueData);
+        updateActiveTasks(statusData);
+        updateJobHistory(historyData);
+        
+        const lastUpdatedEl = document.getElementById('lastUpdated');
+        if (lastUpdatedEl) {
+            lastUpdatedEl.textContent = new Date().toLocaleTimeString();
+        }
+    } catch (error) {
+        console.error('Failed to load job data:', error);
+        showError('Failed to load job data: ' + error.message);
+    }
+}
+
+function updateWorkerStatus(data) {
+    const container = document.getElementById('workerStatus');
+    console.log('Updating worker status with data:', data);
+    
+    if (data.status === 'error') {
+        container.innerHTML = '<div class="text-red-600 dark:text-red-400">❌ Error loading worker status</div>';
+        return;
+    }
+
+    const workerStats = data.worker_stats || {};
+    const activeWorkers = Object.keys(workerStats);
+    
+    console.log('Active workers:', activeWorkers);
+    console.log('Worker stats:', workerStats);
+    
+    if (activeWorkers.length === 0) {
+        container.innerHTML = '<div class="text-yellow-600 dark:text-yellow-400">⚠️ No active workers</div>';
+        return;
+    }
+
+    let html = '';
+    activeWorkers.forEach(worker => {
+        const stats = workerStats[worker];
+        const processCount = Array.isArray(stats.pool?.processes) ? stats.pool.processes.length : 'N/A';
+        const totalTasks = stats.total ? Object.values(stats.total).reduce((a, b) => a + b, 0) : 0;
+        
+        html += `
+            <div class="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                <div>
+                    <div class="font-medium text-gray-900 dark:text-white">${worker}</div>
+                    <div class="text-sm text-gray-600 dark:text-gray-400">
+                        Pool: ${processCount} processes
+                    </div>
+                </div>
+                <div class="text-right">
+                    <div class="text-sm text-green-600 dark:text-green-400">✅ Active</div>
+                    <div class="text-xs text-gray-500 dark:text-gray-400">
+                        Tasks: ${totalTasks}
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+    
+    container.innerHTML = html;
+}
+
+function updateQueueStatus(data) {
+    const container = document.getElementById('queueStatus');
+    console.log('Updating queue status with data:', data);
+    
+    if (data.status === 'error') {
+        container.innerHTML = '<div class="text-red-600 dark:text-red-400">❌ Error loading queue status</div>';
+        return;
+    }
+
+    const queues = data.queues || {};
+    console.log('Queues:', queues);
+    
+    let html = '';
+    
+    Object.entries(queues).forEach(([queueName, length]) => {
+        const statusColor = length > 0 ? 'text-orange-600 dark:text-orange-400' : 'text-green-600 dark:text-green-400';
+        const statusIcon = length > 0 ? '⏳' : '✅';
+        
+        html += `
+            <div class="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                <div>
+                    <div class="font-medium text-gray-900 dark:text-white">${queueName}</div>
+                    <div class="text-sm text-gray-600 dark:text-gray-400">Queue length</div>
+                </div>
+                <div class="text-right">
+                    <div class="text-lg font-bold ${statusColor}">${length}</div>
+                    <div class="text-xs text-gray-500 dark:text-gray-400">${statusIcon} ${length > 0 ? 'Pending' : 'Empty'}</div>
+                </div>
+            </div>
+        `;
+    });
+    
+    container.innerHTML = html;
+}
+
+function updateActiveTasks(data) {
+    const container = document.getElementById('activeTasks');
+    console.log('Updating active tasks with data:', data);
+    
+    if (data.status === 'error') {
+        container.innerHTML = '<div class="text-red-600 dark:text-red-400">❌ Error loading active tasks</div>';
+        return;
+    }
+
+    const activeTasks = data.active_tasks || {};
+    console.log('Active tasks:', activeTasks);
+    
+    const allTasks = [];
+    
+    Object.entries(activeTasks).forEach(([worker, tasks]) => {
+        if (Array.isArray(tasks)) {
+            tasks.forEach(task => {
+                allTasks.push({...task, worker});
+            });
+        }
+    });
+    
+    console.log('All tasks:', allTasks);
+    
+    if (allTasks.length === 0) {
+        container.innerHTML = '<div class="text-gray-600 dark:text-gray-400 text-center py-8">No active tasks</div>';
+        return;
+    }
+
+    let html = '';
+    allTasks.forEach(task => {
+        const startTime = new Date(task.time_start * 1000).toLocaleTimeString();
+        const taskName = task.name ? task.name.split('.').pop() : 'Unknown Task';
+        const sourceId = task.args && task.args[0] ? `Source ${task.args[0]}` : 'Unknown Source';
+        
+        html += `
+            <div class="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                <div>
+                    <div class="font-medium text-gray-900 dark:text-white">${taskName}</div>
+                    <div class="text-sm text-gray-600 dark:text-gray-400">
+                        ${sourceId} | Started: ${startTime}
+                    </div>
+                </div>
+                <div class="text-right">
+                    <div class="text-sm text-blue-600 dark:text-blue-400">🔄 Running</div>
+                    <div class="text-xs text-gray-500 dark:text-gray-400">ID: ${task.id.substring(0, 8)}...</div>
+                </div>
+            </div>
+        `;
+    });
+    
+    container.innerHTML = html;
+}
+
+function updateJobHistory(data) {
+    const container = document.getElementById('jobHistory');
+    console.log('Updating job history with data:', data);
+    
+    if (data.status === 'error') {
+        container.innerHTML = '<div class="text-red-600 dark:text-red-400">❌ Error loading job history</div>';
+        return;
+    }
+
+    const tasks = data.recent_tasks || [];
+    console.log('Recent tasks:', tasks);
+    
+    if (tasks.length === 0) {
+        container.innerHTML = '<div class="text-gray-600 dark:text-gray-400 text-center py-8">No recent tasks</div>';
+        return;
+    }
+
+    let html = '';
+    tasks.forEach(task => {
+        const statusColor = getStatusColor(task.status);
+        const statusIcon = getStatusIcon(task.status);
+        const dateDone = task.date_done ? new Date(task.date_done).toLocaleString() : 'N/A';
+        const resultText = task.result ? JSON.stringify(task.result).substring(0, 50) + '...' : 'No result';
+        
+        html += `
+            <div class="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                <div>
+                    <div class="font-medium text-gray-900 dark:text-white">${task.task_id.substring(0, 8)}...</div>
+                    <div class="text-sm text-gray-600 dark:text-gray-400">
+                        Completed: ${dateDone}
+                    </div>
+                </div>
+                <div class="text-right">
+                    <div class="text-sm ${statusColor}">${statusIcon} ${task.status}</div>
+                    <div class="text-xs text-gray-500 dark:text-gray-400">
+                        ${resultText}
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+    
+    container.innerHTML = html;
+}
+
+function getStatusColor(status) {
+    switch (status) {
+        case 'SUCCESS': return 'text-green-600 dark:text-green-400';
+        case 'FAILURE': return 'text-red-600 dark:text-red-400';
+        case 'PENDING': return 'text-yellow-600 dark:text-yellow-400';
+        case 'RETRY': return 'text-orange-600 dark:text-orange-400';
+        default: return 'text-gray-600 dark:text-gray-400';
+    }
+}
+
+function getStatusIcon(status) {
+    switch (status) {
+        case 'SUCCESS': return '✅';
+        case 'FAILURE': return '❌';
+        case 'PENDING': return '⏳';
+        case 'RETRY': return '🔄';
+        default: return '❓';
+    }
+}
+
+function showError(message) {
+    // Simple error display - could be enhanced with a toast notification
+    console.error(message);
+    
+    // Show error in the UI
+    const errorDiv = document.createElement('div');
+    errorDiv.className = 'fixed top-4 right-4 bg-red-600 text-white px-4 py-2 rounded-lg shadow-lg z-50';
+    errorDiv.textContent = message;
+    document.body.appendChild(errorDiv);
+    
+    // Remove after 5 seconds
+    setTimeout(() => {
+        if (errorDiv.parentNode) {
+            errorDiv.parentNode.removeChild(errorDiv);
+        }
+    }, 5000);
+}
+</script>
+{% endblock %}
