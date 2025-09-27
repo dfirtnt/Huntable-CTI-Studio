@@ -551,7 +551,7 @@ WINDOWS_MALWARE_KEYWORDS = {
             'EventCode', 'parent-child', 'KQL', '2>&1',
             # PowerShell attack techniques (100% chosen rate)
             'invoke-mimikatz', 'hashdump', 'invoke-shellcode', 'invoke-eternalblue',
-            # Cmd.exe obfuscation regex patterns (advanced threat techniques)
+            # Cmd.exe obfuscation regex patterns (basic threat techniques)
             r'%[A-Za-z0-9_]+:~[0-9]+(,[0-9]+)?%',  # env-var substring access
             r'%[A-Za-z0-9_]+:[^=%%]+=[^%]*%',  # env-var string substitution
             r'![A-Za-z0-9_]+!',  # delayed expansion markers

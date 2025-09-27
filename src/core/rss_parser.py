@@ -375,7 +375,7 @@ class RSSParser:
                 logger.warning(f"RSS-only mode enabled but no RSS content available for {url}")
                 return None
         
-        # Check if RSS content is too short (< 1000 chars) and try modern scraping
+        # Check if RSS content is too short (< 1000 chars) and try basic scraping
         if content:
             cleaned_rss_content = ContentCleaner.clean_html(content)
             rss_text_length = len(ContentCleaner.html_to_text(cleaned_rss_content).strip())
@@ -383,13 +383,13 @@ class RSSParser:
             if rss_text_length < source_min_length:  # Use source-specific minimum
                 logger.info(f"RSS content too short ({rss_text_length} chars) for {url}, trying modern scraping (target: {source_min_length} chars)")
                 try:
-                    # Try modern scraping to get full content
+                    # Try basic scraping to get full content
                     modern_content = await self._extract_with_modern_scraping(url, source)
                     if modern_content:
                         modern_text_length = len(ContentCleaner.html_to_text(modern_content).strip())
                         if modern_text_length > rss_text_length and modern_text_length >= source_min_length:  # Ensure meets source requirements
                             logger.info(f"Modern scraping successful: {modern_text_length} chars vs {rss_text_length} chars from RSS")
-                            # Mark that modern scraping was used
+                            # Mark that basic scraping was used
                             entry._used_modern_fallback = True
                             return modern_content
                         else:
@@ -409,11 +409,11 @@ class RSSParser:
             # Return None to indicate extraction failure - this article will be rejected
             return None
         
-        # Special handling for The Hacker News - try modern scraping first, fallback to RSS
+        # Special handling for The Hacker News - try basic scraping first, fallback to RSS
         if 'thehackernews.com' in url.lower():
             logger.info(f"The Hacker News URL detected, trying modern scraping first: {url}")
             try:
-                # Try modern scraping to get full content
+                # Try basic scraping to get full content
                 modern_content = await self._extract_with_modern_scraping(url, source)
                 if modern_content:
                     modern_text_length = len(ContentCleaner.html_to_text(modern_content).strip())
@@ -427,7 +427,7 @@ class RSSParser:
             except Exception as e:
                 logger.warning(f"Modern scraping failed for The Hacker News {url}: {e}")
             
-            # Fallback to RSS content if modern scraping fails
+            # Fallback to RSS content if basic scraping fails
             if content and len(ContentCleaner.html_to_text(content).strip()) > 100:
                 logger.info(f"Using RSS content for The Hacker News: {len(ContentCleaner.html_to_text(content).strip())} chars")
                 return ContentCleaner.clean_html(content)
@@ -479,7 +479,7 @@ class RSSParser:
                 '.blog-post-content', '.post-content', '.entry-content',
                 # Modern blog platforms
                 '.blog-post-content', '.post-body', '.article-body', '.entry-body',
-                # Medium/modern platforms
+                # Basic platforms
                 'article', '[data-testid="storyContent"]', '.story-content',
                 # WordPress/common CMS
                 '.entry-content', '.post-content', '.content-area',
@@ -550,7 +550,7 @@ class RSSParser:
                 '.post-body .entry-content', '.entry-content .post-body',
                 # Modern blog platforms
                 '.blog-post-content', '.post-body', '.article-body', '.entry-body',
-                # Medium/modern platforms
+                # Basic platforms
                 'article', '[data-testid="storyContent"]', '.story-content',
                 # WordPress/common CMS
                 '.entry-content', '.post-content', '.content-area',

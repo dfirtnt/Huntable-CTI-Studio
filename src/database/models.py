@@ -102,7 +102,7 @@ class SourceCheckTable(Base):
     source_id = Column(Integer, ForeignKey('sources.id'), nullable=False, index=True)
     check_time = Column(DateTime, nullable=False, default=func.now(), index=True)
     success = Column(Boolean, nullable=False)
-    method = Column(String(50), nullable=False)  # 'rss', 'modern_scraping', 'legacy_scraping'
+    method = Column(String(50), nullable=False)  # 'rss', 'basic_scraping', 'simple_scraping'
     articles_found = Column(Integer, nullable=False, default=0)
     response_time = Column(Float, nullable=True)
     error_message = Column(Text, nullable=True)

@@ -1,4 +1,4 @@
-"""Modern web scraper with JSON-LD and structured data extraction."""
+"""Web scraper with basic JSON-LD parsing and CSS selector extraction."""
 
 import asyncio
 import re
@@ -191,12 +191,13 @@ class URLDiscovery:
 
 
 class StructuredDataExtractor:
-    """Extract structured data from web pages."""
+    """Basic structured data extraction using regex parsing (no extruct library)."""
     
     @staticmethod
     def extract_structured_data(html: str, base_url: str) -> Dict[str, Any]:
         """
-        Extract all structured data from HTML.
+        Extract basic structured data from HTML using regex parsing.
+        Note: This is a simplified implementation without proper structured data libraries.
         
         Args:
             html: HTML content
@@ -206,7 +207,7 @@ class StructuredDataExtractor:
             Dictionary with extracted structured data
         """
         try:
-            # Simplified structured data extraction without extruct
+            # Basic structured data extraction using regex (not production-grade)
             data = {
                 'json-ld': [],
                 'opengraph': [],
@@ -319,7 +320,7 @@ class StructuredDataExtractor:
 
 
 class ModernScraper:
-    """Modern web scraper with structured data extraction."""
+    """Web scraper with basic structured data extraction and CSS selectors."""
     
     def __init__(self, http_client: HTTPClient):
         self.http_client = http_client
@@ -328,7 +329,8 @@ class ModernScraper:
     
     async def scrape_source(self, source: Source) -> List[ArticleCreate]:
         """
-        Scrape articles from source using modern techniques.
+        Scrape articles from source using CSS selectors and basic JSON-LD parsing.
+        Note: This is a fallback method when RSS feeds are unavailable.
         
         Args:
             source: Source configuration
@@ -559,7 +561,7 @@ class ModernScraper:
 
 
 class LegacyScraper:
-    """Legacy HTML scraper for sources without modern structured data."""
+    """Basic HTML scraper using CSS selectors (last resort fallback)."""
     
     def __init__(self, http_client: HTTPClient):
         self.http_client = http_client
