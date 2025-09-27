@@ -57,7 +57,26 @@ A comprehensive threat intelligence aggregation and analysis platform designed f
 - Python 3.8+ (for development)
 - PostgreSQL and Redis (handled by Docker)
 
-### Installation
+### ⚡ One-Command Setup (Recommended)
+```bash
+git clone https://github.com/starlord/CTIScraper.git
+cd CTIScraper
+chmod +x setup.sh
+./setup.sh
+```
+
+This automated script will:
+- ✅ Check prerequisites (Docker, Docker Compose)
+- ✅ Create `.env` file from `env.example`
+- ✅ Create necessary directories
+- ✅ Start all services with proper configuration
+- ✅ Wait for services to be ready
+- ✅ Verify installation
+- ✅ Show access URLs and management commands
+
+### Manual Installation (Alternative)
+
+If you prefer manual setup or the automated script fails:
 
 1. **Clone the repository**
    ```bash
@@ -70,6 +89,8 @@ A comprehensive threat intelligence aggregation and analysis platform designed f
    cp env.example .env
    # Edit .env with your configuration (API keys, database credentials, etc.)
    ```
+
+   **⚠️ IMPORTANT**: The `.env` file is required for Redis and PostgreSQL to start properly. Without it, containers will fail with configuration errors.
 
 3. **Start the application**
    ```bash
@@ -311,11 +332,75 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - [Web App Testing Guide](WebAppDevtestingGuide.md)
 - [Agent Guidelines](AGENTS.md)
 
+## 🔧 Troubleshooting
+
+### Common Issues
+
+**Redis container keeps restarting:**
+```bash
+# Check if .env file exists and has REDIS_PASSWORD
+ls -la .env
+cat .env | grep REDIS_PASSWORD
+
+# If missing, create it:
+cp env.example .env
+# Edit .env and set REDIS_PASSWORD=your_secure_password
+```
+
+**PostgreSQL connection failed:**
+```bash
+# Check if .env file has database credentials
+cat .env | grep POSTGRES
+
+# If missing, create it:
+cp env.example .env
+# Edit .env and set POSTGRES_PASSWORD=your_secure_password
+```
+
+**Containers fail to start:**
+```bash
+# Check Docker is running
+docker info
+
+# Check for port conflicts
+docker ps | grep -E "(5432|6379|8000)"
+
+# Clean restart
+docker-compose down
+docker-compose up -d
+```
+
+**Environment variables not loading:**
+```bash
+# Verify .env file exists and is readable
+ls -la .env
+cat .env | head -5
+
+# Check Docker Compose can read it
+docker-compose config
+```
+
+### Health Checks
+
+```bash
+# Check all services
+docker-compose ps
+
+# Check specific service logs
+docker-compose logs redis
+docker-compose logs postgres
+docker-compose logs web
+
+# Test connectivity
+curl http://localhost:8000/health
+```
+
 ## 💬 Support
 
 - Create an issue for bug reports or feature requests
 - Check existing documentation for common questions
 - Review health checks for system status
+- See troubleshooting section above for common issues
 
 ---
 
