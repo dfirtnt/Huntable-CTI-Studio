@@ -215,8 +215,6 @@ class AsyncDatabaseManager:
                 query = select(SourceTable)
                 
                 if filter_params:
-                    if filter_params.tier:
-                        query = query.where(SourceTable.tier == filter_params.tier)
                     if filter_params.active is not None:
                         query = query.where(SourceTable.active == filter_params.active)
                     if filter_params.identifier_contains:
@@ -262,8 +260,8 @@ class AsyncDatabaseManager:
                     check_frequency=source_data.check_frequency,
                     lookback_days=source_data.lookback_days,
                     active=source_data.active,
-                    tier=source_data.tier,
-                    weight=source_data.weight,
+                    tier=2,  # Default tier
+                    weight=1.0,  # Default weight
                     config=source_data.config.model_dump(exclude_none=True) if source_data.config else {},
                     consecutive_failures=0,
                     total_articles=0,
@@ -915,8 +913,6 @@ class AsyncDatabaseManager:
 
     def _db_source_to_model(self, db_source: SourceTable) -> Source:
         """Convert database source to Pydantic model."""
-        from src.models.source import SourceConfig
-        
         return Source(
             id=db_source.id,
             identifier=db_source.identifier,
@@ -926,13 +922,15 @@ class AsyncDatabaseManager:
             check_frequency=db_source.check_frequency,
             lookback_days=db_source.lookback_days,
             active=db_source.active,
-            config=SourceConfig.model_validate(db_source.config) if db_source.config else SourceConfig(),
+            config=db_source.config if db_source.config else {},
             last_check=db_source.last_check,
             last_success=db_source.last_success,
             consecutive_failures=db_source.consecutive_failures,
             total_articles=db_source.total_articles,
             success_rate=db_source.success_rate,
-            average_response_time=db_source.average_response_time
+            average_response_time=db_source.average_response_time,
+            created_at=db_source.created_at,
+            updated_at=db_source.updated_at
         )
     
     def _db_article_to_model(self, db_article: ArticleTable) -> Article:

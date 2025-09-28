@@ -60,9 +60,7 @@ class SourceSyncService:
                     check_frequency=config.check_frequency,
                     lookback_days=config.lookback_days,
                     active=config.active,
-                    tier=config.tier,
-                    weight=config.weight,
-                    config=config.config,
+                    config=config.config.model_dump(exclude_none=True) if config.config else {},
                 )
 
                 synced = await self.db_manager.update_source(existing.id, update_data)
