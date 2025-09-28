@@ -1,61 +1,78 @@
-"""
-Article models for Pydantic schemas.
-"""
+"""Article models for the CTI Scraper application."""
 
-from typing import Optional, List
-from pydantic import BaseModel, Field
 from datetime import datetime
+from typing import Optional, List, Dict, Any
+from pydantic import BaseModel, Field
 
 
-class ArticleBase(BaseModel):
-    """Base article model."""
-    title: str
-    content: str
-    url: str
-    canonical_url: Optional[str] = None
+class Article(BaseModel):
+    """Article model for API responses."""
+    
+    id: int
     source_id: int
-    published_at: Optional[datetime] = None
-    collected_at: datetime = Field(default_factory=datetime.utcnow)
-    classification: Optional[str] = Field(None, description="Article classification: 'chosen', 'rejected', 'unclassified'")
-    threat_hunting_score: Optional[float] = Field(None, description="Threat hunting relevance score")
-    content_length: Optional[int] = Field(None, description="Length of content in characters")
+    url: str
+    canonical_url: str
+    title: str
+    published_at: datetime
+    modified_at: Optional[datetime] = None
+    authors: List[str] = Field(default_factory=list)
+    tags: List[str] = Field(default_factory=list)
+    summary: Optional[str] = None
+    content: str
+    content_hash: str
+    metadata: Dict[str, Any] = Field(default_factory=dict)
+    word_count: int
+    content_length: Optional[int] = None
+    collected_at: datetime
+    created_at: datetime
+    updated_at: datetime
+    processing_status: str
 
 
-class ArticleCreate(ArticleBase):
-    """Model for creating a new article."""
-    pass
+class ArticleCreate(BaseModel):
+    """Article model for creation."""
+    
+    source_id: int
+    url: str
+    canonical_url: str
+    title: str
+    published_at: datetime
+    modified_at: Optional[datetime] = None
+    authors: List[str] = Field(default_factory=list)
+    tags: List[str] = Field(default_factory=list)
+    summary: Optional[str] = None
+    content: str
+    content_hash: str
+    metadata: Dict[str, Any] = Field(default_factory=dict)
+    word_count: int
+    content_length: Optional[int] = None
+    collected_at: datetime
+    processing_status: str = "pending"
 
 
 class ArticleUpdate(BaseModel):
-    """Model for updating an article."""
+    """Article model for updates."""
+    
     title: Optional[str] = None
+    modified_at: Optional[datetime] = None
+    authors: Optional[List[str]] = None
+    tags: Optional[List[str]] = None
+    summary: Optional[str] = None
     content: Optional[str] = None
-    url: Optional[str] = None
-    canonical_url: Optional[str] = None
-    classification: Optional[str] = None
-    threat_hunting_score: Optional[float] = None
+    content_hash: Optional[str] = None
+    metadata: Optional[Dict[str, Any]] = None
+    word_count: Optional[int] = None
     content_length: Optional[int] = None
-
-
-class Article(ArticleBase):
-    """Full article model with database fields."""
-    id: int
-    created_at: datetime
-    updated_at: datetime
-
-    class Config:
-        from_attributes = True
+    processing_status: Optional[str] = None
 
 
 class ArticleFilter(BaseModel):
-    """Model for filtering articles."""
+    """Article filter model."""
+    
     source_id: Optional[int] = None
-    classification: Optional[str] = None
-    threat_hunting_score_min: Optional[float] = None
-    threat_hunting_score_max: Optional[float] = None
     published_after: Optional[datetime] = None
     published_before: Optional[datetime] = None
-    collected_after: Optional[datetime] = None
-    collected_before: Optional[datetime] = None
-    content_length_min: Optional[int] = None
-    content_length_max: Optional[int] = None
+    processing_status: Optional[str] = None
+    classification: Optional[str] = None
+    limit: Optional[int] = None
+    offset: Optional[int] = None

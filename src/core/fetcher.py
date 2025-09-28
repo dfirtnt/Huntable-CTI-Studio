@@ -104,7 +104,7 @@ class ContentFetcher:
         Returns:
             FetchResult with articles and metadata
         """
-        logger.info(f"Starting fetch for source: {source.name} (tier {source.tier})")
+        logger.info(f"Starting fetch for source: {source.name}")
         start_time = datetime.utcnow()
         
         try:

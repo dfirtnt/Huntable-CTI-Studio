@@ -137,16 +137,9 @@ WORKERS=4
 
 ### Source Configuration
 
-Sources are configured in `config/sources.yaml`:
-
-```yaml
-sources:
-  - name: "Example Security Blog"
-    url: "https://example.com/feed.xml"
-    type: "rss"
-    tier: 1
-    check_frequency: 900  # 15 minutes
-```
+- **Primary workflow**: Use the `Source Config` tab in the web UI to create or edit sources. Changes apply directly to PostgreSQL and persist across restarts.
+- **Bootstrap file**: `config/sources.yaml` seeds the database only when no sources exist. Keep it updated for fresh deployments, but it no longer overwrites live edits.
+- **Manual reset**: Run `python -m src.cli.main sync-sources --config config/sources.yaml` if you intentionally want to replace database rows with the YAML contents.
 
 ## 🏗️ Architecture
 

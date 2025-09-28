@@ -246,6 +246,30 @@ class AsyncDatabaseManager:
         except Exception as e:
             logger.error(f"Failed to list source identifiers: {e}")
             return set()
+
+    async def set_robots_user_agent_for_all(self, user_agent: str) -> int:
+        """Ensure every source with robots config uses the provided user agent."""
+        updated = 0
+        try:
+            sources = await self.list_sources()
+            for source in sources:
+                config = dict(source.config or {})
+                robots = dict(config.get('robots') or {})
+                if not robots:
+                    continue
+                if robots.get('user_agent') == user_agent:
+                    continue
+                robots['user_agent'] = user_agent
+                config['robots'] = robots
+                try:
+                    await self.update_source(source.id, SourceUpdate(config=config))
+                    updated += 1
+                except Exception as inner_exc:  # noqa: BLE001
+                    logger.error(f"Failed to update user agent for source {source.identifier}: {inner_exc}")
+            return updated
+        except Exception as e:
+            logger.error(f"Failed to update robots user agents: {e}")
+            return updated
     
     async def create_source(self, source_data: SourceCreate) -> Optional[Source]:
         """Create a new source."""
@@ -260,8 +284,8 @@ class AsyncDatabaseManager:
                     check_frequency=source_data.check_frequency,
                     lookback_days=source_data.lookback_days,
                     active=source_data.active,
-                    tier=2,  # Default tier
-                    weight=1.0,  # Default weight
+                    tier=source_data.tier,
+                    weight=source_data.weight,
                     config=source_data.config.model_dump(exclude_none=True) if source_data.config else {},
                     consecutive_failures=0,
                     total_articles=0,
@@ -580,29 +604,14 @@ class AsyncDatabaseManager:
                         logger.error(f"Error processing row: {row_e}")
                         continue
                     
-                    # Create article with updated metadata including annotation count
-                    article_data = {
-                        'id': db_article.id,
-                        'source_id': db_article.source_id,
-                        'canonical_url': db_article.canonical_url,
-                        'title': db_article.title,
-                        'published_at': db_article.published_at,
-                        'modified_at': db_article.modified_at,
-                        'authors': db_article.authors,
-                        'tags': db_article.tags,
-                        'summary': db_article.summary,
-                        'content': db_article.content,
-                        'content_hash': db_article.content_hash,
-                        'metadata': dict(db_article.article_metadata) if db_article.article_metadata else {},
-                        'word_count': db_article.word_count,
-                        'discovered_at': db_article.discovered_at,
-                        'processing_status': db_article.processing_status
-                    }
+                    # Use the proper conversion method
+                    article = self._db_article_to_model(db_article)
                     
                     # Add annotation count to metadata
-                    article_data['metadata']['annotation_count'] = annotation_count
+                    if article.metadata is None:
+                        article.metadata = {}
+                    article.metadata['annotation_count'] = annotation_count
                     
-                    article = Article(**article_data)
                     articles.append(article)
                 
                 return articles
@@ -922,6 +931,8 @@ class AsyncDatabaseManager:
             check_frequency=db_source.check_frequency,
             lookback_days=db_source.lookback_days,
             active=db_source.active,
+            tier=db_source.tier,
+            weight=db_source.weight,
             config=db_source.config if db_source.config else {},
             last_check=db_source.last_check,
             last_success=db_source.last_success,
@@ -938,6 +949,7 @@ class AsyncDatabaseManager:
         return Article(
             id=db_article.id,
             source_id=db_article.source_id,
+            url=db_article.canonical_url,
             canonical_url=db_article.canonical_url,
             title=db_article.title,
             published_at=db_article.published_at,
@@ -949,7 +961,10 @@ class AsyncDatabaseManager:
             content_hash=db_article.content_hash,
             metadata=db_article.article_metadata,
             word_count=db_article.word_count,
-            discovered_at=db_article.discovered_at,
+            content_length=len(db_article.content) if db_article.content else None,
+            collected_at=db_article.discovered_at,
+            created_at=db_article.created_at,
+            updated_at=db_article.updated_at,
             processing_status=db_article.processing_status
         )
     

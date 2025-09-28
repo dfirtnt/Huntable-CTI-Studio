@@ -34,11 +34,16 @@ This comprehensive testing checklist ensures all features of the CTI Scraper pla
 
 ### **Source Management**
 
-- [ ] **Source Configuration Loading**
-  - [ ] Load sources from `config/sources.yaml`
-  - [ ] Verify all sources are parsed correctly
-  - [ ] Check source metadata is accurate
-  - [ ] Confirm RSS URLs are valid
+- [ ] **Source Configuration Bootstrap**
+  - [ ] When database is empty, seed via `config/sources.yaml`
+  - [ ] Verify all seeded sources are parsed correctly
+  - [ ] Confirm identifiers, RSS URLs, and metadata populated as expected
+
+- [ ] **Source Config UI**
+  - [ ] Create/update a source via the web tab and ensure values persist after restart
+  - [ ] Test regex helper with matching/non-matching URLs
+  - [ ] Validate tooltip guidance covers key fields
+  - [ ] Export updated row back to YAML when repository snapshot needs refresh
 
 - [ ] **Source Database Operations**
   - [ ] Create new sources via CLI

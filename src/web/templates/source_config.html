@@ -1,0 +1,834 @@
+{% extends "base.html" %}
+{% block title %}Source Config - CTI Scraper{% endblock %}
+{% block content %}
+<style>
+    .tooltip {
+        position: relative;
+        display: inline-flex;
+        align-items: center;
+    }
+    .tooltip-trigger {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 1.25rem;
+        height: 1.25rem;
+        border-radius: 9999px;
+        background-color: #4338ca;
+        color: #fff;
+        font-size: 0.75rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: background-color 0.15s ease;
+    }
+    .tooltip-trigger:hover,
+    .tooltip-trigger:focus-visible {
+        background-color: #3730a3;
+        outline: none;
+    }
+    .tooltip-content {
+        position: absolute;
+        bottom: 125%;
+        left: 50%;
+        transform: translate(-50%, -0.5rem);
+        padding: 0.5rem 0.75rem;
+        background: rgba(15, 23, 42, 0.95);
+        color: #f8fafc;
+        border-radius: 0.5rem;
+        font-size: 0.75rem;
+        line-height: 1.2;
+        width: 15rem;
+        box-shadow: 0 10px 25px rgba(15, 23, 42, 0.35);
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.15s ease, transform 0.15s ease;
+        z-index: 20;
+    }
+    .tooltip-content::after {
+        content: "";
+        position: absolute;
+        top: 100%;
+        left: 50%;
+        transform: translateX(-50%);
+        border-width: 6px;
+        border-style: solid;
+        border-color: rgba(15, 23, 42, 0.95) transparent transparent transparent;
+    }
+    .tooltip:hover .tooltip-content,
+    .tooltip:focus-within .tooltip-content,
+    .tooltip[data-open="true"] .tooltip-content {
+        opacity: 1;
+        transform: translate(-50%, -0.75rem);
+        pointer-events: auto;
+    }
+</style>
+<div class="space-y-6" x-data="{}">
+    <div class="bg-white rounded-lg shadow-sm p-6">
+        <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div>
+                <h1 class="text-3xl font-bold text-gray-900">Source Configuration</h1>
+                <p class="mt-2 text-gray-600 max-w-3xl">
+                    Review and adjust ingestion policies without editing YAML. Basic fields stay up front while advanced controls
+                    for routing, robots, filtering, and extraction sit behind collapsible panels.
+                </p>
+            </div>
+            <div class="flex items-center gap-2">
+                <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-700">
+                    Interactive UI
+                </span>
+                <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-700">
+                    Live Validation
+                </span>
+            </div>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
+        <aside class="bg-white rounded-lg shadow-sm border border-gray-200">
+            <div class="px-4 py-3 border-b border-gray-200">
+                <h2 class="text-lg font-semibold text-gray-900">Sources</h2>
+                <p class="text-xs text-gray-500 mt-1">Select a source to load full configuration</p>
+            </div>
+            <div class="h-[32rem] overflow-y-auto divide-y divide-gray-100" id="source-config-source-list">
+                {% for source in sources %}
+                <button
+                    type="button"
+                    class="w-full text-left px-4 py-3 hover:bg-indigo-50 transition-colors flex items-center justify-between"
+                    data-source-id="{{ source.id }}"
+                    data-source-name="{{ source.name }}"
+                    onclick="selectSource(this.dataset.sourceId)"
+                >
+                    <div>
+                        <p class="text-sm font-medium text-gray-900">{{ source.name }}</p>
+                        <p class="text-xs text-gray-500">{{ source.identifier }}</p>
+                    </div>
+                    <span class="ml-2 text-xs font-semibold px-2 py-1 rounded-full
+                        {% if source.active %}bg-emerald-100 text-emerald-700{% else %}bg-rose-100 text-rose-700{% endif %}">
+                        {% if source.active %}Active{% else %}Inactive{% endif %}
+                    </span>
+                </button>
+                {% endfor %}
+            </div>
+        </aside>
+
+        <section class="lg:col-span-3">
+            <div id="source-config-alert" class="hidden mb-4 px-4 py-3 rounded-md text-sm"></div>
+            <div id="source-config-panel" class="bg-white rounded-lg shadow-sm border border-gray-200">
+                <div class="px-6 py-5 border-b border-gray-200 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                    <div>
+                        <h2 class="text-2xl font-semibold text-gray-900" id="source-config-title">Select a source</h2>
+                        <p class="text-sm text-gray-500" id="source-config-subtitle">Configuration details appear here.</p>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <button
+                            id="source-config-validate-btn"
+                            type="button"
+                            class="hidden inline-flex items-center px-3 py-2 rounded-md text-sm font-medium border border-indigo-200 text-indigo-700 hover:bg-indigo-50"
+                            onclick="validateCurrentConfig()"
+                        >
+                            Validate Patterns
+                        </button>
+                        <button
+                            id="source-config-save-btn"
+                            type="button"
+                            class="hidden inline-flex items-center px-4 py-2 rounded-md text-sm font-semibold bg-indigo-600 text-white hover:bg-indigo-700"
+                            onclick="saveSourceConfig()"
+                        >
+                            Save Changes
+                        </button>
+                    </div>
+                </div>
+
+                <div class="px-6 py-6 space-y-6" id="source-config-body">
+                    <p class="text-gray-500 text-sm" id="source-config-empty">Pick a source from the left to start editing.</p>
+
+                    <form id="source-config-form" class="hidden space-y-6" onsubmit="event.preventDefault();">
+                        <input type="hidden" id="sourceId" />
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label for="sourceName" class="flex items-center gap-2 text-sm font-medium text-gray-700">
+                                    <span>Name</span>
+                                    <span class="tooltip">
+                                        <button type="button" class="tooltip-trigger" data-tooltip-role="trigger" aria-label="Guidance for source name">?</button>
+                                        <span class="tooltip-content">Human-friendly label displayed in the UI. Keep it short so analysts can scan the list quickly.</span>
+                                    </span>
+                                </label>
+                                <input id="sourceName" type="text" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500" />
+                            </div>
+                            <div>
+                                <label for="sourceIdentifier" class="flex items-center gap-2 text-sm font-medium text-gray-700">
+                                    <span>Identifier</span>
+                                    <span class="tooltip">
+                                        <button type="button" class="tooltip-trigger" data-tooltip-role="trigger" aria-label="Identifier help">?</button>
+                                        <span class="tooltip-content">Immutable key sourced from YAML/database. Use it when referencing the source from jobs or APIs.</span>
+                                    </span>
+                                </label>
+                                <input id="sourceIdentifier" type="text" class="mt-1 block w-full rounded-md border-gray-300 bg-gray-100 text-gray-500 shadow-sm" readonly />
+                            </div>
+                            <div>
+                                <label for="sourceUrl" class="flex items-center gap-2 text-sm font-medium text-gray-700">
+                                    <span>Primary URL</span>
+                                    <span class="tooltip">
+                                        <button type="button" class="tooltip-trigger" data-tooltip-role="trigger" aria-label="Primary URL help">?</button>
+                                        <span class="tooltip-content">Landing page used for discovery and archive pagination. Should match the domain targeted by regex patterns.</span>
+                                    </span>
+                                </label>
+                                <input id="sourceUrl" type="url" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500" />
+                            </div>
+                            <div>
+                                <label for="sourceRssUrl" class="flex items-center gap-2 text-sm font-medium text-gray-700">
+                                    <span>RSS URL</span>
+                                    <span class="tooltip">
+                                        <button type="button" class="tooltip-trigger" data-tooltip-role="trigger" aria-label="RSS URL help">?</button>
+                                        <span class="tooltip-content">Optional feed endpoint. Leave empty when the site blocks RSS so the scraper relies on HTML extraction only.</span>
+                                    </span>
+                                </label>
+                                <input id="sourceRssUrl" type="url" placeholder="Leave blank if RSS unavailable" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500" />
+                            </div>
+                            <div>
+                                <label for="sourceCheckFrequency" class="flex items-center gap-2 text-sm font-medium text-gray-700">
+                                    <span>Check Frequency (seconds)</span>
+                                    <span class="tooltip">
+                                        <button type="button" class="tooltip-trigger" data-tooltip-role="trigger" aria-label="Check frequency help">?</button>
+                                        <span class="tooltip-content">Interval between polling cycles. Lower numbers collect faster but increase load and risk of throttling.</span>
+                                    </span>
+                                </label>
+                                <input id="sourceCheckFrequency" type="number" min="60" step="60" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500" />
+                            </div>
+                            <div>
+                                <label for="sourceLookbackDays" class="flex items-center gap-2 text-sm font-medium text-gray-700">
+                                    <span>Lookback Window (days)</span>
+                                    <span class="tooltip">
+                                        <button type="button" class="tooltip-trigger" data-tooltip-role="trigger" aria-label="Lookback window help">?</button>
+                                        <span class="tooltip-content">How far back the collector searches for missed articles when crawling archives or RSS feeds.</span>
+                                    </span>
+                                </label>
+                                <input id="sourceLookbackDays" type="number" min="1" max="365" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500" />
+                            </div>
+                            <div>
+                                <label for="sourceTier" class="flex items-center gap-2 text-sm font-medium text-gray-700">
+                                    <span>Tier</span>
+                                    <span class="tooltip">
+                                        <button type="button" class="tooltip-trigger" data-tooltip-role="trigger" aria-label="Tier help">?</button>
+                                        <span class="tooltip-content">Priority band used by schedulers. Tier 1 is the fastest polling group; higher numbers check less frequently.</span>
+                                    </span>
+                                </label>
+                                <input id="sourceTier" type="number" min="1" max="5" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500" />
+                            </div>
+                            <div>
+                                <label for="sourceWeight" class="flex items-center gap-2 text-sm font-medium text-gray-700">
+                                    <span>Weight</span>
+                                    <span class="tooltip">
+                                        <button type="button" class="tooltip-trigger" data-tooltip-role="trigger" aria-label="Weight help">?</button>
+                                        <span class="tooltip-content">Influences scoring and dedupe tie-breakers. Use higher weights for premium intel sources you trust most.</span>
+                                    </span>
+                                </label>
+                                <input id="sourceWeight" type="number" min="0.1" step="0.1" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500" />
+                            </div>
+                            <div class="flex items-center gap-2 mt-6">
+                                <input id="sourceActive" type="checkbox" class="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
+                                <label for="sourceActive" class="text-sm font-medium text-gray-700">Active</label>
+                            </div>
+                        </div>
+
+                        <details class="rounded-lg border border-gray-200">
+                            <summary class="cursor-pointer px-4 py-3 text-sm font-semibold text-gray-800 bg-gray-50 flex items-center justify-between">
+                                <span>Domain &amp; Routing</span>
+                                <span class="text-xs font-medium text-indigo-600">Allow lists &amp; regex helpers</span>
+                            </summary>
+                            <div class="px-4 py-4 space-y-4">
+                                <div>
+                                    <label for="allowList" class="flex items-center gap-2 text-sm font-medium text-gray-700">
+                                        <span>Allowed Domains</span>
+                                        <span class="tooltip">
+                                            <button type="button" class="tooltip-trigger" data-tooltip-role="trigger" aria-label="Allowed domains help">?</button>
+                                            <span class="tooltip-content">Whitelist of hostnames eligible for ingestion. Helps prevent scope creep when sites embed external links.</span>
+                                        </span>
+                                    </label>
+                                    <textarea id="allowList" rows="3" placeholder="One domain per line" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"></textarea>
+                                </div>
+                                <div>
+                                    <label for="postUrlPatterns" class="flex items-center gap-2 text-sm font-medium text-gray-700">
+                                        <span>Post URL Regex Patterns</span>
+                                        <span class="tooltip">
+                                            <button type="button" class="tooltip-trigger" data-tooltip-role="trigger" aria-label="Post URL regex help">?</button>
+                                            <span class="tooltip-content">Regular expressions that determine which discovered links count as articles. Anchor them to avoid matching marketing pages.</span>
+                                        </span>
+                                    </label>
+                                    <textarea id="postUrlPatterns" rows="4" placeholder="Regex per line" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"></textarea>
+                                    <div class="mt-2 flex items-center gap-2">
+                                        <input id="postUrlTestValue" type="text" placeholder="Test URL" class="flex-1 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500" />
+                                        <button type="button" class="inline-flex items-center px-3 py-2 rounded-md text-sm font-medium border border-gray-200 text-gray-700 hover:bg-gray-50" onclick="runRegexTest()">Test</button>
+                                    </div>
+                                    <p id="postUrlRegexFeedback" class="mt-2 text-xs text-gray-500">Patterns are validated locally before saving.</p>
+                                </div>
+                            </div>
+                        </details>
+
+                        <details class="rounded-lg border border-gray-200">
+                            <summary class="cursor-pointer px-4 py-3 text-sm font-semibold text-gray-800 bg-gray-50 flex items-center justify-between">
+                                <span>Robots Policy</span>
+                                <span class="text-xs font-medium text-indigo-600">Rate limits &amp; crawler identity</span>
+                            </summary>
+                            <div class="px-4 py-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div class="flex items-center gap-2">
+                                    <input id="robotsEnabled" type="checkbox" class="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
+                                    <label for="robotsEnabled" class="text-sm font-medium text-gray-700">Enable robots controls</label>
+                                    <span class="tooltip">
+                                        <button type="button" class="tooltip-trigger" data-tooltip-role="trigger" aria-label="Robots controls help">?</button>
+                                        <span class="tooltip-content">Toggle per-source rate limiting and crawler headers. Disable if the feed is RSS-only and already throttled.</span>
+                                    </span>
+                                </div>
+                                <div>
+                                    <label for="robotsUserAgent" class="flex items-center gap-2 text-sm font-medium text-gray-700">
+                                        <span>User Agent</span>
+                                        <span class="tooltip">
+                                            <button type="button" class="tooltip-trigger" data-tooltip-role="trigger" aria-label="User agent help">?</button>
+                                            <span class="tooltip-content">HTTP user agent presented when scraping HTML. Match the site’s expectations to bypass simplistic bot blocks.</span>
+                                        </span>
+                                    </label>
+                                    <input id="robotsUserAgent" type="text" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500" />
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <input id="robotsRespectDelay" type="checkbox" class="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
+                                    <label for="robotsRespectDelay" class="text-sm font-medium text-gray-700">Respect crawl-delay</label>
+                                    <span class="tooltip">
+                                        <button type="button" class="tooltip-trigger" data-tooltip-role="trigger" aria-label="Crawl delay help">?</button>
+                                        <span class="tooltip-content">Honours the site’s declared crawl-delay directive. Leave enabled unless you have explicit permission to ignore it.</span>
+                                    </span>
+                                </div>
+                                <div>
+                                    <label for="robotsMaxRPM" class="flex items-center gap-2 text-sm font-medium text-gray-700">
+                                        <span>Max Requests / Minute</span>
+                                        <span class="tooltip">
+                                            <button type="button" class="tooltip-trigger" data-tooltip-role="trigger" aria-label="Max requests help">?</button>
+                                            <span class="tooltip-content">Hard ceiling for scrape frequency. Set low values for sites with aggressive bot mitigation.</span>
+                                        </span>
+                                    </label>
+                                    <input id="robotsMaxRPM" type="number" min="0" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500" />
+                                </div>
+                                <div>
+                                    <label for="robotsCrawlDelay" class="flex items-center gap-2 text-sm font-medium text-gray-700">
+                                        <span>Crawl Delay (seconds)</span>
+                                        <span class="tooltip">
+                                            <button type="button" class="tooltip-trigger" data-tooltip-role="trigger" aria-label="Crawl delay seconds help">?</button>
+                                            <span class="tooltip-content">Override for pacing between requests. Combine with max RPM to keep within the source’s acceptable load.</span>
+                                        </span>
+                                    </label>
+                                    <input id="robotsCrawlDelay" type="number" min="0" step="0.1" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500" />
+                                </div>
+                            </div>
+                        </details>
+
+                        <details class="rounded-lg border border-gray-200">
+                            <summary class="cursor-pointer px-4 py-3 text-sm font-semibold text-gray-800 bg-gray-50 flex items-center justify-between">
+                                <span>Content Filters</span>
+                                <span class="text-xs font-medium text-indigo-600">Quality gates &amp; keyword controls</span>
+                            </summary>
+                            <div class="px-4 py-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label for="minContentLength" class="flex items-center gap-2 text-sm font-medium text-gray-700">
+                                        <span>Minimum Content Length</span>
+                                        <span class="tooltip">
+                                            <button type="button" class="tooltip-trigger" data-tooltip-role="trigger" aria-label="Minimum content length help">?</button>
+                                            <span class="tooltip-content">Articles shorter than this threshold are dropped to avoid marketing blurbs and placeholder posts.</span>
+                                        </span>
+                                    </label>
+                                    <input id="minContentLength" type="number" min="0" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500" />
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <input id="requireThreatIntelKeywords" type="checkbox" class="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
+                                    <label for="requireThreatIntelKeywords" class="text-sm font-medium text-gray-700">Require threat intel keywords</label>
+                                    <span class="tooltip">
+                                        <button type="button" class="tooltip-trigger" data-tooltip-role="trigger" aria-label="Threat intel keyword help">?</button>
+                                        <span class="tooltip-content">When enabled, keeps only articles containing the supplied keyword hits. Useful for noisy vendor blogs.</span>
+                                    </span>
+                                </div>
+                                <div class="md:col-span-2">
+                                    <label for="titleFilterKeywords" class="flex items-center gap-2 text-sm font-medium text-gray-700">
+                                        <span>Title Filter Keywords</span>
+                                        <span class="tooltip">
+                                            <button type="button" class="tooltip-trigger" data-tooltip-role="trigger" aria-label="Title filter help">?</button>
+                                            <span class="tooltip-content">If a headline contains any of these phrases, the article is rejected (e.g., marketing announcements, webinars).</span>
+                                        </span>
+                                    </label>
+                                    <textarea id="titleFilterKeywords" rows="3" placeholder="Keywords to suppress (one per line)" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"></textarea>
+                                </div>
+                                <div class="md:col-span-2">
+                                    <label for="contentFilterKeywords" class="flex items-center gap-2 text-sm font-medium text-gray-700">
+                                        <span>Content Filter Keywords</span>
+                                        <span class="tooltip">
+                                            <button type="button" class="tooltip-trigger" data-tooltip-role="trigger" aria-label="Content filter help">?</button>
+                                            <span class="tooltip-content">Require at least one of these keywords in the body to keep the article. Use for targeting specific malware families or TTPs.</span>
+                                        </span>
+                                    </label>
+                                    <textarea id="contentFilterKeywords" rows="3" placeholder="Required content keywords (one per line)" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"></textarea>
+                                </div>
+                            </div>
+                        </details>
+
+                        <details class="rounded-lg border border-gray-200">
+                            <summary class="cursor-pointer px-4 py-3 text-sm font-semibold text-gray-800 bg-gray-50 flex items-center justify-between">
+                                <span>Collection Mode</span>
+                                <span class="text-xs font-medium text-indigo-600">RSS fallback &amp; archives</span>
+                            </summary>
+                            <div class="px-4 py-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div class="flex items-center gap-2">
+                                    <input id="rssOnly" type="checkbox" class="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
+                                    <label for="rssOnly" class="text-sm font-medium text-gray-700">Use RSS only</label>
+                                    <span class="tooltip">
+                                        <button type="button" class="tooltip-trigger" data-tooltip-role="trigger" aria-label="RSS only help">?</button>
+                                        <span class="tooltip-content">Skip HTML scraping and trust the feed content. Ideal when the site blocks article pages but exposes rich feeds.</span>
+                                    </span>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <input id="archivePages" type="checkbox" class="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
+                                    <label for="archivePages" class="text-sm font-medium text-gray-700">Enable archive scraping</label>
+                                    <span class="tooltip">
+                                        <button type="button" class="tooltip-trigger" data-tooltip-role="trigger" aria-label="Archive scraping help">?</button>
+                                        <span class="tooltip-content">Traverse paginated archives to backfill historical posts. Combine with lookback window to control depth.</span>
+                                    </span>
+                                </div>
+                                <div>
+                                    <label for="archiveUrlPattern" class="flex items-center gap-2 text-sm font-medium text-gray-700">
+                                        <span>Archive URL Pattern</span>
+                                        <span class="tooltip">
+                                            <button type="button" class="tooltip-trigger" data-tooltip-role="trigger" aria-label="Archive URL pattern help">?</button>
+                                            <span class="tooltip-content">Use {page} as a placeholder. Example: https://example.com/page/{page}/. Ensure it matches the actual pagination structure.</span>
+                                        </span>
+                                    </label>
+                                    <input id="archiveUrlPattern" type="text" placeholder="https://example.com/page/{page}/" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500" />
+                                </div>
+                                <div>
+                                    <label for="maxArchivePages" class="flex items-center gap-2 text-sm font-medium text-gray-700">
+                                        <span>Max Archive Pages</span>
+                                        <span class="tooltip">
+                                            <button type="button" class="tooltip-trigger" data-tooltip-role="trigger" aria-label="Max archive pages help">?</button>
+                                            <span class="tooltip-content">How many archive pages to crawl during backfill. Keep modest to avoid hammering the site.</span>
+                                        </span>
+                                    </label>
+                                    <input id="maxArchivePages" type="number" min="0" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500" />
+                                </div>
+                            </div>
+                        </details>
+
+                        <details class="rounded-lg border border-gray-200">
+                            <summary class="cursor-pointer px-4 py-3 text-sm font-semibold text-gray-800 bg-gray-50 flex items-center justify-between">
+                                <span>Extraction Rules</span>
+                                <span class="text-xs font-medium text-indigo-600">Selectors &amp; JSON-LD toggle</span>
+                            </summary>
+                            <div class="px-4 py-4 space-y-4">
+                                <div class="flex items-center gap-2">
+                                    <input id="preferJsonLd" type="checkbox" class="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
+                                    <label for="preferJsonLd" class="text-sm font-medium text-gray-700">Prefer structured data (JSON-LD)</label>
+                                    <span class="tooltip">
+                                        <button type="button" class="tooltip-trigger" data-tooltip-role="trigger" aria-label="JSON-LD help">?</button>
+                                        <span class="tooltip-content">When enabled, the scraper tries schema metadata first for cleaner titles/dates before falling back to CSS selectors.</span>
+                                    </span>
+                                </div>
+                                <div>
+                                    <label for="titleSelectors" class="flex items-center gap-2 text-sm font-medium text-gray-700">
+                                        <span>Title Selectors</span>
+                                        <span class="tooltip">
+                                            <button type="button" class="tooltip-trigger" data-tooltip-role="trigger" aria-label="Title selectors help">?</button>
+                                            <span class="tooltip-content">Fallback CSS selectors evaluated in order. Provide multiple options to cover layout variations.</span>
+                                        </span>
+                                    </label>
+                                    <textarea id="titleSelectors" rows="3" placeholder="CSS selectors per line" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"></textarea>
+                                </div>
+                                <div>
+                                    <label for="dateSelectors" class="flex items-center gap-2 text-sm font-medium text-gray-700">
+                                        <span>Date Selectors</span>
+                                        <span class="tooltip">
+                                            <button type="button" class="tooltip-trigger" data-tooltip-role="trigger" aria-label="Date selectors help">?</button>
+                                            <span class="tooltip-content">Selectors used to parse published timestamps. Include attribute extractions such as meta[property='article:published_time']::attr(content).</span>
+                                        </span>
+                                    </label>
+                                    <textarea id="dateSelectors" rows="3" placeholder="CSS selectors per line" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"></textarea>
+                                </div>
+                                <div>
+                                    <label for="bodySelectors" class="flex items-center gap-2 text-sm font-medium text-gray-700">
+                                        <span>Body Selectors</span>
+                                        <span class="tooltip">
+                                            <button type="button" class="tooltip-trigger" data-tooltip-role="trigger" aria-label="Body selectors help">?</button>
+                                            <span class="tooltip-content">Primary content containers. Order matters—place the cleanest selector first to avoid nav/footer noise.</span>
+                                        </span>
+                                    </label>
+                                    <textarea id="bodySelectors" rows="4" placeholder="CSS selectors per line" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"></textarea>
+                                </div>
+                                <div>
+                                    <label for="authorSelectors" class="flex items-center gap-2 text-sm font-medium text-gray-700">
+                                        <span>Author Selectors</span>
+                                        <span class="tooltip">
+                                            <button type="button" class="tooltip-trigger" data-tooltip-role="trigger" aria-label="Author selectors help">?</button>
+                                            <span class="tooltip-content">Optional selectors for author attribution. Provide multiple entries to cover different templates.</span>
+                                        </span>
+                                    </label>
+                                    <textarea id="authorSelectors" rows="3" placeholder="CSS selectors per line" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"></textarea>
+                                </div>
+                                <div>
+                                    <label for="contentSelector" class="flex items-center gap-2 text-sm font-medium text-gray-700">
+                                        <span>Fallback Content Selector</span>
+                                        <span class="tooltip">
+                                            <button type="button" class="tooltip-trigger" data-tooltip-role="trigger" aria-label="Fallback content selector help">?</button>
+                                            <span class="tooltip-content">Legacy single selector used when the structured config is absent. Leave blank unless a specific override is required.</span>
+                                        </span>
+                                    </label>
+                                    <input id="contentSelector" type="text" placeholder="e.g. article .content" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500" />
+                                </div>
+                            </div>
+                        </details>
+                    </form>
+                </div>
+            </div>
+        </section>
+    </div>
+</div>
+
+<script>
+const alertEl = document.getElementById('source-config-alert');
+const bodyEl = document.getElementById('source-config-body');
+const formEl = document.getElementById('source-config-form');
+const emptyStateEl = document.getElementById('source-config-empty');
+const titleEl = document.getElementById('source-config-title');
+const subtitleEl = document.getElementById('source-config-subtitle');
+const saveBtn = document.getElementById('source-config-save-btn');
+const validateBtn = document.getElementById('source-config-validate-btn');
+let selectedSourceId = null;
+
+function showAlert(message, type = 'info') {
+    alertEl.textContent = message;
+    alertEl.classList.remove('hidden', 'bg-emerald-50', 'text-emerald-800', 'bg-rose-50', 'text-rose-800', 'bg-blue-50', 'text-blue-800');
+    if (type === 'success') {
+        alertEl.classList.add('bg-emerald-50', 'text-emerald-800');
+    } else if (type === 'error') {
+        alertEl.classList.add('bg-rose-50', 'text-rose-800');
+    } else {
+        alertEl.classList.add('bg-blue-50', 'text-blue-800');
+    }
+}
+
+function hideAlert() {
+    alertEl.classList.add('hidden');
+}
+
+function parseList(value) {
+    if (!value) return [];
+    return value
+        .split(/\r?\n|,/)
+        .map(item => item.trim())
+        .filter(Boolean);
+}
+
+function serializeList(list) {
+    if (!Array.isArray(list) || list.length === 0) return '';
+    return list.join('\n');
+}
+
+function getInput(id) {
+    return document.getElementById(id);
+}
+
+function pruneValue(value) {
+    if (value === undefined || value === null) {
+        return undefined;
+    }
+    if (typeof value === 'string') {
+        const trimmed = value.trim();
+        return trimmed === '' ? undefined : trimmed;
+    }
+    if (Array.isArray(value)) {
+        const filtered = value.map(v => typeof v === 'string' ? v.trim() : v).filter(v => v !== '' && v !== null && v !== undefined);
+        return filtered.length > 0 ? filtered : undefined;
+    }
+    if (typeof value === 'object') {
+        const result = {};
+        Object.entries(value).forEach(([key, val]) => {
+            const pruned = pruneValue(val);
+            if (pruned !== undefined) {
+                result[key] = pruned;
+            }
+        });
+        return Object.keys(result).length > 0 ? result : undefined;
+    }
+    return value;
+}
+
+function populateForm(data) {
+    hideAlert();
+    formEl.classList.remove('hidden');
+    emptyStateEl.classList.add('hidden');
+    saveBtn.classList.remove('hidden');
+    validateBtn.classList.remove('hidden');
+
+    getInput('sourceId').value = data.id;
+    getInput('sourceName').value = data.name || '';
+    getInput('sourceIdentifier').value = data.identifier || '';
+    getInput('sourceUrl').value = data.url || '';
+    getInput('sourceRssUrl').value = data.rss_url || '';
+    getInput('sourceCheckFrequency').value = data.check_frequency || '';
+    getInput('sourceLookbackDays').value = data.lookback_days || '';
+    getInput('sourceTier').value = data.tier || 2;
+    getInput('sourceWeight').value = data.weight || 1.0;
+    getInput('sourceActive').checked = Boolean(data.active);
+
+    const config = data.config || {};
+    getInput('allowList').value = serializeList(config.allow);
+    getInput('postUrlPatterns').value = serializeList(config.post_url_regex);
+    getInput('minContentLength').value = config.min_content_length ?? '';
+    getInput('titleFilterKeywords').value = serializeList(config.title_filter_keywords);
+    getInput('contentFilterKeywords').value = serializeList(config.content_filter_keywords);
+    getInput('requireThreatIntelKeywords').checked = Boolean(config.require_threat_intel_keywords);
+
+    getInput('rssOnly').checked = Boolean(config.rss_only);
+    getInput('archivePages').checked = Boolean(config.archive_pages);
+    getInput('archiveUrlPattern').value = config.archive_url_pattern || '';
+    getInput('maxArchivePages').value = config.max_archive_pages ?? '';
+
+    const robots = config.robots || {};
+    getInput('robotsEnabled').checked = robots.enabled ?? false;
+    getInput('robotsUserAgent').value = robots.user_agent || '';
+    getInput('robotsRespectDelay').checked = robots.respect_delay ?? false;
+    getInput('robotsMaxRPM').value = robots.max_requests_per_minute ?? '';
+    getInput('robotsCrawlDelay').value = robots.crawl_delay ?? '';
+
+    const extract = config.extract || {};
+    getInput('preferJsonLd').checked = extract.prefer_jsonld ?? false;
+    getInput('titleSelectors').value = serializeList(extract.title_selectors);
+    getInput('dateSelectors').value = serializeList(extract.date_selectors);
+    getInput('bodySelectors').value = serializeList(extract.body_selectors);
+    getInput('authorSelectors').value = serializeList(extract.author_selectors);
+    getInput('contentSelector').value = config.content_selector || '';
+
+    titleEl.textContent = data.name || 'Unnamed source';
+    subtitleEl.textContent = data.url || '';
+}
+
+async function selectSource(sourceId) {
+    if (!sourceId) return;
+    try {
+        const response = await fetch(`/api/source-config/${sourceId}`);
+        if (!response.ok) {
+            throw new Error(await response.text());
+        }
+        const data = await response.json();
+        selectedSourceId = data.id;
+        populateForm(data);
+    } catch (error) {
+        console.error(error);
+        showAlert(`Failed to load source: ${error}`, 'error');
+    }
+}
+
+function buildPayload() {
+    const config = {
+        allow: parseList(getInput('allowList').value),
+        post_url_regex: parseList(getInput('postUrlPatterns').value),
+        robots: {
+            enabled: getInput('robotsEnabled').checked,
+            user_agent: getInput('robotsUserAgent').value,
+            respect_delay: getInput('robotsRespectDelay').checked,
+            max_requests_per_minute: getInput('robotsMaxRPM').value ? Number(getInput('robotsMaxRPM').value) : undefined,
+            crawl_delay: getInput('robotsCrawlDelay').value ? Number(getInput('robotsCrawlDelay').value) : undefined,
+        },
+        min_content_length: getInput('minContentLength').value ? Number(getInput('minContentLength').value) : undefined,
+        title_filter_keywords: parseList(getInput('titleFilterKeywords').value),
+        content_filter_keywords: parseList(getInput('contentFilterKeywords').value),
+        require_threat_intel_keywords: getInput('requireThreatIntelKeywords').checked,
+        rss_only: getInput('rssOnly').checked,
+        archive_pages: getInput('archivePages').checked,
+        archive_url_pattern: getInput('archiveUrlPattern').value,
+        max_archive_pages: getInput('maxArchivePages').value ? Number(getInput('maxArchivePages').value) : undefined,
+        extract: {
+            prefer_jsonld: getInput('preferJsonLd').checked,
+            title_selectors: parseList(getInput('titleSelectors').value),
+            date_selectors: parseList(getInput('dateSelectors').value),
+            body_selectors: parseList(getInput('bodySelectors').value),
+            author_selectors: parseList(getInput('authorSelectors').value)
+        },
+        content_selector: getInput('contentSelector').value
+    };
+
+    const prunedConfig = pruneValue(config);
+
+    const payload = {};
+    const name = getInput('sourceName').value;
+    if (name !== undefined) payload.name = name;
+
+    const url = getInput('sourceUrl').value;
+    if (url !== undefined) payload.url = url;
+
+    const rssUrl = getInput('sourceRssUrl').value;
+    payload.rss_url = rssUrl === '' ? '' : rssUrl;
+
+    const checkFrequencyRaw = getInput('sourceCheckFrequency').value;
+    if (checkFrequencyRaw !== '') payload.check_frequency = Number(checkFrequencyRaw);
+
+    const lookbackRaw = getInput('sourceLookbackDays').value;
+    if (lookbackRaw !== '') payload.lookback_days = Number(lookbackRaw);
+
+    payload.active = getInput('sourceActive').checked;
+
+    const tierRaw = getInput('sourceTier').value;
+    if (tierRaw !== '') payload.tier = Number(tierRaw);
+
+    const weightRaw = getInput('sourceWeight').value;
+    if (weightRaw !== '') payload.weight = Number(weightRaw);
+
+    payload.config = prunedConfig !== undefined ? prunedConfig : {};
+
+    return payload;
+}
+
+function validateRegexList(patterns) {
+    const invalid = [];
+    for (const pattern of patterns || []) {
+        try {
+            // eslint-disable-next-line no-new
+            new RegExp(pattern);
+        } catch (error) {
+            invalid.push(`${pattern} → ${error.message}`);
+        }
+    }
+    return invalid;
+}
+
+function validateCurrentConfig() {
+    hideAlert();
+    const payload = buildPayload();
+    const patterns = payload?.config?.post_url_regex || [];
+    if (!patterns.length) {
+        showAlert('No regex patterns configured for this source.', 'info');
+        return;
+    }
+    const invalid = validateRegexList(patterns);
+    if (invalid.length) {
+        showAlert(`Invalid regex pattern(s):\n${invalid.join('\n')}`, 'error');
+    } else {
+        showAlert('All regex patterns compiled successfully.', 'success');
+    }
+}
+
+function runRegexTest() {
+    hideAlert();
+    const testValue = getInput('postUrlTestValue').value;
+    const patterns = parseList(getInput('postUrlPatterns').value);
+    const feedback = document.getElementById('postUrlRegexFeedback');
+
+    if (!patterns.length) {
+        feedback.textContent = 'Add at least one pattern to test matching.';
+        feedback.classList.remove('text-emerald-600', 'text-rose-600');
+        feedback.classList.add('text-gray-500');
+        return;
+    }
+
+    const invalid = validateRegexList(patterns);
+    if (invalid.length) {
+        feedback.textContent = `Regex error: ${invalid[0]}`;
+        feedback.classList.remove('text-emerald-600', 'text-gray-500');
+        feedback.classList.add('text-rose-600');
+        return;
+    }
+
+    if (!testValue) {
+        feedback.textContent = 'Patterns are valid. Provide a test URL to evaluate matches.';
+        feedback.classList.remove('text-emerald-600', 'text-rose-600');
+        feedback.classList.add('text-gray-500');
+        return;
+    }
+
+    const matched = patterns.some(pattern => new RegExp(pattern).test(testValue));
+    if (matched) {
+        feedback.textContent = '✅ Test URL matches at least one pattern.';
+        feedback.classList.remove('text-rose-600', 'text-gray-500');
+        feedback.classList.add('text-emerald-600');
+    } else {
+        feedback.textContent = '⚠️ Test URL does not match any pattern.';
+        feedback.classList.remove('text-emerald-600', 'text-gray-500');
+        feedback.classList.add('text-rose-600');
+    }
+}
+
+async function saveSourceConfig() {
+    if (!selectedSourceId) {
+        showAlert('Select a source before saving.', 'error');
+        return;
+    }
+
+    const payload = buildPayload();
+    const regexIssues = validateRegexList(payload?.config?.post_url_regex || []);
+    if (regexIssues.length) {
+        showAlert(`Fix regex issues before saving:\n${regexIssues.join('\n')}`, 'error');
+        return;
+    }
+
+    try {
+        saveBtn.disabled = true;
+        saveBtn.textContent = 'Saving…';
+        hideAlert();
+
+        const response = await fetch(`/api/source-config/${selectedSourceId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+
+        if (!response.ok) {
+            throw new Error(await response.text());
+        }
+
+        const data = await response.json();
+        populateForm(data.source);
+        showAlert('Source configuration saved successfully.', 'success');
+    } catch (error) {
+        console.error(error);
+        showAlert(`Failed to save configuration: ${error}`, 'error');
+    } finally {
+        saveBtn.disabled = false;
+        saveBtn.textContent = 'Save Changes';
+    }
+}
+
+// Auto-select the first source for convenience
+window.addEventListener('DOMContentLoaded', () => {
+    const firstButton = document.querySelector('#source-config-source-list button');
+    if (firstButton) {
+        selectSource(firstButton.dataset.sourceId);
+        firstButton.classList.add('bg-indigo-50');
+    }
+
+    document.querySelectorAll('#source-config-source-list button').forEach(button => {
+        button.addEventListener('click', () => {
+            document.querySelectorAll('#source-config-source-list button').forEach(btn => btn.classList.remove('bg-indigo-50'));
+            button.classList.add('bg-indigo-50');
+        });
+    });
+
+    const tooltipButtons = document.querySelectorAll('[data-tooltip-role="trigger"]');
+    tooltipButtons.forEach(button => {
+        button.addEventListener('click', event => {
+            event.preventDefault();
+            event.stopPropagation();
+            const container = event.currentTarget.closest('.tooltip');
+            const isOpen = container.getAttribute('data-open') === 'true';
+            document.querySelectorAll('.tooltip[data-open="true"]').forEach(el => el.removeAttribute('data-open'));
+            if (!isOpen) {
+                container.setAttribute('data-open', 'true');
+            }
+        });
+    });
+
+    document.addEventListener('click', event => {
+        if (!event.target.closest('.tooltip')) {
+            document.querySelectorAll('.tooltip[data-open="true"]').forEach(el => el.removeAttribute('data-open'));
+        }
+    });
+
+    document.addEventListener('keydown', event => {
+        if (event.key === 'Escape') {
+            document.querySelectorAll('.tooltip[data-open="true"]').forEach(el => el.removeAttribute('data-open'));
+        }
+    });
+});
+</script>
+{% endblock %}

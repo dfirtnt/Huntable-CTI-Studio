@@ -117,7 +117,7 @@
                             </div>
                             <p class="text-xs text-gray-500">{{ source.url[:50] }}{% if source.url|length > 50 %}...{% endif %}</p>
                             <div class="mt-2 flex items-center justify-between text-xs text-gray-400">
-                                <span>Tier {{ source.tier or 1 }}</span>
+                                <span>Active</span>
                                 <span>{{ source.last_check.strftime('%m/%d %H:%M') if source.last_check else 'Never' }}</span>
                             </div>
                         </div>

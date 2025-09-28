@@ -61,6 +61,7 @@ services:
       - "8001:8000"
     volumes:
       - ./src:/app/src
+      - ./config:/app/config
       - ./logs:/app/logs
       - ./backups:/app/backups
     depends_on:
@@ -88,6 +89,7 @@ services:
       - CHATGPT_API_KEY=${CHATGPT_API_KEY}
     volumes:
       - ./src:/app/src
+      - ./config:/app/config
       - ./logs:/app/logs
     depends_on:
       postgres:
@@ -112,6 +114,7 @@ services:
       - LOG_LEVEL=DEBUG
     volumes:
       - ./src:/app/src
+      - ./config:/app/config
       - ./logs:/app/logs
     depends_on:
       postgres:

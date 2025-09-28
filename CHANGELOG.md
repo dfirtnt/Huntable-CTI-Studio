@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Source Config Workspace**: Interactive tab for editing source metadata, filtering, crawlers, and selectors with local regex testing
 - **SIGMA Rule Generation**: AI-powered detection rule generation from threat intelligence articles
 - **pySIGMA Validation**: Automatic validation of generated SIGMA rules for compliance
 - **Iterative Rule Fixing**: Automatic retry mechanism with error feedback (up to 3 attempts)
@@ -25,6 +26,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Automated dependency vulnerability scanning
 
 ### Changed
+- **Source Persistence**: UI/API/CLI sync layers now propagate `tier`, `weight`, and cleaned configs consistently between YAML and database
 - **Database Chatbot**: Switched from Mistral 7B to Phi-3 Mini for faster query processing
 - **Keyword Scoring**: Enhanced threat hunting discriminators based on non-English word analysis
 - **Source Configuration**: Improved content filtering and threat intelligence focus

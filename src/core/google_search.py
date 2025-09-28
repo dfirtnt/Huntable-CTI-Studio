@@ -285,14 +285,11 @@ class GoogleSearchFetcher:
             # Create article
             article = ArticleCreate(
                 source_id=source.id,
+                url=result.link,
                 canonical_url=result.link,
                 title=result.title,
                 published_at=result.published_at or datetime.utcnow(),
-                authors=[],  # Google Search doesn't provide author info
-                tags=[],     # Could be extracted from content
-                summary=result.snippet,
-                content=content,
-                metadata=metadata
+                content=content
             )
             
             return article

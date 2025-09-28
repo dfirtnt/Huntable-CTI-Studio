@@ -125,16 +125,17 @@ class RSSParser:
             # Build article
             article = ArticleCreate(
                 source_id=source.id,
+                url=url,
                 canonical_url=url,
                 title=title,
                 published_at=published_at or datetime.utcnow(),
+                content=content,
+                summary=summary,
                 authors=authors,
                 tags=tags,
-                summary=summary,
-                content=content,
                 metadata=metadata
             )
-            
+
             return article
             
         except Exception as e:
