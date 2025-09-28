@@ -47,8 +47,8 @@ services:
       dockerfile: Dockerfile
     container_name: cti_web
     environment:
-      - DATABASE_URL=${DATABASE_URL}
-      - REDIS_URL=${REDIS_URL}
+      - DATABASE_URL=postgresql+asyncpg://cti_user:cti_postgres_secure_2024@postgres:5432/cti_scraper
+      - REDIS_URL=redis://:cti_redis_secure_2024@redis:6379/0
       - ENVIRONMENT=development
       - LOG_LEVEL=DEBUG
       - LLM_API_URL=http://cti_ollama:11434
@@ -58,7 +58,7 @@ services:
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - CHATGPT_API_KEY=${CHATGPT_API_KEY}
     ports:
-      - "8000:8000"
+      - "8001:8000"
     volumes:
       - ./src:/app/src
       - ./logs:/app/logs
@@ -80,8 +80,8 @@ services:
       dockerfile: Dockerfile
     container_name: cti_worker
     environment:
-      - DATABASE_URL=${DATABASE_URL}
-      - REDIS_URL=${REDIS_URL}
+      - DATABASE_URL=postgresql+asyncpg://cti_user:cti_postgres_secure_2024@postgres:5432/cti_scraper
+      - REDIS_URL=redis://:cti_redis_secure_2024@redis:6379/0
       - ENVIRONMENT=development
       - LOG_LEVEL=DEBUG
       - OPENAI_API_KEY=${OPENAI_API_KEY}
@@ -106,8 +106,8 @@ services:
       dockerfile: Dockerfile
     container_name: cti_scheduler
     environment:
-      - DATABASE_URL=${DATABASE_URL}
-      - REDIS_URL=${REDIS_URL}
+      - DATABASE_URL=postgresql+asyncpg://cti_user:cti_postgres_secure_2024@postgres:5432/cti_scraper
+      - REDIS_URL=redis://:cti_redis_secure_2024@redis:6379/0
       - ENVIRONMENT=development
       - LOG_LEVEL=DEBUG
     volumes:
@@ -155,8 +155,8 @@ services:
     image: nginx:alpine
     container_name: cti_nginx
     ports:
-      - "80:80"
-      - "443:443"
+      - "8080:80"
+      - "8443:443"
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
       - ./nginx/ssl:/etc/nginx/ssl:ro
@@ -173,8 +173,8 @@ services:
       dockerfile: Dockerfile
     container_name: cti_cli
     environment:
-      - DATABASE_URL=${DATABASE_URL}
-      - REDIS_URL=${REDIS_URL}
+      - DATABASE_URL=postgresql+asyncpg://cti_user:cti_postgres_secure_2024@postgres:5432/cti_scraper
+      - REDIS_URL=redis://:cti_redis_secure_2024@redis:6379/0
       - ENVIRONMENT=development
       - LOG_LEVEL=DEBUG
       - SOURCES_CONFIG=/app/config/sources.yaml

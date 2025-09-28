@@ -111,19 +111,6 @@ temp/
 ehthumbs.db
 Thumbs.db
 
-# CyberChef specific
-src/core/config/modules/*
-src/core/config/OperationConfig.json
-src/core/operations/index.mjs
-src/node/config/OperationConfig.json
-src/node/index.mjs
-tests/browser/output/*
-.node-version
-
-# SousChef specific
-.env.example.backup
-*.zip
-cyberchef.zip
 # Temporary files
 backups/
 highlighted_text_classifications*.csv
@@ -140,9 +127,6 @@ init.sql/
 
 # Old architecture backups
 backup_old_architecture/
-
-# Models directory
-models/
 
 # Python virtual environments
 venv*/
@@ -170,20 +154,6 @@ cti_scraper.db
 
 # Docker
 docker-compose.override.yml
-
-# Terraform
-terraform.tfvars
-*.tfplan
-.terraform/
-
-# AWS
-.env.aws
-
-# Hugging Face
-.huggingface/
-
-# Jupyter notebooks checkpoints
-.ipynb_checkpoints/
 
 # Model files
 *.bin
