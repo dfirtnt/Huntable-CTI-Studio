@@ -1,264 +1,113 @@
-"""Source data model for threat intelligence sources."""
+"""
+Source models for Pydantic schemas.
+"""
 
+from typing import Optional, List, Dict, Any
+from pydantic import BaseModel, Field
 from datetime import datetime
-from typing import Any, Dict, List, Optional
-from pydantic import BaseModel, Field, validator
 
 
-class RobotsConfig(BaseModel):
-    """Robots.txt handling configuration."""
-
-    enabled: bool = Field(default=True, description="Whether to respect robots.txt rules")
-    user_agent: Optional[str] = Field(default=None, description="User agent string")
-    respect_delay: bool = Field(default=True, description="Respect crawl delays")
-    max_requests_per_minute: Optional[int] = Field(default=None, description="Max requests per minute")
-    crawl_delay: Optional[float] = Field(default=None, description="Explicit crawl delay in seconds")
-
-
-class SourceConfig(BaseModel):
-    """Configuration model for source scraping settings."""
-
-    # Scope configuration
-    allow: List[str] = Field(default_factory=list, description="Allowed domains")
-    post_url_regex: List[str] = Field(default_factory=list, description="Post URL patterns")
-    
-    # Discovery strategies
-    discovery: Dict[str, Any] = Field(default_factory=dict, description="URL discovery configuration")
-    
-    # Extraction configuration
-    extract: Dict[str, Any] = Field(default_factory=dict, description="Content extraction configuration")
-    
-    # Content quality configuration
-    min_content_length: Optional[int] = Field(None, description="Minimum content length in characters")
-    content_filter_keywords: Optional[List[str]] = Field(None, description="Required content keywords")
-    require_threat_intel_keywords: Optional[bool] = Field(
-        default=None,
-        description="Require threat intelligence keyword matches"
-    )
-
-    # Title filtering configuration
-    title_filter_keywords: Optional[List[str]] = Field(None, description="Additional keywords to filter out by title")
-
-    # Robots configuration
-    robots: Optional[RobotsConfig] = Field(None, description="Robots.txt configuration")
-
-    # Legacy fallback
-    content_selector: Optional[str] = Field(None, description="Legacy content selector")
-
-
-class DiscoveryStrategy(BaseModel):
-    """Discovery strategy configuration."""
-    
-    listing: Optional[Dict[str, Any]] = None
-    sitemap: Optional[Dict[str, Any]] = None
-
-
-class ListingConfig(BaseModel):
-    """Configuration for listing-based discovery."""
-    
-    urls: List[str] = Field(..., description="URLs to scan for post links")
-    post_link_selector: str = Field(..., description="CSS selector for post links")
-    next_selector: Optional[str] = Field(None, description="CSS selector for next page")
-    max_pages: int = Field(default=3, description="Maximum pages to scan")
-
-
-class SitemapConfig(BaseModel):
-    """Configuration for sitemap-based discovery."""
-    
-    urls: List[str] = Field(..., description="Sitemap URLs")
-
-
-class ExtractionConfig(BaseModel):
-    """Configuration for content extraction."""
-    
-    prefer_jsonld: bool = Field(default=True, description="Prefer JSON-LD extraction")
-    title_selectors: List[str] = Field(default_factory=list, description="Title CSS selectors")
-    date_selectors: List[str] = Field(default_factory=list, description="Date CSS selectors")
-    body_selectors: List[str] = Field(default_factory=list, description="Body CSS selectors")
-    author_selectors: List[str] = Field(default_factory=list, description="Author CSS selectors")
-
-
-class Source(BaseModel):
-    """Source model representing a threat intelligence source."""
-    
-    id: Optional[int] = None
-    identifier: str = Field(..., description="Unique identifier from YAML config")
-    name: str = Field(..., min_length=1, description="Human readable name")
-    url: str = Field(..., description="Base URL of the source")
-    rss_url: Optional[str] = Field(None, description="RSS/Atom feed URL")
-    tier: int = Field(default=2, ge=1, le=3, description='Source tier (1=premium, 2=standard, 3=basic)')
-    weight: float = Field(default=1.0, ge=0.0, le=5.0, description="Relative scoring weight")
-    check_frequency: int = Field(default=3600, ge=60, description="Check frequency in seconds")
-    lookback_days: int = Field(default=90, ge=1, le=3650, description="Lookback window in days for article collection")
-    active: bool = Field(default=True, description="Whether source is active")
-    config: SourceConfig = Field(default_factory=SourceConfig, description="Source configuration")
-    
-    # Tracking fields
-    last_check: Optional[datetime] = Field(None, description="Last check timestamp")
-    last_success: Optional[datetime] = Field(None, description="Last successful check")
-    consecutive_failures: int = Field(default=0, description="Consecutive failure count")
-    total_articles: int = Field(default=0, description="Total articles collected")
-    
-    # Health metrics
-    success_rate: float = Field(default=0.0, ge=0.0, le=1.0, description="Success rate (0-1)")
-    average_response_time: float = Field(default=0.0, ge=0.0, description="Average response time in seconds")
-    
-    @validator('identifier')
-    def validate_identifier(cls, v):
-        """Validate identifier format."""
-        if not v.replace('_', '').replace('-', '').isalnum():
-            raise ValueError('Identifier must contain only alphanumeric characters, hyphens, and underscores')
-        return v.lower()
-    
-    @validator('url', 'rss_url')
-    def validate_urls(cls, v):
-        """Validate URL format."""
-        if v and not v.startswith(('http://', 'https://')):
-            raise ValueError('URL must start with http:// or https://')
-        return v.strip() if v else v
-    
-    def should_check(self) -> bool:
-        """Check if source should be checked based on frequency."""
-        if not self.active:
-            return False
-        
-        if not self.last_check:
-            return True
-        
-        time_since_check = (datetime.utcnow() - self.last_check).total_seconds()
-        return time_since_check >= self.check_frequency
-    
-    def update_health_metrics(self, success: bool, response_time: float = 0.0):
-        """Update health metrics after a check."""
-        if success:
-            self.consecutive_failures = 0
-            self.last_success = datetime.utcnow()
-        else:
-            self.consecutive_failures += 1
-        
-        self.last_check = datetime.utcnow()
-        
-        # Update response time (simple moving average)
-        if self.average_response_time == 0.0:
-            self.average_response_time = response_time
-        else:
-            self.average_response_time = (self.average_response_time + response_time) / 2
-    
-    def should_disable(self, max_failures: int = 10) -> bool:
-        """Check if source should be auto-disabled due to failures."""
-        return self.consecutive_failures >= max_failures
-    
-    class Config:
-        """Pydantic configuration."""
-        json_encoders = {
-            datetime: lambda v: v.isoformat() if v else None
-        }
-        schema_extra = {
-            "example": {
-                "identifier": "crowdstrike_blog",
-                "name": "CrowdStrike Intelligence Blog",
-                "url": "https://www.crowdstrike.com/blog/",
-                "rss_url": "https://www.crowdstrike.com/blog/feed/",
-                "check_frequency": 1800,
-                "active": True,
-                "config": {
-                    "allow": ["crowdstrike.com"],
-                    "post_url_regex": ["^https://www\\.crowdstrike\\.com/blog/.*"],
-                    "discovery": {
-                        "strategies": [
-                            {
-                                "listing": {
-                                    "urls": ["https://www.crowdstrike.com/blog/"],
-                                    "post_link_selector": "a[href*='/blog/']",
-                                    "max_pages": 3
-                                }
-                            }
-                        ]
-                    },
-                    "extract": {
-                        "prefer_jsonld": True,
-                        "title_selectors": ["h1", "meta[property='og:title']::attr(content)"],
-                        "date_selectors": ["meta[property='article:published_time']::attr(content)"],
-                        "body_selectors": ["article", "main"]
-                    }
-                }
-            }
-        }
+class SourceBase(BaseModel):
+    """Base source model."""
+    name: str
+    url: str
+    source_type: str = Field(..., description="Type of source: 'rss', 'web', 'api'")
+    tier: int = Field(1, description="Source tier: 1 (high priority), 2 (medium), 3 (low)")
+    check_frequency: int = Field(3600, description="Check frequency in seconds")
+    is_active: bool = Field(True, description="Whether the source is active")
+    description: Optional[str] = Field(None, description="Description of the source")
 
 
 class SourceCreate(BaseModel):
-    """Model for creating new sources."""
-    
-    identifier: str
+    """Model for creating a new source."""
+    identifier: str = Field(..., description="Unique identifier for the source")
     name: str
     url: str
     rss_url: Optional[str] = None
-    check_frequency: int = 3600
-    lookback_days: int = 90
-    active: bool = True
-    tier: int = 2
-    weight: float = 1.0
-    config: SourceConfig = Field(default_factory=SourceConfig)
-    
-    def to_source(self) -> Source:
-        """Convert to full Source model."""
-        return Source(**self.model_dump())
+    check_frequency: int = Field(3600, description="Check frequency in seconds")
+    lookback_days: int = Field(180, description="How many days back to look for articles")
+    active: bool = Field(True, description="Whether the source is active")
+    config: Optional['SourceConfig'] = Field(None, description="Source configuration")
 
 
 class SourceUpdate(BaseModel):
-    """Model for updating existing sources."""
-    
+    """Model for updating a source."""
     name: Optional[str] = None
     url: Optional[str] = None
     rss_url: Optional[str] = None
     check_frequency: Optional[int] = None
     lookback_days: Optional[int] = None
     active: Optional[bool] = None
-    tier: Optional[int] = None
-    weight: Optional[float] = None
-    config: Optional[SourceConfig] = None
+    config: Optional[Dict[str, Any]] = None
+
+
+class Source(BaseModel):
+    """Full source model with database fields."""
+    id: int
+    identifier: str
+    name: str
+    url: str
+    rss_url: Optional[str] = None
+    check_frequency: int = Field(3600, description="Check frequency in seconds")
+    lookback_days: int = Field(180, description="How many days back to look for articles")
+    active: bool = Field(True, description="Whether the source is active")
+    config: Dict[str, Any] = Field(default_factory=dict, description="Source configuration")
+
+    # Tracking fields
+    last_check: Optional[datetime] = None
+    last_success: Optional[datetime] = None
+    consecutive_failures: int = Field(0, description="Number of consecutive failures")
+    total_articles: int = Field(0, description="Total articles collected from this source")
+
+    # Health metrics
+    success_rate: float = Field(0.0, description="Success rate")
+    average_response_time: float = Field(0.0, description="Average response time")
+
+    # Timestamps
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
 
 
 class SourceFilter(BaseModel):
-    """Model for filtering sources in queries."""
-    
+    """Model for filtering sources."""
     active: Optional[bool] = None
     identifier_contains: Optional[str] = None
     name_contains: Optional[str] = None
-    tier: Optional[int] = None
     consecutive_failures_gte: Optional[int] = None
-    last_check_before: Optional[datetime] = None
-    limit: int = Field(default=100, le=1000)
-    offset: int = Field(default=0, ge=0)
+    consecutive_failures_lte: Optional[int] = None
+    last_checked_after: Optional[datetime] = None
+    last_checked_before: Optional[datetime] = None
+
+
+class SourceConfig(BaseModel):
+    """Source configuration model for parsing and extraction settings."""
+    # Scraping configuration
+    allow: Optional[List[str]] = Field(None, description="Allowed domains")
+    post_url_regex: Optional[List[str]] = Field(None, description="URL patterns for posts")
+    robots: Optional[Dict[str, Any]] = Field(None, description="Robots.txt settings")
+    min_content_length: Optional[int] = Field(None, description="Minimum content length")
+    title_filter_keywords: Optional[List[str]] = Field(None, description="Keywords to filter out from titles")
+    content_filter_keywords: Optional[List[str]] = Field(None, description="Keywords required in content")
+    require_threat_intel_keywords: Optional[bool] = Field(None, description="Require threat intelligence keywords")
+    rss_only: Optional[bool] = Field(None, description="Only use RSS, no web scraping")
+    archive_pages: Optional[bool] = Field(None, description="Enable archive page scraping")
+    archive_url_pattern: Optional[str] = Field(None, description="URL pattern for archive pages")
+    max_archive_pages: Optional[int] = Field(None, description="Maximum archive pages to scrape")
+
+    # Extraction configuration
+    extract: Optional[Dict[str, Any]] = Field(None, description="Content extraction settings")
+    content_selector: Optional[str] = Field(None, description="CSS selector for content")
 
 
 class SourceHealth(BaseModel):
-    """Model for source health status."""
-    
+    """Source health status model."""
     source_id: int
-    identifier: str
-    name: str
-    active: bool
-    last_check: Optional[datetime]
-    last_success: Optional[datetime]
-    consecutive_failures: int
-    success_rate: float
-    average_response_time: float
-    total_articles: int
-    health_status: str  # 'healthy', 'warning', 'critical', 'disabled'
-    
-    @validator('health_status', always=True)
-    def determine_health_status(cls, v, values):
-        """Determine health status based on metrics."""
-        if not values.get('active'):
-            return 'disabled'
-        
-        failures = values.get('consecutive_failures', 0)
-        success_rate = values.get('success_rate', 0.0)
-        
-        if failures >= 10:
-            return 'critical'
-        elif failures >= 5 or success_rate < 0.5:
-            return 'warning'
-        else:
-            return 'healthy'
+    is_healthy: bool
+    last_check: Optional[datetime] = None
+    consecutive_failures: int = 0
+    last_error: Optional[str] = None
+    response_time: Optional[float] = None
+    articles_found: Optional[int] = None
