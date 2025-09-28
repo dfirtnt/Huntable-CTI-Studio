@@ -300,7 +300,7 @@ class SourceManager:
                         active=config.active,
                         tier=config.tier,
                         weight=config.weight,
-                        config=config.config
+                        config=config.config.model_dump(exclude_none=True) if config.config else {}
                     ))
                     if updated_source:
                         synced_sources.append(updated_source)

@@ -204,32 +204,11 @@ def check_source(source_id: str):
     # RSS parsing → web scraping → content processing
 ```
 
-### 5. Configuration Management (`config/`)
+### 5. Source Management
 
-**Source Configuration** (`sources.yaml`):
-```yaml
-sources:
-  - id: "cisco_talos"
-    name: "Cisco Talos Intelligence Blog"
-    url: "https://blog.talosintelligence.com/"
-    rss_url: "https://blog.talosintelligence.com/rss/"
-    tier: 1  # Premium source
-    weight: 2.0
-    check_frequency: 1800  # 30 minutes
-    active: true
-    config:
-      allow: ["blog.talosintelligence.com"]
-      extract:
-        prefer_jsonld: true
-        title_selectors: ["h1", "meta[property='og:title']"]
-        body_selectors: ["article", "main", ".content"]
-```
-
-**Features**:
-- Tier-based source classification
-- Configurable scraping rules
-- Rate limiting and respect for robots.txt
-- Flexible content extraction selectors
+- **Source Config UI**: Browser-based editor for identifiers, scheduling, crawling policy, keyword filters, and extraction selectors. Includes regex compilation tests and inline tooltips for guidance.
+- **Bootstrap YAML**: `config/sources.yaml` seeds the database only when no sources exist. Update it to keep a canonical snapshot for fresh installs.
+- **Manual Reconcile**: Use `python -m src.cli.main sync-sources --config config/sources.yaml` if you need to overwrite database sources with the YAML version (destructive to local edits).
 
 ## Data Flow
 
@@ -330,11 +309,10 @@ python -m src.cli.main collect --tier 1 --dry-run
 ```
 
 ### Adding New Sources
-1. Add source configuration to `config/sources.yaml`
-2. Define scraping rules and selectors
-3. Test with CLI: `python -m src.cli.main collect --source new_source_id`
-4. Monitor collection in web interface
-5. Adjust configuration based on results
+1. Open the `Source Config` tab and create or edit the source (regex helper and tooltips aid validation).
+2. Trigger a one-off collection with `python -m src.cli.main collect --source new_source_id` or via the UI.
+3. Monitor the run in the web interface and refine filters/selectors as needed.
+4. After confirming the configuration, optionally export the row back into `config/sources.yaml` to keep bootstrap data fresh.
 
 ### Customizing Processing
 1. Modify `src/core/processor.py` for content processing

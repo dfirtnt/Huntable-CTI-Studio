@@ -461,11 +461,13 @@ def _is_garbage_content(content: str) -> bool:
     
     if total_chars > 0:
         problematic_ratio = problematic_chars / total_chars
-        if problematic_ratio > 0.08:  # More than 8% problematic characters
+        if problematic_ratio > 0.15:  # Increase threshold to 15% problematic characters
+            print(f"DEBUG: High problematic ratio: {problematic_ratio:.4f} ({problematic_chars}/{total_chars})")
             return True
     
     # Check for specific garbage patterns
     if '`E9 UI=' in content or 'cwCz _9hvtYfL' in content:
+        print("DEBUG: Specific garbage patterns found")
         return True
     
     # Check for consecutive problematic characters
@@ -482,17 +484,21 @@ def _is_garbage_content(content: str) -> bool:
     if consecutive_count >= 3:
         max_consecutive = max(max_consecutive, consecutive_count)
     
-    if max_consecutive >= 3:  # 3 or more consecutive problematic chars
+    if max_consecutive >= 5:  # Increase threshold to 5 or more consecutive problematic chars
+        print(f"DEBUG: Too many consecutive problematic chars: {max_consecutive}")
         return True
     
-    # Check for binary-like patterns
+    # Check for binary-like patterns (very permissive - only flag truly problematic sequences)
     binary_patterns = [
-        r'[^\w\s]{3,}',      # Multiple consecutive special chars
+        r'[\x00-\x08\x0B\x0C\x0E-\x1F\x7F-\xFF]{10,}',  # Control characters and high-bit chars in long sequences
+        r'[^\w\s\.\,\;\:\!\?\(\)\-\+\=\<\>\/\"\'\[\]\{\}\|\\\~\#\$\%\^\&\*\_\`]{8,}',  # Very long sequences of truly unusual chars
     ]
     
     import re
     for pattern in binary_patterns:
-        if re.search(pattern, content):
+        matches = re.findall(pattern, content)
+        if matches:
+            print(f"DEBUG: Binary pattern matches: {matches[:3]}")
             return True
     
     # Check for compression artifacts
@@ -506,6 +512,7 @@ def _is_garbage_content(content: str) -> bool:
     ]
     
     if any(indicator in content_lower for indicator in compression_indicators):
+        print(f"DEBUG: Compression indicators found")
         return True
     
     return False

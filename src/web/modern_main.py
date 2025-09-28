@@ -32,7 +32,7 @@ from src.utils.prompt_loader import format_prompt
 
 from src.database.async_manager import async_db_manager
 from src.services.source_sync import SourceSyncService
-from src.models.source import Source, SourceUpdate, SourceFilter
+from src.models.source import Source, SourceUpdate, SourceFilter, SourceConfig
 from src.models.article import Article, ArticleUpdate
 from src.models.annotation import ArticleAnnotationCreate, ArticleAnnotationUpdate
 from src.worker.celery_app import test_source_connectivity, collect_from_source, celery_app
@@ -45,6 +45,7 @@ logger = logging.getLogger(__name__)
 
 # Get environment from environment variable
 ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
+DEFAULT_SOURCE_USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:138.0) Gecko/20100101 Firefox/138.0"
 
 # Templates
 templates = Jinja2Templates(directory="src/web/templates")
@@ -139,13 +140,27 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         logger.error(f"Failed to create database tables: {e}")
         raise
     
-    # Health check
+    # Health check / seed database
     try:
-        sync_service = SourceSyncService(Path(os.getenv("SOURCES_CONFIG", "config/sources.yaml")), async_db_manager)
-        await sync_service.sync()
+        existing_identifiers = await async_db_manager.list_source_identifiers()
+
+        if not existing_identifiers:
+            config_path = Path(os.getenv("SOURCES_CONFIG", "config/sources.yaml"))
+            if config_path.exists():
+                logger.info("Seeding sources from %s", config_path)
+                sync_service = SourceSyncService(config_path, async_db_manager)
+                await sync_service.sync()
+            else:
+                logger.warning("Source config seed file missing: %s", config_path)
+        else:
+            logger.info("Skipping YAML seed; %d sources already present", len(existing_identifiers))
 
         stats = await async_db_manager.get_database_stats()
         logger.info(f"Database connection successful: {stats['total_sources']} sources, {stats['total_articles']} articles")
+
+        updated_agents = await async_db_manager.set_robots_user_agent_for_all(DEFAULT_SOURCE_USER_AGENT)
+        if updated_agents:
+            logger.info(f"Normalized robots user-agent for {updated_agents} sources")
         
         # Trigger immediate collection on startup
         try:
@@ -588,6 +603,29 @@ async def sources_list(request: Request):
             status_code=500
         )
 
+
+@app.get("/source-config", response_class=HTMLResponse)
+async def source_config_page(request: Request):
+    """Interactive source configuration workspace."""
+    try:
+        sources = await async_db_manager.list_sources()
+        return templates.TemplateResponse(
+            "source_config.html",
+            {
+                "request": request,
+                "sources": sources,
+                "environment": ENVIRONMENT,
+            }
+        )
+    except Exception as e:
+        logger.error(f"Source config page error: {e}")
+        return templates.TemplateResponse(
+            "error.html",
+            {"request": request, "error": str(e)},
+            status_code=500
+        )
+
+
 @app.get("/database-chat", response_class=HTMLResponse)
 async def database_chat_page(request: Request):
     """Database chat interface page."""
@@ -622,6 +660,121 @@ async def api_get_source(source_id: int):
     except Exception as e:
         logger.error(f"API get source error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/source-config/{source_id}")
+async def api_get_source_config(source_id: int):
+    """Detailed configuration payload for a single source."""
+    try:
+        source = await async_db_manager.get_source(source_id)
+        if not source:
+            raise HTTPException(status_code=404, detail="Source not found")
+        return source.dict()
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"API get source config error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.put("/api/source-config/{source_id}")
+async def api_update_source_config(source_id: int, payload: Dict[str, Any]):
+    """Update core and advanced configuration for a source."""
+    try:
+        # Ensure the source exists before attempting update
+        existing_source = await async_db_manager.get_source(source_id)
+        if not existing_source:
+            raise HTTPException(status_code=404, detail="Source not found")
+
+        update_fields: Dict[str, Any] = {}
+
+        # Basic scalar fields with type coercion and validation
+        if "name" in payload:
+            name = payload["name"].strip()
+            if not name:
+                raise HTTPException(status_code=400, detail="Name cannot be empty")
+            update_fields["name"] = name
+
+        if "url" in payload:
+            url = payload["url"].strip()
+            if not url:
+                raise HTTPException(status_code=400, detail="URL cannot be empty")
+            update_fields["url"] = url
+
+        if "rss_url" in payload:
+            rss_url = payload["rss_url"].strip() if payload["rss_url"] else None
+            update_fields["rss_url"] = rss_url or None
+
+        if "check_frequency" in payload:
+            try:
+                check_frequency = int(payload["check_frequency"])
+            except (TypeError, ValueError):
+                raise HTTPException(status_code=400, detail="check_frequency must be an integer")
+            if check_frequency < 60:
+                raise HTTPException(status_code=400, detail="check_frequency must be at least 60 seconds")
+            update_fields["check_frequency"] = check_frequency
+
+        if "lookback_days" in payload:
+            try:
+                lookback_days = int(payload["lookback_days"])
+            except (TypeError, ValueError):
+                raise HTTPException(status_code=400, detail="lookback_days must be an integer")
+            if lookback_days < 1 or lookback_days > 365:
+                raise HTTPException(status_code=400, detail="lookback_days must be between 1 and 365")
+            update_fields["lookback_days"] = lookback_days
+
+        if "active" in payload:
+            active_value = payload["active"]
+            if isinstance(active_value, str):
+                active_value = active_value.strip().lower() in {"true", "1", "yes", "on"}
+            update_fields["active"] = bool(active_value)
+
+        if "tier" in payload:
+            try:
+                tier = int(payload["tier"])
+            except (TypeError, ValueError):
+                raise HTTPException(status_code=400, detail="tier must be an integer")
+            if tier < 1 or tier > 5:
+                raise HTTPException(status_code=400, detail="tier must be between 1 and 5")
+            update_fields["tier"] = tier
+
+        if "weight" in payload:
+            try:
+                weight = float(payload["weight"])
+            except (TypeError, ValueError):
+                raise HTTPException(status_code=400, detail="weight must be a number")
+            if weight <= 0:
+                raise HTTPException(status_code=400, detail="weight must be greater than 0")
+            update_fields["weight"] = weight
+
+        config_payload = payload.get("config")
+        if config_payload is not None:
+            try:
+                config_model = SourceConfig.model_validate(config_payload)
+                update_fields["config"] = config_model.model_dump(exclude_none=True)
+            except Exception as exc:  # noqa: BLE001
+                raise HTTPException(status_code=400, detail=f"Invalid config payload: {exc}")
+
+        if not update_fields:
+            raise HTTPException(status_code=400, detail="No updatable fields supplied")
+
+        update_data = SourceUpdate(**update_fields)
+        updated_source = await async_db_manager.update_source(source_id, update_data)
+        if not updated_source:
+            raise HTTPException(status_code=500, detail="Failed to update source")
+
+        return {
+            "success": True,
+            "message": "Source configuration updated",
+            "source": updated_source.dict()
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:  # noqa: BLE001
+        logger.error(f"API update source config error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 
 @app.post("/api/sources/{source_id}/toggle")
 async def api_toggle_source_status(source_id: int):
@@ -843,11 +996,11 @@ async def api_scrape_url(request: dict):
         # Create ArticleCreate object
         article_data = ArticleCreate(
             source_id=manual_source.id,
+            url=url,
             canonical_url=url,
             title=extracted_title,
             published_at=datetime.utcnow(),
-            content=content_text,
-            metadata={"source_name": "Manual", "manual_scrape": True}
+            content=content_text
         )
         
         # Apply threat hunting scoring directly
@@ -3905,15 +4058,10 @@ async def api_pdf_upload(file: UploadFile = File(...)):
             article_data = ArticleCreate(
                 title=f"PDF Report: {file.filename}",
                 content=text_content,
+                url=f"pdf://{file.filename}",
                 canonical_url=f"pdf://{file.filename}",
                 published_at=datetime.now(),
-                source_id=53,  # Manual source ID
-                metadata={
-                    'page_count': page_count,
-                    'file_size': len(file_content),
-                    'upload_type': 'pdf',
-                    'original_filename': file.filename
-                }
+                source_id=53  # Manual source ID
             )
 
             # Initialize metadata for return value

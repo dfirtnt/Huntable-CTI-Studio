@@ -200,21 +200,26 @@ class ContentProcessor:
             # Create processed article with content hash
             processed_article = ArticleCreate(
                 source_id=article.source_id,
-                canonical_url=article.canonical_url.strip(),
+                url=article.url,
+                canonical_url=(article.canonical_url or article.url).strip(),
                 title=normalized_title,
                 published_at=article.published_at,
                 modified_at=article.modified_at,
-                authors=self._normalize_authors(article.authors),
-                tags=self._normalize_tags(article.tags),
-                summary=summary,
                 content=normalized_content,
-                content_hash=content_hash,  # Set hash during creation
+                summary=summary,
+                authors=list(article.authors),
+                tags=list(article.tags),
                 metadata=enhanced_metadata,
-                word_count=word_count  # Ensure word_count is always set
+                quality_score=article.quality_score,
+                word_count=word_count,
+                content_length=len(normalized_content),
+                content_hash=content_hash,
+                threat_hunting_score=article.threat_hunting_score,
+                classification=article.classification
             )
-            
+
             return processed_article
-            
+
         except Exception as e:
             logger.error(f"Error processing article: {e}")
             return None

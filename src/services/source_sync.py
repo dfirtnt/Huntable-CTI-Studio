@@ -60,6 +60,8 @@ class SourceSyncService:
                     check_frequency=config.check_frequency,
                     lookback_days=config.lookback_days,
                     active=config.active,
+                    tier=config.tier,
+                    weight=config.weight,
                     config=config.config.model_dump(exclude_none=True) if config.config else {},
                 )
 
@@ -89,4 +91,3 @@ async def sync_sources(config_path: str, db_manager: AsyncDatabaseManager) -> in
 
 def sync_sources_blocking(config_path: str, db_manager: AsyncDatabaseManager) -> int:
     return asyncio.run(sync_sources(config_path, db_manager))
-

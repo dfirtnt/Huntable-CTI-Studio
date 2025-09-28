@@ -27,6 +27,8 @@ class SourceCreate(BaseModel):
     check_frequency: int = Field(3600, description="Check frequency in seconds")
     lookback_days: int = Field(180, description="How many days back to look for articles")
     active: bool = Field(True, description="Whether the source is active")
+    tier: int = Field(2, description="Source priority tier")
+    weight: float = Field(1.0, description="Source weighting for scoring")
     config: Optional['SourceConfig'] = Field(None, description="Source configuration")
 
 
@@ -38,6 +40,8 @@ class SourceUpdate(BaseModel):
     check_frequency: Optional[int] = None
     lookback_days: Optional[int] = None
     active: Optional[bool] = None
+    tier: Optional[int] = None
+    weight: Optional[float] = None
     config: Optional[Dict[str, Any]] = None
 
 
@@ -51,6 +55,8 @@ class Source(BaseModel):
     check_frequency: int = Field(3600, description="Check frequency in seconds")
     lookback_days: int = Field(180, description="How many days back to look for articles")
     active: bool = Field(True, description="Whether the source is active")
+    tier: int = Field(2, description="Source priority tier")
+    weight: float = Field(1.0, description="Source weighting for scoring")
     config: Dict[str, Any] = Field(default_factory=dict, description="Source configuration")
 
     # Tracking fields

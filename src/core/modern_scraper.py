@@ -431,19 +431,11 @@ class ModernScraper:
             # Build article
             article = ArticleCreate(
                 source_id=source.id,
+                url=url,
                 canonical_url=article_data.get('canonical_url', url),
                 title=article_data['title'],
                 published_at=article_data.get('published_at') or datetime.utcnow(),
-                modified_at=article_data.get('modified_at'),
-                authors=article_data.get('authors', []),
-                tags=article_data.get('tags', []),
-                summary=article_data.get('summary'),
-                content=article_data['content'],
-                metadata={
-                    'structured_data': structured_data,
-                    'extraction_method': 'modern_scraping',
-                    'jsonld_available': bool(jsonld_article)
-                }
+                content=article_data['content']
             )
             
             return article
@@ -603,14 +595,11 @@ class LegacyScraper:
             
             article = ArticleCreate(
                 source_id=source.id,
+                url=source.url,
                 canonical_url=source.url,
                 title=title,
                 published_at=datetime.utcnow(),  # No date available
-                content=content,
-                metadata={
-                    'extraction_method': 'legacy_scraping',
-                    'content_selector': content_selector
-                }
+                content=content
             )
             
             return [article]
