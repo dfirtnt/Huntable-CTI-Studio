@@ -1,126 +1,96 @@
 # CTIScraper Project Instructions
 
-## Communication Standards
-- **Radical Conciseness**: Maximum signal, minimum noise. Every word must serve a purpose.
-- **Lead with Conclusion**: State most important information first, evidence second.
-- **Structured Data**: Use lists, tables, code blocks over prose.
-- **Report Facts**: State plan, action, result. Avoid describing internal process.
-- **Brief Acknowledgments Only**: "Got it.", "I understand." - only when confirming technical requirements.
+## Communication
+- **Radical conciseness**: Lead with conclusion.
+- **Use lists/tables/code** over prose.
+- **Report facts**: plan → action → result.
+- **Acknowledge only**: "Got it." / "I understand."
 
-## Operational Doctrine
-- **Autonomous Operation**: Execute plans without unnecessary user intervention after reconnaissance.
-- **Zero-Assumption Discipline**: Verify all assumptions against live system. Code is ultimate source of truth.
-- **Extreme Ownership**: Identify and fix all related issues, update all consumers of changed components.
-- **Mandatory Workflow**: Reconnaissance → Plan → Execute → Verify → Report
-- **Read Before Write**: Read before write; reread immediately after write.
-- **System-Wide Planning**: Account for full system impact of all changes.
-- **Autonomous Correction**: Diagnose and fix failures without user intervention.
-- **Status Legend**: `✅` success, `⚠️` self-corrected issues, `🚧` blockers
+## Precedence Rules
+1. **User safety** overrides autonomy (file deletion, secrets).
+2. **Verification** before reporting success.
+3. **Max retries**: 3 attempts, then report 🚧.
 
-## Architecture & Environment
-- **Docker-first**: Most operations run inside Docker containers
-- **Database**: PostgreSQL accessed via `docker exec -it cti_postgres`
-- **Worker**: Celery tasks run in `cti_worker` container
-- **Environment**: Use Docker commands for database queries and script execution
+## Doctrine
+- **Workflow**: Recon → Plan → Execute → Verify → Report.
+- **Read before write**. Re-read after write.
+- **System-wide planning**: account for dependencies.
+- **Autonomous correction** up to 3 retries, else escalate.
+- **Extreme Ownership**: Keep testing until verified success.
+- **Status**: ✅ success | ⚠️ self-corrected | 🚧 blocker.
 
-## Database Operations
-- **Container**: Always use `cti_postgres` container for database access
-- **Column Names**: Use correct column names (`canonical_url`, `identifier`, `success`)
-- **Queries**: Run via `docker exec -it cti_postgres psql -U cti_user -d cti_scraper`
+## Environment
+- **Docker-first**.
+- **DB**: `cti_postgres` container, `psql -U cti_user -d cti_scraper`.
+- **Worker**: Celery in `cti_worker`.
 
-## Threat Intelligence Focus
-- **Scope**: Focus solely on threat intelligence content
-- **Detection Engineering**: Best practices for detection engineers are out of scope
-- **SIGMA Rule Generation**: AI-powered detection rule generation with pySIGMA validation
-- **Rule Validation**: Automatic validation and iterative fixing (up to 3 attempts)
+## Database
+- **Always use** `cti_postgres`.
+- **Key columns**: `canonical_url`, `identifier`, `success`.
+- **Schema context**:
+  - `articles.classification` → chosen/rejected/unclassified
+  - `annotations.label` → huntable/not huntable
+  - `annotations.article_id` → links annotations to articles
 
-## Scoring System Management
-- **Keyword Updates**: Always regenerate threat hunting scores when updating LOLBAS lists or keyword discriminators
-- **Junk Filter Sync**: When updating "perfect" keywords list, also update the content filter (`src/utils/content_filter.py`) to maintain perfect discriminator protection
-- ***User Shortcuts***: Accept "rs" from user as a prompt to rescore all articles.
-- **Score Regeneration**: Use `regenerate_all_scores.py` after keyword changes
+## Threat Intel Scope
+- **Focus**: threat intel only.
+- **SIGMA rule generation** + pySigma validation (≤3 attempts).
+- **Detection engineering best practices**: out of scope.
 
-## Source Configuration
-- **YAML Format**: Sources configured in `config/sources.yaml`
-- **RSS Priority**: Prefer RSS feeds over web scraping when available. But fallback to scraping should be automatic.
-- **Active Sources**: Monitor source health via database queries
+## Scoring
+- **Regenerate scores** after LOLBAS/keyword updates.
+- **Use** `regenerate_all_scores.py` after keyword changes.
+- **Sync** `src/utils/content_filter.py` when keywords change.
+- **Shortcut**: `rs` = rescore all articles.
 
-## Development Workflow
-- **User Shortcuts**: Accept "lg" user prompt as a request to git commit and push to main, PLUS execute GitHub-ready tasks:
+## Sources
+- **Config**: `config/sources.yaml`.
+- **Prefer RSS**; automatic fallback to scraping.
+- **Monitor source health** in DB.
+
+## User Shortcut Commands
+- **`lg`** = commit + push + full GitHub hygiene:
   - **Security & Setup**: Scan for hardcoded credentials/API keys, create comprehensive .gitignore, add .env.example, move config to external files
   - **Dependency Security**: Check requirements for latest versions and CVE vulnerabilities, update if patches available, alert if no patches
   - **Documentation & Standards**: Create professional README.md, add LICENSE (MIT), pin dependencies, add type hints/docstrings, remove debug prints
-  - **Repository Files**: Add GitHub Actions CI workflow, create .github/SECURITY.md, consider CHANGELOG.md and CONTRIBUTING.md
+  - **Repository Files**: Add Update CHANGELOG.md
   - **Final Verification**: Ensure no secrets in code, comprehensive .gitignore, professional README, proper license, documented dependencies/code
-- **Documentation Updates**: Accept "mdu" user prompt as a request to examine entire codebase and ensure MD documentation files are accurate and up-to-date with current code, architecture, workflow and heuristics
-- **File Management**: Don't delete files without user confirmation
-- **Documentation**: Create in Markdown (.md) files when requested
-- **Testing**: Use Docker containers for all testing and validation
+- **`lgl`** = commit + push (lite).
+- **`mdu`** = update all MD docs to match codebase.
+- **`rs`** = regenerate all scores.
 
-## Terminal Command Execution
-- **Default Pattern**: Always pipe commands to `cat` to prevent pagination hanging
-- **Simple Commands**: `command | cat` for basic operations
-- **Analysis Commands**: Use temp files when output needs processing: `command > /tmp/output.txt`
-- **Cleanup**: Remove temp files after analysis: `rm /tmp/output.txt`
-- **Timeout**: Add `timeout` wrapper for potentially long-running commands
-- **Examples**: 
+## Dev Workflow
+- **No file deletion** without confirmation.
+- **Docs always** in Markdown.
+
+## Command Execution
+- **Default**: `command | cat` to avoid paging.
+- **Long output**: `> /tmp/out.txt`; clean with `rm`.
+- **Add timeout wrapper**: `timeout 30s command`.
+- **Always check exit codes**: `$?` after each command.
+- **Examples**:
   - `docker exec -it cti_postgres psql -U cti_user -d cti_scraper -c "SELECT * FROM articles;" | cat`
   - `git log --oneline | cat`
 
-## Classification System Architecture
-
-### Two-Level Classification System
-
-**ARTICLE CLASSIFICATION** (Whole Article Level):
-- **Purpose**: Binary decision on article relevance
-- **Labels**: `"chosen"`, `"rejected"`, `"unclassified"`
-- **Scope**: Entire article content
-- **Usage**: Filter articles for further analysis
-
-**ANNOTATION CLASSIFICATION** (Text Chunk Level):
-- **Purpose**: Classify specific text excerpts within articles
-- **Labels**: `"huntable"`, `"not huntable"`
-- **Scope**: Individual text chunks/excerpts
-- **Usage**: Identify actionable intelligence within articles
-
-### Critical Distinction
-- **Articles** are classified as chosen/rejected/unclassified
-- **Text chunks** within articles are annotated as huntable/not huntable
-- **Never mix these levels**: Articles cannot be "huntable" - only text excerpts can be
+## Classification
+- **Articles**: chosen / rejected / unclassified.
+- **Chunks**: huntable / not huntable.
+- **Never mix**.
 
 ### Clarification Protocol
-**MANDATORY**: When users ask questions that conflate these systems (e.g., "How many articles are huntable?"), immediately clarify:
-1. **Identify the confusion**: "Articles are classified as chosen/rejected/unclassified, not huntable"
-2. **Explain the distinction**: "Only text excerpts within articles get huntable/not huntable labels"
-3. **Offer correct alternatives**: "Did you mean articles classified as 'chosen' or text excerpts marked as 'huntable'?"
+1. **Identify confusion**.
+2. **Explain distinction**.
+3. **Offer correct alternative**.
 
-### Database Schema Context
-- `articles.classification` → chosen/rejected/unclassified
-- `annotations.label` → huntable/not huntable
-- `annotations.article_id` → links annotations to articles
-
-## Web Application Testing
-
-### **Testing Tool Guidelines**
-- **Primary Testing**: Use Docker Playwright suite for production-grade E2E testing
-- **Development Testing**: Use IDE Playwright/Puppeteer MCPs for test development and debugging
-- **Comprehensive Guide**: See `WebAppDevtestingGuide.md` for detailed instructions on:
+## Web App Testing
+- **Primary**: Docker Playwright E2E.
+- **Dev**: IDE MCPs for debugging.
+- **Comprehensive Guide**: See `WebAppDevtestingGuide.md` for:
   - Tool selection and usage patterns
   - Development workflows and best practices
   - Debugging strategies and troubleshooting
   - CTIScraper-specific test scenarios
   - Performance optimization and quality assurance
-
-### **Testing Workflow**
-1. **Development**: Use IDE MCPs for test creation and debugging
-2. **Validation**: Run Docker Playwright suite for comprehensive testing
-3. **CI/CD**: Automated testing via GitHub Actions
-4. **Artifacts**: Collect videos, traces, and reports for analysis
-
-### **Key Testing Areas**
-- Source management (add/edit/delete threat intelligence sources)
-- Article processing (content collection and threat hunting scoring)
-- API endpoints (REST API functionality)
-- User interface (navigation, forms, interactions)
-- Performance (page load times, responsiveness)
-- Accessibility (basic compliance)
+- **CI/CD**: GitHub Actions.
+- **Artifacts**: save videos, traces, reports.
+- **Key areas**: source mgmt, article processing, API, UI, perf, accessibility.
