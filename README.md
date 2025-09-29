@@ -33,6 +33,7 @@ A comprehensive threat intelligence aggregation and analysis platform designed f
 - **Real-time Updates**: Live monitoring of collection and processing status
 - **Export Capabilities**: CSV export for annotations and classified content
 - **RESTful API**: Comprehensive API for integration with other security tools
+- **Database Management**: Command-line backup and restore tools for data protection
 
 ## 🏗️ Architecture
 
@@ -221,6 +222,54 @@ Generate detection rules from threat intelligence articles:
 4. Rules are validated using pySIGMA for compliance
 5. Failed rules are automatically retried with error feedback (up to 3 attempts)
 6. Valid rules are stored with metadata and validation results
+
+### Database Backup & Restore
+Protect your data with command-line backup and restore tools:
+
+**Create Backup:**
+```bash
+# Using helper script (recommended)
+./backup_restore.sh create
+
+# Using CLI command
+python -m src.cli.main backup create
+
+# Using direct script
+python scripts/backup_database.py
+```
+
+**List Backups:**
+```bash
+# Using helper script
+./backup_restore.sh list
+
+# Using CLI command
+python -m src.cli.main backup list
+
+# Using direct script
+python scripts/backup_database.py --list
+```
+
+**Restore Database:**
+```bash
+# Using helper script
+./backup_restore.sh restore cti_scraper_backup_20250907_134653.sql.gz
+
+# Using CLI command
+python -m src.cli.main backup restore cti_scraper_backup_20250907_134653.sql.gz
+
+# Using direct script
+python scripts/restore_database.py cti_scraper_backup_20250907_134653.sql.gz
+```
+
+**Features:**
+- Automatic compression (70-80% size reduction)
+- Metadata tracking with database statistics
+- Safety checks and pre-restore snapshots
+- Docker container integration
+- Timestamped filenames for easy management
+
+For detailed backup procedures, see [Database Backup & Restore Guide](docs/DATABASE_BACKUP_RESTORE.md).
 
 ## 🚀 Production Deployment
 

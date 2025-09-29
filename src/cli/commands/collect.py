@@ -7,8 +7,8 @@ import click
 
 from ..context import CLIContext, get_managers
 from ..utils import console, _display_fetch_results
-from core.fetcher import ContentFetcher
-from core.processor import ContentProcessor
+from src.core.fetcher import ContentFetcher
+from src.core.processor import ContentProcessor
 from models.source import SourceFilter
 
 pass_context = click.make_pass_decorator(CLIContext, ensure=True)

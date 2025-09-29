@@ -13,7 +13,7 @@ from datetime import datetime
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
 
 from database.async_manager import AsyncDatabaseManager
-from core.rss_parser import RSSParser
+from src.core.rss_parser import RSSParser
 
 async def test_improved_extraction():
     """Test improved content extraction on CrowdStrike."""

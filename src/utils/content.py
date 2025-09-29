@@ -462,12 +462,12 @@ def _is_garbage_content(content: str) -> bool:
     if total_chars > 0:
         problematic_ratio = problematic_chars / total_chars
         if problematic_ratio > 0.15:  # Increase threshold to 15% problematic characters
-            print(f"DEBUG: High problematic ratio: {problematic_ratio:.4f} ({problematic_chars}/{total_chars})")
+            # High problematic ratio detected
             return True
     
     # Check for specific garbage patterns
     if '`E9 UI=' in content or 'cwCz _9hvtYfL' in content:
-        print("DEBUG: Specific garbage patterns found")
+        # Specific garbage patterns found
         return True
     
     # Check for consecutive problematic characters
@@ -485,7 +485,7 @@ def _is_garbage_content(content: str) -> bool:
         max_consecutive = max(max_consecutive, consecutive_count)
     
     if max_consecutive >= 5:  # Increase threshold to 5 or more consecutive problematic chars
-        print(f"DEBUG: Too many consecutive problematic chars: {max_consecutive}")
+        # Too many consecutive problematic chars detected
         return True
     
     # Check for binary-like patterns (very permissive - only flag truly problematic sequences)
@@ -498,7 +498,7 @@ def _is_garbage_content(content: str) -> bool:
     for pattern in binary_patterns:
         matches = re.findall(pattern, content)
         if matches:
-            print(f"DEBUG: Binary pattern matches: {matches[:3]}")
+            # Binary pattern matches detected
             return True
     
     # Check for compression artifacts
