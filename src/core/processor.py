@@ -162,11 +162,11 @@ class ContentProcessor:
             if content_type == 'podcast' and len(article.content) < 500:
                 logger.info(f"Detected podcast entry: {article.title[:50]}...")
                 # For podcast entries, we'll keep them but flag them
-                article.metadata['content_type'] = 'podcast'
-                article.metadata['is_short_content'] = True
+                article.article_metadata['content_type'] = 'podcast'
+                article.article_metadata['is_short_content'] = True
             elif len(article.content) < 200:
                 logger.warning(f"Very short content detected: {article.title[:50]}... ({len(article.content)} chars)")
-                article.metadata['is_short_content'] = True
+                article.article_metadata['is_short_content'] = True
                 # Don't reject, but flag for review
             
             # Normalize content
@@ -180,7 +180,7 @@ class ContentProcessor:
             word_count = len(normalized_content.split())
             
             # Extract/enhance metadata if enabled
-            enhanced_metadata = article.metadata.copy()
+            enhanced_metadata = article.article_metadata.copy()
             enhanced_metadata.update({
                 'content_type': content_type,
                 'word_count': word_count,
@@ -240,7 +240,7 @@ class ContentProcessor:
                 
                 # Extract reading time estimate (average 200 words per minute)
                 # Use word_count from metadata if available
-                word_count = article.metadata.get('word_count', 0) if article.metadata else 0
+                word_count = article.article_metadata.get('word_count', 0) if article.article_metadata else 0
                 enhanced['reading_time_minutes'] = max(1, word_count // 200)
                 
                 # Extract image count

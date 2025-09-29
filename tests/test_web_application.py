@@ -5,6 +5,7 @@ Tests all UI components, API endpoints, and user workflows.
 """
 
 import pytest
+import pytest_asyncio
 import httpx
 import asyncio
 from typing import AsyncGenerator
@@ -413,7 +414,7 @@ class TestUserWorkflows:
         assert sources_response.status_code == 200
 
 # Fixture for async HTTP client
-@pytest.fixture
+@pytest_asyncio.fixture
 async def async_client() -> AsyncGenerator[httpx.AsyncClient, None]:
     """Async HTTP client for testing."""
     async with httpx.AsyncClient(base_url=BASE_URL, timeout=TEST_TIMEOUT) as client:

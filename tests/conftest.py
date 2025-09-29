@@ -2,6 +2,7 @@
 Pytest configuration and fixtures for CTI Scraper testing.
 """
 import pytest
+import pytest_asyncio
 import asyncio
 import httpx
 from typing import AsyncGenerator, Generator
@@ -18,7 +19,7 @@ def event_loop():
     yield loop
     loop.close()
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def async_client() -> AsyncGenerator[httpx.AsyncClient, None]:
     """Async HTTP client for testing."""
     async with httpx.AsyncClient(base_url=TEST_BASE_URL, timeout=30.0) as client:

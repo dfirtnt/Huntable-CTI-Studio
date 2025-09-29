@@ -181,6 +181,11 @@ function updateWorkerStatus(data) {
         container.innerHTML = '<div class="text-red-600 dark:text-red-400">❌ Error loading worker status</div>';
         return;
     }
+    
+    if (data.status === 'timeout') {
+        container.innerHTML = '<div class="text-yellow-600 dark:text-yellow-400">⚠️ Worker status timeout - workers may be unresponsive</div>';
+        return;
+    }
 
     const workerStats = data.worker_stats || {};
     const activeWorkers = Object.keys(workerStats);
@@ -261,6 +266,11 @@ function updateActiveTasks(data) {
     
     if (data.status === 'error') {
         container.innerHTML = '<div class="text-red-600 dark:text-red-400">❌ Error loading active tasks</div>';
+        return;
+    }
+    
+    if (data.status === 'timeout') {
+        container.innerHTML = '<div class="text-yellow-600 dark:text-yellow-400">⚠️ Active tasks timeout - workers may be unresponsive</div>';
         return;
     }
 

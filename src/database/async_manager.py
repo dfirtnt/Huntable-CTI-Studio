@@ -23,7 +23,7 @@ from sqlalchemy.orm import selectinload
 
 from src.database.models import Base, SourceTable, ArticleTable, SourceCheckTable, ArticleAnnotationTable
 from src.models.source import Source, SourceCreate, SourceUpdate, SourceFilter
-from src.models.article import Article, ArticleCreate, ArticleUpdate
+from src.models.article import Article, ArticleCreate, ArticleUpdate, ArticleListFilter
 from src.models.annotation import ArticleAnnotation, ArticleAnnotationCreate, ArticleAnnotationUpdate, ArticleAnnotationFilter, AnnotationStats
 from src.services.deduplication import AsyncDeduplicationService
 
@@ -85,7 +85,7 @@ class AsyncDatabaseManager:
             yield session
         except Exception as e:
             await session.rollback()
-            logger.error(f"Database session error: {e}")
+            logger.error(f"Database session error: {e}", exc_info=True)
             raise
         finally:
             await session.close()
@@ -506,7 +506,7 @@ class AsyncDatabaseManager:
             logger.error(f"Failed to update source article count for {source_id}: {e}")
             raise
     
-    async def list_articles(self, article_filter: Optional['ArticleFilter'] = None, limit: Optional[int] = None) -> List[Article]:
+    async def list_articles(self, article_filter: Optional['ArticleListFilter'] = None, limit: Optional[int] = None) -> List[Article]:
         """List articles with optional filtering and sorting."""
         try:
             async with self.get_session() as session:
@@ -560,10 +560,10 @@ class AsyncDatabaseManager:
                             query = query.order_by(sort_field)
                     
                     # Apply pagination
-                    if article_filter.offset > 0:
+                    if article_filter.offset is not None and article_filter.offset > 0:
                         query = query.offset(article_filter.offset)
                     
-                    if article_filter.limit:
+                    if article_filter.limit is not None and article_filter.limit > 0:
                         query = query.limit(article_filter.limit)
                 else:
                     # Default sorting by discovered_at desc
@@ -572,9 +572,14 @@ class AsyncDatabaseManager:
                     if limit:
                         query = query.limit(limit)
                 
-                result = await session.execute(query)
-                rows = result.all()
-                logger.info(f"Query executed, returned {len(rows)} rows")
+                logger.info("Executing query...")
+                try:
+                    result = await session.execute(query)
+                    rows = result.all()
+                    logger.info(f"Query executed, returned {len(rows)} rows")
+                except Exception as query_e:
+                    logger.error(f"Query execution error: {query_e}", exc_info=True)
+                    raise
                 
                 # Debug: Check for duplicates
                 try:
@@ -608,9 +613,9 @@ class AsyncDatabaseManager:
                     article = self._db_article_to_model(db_article)
                     
                     # Add annotation count to metadata
-                    if article.metadata is None:
-                        article.metadata = {}
-                    article.metadata['annotation_count'] = annotation_count
+                    if article.article_metadata is None:
+                        article.article_metadata = {}
+                    article.article_metadata['annotation_count'] = annotation_count
                     
                     articles.append(article)
                 
@@ -959,7 +964,10 @@ class AsyncDatabaseManager:
             summary=db_article.summary,
             content=db_article.content,
             content_hash=db_article.content_hash,
-            metadata=db_article.article_metadata,
+            article_metadata=db_article.article_metadata,
+            simhash=db_article.simhash,
+            simhash_bucket=db_article.simhash_bucket,
+            discovered_at=db_article.discovered_at,
             word_count=db_article.word_count,
             content_length=len(db_article.content) if db_article.content else None,
             collected_at=db_article.discovered_at,
