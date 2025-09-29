@@ -325,7 +325,6 @@ API Endpoints:
 │ • active        │
 │ • config (JSON) │
 │ • last_check    │
-│ • success_rate  │
 └─────────┬───────┘
           │
           │ 1:N

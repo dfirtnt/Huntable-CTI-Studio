@@ -289,7 +289,6 @@ class AsyncDatabaseManager:
                     config=source_data.config.model_dump(exclude_none=True) if source_data.config else {},
                     consecutive_failures=0,
                     total_articles=0,
-                    success_rate=0.0,
                     average_response_time=0.0,
                     created_at=datetime.now(),
                     updated_at=datetime.now()
@@ -943,7 +942,6 @@ class AsyncDatabaseManager:
             last_success=db_source.last_success,
             consecutive_failures=db_source.consecutive_failures,
             total_articles=db_source.total_articles,
-            success_rate=db_source.success_rate,
             average_response_time=db_source.average_response_time,
             created_at=db_source.created_at,
             updated_at=db_source.updated_at
