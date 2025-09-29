@@ -65,7 +65,13 @@ class Source(BaseModel):
     tier: int = 2
     weight: float = 1.0
     last_check: Optional[datetime] = None
+    last_success: Optional[datetime] = None
+    consecutive_failures: int = 0
+    total_articles: int = 0
+    average_response_time: float = 0.0
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
     config: Dict[str, Any] = Field(default_factory=dict)
-    
+
     class Config:
         from_attributes = True

@@ -217,10 +217,8 @@ class AsyncDatabaseManager:
                 if filter_params:
                     if filter_params.active is not None:
                         query = query.where(SourceTable.active == filter_params.active)
-                    if filter_params.identifier_contains:
-                        query = query.where(
-                            SourceTable.identifier.contains(filter_params.identifier_contains)
-                        )
+                    if filter_params.tier is not None:
+                        query = query.where(SourceTable.tier == filter_params.tier)
                     if filter_params.name_contains:
                         query = query.where(
                             SourceTable.name.contains(filter_params.name_contains)
