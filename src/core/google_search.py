@@ -282,6 +282,12 @@ class GoogleSearchFetcher:
                 additional_metadata = metadata_extractor.extract_metadata(content)
                 metadata.update(additional_metadata)
             
+            # Generate required fields
+            from src.utils.content import ContentCleaner
+            content_hash = ContentCleaner.calculate_content_hash(result.title, content or '')
+            word_count = len(content.split()) if content else 0
+            collected_at = datetime.utcnow()
+            
             # Create article
             article = ArticleCreate(
                 source_id=source.id,
@@ -289,7 +295,10 @@ class GoogleSearchFetcher:
                 canonical_url=result.link,
                 title=result.title,
                 published_at=result.published_at or datetime.utcnow(),
-                content=content
+                content=content or '',
+                content_hash=content_hash,
+                word_count=word_count,
+                collected_at=collected_at
             )
             
             return article

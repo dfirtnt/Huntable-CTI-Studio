@@ -122,9 +122,14 @@ class RSSParser:
             # Quality scoring removed
             # metadata['quality_score'] = quality_score
             
+            # Generate required fields
+            content_hash = ContentCleaner.calculate_content_hash(title, content)
+            word_count = len(content.split()) if content else 0
+            collected_at = datetime.utcnow()
+            
             # Build article
             article = ArticleCreate(
-                source_id=source.id,
+                source_id= source.id,
                 url=url,
                 canonical_url=url,
                 title=title,
@@ -133,7 +138,10 @@ class RSSParser:
                 summary=summary,
                 authors=authors,
                 tags=tags,
-                metadata=metadata
+                metadata=metadata,
+                content_hash=content_hash,
+                word_count=word_count,
+                collected_at=collected_at
             )
 
             return article
