@@ -3770,21 +3770,53 @@ async def api_restore_backup(request: Request):
         try:
             logger.info("Starting database restore...")
             
-            # Use the container-compatible restore script
-            script_path = Path('/app/scripts/restore_database_container.py')
+            # Use the direct pg_dump restore approach (no external script)
+            # script_path = Path('/app/scripts/restore_database_container.py')
             
-            if not script_path.exists():
-                raise HTTPException(status_code=500, detail=f"Container restore script not found at {script_path}")
+            logger.info("Using direct pg_dump/psql restore approach...")
             
-            logger.info("Using CLI restore script v2.0...")
+            # Stop containers to prevent conflicts
+            try:
+                subprocess.run(['docker', 'stop', 'cti_worker', 'cti_web'], 
+                             capture_output=True, timeout=30)
+            except:
+                pass
             
-            # Run restore script with timeout
-            result = subprocess.run(
-                [sys.executable, str(script_path), temp_file_path, '--force'],
+            import time
+            time.sleep(5)
+            
+            # Restore using direct pg_dump/psql approach
+            restore_cmd = [
+                'docker', 'exec', '-i', 'cti_postgres', 'psql', 
+                '-U', 'cti_user', '-d', 'postgres'
+            ]
+            
+            # Decompress and pipe to psql
+            decompress_cmd = ['gunzip', '-c', temp_file_path]
+            decompress_result = subprocess.run(
+                decompress_cmd,
                 capture_output=True,
                 text=True,
-                timeout=600  # 10 minute timeout for large databases
+                timeout=600
             )
+            
+            if decompress_result.returncode != 0:
+                raise Exception(f"Decompression failed: {decompress_result.stderr}")
+            
+            result = subprocess.run(
+                restore_cmd,
+                input=decompress_result.stdout,
+                capture_output=True,
+                text=True,
+                timeout=600
+            )
+            
+            # Restart containers
+            try:
+                subprocess.run(['docker', 'start', 'cti_worker', 'cti_web'], 
+                             capture_output=True, timeout=30)
+            except:
+                pass
             
             if result.returncode != 0:
                 logger.error(f"Restore failed: {result.stderr}")

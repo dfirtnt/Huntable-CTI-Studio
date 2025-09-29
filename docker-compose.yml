@@ -57,6 +57,7 @@ services:
       - LLM_MAX_TOKENS=2048
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - CHATGPT_API_KEY=${CHATGPT_API_KEY}
+      - TZ=America/New_York
     ports:
       - "8001:8000"
     volumes:
@@ -64,6 +65,8 @@ services:
       - ./config:/app/config
       - ./logs:/app/logs
       - ./backups:/app/backups
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /var/db/timezone/zoneinfo/America/New_York:/etc/localtime:ro
     depends_on:
       postgres:
         condition: service_healthy
