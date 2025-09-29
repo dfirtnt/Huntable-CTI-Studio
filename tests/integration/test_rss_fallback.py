@@ -8,7 +8,7 @@ import sys
 import os
 sys.path.insert(0, 'src')
 
-from core.rss_parser import RSSParser
+from src.core.rss_parser import RSSParser
 from utils.http import HTTPClient
 from models.source import Source
 import logging

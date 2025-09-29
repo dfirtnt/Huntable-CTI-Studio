@@ -6,7 +6,7 @@ from rich.table import Table
 from rich.progress import Progress
 from rich.panel import Panel
 
-from core.fetcher import FetchResult
+from src.core.fetcher import FetchResult
 
 console = Console()
 

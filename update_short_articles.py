@@ -9,7 +9,7 @@ import os
 sys.path.insert(0, 'src')
 
 from database.manager import DatabaseManager
-from core.rss_parser import RSSParser
+from src.core.rss_parser import RSSParser
 from utils.http import HTTPClient
 from utils.content import ContentCleaner
 from models.source import Source
