@@ -828,35 +828,6 @@ sources:
       min_content_length: 2000
     description: "US-CERT cybersecurity advisories and alerts"
 
-  # DoD Cybersecurity
-  - id: "dod_cybersecurity"
-    name: "DoD Cybersecurity"
-    url: "https://media.defense.gov/"
-    rss_url: "https://media.defense.gov/rss.xml"
-    check_frequency: 3600  # 1 hour
-    active: true
-    config:
-      allow: ["media.defense.gov"]
-      post_url_regex: ["^https://media\\.defense\\.gov/.*"]
-      robots:
-        enabled: true
-        user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
-        respect_delay: true
-        max_requests_per_minute: 3
-        crawl_delay: 6.0
-      min_content_length: 2000
-      title_filter_keywords: ["webinar", "training", "careers", "job posting", "event"]
-      extract:
-        prefer_jsonld: true
-        title_selectors: ["h1", "meta[property='og:title']::attr(content)"]
-        date_selectors: 
-          - "meta[property='article:published_time']::attr(content)"
-          - "time[datetime]::attr(datetime)"
-        body_selectors: ["article", "main", ".content", ".post-content", ".news-content"]
-        author_selectors: ["meta[name='author']::attr(content)", ".author-name"]
-      min_content_length: 2000
-    description: "Department of Defense cybersecurity news and advisories"
-
   # Splunk Security Research
   - id: "splunk_security_research"
     name: "Splunk Security Research"
