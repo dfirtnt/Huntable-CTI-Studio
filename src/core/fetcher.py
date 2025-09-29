@@ -303,19 +303,19 @@ class ContentFetcher:
     def _has_modern_config(self, source: Source) -> bool:
         """Check if source has modern scraping configuration."""
         config = source.config
-        
+
         # Check for discovery strategies
-        discovery = getattr(config, 'discovery', {})
-        if discovery and hasattr(discovery, 'strategies') and discovery.strategies:
+        discovery = config.get('discovery', {}) if isinstance(config, dict) else getattr(config, 'discovery', {})
+        if discovery and discovery.get('strategies'):
             return True
-        
+
         # Check for extraction configuration beyond basic selectors
-        extract = getattr(config, 'extract', {})
-        if extract and (hasattr(extract, 'title_selectors') and extract.title_selectors or 
-            hasattr(extract, 'date_selectors') and extract.date_selectors or 
-            hasattr(extract, 'body_selectors') and extract.body_selectors):
+        extract = config.get('extract', {}) if isinstance(config, dict) else getattr(config, 'extract', {})
+        if extract and (extract.get('title_selectors') or
+            extract.get('date_selectors') or
+            extract.get('body_selectors')):
             return True
-        
+
         return False
     
     def _update_stats(self, method: str, article_count: int, response_time: float, success: bool):

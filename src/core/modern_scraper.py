@@ -331,15 +331,19 @@ class ModernScraper:
         """
         Scrape articles from source using CSS selectors and basic JSON-LD parsing.
         Note: This is a fallback method when RSS feeds are unavailable.
-        
+
         Args:
             source: Source configuration
-            
+
         Returns:
             List of ArticleCreate objects
         """
         logger.info(f"Starting modern scraping for {source.name}")
-        
+
+        # Configure robots.txt settings if available
+        if isinstance(source.config, dict) and 'robots' in source.config:
+            self.http_client.configure_source_robots(source.identifier, source.config['robots'])
+
         # Phase 1: URL Discovery
         urls = await self.url_discovery.discover_urls(source)
         
@@ -571,15 +575,19 @@ class LegacyScraper:
     async def scrape_source(self, source: Source) -> List[ArticleCreate]:
         """
         Scrape source using legacy HTML parsing.
-        
+
         Args:
             source: Source configuration
-            
+
         Returns:
             List of ArticleCreate objects
         """
         logger.info(f"Starting legacy scraping for {source.name}")
-        
+
+        # Configure robots.txt settings if available
+        if isinstance(source.config, dict) and 'robots' in source.config:
+            self.http_client.configure_source_robots(source.identifier, source.config['robots'])
+
         content_selector = getattr(source.config, 'content_selector', 'article')
         
         try:
