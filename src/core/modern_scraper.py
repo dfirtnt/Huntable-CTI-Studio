@@ -37,7 +37,7 @@ class URLDiscovery:
         """
         discovered_urls = set()
         
-        discovery_config = source.config.discovery
+        discovery_config = source.config.get('discovery') if isinstance(source.config, dict) else getattr(source.config, 'discovery', None)
         strategies = discovery_config.get('strategies', []) if isinstance(discovery_config, dict) else []
         
         for strategy in strategies:
@@ -399,7 +399,8 @@ class ModernScraper:
             article_data = {}
             jsonld_article = self.structured_extractor.find_article_jsonld(structured_data)
             
-            if jsonld_article and source.config.extract.get('prefer_jsonld', True):
+            extract_config = source.config.get('extract', {}) if isinstance(source.config, dict) else getattr(source.config, 'extract', {})
+            if jsonld_article and extract_config.get('prefer_jsonld', True):
                 article_data = self.structured_extractor.extract_from_jsonld(jsonld_article)
                 logger.debug(f"Extracted data from JSON-LD for {url}")
             
@@ -456,7 +457,7 @@ class ModernScraper:
     def _extract_with_selectors(self, soup: BeautifulSoup, source: Source, url: str) -> Dict[str, Any]:
         """Extract article data using configured CSS selectors."""
         data = {}
-        extract_config = source.config.extract
+        extract_config = source.config.get('extract', {}) if isinstance(source.config, dict) else getattr(source.config, 'extract', {})
         
         # Extract title
         title_selectors = extract_config.get('title_selectors', ['h1']) if isinstance(extract_config, dict) else ['h1']

@@ -347,11 +347,11 @@
                             {% endif %}
                             <span>Content: {{ article.content|length }} characters</span>
                             <span>Classification: 
-                                {% if article.metadata and article.metadata.get('training_category') == 'chosen' %}
+                                {% if article.article_metadata and article.article_metadata.get('training_category') == 'chosen' %}
                                     <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
                                         ✅ Chosen
                                     </span>
-                                {% elif article.metadata and article.metadata.get('training_category') == 'rejected' %}
+                                {% elif article.article_metadata and article.article_metadata.get('training_category') == 'rejected' %}
                                     <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
                                         ❌ Rejected
                                     </span>
@@ -361,9 +361,9 @@
                                     </span>
                                 {% endif %}
                             </span>
-                            {% if article.metadata and article.metadata.get('threat_hunting_score') is not none %}
+                            {% if article.article_metadata and article.article_metadata.get('threat_hunting_score') is not none %}
                             <span>Threat Hunting Score: 
-                                {% set score = article.metadata.get('threat_hunting_score', 0) %}
+                                {% set score = article.article_metadata.get('threat_hunting_score', 0) %}
                                 {% if score >= 80 %}
                                     <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
                                         🎯 {{ "%.1f"|format(score) }}
@@ -383,9 +383,9 @@
                                 {% endif %}
                             </span>
                             {% endif %}
-                            {% if article.metadata and article.metadata.get('annotation_count') is not none %}
+                            {% if article.article_metadata and article.article_metadata.get('annotation_count') is not none %}
                             <span>Annotations: 
-                                {% set annotation_count = article.metadata.get('annotation_count', 0) %}
+                                {% set annotation_count = article.article_metadata.get('annotation_count', 0) %}
                                 {% if annotation_count > 0 %}
                                     <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
                                         📝 {{ annotation_count }}
@@ -400,44 +400,44 @@
                         </div>
 
                         <!-- Keyword Matches (Compact) -->
-                        {% if article.metadata and (article.metadata.get('perfect_keyword_matches') or article.metadata.get('good_keyword_matches') or article.metadata.get('lolbas_matches')) %}
+                        {% if article.article_metadata and (article.article_metadata.get('perfect_keyword_matches') or article.article_metadata.get('good_keyword_matches') or article.article_metadata.get('lolbas_matches')) %}
                         <div class="mb-3">
                             <div class="flex flex-wrap gap-1">
-                                {% if article.metadata.get('perfect_keyword_matches') %}
-                                    {% for keyword in article.metadata.get('perfect_keyword_matches', [])[:3] %}
+                                {% if article.article_metadata.get('perfect_keyword_matches') %}
+                                    {% for keyword in article.article_metadata.get('perfect_keyword_matches', [])[:3] %}
                                     <span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800" title="Perfect Discriminator">
                                         ✅ {{ keyword }}
                                     </span>
                                     {% endfor %}
-                                    {% if article.metadata.get('perfect_keyword_matches', [])|length > 3 %}
-                                    <span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
-                                        +{{ article.metadata.get('perfect_keyword_matches', [])|length - 3 }}
+                                    {% if article.article_metadata.get('perfect_keyword_matches', [])|length > 3 %}
+                                        <span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
+                                            +{{ article.article_metadata.get('perfect_keyword_matches', [])|length - 3 }}
                                     </span>
                                     {% endif %}
                                 {% endif %}
                                 
-                                {% if article.metadata.get('good_keyword_matches') %}
-                                    {% for keyword in article.metadata.get('good_keyword_matches', [])[:2] %}
+                                {% if article.article_metadata.get('good_keyword_matches') %}
+                                    {% for keyword in article.article_metadata.get('good_keyword_matches', [])[:2] %}
                                     <span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-800" title="Good Discriminator">
                                         🟡 {{ keyword }}
                                     </span>
                                     {% endfor %}
-                                    {% if article.metadata.get('good_keyword_matches', [])|length > 2 %}
-                                    <span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-800">
-                                        +{{ article.metadata.get('good_keyword_matches', [])|length - 2 }}
+                                    {% if article.article_metadata.get('good_keyword_matches', [])|length > 2 %}
+                                        <span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-800">
+                                            +{{ article.article_metadata.get('good_keyword_matches', [])|length - 2 }}
                                     </span>
                                     {% endif %}
                                 {% endif %}
                                 
-                                {% if article.metadata.get('lolbas_matches') %}
-                                    {% for keyword in article.metadata.get('lolbas_matches', [])[:2] %}
+                                {% if article.article_metadata.get('lolbas_matches') %}
+                                    {% for keyword in article.article_metadata.get('lolbas_matches', [])[:2] %}
                                     <span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800" title="LOLBAS Executable">
                                         🔧 {{ keyword }}
                                     </span>
                                     {% endfor %}
-                                    {% if article.metadata.get('lolbas_matches', [])|length > 2 %}
-                                    <span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
-                                        +{{ article.metadata.get('lolbas_matches', [])|length - 2 }}
+                                    {% if article.article_metadata.get('lolbas_matches', [])|length > 2 %}
+                                        <span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
+                                            +{{ article.article_metadata.get('lolbas_matches', [])|length - 2 }}
                                     </span>
                                     {% endif %}
                                 {% endif %}
@@ -738,21 +738,21 @@
     
     function updateCurrentClassification(article) {
         const classificationDiv = document.getElementById('currentClassification');
-        const category = article.metadata?.training_category;
+        const category = article.article_metadata?.training_category;
         
         if (category === 'chosen') {
             classificationDiv.innerHTML = `
                 <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
                     ✅ Chosen
                 </span>
-                ${article.metadata?.training_reason ? `<div class="mt-1 text-xs text-gray-500">Reason: ${article.metadata.training_reason}</div>` : ''}
+                ${article.article_metadata?.training_reason ? `<div class="mt-1 text-xs text-gray-500">Reason: ${article.article_metadata.training_reason}</div>` : ''}
             `;
         } else if (category === 'rejected') {
             classificationDiv.innerHTML = `
                 <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
                     ❌ Rejected
                 </span>
-                ${article.metadata?.training_reason ? `<div class="mt-1 text-xs text-gray-500">Reason: ${article.metadata.training_reason}</div>` : ''}
+                ${article.article_metadata?.training_reason ? `<div class="mt-1 text-xs text-gray-500">Reason: ${article.article_metadata.training_reason}</div>` : ''}
             `;
         } else {
             classificationDiv.innerHTML = `

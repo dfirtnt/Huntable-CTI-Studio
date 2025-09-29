@@ -1,3 +1,7 @@
+# CTI Scraper Dependencies
+# Pinned versions for reproducible builds
+# Last updated: 2025-09-29
+
 # Core scraping and processing
 requests==2.32.5
 aiohttp==3.12.15
@@ -6,7 +10,6 @@ beautifulsoup4==4.13.5
 lxml==5.3.0
 feedparser==6.0.12
 extruct==0.16.0
-# readability-lxml==0.3.0  # Disabled - using enhanced HTML cleaning instead
 iocextract==1.16.1
 
 # Data processing and storage
@@ -28,10 +31,7 @@ redis==5.2.1
 
 # Classification and ML
 scikit-learn==1.7.2
-# Machine learning and embeddings
-sentence-transformers==3.1.0
 ollama==0.3.1
-pgvector==0.3.4
 lightgbm==4.6.0
 joblib==1.5.2
 
