@@ -200,8 +200,7 @@ class ContentProcessor:
             # Create processed article with content hash
             processed_article = ArticleCreate(
                 source_id=article.source_id,
-                url=article.url,
-                canonical_url=(article.canonical_url or article.url).strip(),
+                canonical_url=article.canonical_url.strip(),
                 title=normalized_title,
                 published_at=article.published_at,
                 modified_at=article.modified_at,

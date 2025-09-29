@@ -119,7 +119,7 @@ class DeduplicationService:
             content_hash=content_hash,
             simhash=simhash,
             simhash_bucket=bucket,
-            article_metadata=article.metadata,
+            article_metadata=article.article_metadata,
             quality_score=article.quality_score,
             created_at=datetime.utcnow(),
             updated_at=datetime.utcnow()
@@ -240,7 +240,7 @@ class AsyncDeduplicationService:
             content_hash=content_hash,
             simhash=simhash,
             simhash_bucket=bucket,
-            article_metadata=article.metadata,
+            article_metadata=article.article_metadata,
             created_at=datetime.utcnow(),
             updated_at=datetime.utcnow()
         )

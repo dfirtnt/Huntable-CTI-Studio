@@ -24,21 +24,25 @@ class RSSParser:
     async def parse_feed(self, source: Source) -> List[ArticleCreate]:
         """
         Parse RSS/Atom feed and extract articles.
-        
+
         Args:
             source: Source configuration with RSS URL
-            
+
         Returns:
             List of ArticleCreate objects
-            
+
         Raises:
             Exception: If feed cannot be fetched or parsed
         """
         if not source.rss_url:
             raise ValueError(f"Source {source.identifier} has no RSS URL")
-        
+
         logger.info(f"Parsing RSS feed for {source.name}: {source.rss_url}")
-        
+
+        # Configure robots.txt settings if available
+        if isinstance(source.config, dict) and 'robots' in source.config:
+            self.http_client.configure_source_robots(source.identifier, source.config['robots'])
+
         try:
             # Fetch RSS feed with source-specific robots configuration
             response = await self.http_client.get(

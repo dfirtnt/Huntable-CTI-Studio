@@ -46,7 +46,7 @@ sources:
       post_url_regex: ["^https://www\\.picussecurity\\.com/resource/.*"]
       robots:
         enabled: true
-        user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:138.0) Gecko/20100101 Firefox/138.0"
+        user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
         respect_delay: true
         max_requests_per_minute: 10
         crawl_delay: 1.0
@@ -75,7 +75,7 @@ sources:
       post_url_regex: ["^https://www\\.vmray\\.com/blog/.*"]
       robots:
         enabled: true
-        user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:138.0) Gecko/20100101 Firefox/138.0"
+        user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
         respect_delay: true
         max_requests_per_minute: 10
         crawl_delay: 1.0
@@ -103,7 +103,7 @@ sources:
       post_url_regex: ["^https://www\\.group-ib\\.com/blog/.*"]
       robots:
         enabled: true
-        user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:138.0) Gecko/20100101 Firefox/138.0"
+        user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
         respect_delay: true
         max_requests_per_minute: 5  # Conservative rate limiting
         crawl_delay: 3.0
@@ -144,7 +144,7 @@ sources:
       post_url_regex: ["^https://blog\\.talosintelligence\\.com/.*"]
       robots:
         enabled: true
-        user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:138.0) Gecko/20100101 Firefox/138.0"
+        user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
         respect_delay: true
         max_requests_per_minute: 10
         crawl_delay: 1.0
@@ -173,7 +173,7 @@ sources:
       post_url_regex: ["^https://www\\.huntress\\.com/blog/.*"]
       robots:
         enabled: true
-        user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:138.0) Gecko/20100101 Firefox/138.0"
+        user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
         respect_delay: true
         max_requests_per_minute: 8
         crawl_delay: 2.0
@@ -198,7 +198,7 @@ sources:
       post_url_regex: ["^https://www\\.mandiant\\.com/resources/blog/.*"]
       robots:
         enabled: true
-        user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:138.0) Gecko/20100101 Firefox/138.0"
+        user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
         respect_delay: true
         max_requests_per_minute: 6
         crawl_delay: 3.0
@@ -312,7 +312,7 @@ sources:
       post_url_regex: ["^https://www\\.microsoft\\.com/en-us/security/blog/.*"]
       robots:
         enabled: true
-        user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:138.0) Gecko/20100101 Firefox/138.0"
+        user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
         respect_delay: true
         max_requests_per_minute: 5
         crawl_delay: 4.0
@@ -340,7 +340,7 @@ sources:
       post_url_regex: ["^https://techcommunity\\.microsoft\\.com/.*"]
       robots:
         enabled: true
-        user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:138.0) Gecko/20100101 Firefox/138.0"
+        user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
         respect_delay: true
         max_requests_per_minute: 6
         crawl_delay: 3.0
@@ -368,7 +368,7 @@ sources:
       post_url_regex: ["^https://socprime\\.com/blog/.*"]
       robots:
         enabled: true
-        user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:138.0) Gecko/20100101 Firefox/138.0"
+        user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
         respect_delay: true
         max_requests_per_minute: 8
         crawl_delay: 2.0
@@ -414,7 +414,7 @@ sources:
       post_url_regex: ["^https://blog\\.sekoia\\.io/.*"]
       robots:
         enabled: false  # Disable robots.txt checking for RSS-only
-        user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:138.0) Gecko/20100101 Firefox/138.0"
+        user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
         respect_delay: false
         max_requests_per_minute: 0  # No web scraping
         crawl_delay: 0.0
@@ -577,7 +577,7 @@ sources:
       post_url_regex: ["^https://thedfirreport\\.com/.*"]
       robots:
         enabled: true
-        user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:138.0) Gecko/20100101 Firefox/138.0"
+        user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
         respect_delay: true
         max_requests_per_minute: 10
         crawl_delay: 1.0
@@ -629,7 +629,7 @@ sources:
       post_url_regex: ["^https://www\\.mandiant\\.com/resources/blog/.*"]
       robots:
         enabled: true
-        user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:138.0) Gecko/20100101 Firefox/138.0"
+        user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
         respect_delay: true
         max_requests_per_minute: 6
         crawl_delay: 3.0
@@ -664,114 +664,58 @@ sources:
       min_content_length: 2000
     description: "Detection-focused research with actionable hunting techniques and IOCs"
 
-  # CISA Cybersecurity Advisories
-  - id: "cisa_cybersecurity_advisories"
-    name: "CISA Cybersecurity Advisories"
+
+  # CISA Analysis Reports - Uses comprehensive All Advisories feed with analysis reports filtering
+  - id: "cisa_analysis_reports"
+    name: "CISA Analysis Reports"
     url: "https://www.cisa.gov/news-events/cybersecurity-advisories"
-    rss_url: "https://www.cisa.gov/news-events/cybersecurity-advisories/feed"
+    rss_url: "https://www.cisa.gov/cybersecurity-advisories/all.xml"  # Comprehensive feed with analysis reports
     check_frequency: 1800  # 30 minutes
     active: true
     config:
       allow: ["cisa.gov"]
-      post_url_regex: ["^https://www\\.cisa\\.gov/news-events/cybersecurity-advisories/.*"]
+      post_url_regex: ["^https://www\\.cisa\\.gov/news-events/analysis-reports/.*"]  # Filter for analysis reports only
       robots:
         enabled: true
-        user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:138.0) Gecko/20100101 Firefox/138.0"
+        user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
         respect_delay: true
         max_requests_per_minute: 5
-        crawl_delay: 4.0
+        crawl_delay: 3.0
       min_content_length: 2000
       extract:
         prefer_jsonld: true
         title_selectors: ["h1", "meta[property='og:title']::attr(content)"]
-        date_selectors: 
+        date_selectors:
           - "meta[property='article:published_time']::attr(content)"
           - "time[datetime]::attr(datetime)"
         body_selectors: ["article", "main", ".content", ".post-content", ".advisory-content"]
         author_selectors: ["meta[name='author']::attr(content)", ".author-name"]
-      min_content_length: 2000
-    description: "Official CISA cybersecurity advisories and threat intelligence"
+    description: "CISA Analysis Reports - In-depth malware analysis and threat intelligence from the comprehensive CISA advisories feed"
 
-  # CISA Directives
-  - id: "cisa_directives"
-    name: "CISA Directives"
-    url: "https://www.cisa.gov/news-events/directives"
-    rss_url: null  # RSS feed returns 404
-    check_frequency: 1800  # 30 minutes
-    active: true
-    config:
-      allow: ["cisa.gov"]
-      post_url_regex: ["^https://www\\.cisa\\.gov/news-events/directives/.*"]
-      robots:
-        enabled: true
-        user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:138.0) Gecko/20100101 Firefox/138.0"
-        respect_delay: true
-        max_requests_per_minute: 5
-        crawl_delay: 4.0
-      min_content_length: 1000  # Reduced from 2000
-      rss_only: false  # Force web scraping since RSS is broken
-      extract:
-        prefer_jsonld: true
-        title_selectors: ["h1", "meta[property='og:title']::attr(content)"]
-        date_selectors: 
-          - "meta[property='article:published_time']::attr(content)"
-          - "time[datetime]::attr(datetime)"
-        body_selectors: ["article", "main", ".content", ".post-content", ".directive-content"]
-        author_selectors: ["meta[name='author']::attr(content)", ".author-name"]
-    description: "Official CISA cybersecurity directives and guidance"
-
-  # CISA Analysis Reports
-  - id: "cisa_analysis_reports"
-    name: "CISA Analysis Reports"
-    url: "https://www.cisa.gov/news-events/cybersecurity-advisories?f%5B0%5D=advisory_type%3A65"
-    check_frequency: 3600  # 1 hour
-    active: true
-    config:
-      allow: ["cisa.gov"]
-      post_url_regex: ["^https://www\\.cisa\\.gov/news-events/cybersecurity-advisories/.*"]
-      robots:
-        enabled: true
-        user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:138.0) Gecko/20100101 Firefox/138.0"
-        respect_delay: true
-        max_requests_per_minute: 5
-        crawl_delay: 2.0
-      min_content_length: 2000
-      title_filter_keywords: ["webinar", "training", "careers", "job posting", "event", "podcast", "newsletter"]
-      content_filter_keywords: [
-        "analysis", "report", "malware", "threat", "actor", "campaign", "ioc", "ttp",
-        "exploit", "vulnerability", "backdoor", "ransomware", "apt", "nation-state",
-        "mar-", "technical", "remediation", "mitigation", "detection"
-      ]
-      require_threat_intel_keywords: true
-      extract:
-        prefer_jsonld: true
-        title_selectors: ["h1", "meta[property='og:title']::attr(content)"]
-        date_selectors: 
-          - "meta[property='article:published_time']::attr(content)"
-          - "time[datetime]::attr(datetime)"
-        body_selectors: ["article", "main", ".content", ".post-content", ".blog-content"]
-        author_selectors: ["meta[name='author']::attr(content)", ".author-name"]
-      min_content_length: 2000
-    description: "CISA Analysis Reports - In-depth analysis of new or evolving cyber threats with technical details and remediations"
-
-  # Assetnote Research
+  # Assetnote Research - Updated to new location with discovery configuration
   - id: "assetnote_research"
     name: "Assetnote Research"
-    url: "https://blog.assetnote.io/"
-    rss_url: "https://blog.assetnote.io/feed.xml"
+    url: "https://www.assetnote.io/resources/research/"
+    rss_url: null  # No RSS feed available at new location
     check_frequency: 1800  # 30 minutes
     active: true
     config:
-      allow: ["blog.assetnote.io"]
-      post_url_regex: ["^https://blog\\.assetnote\\.io/.*"]
+      allow: ["www.assetnote.io"]
+      post_url_regex: ["^https://www\\.assetnote\\.io/resources/research/.*"]
       robots:
         enabled: true
-        user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:138.0) Gecko/20100101 Firefox/138.0"
+        user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
         respect_delay: true
         max_requests_per_minute: 6
         crawl_delay: 3.0
-      min_content_length: 1000  # Reduced from 2000 to be more permissive
-      rss_only: false  # Explicitly enable web scraping fallback
+      min_content_length: 1000
+      rss_only: false
+      discovery:
+        strategies:
+          - listing:
+              urls: ["https://www.assetnote.io/resources/research/"]
+              max_pages: 3
+              post_link_selector: 'a[href*="/resources/research/"]'
       extract:
         prefer_jsonld: true
         title_selectors: ["h1", "meta[property='og:title']::attr(content)", ".post-title", ".entry-title"]
@@ -792,7 +736,7 @@ sources:
           ".content"
         ]
         author_selectors: ["meta[name='author']::attr(content)", ".author-name", ".post-author"]
-    description: "In-depth security research and vulnerability analysis (RSS + web scraping fallback)"
+    description: "In-depth security research and vulnerability analysis - updated to new Assetnote location with modern discovery"
 
 
   # ESET WeLiveSecurity
@@ -807,7 +751,7 @@ sources:
       post_url_regex: ["^https://www\\.welivesecurity\\.com/.*"]
       robots:
         enabled: true
-        user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:138.0) Gecko/20100101 Firefox/138.0"
+        user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
         respect_delay: true
         max_requests_per_minute: 8
         crawl_delay: 2.0
@@ -836,7 +780,7 @@ sources:
       post_url_regex: ["^https://www\\.ncsc\\.gov\\.uk/news/.*"]
       robots:
         enabled: true
-        user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:138.0) Gecko/20100101 Firefox/138.0"
+        user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
         respect_delay: true
         max_requests_per_minute: 5
         crawl_delay: 4.0
@@ -865,7 +809,7 @@ sources:
       post_url_regex: ["^https://us-cert\\.cisa\\.gov/.*"]
       robots:
         enabled: true
-        user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:138.0) Gecko/20100101 Firefox/138.0"
+        user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
         respect_delay: true
         max_requests_per_minute: 5
         crawl_delay: 4.0
@@ -894,7 +838,7 @@ sources:
       post_url_regex: ["^https://media\\.defense\\.gov/.*"]
       robots:
         enabled: true
-        user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:138.0) Gecko/20100101 Firefox/138.0"
+        user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
         respect_delay: true
         max_requests_per_minute: 3
         crawl_delay: 6.0
@@ -923,7 +867,7 @@ sources:
       post_url_regex: ["^https://research\\.splunk\\.com/.*"]
       robots:
         enabled: true
-        user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:138.0) Gecko/20100101 Firefox/138.0"
+        user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
         respect_delay: true
         max_requests_per_minute: 8
         crawl_delay: 2.0
@@ -952,7 +896,7 @@ sources:
       post_url_regex: ["^https://symantec-enterprise-blogs\\.security\\.com/.*"]
       robots:
         enabled: true
-        user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:138.0) Gecko/20100101 Firefox/138.0"
+        user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
         respect_delay: true
         max_requests_per_minute: 8
         crawl_delay: 2.0

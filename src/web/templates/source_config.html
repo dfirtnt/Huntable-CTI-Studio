@@ -478,6 +478,51 @@
                                 </div>
                             </div>
                         </details>
+
+                        <details id="discoverySection" class="rounded-lg border border-gray-200">
+                            <summary class="cursor-pointer px-4 py-3 text-sm font-semibold text-gray-800 bg-gray-50 flex items-center justify-between">
+                                <span>Discovery Configuration</span>
+                                <span class="text-xs font-medium text-indigo-600">For sources without RSS feeds</span>
+                            </summary>
+                            <div class="px-4 py-4 space-y-4">
+                                <div class="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
+                                    <p class="text-sm text-blue-800">
+                                        <strong>Discovery Configuration:</strong> Required for sources without RSS feeds.
+                                        The system will scan these URLs to find article links using the specified selector.
+                                    </p>
+                                </div>
+                                <div>
+                                    <label for="discoveryUrls" class="flex items-center gap-2 text-sm font-medium text-gray-700">
+                                        <span>Discovery URLs</span>
+                                        <span class="tooltip">
+                                            <button type="button" class="tooltip-trigger" data-tooltip-role="trigger" aria-label="Discovery URLs help">?</button>
+                                            <span class="tooltip-content">URLs to scan for article links. Typically the main blog/news page. The system will look for links matching your URL patterns.</span>
+                                        </span>
+                                    </label>
+                                    <textarea id="discoveryUrls" rows="3" placeholder="https://example.com/blog&#10;https://example.com/news" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"></textarea>
+                                </div>
+                                <div>
+                                    <label for="postLinkSelector" class="flex items-center gap-2 text-sm font-medium text-gray-700">
+                                        <span>Post Link Selector</span>
+                                        <span class="tooltip">
+                                            <button type="button" class="tooltip-trigger" data-tooltip-role="trigger" aria-label="Post link selector help">?</button>
+                                            <span class="tooltip-content">CSS selector to find article links on discovery pages. Example: a[href*="/blog/"] finds all links containing "/blog/"</span>
+                                        </span>
+                                    </label>
+                                    <input id="postLinkSelector" type="text" placeholder='a[href*="/blog/"]' class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500" />
+                                </div>
+                                <div>
+                                    <label for="maxDiscoveryPages" class="flex items-center gap-2 text-sm font-medium text-gray-700">
+                                        <span>Max Pages to Scan</span>
+                                        <span class="tooltip">
+                                            <button type="button" class="tooltip-trigger" data-tooltip-role="trigger" aria-label="Max discovery pages help">?</button>
+                                            <span class="tooltip-content">Maximum number of pages to scan during discovery. Keep low to avoid overwhelming the target site.</span>
+                                        </span>
+                                    </label>
+                                    <input id="maxDiscoveryPages" type="number" min="1" max="10" value="1" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500" />
+                                </div>
+                            </div>
+                        </details>
                     </form>
                 </div>
             </div>
@@ -600,6 +645,21 @@ function populateForm(data) {
     getInput('authorSelectors').value = serializeList(extract.author_selectors);
     getInput('contentSelector').value = config.content_selector || '';
 
+    // Discovery configuration
+    const discovery = config.discovery || {};
+    const discoveryStrategy = discovery.strategies && discovery.strategies[0] && discovery.strategies[0].listing || {};
+    getInput('discoveryUrls').value = serializeList(discoveryStrategy.urls);
+    getInput('postLinkSelector').value = discoveryStrategy.post_link_selector || '';
+    getInput('maxDiscoveryPages').value = discoveryStrategy.max_pages || 1;
+
+    // Auto-open discovery section if no RSS URL
+    const discoverySection = document.getElementById('discoverySection');
+    if (!data.rss_url || data.rss_url.trim() === '') {
+        discoverySection.setAttribute('open', '');
+    } else {
+        discoverySection.removeAttribute('open');
+    }
+
     titleEl.textContent = data.name || 'Unnamed source';
     subtitleEl.textContent = data.url || '';
 }
@@ -645,6 +705,15 @@ function buildPayload() {
             date_selectors: parseList(getInput('dateSelectors').value),
             body_selectors: parseList(getInput('bodySelectors').value),
             author_selectors: parseList(getInput('authorSelectors').value)
+        },
+        discovery: {
+            strategies: [{
+                listing: {
+                    urls: parseList(getInput('discoveryUrls').value),
+                    post_link_selector: getInput('postLinkSelector').value,
+                    max_pages: getInput('maxDiscoveryPages').value ? Number(getInput('maxDiscoveryPages').value) : 1
+                }
+            }]
         },
         content_selector: getInput('contentSelector').value
     };
@@ -760,6 +829,17 @@ async function saveSourceConfig() {
     if (regexIssues.length) {
         showAlert(`Fix regex issues before saving:\n${regexIssues.join('\n')}`, 'error');
         return;
+    }
+
+    // Source health validation
+    const rssUrl = payload.rss_url && payload.rss_url.trim();
+    const discoveryUrls = payload?.config?.discovery?.strategies?.[0]?.listing?.urls || [];
+    const hasValidDiscovery = discoveryUrls.length > 0 && payload?.config?.discovery?.strategies?.[0]?.listing?.post_link_selector;
+
+    if (!rssUrl && !hasValidDiscovery) {
+        if (!confirm('⚠️ Warning: This source has no RSS feed and no discovery configuration.\n\nWithout either RSS or discovery settings, this source will not collect any articles.\n\nDo you want to save anyway?')) {
+            return;
+        }
     }
 
     try {

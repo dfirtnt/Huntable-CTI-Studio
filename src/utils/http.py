@@ -318,7 +318,13 @@ class HTTPClient:
         request_headers = {}
         if headers:
             request_headers.update(headers)
-        
+
+        # Apply source-specific User-Agent if configured
+        if source_id:
+            source_config = self.robots_checker.source_configs.get(source_id, {})
+            if source_config.get('user_agent'):
+                request_headers['User-Agent'] = source_config['user_agent']
+
         # Add conditional headers
         if use_conditional:
             conditional_headers = self.conditional_cache.get_headers(url)
