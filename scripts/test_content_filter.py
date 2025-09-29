@@ -10,6 +10,7 @@ import sys
 import os
 import asyncio
 import logging
+import pytest
 from pathlib import Path
 
 # Add src to path for imports
@@ -26,6 +27,7 @@ def setup_logging():
     )
     return logging.getLogger(__name__)
 
+@pytest.mark.asyncio
 async def test_content_filter():
     """Test the content filtering system."""
     logger = setup_logging()
@@ -116,6 +118,7 @@ async def test_content_filter():
     
     logger.info("\nContent filtering test completed successfully!")
 
+@pytest.mark.asyncio
 async def test_ml_model():
     """Test ML model training and prediction."""
     logger = setup_logging()

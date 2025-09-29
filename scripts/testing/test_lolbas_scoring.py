@@ -115,23 +115,23 @@ def test_threat_hunting_scoring_with_lolbas():
         # Technical Depth Score: {result['technical_depth_score']}/30
         
         if result['perfect_keyword_matches']:
-            # Perfect Keywords: {', '.join(result['perfect_keyword_matches'])}
+            print(f"Perfect Keywords: {', '.join(result['perfect_keyword_matches'])}")
         
         if result['good_keyword_matches']:
-            # Good Keywords: {', '.join(result['good_keyword_matches'])}
+            print(f"Good Keywords: {', '.join(result['good_keyword_matches'])}")
         
         if result['lolbas_matches']:
-            # LOLBAS Executables: {', '.join(result['lolbas_matches'])}
+            print(f"LOLBAS Executables: {', '.join(result['lolbas_matches'])}")
         
         # Score interpretation
         if result['threat_hunting_score'] >= 80:
-            # 🎯 EXCELLENT - High-quality threat hunting content
+            print("🎯 EXCELLENT - High-quality threat hunting content")
         elif result['threat_hunting_score'] >= 60:
-            # 🟡 GOOD - Decent threat hunting content
+            print("🟡 GOOD - Decent threat hunting content")
         elif result['threat_hunting_score'] >= 40:
-            # 🟠 FAIR - Some threat hunting elements
+            print("🟠 FAIR - Some threat hunting elements")
         else:
-            # 🔴 POOR - Limited threat hunting value
+            print("🔴 POOR - Limited threat hunting value")
 
 if __name__ == "__main__":
     test_threat_hunting_scoring_with_lolbas()

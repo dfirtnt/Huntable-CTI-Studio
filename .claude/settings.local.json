@@ -25,7 +25,8 @@
       "Bash(find:*)",
       "Bash(docker restart:*)",
       "Bash(cat:*)",
-      "Bash(awk:*)"
+      "Bash(awk:*)",
+      "Bash(grep:*)"
     ],
     "deny": [],
     "ask": []
