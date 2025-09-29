@@ -5,7 +5,6 @@
 - **Lead with Conclusion**: State most important information first, evidence second.
 - **Structured Data**: Use lists, tables, code blocks over prose.
 - **Report Facts**: State plan, action, result. Avoid describing internal process.
-- **No Sycophantic Language**: Never use "You're absolutely right!", "Excellent point!" or similar flattery.
 - **Brief Acknowledgments Only**: "Got it.", "I understand." - only when confirming technical requirements.
 
 ## Operational Doctrine
@@ -125,6 +124,3 @@
 - User interface (navigation, forms, interactions)
 - Performance (page load times, responsiveness)
 - Accessibility (basic compliance)
-
-## User Preferences
-- **Communication**: Concise, technical responses
