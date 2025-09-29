@@ -428,6 +428,12 @@ class ModernScraper:
                 logger.warning(f"Content validation issues for {url}: {issues}")
                 # Continue anyway unless critical issues
             
+            # Generate required fields
+            from src.utils.content import ContentCleaner
+            content_hash = ContentCleaner.calculate_content_hash(article_data['title'], article_data['content'])
+            word_count = len(article_data['content'].split()) if article_data['content'] else 0
+            collected_at = datetime.utcnow()
+            
             # Build article
             article = ArticleCreate(
                 source_id=source.id,
@@ -435,7 +441,10 @@ class ModernScraper:
                 canonical_url=article_data.get('canonical_url', url),
                 title=article_data['title'],
                 published_at=article_data.get('published_at') or datetime.utcnow(),
-                content=article_data['content']
+                content=article_data['content'],
+                content_hash=content_hash,
+                word_count=word_count,
+                collected_at=collected_at
             )
             
             return article

@@ -491,7 +491,7 @@ def _is_garbage_content(content: str) -> bool:
     # Check for binary-like patterns (very permissive - only flag truly problematic sequences)
     binary_patterns = [
         r'[\x00-\x08\x0B\x0C\x0E-\x1F\x7F-\xFF]{10,}',  # Control characters and high-bit chars in long sequences
-        r'[^\w\s\.\,\;\:\!\?\(\)\-\+\=\<\>\/\"\'\[\]\{\}\|\\\~\#\$\%\^\&\*\_\`]{8,}',  # Very long sequences of truly unusual chars
+        r'[^\w\s\.\,\;\:\!\?\(\)\-\+\=\<\>\/\"\'\[\]\{\}\|\\\~\#\$\%\^\&\*\_\`\@]{15,}',  # Very long sequences of truly unusual chars
     ]
     
     import re

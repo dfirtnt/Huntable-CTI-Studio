@@ -214,6 +214,7 @@ class ContentProcessor:
                 word_count=word_count,
                 content_length=len(normalized_content),
                 content_hash=content_hash,
+                collected_at=article.collected_at,
                 threat_hunting_score=article.threat_hunting_score,
                 classification=article.classification
             )

@@ -48,7 +48,9 @@ class ArticleCreate(BaseModel):
     content_length: Optional[int] = None
     collected_at: datetime
     processing_status: str = "pending"
-
+    quality_score: Optional[float] = None
+    threat_hunting_score: Optional[float] = None
+    classification: Optional[str] = None
 
 class ArticleUpdate(BaseModel):
     """Article model for updates."""
