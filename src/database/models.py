@@ -38,7 +38,6 @@ class SourceTable(Base):
     total_articles = Column(Integer, nullable=False, default=0)
     
     # Health metrics
-    success_rate = Column(Float, nullable=False, default=0.0)
     average_response_time = Column(Float, nullable=False, default=0.0)
     
     # Timestamps

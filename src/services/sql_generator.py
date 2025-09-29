@@ -61,7 +61,6 @@ SOURCES table:
 - last_success (timestamp)
 - consecutive_failures (integer)
 - total_articles (integer)
-- success_rate (double precision)
 - average_response_time (double precision)
 - created_at (timestamp)
 - updated_at (timestamp)

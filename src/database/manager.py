@@ -405,7 +405,6 @@ class DatabaseManager:
                 last_check=db_source.last_check,
                 last_success=db_source.last_success,
                 consecutive_failures=db_source.consecutive_failures,
-                success_rate=db_source.success_rate,
                 average_response_time=db_source.average_response_time,
                 total_articles=db_source.total_articles
             )
