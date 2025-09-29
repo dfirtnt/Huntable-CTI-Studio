@@ -139,7 +139,8 @@ WORKERS=4
 ### Source Configuration
 
 - **Primary workflow**: Use the `Source Config` tab in the web UI to create or edit sources. Changes apply directly to PostgreSQL and persist across restarts.
-- **Bootstrap file**: `config/sources.yaml` seeds the database only when no sources exist. Keep it updated for fresh deployments, but it no longer overwrites live edits.
+- **Bootstrap file**: `config/sources.yaml` seeds the database only when no sources exist (all-or-nothing). Keep it updated for fresh deployments, but it no longer overwrites live edits.
+- **Manual sync**: Run `python -m src.cli.main sync-sources --config config/sources.yaml` for partial updates (existing sources get updated, new ones get created, missing ones optionally removed).
 - **Manual reset**: Run `python -m src.cli.main sync-sources --config config/sources.yaml` if you intentionally want to replace database rows with the YAML contents.
 
 ## 🏗️ Architecture
