@@ -35,6 +35,8 @@ sources:
   #   description: "High-quality threat hunting content with technical depth and actionable intelligence (Web scraping only)"
 
   # Picus Security Blog (No RSS - Web Scraping Only)
+  # Fixed 2025-09-29: Updated post_url_regex to only match /resource/blog/* URLs
+  # (was matching all /resource/* which included datasheets, reports, webinars)
   - id: "picus_security"
     name: "Picus Security Blog"
     url: "https://www.picussecurity.com/resource/tag/article"
@@ -43,7 +45,7 @@ sources:
     active: true
     config:
       allow: ["picussecurity.com"]
-      post_url_regex: ["^https://www\\.picussecurity\\.com/resource/.*"]
+      post_url_regex: ["^https://www\\.picussecurity\\.com/resource/blog/.*"]  # Only blog articles, not datasheets/reports
       robots:
         enabled: true
         user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
