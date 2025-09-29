@@ -705,8 +705,8 @@ class AsyncDatabaseManager:
                 if not created:
                     logger.info(f"Duplicate article detected: {article.title}")
                     # Update existing article metadata with threat hunting scoring
-                    if article.metadata and 'threat_hunting_score' in article.metadata:
-                        new_article.article_metadata = article.metadata
+                    if article.article_metadata and 'threat_hunting_score' in article.article_metadata:
+                        new_article.article_metadata = article.article_metadata
                         await session.commit()
                         logger.info(f"Updated existing article metadata with threat hunting scoring")
                     # Return the existing article

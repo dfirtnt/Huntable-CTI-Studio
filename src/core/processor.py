@@ -203,19 +203,12 @@ class ContentProcessor:
                 canonical_url=article.canonical_url.strip(),
                 title=normalized_title,
                 published_at=article.published_at,
-                modified_at=article.modified_at,
                 content=normalized_content,
                 summary=summary,
                 authors=list(article.authors),
                 tags=list(article.tags),
-                metadata=enhanced_metadata,
-                quality_score=article.quality_score,
-                word_count=word_count,
-                content_length=len(normalized_content),
-                content_hash=content_hash,
-                collected_at=article.collected_at,
-                threat_hunting_score=article.threat_hunting_score,
-                classification=article.classification
+                article_metadata=enhanced_metadata,
+                content_hash=content_hash
             )
 
             return processed_article
