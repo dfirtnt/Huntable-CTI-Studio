@@ -603,17 +603,24 @@ class RSSParser:
             return True
         
         # Default title filter keywords
+        # Note: Keep these specific to avoid false positives on threat intelligence content
         default_filter_keywords = [
             'job posting', 'careers', 'hiring', 'we are hiring', 'join our team',
-            'press release', 'announcement', 'gartner', 'company news', 'partnership',
+            'press release', 'gartner', 'company news', 'partnership announcement',
             'webinar', 'event', 'conference', 'training', 'workshop',
             'newsletter', 'subscribe', 'unsubscribe', 'privacy policy',
             'terms of service', 'cookie policy', 'about us', 'contact us',
-            'advertisement', 'sponsored', 'promotion', 'sale', 'discount',
-            'product launch', 'new product', 'feature update', 'version',
+            'advertisement', 'sponsored', 'promotion', 'discount',
+            'product launch', 'new product', 'feature update',
             'maintenance', 'downtime', 'scheduled maintenance', 'outage',
-            'trends', 'the state of', 'office hours'
+            'the state of', 'office hours'
         ]
+        # Removed overly generic terms that catch real threat intel:
+        # - 'sale' (catches Salesforce, sales-related threats)
+        # - 'trends' (catches M-Trends, threat trends reports)
+        # - 'announcement' (catches threat/vulnerability announcements)
+        # - 'version' (catches version numbers in CVE/vulnerability titles)
+        # - 'partnership' alone (changed to 'partnership announcement' to be more specific)
         
         # Get source-specific filter keywords if configured
         filter_keywords = default_filter_keywords.copy()
@@ -667,20 +674,34 @@ class RSSParser:
     
     def _get_feed_content(self, entry: Any) -> Optional[str]:
         """Extract content from feed entry."""
+        # DEBUG: Log what we're checking
+        entry_id = getattr(entry, 'id', getattr(entry, 'link', 'unknown'))
+        logger.info(f"DEBUG _get_feed_content: entry={entry_id[:80]}")
+        logger.info(f"  has content={hasattr(entry, 'content')}, has desc={hasattr(entry, 'description')}, has summary={hasattr(entry, 'summary')}")
+
+        if hasattr(entry, 'description'):
+            desc_val = entry.description
+            desc_len = len(desc_val) if desc_val else 0
+            logger.info(f"  description: type={type(desc_val).__name__}, length={desc_len}, first100={str(desc_val)[:100] if desc_val else 'EMPTY'}")
+
         # Try content field first (Atom)
         if hasattr(entry, 'content') and entry.content:
+            logger.debug(f"  Using content field")
             if isinstance(entry.content, list) and entry.content:
                 return entry.content[0].get('value', '')
             return str(entry.content)
-        
+
         # Try description (RSS)
         if hasattr(entry, 'description') and entry.description:
+            logger.debug(f"  Using description field (length: {len(entry.description)})")
             return entry.description
-        
+
         # Try summary
         if hasattr(entry, 'summary') and entry.summary:
+            logger.debug(f"  Using summary field")
             return entry.summary
-        
+
+        logger.warning(f"  NO CONTENT FOUND for entry {entry_id}")
         return None
     
     def _extract_authors(self, entry: Any) -> List[str]:
