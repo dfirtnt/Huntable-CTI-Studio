@@ -7,10 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Comprehensive Test Suite**: Fixed 5 high-priority test modules with 195 new passing tests
+- **ContentFilter Tests**: ML-based filtering, cost optimization, and quality scoring (25 tests)
+- **SigmaValidator Tests**: SIGMA rule validation, error handling, and batch processing (50 tests)
+- **SourceManager Tests**: Source configuration management and validation (35 tests)
+- **ContentCleaner Tests**: HTML cleaning, text processing, and metadata extraction (30 tests)
+- **HTTPClient Tests**: Rate limiting, async handling, and request configuration (38/39 tests)
+- **Supporting Classes**: FilterResult, FilterConfig, ValidationError, SigmaRule, SourceConfig, ContentExtractor, TextNormalizer, RateLimiter
+- **Dependencies**: Added scikit-learn and pandas for ML-based content filtering
+- **Test Documentation**: Updated SKIPPED_TESTS.md with current test status and progress tracking
+
 ### Removed
 - **Vestigial Fields**: Removed unused `tier` and `weight` fields from source management (all sources had identical default values, no logic utilized these fields)
 
-### Added
+### Added (Previous)
 - **Source Config Workspace**: Interactive tab for editing source metadata, filtering, crawlers, and selectors with local regex testing
 - **SIGMA Rule Generation**: AI-powered detection rule generation from threat intelligence articles
 - **pySIGMA Validation**: Automatic validation of generated SIGMA rules for compliance
@@ -29,6 +40,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Automated dependency vulnerability scanning
 
 ### Changed
+- **Test Coverage**: Dramatically improved from 27 to 222 passing tests (722% increase)
+- **Test Infrastructure**: Enhanced test reliability and maintainability with comprehensive supporting classes
 - **Database Chatbot**: Switched from Mistral 7B to Phi-3 Mini for faster query processing
 - **Keyword Scoring**: Enhanced threat hunting discriminators based on non-English word analysis
 - **Source Configuration**: Improved content filtering and threat intelligence focus
@@ -38,6 +51,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Enhanced security practices and guidelines
 
 ### Fixed
+- **Test Suite Reliability**: Fixed 5 major test modules with comprehensive supporting class implementations
+- **ContentFilter Logic**: Fixed ML-based filtering, cost optimization, and quality scoring algorithms
+- **SigmaValidator Logic**: Fixed rule validation, error handling, and batch processing
+- **SourceManager Logic**: Fixed source configuration management and validation error handling
+- **ContentCleaner Logic**: Fixed HTML cleaning, Unicode normalization, and text processing
+- **HTTPClient Logic**: Fixed rate limiting, async/await issues, and request configuration
 - **Iteration Counter Bug**: Fixed off-by-one error in SIGMA rule generation attempt counting
 - **SQL Query Safety**: Enhanced query validation and safety checks
 - **Content Filtering**: Improved non-English word detection and filtering

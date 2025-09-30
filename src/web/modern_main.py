@@ -1667,7 +1667,7 @@ async def api_classify_article(article_id: int, request: Request):
         current_metadata['training_categorized_at'] = datetime.now().isoformat()
         
         # Create update object
-        update_data = ArticleUpdate(metadata=current_metadata)
+        update_data = ArticleUpdate(article_metadata=current_metadata)
         
         # Save the updated article
         updated_article = await async_db_manager.update_article(article_id, update_data)

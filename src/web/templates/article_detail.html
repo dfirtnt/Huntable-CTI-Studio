@@ -317,12 +317,28 @@
                 Mark as Unclassified
             </button>
             
-            <!-- AI Assistant Button -->
-            <button onclick="showAIAssistant()" 
-                    class="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-colors">
-                <span class="mr-2">🤖</span>
-                AI Assistant
-            </button>
+            <!-- AI Assistant Button with Popover -->
+            <div class="relative inline-block" id="aiAssistantWrapper">
+                <button id="aiAssistantBtn" onclick="showAIAssistant()" 
+                        class="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-colors">
+                    <span class="mr-2">🤖</span>
+                    AI Assistant
+                </button>
+                <!-- Popover explanation -->
+                <div id="aiAssistantPopover" class="absolute z-10 top-full left-0 mt-2 hidden w-64">
+                    <div class="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-md p-3 shadow-lg">
+                        <div class="flex items-start">
+                            <span class="mr-2 mt-0.5">⚠️</span>
+                            <div>
+                                <div class="font-medium">Article too large for AI processing</div>
+                                <div class="text-xs text-amber-600 mt-1" id="popoverContent">
+                                    Loading...
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
         
         <!-- Navigation Buttons -->
@@ -1555,6 +1571,15 @@
         // Get AI model from settings
         const settings = JSON.parse(localStorage.getItem('ctiScraperSettings') || '{}');
         const aiModel = settings.aiModel || 'chatgpt';
+        
+        // Check content size limits
+        const contentLength = {{ article.content|length if article.content else 0 }};
+        const contentLimit = aiModel === 'chatgpt' ? 20000 : 8000;
+        
+        if (contentLength > contentLimit) {
+            showNotification(`Article too large for ${aiModel === 'chatgpt' ? 'ChatGPT' : 'Mistral'}. Content: ${contentLength.toLocaleString()} chars, limit: ${contentLimit.toLocaleString()} chars.`, 'warning');
+            return;
+        }
         
         // Get current article classification
         const currentClassification = localStorage.getItem('currentArticleClassification') || '{{ article.article_metadata.get("training_category", "") }}';
@@ -3371,5 +3396,55 @@
             window.history.replaceState(null, null, window.location.pathname);
         }
     });
+    
+    // Check AI Assistant button state on page load
+    document.addEventListener('DOMContentLoaded', function() {
+        checkAIAssistantButtonState();
+    });
+    
+    function checkAIAssistantButtonState() {
+        const button = document.getElementById('aiAssistantBtn');
+        if (!button) return;
+        
+        // Get AI model from settings
+        const settings = JSON.parse(localStorage.getItem('ctiScraperSettings') || '{}');
+        const aiModel = settings.aiModel || 'chatgpt';
+        
+        // Check content size limits
+        const contentLength = {{ article.content|length if article.content else 0 }};
+        const contentLimit = aiModel === 'chatgpt' ? 20000 : 8000;
+        
+        if (contentLength > contentLimit) {
+            // Disable button and add explanation
+            button.disabled = true;
+            button.className = button.className.replace('bg-purple-600 hover:bg-purple-700', 'bg-gray-400 cursor-not-allowed');
+            button.removeAttribute('title'); // Remove tooltip to avoid grey box
+            
+            // Add warning icon
+            const icon = button.querySelector('span');
+            if (icon) {
+                icon.textContent = '⚠️';
+            }
+            
+            // Update popover content
+            const popover = document.getElementById('aiAssistantPopover');
+            const popoverContent = document.getElementById('popoverContent');
+            if (popover && popoverContent) {
+                popoverContent.textContent = `${contentLength.toLocaleString()} characters (limit: ${contentLimit.toLocaleString()})`;
+                
+                // Add hover event listeners to wrapper
+                const wrapper = document.getElementById('aiAssistantWrapper');
+                if (wrapper) {
+                    wrapper.addEventListener('mouseenter', function() {
+                        popover.classList.remove('hidden');
+                    });
+                    
+                    wrapper.addEventListener('mouseleave', function() {
+                        popover.classList.add('hidden');
+                    });
+                }
+            }
+        }
+    }
 </script>
 {% endblock %}
