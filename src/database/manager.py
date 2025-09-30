@@ -28,6 +28,11 @@ class DatabaseManager:
         pool_size: int = 10,
         max_overflow: int = 20
     ):
+        # Convert asyncpg URLs to psycopg2 for synchronous operations
+        if "+asyncpg" in database_url:
+            database_url = database_url.replace("+asyncpg", "")
+            logger.info("Converted asyncpg URL to psycopg2 for synchronous operations")
+
         self.database_url = database_url
         self.echo = echo
         
@@ -477,7 +482,7 @@ class DatabaseManager:
     
     def _db_source_to_model(self, db_source: SourceTable) -> Source:
         """Convert database source to Pydantic model."""
-        from models.source import SourceConfig
+        from src.models.source import SourceConfig
         
         return Source(
             id=db_source.id,
@@ -490,12 +495,11 @@ class DatabaseManager:
             check_frequency=db_source.check_frequency,
             lookback_days=db_source.lookback_days,
             active=db_source.active,
-            config=SourceConfig.model_validate(db_source.config) if db_source.config else SourceConfig(),
+            config=db_source.config if db_source.config else {},
             last_check=db_source.last_check,
             last_success=db_source.last_success,
             consecutive_failures=db_source.consecutive_failures,
             total_articles=db_source.total_articles,
-            success_rate=db_source.success_rate,
             average_response_time=db_source.average_response_time
         )
     

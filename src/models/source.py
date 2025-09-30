@@ -31,6 +31,10 @@ class SourceUpdate(BaseModel):
     url: Optional[str] = None
     rss_url: Optional[str] = None
     active: Optional[bool] = None
+    lookback_days: Optional[int] = None
+    check_frequency: Optional[int] = None
+    tier: Optional[int] = None
+    weight: Optional[float] = None
     config: Optional[SourceConfig] = None
 
 
