@@ -1334,7 +1334,7 @@
         
         // Check if comment prompts are enabled
         const settings = JSON.parse(localStorage.getItem('ctiScraperSettings') || '{}');
-        const commentPromptsEnabled = settings.commentPromptsEnabled !== false; // Default to true
+        const commentPromptsEnabled = settings.commentPromptsEnabled === true; // Default to false
         
         let reason = null;
         if (commentPromptsEnabled && (category === 'chosen' || category === 'rejected')) {
