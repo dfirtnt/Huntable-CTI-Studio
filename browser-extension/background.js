@@ -50,7 +50,7 @@ chrome.runtime.onInstalled.addListener((details) => {
     if (details.reason === 'install') {
         // Set default configuration
         chrome.storage.local.set({
-            apiUrl: 'http://127.0.0.1:8000',
+            apiUrl: 'http://127.0.0.1:8001',
             forceScrape: false
         });
     }
