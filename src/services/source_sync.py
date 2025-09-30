@@ -57,11 +57,7 @@ class SourceSyncService:
                     name=config.name,
                     url=config.url,
                     rss_url=config.rss_url,
-                    check_frequency=config.check_frequency,
-                    lookback_days=config.lookback_days,
                     active=config.active,
-                    tier=config.tier,
-                    weight=config.weight,
                     config=config.config.model_dump(exclude_none=True) if config.config else {},
                 )
 

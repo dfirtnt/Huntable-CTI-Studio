@@ -43,7 +43,7 @@ async def regenerate_all_threat_hunting_scores():
                     title=article.title,
                     content=article.content,
                     published_at=article.published_at,
-                    metadata=article.metadata or {}
+                    article_metadata=article.article_metadata or {}
                 )
                 
                 # Regenerate threat hunting score
@@ -51,14 +51,14 @@ async def regenerate_all_threat_hunting_scores():
                 
                 if 'threat_hunting_score' in enhanced_metadata:
                     # Update the article in database
-                    if not article.metadata:
-                        article.metadata = {}
+                    if not article.article_metadata:
+                        article.article_metadata = {}
                     
                     # Update threat hunting score and keyword matches
-                    article.metadata['threat_hunting_score'] = enhanced_metadata['threat_hunting_score']
-                    article.metadata['perfect_keyword_matches'] = enhanced_metadata.get('perfect_keyword_matches', [])
-                    article.metadata['good_keyword_matches'] = enhanced_metadata.get('good_keyword_matches', [])
-                    article.metadata['lolbas_matches'] = enhanced_metadata.get('lolbas_matches', [])
+                    article.article_metadata['threat_hunting_score'] = enhanced_metadata['threat_hunting_score']
+                    article.article_metadata['perfect_keyword_matches'] = enhanced_metadata.get('perfect_keyword_matches', [])
+                    article.article_metadata['good_keyword_matches'] = enhanced_metadata.get('good_keyword_matches', [])
+                    article.article_metadata['lolbas_matches'] = enhanced_metadata.get('lolbas_matches', [])
                     
                     # Save the updated article
                     await db.update_article(article.id, article)
@@ -84,7 +84,7 @@ async def regenerate_all_threat_hunting_scores():
         # Verify results
         print(f"\nVerifying results...")
         updated_articles = await db.list_articles()
-        articles_with_score = sum(1 for a in updated_articles if a.metadata and 'threat_hunting_score' in a.metadata)
+        articles_with_score = sum(1 for a in updated_articles if a.article_metadata and 'threat_hunting_score' in a.article_metadata)
         print(f"Articles with threat hunting scores: {articles_with_score}/{len(updated_articles)} ({articles_with_score/len(updated_articles)*100:.1f}%)")
         
         return {
