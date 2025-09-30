@@ -3869,8 +3869,21 @@ async def api_jobs_history(limit: int = 50):
                 logger.warning(f"Failed to parse task data for key {key}: {e}")
                 continue
         
-        # Sort by date_done (most recent first)
-        recent_tasks.sort(key=lambda x: x.get('date_done', ''), reverse=True)
+        # Sort by date_done (most recent first). Some entries may have null/invalid dates.
+        def _parse_dt(value):
+            try:
+                if not value:
+                    return datetime.min
+                # If value is already ISO string, datetime.fromisoformat may work
+                dt = datetime.fromisoformat(str(value))
+                # Normalize to naive UTC-like baseline for safe comparison
+                if dt.tzinfo is not None:
+                    return dt.astimezone(tz=None).replace(tzinfo=None)
+                return dt
+            except Exception:
+                return datetime.min
+
+        recent_tasks.sort(key=lambda x: _parse_dt(x.get('date_done')), reverse=True)
         
         return {
             "status": "success",
