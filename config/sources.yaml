@@ -642,18 +642,6 @@ sources:
         date_selectors: ["meta[property='article:published_time']::attr(content)"]
         body_selectors: ["article", "main", ".content", ".post-content"]
 
-  # SpecterOps Blog (existing)
-  - id: "specterops_blog"
-    name: "SpecterOps Blog"
-    url: "https://posts.specterops.io/"
-    rss_url: "https://posts.specterops.io/feed/"
-    check_frequency: 1800  # 30 minutes - Tier 1 priority
-    active: true
-    config:
-      content_selector: "div.blog-content, article"
-      min_content_length: 2000
-    description: "Advanced adversary tradecraft and detection research - premium huntable intel"
-
   # Red Canary Blog (existing)
   - id: "red_canary_blog"
     name: "Red Canary Blog"
@@ -798,16 +786,16 @@ sources:
       min_content_length: 2000
     description: "US-CERT cybersecurity advisories and alerts"
 
-  # Splunk Security Research
-  - id: "splunk_security_research"
-    name: "Splunk Security Research"
-    url: "https://research.splunk.com/"
-    rss_url: "https://research.splunk.com/rss.xml"  # Updated to working feed URL
+  # Splunk Security Blog
+  - id: "splunk_security_blog"
+    name: "Splunk Security Blog"
+    url: "https://www.splunk.com/en_us/blog/security.html"
+    rss_url: null  # No RSS feed available - web scraping only
     check_frequency: 1800  # 30 minutes
     active: true
     config:
-      allow: ["research.splunk.com"]
-      post_url_regex: ["^https://research\\.splunk\\.com/.*"]
+      allow: ["splunk.com"]
+      post_url_regex: ["^https://www\\.splunk\\.com/en_us/blog/security/.*"]
       robots:
         enabled: true
         user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
@@ -815,17 +803,18 @@ sources:
         max_requests_per_minute: 8
         crawl_delay: 2.0
       min_content_length: 2000
-      title_filter_keywords: ["webinar", "training", "careers", "job posting", "event"]
+      title_filter_keywords: ["webinar", "training", "careers", "job posting", "event", "product news"]
+      rss_only: false  # Force web scraping since no RSS
       extract:
         prefer_jsonld: true
-        title_selectors: ["h1", "meta[property='og:title']::attr(content)"]
+        title_selectors: ["h1", "meta[property='og:title']::attr(content)", ".blog-post-title"]
         date_selectors: 
           - "meta[property='article:published_time']::attr(content)"
           - "time[datetime]::attr(datetime)"
-        body_selectors: ["article", "main", ".content", ".post-content", ".research-content"]
-        author_selectors: ["meta[name='author']::attr(content)", ".author-name"]
-      min_content_length: 2000
-    description: "Splunk security research and threat intelligence"
+          - ".blog-post-date"
+        body_selectors: ["article", "main", ".content", ".post-content", ".blog-content", ".blog-post-content"]
+        author_selectors: ["meta[name='author']::attr(content)", ".author-name", ".blog-author"]
+    description: "Splunk Security Blog - Threat research, security content, and detection engineering"
 
   # Symantec Enterprise Security
   - id: "symantec_enterprise"

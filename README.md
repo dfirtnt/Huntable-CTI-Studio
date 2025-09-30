@@ -108,9 +108,9 @@ If you prefer manual setup or the automated script fails:
    ```
 
 5. **Access the application**
-   - **Web Interface**: http://localhost:8000
-   - **API Documentation**: http://localhost:8000/docs
-   - **Health Check**: http://localhost:8000/health
+   - **Web Interface**: http://localhost:8001
+   - **API Documentation**: http://localhost:8001/docs
+   - **Health Check**: http://localhost:8001/health
 
 ## 📋 Configuration
 
@@ -140,8 +140,8 @@ WORKERS=4
 
 - **Primary workflow**: Use the `Source Config` tab in the web UI to create or edit sources. Changes apply directly to PostgreSQL and persist across restarts.
 - **Bootstrap file**: `config/sources.yaml` seeds the database only when no sources exist (all-or-nothing). Keep it updated for fresh deployments, but it no longer overwrites live edits.
-- **Manual sync**: Run `python -m src.cli.main sync-sources --config config/sources.yaml` for partial updates (existing sources get updated, new ones get created, missing ones optionally removed).
-- **Manual reset**: Run `python -m src.cli.main sync-sources --config config/sources.yaml` if you intentionally want to replace database rows with the YAML contents.
+- **Manual sync**: Run `docker exec cti_worker python -m src.cli.main sync-sources --config config/sources.yaml` for partial updates (existing sources get updated, new ones get created, missing ones optionally removed).
+- **Manual reset**: Run `docker exec cti_worker python -m src.cli.main sync-sources --config config/sources.yaml` if you intentionally want to replace database rows with the YAML contents.
 
 ## 🏗️ Architecture
 
@@ -163,6 +163,18 @@ WORKERS=4
 **Annotation Classification** (Text Chunk Level):
 - `huntable`: Actionable threat intelligence
 - `not_huntable`: Informational content
+
+### Data Model
+
+**Article Metadata Structure:**
+- **Database Field**: `article_metadata` (JSON column in PostgreSQL)
+- **Pydantic Model**: `article_metadata` field in `Article` and `ArticleCreate` models
+- **Key Fields**:
+  - `threat_hunting_score`: Relevance score (0-100)
+  - `perfect_keyword_matches`: Exact keyword matches
+  - `good_keyword_matches`: Partial keyword matches
+  - `lolbas_matches`: Living off the land binaries and scripts
+  - `technical_depth_score`: Technical complexity assessment
 
 ## 🔧 Development
 
@@ -232,11 +244,11 @@ Protect your data with command-line backup and restore tools:
 # Using helper script (recommended)
 ./backup_restore.sh create
 
-# Using CLI command
-python -m src.cli.main backup create
+# Using CLI command (in Docker container)
+docker exec cti_worker python -m src.cli.main backup create
 
-# Using direct script
-python scripts/backup_database.py
+# Using direct script (in Docker container)
+docker exec cti_worker python scripts/backup_database.py
 ```
 
 **List Backups:**
@@ -244,11 +256,11 @@ python scripts/backup_database.py
 # Using helper script
 ./backup_restore.sh list
 
-# Using CLI command
-python -m src.cli.main backup list
+# Using CLI command (in Docker container)
+docker exec cti_worker python -m src.cli.main backup list
 
-# Using direct script
-python scripts/backup_database.py --list
+# Using direct script (in Docker container)
+docker exec cti_worker python scripts/backup_database.py --list
 ```
 
 **Restore Database:**
@@ -256,11 +268,11 @@ python scripts/backup_database.py --list
 # Using helper script
 ./backup_restore.sh restore cti_scraper_backup_20250907_134653.sql.gz
 
-# Using CLI command
-python -m src.cli.main backup restore cti_scraper_backup_20250907_134653.sql.gz
+# Using CLI command (in Docker container)
+docker exec cti_worker python -m src.cli.main backup restore cti_scraper_backup_20250907_134653.sql.gz
 
-# Using direct script
-python scripts/restore_database.py cti_scraper_backup_20250907_134653.sql.gz
+# Using direct script (in Docker container)
+docker exec cti_worker python scripts/restore_database.py cti_scraper_backup_20250907_134653.sql.gz
 ```
 
 **Features:**
@@ -435,7 +447,7 @@ docker-compose logs postgres
 docker-compose logs web
 
 # Test connectivity
-curl http://localhost:8000/health
+curl http://localhost:8001/health
 ```
 
 ## 💬 Support
