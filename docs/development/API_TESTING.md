@@ -19,12 +19,14 @@ pip install httpx pytest-asyncio pytest-httpx
 # conftest.py
 import pytest
 import httpx
+import os
 from typing import AsyncGenerator
 
 @pytest.fixture
 async def async_client() -> AsyncGenerator[httpx.AsyncClient, None]:
     """Async HTTP client for API testing."""
-    async with httpx.AsyncClient(base_url="http://localhost:8000") as client:
+    base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
+    async with httpx.AsyncClient(base_url=base_url) as client:
         yield client
 
 @pytest.fixture
@@ -631,7 +633,7 @@ pytest -m api -v -s --log-cli-level=DEBUG
 pytest tests/api/test_endpoints.py::test_articles_endpoint -v -s
 
 # Check API response
-curl -v http://localhost:8000/api/articles
+curl -v http://localhost:8001/api/articles
 ```
 
 ### Debug Mode

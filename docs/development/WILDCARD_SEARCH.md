@@ -84,54 +84,54 @@ GET /api/search/help
 
 ```bash
 # Find all malware-related content
-curl "http://localhost:8000/api/articles/search?q=mal*"
+curl "http://localhost:8001/api/articles/search?q=mal*"
 
 # Find any executable files
-curl "http://localhost:8000/api/articles/search?q=*.exe"
+curl "http://localhost:8001/api/articles/search?q=*.exe"
 
 # Find PowerShell-related content
-curl "http://localhost:8000/api/articles/search?q=powershell*"
+curl "http://localhost:8001/api/articles/search?q=powershell*"
 
 # Find numbered log files
-curl "http://localhost:8000/api/articles/search?q=[0-9]*.log"
+curl "http://localhost:8001/api/articles/search?q=[0-9]*.log"
 ```
 
 ### Advanced Pattern Matching
 
 ```bash
 # Character class patterns
-curl "http://localhost:8000/api/articles/search?q=[a-z]*.bat"
-curl "http://localhost:8000/api/articles/search?q=[0-9]*.exe"
+curl "http://localhost:8001/api/articles/search?q=[a-z]*.bat"
+curl "http://localhost:8001/api/articles/search?q=[0-9]*.exe"
 
 # Negation patterns
-curl "http://localhost:8000/api/articles/search?q=[!a-z]*"
-curl "http://localhost:8000/api/articles/search?q=[!0-9]*"
+curl "http://localhost:8001/api/articles/search?q=[!a-z]*"
+curl "http://localhost:8001/api/articles/search?q=[!0-9]*"
 ```
 
 ### Boolean Logic with Wildcards
 
 ```bash
 # Wildcards with AND
-curl "http://localhost:8000/api/articles/search?q=mal* AND ransomware"
+curl "http://localhost:8001/api/articles/search?q=mal* AND ransomware"
 
 # Wildcards with OR
-curl "http://localhost:8000/api/articles/search?q=*.exe OR *.dll"
+curl "http://localhost:8001/api/articles/search?q=*.exe OR *.dll"
 
 # Wildcards with NOT
-curl "http://localhost:8000/api/articles/search?q=powershell* NOT basic"
+curl "http://localhost:8001/api/articles/search?q=powershell* NOT basic"
 
 # Complex boolean expressions
-curl "http://localhost:8000/api/articles/search?q=mal* AND (virus OR trojan)"
+curl "http://localhost:8001/api/articles/search?q=mal* AND (virus OR trojan)"
 ```
 
 ### Quoted Wildcard Patterns
 
 ```bash
 # Quoted wildcards with boolean operators
-curl "http://localhost:8000/api/articles/search?q=\"powershell*\" NOT basic"
+curl "http://localhost:8001/api/articles/search?q=\"powershell*\" NOT basic"
 
 # Mixed quoted and unquoted patterns
-curl "http://localhost:8000/api/articles/search?q=\"advanced*\" AND mal*
+curl "http://localhost:8001/api/articles/search?q=\"advanced*\" AND mal*
 ```
 
 ## Implementation Details

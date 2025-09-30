@@ -7,6 +7,7 @@ Get up and running with CTI Scraper testing in 5 minutes.
 - Docker and Docker Compose installed
 - Python 3.8+ (for local testing)
 - Git
+- Port 8001 available (or configure `CTI_SCRAPER_URL` environment variable)
 
 ## 🎯 5-Minute Setup
 
@@ -19,7 +20,7 @@ cd CTIScraper
 docker-compose up -d
 
 # Verify it's running
-curl http://localhost:8000/health
+curl http://localhost:8001/health
 ```
 
 ### 2. Install Test Dependencies (1 minute)
@@ -74,7 +75,7 @@ pytest tests/e2e/ -v --headed=true
 
 ```bash
 # 1. Check application health
-curl http://localhost:8000/health
+curl http://localhost:8001/health
 
 # 2. Run smoke tests
 python run_tests.py --smoke
@@ -92,6 +93,10 @@ docker ps
 
 # Restart if needed
 docker-compose restart
+
+# Check port configuration
+curl http://localhost:8001/health
+# If port 8001 is in use, check docker-compose.yml port mapping
 ```
 
 ### **Test Dependencies Missing**
@@ -118,7 +123,7 @@ docker exec cti_postgres psql -U cti_user -d cti_scraper -c "SELECT 1;"
 
 You're ready when:
 - ✅ `docker-compose up -d` starts successfully
-- ✅ `curl http://localhost:8000/health` returns 200
+- ✅ `curl http://localhost:8001/health` returns 200
 - ✅ `python run_tests.py --smoke` passes
 - ✅ Test report opens in browser
 

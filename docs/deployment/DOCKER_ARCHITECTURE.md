@@ -106,13 +106,13 @@ The CTI Scraper uses a microservices architecture with the following components:
 Services communicate using Docker service names:
 - Database: `postgres:5432`
 - Redis: `redis:6379`
-- Web API: `web:8000`
+- Web API: `web:8001`
 - Ollama: `cti_ollama:11434`
 
 ### External Access (Port Mapping)
 
 For development and external access:
-- Web UI: `localhost:8000`
+- Web UI: `localhost:8001`
 - Database: `postgres:5432` (Docker container)
 - Redis: `redis:6379` (Docker container)
 - Ollama: `cti_ollama:11434` (Docker container)
@@ -193,10 +193,10 @@ docker-compose ps
 docker-compose logs -f [service]
 
 # Health check
-curl http://localhost:8000/health
+curl http://localhost:8001/health
 
 # Database stats
-curl http://localhost:8000/api/sources
+curl http://localhost:8001/api/sources
 ```
 
 ## Troubleshooting
@@ -215,7 +215,7 @@ curl http://localhost:8000/api/sources
 
 3. **Port Conflicts**
    - Stop conflicting services: `docker-compose down`
-   - Check port usage: `lsof -i :8000`
+   - Check port usage: `lsof -i :8001`
    - Use different ports in docker-compose files if needed
 
 ### Debug Mode

@@ -59,7 +59,7 @@ echo "============================================================"
 echo "🎉 Setup Complete! GPT OSS 20B is ready to use"
 echo "============================================================"
 echo
-echo "🌐 Access your chatbot at: http://localhost:8000/chat"
+echo "🌐 Access your chatbot at: http://localhost:8001/chat"
 echo
 echo "📊 Monitor Ollama:"
 echo "   • Container logs: docker logs cti_ollama"

@@ -24,7 +24,7 @@ ASCII diagrams of the main workflows in the CTI Scraper system, designed to fit 
 │  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐          │
 │  │    Web      │  │   Worker    │  │  Scheduler  │  │   Ollama    │          │
 │  │  (FastAPI)  │  │  (Celery)   │  │  (Celery)   │  │    (LLM)    │          │
-│  │   Port 8000 │  │             │  │             │  │  Port 11434 │          │
+│  │   Port 8001 │  │             │  │             │  │  Port 11434 │          │
 │  └─────────────┘  └─────────────┘  └─────────────┘  └─────────────┘          │
 │                                                                                 │
 │  ┌─────────────┐  ┌─────────────┐                                              │
@@ -211,7 +211,7 @@ Keyword Categories:
           ▼
 ┌─────────────────┐
 │   FastAPI App   │
-│   (Port 8000)   │
+│   (Port 8001)   │
 │                 │
 │ • Jinja2 Templates│
 │ • Static Files  │

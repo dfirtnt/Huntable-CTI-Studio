@@ -39,9 +39,9 @@
 
 ## Scoring
 - **Regenerate scores** after LOLBAS/keyword updates.
-- **Use** `regenerate_all_scores.py` after keyword changes.
+- **Use** `./run_cli.sh rescore` after keyword changes.
 - **Sync** `src/utils/content_filter.py` when keywords change.
-- **Shortcut**: `rs` = rescore all articles.
+- **Shortcut**: `rs` = rescore all articles (via CLI).
 
 ## Sources
 - **Config**: `config/sources.yaml`.
@@ -57,7 +57,7 @@
   - **Final Verification**: Ensure no secrets in code, comprehensive .gitignore, professional README, proper license, documented dependencies/code
 - **`lgl`** = commit + push (lite).
 - **`mdu`** = update all MD docs to match codebase.
-- **`rs`** = regenerate all scores.
+- **`rs`** = rescore all articles (via CLI).
 
 ## Dev Workflow
 - **No file deletion** without confirmation.

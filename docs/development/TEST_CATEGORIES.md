@@ -31,7 +31,7 @@ Quick health check of critical functionality to verify the system is working.
 @pytest.mark.smoke
 def test_homepage_loads():
     """Verify homepage loads successfully."""
-    response = requests.get("http://localhost:8000/")
+    response = requests.get("http://localhost:8001/")
     assert response.status_code == 200
 
 @pytest.mark.smoke
@@ -125,14 +125,14 @@ End-to-end user interface testing with Playwright to verify user workflows.
 @pytest.mark.ui
 async def test_dashboard_navigation(page):
     """Test navigation between dashboard sections."""
-    await page.goto("http://localhost:8000/")
+    await page.goto("http://localhost:8001/")
     
     # Verify dashboard loads
     await expect(page).to_have_title("CTI Scraper")
     
     # Test navigation to articles
     await page.click("text=Articles")
-    await expect(page).to_have_url("http://localhost:8000/articles")
+    await expect(page).to_have_url("http://localhost:8001/articles")
 
 @pytest.mark.ui
 async def test_source_management(page):

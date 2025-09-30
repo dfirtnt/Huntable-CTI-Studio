@@ -128,7 +128,7 @@ httpx==0.27.0      # Async HTTP client
 ### API Usage
 ```bash
 # Extract IOCs with iocextract only (no API key needed)
-curl -X POST "http://localhost:8000/api/articles/1070/extract-iocs" \
+curl -X POST "http://localhost:8001/api/articles/1070/extract-iocs" \
   -H "Content-Type: application/json" \
   -d '{
     "include_content": true,
@@ -137,7 +137,7 @@ curl -X POST "http://localhost:8000/api/articles/1070/extract-iocs" \
   }'
 
 # Extract IOCs with hybrid approach (requires API key)
-curl -X POST "http://localhost:8000/api/articles/1070/extract-iocs" \
+curl -X POST "http://localhost:8001/api/articles/1070/extract-iocs" \
   -H "Content-Type: application/json" \
   -d '{
     "include_content": true,
@@ -249,12 +249,12 @@ python3 validate_ioc_system.py
 ### API Testing
 ```bash
 # Test iocextract only
-curl -X POST "http://localhost:8000/api/articles/1070/extract-iocs" \
+curl -X POST "http://localhost:8001/api/articles/1070/extract-iocs" \
   -H "Content-Type: application/json" \
   -d '{"include_content": true, "force_regenerate": true, "use_llm_validation": false}'
 
 # Test hybrid approach
-curl -X POST "http://localhost:8000/api/articles/1070/extract-iocs" \
+curl -X POST "http://localhost:8001/api/articles/1070/extract-iocs" \
   -H "Content-Type: application/json" \
   -d '{"include_content": true, "force_regenerate": true, "use_llm_validation": true, "api_key": "your_api_key", "ai_model": "chatgpt"}'
 ```
@@ -290,7 +290,7 @@ docker-compose up -d
 **Solution**: Check API key configuration and network connectivity
 ```bash
 # Verify API key in settings
-curl "http://localhost:8000/settings"
+curl "http://localhost:8001/settings"
 
 # Test API connectivity
 curl -H "Authorization: Bearer YOUR_API_KEY" \

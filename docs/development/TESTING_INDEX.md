@@ -15,6 +15,7 @@ This index provides a clear path through all testing documentation for the CTI S
 - [Testing Quick Start](TESTING_QUICK_START.md) - Basic setup and first tests
 - [Pytest Fundamentals](PYTEST_FUNDAMENTALS.md) - Core pytest concepts and usage
 - [Test Categories](TEST_CATEGORIES.md) - Understanding different test types
+- [Port Configuration](PORT_CONFIGURATION.md) - Port setup and troubleshooting
 
 ### **Specialized Guides**
 - [Web App Testing](WEB_APP_TESTING.md) - Browser testing with Playwright
@@ -35,6 +36,7 @@ This index provides a clear path through all testing documentation for the CTI S
 - **Test API endpoints** → [API Testing](API_TESTING.md)
 - **Set up CI/CD** → [CI/CD Integration](CICD_TESTING.md)
 - **Debug failing tests** → [Test Maintenance](TEST_MAINTENANCE.md)
+- **Fix port issues** → [Port Configuration](PORT_CONFIGURATION.md)
 
 ## 📁 File Structure
 
@@ -44,6 +46,7 @@ docs/development/
 ├── TESTING_QUICK_START.md     # 5-minute setup guide
 ├── PYTEST_FUNDAMENTALS.md     # Core pytest concepts
 ├── TEST_CATEGORIES.md         # Test types and purposes
+├── PORT_CONFIGURATION.md      # Port setup and troubleshooting
 ├── WEB_APP_TESTING.md         # Browser testing guide
 ├── API_TESTING.md             # API testing guide
 ├── E2E_TESTING.md             # End-to-end testing

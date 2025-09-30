@@ -8,7 +8,7 @@ class TestCTIScraperWebInterface:
     @pytest.fixture(autouse=True)
     def setup(self, page: Page):
         """Setup for each test"""
-        page.goto("http://localhost:8000")
+        page.goto("http://localhost:8001")
         page.wait_for_load_state("networkidle")
     
     def test_homepage_loads(self, page: Page):
@@ -23,12 +23,12 @@ class TestCTIScraperWebInterface:
         
         # Test sources page navigation
         page.click("text=Sources")
-        expect(page).to_have_url("http://localhost:8000/sources")
+        expect(page).to_have_url("http://localhost:8001/sources")
         expect(page.locator("h1")).to_contain_text("Sources")
     
     def test_sources_page(self, page: Page):
         """Test sources page functionality"""
-        page.goto("http://localhost:8000/sources")
+        page.goto("http://localhost:8001/sources")
         page.wait_for_load_state("networkidle")
         
         # Check sources table is visible
@@ -42,7 +42,7 @@ class TestCTIScraperWebInterface:
     
     def test_articles_page(self, page: Page):
         """Test articles page functionality"""
-        page.goto("http://localhost:8000/articles")
+        page.goto("http://localhost:8001/articles")
         page.wait_for_load_state("networkidle")
         
         # Check articles table
@@ -54,18 +54,18 @@ class TestCTIScraperWebInterface:
     def test_api_endpoints(self, page: Page):
         """Test API endpoints via browser"""
         # Test health endpoint
-        response = page.request.get("http://localhost:8000/health")
+        response = page.request.get("http://localhost:8001/health")
         expect(response).to_be_ok()
         
         # Test sources API
-        response = page.request.get("http://localhost:8000/api/sources")
+        response = page.request.get("http://localhost:8001/api/sources")
         expect(response).to_be_ok()
         data = response.json()
         assert "sources" in data, "API response should contain 'sources' key"
     
     def test_search_functionality(self, page: Page):
         """Test search functionality"""
-        page.goto("http://localhost:8000/articles")
+        page.goto("http://localhost:8001/articles")
         
         # Look for search input
         search_input = page.locator("input[type='search'], input[placeholder*='search']")
@@ -81,19 +81,19 @@ class TestCTIScraperWebInterface:
         """Test responsive design on mobile viewport"""
         page.set_viewport_size({"width": 375, "height": 667})  # iPhone SE
         
-        page.goto("http://localhost:8000")
+        page.goto("http://localhost:8001")
         
         # Check mobile navigation
         expect(page.locator("nav")).to_be_visible()
         
         # Check table responsiveness
-        page.goto("http://localhost:8000/sources")
+        page.goto("http://localhost:8001/sources")
         expect(page.locator("table")).to_be_visible()
     
     def test_error_handling(self, page: Page):
         """Test error handling for invalid routes"""
         # Test 404 page
-        page.goto("http://localhost:8000/nonexistent-page")
+        page.goto("http://localhost:8001/nonexistent-page")
         
         # Should show error page or redirect
         expect(page.locator("body")).to_be_visible()
@@ -101,7 +101,7 @@ class TestCTIScraperWebInterface:
     def test_performance(self, page: Page):
         """Test page load performance"""
         start_time = time.time()
-        page.goto("http://localhost:8000")
+        page.goto("http://localhost:8001")
         page.wait_for_load_state("networkidle")
         load_time = time.time() - start_time
         
@@ -110,7 +110,7 @@ class TestCTIScraperWebInterface:
     
     def test_accessibility(self, page: Page):
         """Test basic accessibility features"""
-        page.goto("http://localhost:8000")
+        page.goto("http://localhost:8001")
         
         # Check for alt text on images
         images = page.locator("img")
@@ -125,7 +125,7 @@ class TestCTIScraperWebInterface:
     
     def test_threat_hunting_scoring(self, page: Page):
         """Test threat hunting scoring interface"""
-        page.goto("http://localhost:8000/articles")
+        page.goto("http://localhost:8001/articles")
         
         # Look for scoring elements
         score_elements = page.locator(".threat-score, .score, [data-score]")
@@ -138,7 +138,7 @@ class TestCTIScraperWebInterface:
     
     def test_source_management(self, page: Page):
         """Test source management functionality"""
-        page.goto("http://localhost:8000/sources")
+        page.goto("http://localhost:8001/sources")
         
         # Check for source controls
         expect(page.locator("table")).to_be_visible()
@@ -150,7 +150,7 @@ class TestCTIScraperWebInterface:
     
     def test_data_export(self, page: Page):
         """Test data export functionality"""
-        page.goto("http://localhost:8000/articles")
+        page.goto("http://localhost:8001/articles")
         
         # Look for export buttons
         export_buttons = page.locator("button:has-text('Export'), a:has-text('Export'), .export-btn")

@@ -102,7 +102,7 @@ This comprehensive testing checklist ensures all features of the CTI Scraper pla
 ### **Dashboard**
 
 - [ ] **Main Dashboard**
-  - [ ] Navigate to `http://localhost:8000`
+  - [ ] Navigate to `http://localhost:8001`
   - [ ] Verify statistics are displayed
   - [ ] Check recent articles list
   - [ ] Test navigation links
@@ -167,7 +167,7 @@ This comprehensive testing checklist ensures all features of the CTI Scraper pla
 
 - [ ] **Health Endpoint**
   ```bash
-  curl http://localhost:8000/health
+  curl http://localhost:8001/health
   ```
   - [ ] Verify response format
   - [ ] Check status is "healthy"
@@ -178,7 +178,7 @@ This comprehensive testing checklist ensures all features of the CTI Scraper pla
 
 - [ ] **List Articles**
   ```bash
-  curl http://localhost:8000/api/articles
+  curl http://localhost:8001/api/articles
   ```
   - [ ] Verify JSON response
   - [ ] Check pagination
@@ -187,7 +187,7 @@ This comprehensive testing checklist ensures all features of the CTI Scraper pla
 
 - [ ] **Article Detail**
   ```bash
-  curl http://localhost:8000/api/articles/1
+  curl http://localhost:8001/api/articles/1
   ```
   - [ ] Verify article details
   - [ ] Check metadata
@@ -198,7 +198,7 @@ This comprehensive testing checklist ensures all features of the CTI Scraper pla
 
 - [ ] **List Sources**
   ```bash
-  curl http://localhost:8000/api/sources
+  curl http://localhost:8001/api/sources
   ```
   - [ ] Verify source list
   - [ ] Check source data
@@ -207,7 +207,7 @@ This comprehensive testing checklist ensures all features of the CTI Scraper pla
 
 - [ ] **Source Operations**
   ```bash
-  curl -X POST http://localhost:8000/api/sources/1/toggle
+  curl -X POST http://localhost:8001/api/sources/1/toggle
   ```
   - [ ] Test source activation
   - [ ] Verify status change

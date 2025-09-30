@@ -341,7 +341,7 @@ docker-compose up -d
 
 # ✅ CORRECT
 docker-compose up -d
-curl http://localhost:8000/health
+curl http://localhost:8001/health
 docker-compose ps
 ```
 
@@ -376,6 +376,6 @@ If you've made a mistake:
 2. **Restore**: `./restore_working_backup.sh`
 3. **Verify**: `docker exec -it cti_postgres psql -U cti_user -d cti_scraper -c "SELECT COUNT(*) FROM articles;"`
 4. **Restart**: `docker-compose up -d`
-5. **Check**: `curl http://localhost:8000/health`
+5. **Check**: `curl http://localhost:8001/health`
 
 **When in doubt, don't. Ask for clarification.**

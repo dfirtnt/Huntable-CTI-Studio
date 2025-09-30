@@ -200,7 +200,7 @@ WORKERS=4
 
 4. **Start development server**
    ```bash
-   uvicorn src.web.modern_main:app --reload --host 0.0.0.0 --port 8000
+   uvicorn src.web.modern_main:app --reload --host 0.0.0.0 --port 8001
    ```
 
 ### Testing
@@ -275,6 +275,27 @@ docker exec cti_worker python -m src.cli.main backup restore cti_scraper_backup_
 docker exec cti_worker python scripts/restore_database.py cti_scraper_backup_20250907_134653.sql.gz
 ```
 
+### Threat Hunting Score Management
+Regenerate threat hunting scores after keyword updates:
+
+**Rescore All Articles:**
+```bash
+# Using CLI command (recommended)
+./run_cli.sh rescore --force
+
+# Using direct script (in Docker container)
+docker exec cti_worker python regenerate_all_scores.py
+```
+
+**Rescore Specific Article:**
+```bash
+# Using CLI command
+./run_cli.sh rescore --article-id 965
+
+# Dry run to preview changes
+./run_cli.sh rescore --force --dry-run
+```
+
 **Features:**
 - Automatic compression (70-80% size reduction)
 - Metadata tracking with database statistics
@@ -302,7 +323,7 @@ The Nginx container provides production-ready features:
 - **WebSocket Support**: Real-time communication capability
 
 **Configuration:**
-- **Ports**: 80 (HTTP) → 443 (HTTPS) → 8000 (FastAPI)
+- **Ports**: 80 (HTTP) → 443 (HTTPS) → 8001 (FastAPI)
 - **SSL Certificates**: Located in `nginx/ssl/` directory
 - **Health Check**: `/health` endpoint for monitoring
 - **Load Balancing**: Upstream configuration for FastAPI backend
@@ -418,7 +439,7 @@ cp env.example .env
 docker info
 
 # Check for port conflicts
-docker ps | grep -E "(5432|6379|8000)"
+docker ps | grep -E "(5432|6379|8001)"
 
 # Clean restart
 docker-compose down

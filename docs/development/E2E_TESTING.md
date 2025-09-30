@@ -34,7 +34,7 @@ tests/e2e/
 async def test_complete_source_management_workflow(page: Page):
     """Test complete source management workflow from start to finish."""
     # 1. Navigate to sources page
-    await page.goto("http://localhost:8000/sources")
+    await page.goto("http://localhost:8001/sources")
     await expect(page).to_have_title("CTI Scraper - Sources")
     
     # 2. Add new source
@@ -54,7 +54,7 @@ async def test_complete_source_management_workflow(page: Page):
     await expect(page.locator(".loading-indicator")).to_be_hidden(timeout=30000)
     
     # 5. Verify articles were collected
-    await page.goto("http://localhost:8000/articles")
+    await page.goto("http://localhost:8001/articles")
     await expect(page.locator(".article-list")).to_be_visible()
     
     # 6. Verify articles have threat scores
@@ -76,7 +76,7 @@ async def test_complete_source_management_workflow(page: Page):
     await expect(page.locator(".search-results")).to_be_visible()
     
     # 10. Clean up - delete source
-    await page.goto("http://localhost:8000/sources")
+    await page.goto("http://localhost:8001/sources")
     await page.click("button:has-text('Delete')")
     await page.click("button:has-text('Confirm')")
     await expect(page.locator("text=E2E Test Source")).to_be_hidden()
@@ -88,7 +88,7 @@ async def test_complete_source_management_workflow(page: Page):
 async def test_content_processing_workflow(page: Page):
     """Test complete content processing workflow."""
     # 1. Add source with known content
-    await page.goto("http://localhost:8000/sources")
+    await page.goto("http://localhost:8001/sources")
     await page.click("button:has-text('Add Source')")
     await page.fill("input[name='name']", "Content Test Source")
     await page.fill("input[name='url']", "https://example.com/test-feed.xml")
@@ -103,7 +103,7 @@ async def test_content_processing_workflow(page: Page):
     await expect(page.locator(".loading-indicator")).to_be_hidden(timeout=60000)
     
     # 4. Verify articles were processed
-    await page.goto("http://localhost:8000/articles")
+    await page.goto("http://localhost:8001/articles")
     await expect(page.locator(".article-list")).to_be_visible()
     
     # 5. Check article details
@@ -141,7 +141,7 @@ async def test_content_processing_workflow(page: Page):
 async def test_database_integration(page: Page):
     """Test database integration across the system."""
     # 1. Create source via UI
-    await page.goto("http://localhost:8000/sources")
+    await page.goto("http://localhost:8001/sources")
     await page.click("button:has-text('Add Source')")
     await page.fill("input[name='name']", "DB Integration Test")
     await page.fill("input[name='url']", "https://example.com/db-test.xml")
@@ -193,7 +193,7 @@ async def test_service_integration(page: Page):
     assert health_data["status"] == "healthy"
     
     # 2. Test web service
-    await page.goto("http://localhost:8000/")
+    await page.goto("http://localhost:8001/")
     await expect(page).to_have_title("CTI Scraper")
     
     # 3. Test API service
@@ -206,7 +206,7 @@ async def test_service_integration(page: Page):
     
     # 5. Test worker service (if applicable)
     # This would test background job processing
-    await page.goto("http://localhost:8000/sources")
+    await page.goto("http://localhost:8001/sources")
     await page.click("button:has-text('Add Source')")
     await page.fill("input[name='name']", "Service Integration Test")
     await page.fill("input[name='url']", "https://example.com/service-test.xml")
@@ -218,7 +218,7 @@ async def test_service_integration(page: Page):
     await expect(page.locator(".loading-indicator")).to_be_hidden(timeout=60000)
     
     # 7. Verify background processing completed
-    await page.goto("http://localhost:8000/articles")
+    await page.goto("http://localhost:8001/articles")
     await expect(page.locator(".article-list")).to_be_visible()
 ```
 
@@ -230,7 +230,7 @@ async def test_service_integration(page: Page):
 async def test_end_to_end_data_processing(page: Page):
     """Test complete data processing pipeline."""
     # 1. Add source
-    await page.goto("http://localhost:8000/sources")
+    await page.goto("http://localhost:8001/sources")
     await page.click("button:has-text('Add Source')")
     await page.fill("input[name='name']", "Data Flow Test")
     await page.fill("input[name='url']", "https://example.com/data-flow.xml")
@@ -246,7 +246,7 @@ async def test_end_to_end_data_processing(page: Page):
     
     # 4. Verify data flow through system
     # Check raw data collection
-    await page.goto("http://localhost:8000/articles")
+    await page.goto("http://localhost:8001/articles")
     await expect(page.locator(".article-list")).to_be_visible()
     
     # Check content processing
@@ -264,7 +264,7 @@ async def test_end_to_end_data_processing(page: Page):
     await expect(page.locator(".source-info")).to_be_visible()
     
     # Check searchability
-    await page.goto("http://localhost:8000/articles")
+    await page.goto("http://localhost:8001/articles")
     await page.fill("input[placeholder='Search articles...']", "threat")
     await page.press("input[placeholder='Search articles...']", "Enter")
     await expect(page.locator(".search-results")).to_be_visible()
@@ -280,7 +280,7 @@ async def test_end_to_end_data_processing(page: Page):
 async def test_cross_component_data_consistency(page: Page):
     """Test data consistency across different components."""
     # 1. Create source
-    await page.goto("http://localhost:8000/sources")
+    await page.goto("http://localhost:8001/sources")
     await page.click("button:has-text('Add Source')")
     await page.fill("input[name='name']", "Consistency Test")
     await page.fill("input[name='url']", "https://example.com/consistency.xml")
@@ -304,7 +304,7 @@ async def test_cross_component_data_consistency(page: Page):
     await expect(page.locator(".loading-indicator")).to_be_hidden(timeout=30000)
     
     # 5. Verify articles in UI
-    await page.goto("http://localhost:8000/articles")
+    await page.goto("http://localhost:8001/articles")
     await expect(page.locator(".article-list")).to_be_visible()
     
     # 6. Verify articles in API
@@ -318,7 +318,7 @@ async def test_cross_component_data_consistency(page: Page):
     for article in articles:
         if article["source_id"] == api_source["id"]:
             # Check UI consistency
-            await page.goto(f"http://localhost:8000/articles/{article['id']}")
+            await page.goto(f"http://localhost:8001/articles/{article['id']}")
             await expect(page.locator(".article-content")).to_be_visible()
             await expect(page.locator("text=Consistency Test")).to_be_visible()
             break
@@ -337,7 +337,7 @@ async def test_system_performance(page: Page):
     
     # 1. Test page load performance
     start_time = time.time()
-    await page.goto("http://localhost:8000/")
+    await page.goto("http://localhost:8001/")
     await expect(page.locator("main")).to_be_visible()
     load_time = time.time() - start_time
     
@@ -361,7 +361,7 @@ async def test_system_performance(page: Page):
     assert search_time < 2.0, f"Search time {search_time}s exceeds 2s limit"
     
     # 4. Test form submission performance
-    await page.goto("http://localhost:8000/sources")
+    await page.goto("http://localhost:8001/sources")
     await page.click("button:has-text('Add Source')")
     
     start_time = time.time()
@@ -381,7 +381,7 @@ async def test_system_performance(page: Page):
 async def test_system_load(page: Page):
     """Test system behavior under load."""
     # 1. Create multiple sources
-    await page.goto("http://localhost:8000/sources")
+    await page.goto("http://localhost:8001/sources")
     
     for i in range(5):
         await page.click("button:has-text('Add Source')")
@@ -398,7 +398,7 @@ async def test_system_load(page: Page):
         await expect(page.locator(".loading-indicator")).to_be_hidden(timeout=60000)
     
     # 3. Verify system stability
-    await page.goto("http://localhost:8000/articles")
+    await page.goto("http://localhost:8001/articles")
     await expect(page.locator(".article-list")).to_be_visible()
     
     # 4. Test search under load
@@ -484,7 +484,7 @@ pytest -m e2e -v -s --log-cli-level=DEBUG
 pytest tests/e2e/test_web_interface.py::test_homepage_loads -v -s
 
 # Check application health
-curl http://localhost:8000/health
+curl http://localhost:8001/health
 ```
 
 ### Debug Mode

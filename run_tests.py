@@ -36,8 +36,9 @@ def check_app_running() -> bool:
         import asyncio
         
         async def check():
+            base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
             async with httpx.AsyncClient(timeout=5.0) as client:
-                response = await client.get("http://localhost:8000/")
+                response = await client.get(f"{base_url}/health")
                 return response.status_code == 200
         
         result = asyncio.run(check())
@@ -166,7 +167,7 @@ def main():
     if args.check_app or not args.install:
         print("\n🔍 Checking if CTI Scraper app is running...")
         if check_app_running():
-            print("✅ CTI Scraper app is running on http://localhost:8000")
+            print("✅ CTI Scraper app is running on http://localhost:8001")
         else:
             print("❌ CTI Scraper app is not running")
             print("💡 Start the app first with: ./start.sh")

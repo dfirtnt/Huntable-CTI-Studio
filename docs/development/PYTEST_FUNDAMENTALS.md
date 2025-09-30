@@ -59,7 +59,7 @@ asyncio_mode = auto
 TESTING=true
 DATABASE_URL=postgresql://user:pass@postgres/test_db
 REDIS_URL=redis://localhost:6379
-CTI_SCRAPER_URL=http://localhost:8000
+CTI_SCRAPER_URL=http://localhost:8001  # Default port, change if needed
 ```
 
 ## 🎭 Fixtures
@@ -133,7 +133,7 @@ async def test_api_endpoint(async_client):
 @pytest.mark.ui
 async def test_homepage_loads(browser_page):
     """Test homepage loads correctly."""
-    await browser_page.goto("http://localhost:8000/")
+    await browser_page.goto("http://localhost:8001/")
     title = await browser_page.title()
     assert "CTI Scraper" in title
 ```
