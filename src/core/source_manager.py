@@ -129,8 +129,6 @@ class SourceConfigLoader:
         check_frequency = source_data.get('check_frequency', 3600)
         lookback_days = source_data.get('lookback_days', 180)
         active = source_data.get('active', True)
-        tier = source_data.get('tier', 2)
-        weight = float(source_data.get('weight', 1.0))
         
         # Parse configuration (prefer unified "config" structure, fall back to legacy fields)
         config_dict = source_data.get('config')
@@ -161,8 +159,6 @@ class SourceConfigLoader:
             check_frequency=check_frequency,
             lookback_days=lookback_days,
             active=active,
-            tier=tier,
-            weight=weight,
             config=config
         )
 
@@ -240,14 +236,12 @@ class SourceManager:
                         logger.warning(f"RSS feed invalid for {config.identifier}: {validation_result['errors']}")
                         # Keep source but disable RSS
                         config.rss_url = None
-                        config.tier = max(2, config.tier)  # Downgrade to at least tier 2
                         validated_configs.append(config)
                         
                 except Exception as e:
                     logger.error(f"RSS validation failed for {config.identifier}: {e}")
                     # Keep source but disable RSS
                     config.rss_url = None
-                    config.tier = max(2, config.tier)
                     validated_configs.append(config)
                 
                 # Rate limiting between validations
@@ -298,8 +292,6 @@ class SourceManager:
                         check_frequency=config.check_frequency,
                         lookback_days=config.lookback_days,
                         active=config.active,
-                        tier=config.tier,
-                        weight=config.weight,
                         config=config.config.model_dump(exclude_none=True) if config.config else {}
                     ))
                     if updated_source:
@@ -413,8 +405,6 @@ class SourceManager:
                     'id': source.identifier,
                     'name': source.name,
                     'url': source.url,
-                    'tier': source.tier,
-                    'weight': source.weight,
                     'check_frequency': source.check_frequency,
                     'active': source.active
                 }
@@ -486,14 +476,6 @@ class SourceManager:
                     result['errors'].append(f"Duplicate identifier '{config.identifier}' at source {i}")
                 else:
                     identifiers.add(config.identifier)
-                
-                # Validate tier
-                if config.tier not in [1, 2, 3]:
-                    result['warnings'].append(f"Source '{config.identifier}': Invalid tier {config.tier}")
-                
-                # Validate weight
-                if not 0.0 <= config.weight <= 2.0:
-                    result['warnings'].append(f"Source '{config.identifier}': Weight {config.weight} outside recommended range (0.0-2.0)")
                 
                 # Validate check frequency
                 if config.check_frequency < 60:

@@ -25,7 +25,6 @@ worker_disable_rate_limits = False
 # Task routing
 task_routes = {
     'src.worker.celery_app.check_all_sources': {'queue': 'source_checks'},
-    'src.worker.celery_app.check_tier1_sources': {'queue': 'priority_checks'},
     'src.worker.celery_app.cleanup_old_data': {'queue': 'maintenance'},
     'src.worker.celery_app.generate_daily_report': {'queue': 'reports'},
     'src.worker.celery_app.test_source_connectivity': {'queue': 'connectivity'},

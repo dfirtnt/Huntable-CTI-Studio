@@ -27,10 +27,6 @@ class SourceTable(Base):
     active = Column(Boolean, nullable=False, default=True)
     config = Column(JSON, nullable=False, default=dict)
     
-    # Additional fields from database schema
-    tier = Column(Integer, nullable=False, default=2)
-    weight = Column(Float, nullable=False, default=1.0)
-    
     # Tracking fields
     last_check = Column(DateTime, nullable=True)
     last_success = Column(DateTime, nullable=True)

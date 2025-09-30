@@ -781,6 +781,44 @@ async def api_collect_from_source(source_id: int):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.get("/api/tasks/{task_id}/status")
+async def api_get_task_status(task_id: str):
+    """Get the status and result of a Celery task."""
+    try:
+        from celery import Celery
+        
+        # Get Celery app instance
+        celery_app = Celery('cti_scraper')
+        celery_app.config_from_object('src.worker.celeryconfig')
+        
+        # Get task result
+        result = celery_app.AsyncResult(task_id)
+        
+        response = {
+            "task_id": task_id,
+            "status": result.status,
+            "ready": result.ready(),
+            "successful": result.successful() if result.ready() else False,
+            "failed": result.failed() if result.ready() else False
+        }
+        
+        if result.ready():
+            if result.successful():
+                response["result"] = result.result
+            elif result.failed():
+                response["error"] = str(result.result)
+        else:
+            # Task is still running, get progress info if available
+            if hasattr(result, 'info') and result.info:
+                response["info"] = result.info
+        
+        return response
+        
+    except Exception as e:
+        logger.error(f"API get task status error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.put("/api/sources/{source_id}/min_content_length")
 async def api_update_source_min_content_length(source_id: int, request: dict):
     """Update source minimum content length."""

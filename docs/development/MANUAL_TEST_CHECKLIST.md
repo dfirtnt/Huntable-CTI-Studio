@@ -240,7 +240,7 @@ This comprehensive testing checklist ensures all features of the CTI Scraper pla
 
 - [ ] **Collect Command**
   ```bash
-  python -m src.cli.main collect --tier 1
+  python -m src.cli.main collect
   ```
   - [ ] Verify content collection
   - [ ] Check progress display
