@@ -53,7 +53,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const apiUrl = apiUrlInput.value.trim();
         if (apiUrl && isNonRoutableIP(apiUrl)) {
             showError('❌ Cannot use non-routable IP addresses for API URL');
-            apiUrlInput.value = 'http://127.0.0.1:8000'; // Reset to default
+            apiUrlInput.value = 'http://127.0.0.1:8001'; // Reset to default
             return;
         }
         chrome.storage.local.set({ apiUrl: apiUrlInput.value });

@@ -984,14 +984,18 @@ async def api_scrape_url(request: dict):
         from datetime import datetime
         import hashlib
         
+        # Calculate content hash for deduplication
+        from src.utils.content import ContentCleaner
+        content_hash = ContentCleaner.calculate_content_hash(extracted_title, content_text)
+        
         # Create ArticleCreate object
         article_data = ArticleCreate(
             source_id=manual_source.id,
-            url=url,
             canonical_url=url,
             title=extracted_title,
             published_at=datetime.utcnow(),
-            content=content_text
+            content=content_text,
+            content_hash=content_hash
         )
         
         # Apply threat hunting scoring directly
