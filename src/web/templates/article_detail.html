@@ -67,11 +67,11 @@
                         <span class="mr-2">🆔</span>
                         <span>#{{ article.id }}</span>
                     </div>
-                    {% if article.metadata and article.metadata.get('threat_hunting_score') is not none %}
+                    {% if article.article_metadata and article.article_metadata.get('threat_hunting_score') is not none %}
                     <div class="flex items-center">
                         <span class="mr-2">🎯</span>
                         <span>Threat Hunting Score: 
-                            {% set score = article.metadata.get('threat_hunting_score', 0) %}
+                            {% set score = article.article_metadata.get('threat_hunting_score', 0) %}
                             {% if score >= 80 %}
                                 <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
                                     🎯 {{ "%.1f"|format(score) }}
@@ -117,7 +117,7 @@
     </div>
 
     <!-- Keyword Matches Display -->
-    {% if article.metadata %}
+    {% if article.article_metadata %}
     <div class="bg-white rounded-lg shadow-sm p-6">
         <h2 class="text-xl font-bold text-gray-900 mb-4">🎯 Keyword Matches</h2>
         
@@ -134,12 +134,12 @@
                     </span>
                 </div>
                 <div class="flex flex-wrap gap-1">
-                    {% for keyword in article.metadata.get('perfect_keyword_matches', []) %}
+                    {% for keyword in article.article_metadata.get('perfect_keyword_matches', []) %}
                     <span class="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-green-100 text-green-800">
                         {{ keyword }}
                     </span>
                     {% endfor %}
-                    {% if not article.metadata.get('perfect_keyword_matches') %}
+                    {% if not article.article_metadata.get('perfect_keyword_matches') %}
                     <span class="text-xs text-gray-500 italic">No matches</span>
                     {% endif %}
                 </div>
@@ -157,12 +157,12 @@
                     </span>
                 </div>
                 <div class="flex flex-wrap gap-1">
-                    {% for keyword in article.metadata.get('good_keyword_matches', []) %}
+                    {% for keyword in article.article_metadata.get('good_keyword_matches', []) %}
                     <span class="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-purple-100 text-purple-800">
                         {{ keyword }}
                     </span>
                     {% endfor %}
-                    {% if not article.metadata.get('good_keyword_matches') %}
+                    {% if not article.article_metadata.get('good_keyword_matches') %}
                     <span class="text-xs text-gray-500 italic">No matches</span>
                     {% endif %}
                 </div>
@@ -180,12 +180,12 @@
                     </span>
                 </div>
                 <div class="flex flex-wrap gap-1">
-                    {% for keyword in article.metadata.get('lolbas_matches', []) %}
+                    {% for keyword in article.article_metadata.get('lolbas_matches', []) %}
                     <span class="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-blue-100 text-blue-800">
                         {{ keyword }}
                     </span>
                     {% endfor %}
-                    {% if not article.metadata.get('lolbas_matches') %}
+                    {% if not article.article_metadata.get('lolbas_matches') %}
                     <span class="text-xs text-gray-500 italic">No matches</span>
                     {% endif %}
                 </div>
@@ -203,12 +203,12 @@
                     </span>
                 </div>
                 <div class="flex flex-wrap gap-1">
-                    {% for keyword in article.metadata.get('intelligence_matches', []) %}
+                    {% for keyword in article.article_metadata.get('intelligence_matches', []) %}
                     <span class="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-red-100 text-red-800">
                         {{ keyword }}
                     </span>
                     {% endfor %}
-                    {% if not article.metadata.get('intelligence_matches') %}
+                    {% if not article.article_metadata.get('intelligence_matches') %}
                     <span class="text-xs text-gray-500 italic">No matches</span>
                     {% endif %}
                 </div>
@@ -226,12 +226,12 @@
                     </span>
                 </div>
                 <div class="flex flex-wrap gap-1">
-                    {% for keyword in article.metadata.get('negative_matches', []) %}
+                    {% for keyword in article.article_metadata.get('negative_matches', []) %}
                     <span class="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-gray-100 text-gray-800">
                         {{ keyword }}
                     </span>
                     {% endfor %}
-                    {% if not article.metadata.get('negative_matches') %}
+                    {% if not article.article_metadata.get('negative_matches') %}
                     <span class="text-xs text-gray-500 italic">No matches</span>
                     {% endif %}
                 </div>
@@ -249,19 +249,19 @@
         <!-- Settings Status -->
         <!-- Current Classification Status -->
         <div class="mb-6">
-            {% if article.metadata and article.metadata.get('training_category') %}
+            {% if article.article_metadata and article.article_metadata.get('training_category') %}
                 <div class="flex items-center space-x-2">
                     <span class="text-sm font-medium text-gray-700">Current Status:</span>
                     <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium
-                        {% if article.metadata.get('training_category') == 'chosen' %}bg-green-100 text-green-800
-                        {% elif article.metadata.get('training_category') == 'rejected' %}bg-red-100 text-red-800
+                        {% if article.article_metadata.get('training_category') == 'chosen' %}bg-green-100 text-green-800
+                        {% elif article.article_metadata.get('training_category') == 'rejected' %}bg-red-100 text-red-800
                         {% else %}bg-gray-100 text-gray-800{% endif %}">
-                        {% if article.metadata.get('training_category') == 'chosen' %}✅ Chosen
-                        {% elif article.metadata.get('training_category') == 'rejected' %}❌ Rejected
+                        {% if article.article_metadata.get('training_category') == 'chosen' %}✅ Chosen
+                        {% elif article.article_metadata.get('training_category') == 'rejected' %}❌ Rejected
                         {% else %}⏳ Unclassified{% endif %}
                     </span>
-                    {% if article.metadata.get('training_categorized_at') %}
-                        <span class="text-sm text-gray-500">({{ article.metadata.get('training_categorized_at')[:19] }})</span>
+                    {% if article.article_metadata.get('training_categorized_at') %}
+                        <span class="text-sm text-gray-500">({{ article.article_metadata.get('training_categorized_at')[:19] }})</span>
                     {% endif %}
                 </div>
             {% else %}
@@ -286,10 +286,10 @@
         </div>
         
         <!-- Load existing GPT4o ranking if available -->
-        {% if article.metadata and article.metadata.get('gpt4o_ranking') %}
+        {% if article.article_metadata and article.article_metadata.get('gpt4o_ranking') %}
         <script>
             document.addEventListener('DOMContentLoaded', function() {
-                const existingRanking = {{ article.metadata.get('gpt4o_ranking') | tojson }};
+                const existingRanking = {{ article.article_metadata.get('gpt4o_ranking') | tojson }};
                 if (existingRanking && existingRanking.analysis) {
                     displayGPT4oRanking(existingRanking.analysis);
                 }
@@ -367,7 +367,7 @@
                 </div>
             </div>
             <div class="prose max-w-none">
-                <div id="article-content" class="whitespace-pre-wrap text-sm text-gray-800 font-mono leading-relaxed select-text">{{ article.content|highlight_keywords(article.metadata)|safe }}</div>
+                <div id="article-content" class="whitespace-pre-wrap text-sm text-gray-800 font-mono leading-relaxed select-text">{{ article.content|highlight_keywords(article.article_metadata)|safe }}</div>
             </div>
         </div>
     </div>
@@ -442,10 +442,10 @@
             </div>
         </div>
         
-        {% if article.metadata %}
+        {% if article.article_metadata %}
         <div class="mt-6">
             <h3 class="text-lg font-semibold text-gray-800 mb-2">Additional Metadata</h3>
-            <pre class="bg-gray-50 p-4 rounded-lg text-sm text-gray-700 overflow-x-auto">{{ article.metadata|tojson(indent=2) }}</pre>
+            <pre class="bg-gray-50 p-4 rounded-lg text-sm text-gray-700 overflow-x-auto">{{ article.article_metadata|tojson(indent=2) }}</pre>
         </div>
         {% endif %}
     </div>
@@ -487,7 +487,7 @@
         });
         
         // Initialize current article classification in localStorage
-        const currentClassification = '{{ article.metadata.get("training_category", "") }}';
+        const currentClassification = '{{ article.article_metadata.get("training_category", "") }}';
         localStorage.setItem('currentArticleClassification', currentClassification);
         
         // Load existing annotations
@@ -1557,17 +1557,17 @@
         const aiModel = settings.aiModel || 'chatgpt';
         
         // Get current article classification
-        const currentClassification = localStorage.getItem('currentArticleClassification') || '{{ article.metadata.get("training_category", "") }}';
+        const currentClassification = localStorage.getItem('currentArticleClassification') || '{{ article.article_metadata.get("training_category", "") }}';
         const isChosen = currentClassification === 'chosen';
         
         // Get threat hunting score for SIGMA warning
-        const threatHuntingScore = {{ article.metadata.get('threat_hunting_score', 0) if article.metadata and article.metadata.get('threat_hunting_score') is not none else 0 }};
+        const threatHuntingScore = {{ article.article_metadata.get('threat_hunting_score', 0) if article.article_metadata and article.article_metadata.get('threat_hunting_score') is not none else 0 }};
         const showSigmaWarning = isChosen && threatHuntingScore < 65;
         
         // Check for existing generated content
-        const hasSummary = {{ 'true' if article.metadata and article.metadata.get('chatgpt_summary') else 'false' }};
-        const hasSigmaRules = {{ 'true' if article.metadata and article.metadata.get('sigma_rules') else 'false' }};
-        const hasIOCs = {{ 'true' if article.metadata and article.metadata.get('extracted_iocs') else 'false' }};
+        const hasSummary = {{ 'true' if article.article_metadata and article.article_metadata.get('chatgpt_summary') else 'false' }};
+        const hasSigmaRules = {{ 'true' if article.article_metadata and article.article_metadata.get('sigma_rules') else 'false' }};
+        const hasIOCs = {{ 'true' if article.article_metadata and article.article_metadata.get('extracted_iocs') else 'false' }};
         
         const modal = document.createElement('div');
         modal.id = 'aiAssistantModal';
@@ -1661,20 +1661,20 @@
         
         // Check for existing content first (unless force regenerate)
         if (!forceRegenerate) {
-            if (type === 'summary' && {{ 'true' if article.metadata and article.metadata.get('chatgpt_summary') else 'false' }}) {
-                const summaryData = {{ article.metadata.get('chatgpt_summary') | tojson if article.metadata and article.metadata.get('chatgpt_summary') else 'null' }};
+            if (type === 'summary' && {{ 'true' if article.article_metadata and article.article_metadata.get('chatgpt_summary') else 'false' }}) {
+                const summaryData = {{ article.article_metadata.get('chatgpt_summary') | tojson if article.article_metadata and article.article_metadata.get('chatgpt_summary') else 'null' }};
                 showChatGPTSummaryModal(summaryData.summary, summaryData);
                 return;
             }
             
-            if (type === 'sigma' && {{ 'true' if article.metadata and article.metadata.get('sigma_rules') else 'false' }}) {
-                const sigmaData = {{ article.metadata.get('sigma_rules') | tojson if article.metadata and article.metadata.get('sigma_rules') else 'null' }};
+            if (type === 'sigma' && {{ 'true' if article.article_metadata and article.article_metadata.get('sigma_rules') else 'false' }}) {
+                const sigmaData = {{ article.article_metadata.get('sigma_rules') | tojson if article.article_metadata and article.article_metadata.get('sigma_rules') else 'null' }};
                 showSigmaRulesModal(sigmaData.rules, sigmaData);
                 return;
             }
             
-            if (type === 'iocs' && {{ 'true' if article.metadata and article.metadata.get('extracted_iocs') else 'false' }}) {
-                const iocData = {{ article.metadata.get('extracted_iocs') | tojson if article.metadata and article.metadata.get('extracted_iocs') else 'null' }};
+            if (type === 'iocs' && {{ 'true' if article.article_metadata and article.article_metadata.get('extracted_iocs') else 'false' }}) {
+                const iocData = {{ article.article_metadata.get('extracted_iocs') | tojson if article.article_metadata and article.article_metadata.get('extracted_iocs') else 'null' }};
                 showIOCsModal(iocData.iocs, iocData);
                 return;
             }
@@ -1682,7 +1682,7 @@
         
         // Check if SIGMA rules are allowed for this article
         if (type === 'sigma') {
-            const currentClassification = localStorage.getItem('currentArticleClassification') || '{{ article.metadata.get("training_category", "") }}';
+            const currentClassification = localStorage.getItem('currentArticleClassification') || '{{ article.article_metadata.get("training_category", "") }}';
             const isChosen = currentClassification === 'chosen';
             if (!isChosen) {
                 showNotification('SIGMA rules can only be generated for articles marked as "Chosen". Please classify this article first.', 'error');
@@ -1690,7 +1690,7 @@
             }
             
             // Check threat hunting score for SIGMA rules
-            const threatHuntingScore = {{ article.metadata.get('threat_hunting_score', 0) if article.metadata and article.metadata.get('threat_hunting_score') is not none else 0 }};
+            const threatHuntingScore = {{ article.article_metadata.get('threat_hunting_score', 0) if article.article_metadata and article.article_metadata.get('threat_hunting_score') is not none else 0 }};
             if (threatHuntingScore < 65) {
                 const confirmed = confirm(`⚠️ Warning: This article has a low threat hunting score (${threatHuntingScore}/100).\n\nSIGMA rules are not recommended for articles with scores below 65 as they may lack sufficient technical depth for effective detection rules.\n\nDo you want to proceed anyway?`);
                 if (!confirmed) {
@@ -2430,8 +2430,8 @@
     // Threat Hunting Analysis Functions
     function showThreatHuntingAnalysis() {
         // Check if we already have an analysis
-        const existingAnalysis = {{ article.metadata.get('threat_hunting_analysis', {}).get('analysis', 'null') | tojson }};
-        const existingModelName = {{ article.metadata.get('threat_hunting_analysis', {}).get('model_name', 'null') | tojson }};
+        const existingAnalysis = {{ article.article_metadata.get('threat_hunting_analysis', {}).get('analysis', 'null') | tojson }};
+        const existingModelName = {{ article.article_metadata.get('threat_hunting_analysis', {}).get('model_name', 'null') | tojson }};
         
         if (existingAnalysis && existingAnalysis !== 'null') {
             // Show existing analysis
@@ -2644,9 +2644,9 @@
         console.log('ChatGPT Summary button clicked!'); // Debug log
         
         // Check if we already have a summary
-        const existingSummary = {{ article.metadata.get('chatgpt_summary', {}).get('summary', 'null') | tojson }};
-        const existingModelName = {{ article.metadata.get('chatgpt_summary', {}).get('model_name', 'null') | tojson }};
-        const existingSummarizedAt = {{ article.metadata.get('chatgpt_summary', {}).get('summarized_at', 'null') | tojson }};
+        const existingSummary = {{ article.article_metadata.get('chatgpt_summary', {}).get('summary', 'null') | tojson }};
+        const existingModelName = {{ article.article_metadata.get('chatgpt_summary', {}).get('model_name', 'null') | tojson }};
+        const existingSummarizedAt = {{ article.article_metadata.get('chatgpt_summary', {}).get('summarized_at', 'null') | tojson }};
         
         if (existingSummary && existingSummary !== 'null') {
             // Show existing summary
@@ -3183,10 +3183,10 @@
         if (hash === 'summary') {
             console.log('Processing summary hash...');
             // Check if summary exists and show it
-            const hasSummary = {{ 'true' if article.metadata and article.metadata.get('chatgpt_summary') else 'false' }};
+            const hasSummary = {{ 'true' if article.article_metadata and article.article_metadata.get('chatgpt_summary') else 'false' }};
             console.log('Has summary:', hasSummary);
             if (hasSummary) {
-                const summaryData = {{ article.metadata.get('chatgpt_summary') | tojson if article.metadata and article.metadata.get('chatgpt_summary') else 'null' }};
+                const summaryData = {{ article.article_metadata.get('chatgpt_summary') | tojson if article.article_metadata and article.article_metadata.get('chatgpt_summary') else 'null' }};
                 console.log('Summary data:', summaryData);
                 if (summaryData) {
                     console.log('Auto-opening summary modal from URL fragment');
@@ -3200,9 +3200,9 @@
             }
         } else if (hash === 'sigma') {
             // Check if SIGMA rules exist and show them
-            const hasSigmaRules = {{ 'true' if article.metadata and article.metadata.get('sigma_rules') else 'false' }};
+            const hasSigmaRules = {{ 'true' if article.article_metadata and article.article_metadata.get('sigma_rules') else 'false' }};
             if (hasSigmaRules) {
-                const sigmaData = {{ article.metadata.get('sigma_rules') | tojson if article.metadata and article.metadata.get('sigma_rules') else 'null' }};
+                const sigmaData = {{ article.article_metadata.get('sigma_rules') | tojson if article.article_metadata and article.article_metadata.get('sigma_rules') else 'null' }};
                 if (sigmaData) {
                     console.log('Auto-opening SIGMA modal from URL fragment');
                     setTimeout(() => showSigmaRulesModal(sigmaData.rules, sigmaData), 500);
@@ -3212,9 +3212,9 @@
             }
         } else if (hash === 'iocs') {
             // Check if IOCs exist and show them
-            const hasIOCs = {{ 'true' if article.metadata and article.metadata.get('extracted_iocs') else 'false' }};
+            const hasIOCs = {{ 'true' if article.article_metadata and article.article_metadata.get('extracted_iocs') else 'false' }};
             if (hasIOCs) {
-                const iocData = {{ article.metadata.get('extracted_iocs') | tojson if article.metadata and article.metadata.get('extracted_iocs') else 'null' }};
+                const iocData = {{ article.article_metadata.get('extracted_iocs') | tojson if article.article_metadata and article.article_metadata.get('extracted_iocs') else 'null' }};
                 if (iocData) {
                     console.log('Auto-opening IOCs modal from URL fragment');
                     setTimeout(() => showIOCsModal(JSON.stringify(iocData.iocs, null, 2), iocData), 500);
@@ -3255,11 +3255,11 @@
             
             if (currentArticleId == templateArticleId) {
                 // Same article - use template data
-                const hasSummary = {{ 'true' if article.metadata and article.metadata.get('chatgpt_summary') else 'false' }};
+                const hasSummary = {{ 'true' if article.article_metadata and article.article_metadata.get('chatgpt_summary') else 'false' }};
                 console.log('Has summary (template):', hasSummary);
                 
                 if (hasSummary) {
-                    const summaryData = {{ article.metadata.get('chatgpt_summary') | tojson if article.metadata and article.metadata.get('chatgpt_summary') else 'null' }};
+                    const summaryData = {{ article.article_metadata.get('chatgpt_summary') | tojson if article.article_metadata and article.article_metadata.get('chatgpt_summary') else 'null' }};
                     console.log('Summary data (template):', summaryData);
                     
                     if (summaryData) {
@@ -3294,11 +3294,11 @@
             
             if (currentArticleId == templateArticleId) {
                 // Same article - use template data
-                const hasSigma = {{ 'true' if article.metadata and article.metadata.get('sigma_rules') else 'false' }};
+                const hasSigma = {{ 'true' if article.article_metadata and article.article_metadata.get('sigma_rules') else 'false' }};
                 console.log('Has sigma (template):', hasSigma);
                 
                 if (hasSigma) {
-                    const sigmaData = {{ article.metadata.get('sigma_rules') | tojson if article.metadata and article.metadata.get('sigma_rules') else 'null' }};
+                    const sigmaData = {{ article.article_metadata.get('sigma_rules') | tojson if article.article_metadata and article.article_metadata.get('sigma_rules') else 'null' }};
                     console.log('Sigma data (template):', sigmaData);
                     
                     if (sigmaData) {
@@ -3333,11 +3333,11 @@
             
             if (currentArticleId == templateArticleId) {
                 // Same article - use template data
-                const hasIocs = {{ 'true' if article.metadata and article.metadata.get('extracted_iocs') else 'false' }};
+                const hasIocs = {{ 'true' if article.article_metadata and article.article_metadata.get('extracted_iocs') else 'false' }};
                 console.log('Has iocs (template):', hasIocs);
                 
                 if (hasIocs) {
-                    const iocsData = {{ article.metadata.get('extracted_iocs') | tojson if article.metadata and article.metadata.get('extracted_iocs') else 'null' }};
+                    const iocsData = {{ article.article_metadata.get('extracted_iocs') | tojson if article.article_metadata and article.article_metadata.get('extracted_iocs') else 'null' }};
                     console.log('IOCs data (template):', iocsData);
                     
                     if (iocsData) {

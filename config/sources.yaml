@@ -188,29 +188,32 @@ sources:
       min_content_length: 2000
     description: "Excellent DFIR and threat hunting content with actionable intelligence"
 
-  # Mandiant Threat Research
-  - id: "mandiant_research"
-    name: "Mandiant Threat Research"
-    url: "https://www.mandiant.com/resources/blog"
-    rss_url: "https://www.mandiant.com/resources/blog/rss.xml"
+  # Google Cloud Threat Intelligence
+  - id: "google_cloud_threat_intel"
+    name: "Google Cloud Threat Intelligence"
+    url: "https://cloud.google.com/blog/topics/threat-intelligence/"
+    rss_url: "https://feeds.feedburner.com/threatintelligence/pvexyqv7v0v"
     check_frequency: 1800  # 30 minutes
     active: true
     config:
-      allow: ["mandiant.com"]
-      post_url_regex: ["^https://www\\.mandiant\\.com/resources/blog/.*"]
+      allow: ["cloud.google.com"]
+      post_url_regex: ["^https://cloud\\.google\\.com/blog/topics/threat-intelligence/.*"]
       robots:
-        enabled: true
+        enabled: false  # Disable robots.txt checking for RSS-only
         user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
-        respect_delay: true
-        max_requests_per_minute: 6
-        crawl_delay: 3.0
-      extract:
-        prefer_jsonld: true
-        title_selectors: ["h1", "meta[property='og:title']::attr(content)"]
-        date_selectors: ["meta[property='article:published_time']::attr(content)"]
-        body_selectors: ["article", "main", ".content", ".post-content"]
+        respect_delay: false
+        max_requests_per_minute: 0  # No web scraping
+        crawl_delay: 0.0
       min_content_length: 2000
-    description: "High-quality APT research and threat intelligence"
+      title_filter_keywords: ["newsletter", "subscription", "contact"]
+      rss_only: true  # Force RSS-only collection - feed has full content (~80KB per article)
+      extract:
+        prefer_jsonld: false  # Disable modern scraping
+        title_selectors: []  # No selectors needed for RSS-only
+        date_selectors: []  # No selectors needed for RSS-only
+        body_selectors: []  # No selectors needed for RSS-only
+        author_selectors: []  # No selectors needed for RSS-only
+    description: "Google Threat Intelligence Group advisories, research, and threat analysis (RSS-only - full content in feed)"
 
   # Palo Alto Unit42
   - id: "palo_alto_unit42"
@@ -619,28 +622,6 @@ sources:
     config:
       min_content_length: 2000  # Microsoft Security requires 1000+ chars
 
-  # FireEye/Mandiant Blog (existing)
-  - id: "fireeye_blog"
-    name: "FireEye Threat Research"
-    url: "https://www.mandiant.com/resources/blog"
-    rss_url: "https://www.mandiant.com/resources/blog/rss.xml"
-    check_frequency: 1800
-    active: true
-    config:
-      allow: ["mandiant.com"]
-      post_url_regex: ["^https://www\\.mandiant\\.com/resources/blog/.*"]
-      robots:
-        enabled: true
-        user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
-        respect_delay: true
-        max_requests_per_minute: 6
-        crawl_delay: 3.0
-      min_content_length: 2000
-      extract:
-        prefer_jsonld: true
-        title_selectors: ["h1", "meta[property='og:title']::attr(content)"]
-        date_selectors: ["meta[property='article:published_time']::attr(content)"]
-        body_selectors: ["article", "main", ".content", ".post-content"]
 
   # Red Canary Blog (existing)
   - id: "red_canary_blog"

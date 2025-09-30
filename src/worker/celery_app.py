@@ -106,7 +106,8 @@ def check_all_sources(self):
                                 logger.info(f"  ✓ {source.name}: {len(articles)} articles collected")
                                 
                                 # Process articles through deduplication with source-specific config
-                                source_config = source.config.model_dump() if (hasattr(source, 'config') and source.config) else None
+                                # Note: source.config is already a dict from database, not a Pydantic model
+                                source_config = source.config if source.config else None
                                 dedup_result = await processor.process_articles(articles, existing_hashes, source_config=source_config)
                                 
                                 # Save deduplicated articles
@@ -360,16 +361,17 @@ def collect_from_source(self, source_id: int):
     """Collect new content from a specific source."""
     try:
         import asyncio
-        from src.database.async_manager import AsyncDatabaseManager
+        from src.database.manager import DatabaseManager
         from src.core.fetcher import ContentFetcher
         from src.core.processor import ContentProcessor
         
         async def run_source_collection():
             """Run the actual source collection."""
-            db = AsyncDatabaseManager()
+            # Use sync database manager for Celery worker
+            db = DatabaseManager()
             try:
                 # Get the specific source
-                source = await db.get_source(source_id)
+                source = db.get_source(source_id)
                 if not source:
                     return {"status": "error", "message": f"Source {source_id} not found"}
                 
@@ -386,7 +388,7 @@ def collect_from_source(self, source_id: int):
                 )
                 
                 # Get existing content hashes for deduplication
-                existing_hashes = await db.get_existing_content_hashes()
+                existing_hashes = db.get_existing_content_hashes()
                 
                 # Use ContentFetcher with fallback strategy (RSS → Modern Scraping → Legacy Scraping)
                 async with ContentFetcher() as fetcher:
@@ -403,16 +405,34 @@ def collect_from_source(self, source_id: int):
                             # Process articles through deduplication
                             dedup_result = await processor.process_articles(fetch_result.articles, existing_hashes)
                             
-                            # Save deduplicated articles
+                            # Save deduplicated articles using sync database manager
                             saved_count = 0
                             if dedup_result.unique_articles:
+                                # Convert articles to ArticleCreate objects for bulk creation
+                                from src.models.article import ArticleCreate
+                                article_creates = []
                                 for article in dedup_result.unique_articles:
-                                    try:
-                                        await db.create_article(article)
-                                        saved_count += 1
-                                    except Exception as e:
-                                        logger.error(f"Error storing article from {source.name}: {e}")
-                                        continue
+                                    article_create = ArticleCreate(
+                                        source_id=article.source_id,
+                                        canonical_url=article.canonical_url,
+                                        title=article.title,
+                                        published_at=article.published_at,
+                                        modified_at=article.modified_at,
+                                        authors=article.authors,
+                                        tags=article.tags,
+                                        summary=article.summary,
+                                        content=article.content,
+                                        content_hash=article.content_hash,
+                                        metadata=article.metadata
+                                    )
+                                    article_creates.append(article_create)
+                                
+                                # Bulk create articles
+                                created_articles, errors = db.create_articles_bulk(article_creates)
+                                saved_count = len(created_articles)
+                                
+                                if errors:
+                                    logger.warning(f"Article creation errors: {errors}")
                             
                             # Log filtering statistics
                             filtered_count = len(dedup_result.duplicates)
@@ -453,8 +473,10 @@ def collect_from_source(self, source_id: int):
                         # Update source health metrics regardless of success/failure
                         try:
                             response_time = time.time() - start_time
-                            await db.update_source_health(source_id, True, response_time)
-                            await db.update_source_article_count(source_id)
+                            db.update_source_health(source_id, True, response_time)
+                            # Update article count using the private method
+                            with db.get_session() as session:
+                                db._update_source_article_count(session, source_id)
                             logger.info(f"Updated source {source_id} health and article count")
                         except Exception as health_error:
                             logger.error(f"Failed to update health for source {source_id}: {health_error}")
@@ -462,8 +484,6 @@ def collect_from_source(self, source_id: int):
             except Exception as e:
                 logger.error(f"Source collection failed: {e}")
                 raise e
-            finally:
-                await db.close()
         
         # Run the async function
         result = asyncio.run(run_source_collection())
