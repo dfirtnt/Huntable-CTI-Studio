@@ -253,9 +253,8 @@ class DatabaseManager:
                             errors.append(f"Duplicate content hash: {article_data.title[:50]}...")
                             continue
                         
-                        # Extract quality score from metadata
-                        quality_score = article_data.metadata.get('quality_score')
-                        word_count = article_data.metadata.get('word_count')
+                        # Extract word count from metadata
+                        word_count = article_data.article_metadata.get('word_count', 0)
                         
                         # Create database record
                         db_article = ArticleTable(
@@ -263,14 +262,13 @@ class DatabaseManager:
                             canonical_url=article_data.canonical_url,
                             title=article_data.title,
                             published_at=article_data.published_at,
-                            modified_at=article_data.modified_at,
+                            modified_at=getattr(article_data, 'modified_at', None),
                             authors=article_data.authors,
                             tags=article_data.tags,
                             summary=article_data.summary,
                             content=article_data.content,
                             content_hash=article_data.content_hash,
-                            article_metadata=article_data.metadata,
-                            quality_score=quality_score,
+                            article_metadata=article_data.article_metadata,
                             word_count=word_count
                         )
                         
@@ -512,10 +510,16 @@ class DatabaseManager:
             summary=db_article.summary,
             content=db_article.content,
             content_hash=db_article.content_hash,
-            metadata=db_article.article_metadata,
+            article_metadata=db_article.article_metadata,
+            simhash=db_article.simhash,
+            simhash_bucket=db_article.simhash_bucket,
             word_count=db_article.word_count,
+            content_length=len(db_article.content) if db_article.content else 0,
             discovered_at=db_article.discovered_at,
-            processing_status=db_article.processing_status
+            processing_status=db_article.processing_status,
+            collected_at=db_article.discovered_at,
+            created_at=db_article.created_at,
+            updated_at=db_article.updated_at
         )
     
     def _update_source_article_count(self, session: Session, source_id: int) -> None:
