@@ -11,6 +11,7 @@ class TestSystemHealth:
     """Test overall system health and connectivity."""
     
     @pytest.mark.integration
+    @pytest.mark.integration_full
     @pytest.mark.smoke
     @pytest.mark.asyncio
     async def test_system_startup(self, async_client: httpx.AsyncClient):
@@ -26,6 +27,7 @@ class TestSystemHealth:
             assert response.status_code == 200, f"Endpoint {endpoint} failed"
     
     @pytest.mark.integration
+    @pytest.mark.integration_full
     @pytest.mark.asyncio
     async def test_database_connectivity(self, async_client: httpx.AsyncClient):
         """Test database connectivity through API endpoints."""
@@ -38,6 +40,7 @@ class TestSystemHealth:
         assert isinstance(data["articles"], list)
     
     @pytest.mark.integration
+    @pytest.mark.integration_full
     async def test_quality_assessment_pipeline(self, async_client: httpx.AsyncClient):
         """Test the complete quality assessment pipeline."""
         # Get articles list
@@ -58,6 +61,7 @@ class TestDataFlow:
     """Test data flow through the system."""
     
     @pytest.mark.integration
+    @pytest.mark.integration_full
     async def test_article_to_analysis_flow(self, async_client: httpx.AsyncClient):
         """Test data flow from articles to analysis."""
         # Get articles
@@ -75,6 +79,7 @@ class TestDataFlow:
             assert "Tactical vs Strategic Distribution" in analysis_response.text
     
     @pytest.mark.integration
+    @pytest.mark.integration_full
     async def test_api_data_consistency(self, async_client: httpx.AsyncClient):
         """Test consistency between HTML and API endpoints."""
         # Get HTML articles page
@@ -95,6 +100,7 @@ class TestErrorHandling:
     """Test system-wide error handling."""
     
     @pytest.mark.integration
+    @pytest.mark.integration_full
     async def test_system_error_handling(self, async_client: httpx.AsyncClient):
         """Test system error handling."""
         # Test 404 handling
@@ -106,6 +112,7 @@ class TestErrorHandling:
         assert response.status_code in [404, 500]
     
     @pytest.mark.integration
+    @pytest.mark.integration_full
     async def test_database_error_handling(self, async_client: httpx.AsyncClient):
         """Test database error handling."""
         # Test with invalid parameters
@@ -117,6 +124,7 @@ class TestPerformance:
     """Test system performance."""
     
     @pytest.mark.integration
+    @pytest.mark.integration_full
     @pytest.mark.slow
     async def test_system_response_times(self, async_client: httpx.AsyncClient):
         """Test system response times."""
@@ -132,6 +140,7 @@ class TestPerformance:
             assert response_time < 5.0, f"Endpoint {endpoint} took {response_time:.2f}s"
     
     @pytest.mark.integration
+    @pytest.mark.integration_full
     @pytest.mark.slow
     async def test_concurrent_user_simulation(self, async_client: httpx.AsyncClient):
         """Test system under concurrent load."""
@@ -155,6 +164,7 @@ class TestSecurity:
     """Test system security."""
     
     @pytest.mark.integration
+    @pytest.mark.integration_full
     async def test_input_validation(self, async_client: httpx.AsyncClient):
         """Test input validation and sanitization."""
         # Test SQL injection attempts
@@ -170,6 +180,7 @@ class TestSecurity:
             assert response.status_code in [200, 400, 500]
     
     @pytest.mark.integration
+    @pytest.mark.integration_full
     async def test_authentication_requirements(self, async_client: httpx.AsyncClient):
         """Test authentication requirements."""
         # Currently no auth required, but test for future
@@ -180,6 +191,7 @@ class TestDataIntegrity:
     """Test data integrity and consistency."""
     
     @pytest.mark.integration
+    @pytest.mark.integration_full
     async def test_article_data_integrity(self, async_client: httpx.AsyncClient):
         """Test article data integrity."""
         # Get articles via API
@@ -201,6 +213,7 @@ class TestDataIntegrity:
             assert isinstance(article["content"], str)
     
     @pytest.mark.integration
+    @pytest.mark.integration_full
     async def test_quality_score_consistency(self, async_client: httpx.AsyncClient):
         """Test quality score consistency across endpoints."""
         # Get analysis page

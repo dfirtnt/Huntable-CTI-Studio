@@ -147,8 +147,8 @@ class ContentFilter:
         # For certain keywords, allow partial matches
         partial_match_keywords = ['hunting', 'detection', 'monitor', 'alert', 'executable', 'parent-child', 'defender query']
         
-        # For symbol keywords, don't use word boundaries
-        symbol_keywords = ['==', '!=', '<=', '>=', '::', '-->', '->', '//', '--', '\\', '|']
+        # For symbol keywords and path prefixes, don't use word boundaries
+        symbol_keywords = ['==', '!=', '<=', '>=', '::', '-->', '->', '//', '--', '\\', '|', 'C:\\', 'D:\\']
         
         if keyword.lower() in partial_match_keywords:
             # Allow partial matches for these keywords

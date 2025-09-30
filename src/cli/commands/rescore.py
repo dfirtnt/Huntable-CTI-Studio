@@ -31,7 +31,7 @@ def rescore(ctx: CLIContext, article_id: int, force: bool, dry_run: bool):
                 # Rescore specific article
                 console.print(f"🔄 Rescoring article {article_id}...")
                 
-                article = await db_manager.get_article(article_id)
+                article = db_manager.get_article(article_id)
                 if not article:
                     console.print(f"❌ Article {article_id} not found", style="red")
                     return
@@ -49,6 +49,7 @@ def rescore(ctx: CLIContext, article_id: int, force: bool, dry_run: bool):
                     canonical_url=article.canonical_url,
                     title=article.title,
                     content=article.content,
+                    content_hash=article.content_hash,
                     published_at=article.published_at,
                     article_metadata=article.article_metadata or {}
                 )
@@ -72,7 +73,7 @@ def rescore(ctx: CLIContext, article_id: int, force: bool, dry_run: bool):
                         article.article_metadata['lolbas_matches'] = enhanced_metadata.get('lolbas_matches', [])
                         
                         # Save the updated article
-                        await db_manager.update_article(article.id, article)
+                        db_manager.update_article(article.id, article)
                         console.print(f"✅ Article {article_id} updated successfully", style="green")
                     else:
                         console.print("🔍 Dry run - no changes saved", style="blue")
@@ -82,7 +83,7 @@ def rescore(ctx: CLIContext, article_id: int, force: bool, dry_run: bool):
                 # Rescore all articles
                 console.print("🔄 Rescoring all articles...")
                 
-                articles = await db_manager.list_articles()
+                articles = db_manager.list_articles()
                 total_articles = len(articles)
                 
                 if total_articles == 0:
@@ -127,6 +128,7 @@ def rescore(ctx: CLIContext, article_id: int, force: bool, dry_run: bool):
                                 canonical_url=article.canonical_url,
                                 title=article.title,
                                 content=article.content,
+                                content_hash=article.content_hash,
                                 published_at=article.published_at,
                                 article_metadata=article.article_metadata or {}
                             )
@@ -147,7 +149,7 @@ def rescore(ctx: CLIContext, article_id: int, force: bool, dry_run: bool):
                                     article.article_metadata['lolbas_matches'] = enhanced_metadata.get('lolbas_matches', [])
                                     
                                     # Save the updated article
-                                    await db_manager.update_article(article.id, article)
+                                    db_manager.update_article(article.id, article)
                                 
                                 success_count += 1
                             else:
@@ -173,7 +175,7 @@ def rescore(ctx: CLIContext, article_id: int, force: bool, dry_run: bool):
                 # Verify results
                 if not dry_run:
                     console.print("\nVerifying results...")
-                    updated_articles = await db_manager.list_articles()
+                    updated_articles = db_manager.list_articles()
                     articles_with_score = sum(
                         1 for a in updated_articles 
                         if a.article_metadata and 'threat_hunting_score' in a.article_metadata

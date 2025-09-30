@@ -11,7 +11,8 @@ src_path = Path(__file__).parent.parent
 sys.path.insert(0, str(src_path))
 
 from .context import CLIContext, setup_logging, get_managers
-from .commands import init, collect, search, export, stats, backup, sync_sources, rescore
+from .commands import init, collect, search, export, stats, backup, sync_sources
+from .commands.rescore import rescore
 
 pass_context = click.make_pass_decorator(CLIContext, ensure=True)
 

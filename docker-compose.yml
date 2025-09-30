@@ -55,6 +55,8 @@ services:
       - LLM_MODEL=mistral:7b
       - LLM_TEMPERATURE=0.3
       - LLM_MAX_TOKENS=2048
+      - OLLAMA_CONTENT_LIMIT=8000
+      - CHATGPT_CONTENT_LIMIT=20000
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - CHATGPT_API_KEY=${CHATGPT_API_KEY}
       - TZ=America/New_York
