@@ -218,27 +218,18 @@ def sample_sources():
 
 
 @pytest.fixture
-def mock_quality_assessor():
-    """Mock quality assessment service."""
-    mock_assessor = AsyncMock()
+def mock_content_processor():
+    """Mock content processor for lightweight integration tests."""
+    mock_processor = AsyncMock()
     
-    # Mock quality assessment results
-    mock_assessor.assess_article.return_value = {
-        "ttp_score": 75,
-        "llm_score": 80,
-        "combined_score": 77.5,
-        "quality_level": "Good",
-        "tactical_score": 85,
-        "strategic_score": 45,
-        "classification": "Tactical",
-        "hunting_priority": "High",
-        "structure_score": 20,
-        "technical_score": 18,
-        "intelligence_score": 22,
-        "recommendations": ["Add more technical details", "Include IOCs"]
-    }
+    # Mock processing results
+    mock_processor.process_articles.return_value = MagicMock(
+        unique_articles=[],
+        duplicates=[],
+        stats={"total": 0, "unique": 0, "duplicates": 0}
+    )
     
-    return mock_assessor
+    return mock_processor
 
 
 @pytest.fixture
