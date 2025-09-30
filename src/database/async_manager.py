@@ -341,6 +341,7 @@ class AsyncDatabaseManager:
                 # Update timestamp
                 db_source.updated_at = datetime.now()
                 
+                session.add(db_source)
                 await session.commit()
                 await session.refresh(db_source)
                 

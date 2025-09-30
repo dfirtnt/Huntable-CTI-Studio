@@ -601,27 +601,6 @@ async def sources_list(request: Request):
         )
 
 
-@app.get("/source-config", response_class=HTMLResponse)
-async def source_config_page(request: Request):
-    """Interactive source configuration workspace."""
-    try:
-        sources = await async_db_manager.list_sources()
-        return templates.TemplateResponse(
-            "source_config.html",
-            {
-                "request": request,
-                "sources": sources,
-                "environment": ENVIRONMENT,
-            }
-        )
-    except Exception as e:
-        logger.error(f"Source config page error: {e}")
-        return templates.TemplateResponse(
-            "error.html",
-            {"request": request, "error": str(e)},
-            status_code=500
-        )
-
 
 @app.get("/database-chat", response_class=HTMLResponse)
 async def database_chat_page(request: Request):
@@ -659,29 +638,6 @@ async def api_get_source(source_id: int):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.get("/api/source-config/{source_id}")
-async def api_get_source_config(source_id: int):
-    """Detailed configuration payload for a single source."""
-    try:
-        source = await async_db_manager.get_source(source_id)
-        if not source:
-            raise HTTPException(status_code=404, detail="Source not found")
-        return source.dict()
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"API get source config error: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@app.put("/api/source-config/{source_id}")
-async def api_update_source_config(source_id: int, payload: Dict[str, Any]):
-    """Update core and advanced configuration for a source."""
-    try:
-        # Ensure the source exists before attempting update
-        existing_source = await async_db_manager.get_source(source_id)
-        if not existing_source:
-            raise HTTPException(status_code=404, detail="Source not found")
 
         update_fields: Dict[str, Any] = {}
 

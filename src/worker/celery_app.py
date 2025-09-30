@@ -417,13 +417,12 @@ def collect_from_source(self, source_id: int):
                                         canonical_url=article.canonical_url,
                                         title=article.title,
                                         published_at=article.published_at,
-                                        modified_at=article.modified_at,
                                         authors=article.authors,
                                         tags=article.tags,
                                         summary=article.summary,
                                         content=article.content,
                                         content_hash=article.content_hash,
-                                        metadata=article.metadata
+                                        article_metadata=getattr(article, 'metadata', {})
                                     )
                                     article_creates.append(article_create)
                                 
