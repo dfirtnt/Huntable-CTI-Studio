@@ -26,6 +26,9 @@ class ContentCleaner:
     @staticmethod
     def enhanced_html_clean(html: str) -> str:
         """Enhanced HTML cleaning that extracts clean text."""
+        if not html:
+            return ""
+            
         soup = BeautifulSoup(html, 'lxml')
         
         # Remove unwanted elements completely
@@ -33,7 +36,7 @@ class ContentCleaner:
             "script", "style", "nav", "header", "footer", "aside", 
             "advertisement", "menu", "sidebar", "breadcrumb", "pagination",
             "social", "share", "comment", "related", "widget", "promo",
-            "banner", "ad", "popup", "modal", "overlay", "tracking"
+            "banner", "ad", "popup", "modal", "overlay", "tracking", "form"
         ]
         
         for tag_name in unwanted_tags:
@@ -45,7 +48,8 @@ class ContentCleaner:
             'nav', 'menu', 'sidebar', 'header', 'footer', 'breadcrumb',
             'pagination', 'social', 'share', 'comment', 'related', 'widget',
             'promo', 'banner', 'ad', 'popup', 'modal', 'overlay', 'tracking',
-            'subscribe', 'newsletter', 'follow', 'like', 'tweet', 'facebook'
+            'subscribe', 'newsletter', 'follow', 'like', 'tweet', 'facebook',
+            'advertisement', 'comments'
         ]
         
         for pattern in unwanted_patterns:
@@ -63,7 +67,7 @@ class ContentCleaner:
         main_content = None
         for selector in content_selectors:
             main_content = soup.select_one(selector)
-            if main_content and len(main_content.get_text(strip=True)) > 100:
+            if main_content and len(main_content.get_text(strip=True)) > 50:  # Lower threshold
                 break
         
         if main_content:
@@ -71,7 +75,7 @@ class ContentCleaner:
             return ContentCleaner.html_to_text(str(main_content))
         else:
             # Fallback: extract from body but clean aggressively
-            return ContentCleaner.html_to_text(html)
+            return ContentCleaner.html_to_text(str(soup))
     
     @staticmethod
     def basic_html_clean(html: str) -> str:
@@ -821,4 +825,200 @@ class ThreatHuntingScorer:
             pattern = r'\b' + escaped_keyword + r'\b'
         
         return bool(re.search(pattern, text, re.IGNORECASE))
+
+
+class ContentExtractor:
+    """Extract content and metadata from HTML."""
+    
+    def __init__(self):
+        self.soup = None
+    
+    def extract_title(self, html: str) -> str:
+        """Extract title from HTML."""
+        try:
+            soup = BeautifulSoup(html, 'lxml')
+            
+            # Try title tag first
+            title_tag = soup.find('title')
+            if title_tag and title_tag.string:
+                return title_tag.string.strip()
+            
+            # Try h1 tag
+            h1_tag = soup.find('h1')
+            if h1_tag:
+                return h1_tag.get_text(strip=True)
+            
+            # Try meta title
+            meta_title = soup.find('meta', {'property': 'og:title'})
+            if meta_title and meta_title.get('content'):
+                return meta_title.get('content').strip()
+            
+            return ""
+        except Exception:
+            return ""
+    
+    def extract_meta_description(self, html: str) -> str:
+        """Extract meta description from HTML."""
+        try:
+            soup = BeautifulSoup(html, 'lxml')
+            
+            # Try meta description
+            meta_desc = soup.find('meta', {'name': 'description'})
+            if meta_desc and meta_desc.get('content'):
+                return meta_desc.get('content').strip()
+            
+            # Try OpenGraph description
+            og_desc = soup.find('meta', {'property': 'og:description'})
+            if og_desc and og_desc.get('content'):
+                return og_desc.get('content').strip()
+            
+            return ""
+        except Exception:
+            return ""
+    
+    def extract_keywords(self, html: str) -> List[str]:
+        """Extract keywords from HTML."""
+        try:
+            soup = BeautifulSoup(html, 'lxml')
+            
+            # Try meta keywords
+            meta_keywords = soup.find('meta', {'name': 'keywords'})
+            if meta_keywords and meta_keywords.get('content'):
+                keywords = [k.strip() for k in meta_keywords.get('content').split(',')]
+                return [k for k in keywords if k]
+            
+            return []
+        except Exception:
+            return []
+    
+    def extract_author(self, html: str) -> str:
+        """Extract author from HTML."""
+        try:
+            soup = BeautifulSoup(html, 'lxml')
+            
+            # Try meta author
+            meta_author = soup.find('meta', {'name': 'author'})
+            if meta_author and meta_author.get('content'):
+                return meta_author.get('content').strip()
+            
+            # Try OpenGraph author
+            og_author = soup.find('meta', {'property': 'article:author'})
+            if og_author and og_author.get('content'):
+                return og_author.get('content').strip()
+            
+            return ""
+        except Exception:
+            return ""
+    
+    def extract_published_date(self, html: str) -> str:
+        """Extract published date from HTML."""
+        try:
+            soup = BeautifulSoup(html, 'lxml')
+            
+            # Try meta published time (both property and name attributes)
+            meta_date = soup.find('meta', {'property': 'article:published_time'}) or soup.find('meta', {'name': 'article:published_time'})
+            if meta_date and meta_date.get('content'):
+                return meta_date.get('content').strip()
+            
+            # Try time tag
+            time_tag = soup.find('time')
+            if time_tag and time_tag.get('datetime'):
+                return time_tag.get('datetime').strip()
+            
+            return ""
+        except Exception:
+            return ""
+    
+    def extract_canonical_url(self, html: str) -> str:
+        """Extract canonical URL from HTML."""
+        try:
+            soup = BeautifulSoup(html, 'lxml')
+            
+            # Try canonical link
+            canonical = soup.find('link', {'rel': 'canonical'})
+            if canonical and canonical.get('href'):
+                return canonical.get('href').strip()
+            
+            return ""
+        except Exception:
+            return ""
+    
+    def extract_all_metadata(self, html: str) -> Dict[str, Any]:
+        """Extract all metadata from HTML."""
+        return {
+            'title': self.extract_title(html),
+            'description': self.extract_meta_description(html),
+            'keywords': self.extract_keywords(html),
+            'author': self.extract_author(html),
+            'published_date': self.extract_published_date(html),
+            'canonical_url': self.extract_canonical_url(html)
+        }
+
+
+class TextNormalizer:
+    """Normalize text content."""
+    
+    def __init__(self):
+        self.unicode_map = {
+            '“': '"', '"': '"', ''': "'", ''': "'",
+            '–': '-', '—': '-', '…': '...',
+            '©': '(c)', '®': '(r)', '™': '(tm)'
+        }
+    
+    def normalize_whitespace(self, text: str) -> str:
+        """Normalize whitespace in text."""
+        if not text:
+            return ""
+        
+        # Replace multiple whitespace with single space
+        text = re.sub(r'\s+', ' ', text)
+        return text.strip()
+    
+    def normalize_unicode(self, text: str) -> str:
+        """Normalize Unicode characters."""
+        if not text:
+            return ""
+        
+        # Replace common Unicode characters
+        for unicode_char, ascii_char in self.unicode_map.items():
+            text = text.replace(unicode_char, ascii_char)
+        
+        # Additional Unicode normalization for accented characters
+        import unicodedata
+        # Normalize to NFD (decomposed form) and remove combining characters
+        text = unicodedata.normalize('NFD', text)
+        text = ''.join(c for c in text if unicodedata.category(c) != 'Mn')
+        
+        return text
+    
+    def normalize_case(self, text: str) -> str:
+        """Normalize text case."""
+        if not text:
+            return ""
+        
+        # Convert to lowercase
+        return text.lower()
+    
+    def remove_special_characters(self, text: str) -> str:
+        """Remove special characters from text."""
+        if not text:
+            return ""
+        
+        # Remove special characters but keep alphanumeric, spaces, and basic punctuation
+        # Remove @#$%^&*()! and other special chars, keep only letters, numbers, spaces, and basic punctuation
+        text = re.sub(r'[^\w\s\.\,\;\:\?]', ' ', text)
+        return self.normalize_whitespace(text)
+    
+    def normalize_text(self, text: str) -> str:
+        """Comprehensive text normalization."""
+        if not text:
+            return ""
+        
+        # Apply all normalization steps in correct order
+        text = self.normalize_unicode(text)
+        text = self.remove_special_characters(text)
+        text = self.normalize_whitespace(text)
+        text = self.normalize_case(text)
+        
+        return text
     

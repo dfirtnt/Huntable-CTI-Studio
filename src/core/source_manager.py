@@ -8,6 +8,7 @@ import yaml
 import logging
 
 from src.models.source import Source, SourceCreate, SourceConfig
+from dataclasses import dataclass
 from src.database.manager import DatabaseManager
 from src.utils.http import HTTPClient
 from src.core.rss_parser import FeedValidator
@@ -15,11 +16,96 @@ from src.core.rss_parser import FeedValidator
 logger = logging.getLogger(__name__)
 
 
+@dataclass
+class SourceConfig:
+    """Configuration for source management."""
+    check_frequency: int = 3600
+    lookback_days: int = 180
+    min_content_length: int = 100
+    max_content_length: int = 50000
+    min_title_length: int = 10
+    max_title_length: int = 200
+    max_age_days: int = 365
+    quality_threshold: float = 0.5
+    cost_threshold: float = 0.1
+    enable_rss: bool = True
+    enable_scraping: bool = True
+    rate_limit_delay: float = 1.0
+    max_retries: int = 3
+    timeout: int = 30
+    
+    def validate(self) -> bool:
+        """Validate configuration parameters."""
+        return (
+            self.check_frequency > 0 and
+            self.lookback_days > 0 and
+            self.min_content_length > 0 and
+            self.max_content_length > self.min_content_length and
+            self.min_title_length > 0 and
+            self.max_title_length > self.min_title_length and
+            self.max_age_days > 0 and
+            0.0 <= self.quality_threshold <= 1.0 and
+            0.0 <= self.cost_threshold <= 1.0 and
+            self.rate_limit_delay > 0 and
+            self.max_retries > 0 and
+            self.timeout > 0
+        )
+    
+    def to_dict(self) -> Dict:
+        """Convert config to dictionary."""
+        return {
+            'check_frequency': self.check_frequency,
+            'lookback_days': self.lookback_days,
+            'min_content_length': self.min_content_length,
+            'max_content_length': self.max_content_length,
+            'min_title_length': self.min_title_length,
+            'max_title_length': self.max_title_length,
+            'max_age_days': self.max_age_days,
+            'quality_threshold': self.quality_threshold,
+            'cost_threshold': self.cost_threshold,
+            'enable_rss': self.enable_rss,
+            'enable_scraping': self.enable_scraping,
+            'rate_limit_delay': self.rate_limit_delay,
+            'max_retries': self.max_retries,
+            'timeout': self.timeout
+        }
+    
+    @classmethod
+    def from_dict(cls, data: Dict) -> 'SourceConfig':
+        """Create config from dictionary."""
+        return cls(**data)
+
+
 class SourceConfigLoader:
     """Loader for YAML source configurations."""
     
     def __init__(self):
         self.supported_versions = ['1.0']
+    
+    def load_config(self, file_path: str) -> SourceConfig:
+        """Load configuration from file."""
+        try:
+            with open(file_path, 'r') as f:
+                data = yaml.safe_load(f)
+            return SourceConfig.from_dict(data)
+        except FileNotFoundError:
+            # Return default config if file doesn't exist
+            return SourceConfig()
+        except Exception as e:
+            logger.error(f"Error loading config from {file_path}: {e}")
+            return SourceConfig()
+    
+    def save_config(self, config: SourceConfig, file_path: str):
+        """Save configuration to file."""
+        try:
+            with open(file_path, 'w') as f:
+                yaml.dump(config.to_dict(), f, default_flow_style=False)
+        except Exception as e:
+            logger.error(f"Error saving config to {file_path}: {e}")
+    
+    def load_config_from_dict(self, data: Dict) -> SourceConfig:
+        """Load configuration from dictionary."""
+        return SourceConfig.from_dict(data)
     
     def load_from_file(self, config_path: str) -> List[SourceCreate]:
         """
@@ -166,11 +252,15 @@ class SourceConfigLoader:
 class SourceManager:
     """Manager for source configurations and database synchronization."""
     
-    def __init__(self, database_manager: DatabaseManager, http_client: HTTPClient):
+    def __init__(self, database_manager: Optional[DatabaseManager] = None, http_client: Optional[HTTPClient] = None):
         self.db = database_manager
         self.http_client = http_client
         self.config_loader = SourceConfigLoader()
-        self.feed_validator = FeedValidator()
+        self.feed_validator = FeedValidator() if http_client else None
+        
+        # In-memory storage for testing
+        self._sources = {}
+        self._source_configs = {}
     
     async def load_sources_from_config(
         self,
@@ -493,3 +583,153 @@ class SourceManager:
             result['errors'].append(f"Configuration loading failed: {e}")
         
         return result
+    
+    def add_source(self, source_data: Dict) -> 'Source':
+        """Add a new source."""
+        if not self.validate_source_data(source_data):
+            raise ValueError("Invalid source data")
+        
+        identifier = source_data['identifier']
+        if identifier in self._sources:
+            raise ValueError(f"Source with identifier '{identifier}' already exists")
+        
+        # Create source object
+        source = Source(
+            id=len(self._sources) + 1,
+            identifier=identifier,
+            name=source_data['name'],
+            url=source_data['url'],
+            rss_url=source_data.get('rss_url'),
+            check_frequency=source_data.get('check_frequency', 3600),
+            lookback_days=source_data.get('lookback_days', 180),
+            active=source_data.get('active', True),
+            config=source_data.get('config', {})
+        )
+        
+        self._sources[identifier] = source
+        return source
+    
+    def get_source(self, identifier: str) -> Optional['Source']:
+        """Get source by identifier."""
+        return self._sources.get(identifier)
+    
+    def update_source(self, identifier: str, update_data: Dict) -> Optional['Source']:
+        """Update source."""
+        if identifier not in self._sources:
+            raise ValueError(f"Source '{identifier}' not found")
+        
+        source = self._sources[identifier]
+        
+        # Update fields
+        for key, value in update_data.items():
+            if hasattr(source, key):
+                setattr(source, key, value)
+        
+        return source
+    
+    def remove_source(self, identifier: str) -> bool:
+        """Remove source."""
+        if identifier in self._sources:
+            del self._sources[identifier]
+            return True
+        return False
+    
+    def list_sources(self, active_only: bool = False) -> List['Source']:
+        """List all sources."""
+        sources = list(self._sources.values())
+        if active_only:
+            sources = [s for s in sources if s.active]
+        return sources
+    
+    def get_source_config(self, identifier: str) -> Optional[SourceConfig]:
+        """Get source configuration."""
+        return self._source_configs.get(identifier)
+    
+    def update_source_config(self, identifier: str, config: SourceConfig) -> bool:
+        """Update source configuration."""
+        if identifier not in self._sources:
+            return False
+        
+        self._source_configs[identifier] = config
+        return True
+    
+    def validate_source_data(self, source_data: Dict) -> bool:
+        """Validate source data."""
+        required_fields = ['identifier', 'name', 'url']
+        for field in required_fields:
+            if field not in source_data:
+                return False
+        
+        # Validate URL
+        if not self.validate_url(source_data['url']):
+            return False
+        
+        # Validate RSS URL if present
+        if 'rss_url' in source_data and source_data['rss_url']:
+            if not self.validate_rss_url(source_data['rss_url']):
+                return False
+        
+        return True
+    
+    def validate_url(self, url: str) -> bool:
+        """Validate URL format."""
+        if not url:
+            return False
+        
+        # Basic URL validation
+        if not url.startswith(('http://', 'https://')):
+            return False
+        
+        # Check for invalid protocols
+        invalid_protocols = ['ftp://', 'javascript:', 'data:', 'file:']
+        for protocol in invalid_protocols:
+            if url.startswith(protocol):
+                return False
+        
+        return True
+    
+    def validate_rss_url(self, url: str) -> bool:
+        """Validate RSS URL format."""
+        if not self.validate_url(url):
+            return False
+        
+        # Check for common RSS/Atom patterns
+        rss_patterns = ['/feed', '/rss', '/atom', '.xml', '.rss']
+        return any(pattern in url.lower() for pattern in rss_patterns)
+    
+    def get_statistics(self) -> Dict:
+        """Get source statistics."""
+        total_sources = len(self._sources)
+        active_sources = len([s for s in self._sources.values() if s.active])
+        inactive_sources = total_sources - active_sources
+        
+        return {
+            'total_sources': total_sources,
+            'active_sources': active_sources,
+            'inactive_sources': inactive_sources
+        }
+    
+    def export_sources(self) -> List[Dict]:
+        """Export sources to dictionary list."""
+        return [source.__dict__ for source in self._sources.values()]
+    
+    def import_sources(self, sources_data: List[Dict]) -> bool:
+        """Import sources from dictionary list."""
+        try:
+            for source_data in sources_data:
+                if not self.validate_source_data(source_data):
+                    raise ValueError(f"Invalid source data: {source_data}")
+                
+                identifier = source_data['identifier']
+                if identifier in self._sources:
+                    raise ValueError(f"Source with identifier '{identifier}' already exists")
+                
+                self.add_source(source_data)
+            
+            return True
+        except ValueError as e:
+            # Re-raise ValueError for validation errors
+            raise e
+        except Exception as e:
+            logger.error(f"Error importing sources: {e}")
+            return False
