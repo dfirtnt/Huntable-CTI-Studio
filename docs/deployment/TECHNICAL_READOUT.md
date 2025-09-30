@@ -293,7 +293,7 @@ def check_source(source_id: str):
 docker-compose up -d
 
 # Web interface
-http://localhost:8000
+http://localhost:8001
 
 # Database access
 docker exec cti_postgres psql -U cti_user -d cti_scraper
@@ -321,7 +321,7 @@ python -m src.cli.main collect --dry-run
 ## Monitoring and Maintenance
 
 ### Health Checks
-- **Web Application**: `http://localhost:8000/health`
+- **Web Application**: `http://localhost:8001/health`
 - **Database**: Connection pool monitoring
 - **Celery Workers**: Task queue monitoring
 - **Source Status**: Collection success rates
@@ -385,7 +385,7 @@ cd CTIScraper
 docker-compose up -d
 
 # Access web interface
-open http://localhost:8000
+open http://localhost:8001
 
 # Check database
 docker exec -it cti_postgres psql -U cti_user -d cti_scraper -c "SELECT COUNT(*) FROM articles;"
@@ -405,7 +405,7 @@ pip install -r requirements.txt
 export DATABASE_URL="postgresql+asyncpg://cti_user:cti_password_2024@postgres:5432/cti_scraper"
 
 # Run web application
-uvicorn src.web.modern_main:app --host 0.0.0.0 --port 8000 --reload
+uvicorn src.web.modern_main:app --host 0.0.0.0 --port 8001 --reload
 ```
 
 This technical readout provides a comprehensive overview of the CTI Scraper architecture, implementation details, and development workflow for engineers and developers joining the project.

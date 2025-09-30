@@ -12,6 +12,7 @@ class TestSystemHealth:
     
     @pytest.mark.integration
     @pytest.mark.smoke
+    @pytest.mark.asyncio
     async def test_system_startup(self, async_client: httpx.AsyncClient):
         """Test that all system components are running."""
         # Test main dashboard
@@ -25,6 +26,7 @@ class TestSystemHealth:
             assert response.status_code == 200, f"Endpoint {endpoint} failed"
     
     @pytest.mark.integration
+    @pytest.mark.asyncio
     async def test_database_connectivity(self, async_client: httpx.AsyncClient):
         """Test database connectivity through API endpoints."""
         # Test articles API

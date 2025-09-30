@@ -34,6 +34,7 @@ show_usage() {
     echo "  backup create [--backup-dir <dir>] [--no-compress] - Create database backup"
     echo "  backup list [--backup-dir <dir>]              - List available backups"
     echo "  backup restore <file> [--backup-dir <dir>] [--force] - Restore database"
+    echo "  rescore [--article-id <id>] [--force] [--dry-run] - Rescore threat hunting scores"
     echo ""
     echo "Examples:"
     echo "  $0 init"
@@ -43,6 +44,8 @@ show_usage() {
     echo "  $0 backup create"
     echo "  $0 backup list"
     echo "  $0 backup restore cti_scraper_backup_20250907_134653.sql.gz"
+    echo "  $0 rescore --force"
+    echo "  $0 rescore --article-id 965"
 }
 
 # Check if command is provided
@@ -312,6 +315,31 @@ case "$1" in
                 exit 1
                 ;;
         esac
+        ;;
+    "rescore")
+        CLI_CMD="$CLI_CMD rescore"
+        shift
+        while [[ $# -gt 0 ]]; do
+            case $1 in
+                --article-id)
+                    CLI_CMD="$CLI_CMD --article-id $2"
+                    shift 2
+                    ;;
+                --force)
+                    CLI_CMD="$CLI_CMD --force"
+                    shift
+                    ;;
+                --dry-run)
+                    CLI_CMD="$CLI_CMD --dry-run"
+                    shift
+                    ;;
+                *)
+                    echo "Unknown option: $1"
+                    show_usage
+                    exit 1
+                    ;;
+            esac
+        done
         ;;
     *)
         echo "Unknown command: $1"

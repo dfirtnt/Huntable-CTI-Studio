@@ -19,7 +19,7 @@ A browser extension that allows you to send articles directly to your CTIScraper
 
 2. **Configure the API URL**:
    - Click the extension icon in your browser toolbar
-   - Set the CTIScraper API URL (default: `http://127.0.0.1:8000`)
+   - Set the CTIScraper API URL (default: `http://127.0.0.1:8001`)
    - Configure other settings as needed
 
 ## Usage
@@ -44,7 +44,7 @@ The extension works exactly like your manual URL scraping interface:
 
 ## Configuration Options
 
-- **API URL**: Your CTIScraper instance URL (default: `http://127.0.0.1:8000`)
+- **API URL**: Your CTIScraper instance URL (default: `http://127.0.0.1:8001`)
 - **Force Scrape**: Whether to scrape even if the URL already exists
 - **Auto-open**: Automatically opens the processed article in CTIScraper
 

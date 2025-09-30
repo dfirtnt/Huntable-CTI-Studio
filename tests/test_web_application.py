@@ -12,7 +12,7 @@ from typing import AsyncGenerator
 from unittest.mock import AsyncMock, MagicMock
 
 # Test configuration
-BASE_URL = "http://localhost:8000"
+BASE_URL = "http://localhost:8001"
 TEST_TIMEOUT = 30.0
 
 class TestCoreRoutes:

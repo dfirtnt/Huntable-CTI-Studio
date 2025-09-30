@@ -8,7 +8,7 @@ The content filtering system is ready for user testing! Here's exactly where and
 
 ### Prerequisites
 - ✅ Application is running (confirmed: containers are up)
-- ✅ Access to web interface at `http://localhost:8000`
+- ✅ Access to web interface at `http://localhost:8001`
 - ✅ OpenAI API key configured in Settings
 
 ### Step-by-Step Testing
@@ -16,7 +16,7 @@ The content filtering system is ready for user testing! Here's exactly where and
 #### 1. Access the Web Interface
 ```bash
 # Application is already running
-# Navigate to: http://localhost:8000
+# Navigate to: http://localhost:8001
 ```
 
 #### 2. Navigate to Article Detail Page
@@ -62,7 +62,7 @@ After analysis, check for:
 
 ```bash
 # Test with filtering enabled
-curl -X POST http://localhost:8000/api/articles/1/gpt4o-rank-optimized \
+curl -X POST http://localhost:8001/api/articles/1/gpt4o-rank-optimized \
   -H "Content-Type: application/json" \
   -d '{
     "api_key": "sk-your-openai-key",
@@ -71,7 +71,7 @@ curl -X POST http://localhost:8000/api/articles/1/gpt4o-rank-optimized \
   }'
 
 # Test with filtering disabled
-curl -X POST http://localhost:8000/api/articles/1/gpt4o-rank-optimized \
+curl -X POST http://localhost:8001/api/articles/1/gpt4o-rank-optimized \
   -H "Content-Type: application/json" \
   -d '{
     "api_key": "sk-your-openai-key",
@@ -277,7 +277,7 @@ print('Model loaded successfully')
 "
 
 # Test API endpoint
-curl -X GET http://localhost:8000/api/articles/1
+curl -X GET http://localhost:8001/api/articles/1
 ```
 
 ## 📈 Success Metrics
@@ -297,6 +297,6 @@ curl -X GET http://localhost:8000/api/articles/1
 
 ## 🎉 Ready to Test!
 
-The system is fully implemented and ready for user testing. Start with the web interface at `http://localhost:8000/articles/{article_id}` and test the "Rank with GPT4o" button with different optimization settings.
+The system is fully implemented and ready for user testing. Start with the web interface at `http://localhost:8001/articles/{article_id}` and test the "Rank with GPT4o" button with different optimization settings.
 
 **Happy Testing!** 🚀

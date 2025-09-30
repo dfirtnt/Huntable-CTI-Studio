@@ -210,7 +210,7 @@ services:
       - cti_postgres_test
       - cti_redis_test
     ports:
-      - "8001:8000"
+      - "8001:8001"
     volumes:
       - ./test-results:/app/test-results
 
@@ -431,13 +431,14 @@ jobs:
 import asyncio
 import subprocess
 import time
+import os
 from typing import Dict, List, Optional
 
 class PlaywrightMCPOrchestrator:
     """MCP-based test orchestration for CI/CD."""
     
     def __init__(self):
-        self.base_url = "http://localhost:8000"
+        self.base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         self.timeout = 300  # 5 minutes
         
     async def health_check(self) -> bool:

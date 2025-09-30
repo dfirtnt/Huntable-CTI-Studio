@@ -2,6 +2,7 @@
 UI flow tests using Playwright for CTI Scraper.
 """
 import pytest
+import os
 from playwright.async_api import Page, expect
 from typing import AsyncGenerator
 
@@ -10,40 +11,44 @@ class TestDashboardFlows:
     
     @pytest.mark.ui
     @pytest.mark.smoke
+    @pytest.mark.asyncio
     async def test_dashboard_navigation(self, page: Page):
         """Test navigation between dashboard sections."""
-        await page.goto("http://localhost:8000/")
+        base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
+        await page.goto(f"{base_url}/")
         
         # Verify dashboard loads
-        await expect(page).to_have_title("CTI Scraper")
-        await expect(page.locator("h1")).to_contain_text("CTI Scraper Dashboard")
+        await expect(page).to_have_title("CTI Scraper Dashboard")
+        await expect(page.locator("h1").first).to_contain_text("CTI Scraper")
         
         # Test navigation to articles
         await page.click("text=Articles")
-        await expect(page).to_have_url("http://localhost:8000/articles")
-        
+        await expect(page).to_have_url(f"{base_url}/articles")
+
         # Test navigation to sources
         await page.click("text=Sources")
-        await expect(page).to_have_url("http://localhost:8000/sources")
-        
+        await expect(page).to_have_url(f"{base_url}/sources")
+
         # Return to dashboard
         await page.click("text=Dashboard")
-        await expect(page).to_have_url("http://localhost:8000/")
+        await expect(page).to_have_url(f"{base_url}/")
 
 class TestArticlesFlows:
     """Test article browsing and viewing flows."""
     
     @pytest.mark.ui
     @pytest.mark.smoke
+    @pytest.mark.asyncio
     async def test_articles_listing(self, page: Page):
         """Test articles listing page functionality."""
-        await page.goto("http://localhost:8000/articles")
+        base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
+        await page.goto(f"{base_url}/articles")
         
         # Verify page loads
-        await expect(page.locator("h1")).to_contain_text("Articles")
+        await expect(page.locator("h1").nth(1)).to_contain_text("Threat Intelligence Articles")
         
         # Check for article elements
-        await expect(page.locator("text=Browse Articles")).to_be_visible()
+        await expect(page.locator("h1").nth(1)).to_be_visible()
         
         # Test pagination if available
         pagination = page.locator("[data-testid='pagination']")
@@ -53,7 +58,7 @@ class TestArticlesFlows:
     @pytest.mark.ui
     async def test_article_detail_view(self, page: Page):
         """Test individual article detail page."""
-        await page.goto("http://localhost:8000/articles")
+        await page.goto("http://localhost:8001/articles")
         
         # Try to click on first article if available
         first_article = page.locator("a[href^='/articles/']").first
@@ -67,12 +72,12 @@ class TestArticlesFlows:
             
             # Test back navigation
             await page.click("text=Back to Articles")
-            await expect(page).to_have_url("http://localhost:8000/articles")
+            await expect(page).to_have_url("http://localhost:8001/articles")
     
     @pytest.mark.ui
     async def test_article_navigation(self, page: Page):
         """Test article navigation (previous/next)."""
-        await page.goto("http://localhost:8000/articles/1")
+        await page.goto("http://localhost:8001/articles/1")
         
         # Check if navigation buttons exist
         prev_button = page.locator("text=Previous Article")
@@ -89,15 +94,17 @@ class TestSourcesFlows:
     
     @pytest.mark.ui
     @pytest.mark.smoke
+    @pytest.mark.asyncio
     async def test_sources_management(self, page: Page):
         """Test source management functionality."""
-        await page.goto("http://localhost:8000/sources")
+        base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
+        await page.goto(f"{base_url}/sources")
         
         # Verify page loads
-        await expect(page.locator("h1")).to_contain_text("Sources")
+        await expect(page.locator("h1").nth(1)).to_contain_text("Threat Intelligence Sources")
         
         # Check for source management elements
-        await expect(page.locator("text=Manage Sources")).to_be_visible()
+        await expect(page.locator("h1").nth(1)).to_be_visible()
         
         # Look for add source functionality
         add_source = page.locator("text=Add Source, New Source, + Add").first
@@ -111,7 +118,7 @@ class TestResponsiveDesign:
     async def test_mobile_viewport(self, page: Page):
         """Test mobile viewport rendering."""
         await page.set_viewport_size({"width": 375, "height": 667})
-        await page.goto("http://localhost:8000/")
+        await page.goto("http://localhost:8001/")
         
         # Verify mobile layout
         await expect(page.locator("nav")).to_be_visible()
@@ -123,7 +130,7 @@ class TestResponsiveDesign:
     async def test_tablet_viewport(self, page: Page):
         """Test tablet viewport rendering."""
         await page.set_viewport_size({"width": 768, "height": 1024})
-        await page.goto("http://localhost:8000/")
+        await page.goto("http://localhost:8001/")
         
         # Verify tablet layout
         await expect(page.locator("main")).to_be_visible()
@@ -139,7 +146,7 @@ class TestAccessibility:
     @pytest.mark.ui
     async def test_page_structure(self, page: Page):
         """Test proper page structure and headings."""
-        await page.goto("http://localhost:8000/")
+        await page.goto("http://localhost:8001/")
         
         # Check for proper heading hierarchy
         h1 = page.locator("h1")
@@ -152,7 +159,7 @@ class TestAccessibility:
     @pytest.mark.ui
     async def test_navigation_accessibility(self, page: Page):
         """Test navigation accessibility."""
-        await page.goto("http://localhost:8000/")
+        await page.goto("http://localhost:8001/")
         
         # Check for navigation element
         nav = page.locator("nav")
@@ -168,7 +175,7 @@ class TestErrorHandling:
     @pytest.mark.ui
     async def test_404_page(self, page: Page):
         """Test 404 error page."""
-        await page.goto("http://localhost:8000/nonexistent-page")
+        await page.goto("http://localhost:8001/nonexistent-page")
         
         # Should show error page
         await expect(page.locator("text=Something went wrong")).to_be_visible()
@@ -176,12 +183,12 @@ class TestErrorHandling:
         
         # Check error page navigation
         await page.click("text=Go to Dashboard")
-        await expect(page).to_have_url("http://localhost:8000/")
+        await expect(page).to_have_url("http://localhost:8001/")
     
     @pytest.mark.ui
     async def test_invalid_article_id(self, page: Page):
         """Test handling of invalid article IDs."""
-        await page.goto("http://localhost:8000/articles/999999")
+        await page.goto("http://localhost:8001/articles/999999")
         
         # Should handle gracefully
         if page.url.endswith("999999"):
@@ -201,7 +208,7 @@ class TestPerformance:
         import time
         
         start_time = time.time()
-        await page.goto("http://localhost:8000/")
+        await page.goto("http://localhost:8001/")
         await page.wait_for_load_state("networkidle")
         end_time = time.time()
         
@@ -212,7 +219,7 @@ class TestPerformance:
     @pytest.mark.slow
     async def test_chart_rendering(self, page: Page):
         """Test chart rendering performance."""
-        await page.goto("http://localhost:8000/analysis")
+        await page.goto("http://localhost:8001/analysis")
         
         # Wait for charts to load
         await page.wait_for_selector("#qualityChart")

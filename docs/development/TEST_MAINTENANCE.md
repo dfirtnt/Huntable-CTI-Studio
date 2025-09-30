@@ -13,7 +13,7 @@ This guide covers test maintenance strategies, debugging techniques, and best pr
 #### 1. Application Not Running
 ```bash
 # Check if application is running
-curl http://localhost:8000/health
+curl http://localhost:8001/health
 
 # Check Docker containers
 docker ps
@@ -113,7 +113,7 @@ def test_debug_example():
 @pytest.mark.ui
 async def test_debug_ui(page: Page):
     """Example of debugging UI tests."""
-    await page.goto("http://localhost:8000/")
+    await page.goto("http://localhost:8001/")
     
     # Pause for manual inspection
     await page.pause()
@@ -134,7 +134,7 @@ import asyncio
 async def test_debug_async():
     """Example of debugging async tests."""
     async with httpx.AsyncClient() as client:
-        response = await client.get("http://localhost:8000/api/articles")
+        response = await client.get("http://localhost:8001/api/articles")
         
         # Debug response
         print(f"Status: {response.status_code}")

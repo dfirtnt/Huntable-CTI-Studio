@@ -18,7 +18,7 @@ def check_missing_keywords():
     
     # Get all articles
     print("Checking for hkey and .vhdx patterns...")
-    response = requests.get('http://localhost:8000/api/articles?limit=1000')
+    response = requests.get('http://localhost:8001/api/articles?limit=1000')
     articles = response.json()['articles']
     
     found_articles = []

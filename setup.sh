@@ -147,7 +147,7 @@ wait_for_services() {
     # Wait for Web service
     print_status "Waiting for Web service..."
     for i in {1..60}; do
-        if curl -f http://localhost:8000/health >/dev/null 2>&1; then
+        if curl -f http://localhost:8001/health >/dev/null 2>&1; then
             print_success "Web service is ready"
             break
         fi
@@ -172,7 +172,7 @@ verify_installation() {
     fi
     
     # Test web interface
-    if ! curl -f http://localhost:8000/health >/dev/null 2>&1; then
+    if ! curl -f http://localhost:8001/health >/dev/null 2>&1; then
         print_error "Web interface is not accessible"
         exit 1
     fi
@@ -186,9 +186,9 @@ show_summary() {
     print_success "🎉 CTI Scraper setup completed successfully!"
     echo
     echo "📊 Services:"
-    echo "   • Web Interface: http://localhost:8000"
-    echo "   • API Documentation: http://localhost:8000/docs"
-    echo "   • Health Check: http://localhost:8000/health"
+    echo "   • Web Interface: http://localhost:8001"
+    echo "   • API Documentation: http://localhost:8001/docs"
+    echo "   • Health Check: http://localhost:8001/health"
     echo
     echo "🔧 Management Commands:"
     echo "   • View logs:     docker-compose logs -f [service]"

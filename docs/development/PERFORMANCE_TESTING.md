@@ -65,12 +65,15 @@ def system_monitor():
 import asyncio
 import time
 import httpx
+import os
 from typing import List, Dict
 
 class LoadTester:
     """Basic load testing implementation."""
     
-    def __init__(self, base_url: str = "http://localhost:8000"):
+    def __init__(self, base_url: str = None):
+        if base_url is None:
+            base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         self.base_url = base_url
         self.results = []
     
@@ -206,7 +209,7 @@ class CTIScraperUser(HttpUser):
         min_score = random.randint(0, 100)
         self.client.get(f"/api/articles?min_threat_score={min_score}")
 
-# Run with: locust -f locustfile.py --host=http://localhost:8000
+# Run with: locust -f locustfile.py --host=http://localhost:8001
 ```
 
 ## 🚀 Stress Testing
@@ -499,7 +502,7 @@ async def test_homepage_benchmark():
     start_time = time.time()
     
     async with httpx.AsyncClient() as client:
-        response = await client.get("http://localhost:8000/")
+        response = await client.get("http://localhost:8001/")
         assert response.status_code == 200
     
     load_time = time.time() - start_time
@@ -513,7 +516,7 @@ async def test_api_benchmark():
     start_time = time.time()
     
     async with httpx.AsyncClient() as client:
-        response = await client.get("http://localhost:8000/api/articles")
+        response = await client.get("http://localhost:8001/api/articles")
         assert response.status_code == 200
     
     response_time = time.time() - start_time
@@ -549,7 +552,7 @@ pytest tests/performance/test_load.py -v
 pytest --benchmark-only -m performance
 
 # Run Locust load tests
-locust -f locustfile.py --host=http://localhost:8000
+locust -f locustfile.py --host=http://localhost:8001
 ```
 
 ### Advanced Commands

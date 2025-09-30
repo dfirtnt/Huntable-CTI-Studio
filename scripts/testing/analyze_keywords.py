@@ -22,7 +22,7 @@ def analyze_keywords():
     """Analyze keyword distribution across classifications."""
     
     # Get all articles
-    response = requests.get('http://localhost:8000/api/articles?limit=1000')
+    response = requests.get('http://localhost:8001/api/articles?limit=1000')
     articles = response.json()['articles']
     
     # Initialize counters

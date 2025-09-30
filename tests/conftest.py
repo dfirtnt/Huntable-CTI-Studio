@@ -5,11 +5,13 @@ import pytest
 import pytest_asyncio
 import asyncio
 import httpx
+import os
 from typing import AsyncGenerator, Generator
 from unittest.mock import AsyncMock, MagicMock
+from playwright.async_api import async_playwright, Browser, BrowserContext, Page
 
 # Test configuration
-TEST_BASE_URL = "http://localhost:8000"
+TEST_BASE_URL = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
 TEST_DB_URL = "sqlite:///test.db"
 
 @pytest.fixture(scope="session")
@@ -95,3 +97,26 @@ def test_environment():
         "retry_attempts": 3,
         "headless": True
     }
+
+# Playwright fixtures for UI testing
+@pytest_asyncio.fixture(scope="function")
+async def browser() -> AsyncGenerator[Browser, None]:
+    """Browser instance for UI testing."""
+    async with async_playwright() as p:
+        browser = await p.chromium.launch(headless=True)
+        yield browser
+        await browser.close()
+
+@pytest_asyncio.fixture(scope="function")
+async def browser_context(browser: Browser) -> AsyncGenerator[BrowserContext, None]:
+    """Browser context for UI testing."""
+    context = await browser.new_context()
+    yield context
+    await context.close()
+
+@pytest_asyncio.fixture(scope="function")
+async def page(browser_context: BrowserContext) -> AsyncGenerator[Page, None]:
+    """Page instance for UI testing."""
+    page = await browser_context.new_page()
+    yield page
+    await page.close()

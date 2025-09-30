@@ -15,7 +15,7 @@ import aiohttp
 class PlaywrightMCPOrchestrator:
     """MCP-based orchestrator for Playwright tests"""
     
-    def __init__(self, base_url: str = "http://localhost:8000"):
+    def __init__(self, base_url: str = "http://localhost:8001"):
         self.base_url = base_url
         self.test_results_dir = Path("test-results")
         self.test_results_dir.mkdir(exist_ok=True)

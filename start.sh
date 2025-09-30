@@ -57,7 +57,7 @@ else
 fi
 
 # Check web service
-if curl -f http://localhost:8000/health > /dev/null 2>&1; then
+if curl -f http://localhost:8001/health > /dev/null 2>&1; then
     echo "✅ Web service is ready"
 else
     echo "❌ Web service is not ready"
@@ -69,7 +69,7 @@ echo ""
 echo "🎉 CTI Scraper is running!"
 echo ""
 echo "📊 Services:"
-echo "   • Web Interface: http://localhost:8000"
+echo "   • Web Interface: http://localhost:8001"
 echo "   • PostgreSQL:    postgres:5432 (Docker container)"
 echo "   • Redis:         redis:6379 (Docker container)"
 echo "   • Ollama:        ollama:11434 (Docker container)"
@@ -81,8 +81,8 @@ echo "   • Stop stack:    docker-compose down"
 echo "   • Restart:       docker-compose restart [service]"
 echo ""
 echo "📈 Monitoring:"
-echo "   • Health check:  http://localhost:8000/health"
-echo "   • Database stats: http://localhost:8000/api/sources"
+echo "   • Health check:  http://localhost:8001/health"
+echo "   • Database stats: http://localhost:8001/api/sources"
 echo ""
 
 # Show running containers

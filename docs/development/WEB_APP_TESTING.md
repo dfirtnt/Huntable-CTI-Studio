@@ -59,7 +59,7 @@ async def browser_page():
 async def test_basic_navigation(page: Page):
     """Test basic page navigation."""
     # Navigate to homepage
-    await page.goto("http://localhost:8000/")
+    await page.goto("http://localhost:8001/")
     
     # Verify page loaded
     await expect(page).to_have_title("CTI Scraper")
@@ -75,7 +75,7 @@ async def test_basic_navigation(page: Page):
 @pytest.mark.ui
 async def test_homepage_loads(page: Page):
     """Test homepage loads correctly."""
-    await page.goto("http://localhost:8000/")
+    await page.goto("http://localhost:8001/")
     
     # Verify page title
     await expect(page).to_have_title("CTI Scraper")
@@ -94,21 +94,21 @@ async def test_homepage_loads(page: Page):
 @pytest.mark.ui
 async def test_navigation_menu(page: Page):
     """Test navigation between pages."""
-    await page.goto("http://localhost:8000/")
+    await page.goto("http://localhost:8001/")
     
     # Test navigation to articles
     await page.click("text=Articles")
-    await expect(page).to_have_url("http://localhost:8000/articles")
+    await expect(page).to_have_url("http://localhost:8001/articles")
     await expect(page.locator("h1:has-text('Articles')")).to_be_visible()
     
     # Test navigation to sources
     await page.click("text=Sources")
-    await expect(page).to_have_url("http://localhost:8000/sources")
+    await expect(page).to_have_url("http://localhost:8001/sources")
     await expect(page.locator("h1:has-text('Sources')")).to_be_visible()
     
     # Test navigation to analysis
     await page.click("text=Analysis")
-    await expect(page).to_have_url("http://localhost:8000/analysis")
+    await expect(page).to_have_url("http://localhost:8001/analysis")
     await expect(page.locator("h1:has-text('Analysis')")).to_be_visible()
 ```
 
@@ -117,7 +117,7 @@ async def test_navigation_menu(page: Page):
 @pytest.mark.ui
 async def test_add_source_form(page: Page):
     """Test adding a new source."""
-    await page.goto("http://localhost:8000/sources")
+    await page.goto("http://localhost:8001/sources")
     
     # Click add source button
     await page.click("button:has-text('Add Source')")
@@ -140,7 +140,7 @@ async def test_add_source_form(page: Page):
 @pytest.mark.ui
 async def test_search_functionality(page: Page):
     """Test search functionality."""
-    await page.goto("http://localhost:8000/articles")
+    await page.goto("http://localhost:8001/articles")
     
     # Enter search term
     await page.fill("input[placeholder='Search articles...']", "threat")
@@ -173,7 +173,7 @@ async def test_responsive_design(page: Page):
     
     for viewport in viewports:
         await page.set_viewport_size(viewport["width"], viewport["height"])
-        await page.goto("http://localhost:8000/")
+        await page.goto("http://localhost:8001/")
         
         # Verify navigation is accessible
         if viewport["name"] == "mobile":
@@ -194,7 +194,7 @@ async def test_mobile_navigation(page: Page):
     """Test mobile navigation functionality."""
     # Set mobile viewport
     await page.set_viewport_size(375, 667)
-    await page.goto("http://localhost:8000/")
+    await page.goto("http://localhost:8001/")
     
     # Open mobile menu
     await page.click(".mobile-menu-toggle")
@@ -202,7 +202,7 @@ async def test_mobile_navigation(page: Page):
     
     # Navigate using mobile menu
     await page.click(".mobile-menu a:has-text('Articles')")
-    await expect(page).to_have_url("http://localhost:8000/articles")
+    await expect(page).to_have_url("http://localhost:8001/articles")
     
     # Verify menu closes
     await expect(page.locator(".mobile-menu")).to_be_hidden()
@@ -215,7 +215,7 @@ async def test_mobile_navigation(page: Page):
 @pytest.mark.ui
 async def test_homepage_screenshot(page: Page):
     """Test homepage visual appearance."""
-    await page.goto("http://localhost:8000/")
+    await page.goto("http://localhost:8001/")
     
     # Take screenshot
     await page.screenshot(path="test-results/homepage.png")
@@ -231,7 +231,7 @@ async def test_homepage_screenshot(page: Page):
 @pytest.mark.ui
 async def test_element_visibility(page: Page):
     """Test element visibility and layout."""
-    await page.goto("http://localhost:8000/articles")
+    await page.goto("http://localhost:8001/articles")
     
     # Check article list visibility
     await expect(page.locator(".article-list")).to_be_visible()
@@ -256,7 +256,7 @@ async def test_page_load_times(page: Page):
     """Test page load performance."""
     # Test homepage load time
     start_time = time.time()
-    await page.goto("http://localhost:8000/")
+    await page.goto("http://localhost:8001/")
     await expect(page.locator("main")).to_be_visible()
     load_time = time.time() - start_time
     
@@ -265,7 +265,7 @@ async def test_page_load_times(page: Page):
     
     # Test articles page load time
     start_time = time.time()
-    await page.goto("http://localhost:8000/articles")
+    await page.goto("http://localhost:8001/articles")
     await expect(page.locator(".article-list")).to_be_visible()
     load_time = time.time() - start_time
     
@@ -286,7 +286,7 @@ async def test_network_performance(page: Page):
     page.on("response", handle_response)
     
     # Navigate to page
-    await page.goto("http://localhost:8000/articles")
+    await page.goto("http://localhost:8001/articles")
     
     # Wait for all requests to complete
     await page.wait_for_load_state("networkidle")
@@ -306,7 +306,7 @@ async def test_network_performance(page: Page):
 @pytest.mark.ui
 async def test_accessibility_basics(page: Page):
     """Test basic accessibility features."""
-    await page.goto("http://localhost:8000/")
+    await page.goto("http://localhost:8001/")
     
     # Check for proper heading structure
     h1_count = await page.locator("h1").count()
@@ -334,7 +334,7 @@ async def test_accessibility_basics(page: Page):
 @pytest.mark.ui
 async def test_keyboard_navigation(page: Page):
     """Test keyboard navigation functionality."""
-    await page.goto("http://localhost:8000/")
+    await page.goto("http://localhost:8001/")
     
     # Test tab navigation
     await page.keyboard.press("Tab")
@@ -357,13 +357,13 @@ async def test_keyboard_navigation(page: Page):
 async def test_error_pages(page: Page):
     """Test error page handling."""
     # Test 404 page
-    await page.goto("http://localhost:8000/nonexistent-page")
+    await page.goto("http://localhost:8001/nonexistent-page")
     await expect(page.locator("h1:has-text('404')")).to_be_visible()
     await expect(page.locator("text=Page not found")).to_be_visible()
     
     # Test 500 page (simulate server error)
     await page.route("**/api/articles", lambda route: route.fulfill(status=500))
-    await page.goto("http://localhost:8000/articles")
+    await page.goto("http://localhost:8001/articles")
     await expect(page.locator("text=Server error")).to_be_visible()
 ```
 
@@ -372,7 +372,7 @@ async def test_error_pages(page: Page):
 @pytest.mark.ui
 async def test_form_validation(page: Page):
     """Test form validation and error handling."""
-    await page.goto("http://localhost:8000/sources")
+    await page.goto("http://localhost:8001/sources")
     await page.click("button:has-text('Add Source')")
     
     # Submit empty form
@@ -398,7 +398,7 @@ async def test_form_validation(page: Page):
 @pytest.mark.ui
 async def test_source_management_workflow(page: Page):
     """Test complete source management workflow."""
-    await page.goto("http://localhost:8000/sources")
+    await page.goto("http://localhost:8001/sources")
     
     # Add new source
     await page.click("button:has-text('Add Source')")
@@ -431,7 +431,7 @@ async def test_source_management_workflow(page: Page):
 @pytest.mark.ui
 async def test_article_processing_ui(page: Page):
     """Test article processing user interface."""
-    await page.goto("http://localhost:8000/articles")
+    await page.goto("http://localhost:8001/articles")
     
     # Verify article list loads
     await expect(page.locator(".article-list")).to_be_visible()

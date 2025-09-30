@@ -13,7 +13,7 @@ def run(playwright: Playwright) -> None:
     page = context.new_page()
     
     # Test basic functionality
-    page.goto("http://localhost:8000")
+    page.goto("http://localhost:8001")
     page.wait_for_load_state("networkidle")
     
     # Take screenshot
