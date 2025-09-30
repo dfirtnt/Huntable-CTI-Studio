@@ -896,10 +896,22 @@ document.getElementById('configMinContentLength').addEventListener('keypress', f
 function collectFromSource(sourceId) {
     const statusDiv = document.getElementById('collectionStatus');
     const statusText = document.getElementById('collectionStatusText');
+    const terminalOutput = document.getElementById('terminalOutput');
+    const terminalContent = document.getElementById('terminalContent');
+    const spinner = statusDiv.querySelector('.animate-spin');
+    
+    // Get source name from the button's parent container
+    const button = document.querySelector(`button[onclick="collectFromSource(${sourceId})"]`);
+    const sourceCard = button.closest('.bg-white');
+    // Find the h4 with the source name that contains the correct source_id in the href
+    const sourceNameLink = sourceCard.querySelector(`h4 a[href="/articles?source_id=${sourceId}"]`);
+    const sourceName = sourceNameLink ? sourceNameLink.textContent.trim() : 'Unknown Source';
     
     // Show status
     statusDiv.classList.remove('hidden');
-    statusText.textContent = 'Starting collection...';
+    statusText.textContent = `Starting collection for ${sourceName}...`;
+    terminalOutput.classList.add('hidden');
+    terminalContent.innerHTML = '<div class="text-gray-400">Waiting for output...</div>';
     
     // Make API call
     fetch(`/api/sources/${sourceId}/collect`, {
@@ -911,13 +923,12 @@ function collectFromSource(sourceId) {
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            statusText.textContent = 'Collection started successfully!';
-            showNotification(`Collection task started for source ${sourceId}`, 'success');
+            statusText.textContent = `Collection in progress for ${sourceName}...`;
+            terminalOutput.classList.remove('hidden');
+                // showNotification(`Collection task started for ${sourceName}`, 'success');
             
-            // Hide status after delay
-            setTimeout(() => {
-                statusDiv.classList.add('hidden');
-            }, 3000);
+            // Start monitoring task progress
+            monitorTaskProgress(data.task_id, sourceId, sourceName);
         } else {
             throw new Error(data.error || 'Failed to start collection');
         }
@@ -925,13 +936,101 @@ function collectFromSource(sourceId) {
     .catch(error => {
         console.error('Error starting collection:', error);
         statusText.textContent = 'Collection failed to start';
+        spinner.classList.add('hidden');
         showNotification('Failed to start collection: ' + error.message, 'error');
         
         // Hide status after delay
         setTimeout(() => {
             statusDiv.classList.add('hidden');
-        }, 3000);
+        }, 5000);
     });
+}
+
+// Monitor task progress
+function monitorTaskProgress(taskId, sourceId, sourceName) {
+    const statusText = document.getElementById('collectionStatusText');
+    const terminalContent = document.getElementById('terminalContent');
+    const spinner = document.getElementById('collectionStatus').querySelector('.animate-spin');
+    
+    const pollInterval = setInterval(() => {
+        fetch(`/api/tasks/${taskId}/status`)
+        .then(response => response.json())
+        .then(data => {
+            // Update terminal output with task status
+            const timestamp = new Date().toLocaleTimeString();
+            let logEntry = `[${timestamp}] `;
+            
+            switch(data.status) {
+                case 'PENDING':
+                    logEntry += 'Task queued, waiting to start...';
+                    break;
+                case 'STARTED':
+                    logEntry += 'Task started, collecting from source...';
+                    break;
+                case 'SUCCESS':
+                    logEntry += `✅ Collection completed successfully!`;
+                    if (data.result && data.result.articles_collected) {
+                        logEntry += ` Collected ${data.result.articles_collected} articles.`;
+                    }
+                    if (data.result && data.result.articles_saved !== undefined) {
+                        logEntry += ` Saved ${data.result.articles_saved} new articles.`;
+                    }
+                    if (data.result && data.result.articles_filtered !== undefined) {
+                        logEntry += ` Filtered ${data.result.articles_filtered} duplicates.`;
+                    }
+                    statusText.textContent = `Collection completed successfully for ${sourceName}!`;
+                    spinner.classList.add('hidden');
+                    clearInterval(pollInterval);
+                    break;
+                case 'FAILURE':
+                    logEntry += `❌ Collection failed: ${data.error || 'Unknown error'}`;
+                    statusText.textContent = `Collection failed for ${sourceName}`;
+                    spinner.classList.add('hidden');
+                    clearInterval(pollInterval);
+                    break;
+                case 'RETRY':
+                    logEntry += 'Task retrying...';
+                    break;
+                case 'REVOKED':
+                    logEntry += 'Task was cancelled';
+                    statusText.textContent = `Collection cancelled for ${sourceName}`;
+                    spinner.classList.add('hidden');
+                    clearInterval(pollInterval);
+                    break;
+                default:
+                    logEntry += `Status: ${data.status}`;
+            }
+            
+            // Add log entry to terminal
+            const logDiv = document.createElement('div');
+            logDiv.textContent = logEntry;
+            terminalContent.appendChild(logDiv);
+            
+            // Auto-scroll to bottom
+            const terminalOutput = document.getElementById('terminalOutput');
+            const terminalDiv = terminalOutput.querySelector('.bg-black');
+            terminalDiv.scrollTop = terminalDiv.scrollHeight;
+            
+            // Stop polling if task is complete
+            if (data.ready) {
+                clearInterval(pollInterval);
+            }
+        })
+        .catch(error => {
+            console.error('Error monitoring task:', error);
+            const timestamp = new Date().toLocaleTimeString();
+            const logDiv = document.createElement('div');
+            logDiv.textContent = `[${timestamp}] ❌ Error monitoring task: ${error.message}`;
+            logDiv.className = 'text-red-400';
+            terminalContent.appendChild(logDiv);
+        });
+    }, 2000); // Poll every 2 seconds
+    
+    // Add close button functionality
+    document.getElementById('closeCollectionStatus').onclick = () => {
+        clearInterval(pollInterval);
+        document.getElementById('collectionStatus').classList.add('hidden');
+    };
 }
 </script>
 
@@ -1017,12 +1116,26 @@ function collectFromSource(sourceId) {
         </div>
     </div>
 
-    <!-- Collection Status -->
-    <div id="collectionStatus" class="mt-4 hidden">
-        <div class="bg-blue-50 border border-blue-200 rounded-md p-4">
-            <div class="flex items-center">
-                <div class="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-3"></div>
-                <span class="text-sm text-blue-800" id="collectionStatusText">Starting collection...</span>
+    <!-- Collection Status - Fixed Position -->
+    <div id="collectionStatus" class="fixed top-4 right-4 z-50 w-96 hidden">
+        <div class="bg-blue-50 border border-blue-200 rounded-md p-4 shadow-lg">
+            <div class="flex items-center justify-between mb-3">
+                <div class="flex items-center">
+                    <div class="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-3"></div>
+                    <span class="text-sm text-blue-800" id="collectionStatusText">Starting collection...</span>
+                </div>
+                <button id="closeCollectionStatus" class="text-blue-600 hover:text-blue-800 text-sm font-medium">
+                    ✕ Close
+                </button>
+            </div>
+            
+            <!-- Terminal Output -->
+            <div id="terminalOutput" class="hidden">
+                <div class="bg-black text-green-400 p-3 rounded font-mono text-xs max-h-64 overflow-y-auto">
+                    <div id="terminalContent">
+                        <div class="text-gray-400">Waiting for output...</div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>

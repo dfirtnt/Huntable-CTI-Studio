@@ -9,6 +9,8 @@ class SourceConfig(BaseModel):
     """Source configuration model."""
     check_frequency: int = Field(default=3600, description="Check frequency in seconds")
     lookback_days: int = Field(default=180, description="Number of days to look back")
+    tier: int = Field(default=2, description="Source tier (1=high, 2=medium, 3=low)")
+    weight: float = Field(default=1.0, description="Source weight for scoring")
     config: Dict[str, Any] = Field(default_factory=dict, description="Additional configuration")
 
 
@@ -31,12 +33,15 @@ class SourceUpdate(BaseModel):
     active: Optional[bool] = None
     lookback_days: Optional[int] = None
     check_frequency: Optional[int] = None
+    tier: Optional[int] = None
+    weight: Optional[float] = None
     config: Optional[SourceConfig] = None
 
 
 class SourceFilter(BaseModel):
     """Model for filtering sources."""
     active: Optional[bool] = None
+    tier: Optional[int] = None
     name_contains: Optional[str] = None
 
 
@@ -61,6 +66,8 @@ class Source(BaseModel):
     active: bool = True
     check_frequency: int = 3600
     lookback_days: int = 180
+    tier: int = 2
+    weight: float = 1.0
     last_check: Optional[datetime] = None
     last_success: Optional[datetime] = None
     consecutive_failures: int = 0

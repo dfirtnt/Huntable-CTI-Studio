@@ -303,7 +303,8 @@ def check_source(self, source_identifier: str):
                             filtered_count = len(dedup_result.duplicates)
                             duplicates_filtered = filtered_count
                             
-                            logger.info(f"    - Saved: {saved_count} articles")
+                            logger.info(f"    - Collected: {len(articles)} articles")
+                            logger.info(f"    - Saved: {saved_count} new articles")
                             logger.info(f"    - Duplicates filtered: {duplicates_filtered} articles")
                             
                             return {
@@ -437,7 +438,8 @@ def collect_from_source(self, source_id: int):
                             filtered_count = len(dedup_result.duplicates)
                             duplicates_filtered = filtered_count
                             
-                            logger.info(f"    - Saved: {saved_count} articles")
+                            logger.info(f"    - Collected: {len(fetch_result.articles)} articles")
+                            logger.info(f"    - Saved: {saved_count} new articles")
                             logger.info(f"    - Duplicates filtered: {duplicates_filtered} articles")
                             
                             return {

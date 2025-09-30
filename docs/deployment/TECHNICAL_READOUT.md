@@ -26,7 +26,7 @@
 │                        PostgreSQL Database                      │
 │                                                                 │
 │ • Articles (content, metadata, quality scores)                 │
-│ • Sources (RSS feeds, scraping config, tier classification)    │
+│ • Sources (RSS feeds, scraping config)                         │
 │ • Processing results (TTPs, deduplication, analytics)          │
 └─────────────────────────────────────────────────────────────────┘
 ```
@@ -158,8 +158,6 @@ sources (
     name VARCHAR,
     url VARCHAR,
     rss_url VARCHAR,
-    tier INTEGER,  -- 1=premium, 2=news
-    weight FLOAT,
     active BOOLEAN,
     created_at TIMESTAMP,
     updated_at TIMESTAMP
@@ -255,7 +253,6 @@ def check_source(source_id: str):
 
 ### 2. Quality Assessment
 - **Content Scoring**: Length, HTML cleaning validation, technical depth
-- **Source Weighting**: Tier-based reputation scoring
 - **Threat Relevance**: Intelligence value assessment
 - **Classification**: Chosen/Rejected/Unclassified articles
 
@@ -305,7 +302,7 @@ docker exec cti_postgres psql -U cti_user -d cti_scraper
 python3 -m pytest tests/ -v
 
 # CLI operations
-python -m src.cli.main collect --tier 1 --dry-run
+python -m src.cli.main collect --dry-run
 ```
 
 ### Adding New Sources
@@ -394,7 +391,7 @@ open http://localhost:8000
 docker exec -it cti_postgres psql -U cti_user -d cti_scraper -c "SELECT COUNT(*) FROM articles;"
 
 # Run initial collection
-python -m src.cli.main collect --tier 1
+python -m src.cli.main collect
 ```
 
 ### Development Environment

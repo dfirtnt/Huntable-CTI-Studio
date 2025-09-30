@@ -125,9 +125,6 @@ class DatabaseManager:
             query = session.query(SourceTable)
             
             if filter_params:
-                if filter_params.tier is not None:
-                    query = query.filter(SourceTable.tier == filter_params.tier)
-                
                 if filter_params.active is not None:
                     query = query.filter(SourceTable.active == filter_params.active)
                 
@@ -490,8 +487,6 @@ class DatabaseManager:
             name=db_source.name,
             url=db_source.url,
             rss_url=db_source.rss_url,
-            tier=db_source.tier,
-            weight=db_source.weight,
             check_frequency=db_source.check_frequency,
             lookback_days=db_source.lookback_days,
             active=db_source.active,

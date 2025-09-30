@@ -217,8 +217,6 @@ class AsyncDatabaseManager:
                 if filter_params:
                     if filter_params.active is not None:
                         query = query.where(SourceTable.active == filter_params.active)
-                    if filter_params.tier is not None:
-                        query = query.where(SourceTable.tier == filter_params.tier)
                     if filter_params.name_contains:
                         query = query.where(
                             SourceTable.name.contains(filter_params.name_contains)
@@ -282,8 +280,6 @@ class AsyncDatabaseManager:
                     check_frequency=source_data.config.check_frequency if source_data.config else 3600,
                     lookback_days=source_data.config.lookback_days if source_data.config else 180,
                     active=source_data.active,
-                    tier=source_data.config.tier if source_data.config else 2,
-                    weight=source_data.config.weight if source_data.config else 1.0,
                     config=source_data.config.model_dump(exclude_none=True) if source_data.config else {},
                     consecutive_failures=0,
                     total_articles=0,
@@ -934,8 +930,6 @@ class AsyncDatabaseManager:
             check_frequency=db_source.check_frequency,
             lookback_days=db_source.lookback_days,
             active=db_source.active,
-            tier=db_source.tier,
-            weight=db_source.weight,
             config=db_source.config if db_source.config else {},
             last_check=db_source.last_check,
             last_success=db_source.last_success,
