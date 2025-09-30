@@ -767,7 +767,7 @@
         if (!currentArticleId) return;
         
         let reason = '';
-        const commentPromptsEnabled = JSON.parse(localStorage.getItem('ctiScraperSettings') || '{}').commentPromptsEnabled !== false;
+        const commentPromptsEnabled = JSON.parse(localStorage.getItem('ctiScraperSettings') || '{}').commentPromptsEnabled === true;
         
         if (commentPromptsEnabled && category !== 'unclassified') {
             reason = prompt(`Why are you marking this article as ${category}? (optional)`);
@@ -888,7 +888,7 @@
     
     function updateCommentPromptsStatus() {
         const settings = JSON.parse(localStorage.getItem('ctiScraperSettings') || '{}');
-        const commentPromptsEnabled = settings.commentPromptsEnabled !== false;
+        const commentPromptsEnabled = settings.commentPromptsEnabled === true;
         // This function can be used to update UI elements based on settings
     }
     
