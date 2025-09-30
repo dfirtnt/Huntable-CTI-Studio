@@ -688,8 +688,13 @@ class RSSParser:
         if hasattr(entry, 'content') and entry.content:
             logger.debug(f"  Using content field")
             if isinstance(entry.content, list) and entry.content:
-                return entry.content[0].get('value', '')
-            return str(entry.content)
+                content_value = entry.content[0].get('value', '')
+                if content_value and len(content_value.strip()) > 0:
+                    return content_value
+            else:
+                content_str = str(entry.content)
+                if content_str and len(content_str.strip()) > 0:
+                    return content_str
 
         # Try description (RSS)
         if hasattr(entry, 'description') and entry.description:
