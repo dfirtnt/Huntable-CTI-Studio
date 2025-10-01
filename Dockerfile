@@ -40,6 +40,9 @@ RUN curl -fsSL https://download.docker.com/linux/debian/gpg | gpg --dearmor -o /
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
+# Install security auditing tools
+RUN pip install --no-cache-dir pip-audit==2.9.0 safety==3.2.0
+
 # Copy project
 COPY . .
 
