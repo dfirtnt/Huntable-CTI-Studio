@@ -2713,7 +2713,7 @@ async def api_extract_iocs(article_id: int, request: Request):
         }
         
         # Update the article
-        update_data = ArticleUpdate(metadata=current_metadata)
+        update_data = ArticleUpdate(article_metadata=current_metadata)
         await async_db_manager.update_article(article_id, update_data)
         
         return {

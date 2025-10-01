@@ -1700,7 +1700,7 @@
             
             if (type === 'iocs' && {{ 'true' if article.article_metadata and article.article_metadata.get('extracted_iocs') else 'false' }}) {
                 const iocData = {{ article.article_metadata.get('extracted_iocs') | tojson if article.article_metadata and article.article_metadata.get('extracted_iocs') else 'null' }};
-                showIOCsModal(iocData.iocs, iocData);
+                showIOCsModal(JSON.stringify(iocData.iocs, null, 2), iocData);
                 return;
             }
         }
@@ -3367,7 +3367,7 @@
                     
                     if (iocsData) {
                         console.log('Auto-opening IOCs modal from URL fragment (template)');
-                        setTimeout(() => showIOCsModal(iocsData.iocs, iocsData), 500);
+                        setTimeout(() => showIOCsModal(JSON.stringify(iocsData.iocs, null, 2), iocsData), 500);
                     }
                 }
             } else {
@@ -3379,7 +3379,7 @@
                         console.log('Fetched article data for IOCs:', data);
                         if (data.metadata && data.metadata.extracted_iocs) {
                             console.log('Auto-opening IOCs modal from URL fragment (API)');
-                            setTimeout(() => showIOCsModal(data.metadata.extracted_iocs.iocs, data.metadata.extracted_iocs), 500);
+                            setTimeout(() => showIOCsModal(JSON.stringify(data.metadata.extracted_iocs.iocs, null, 2), data.metadata.extracted_iocs), 500);
                         } else {
                             console.log('No IOCs data found for this article');
                         }

@@ -71,7 +71,7 @@ class AsyncDatabaseManager:
         self.AsyncSessionLocal = async_sessionmaker(
             bind=self.engine,
             class_=AsyncSession,
-            expire_on_commit=False,
+            expire_on_commit=True,
             autoflush=False
         )
         
@@ -737,7 +737,8 @@ class AsyncDatabaseManager:
                 # Update fields
                 update_dict = update_data.dict(exclude_unset=True)
                 for field, value in update_dict.items():
-                    if field == 'metadata' and value:
+                    if field == 'article_metadata' and value:
+                        # Replace metadata entirely (caller is responsible for merging)
                         setattr(db_article, 'article_metadata', value)
                     else:
                         setattr(db_article, field, value)
@@ -749,7 +750,11 @@ class AsyncDatabaseManager:
                 await session.refresh(db_article)
                 
                 logger.info(f"Updated article: {db_article.title}")
-                return self._db_article_to_model(db_article)
+                
+                # Convert to model while still in session context (important with expire_on_commit=True)
+                result = self._db_article_to_model(db_article)
+                
+                return result
                 
         except Exception as e:
             logger.error(f"Failed to update article {article_id}: {e}")

@@ -1,9 +1,11 @@
 # CTI Scraper
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Python Version](https://img.shields.io/badge/python-3.8%2B-blue.svg)](https://python.org)
+[![Python Version](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://python.org)
 [![Docker](https://img.shields.io/badge/docker-compose-blue.svg)](https://docker.com)
 [![CI/CD](https://github.com/starlord/CTIScraper/workflows/CI/badge.svg)](https://github.com/starlord/CTIScraper/actions)
+[![Security](https://img.shields.io/badge/security-audited-green.svg)](.github/SECURITY.md)
+[![Tests](https://img.shields.io/badge/tests-passing-brightgreen.svg)](tests/)
 
 A comprehensive threat intelligence aggregation and analysis platform designed for security researchers and threat hunters. CTI Scraper automates the collection, processing, and analysis of threat intelligence from multiple sources, providing actionable insights for cybersecurity professionals.
 
@@ -19,7 +21,7 @@ A comprehensive threat intelligence aggregation and analysis platform designed f
 - **Threat Hunting Scoring**: Rule-based relevance scoring using keyword density and logarithmic formulas
 - **LLM Integration**: Support for Ollama (local), OpenAI GPT models, and LM Studio
 - **Intelligent Classification**: GPT-4 powered article relevance assessment and categorization
-- **IOC Extraction**: Automated indicator of compromise detection and analysis
+- **IOC Extraction**: Hybrid IOC extraction combining iocextract with optional LLM validation
 - **SIGMA Rule Generation**: AI-powered generation of detection rules with pySIGMA validation
 
 ### 📊 Advanced Analytics
@@ -55,7 +57,7 @@ A comprehensive threat intelligence aggregation and analysis platform designed f
 
 ### Prerequisites
 - Docker and Docker Compose
-- Python 3.8+ (for development)
+- Python 3.11+ (for development)
 - PostgreSQL and Redis (handled by Docker)
 
 ### ⚡ One-Command Setup (Recommended)
@@ -214,7 +216,19 @@ pytest --cov=src tests/
 
 # Test specific components
 pytest tests/test_scraping.py
+
+# Run IOC extractor tests
+pytest tests/test_ioc_extractor.py -v
+
+# Run security audit
+pip-audit --desc
 ```
+
+### Test Coverage
+- **Unit Tests**: Core functionality and business logic
+- **Integration Tests**: Database and API interactions  
+- **IOC Extractor Tests**: Comprehensive testing of IOC extraction functionality
+- **Security Tests**: Vulnerability scanning and dependency auditing
 
 ## 📊 Usage Examples
 
@@ -407,6 +421,8 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - [SIGMA Rule Generation](SIGMA_RULE_GENERATION.md)
 - [Web App Testing Guide](WebAppDevtestingGuide.md)
 - [Agent Guidelines](AGENTS.md)
+- [Security Policy](.github/SECURITY.md)
+- [IOC Extractor Tests](tests/test_ioc_extractor.py)
 
 ## 🔧 Troubleshooting
 
