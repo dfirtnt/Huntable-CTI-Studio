@@ -1,6 +1,7 @@
 # CTI Scraper Dependencies
 # Pinned versions for reproducible builds
-# Last updated: 2025-09-29
+# Last updated: 2025-09-30
+# Security audit: 3 vulnerabilities found, updating affected packages
 
 # Core scraping and processing
 requests==2.32.5
@@ -44,16 +45,21 @@ pyyaml==6.0.2
 
 # Development and testing
 pytest==8.4.2
-pytest-asyncio==1.1.0
-black==24.3.0
-isort==5.13.2
-flake8==7.0.0
+pytest-asyncio==1.2.0
+black==25.9.0
+isort==6.0.1
+flake8==7.3.0
 
 # Security
 certifi==2025.8.3
 urllib3==2.5.0
 charset-normalizer==3.4.3
-python-multipart==0.0.18
+python-multipart==0.0.20
+
+# Security updates (CVE fixes)
+# pip 24.0 -> 25.2 (GHSA-4xh5-x5gv-qwph)
+# setuptools 65.5.1 -> 78.1.1 (PYSEC-2025-49) 
+# starlette 0.41.3 -> 0.47.2 (GHSA-2c2j-9gv5-cj73)
 
 # SIGMA rule validation
 pysigma==1.0.0rc2

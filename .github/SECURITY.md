@@ -2,98 +2,121 @@
 
 ## Supported Versions
 
-We release patches for security vulnerabilities in the following versions:
+We actively maintain and provide security updates for the following versions:
 
 | Version | Supported          |
 | ------- | ------------------ |
-| 1.0.x   | :white_check_mark: |
+| 2.0.x   | :white_check_mark: |
+| 1.x.x   | :x:                |
 | < 1.0   | :x:                |
 
 ## Reporting a Vulnerability
 
-We take security vulnerabilities seriously. If you discover a security vulnerability in CTI Scraper, please follow these steps:
+We take security vulnerabilities seriously. If you discover a security vulnerability, please follow these steps:
 
 ### 1. **DO NOT** create a public GitHub issue
-Security vulnerabilities should be reported privately to prevent exploitation.
+Security vulnerabilities should be reported privately to protect users.
 
-### 2. Email Security Report
-Send an email to: `security@ctiscraper.dev` (or your security contact email)
+### 2. Email Security Team
+Send details to: security@ctiscraper.dev
 
 Include the following information:
 - Description of the vulnerability
-- Steps to reproduce the issue
-- Potential impact assessment
-- Any suggested fixes or mitigations
+- Steps to reproduce
+- Potential impact
+- Suggested fix (if any)
 - Your contact information
 
 ### 3. Response Timeline
-- **Initial Response**: Within 48 hours
-- **Status Update**: Within 7 days
-- **Resolution**: Depends on severity and complexity
+- **Acknowledgment**: Within 48 hours
+- **Initial Assessment**: Within 7 days
+- **Resolution**: Within 30 days (depending on complexity)
 
-### 4. Vulnerability Severity Levels
-
-| Severity | Response Time | Description |
-|----------|---------------|-------------|
-| **Critical** | 24 hours | Remote code execution, authentication bypass, data exposure |
-| **High** | 72 hours | Privilege escalation, significant data leakage |
-| **Medium** | 1 week | Information disclosure, denial of service |
-| **Low** | 2 weeks | Minor security improvements |
+### 4. Responsible Disclosure
+We follow responsible disclosure practices:
+- We will work with you to understand and resolve the issue
+- We will provide credit for the discovery (if desired)
+- We will coordinate the public disclosure timeline
+- We will not take legal action against security researchers acting in good faith
 
 ## Security Best Practices
 
 ### For Users
-- Keep your dependencies updated
-- Use strong passwords for database and Redis
-- Enable HTTPS in production
-- Regularly review access logs
-- Use environment variables for sensitive configuration
+- Keep your installation updated to the latest version
+- Use strong, unique passwords for database access
+- Regularly rotate API keys and secrets
+- Monitor access logs for suspicious activity
+- Use HTTPS in production environments
+- Keep your operating system and dependencies updated
 
 ### For Developers
 - Follow secure coding practices
-- Validate all user inputs
-- Use parameterized queries
-- Implement proper authentication and authorization
+- Use environment variables for sensitive configuration
+- Implement proper input validation and sanitization
+- Use parameterized queries to prevent SQL injection
+- Implement rate limiting and authentication
 - Regular security audits of dependencies
 
 ## Security Features
 
-### Built-in Security Measures
-- **Input Validation**: All user inputs are validated and sanitized
-- **SQL Injection Protection**: Uses SQLAlchemy ORM with parameterized queries
-- **Rate Limiting**: API endpoints have rate limiting enabled
-- **CORS Protection**: Configurable CORS policies
-- **Secret Management**: All secrets managed via environment variables
-- **Dependency Scanning**: Regular security scans of dependencies
+### Authentication & Authorization
+- API key-based authentication for external services
+- Role-based access control (planned)
+- Session management with secure cookies
 
-### Configuration Security
-- Database connections use encrypted connections
-- Redis authentication enabled
-- Secure session management
-- Configurable security headers
+### Data Protection
+- Encryption at rest for sensitive data
+- HTTPS/TLS for data in transit
+- Input validation and sanitization
+- SQL injection prevention
 
-## Disclosure Policy
+### Monitoring & Logging
+- Comprehensive audit logging
+- Security event monitoring
+- Failed authentication tracking
+- Suspicious activity detection
 
-We follow responsible disclosure principles:
+## Known Security Considerations
 
-1. **Private Disclosure**: Vulnerabilities are reported privately first
-2. **Coordinated Release**: We coordinate with reporters on disclosure timing
-3. **Credit**: We credit security researchers who responsibly report vulnerabilities
-4. **No Retaliation**: We do not pursue legal action against security researchers acting in good faith
+### API Keys
+- Store API keys in environment variables, never in code
+- Rotate keys regularly
+- Use different keys for different environments
+- Monitor API key usage
+
+### Database Security
+- Use strong passwords
+- Limit database access to necessary hosts
+- Regular security updates
+- Backup encryption
+
+### Network Security
+- Use HTTPS in production
+- Implement proper CORS policies
+- Use firewalls to restrict access
+- Monitor network traffic
 
 ## Security Updates
 
-Security updates are released as:
-- **Patch releases** for critical vulnerabilities
-- **Minor releases** for high/medium severity issues
-- **Major releases** for significant security improvements
+We regularly update dependencies and address security vulnerabilities:
 
-## Contact Information
+- **Dependency Audits**: Monthly security scans
+- **CVE Monitoring**: Automated vulnerability tracking
+- **Security Patches**: Released as needed
+- **Version Updates**: Regular dependency updates
 
-- **Security Email**: `security@ctiscraper.dev`
-- **General Issues**: GitHub Issues
-- **Documentation**: See README.md
+## Contact
+
+For security-related questions or concerns:
+- Email: security@ctiscraper.dev
+- GitHub: Create a private security advisory
+- Documentation: See our security documentation
 
 ## Acknowledgments
 
-We appreciate the security research community's efforts in helping us maintain a secure codebase. Security researchers who responsibly disclose vulnerabilities will be acknowledged in our security advisories.
+We thank the security researchers who help keep CTI Scraper secure through responsible disclosure.
+
+---
+
+**Last Updated**: 2025-09-30
+**Version**: 2.0.0
