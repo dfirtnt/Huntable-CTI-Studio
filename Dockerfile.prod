@@ -27,6 +27,9 @@ ENV PATH="/opt/venv/bin:$PATH"
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
+# Install security auditing tools
+RUN pip install --no-cache-dir pip-audit==2.9.0 safety==3.2.0
+
 # Production stage
 FROM python:3.11-slim
 
