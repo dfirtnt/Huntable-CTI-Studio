@@ -420,7 +420,13 @@ async def test_system_load(page: Page):
 ### Basic Commands
 ```bash
 # Run all E2E tests
-pytest -m e2e
+# Run E2E tests using unified interface
+python run_tests.py --ui
+./run_tests.sh ui
+
+# Docker-based E2E testing
+python run_tests.py --docker --ui
+./run_tests.sh ui --docker
 
 # Run specific test file
 pytest tests/e2e/test_web_interface.py

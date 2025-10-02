@@ -208,20 +208,28 @@ WORKERS=4
 ### Testing
 
 ```bash
-# Run all tests
-pytest
+# Quick health check (recommended first step)
+python run_tests.py --smoke
 
-# Run with coverage
-pytest --cov=src tests/
+# Run all tests with coverage
+python run_tests.py --all --coverage
 
-# Test specific components
-pytest tests/test_scraping.py
+# Run specific test categories
+python run_tests.py --unit
+python run_tests.py --api
+python run_tests.py --integration
+python run_tests.py --ui
 
-# Run IOC extractor tests
-pytest tests/test_ioc_extractor.py -v
+# Docker-based testing
+python run_tests.py --docker --all
 
-# Run security audit
-pip-audit --desc
+# Using unified script
+./run_tests.sh smoke
+./run_tests.sh all --coverage
+./run_tests.sh integration --docker
+
+# Install test dependencies
+python run_tests.py --install
 ```
 
 ### Test Coverage
@@ -420,6 +428,8 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - [Changelog](CHANGELOG.md)
 - [SIGMA Rule Generation](SIGMA_RULE_GENERATION.md)
 - [Web App Testing Guide](WebAppDevtestingGuide.md)
+- [Testing Workflow Guide](docs/development/TESTING_WORKFLOW.md)
+- [Virtual Environments Guide](docs/development/VIRTUAL_ENVIRONMENTS.md)
 - [Agent Guidelines](AGENTS.md)
 - [Security Policy](.github/SECURITY.md)
 - [IOC Extractor Tests](tests/test_ioc_extractor.py)

@@ -60,10 +60,18 @@ class ContentFetcher:
         self.rate_limit_delay = rate_limit_delay
         
         # Initialize HTTP client and parsers
-        self.http_client = HTTPClient(
+        from src.utils.http import RequestConfig, RateLimiter
+        
+        config = RequestConfig(
             user_agent=user_agent,
             timeout=timeout,
-            rate_limit_delay=rate_limit_delay
+            retry_delay=rate_limit_delay
+        )
+        rate_limiter = RateLimiter()
+        
+        self.http_client = HTTPClient(
+            config=config,
+            rate_limiter=rate_limiter
         )
         
         self.rss_parser = RSSParser(self.http_client)

@@ -1574,7 +1574,7 @@
         
         // Check content size limits
         const contentLength = {{ article.content|length if article.content else 0 }};
-        const contentLimit = aiModel === 'chatgpt' ? 20000 : 8000;
+        const contentLimit = aiModel === 'chatgpt' ? 40000 : 8000;
         
         if (contentLength > contentLimit) {
             showNotification(`Article too large for ${aiModel === 'chatgpt' ? 'ChatGPT' : 'Mistral'}. Content: ${contentLength.toLocaleString()} chars, limit: ${contentLimit.toLocaleString()} chars.`, 'warning');
@@ -3196,11 +3196,9 @@
     
     // Handle URL fragments to auto-open results
     console.log('Setting up URL fragment handler...');
-    window.addEventListener('load', function() {
-        console.log('Page loaded, checking URL fragments...');
-        
-        // Check for pending completions first
-        checkPendingCompletions();
+    
+    function processUrlHash() {
+        console.log('Processing URL hash...');
         
         const hash = window.location.hash.substring(1); // Remove the #
         console.log('URL hash:', hash);
@@ -3224,16 +3222,45 @@
                 console.log('No summary found for this article');
             }
         } else if (hash === 'sigma') {
-            // Check if SIGMA rules exist and show them
-            const hasSigmaRules = {{ 'true' if article.article_metadata and article.article_metadata.get('sigma_rules') else 'false' }};
-            if (hasSigmaRules) {
-                const sigmaData = {{ article.article_metadata.get('sigma_rules') | tojson if article.article_metadata and article.article_metadata.get('sigma_rules') else 'null' }};
-                if (sigmaData) {
-                    console.log('Auto-opening SIGMA modal from URL fragment');
-                    setTimeout(() => showSigmaRulesModal(sigmaData.rules, sigmaData), 500);
+            console.log('Processing sigma hash...');
+            
+            // Get current article ID from URL
+            const currentArticleId = window.location.pathname.split('/').pop();
+            const templateArticleId = {{ article.id }};
+            
+            if (currentArticleId == templateArticleId) {
+                // Same article - use template data
+                const hasSigmaRules = {{ 'true' if article.article_metadata and article.article_metadata.get('sigma_rules') else 'false' }};
+                console.log('Has sigma rules (template):', hasSigmaRules);
+                
+                if (hasSigmaRules) {
+                    const sigmaData = {{ article.article_metadata.get('sigma_rules') | tojson if article.article_metadata and article.article_metadata.get('sigma_rules') else 'null' }};
+                    console.log('Sigma data (template):', sigmaData);
+                    
+                    if (sigmaData) {
+                        console.log('Auto-opening SIGMA modal from URL fragment (template)');
+                        setTimeout(() => showSigmaRulesModal(sigmaData.rules, sigmaData), 500);
+                    }
+                } else {
+                    console.log('No SIGMA rules found in template data');
                 }
             } else {
-                console.log('No SIGMA rules found for this article');
+                // Different article - fetch data via API
+                console.log('Different article, fetching SIGMA data via API...');
+                fetch(`/api/articles/${currentArticleId}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        console.log('Fetched article data for SIGMA:', data);
+                        if (data.metadata && data.metadata.sigma_rules) {
+                            console.log('Auto-opening SIGMA modal from URL fragment (API)');
+                            setTimeout(() => showSigmaRulesModal(data.metadata.sigma_rules.rules, data.metadata.sigma_rules), 500);
+                        } else {
+                            console.log('No SIGMA rules found for this article');
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error fetching article data for sigma:', error);
+                    });
             }
         } else if (hash === 'iocs') {
             // Check if IOCs exist and show them
@@ -3249,11 +3276,25 @@
             }
         }
         
-        // Clear the hash from URL after handling
+        // Clear the hash from URL after handling (with delay to allow modal to open)
         if (hash) {
             console.log('Clearing URL hash:', hash);
-            window.history.replaceState(null, null, window.location.pathname);
+            setTimeout(() => {
+                window.history.replaceState(null, null, window.location.pathname);
+            }, 1000);
         }
+    }
+    
+    // Set up event listeners for URL hash changes
+    window.addEventListener('load', function() {
+        console.log('Page loaded, checking URL fragments...');
+        checkPendingCompletions();
+        processUrlHash();
+    });
+    
+    window.addEventListener('hashchange', function() {
+        console.log('URL hash changed');
+        processUrlHash();
     });
 
     // Handle URL fragments to auto-open results
@@ -3390,10 +3431,12 @@
             }
         }
         
-        // Clear the hash from URL after handling
+        // Clear the hash from URL after handling (with delay to allow modal to open)
         if (hash) {
             console.log('Clearing URL hash:', hash);
-            window.history.replaceState(null, null, window.location.pathname);
+            setTimeout(() => {
+                window.history.replaceState(null, null, window.location.pathname);
+            }, 1000);
         }
     });
     
@@ -3412,7 +3455,7 @@
         
         // Check content size limits
         const contentLength = {{ article.content|length if article.content else 0 }};
-        const contentLimit = aiModel === 'chatgpt' ? 20000 : 8000;
+        const contentLimit = aiModel === 'chatgpt' ? 40000 : 8000;
         
         if (contentLength > contentLimit) {
             // Disable button and add explanation

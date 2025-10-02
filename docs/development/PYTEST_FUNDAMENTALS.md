@@ -9,6 +9,12 @@ Pytest is the primary testing framework for CTI Scraper. This guide covers essen
 ## 📦 Dependencies
 
 ```bash
+# Install test dependencies using unified interface
+python run_tests.py --install
+
+# Or manually install from requirements
+pip install -r requirements-test.txt
+
 # Core testing dependencies
 pytest>=7.0.0
 pytest-asyncio>=0.21.0
@@ -243,6 +249,25 @@ def test_with_data_file():
 ```
 
 ## 🚀 Running Tests
+
+### Using Unified Interface
+```bash
+# Quick health check
+python run_tests.py --smoke
+./run_tests.sh smoke
+
+# Run all tests
+python run_tests.py --all
+./run_tests.sh all
+
+# Run with coverage
+python run_tests.py --all --coverage
+./run_tests.sh all --coverage
+
+# Docker-based testing
+python run_tests.py --docker --integration
+./run_tests.sh integration --docker
+```
 
 ### Basic Commands
 ```bash

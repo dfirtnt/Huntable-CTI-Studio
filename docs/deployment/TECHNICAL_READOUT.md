@@ -298,8 +298,14 @@ http://localhost:8001
 # Database access
 docker exec cti_postgres psql -U cti_user -d cti_scraper
 
-# Run tests
-python3 -m pytest tests/ -v
+# Run tests using unified interface
+python run_tests.py --smoke
+python run_tests.py --all --coverage
+./run_tests.sh all --coverage
+
+# Docker-based testing
+python run_tests.py --docker --integration
+./run_tests.sh integration --docker
 
 # CLI operations
 python -m src.cli.main collect --dry-run

@@ -26,18 +26,22 @@ curl http://localhost:8001/health
 ### 2. Install Test Dependencies (1 minute)
 
 ```bash
-# Install Python test dependencies
-pip install -r requirements-test.txt
+# Install test dependencies using unified interface
+python run_tests.py --install
 
-# Install Playwright browsers
+# Or manually
+pip install -r requirements-test.txt
 playwright install chromium
 ```
 
 ### 3. Run Your First Test (2 minutes)
 
 ```bash
-# Quick health check
+# Quick health check (recommended first step)
 python run_tests.py --smoke
+
+# Or using the unified script
+./run_tests.sh smoke
 
 # Expected output: ✅ All smoke tests passed
 ```
@@ -57,12 +61,19 @@ python run_tests.py --smoke
 ```bash
 # Run all tests
 python run_tests.py --all
+./run_tests.sh all
 
 # Run specific category
 python run_tests.py --api
+./run_tests.sh api
 
 # Run with coverage
-python run_tests.py --coverage
+python run_tests.py --all --coverage
+./run_tests.sh all --coverage
+
+# Docker-based testing
+python run_tests.py --docker --integration
+./run_tests.sh integration --docker
 
 # Run single test file
 pytest tests/test_basic.py -v
@@ -79,6 +90,8 @@ curl http://localhost:8001/health
 
 # 2. Run smoke tests
 python run_tests.py --smoke
+# or
+./run_tests.sh smoke
 
 # 3. Check test results
 open test-results/report.html

@@ -8,6 +8,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Unified Testing Interface**: New `run_tests.py` and `run_tests.sh` for standardized test execution
+- **Docker Testing Support**: Added `--docker` flag for containerized test execution
+- **Virtual Environment Documentation**: Comprehensive guide for `venv-test`, `venv-lg`, and `venv-ml`
+- **Testing Workflow Guide**: Complete documentation for different execution contexts and test categories
 - **Comprehensive Test Suite**: Fixed 5 high-priority test modules with 195 new passing tests
 - **ContentFilter Tests**: ML-based filtering, cost optimization, and quality scoring (25 tests)
 - **SigmaValidator Tests**: SIGMA rule validation, error handling, and batch processing (50 tests)

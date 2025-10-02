@@ -542,8 +542,13 @@ async def test_concurrent_users_benchmark():
 
 ### Basic Commands
 ```bash
-# Run all performance tests
-pytest -m performance
+# Run performance tests using unified interface
+python run_tests.py --performance
+./run_tests.sh performance
+
+# Docker-based performance testing
+python run_tests.py --docker --performance
+./run_tests.sh performance --docker
 
 # Run specific performance test
 pytest tests/performance/test_load.py -v

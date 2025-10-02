@@ -1,6 +1,16 @@
 #!/usr/bin/env python3
 """
-Comprehensive test runner for CTI Scraper.
+Unified test runner for CTI Scraper.
+
+This is the primary interface for all testing operations.
+Supports multiple execution contexts: localhost, Docker, and CI/CD.
+
+Usage:
+    python run_tests.py --help                    # Show all options
+    python run_tests.py --smoke                   # Quick health check
+    python run_tests.py --all                     # Full test suite
+    python run_tests.py --docker                  # Docker-based testing
+    python run_tests.py --coverage                # With coverage report
 """
 import os
 import sys
@@ -60,57 +70,97 @@ def install_test_dependencies() -> bool:
     
     return True
 
-def run_unit_tests() -> bool:
+def run_unit_tests(docker_mode: bool = False) -> bool:
     """Run unit tests."""
+    if docker_mode:
+        return run_command(
+            "docker exec cti_web python -m pytest tests/ -m 'not (ui or integration)' -v --tb=short",
+            "Running unit tests in Docker"
+        )
     return run_command(
         "python3 -m pytest tests/ -m 'not (ui or integration)' -v --tb=short",
         "Running unit tests"
     )
 
-def run_api_tests() -> bool:
+def run_api_tests(docker_mode: bool = False) -> bool:
     """Run API tests."""
+    if docker_mode:
+        return run_command(
+            "docker exec cti_web python -m pytest tests/api/ -v --tb=short",
+            "Running API tests in Docker"
+        )
     return run_command(
         "python3 -m pytest tests/api/ -v --tb=short",
         "Running API tests"
     )
 
-def run_integration_tests() -> bool:
+def run_integration_tests(docker_mode: bool = False) -> bool:
     """Run integration tests."""
+    if docker_mode:
+        return run_command(
+            "docker exec cti_web python -m pytest tests/integration/ -v --tb=short",
+            "Running integration tests in Docker"
+        )
     return run_command(
         "python3 -m pytest tests/integration/ -v --tb=short",
         "Running integration tests"
     )
 
-def run_ui_tests() -> bool:
+def run_ui_tests(docker_mode: bool = False) -> bool:
     """Run UI tests with Playwright."""
+    if docker_mode:
+        return run_command(
+            "docker exec cti_web python -m pytest tests/ui/ -v --tb=short",
+            "Running UI tests in Docker"
+        )
     return run_command(
         "python3 -m pytest tests/ui/ -v --tb=short",
         "Running UI tests with Playwright"
     )
 
-def run_smoke_tests() -> bool:
+def run_smoke_tests(docker_mode: bool = False) -> bool:
     """Run smoke tests."""
+    if docker_mode:
+        return run_command(
+            "docker exec cti_web python -m pytest tests/ -m smoke -v --tb=short",
+            "Running smoke tests in Docker"
+        )
     return run_command(
         "python3 -m pytest tests/ -m smoke -v --tb=short",
         "Running smoke tests"
     )
 
-def run_all_tests() -> bool:
+def run_all_tests(docker_mode: bool = False) -> bool:
     """Run all tests."""
+    if docker_mode:
+        return run_command(
+            "docker exec cti_web python -m pytest tests/ -v --tb=short --html=test-results/report.html --self-contained-html",
+            "Running all tests in Docker with HTML report"
+        )
     return run_command(
         "python3 -m pytest tests/ -v --tb=short --html=test-results/report.html --self-contained-html",
         "Running all tests with HTML report"
     )
 
-def run_coverage_tests() -> bool:
+def run_coverage_tests(docker_mode: bool = False) -> bool:
     """Run tests with coverage."""
+    if docker_mode:
+        return run_command(
+            "docker exec cti_web python -m pytest tests/ --cov=src --cov-report=html --cov-report=term-missing",
+            "Running tests with coverage in Docker"
+        )
     return run_command(
         "python3 -m pytest tests/ --cov=src --cov-report=html --cov-report=term-missing",
         "Running tests with coverage report"
     )
 
-def run_performance_tests() -> bool:
+def run_performance_tests(docker_mode: bool = False) -> bool:
     """Run performance tests."""
+    if docker_mode:
+        return run_command(
+            "docker exec cti_web python -m pytest tests/ -m slow -v --tb=short",
+            "Running performance tests in Docker"
+        )
     return run_command(
         "python3 -m pytest tests/ -m slow -v --tb=short",
         "Running performance tests"
@@ -146,7 +196,36 @@ def generate_test_report() -> None:
 
 def main():
     """Main test runner."""
-    parser = argparse.ArgumentParser(description="CTI Scraper Test Runner")
+    parser = argparse.ArgumentParser(
+        description="CTI Scraper Unified Test Runner",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Execution Contexts:
+  localhost    Run tests locally using virtual environment (default)
+  docker       Run tests inside Docker containers
+  ci           Run tests in CI/CD environment
+
+Test Categories:
+  smoke        Quick health check (~30s)
+  unit         Unit tests only (~1m)
+  api          API endpoint tests (~2m)
+  integration  System integration tests (~3m)
+  ui           Web interface tests (~5m)
+  all          Complete test suite (~8m)
+
+Examples:
+  python run_tests.py --smoke                    # Quick health check
+  python run_tests.py --all --coverage           # Full suite with coverage
+  python run_tests.py --docker --integration     # Docker-based integration tests
+  python run_tests.py --install                  # Install test dependencies
+        """
+    )
+    
+    # Execution context
+    parser.add_argument("--docker", action="store_true", help="Run tests in Docker containers")
+    parser.add_argument("--ci", action="store_true", help="Run tests in CI/CD mode")
+    
+    # Test categories
     parser.add_argument("--install", action="store_true", help="Install test dependencies")
     parser.add_argument("--unit", action="store_true", help="Run unit tests only")
     parser.add_argument("--api", action="store_true", help="Run API tests only")
@@ -160,11 +239,19 @@ def main():
     
     args = parser.parse_args()
     
-    print("🚀 CTI Scraper Test Runner")
+    print("🚀 CTI Scraper Unified Test Runner")
     print("=" * 50)
     
-    # Check if app is running
-    if args.check_app or not args.install:
+    # Determine execution context
+    if args.docker:
+        print("🐳 Execution Context: Docker containers")
+    elif args.ci:
+        print("🔄 Execution Context: CI/CD environment")
+    else:
+        print("💻 Execution Context: Localhost (virtual environment)")
+    
+    # Check if app is running (only for localhost and docker contexts)
+    if not args.ci and (args.check_app or not args.install):
         print("\n🔍 Checking if CTI Scraper app is running...")
         if check_app_running():
             print("✅ CTI Scraper app is running on http://localhost:8001")
@@ -182,35 +269,36 @@ def main():
     
     # Run specific test categories
     success = True
+    docker_mode = args.docker
     
     if args.unit:
-        success &= run_unit_tests()
+        success &= run_unit_tests(docker_mode)
     
     if args.api:
-        success &= run_api_tests()
+        success &= run_api_tests(docker_mode)
     
     if args.integration:
-        success &= run_integration_tests()
+        success &= run_integration_tests(docker_mode)
     
     if args.ui:
-        success &= run_ui_tests()
+        success &= run_ui_tests(docker_mode)
     
     if args.smoke:
-        success &= run_smoke_tests()
+        success &= run_smoke_tests(docker_mode)
     
     if args.performance:
-        success &= run_performance_tests()
+        success &= run_performance_tests(docker_mode)
     
     if args.coverage:
-        success &= run_coverage_tests()
+        success &= run_coverage_tests(docker_mode)
     
     if args.all:
-        success &= run_all_tests()
+        success &= run_all_tests(docker_mode)
     
     # If no specific tests specified, run smoke tests
     if not any([args.unit, args.api, args.integration, args.ui, args.smoke, args.performance, args.coverage, args.all]):
         print("\n🎯 No specific tests specified, running smoke tests...")
-        success &= run_smoke_tests()
+        success &= run_smoke_tests(docker_mode)
     
     # Generate report
     generate_test_report()
