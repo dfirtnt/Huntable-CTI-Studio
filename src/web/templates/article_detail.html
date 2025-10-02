@@ -1567,7 +1567,7 @@
     }
     
     // AI Assistant Functions
-    function showAIAssistant() {
+    async function showAIAssistant() {
         // Get AI model from settings
         const settings = JSON.parse(localStorage.getItem('ctiScraperSettings') || '{}');
         const aiModel = settings.aiModel || 'chatgpt';
@@ -1589,10 +1589,26 @@
         const threatHuntingScore = {{ article.article_metadata.get('threat_hunting_score', 0) if article.article_metadata and article.article_metadata.get('threat_hunting_score') is not none else 0 }};
         const showSigmaWarning = isChosen && threatHuntingScore < 65;
         
-        // Check for existing generated content
-        const hasSummary = {{ 'true' if article.article_metadata and article.article_metadata.get('chatgpt_summary') else 'false' }};
-        const hasSigmaRules = {{ 'true' if article.article_metadata and article.article_metadata.get('sigma_rules') else 'false' }};
-        const hasIOCs = {{ 'true' if article.article_metadata and article.article_metadata.get('extracted_iocs') else 'false' }};
+        // Fetch fresh data from API to get current state
+        let hasSummary = {{ 'true' if article.article_metadata and article.article_metadata.get('chatgpt_summary') else 'false' }};
+        let hasSigmaRules = {{ 'true' if article.article_metadata and article.article_metadata.get('sigma_rules') else 'false' }};
+        let hasIOCs = {{ 'true' if article.article_metadata and article.article_metadata.get('extracted_iocs') else 'false' }};
+        let hasRanking = {{ 'true' if article.article_metadata and article.article_metadata.get('gpt4o_ranking') else 'false' }};
+        
+        try {
+            const response = await fetch(`/api/articles/{{ article.id }}`);
+            if (response.ok) {
+                const data = await response.json();
+                if (data.article_metadata) {
+                    hasSummary = data.article_metadata.chatgpt_summary ? true : false;
+                    hasSigmaRules = data.article_metadata.sigma_rules ? true : false;
+                    hasIOCs = data.article_metadata.extracted_iocs ? true : false;
+                    hasRanking = data.article_metadata.gpt4o_ranking ? true : false;
+                }
+            }
+        } catch (error) {
+            console.log('Failed to fetch fresh data, using template data:', error);
+        }
         
         const modal = document.createElement('div');
         modal.id = 'aiAssistantModal';
@@ -1701,6 +1717,12 @@
             if (type === 'iocs' && {{ 'true' if article.article_metadata and article.article_metadata.get('extracted_iocs') else 'false' }}) {
                 const iocData = {{ article.article_metadata.get('extracted_iocs') | tojson if article.article_metadata and article.article_metadata.get('extracted_iocs') else 'null' }};
                 showIOCsModal(JSON.stringify(iocData.iocs, null, 2), iocData);
+                return;
+            }
+            
+            if (type === 'ranking' && {{ 'true' if article.article_metadata and article.article_metadata.get('gpt4o_ranking') else 'false' }}) {
+                const rankingData = {{ article.article_metadata.get('gpt4o_ranking') | tojson if article.article_metadata and article.article_metadata.get('gpt4o_ranking') else 'null' }};
+                showGPT4oRankingModal(rankingData.analysis, rankingData);
                 return;
             }
         }
@@ -3125,6 +3147,68 @@
         }
     }
     
+    function showGPT4oRankingModal(analysis, data) {
+        // Remove any existing modal
+        closeGPT4oRankingModal();
+        
+        const modal = document.createElement('div');
+        modal.id = 'gpt4oRankingModal';
+        modal.className = 'fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50';
+        
+        // Add click outside to close
+        modal.addEventListener('click', function(e) {
+            if (e.target === modal) {
+                closeGPT4oRankingModal();
+            }
+        });
+        
+        // Format the analysis for display
+        const formattedAnalysis = analysis.replace(/\n/g, '<br>');
+        
+        modal.innerHTML = `
+            <div class="relative top-10 mx-auto p-5 border w-11/12 max-w-6xl shadow-lg rounded-md bg-white">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-lg font-medium text-gray-900">📊 GPT4o SIGMA Huntability Analysis</h3>
+                    <button onclick="closeGPT4oRankingModal()" class="text-gray-400 hover:text-gray-600">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </button>
+                </div>
+                
+                <div class="mb-4">
+                    <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                        <div class="text-sm text-blue-800 whitespace-pre-wrap">${formattedAnalysis}</div>
+                    </div>
+                </div>
+                
+                ${data ? `
+                <div class="mt-4 text-xs text-gray-500">
+                    <div class="flex justify-between">
+                        <span>Generated: ${data.timestamp ? new Date(data.timestamp).toLocaleString() : 'Unknown'}</span>
+                        <span>Model: ${data.model || 'gpt-4o'}</span>
+                    </div>
+                </div>
+                ` : ''}
+                
+                <div class="mt-6 flex justify-end">
+                    <button onclick="closeGPT4oRankingModal()" class="px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-500">
+                        Close
+                    </button>
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(modal);
+    }
+    
+    function closeGPT4oRankingModal() {
+        const modal = document.getElementById('gpt4oRankingModal');
+        if (modal) {
+            modal.remove();
+        }
+    }
+    
     function regenerateSigmaRules() {
         // Close current modal
         closeSigmaRulesModal();
@@ -3251,9 +3335,9 @@
                     .then(response => response.json())
                     .then(data => {
                         console.log('Fetched article data for SIGMA:', data);
-                        if (data.metadata && data.metadata.sigma_rules) {
+                        if (data.article_metadata && data.article_metadata.sigma_rules) {
                             console.log('Auto-opening SIGMA modal from URL fragment (API)');
-                            setTimeout(() => showSigmaRulesModal(data.metadata.sigma_rules.rules, data.metadata.sigma_rules), 500);
+                            setTimeout(() => showSigmaRulesModal(data.article_metadata.sigma_rules.rules, data.article_metadata.sigma_rules), 500);
                         } else {
                             console.log('No SIGMA rules found for this article');
                         }
@@ -3292,15 +3376,60 @@
                     .then(response => response.json())
                     .then(data => {
                         console.log('Fetched article data for IOCs:', data);
-                        if (data.metadata && data.metadata.extracted_iocs) {
+                        if (data.article_metadata && data.article_metadata.extracted_iocs) {
                             console.log('Auto-opening IOCs modal from URL fragment (API)');
-                            setTimeout(() => showIOCsModal(JSON.stringify(data.metadata.extracted_iocs.iocs, null, 2), data.metadata.extracted_iocs), 500);
+                            setTimeout(() => showIOCsModal(JSON.stringify(data.article_metadata.extracted_iocs.iocs, null, 2), data.article_metadata.extracted_iocs), 500);
                         } else {
                             console.log('No IOCs found for this article');
                         }
                     })
                     .catch(error => {
                         console.error('Error fetching article data for IOCs:', error);
+                    });
+            }
+        } else if (hash === 'ranking') {
+            console.log('Processing ranking hash...');
+            
+            // Get current article ID from URL
+            const currentArticleId = window.location.pathname.split('/').pop();
+            const templateArticleId = {{ article.id }};
+            
+            if (currentArticleId == templateArticleId) {
+                // Same article - use template data
+                const hasRanking = {{ 'true' if article.article_metadata and article.article_metadata.get('gpt4o_ranking') else 'false' }};
+                console.log('Has ranking (template):', hasRanking);
+                
+                if (hasRanking) {
+                    const rankingData = {{ article.article_metadata.get('gpt4o_ranking') | tojson if article.article_metadata and article.article_metadata.get('gpt4o_ranking') else 'null' }};
+                    console.log('Ranking data (template):', rankingData);
+                    
+                    if (rankingData && rankingData.analysis) {
+                        console.log('Auto-opening GPT4o ranking from URL fragment (template)');
+                        setTimeout(() => {
+                            showGPT4oRankingModal(rankingData.analysis, rankingData);
+                        }, 500);
+                    }
+                } else {
+                    console.log('No ranking found in template data');
+                }
+            } else {
+                // Different article - fetch data via API
+                console.log('Different article, fetching ranking data via API...');
+                fetch(`/api/articles/${currentArticleId}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        console.log('Fetched article data for ranking:', data);
+                        if (data.article_metadata && data.article_metadata.gpt4o_ranking && data.article_metadata.gpt4o_ranking.analysis) {
+                            console.log('Auto-opening GPT4o ranking from URL fragment (API)');
+                            setTimeout(() => {
+                                showGPT4oRankingModal(data.article_metadata.gpt4o_ranking.analysis, data.article_metadata.gpt4o_ranking);
+                            }, 500);
+                        } else {
+                            console.log('No ranking found for this article');
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error fetching article data for ranking:', error);
                     });
             }
         }
@@ -3428,17 +3557,19 @@
             
             if (currentArticleId == templateArticleId) {
                 // Same article - use template data
-                const hasIocs = {{ 'true' if article.article_metadata and article.article_metadata.get('extracted_iocs') else 'false' }};
-                console.log('Has iocs (template):', hasIocs);
+                const hasIOCs = {{ 'true' if article.article_metadata and article.article_metadata.get('extracted_iocs') else 'false' }};
+                console.log('Has iocs (template):', hasIOCs);
                 
-                if (hasIocs) {
-                    const iocsData = {{ article.article_metadata.get('extracted_iocs') | tojson if article.article_metadata and article.article_metadata.get('extracted_iocs') else 'null' }};
-                    console.log('IOCs data (template):', iocsData);
+                if (hasIOCs) {
+                    const iocData = {{ article.article_metadata.get('extracted_iocs') | tojson if article.article_metadata and article.article_metadata.get('extracted_iocs') else 'null' }};
+                    console.log('IOCs data (template):', iocData);
                     
-                    if (iocsData) {
+                    if (iocData) {
                         console.log('Auto-opening IOCs modal from URL fragment (template)');
-                        setTimeout(() => showIOCsModal(JSON.stringify(iocsData.iocs, null, 2), iocsData), 500);
+                        setTimeout(() => showIOCsModal(JSON.stringify(iocData.iocs, null, 2), iocData), 500);
                     }
+                } else {
+                    console.log('No IOCs found in template data');
                 }
             } else {
                 // Different article - fetch data via API
@@ -3447,15 +3578,60 @@
                     .then(response => response.json())
                     .then(data => {
                         console.log('Fetched article data for IOCs:', data);
-                        if (data.metadata && data.metadata.extracted_iocs) {
+                        if (data.article_metadata && data.article_metadata.extracted_iocs) {
                             console.log('Auto-opening IOCs modal from URL fragment (API)');
-                            setTimeout(() => showIOCsModal(JSON.stringify(data.metadata.extracted_iocs.iocs, null, 2), data.metadata.extracted_iocs), 500);
+                            setTimeout(() => showIOCsModal(JSON.stringify(data.article_metadata.extracted_iocs.iocs, null, 2), data.article_metadata.extracted_iocs), 500);
                         } else {
-                            console.log('No IOCs data found for this article');
+                            console.log('No IOCs found for this article');
                         }
                     })
                     .catch(error => {
                         console.error('Error fetching article data for IOCs:', error);
+                    });
+            }
+        } else if (hash === 'ranking') {
+            console.log('Processing ranking hash...');
+            
+            // Get current article ID from URL
+            const currentArticleId = window.location.pathname.split('/').pop();
+            const templateArticleId = {{ article.id }};
+            
+            if (currentArticleId == templateArticleId) {
+                // Same article - use template data
+                const hasRanking = {{ 'true' if article.article_metadata and article.article_metadata.get('gpt4o_ranking') else 'false' }};
+                console.log('Has ranking (template):', hasRanking);
+                
+                if (hasRanking) {
+                    const rankingData = {{ article.article_metadata.get('gpt4o_ranking') | tojson if article.article_metadata and article.article_metadata.get('gpt4o_ranking') else 'null' }};
+                    console.log('Ranking data (template):', rankingData);
+                    
+                    if (rankingData && rankingData.analysis) {
+                        console.log('Auto-opening GPT4o ranking from URL fragment (template)');
+                        setTimeout(() => {
+                            showGPT4oRankingModal(rankingData.analysis, rankingData);
+                        }, 500);
+                    }
+                } else {
+                    console.log('No ranking found in template data');
+                }
+            } else {
+                // Different article - fetch data via API
+                console.log('Different article, fetching ranking data via API...');
+                fetch(`/api/articles/${currentArticleId}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        console.log('Fetched article data for ranking:', data);
+                        if (data.article_metadata && data.article_metadata.gpt4o_ranking && data.article_metadata.gpt4o_ranking.analysis) {
+                            console.log('Auto-opening GPT4o ranking from URL fragment (API)');
+                            setTimeout(() => {
+                                showGPT4oRankingModal(data.article_metadata.gpt4o_ranking.analysis, data.article_metadata.gpt4o_ranking);
+                            }, 500);
+                        } else {
+                            console.log('No ranking found for this article');
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error fetching article data for ranking:', error);
                     });
             }
         }
