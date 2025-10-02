@@ -3263,16 +3263,45 @@
                     });
             }
         } else if (hash === 'iocs') {
-            // Check if IOCs exist and show them
-            const hasIOCs = {{ 'true' if article.article_metadata and article.article_metadata.get('extracted_iocs') else 'false' }};
-            if (hasIOCs) {
-                const iocData = {{ article.article_metadata.get('extracted_iocs') | tojson if article.article_metadata and article.article_metadata.get('extracted_iocs') else 'null' }};
-                if (iocData) {
-                    console.log('Auto-opening IOCs modal from URL fragment');
-                    setTimeout(() => showIOCsModal(JSON.stringify(iocData.iocs, null, 2), iocData), 500);
+            console.log('Processing iocs hash...');
+            
+            // Get current article ID from URL
+            const currentArticleId = window.location.pathname.split('/').pop();
+            const templateArticleId = {{ article.id }};
+            
+            if (currentArticleId == templateArticleId) {
+                // Same article - use template data
+                const hasIOCs = {{ 'true' if article.article_metadata and article.article_metadata.get('extracted_iocs') else 'false' }};
+                console.log('Has iocs (template):', hasIOCs);
+                
+                if (hasIOCs) {
+                    const iocData = {{ article.article_metadata.get('extracted_iocs') | tojson if article.article_metadata and article.article_metadata.get('extracted_iocs') else 'null' }};
+                    console.log('IOCs data (template):', iocData);
+                    
+                    if (iocData) {
+                        console.log('Auto-opening IOCs modal from URL fragment (template)');
+                        setTimeout(() => showIOCsModal(JSON.stringify(iocData.iocs, null, 2), iocData), 500);
+                    }
+                } else {
+                    console.log('No IOCs found in template data');
                 }
             } else {
-                console.log('No IOCs found for this article');
+                // Different article - fetch data via API
+                console.log('Different article, fetching IOCs data via API...');
+                fetch(`/api/articles/${currentArticleId}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        console.log('Fetched article data for IOCs:', data);
+                        if (data.metadata && data.metadata.extracted_iocs) {
+                            console.log('Auto-opening IOCs modal from URL fragment (API)');
+                            setTimeout(() => showIOCsModal(JSON.stringify(data.metadata.extracted_iocs.iocs, null, 2), data.metadata.extracted_iocs), 500);
+                        } else {
+                            console.log('No IOCs found for this article');
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error fetching article data for IOCs:', error);
+                    });
             }
         }
         
