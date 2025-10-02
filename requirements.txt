@@ -1,6 +1,6 @@
 # CTI Scraper Dependencies
 # Pinned versions for reproducible builds
-# Last updated: 2025-10-01
+# Last updated: 2025-01-29
 # Security audit: Updated all packages to latest versions
 
 # Core scraping and processing
@@ -44,11 +44,9 @@ pydantic-settings==2.11.0
 pyyaml==6.0.3
 
 # Development and testing
+# Note: See requirements-test.txt for comprehensive testing dependencies
 pytest==8.4.2
 pytest-asyncio==1.2.0
-black==25.9.0
-isort==6.1.0
-flake8==7.3.0
 
 # Security
 certifi==2025.8.3
@@ -58,3 +56,27 @@ python-multipart==0.0.20
 
 # SIGMA rule validation
 pysigma==0.11.23
+
+# Additional AI/ML dependencies for enhanced features
+torch>=2.0.0  # For advanced ML models
+transformers>=4.21.0  # For LLM integration
+accelerate>=0.20.0  # For model optimization
+openai>=1.0.0  # Official OpenAI client
+tiktoken>=0.5.0  # Token counting utilities
+
+# Enhanced testing and development
+pytest-playwright>=0.4.0  # Browser automation testing
+pytest-mock>=3.10.0  # Mock utilities
+pytest-cov>=4.0.0  # Coverage reporting
+factory-boy>=3.2.0  # Test data generation
+freezegun>=1.2.0  # Time mocking
+
+# Performance and monitoring
+psutil>=5.9.0  # System monitoring
+memory-profiler>=0.60.0  # Memory profiling
+line-profiler>=4.0.0  # Code profiling
+
+# Security enhancements
+bandit>=1.7.0  # Security linting
+safety>=2.3.0  # Dependency vulnerability scanning
+cryptography>=41.0.0  # Enhanced encryption
