@@ -1,38 +1,38 @@
 # CTI Scraper Dependencies
 # Pinned versions for reproducible builds
-# Last updated: 2025-09-30
-# Security audit: 3 vulnerabilities found, updating affected packages
+# Last updated: 2025-10-01
+# Security audit: Updated all packages to latest versions
 
 # Core scraping and processing
 requests==2.32.5
 aiohttp==3.12.15
-httpx==0.27.2
-beautifulsoup4==4.13.5
-lxml==5.3.0
+httpx==0.28.1
+beautifulsoup4==4.14.2
+lxml==6.0.2
 feedparser==6.0.12
-extruct==0.16.0
+extruct==0.18.0
 iocextract==1.16.1
 
 # Data processing and storage
-pandas==2.3.2
-numpy==1.26.4
+pandas==2.3.3
+numpy==2.3.3
 sqlalchemy[asyncio]==2.0.43
-asyncpg==0.29.0
+asyncpg==0.30.0
 psycopg2-binary==2.9.10
 alembic==1.16.5
 
 # Web framework and server
-fastapi==0.115.6
-uvicorn[standard]==0.32.1
+fastapi==0.118.0
+uvicorn[standard]==0.37.0
 jinja2==3.1.6
 
 # Background task processing
-celery==5.4.0
-redis==5.2.1
+celery==5.5.3
+redis==6.4.0
 
 # Classification and ML
 scikit-learn==1.7.2
-ollama==0.3.1
+ollama==0.6.0
 lightgbm==4.6.0
 joblib==1.5.2
 
@@ -40,14 +40,14 @@ joblib==1.5.2
 click==8.3.0
 rich==14.1.0
 pydantic==2.11.9
-pydantic-settings==2.2.1
-pyyaml==6.0.2
+pydantic-settings==2.11.0
+pyyaml==6.0.3
 
 # Development and testing
 pytest==8.4.2
 pytest-asyncio==1.2.0
 black==25.9.0
-isort==6.0.1
+isort==6.1.0
 flake8==7.3.0
 
 # Security
@@ -56,10 +56,5 @@ urllib3==2.5.0
 charset-normalizer==3.4.3
 python-multipart==0.0.20
 
-# Security updates (CVE fixes)
-# pip 24.0 -> 25.2 (GHSA-4xh5-x5gv-qwph)
-# setuptools 65.5.1 -> 78.1.1 (PYSEC-2025-49) 
-# starlette 0.41.3 -> 0.47.2 (GHSA-2c2j-9gv5-cj73)
-
 # SIGMA rule validation
-pysigma==1.0.0rc2
+pysigma==0.11.23
