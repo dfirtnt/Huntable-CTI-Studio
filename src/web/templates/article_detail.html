@@ -1486,7 +1486,7 @@
                 <div class="flex-1">
                     <div class="font-medium">${typeText} Complete!</div>
                     <div class="text-sm opacity-90">Article: ${bannerArticleTitle.length > 30 ? bannerArticleTitle.substring(0, 30) + '...' : bannerArticleTitle}</div>
-                    <a href="/articles/${bannerArticleId}#${type}" class="text-sm underline hover:no-underline">View Results →</a>
+                    <a href="#" onclick="event.preventDefault(); window.location.hash = '${type}'; setTimeout(() => window.location.reload(), 100);" class="text-sm underline hover:no-underline">View Results →</a>
                 </div>
                 <button onclick="this.parentElement.parentElement.remove()" class="text-white hover:text-gray-200">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
