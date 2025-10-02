@@ -589,7 +589,13 @@ async def test_database_consistency(async_client: httpx.AsyncClient):
 ### Basic Commands
 ```bash
 # Run all API tests
-pytest -m api
+# Run API tests using unified interface
+python run_tests.py --api
+./run_tests.sh api
+
+# Docker-based API testing
+python run_tests.py --docker --api
+./run_tests.sh api --docker
 
 # Run specific test file
 pytest tests/api/test_endpoints.py

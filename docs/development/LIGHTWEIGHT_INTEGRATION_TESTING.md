@@ -47,13 +47,32 @@ tests/
 │   └── test_system_integration.py         # Full integration tests
 ├── conftest.py                            # Full integration fixtures
 ├── conftest_lightweight.py                # Lightweight integration fixtures
-└── run_lightweight_tests.py               # Test runner script
+├── run_lightweight_tests.py               # Legacy test runner script
+└── run_tests.py                           # Unified test runner (recommended)
 ```
 
 ## Running Tests
 
-### Using the Test Runner
+### Using the Unified Test Runner (Recommended)
+```bash
+# Run lightweight integration tests
+python run_tests.py --integration
+./run_tests.sh integration
 
+# Run full integration tests (Docker-based)
+python run_tests.py --docker --integration
+./run_tests.sh integration --docker
+
+# Run unit tests
+python run_tests.py --unit
+./run_tests.sh unit
+
+# Run smoke tests (quick health check)
+python run_tests.py --smoke
+./run_tests.sh smoke
+```
+
+### Using the Legacy Test Runner
 ```bash
 # Run lightweight integration tests
 python tests/run_lightweight_tests.py light

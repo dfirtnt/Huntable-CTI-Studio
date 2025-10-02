@@ -1733,7 +1733,7 @@ async def api_bulk_action(request: Request):
                     current_metadata['training_categorized_at'] = datetime.now().isoformat()
                     
                     # Create update object
-                    update_data = ArticleUpdate(metadata=current_metadata)
+                    update_data = ArticleUpdate(article_metadata=current_metadata)
                     
                     # Save the updated article
                     await async_db_manager.update_article(article_id, update_data)
@@ -1890,7 +1890,7 @@ async def api_analyze_threat_hunting(article_id: int, request: Request):
         }
         
         # Update the article
-        update_data = ArticleUpdate(metadata=current_metadata)
+        update_data = ArticleUpdate(article_metadata=current_metadata)
         await async_db_manager.update_article(article_id, update_data)
         
         return {
@@ -1953,7 +1953,7 @@ async def api_chatgpt_summary(article_id: int, request: Request):
             # Smart content truncation based on model
             if ai_model == 'chatgpt':
                 # Using ChatGPT - can handle more content
-                content_limit = int(os.getenv('CHATGPT_CONTENT_LIMIT', '20000'))
+                content_limit = int(os.getenv('CHATGPT_CONTENT_LIMIT', '40000'))
             else:
                 # Using Ollama - more conservative limit
                 content_limit = int(os.getenv('OLLAMA_CONTENT_LIMIT', '4000'))
@@ -2074,7 +2074,7 @@ async def api_chatgpt_summary(article_id: int, request: Request):
         }
         
         # Update the article
-        update_data = ArticleUpdate(metadata=current_metadata)
+        update_data = ArticleUpdate(article_metadata=current_metadata)
         await async_db_manager.update_article(article_id, update_data)
         
         return {
@@ -2231,7 +2231,7 @@ async def api_custom_prompt(article_id: int, request: Request):
         })
         
         # Update the article
-        update_data = ArticleUpdate(metadata=current_metadata)
+        update_data = ArticleUpdate(article_metadata=current_metadata)
         await async_db_manager.update_article(article_id, update_data)
         
         return {
@@ -2435,6 +2435,13 @@ async def api_generate_sigma(article_id: int, request: Request):
                 attempt += 1  # Increment at beginning of loop
                 logger.info(f"SIGMA generation attempt {attempt}/{max_attempts} for article {article_id}")
                 
+                # Add delay between retry attempts to avoid rate limiting
+                if attempt > 1:
+                    import asyncio
+                    delay = min(2 ** (attempt - 1), 10)  # Exponential backoff, max 10 seconds
+                    logger.info(f"Waiting {delay} seconds before retry attempt {attempt}")
+                    await asyncio.sleep(delay)
+                
                 # Prepare messages for this attempt
                 messages = [
                     {
@@ -2610,7 +2617,7 @@ async def api_generate_sigma(article_id: int, request: Request):
         }
         
         # Update the article
-        update_data = ArticleUpdate(metadata=current_metadata)
+        update_data = ArticleUpdate(article_metadata=current_metadata)
         await async_db_manager.update_article(article_id, update_data)
         
         # Prepare response with validation status
@@ -2872,7 +2879,7 @@ async def api_rank_with_gpt4o(article_id: int, request: Request):
         }
         
         # Update the article
-        update_data = ArticleUpdate(metadata=article.article_metadata)
+        update_data = ArticleUpdate(article_metadata=article.article_metadata)
         await async_db_manager.update_article(article_id, update_data)
         
         return {
@@ -2979,7 +2986,7 @@ async def api_gpt4o_rank(article_id: int, request: Request):
         
         # Update the article in the database
         from src.models.article import ArticleUpdate
-        update_data = ArticleUpdate(metadata=article.article_metadata)
+        update_data = ArticleUpdate(article_metadata=article.article_metadata)
         await async_db_manager.update_article(article_id, update_data)
         
         return {
@@ -3121,7 +3128,7 @@ async def api_gpt4o_rank_optimized(article_id: int, request: Request):
         
         # Update the article in the database
         from src.models.article import ArticleUpdate
-        update_data = ArticleUpdate(metadata=article.article_metadata)
+        update_data = ArticleUpdate(article_metadata=article.article_metadata)
         await async_db_manager.update_article(article_id, update_data)
         
         return {
@@ -3696,7 +3703,7 @@ async def api_pdf_upload(file: UploadFile = File(...)):
                 current_metadata.update(threat_hunting_result)
 
                 from src.models.article import ArticleUpdate
-                update_data = ArticleUpdate(metadata=current_metadata)
+                update_data = ArticleUpdate(article_metadata=current_metadata)
                 await async_db_manager.update_article(article_id, update_data)
 
                 score = threat_hunting_result.get('threat_hunting_score', 0)

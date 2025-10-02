@@ -72,16 +72,28 @@ createdb cti_scraper_test
 ### 3. Run Tests
 
 ```bash
-# Run all tests
-pytest
+# Quick health check (recommended first step)
+python run_tests.py --smoke
+./run_tests.sh smoke
+
+# Run all tests with coverage
+python run_tests.py --all --coverage
+./run_tests.sh all --coverage
 
 # Run specific test categories
-pytest tests/unit/          # Unit tests only
-pytest tests/integration/   # Integration tests only
-pytest tests/api/          # API tests only
+python run_tests.py --unit
+python run_tests.py --api
+python run_tests.py --integration
+./run_tests.sh unit
+./run_tests.sh api
+./run_tests.sh integration
 
-# Run with coverage
-pytest --cov=src --cov-report=html
+# Docker-based testing
+python run_tests.py --docker --integration
+./run_tests.sh integration --docker
+
+# Install test dependencies
+python run_tests.py --install
 ```
 
 ## Code Style

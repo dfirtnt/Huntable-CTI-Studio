@@ -45,6 +45,7 @@ def test_database_connection():
 ```bash
 # Run smoke tests only
 python run_tests.py --smoke
+./run_tests.sh smoke
 
 # Run with pytest
 pytest -m smoke
@@ -94,6 +95,7 @@ async def test_api_error_handling(async_client):
 ```bash
 # Run API tests only
 python run_tests.py --api
+./run_tests.sh api
 
 # Run with pytest
 pytest -m api
@@ -153,6 +155,7 @@ async def test_source_management(page):
 ```bash
 # Run UI tests only
 python run_tests.py --ui
+./run_tests.sh ui
 
 # Run with pytest
 pytest -m ui
@@ -217,6 +220,11 @@ def test_database_transactions():
 ```bash
 # Run integration tests only
 python run_tests.py --integration
+./run_tests.sh integration
+
+# Docker-based integration tests (recommended)
+python run_tests.py --docker --integration
+./run_tests.sh integration --docker
 
 # Run with pytest
 pytest -m integration
@@ -257,6 +265,7 @@ def test_comprehensive_coverage():
 ```bash
 # Run coverage tests
 python run_tests.py --coverage
+./run_tests.sh all --coverage
 
 # Run with pytest
 pytest --cov=src --cov-report=html --cov-fail-under=80
@@ -302,6 +311,26 @@ python run_tests.py --coverage
 
 # Run all tests
 python run_tests.py --all
+
+# Docker-based testing
+python run_tests.py --docker --integration
+python run_tests.py --docker --all --coverage
+```
+
+### Using run_tests.sh (Unified Script)
+```bash
+# Run specific categories
+./run_tests.sh smoke
+./run_tests.sh api
+./run_tests.sh ui
+./run_tests.sh integration
+
+# Run with coverage
+./run_tests.sh all --coverage
+
+# Docker-based testing
+./run_tests.sh integration --docker
+./run_tests.sh all --coverage --docker
 ```
 
 ### Using pytest directly
