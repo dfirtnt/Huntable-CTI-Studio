@@ -10,7 +10,6 @@ Configuration guide for CTI Scraper ports and testing.
 - **Database**: Port 5432
 - **Redis**: Port 6379
 - **Ollama**: Port 11434
-- **Nginx**: Port 8080 (HTTP), 8443 (HTTPS)
 
 ### **Docker Compose Configuration**
 ```yaml
@@ -253,7 +252,7 @@ docker ps --format "table {{.Names}}\t{{.Ports}}"
 - **Handle port conflicts** gracefully
 
 ### **Production**
-- **Use reverse proxy** (Nginx) for port management
+- **Access directly** via FastAPI on port 8001
 - **Configure SSL/TLS** for secure connections
 - **Monitor port usage** and performance
 - **Document port requirements** for deployment

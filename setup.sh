@@ -87,7 +87,7 @@ create_env_file() {
 create_directories() {
     print_status "Creating necessary directories..."
     
-    mkdir -p logs data nginx/ssl backups
+    mkdir -p logs data backups
     
     print_success "Directories created"
 }

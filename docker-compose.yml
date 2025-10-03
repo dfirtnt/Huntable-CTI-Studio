@@ -158,22 +158,6 @@ services:
       retries: 3
       start_period: 60s
 
-  # Nginx Reverse Proxy
-  nginx:
-    image: nginx:alpine
-    container_name: cti_nginx
-    ports:
-      - "8080:80"
-      - "8443:443"
-    volumes:
-      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./nginx/ssl:/etc/nginx/ssl:ro
-    depends_on:
-      - web
-    networks:
-      - cti_network
-    restart: unless-stopped
-
   # CLI Tool Service
   cli:
     build:

@@ -21,7 +21,7 @@ fi
 
 # Create necessary directories
 echo "📁 Creating necessary directories..."
-mkdir -p logs data nginx/ssl
+mkdir -p logs data
 
 # Stop any existing containers
 echo "🛑 Stopping existing containers..."
