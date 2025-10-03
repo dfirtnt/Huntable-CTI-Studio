@@ -153,7 +153,6 @@ WORKERS=4
 - **Scheduler**: Automated source checking and maintenance tasks
 - **Database**: PostgreSQL for structured data storage
 - **Cache**: Redis for session management and task queuing
-- **Reverse Proxy**: Nginx for production deployments with SSL termination and rate limiting
 
 ### Classification System
 
@@ -338,31 +337,11 @@ The Nginx container provides production-ready features:
 - **Rate Limiting**: API protection (10 req/s) and web traffic (30 req/s)
 - **Request Size Limits**: 100MB max upload protection
 
-**Performance Optimizations:**
-- **Gzip Compression**: Reduces bandwidth for text content
-- **Connection Keepalive**: Maintains persistent connections
-- **Static File Caching**: 1-year cache headers for assets
-- **WebSocket Support**: Real-time communication capability
-
-**Configuration:**
-- **Ports**: 80 (HTTP) → 443 (HTTPS) → 8001 (FastAPI)
-- **SSL Certificates**: Located in `nginx/ssl/` directory
+**Direct FastAPI Access:**
+- **Port**: 8001 (HTTP)
 - **Health Check**: `/health` endpoint for monitoring
-- **Load Balancing**: Upstream configuration for FastAPI backend
-
-### SSL Setup
-1. **Generate SSL certificates**:
-   ```bash
-   mkdir -p nginx/ssl
-   openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
-     -keyout nginx/ssl/key.pem \
-     -out nginx/ssl/cert.pem
-   ```
-
-2. **Update domain** in `nginx/nginx.conf`:
-   ```nginx
-   server_name your-domain.com;
-   ```
+- **Static Files**: Served directly by FastAPI
+- **SSL/TLS**: Can be configured at reverse proxy level if needed
 
 3. **Deploy with SSL**:
    ```bash

@@ -86,8 +86,6 @@ CTIScraper/
 │   ├── 📁 api/                      # API tests
 │   └── test_search_parser.py        # Boolean search tests
 │
-├── 📁 nginx/                        # Reverse proxy configuration
-│   └── nginx.conf                   # Nginx configuration
 │
 ├── 📁 backup_old_architecture/      # Legacy code (for reference)
 │   ├── 📁 old_web_server/           # Previous web implementation
@@ -281,7 +279,7 @@ def check_source(source_id: str):
 ### Infrastructure
 - **Docker**: Containerization
 - **Docker Compose**: Multi-service orchestration
-- **Nginx**: Reverse proxy and load balancing
+- **FastAPI**: Web interface and API endpoints
 - **PostgreSQL**: Database server
 - **Redis**: Cache and message broker
 

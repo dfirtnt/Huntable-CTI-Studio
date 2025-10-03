@@ -44,10 +44,6 @@ The CTI Scraper uses a microservices architecture with the following components:
    - Uses same PostgreSQL database as web application
    - Eliminates data inconsistency between CLI and web operations
 
-8. **Nginx Reverse Proxy** (`nginx`) - Production only
-   - Load balancing and SSL termination
-   - Static file serving
-   - Security headers and rate limiting
 
 ## Environment Configurations
 
@@ -72,7 +68,6 @@ The CTI Scraper uses a microservices architecture with the following components:
 - **Purpose**: Production deployment
 - **Features**:
   - Optimized for performance
-  - Nginx reverse proxy
   - Health checks and monitoring
   - Persistent data volumes
   - CLI tools available via profiles
