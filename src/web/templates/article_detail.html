@@ -2905,6 +2905,25 @@
         const modelUsed = data?.model_name || 'gpt-4';
         const generatedAt = data?.generated_at ? new Date(data.generated_at).toLocaleString() : 'Unknown';
         const validationResults = data?.validation_results || [];
+        const failureError = data?.error || null;
+        const hasFailure = (sigmaRules === null || sigmaRules === 'null') && failureError;
+        
+        // Build error banner if there was a failure
+        let errorBannerHtml = '';
+        if (hasFailure) {
+            errorBannerHtml = `
+                <div class="mb-4 p-4 bg-red-50 border-2 border-red-300 rounded-lg">
+                    <div class="flex items-start">
+                        <span class="text-2xl mr-3">⚠️</span>
+                        <div class="flex-1">
+                            <h4 class="font-bold text-red-900 mb-2">SIGMA Generation Failed</h4>
+                            <p class="text-sm text-red-800 mb-2">${failureError}</p>
+                            <p class="text-xs text-red-700">The conversation log below shows what was attempted before the failure. Click "Regenerate" to try again.</p>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
         
         // Build validation status display
         let validationStatusHtml = '';
@@ -2973,18 +2992,18 @@
                     ${data?.cached ? ' | <span class="font-medium text-blue-600">(Cached)</span>' : ''}
                 </div>
                 
+                ${errorBannerHtml}
                 ${validationStatusHtml}
 
                 <div class="mt-4">
-                    <h4 class="text-md font-medium text-gray-900 mb-2">LLM ↔ pySigma Conversation</h4>
-                    <div id="sigmaConversation" class="space-y-3 max-h-80 overflow-y-auto p-3 border rounded">
+                    <h4 class="text-md font-medium text-gray-900 mb-2">🔄 LLM ↔ pySigma Conversation Log</h4>
+                    <div class="text-xs text-gray-600 mb-2">Shows the iterative validation process between the LLM and pySigma validator</div>
+                    <div id="sigmaConversation" class="space-y-4 max-h-96 overflow-y-auto p-4 bg-gray-50 rounded border">
                         <!-- Filled by script below -->
                     </div>
                 </div>
 
-                <div class="bg-gray-50 p-4 rounded-lg max-h-96 overflow-y-auto">
-                    <pre class="text-sm font-mono whitespace-pre-wrap text-gray-800">${sigmaRules}</pre>
-                </div>
+                ${hasFailure ? '' : '<div class="bg-gray-50 p-4 rounded-lg max-h-96 overflow-y-auto"><pre class="text-sm font-mono whitespace-pre-wrap text-gray-800">' + sigmaRules + '</pre></div>'}
                 
                 <div class="mt-4 flex justify-between">
                     <button onclick="regenerateSigmaRules()" 
@@ -3007,38 +3026,147 @@
             const container = document.getElementById('sigmaConversation');
             if (container) {
                 if (!convo.length) {
-                    container.innerHTML = '<div class="text-sm text-gray-600">No conversation log available.</div>';
+                    container.innerHTML = '<div class="text-sm text-gray-600 text-center py-4">⚠️ No conversation log available. This might be cached data from an older version.</div>';
                 } else {
-                    container.innerHTML = convo.map(entry => {
+                    container.innerHTML = convo.map((entry, idx) => {
                         const attempt = entry.attempt || 0;
-                        const msgHtml = (entry.messages || []).map(m => {
+                        const attemptBadgeColor = idx === convo.length - 1 ? 'bg-green-500' : 'bg-blue-500';
+                        const attemptIcon = idx === convo.length - 1 ? '✅' : '🔄';
+                        
+                        // Format messages (system + user prompts)
+                        const msgHtml = (entry.messages || []).map((m, i) => {
                             const role = m.role || 'user';
                             const content = (m.content || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-                            return `<div class=\"mb-1\"><span class=\"font-semibold\">${role}:</span> <pre class=\"text-xs whitespace-pre-wrap bg-gray-50 p-2 rounded border\">${content}</pre></div>`;
+                            const roleIcon = role === 'system' ? '⚙️' : '👤';
+                            const roleColor = role === 'system' ? 'text-purple-700' : 'text-blue-700';
+                            const preview = content.substring(0, 100) + (content.length > 100 ? '...' : '');
+                            const collapsibleId = 'msg-' + idx + '-' + i;
+                            
+                            return '<div class="mb-2">' +
+                                '<div class="flex items-center mb-1">' +
+                                    '<span class="mr-2">' + roleIcon + '</span>' +
+                                    '<span class="font-semibold ' + roleColor + ' text-sm uppercase">' + role + '</span>' +
+                                    '<button onclick="toggleCollapse(\'' + collapsibleId + '\')" class="ml-2 text-xs text-blue-600 hover:text-blue-800 underline">' +
+                                        '[toggle full content]' +
+                                    '</button>' +
+                                '</div>' +
+                                '<div class="bg-gray-100 p-2 rounded border border-gray-300">' +
+                                    '<div id="' + collapsibleId + '-preview" class="text-xs text-gray-700">' + preview + '</div>' +
+                                    '<pre id="' + collapsibleId + '-full" class="text-xs whitespace-pre-wrap text-gray-800 hidden">' + content + '</pre>' +
+                                '</div>' +
+                            '</div>';
                         }).join('');
-                        const llm = (entry.llm_response || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                        
+                        // Format LLM response
+                        const llm = (entry.llm_response || 'No response').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                        const llmPreview = llm.substring(0, 200) + (llm.length > 200 ? '...' : '');
+                        const llmCollapsibleId = 'llm-' + idx;
+                        
+                        // Format validation results
                         const val = entry.validation || [];
-                        const valHtml = val.map(v => {
-                            const errs = (v.errors || []).map(e => `<li class=\"text-red-700\">${e.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</li>`).join('');
-                            const warns = (v.warnings || []).map(w => `<li class=\"text-yellow-700\">${w.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</li>`).join('');
-                            return `<div class=\"mb-2 p-2 bg-white border rounded\">`
-                                + `<div class=\"text-sm\">Rule #${v.rule_index || '?' } — <span class=\"${v.is_valid ? 'text-green-700' : 'text-red-700'}\">${v.is_valid ? 'valid' : 'invalid'}</span></div>`
-                                + (errs ? `<ul class=\"list-disc ml-5 mt-1\">${errs}</ul>` : '')
-                                + (warns ? `<ul class=\"list-disc ml-5 mt-1\">${warns}</ul>` : '')
-                                + `</div>`;
-                        }).join('');
-                        return `<div class=\"p-3 bg-gray-100 rounded\">`
-                            + `<div class=\"font-semibold mb-2\">Attempt ${attempt}</div>`
-                            + `<div class=\"mb-2\">${msgHtml}</div>`
-                            + `<div class=\"mb-2\"><span class=\"font-semibold\">LLM Response</span>`
-                            + `<pre class=\"text-xs whitespace-pre-wrap bg-white p-2 rounded border\">${llm}</pre></div>`
-                            + `<div><span class=\"font-semibold\">pySigma Validation</span>${valHtml || '<div class=\"text-sm text-gray-600\">No validation details.</div>'}</div>`
-                            + `</div>`;
+                        const hasErrors = val.some(v => !v.is_valid);
+                        const validationIcon = hasErrors ? '❌' : '✅';
+                        const validationColor = hasErrors ? 'text-red-700' : 'text-green-700';
+                        
+                        const valHtml = val.length > 0 ? val.map(v => {
+                            const errs = (v.errors || []).map(e => '<li class="text-red-700 text-xs">' + e.replace(/</g,'&lt;').replace(/>/g,'&gt;') + '</li>').join('');
+                            const warns = (v.warnings || []).map(w => '<li class="text-yellow-700 text-xs">' + w.replace(/</g,'&lt;').replace(/>/g,'&gt;') + '</li>').join('');
+                            const statusBadge = v.is_valid 
+                                ? '<span class="px-2 py-1 text-xs bg-green-100 text-green-800 rounded">✅ VALID</span>'
+                                : '<span class="px-2 py-1 text-xs bg-red-100 text-red-800 rounded">❌ INVALID</span>';
+                            const borderClass = v.is_valid ? 'border-green-300' : 'border-red-300';
+                            const ruleIndex = v.rule_index || '?';
+                            const ruleInfoHtml = (v.rule_info && v.rule_info.title) ? '<div class="text-xs text-gray-600 mt-2">Rule: ' + v.rule_info.title + '</div>' : '';
+                            const errsHtml = errs ? '<div class="mt-2"><strong class="text-sm text-red-800">Errors:</strong><ul class="list-disc ml-5 mt-1">' + errs + '</ul></div>' : '';
+                            const warnsHtml = warns ? '<div class="mt-2"><strong class="text-sm text-yellow-800">Warnings:</strong><ul class="list-disc ml-5 mt-1">' + warns + '</ul></div>' : '';
+                            
+                            return '<div class="mb-3 p-3 bg-white border ' + borderClass + ' rounded">' +
+                                '<div class="flex items-center justify-between mb-2">' +
+                                    '<span class="font-semibold text-sm">Rule #' + ruleIndex + '</span>' +
+                                    statusBadge +
+                                '</div>' +
+                                errsHtml +
+                                warnsHtml +
+                                ruleInfoHtml +
+                            '</div>';
+                        }).join('') : '<div class="text-sm text-gray-600 italic">No validation performed</div>';
+                        
+                        // Build attempt card
+                        const borderClass = (hasErrors && idx < convo.length - 1) ? 'border-red-300' : 'border-green-300';
+                        const bgGradient = (hasErrors && idx < convo.length - 1) ? 'from-red-50 to-red-100' : 'from-green-50 to-green-100';
+                        const attemptBadgeText = (idx === convo.length - 1) ? 'FINAL' : 'RETRY';
+                        const validationBorderClass = hasErrors ? 'border-red-500' : 'border-green-500';
+                        const errorHtml = entry.error ? 
+                            '<div class="border-l-4 border-red-500 pl-3 mt-3">' +
+                                '<div class="text-sm text-red-700">' +
+                                    '<strong>⚠️ Error:</strong> ' + entry.error.replace(/</g,'&lt;').replace(/>/g,'&gt;') +
+                                '</div>' +
+                            '</div>' : '';
+                        
+                        return '<div class="bg-white border-2 ' + borderClass + ' rounded-lg shadow-sm">' +
+                            '<div class="bg-gradient-to-r ' + bgGradient + ' p-3 rounded-t-lg border-b">' +
+                                '<div class="flex items-center justify-between">' +
+                                    '<div class="flex items-center">' +
+                                        '<span class="text-xl mr-2">' + attemptIcon + '</span>' +
+                                        '<span class="font-bold text-gray-900">Attempt #' + attempt + '</span>' +
+                                    '</div>' +
+                                    '<span class="' + attemptBadgeColor + ' text-white px-3 py-1 rounded-full text-xs font-bold">' +
+                                        attemptBadgeText +
+                                    '</span>' +
+                                '</div>' +
+                            '</div>' +
+                            '<div class="p-4 space-y-4">' +
+                                '<!-- Prompts Section -->' +
+                                '<div class="border-l-4 border-blue-500 pl-3">' +
+                                    '<div class="font-semibold text-sm text-gray-700 mb-2">📝 Prompts Sent to LLM</div>' +
+                                    msgHtml +
+                                '</div>' +
+                                '' +
+                                '<!-- LLM Response Section -->' +
+                                '<div class="border-l-4 border-purple-500 pl-3">' +
+                                    '<div class="flex items-center mb-2">' +
+                                        '<span class="mr-2">🤖</span>' +
+                                        '<span class="font-semibold text-sm text-gray-700">LLM Response</span>' +
+                                        '<button onclick="toggleCollapse(\'' + llmCollapsibleId + '\')" class="ml-2 text-xs text-blue-600 hover:text-blue-800 underline">' +
+                                            '[toggle full response]' +
+                                        '</button>' +
+                                    '</div>' +
+                                    '<div class="bg-purple-50 p-3 rounded border border-purple-200">' +
+                                        '<div id="' + llmCollapsibleId + '-preview" class="text-xs text-gray-700">' + llmPreview + '</div>' +
+                                        '<pre id="' + llmCollapsibleId + '-full" class="text-xs whitespace-pre-wrap text-gray-800 hidden">' + llm + '</pre>' +
+                                    '</div>' +
+                                '</div>' +
+                                '' +
+                                '<!-- Validation Section -->' +
+                                '<div class="border-l-4 ' + validationBorderClass + ' pl-3">' +
+                                    '<div class="flex items-center mb-2">' +
+                                        '<span class="mr-2">' + validationIcon + '</span>' +
+                                        '<span class="font-semibold text-sm ' + validationColor + '">pySigma Validation</span>' +
+                                    '</div>' +
+                                    '<div class="space-y-2">' +
+                                        valHtml +
+                                    '</div>' +
+                                '</div>' +
+                                '' +
+                                errorHtml +
+                            '</div>' +
+                        '</div>';
                     }).join('');
                 }
             }
         } catch (e) {
             console.error('Failed to render sigma conversation', e);
+            container.innerHTML = '<div class="text-sm text-red-600">Error rendering conversation log. Check console for details.</div>';
+        }
+    }
+    
+    // Helper function to toggle collapsible sections
+    function toggleCollapse(id) {
+        const preview = document.getElementById(id + '-preview');
+        const full = document.getElementById(id + '-full');
+        if (preview && full) {
+            preview.classList.toggle('hidden');
+            full.classList.toggle('hidden');
         }
     }
     

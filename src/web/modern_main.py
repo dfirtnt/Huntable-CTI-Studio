@@ -2581,7 +2581,7 @@ async def api_generate_sigma(article_id: int, request: Request):
                                     'is_valid': validation_result.is_valid,
                                     'errors': validation_result.errors,
                                     'warnings': validation_result.warnings,
-                                    'rule_info': validation_result.rule_info
+                                    'rule_info': validation_result.metadata  # metadata contains rule_info
                                 })
                                 
                                 if not validation_result.is_valid:
@@ -2616,15 +2616,42 @@ async def api_generate_sigma(article_id: int, request: Request):
                     
                 except Exception as e:
                     logger.error(f"SIGMA generation attempt {attempt} failed: {e}")
+                    conversation_entry["error"] = str(e)
+                    # Append this attempt's conversation entry to the log
+                    if conversation_entry:
+                        conversation_log.append(conversation_entry)
+                    
                     if attempt == max_attempts:
+                        # Save partial conversation log even on failure
+                        current_metadata = article.article_metadata.copy() if article.article_metadata else {}
+                        current_metadata['sigma_rules'] = {
+                            'rules': None,
+                            'generated_at': datetime.now().isoformat(),
+                            'content_type': 'full content' if include_content else 'metadata only',
+                            'model_used': model_used if 'model_used' in locals() else 'unknown',
+                            'model_name': model_name if 'model_name' in locals() else 'unknown',
+                            'validation_results': validation_results,
+                            'conversation': conversation_log,
+                            'validation_passed': False,
+                            'attempts_made': attempt,
+                            'error': str(e)
+                        }
+                        update_data = ArticleUpdate(article_metadata=current_metadata)
+                        await async_db_manager.update_article(article_id, update_data)
+                        
                         raise HTTPException(status_code=500, detail=f"SIGMA generation failed after {max_attempts} attempts: {e}")
+                    else:
+                        # Continue to next attempt
+                        continue
+                
+                # Append this attempt's conversation entry to the log (for successful attempts)
+                finally:
+                    if conversation_entry and conversation_entry not in conversation_log:
+                        conversation_log.append(conversation_entry)
+        
         # Check if we have valid rules after all attempts
         if not sigma_rules:
             raise HTTPException(status_code=500, detail="Failed to generate SIGMA rules after all attempts")
-        
-        # Persist full conversation log across attempts
-        if conversation_entry:
-            conversation_log.append(conversation_entry)
 
         # Determine if rules passed validation
         all_rules_valid = all(result.get('is_valid', False) for result in validation_results)
