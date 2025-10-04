@@ -8,6 +8,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **SIGMA Conversation Log**: Enhanced SIGMA rule generation UI to display the full back-and-forth conversation between LLM and pySigma validator
+  - Shows each attempt with prompts, LLM responses, and validation results
+  - Collapsible sections for long content to improve readability
+  - Color-coded validation feedback (green for valid, red for invalid)
+  - Visual indicators for retry attempts vs. final attempt
+  - Detailed error and warning messages from pySigma validator
 - **Unified Testing Interface**: New `run_tests.py` and `run_tests.sh` for standardized test execution
 - **Docker Testing Support**: Added `--docker` flag for containerized test execution
 - **Virtual Environment Documentation**: Comprehensive guide for `venv-test`, `venv-lg`, and `venv-ml`

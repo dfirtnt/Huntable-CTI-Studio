@@ -254,7 +254,7 @@ class RSSParser:
             response.raise_for_status()
             
             from bs4 import BeautifulSoup
-            soup = BeautifulSoup(self.http_client.get_text_with_encoding_fallback(response), 'lxml')
+            soup = BeautifulSoup(response.text, 'lxml')
             
             # Try different meta tags for publication date
             date_selectors = [
@@ -478,7 +478,7 @@ class RSSParser:
             
             # Use basic content extraction
             from bs4 import BeautifulSoup
-            soup = BeautifulSoup(self.http_client.get_text_with_encoding_fallback(response), 'lxml')
+            soup = BeautifulSoup(response.text, 'lxml')
             
             # Try comprehensive content selectors (prioritized by likelihood)
             content_selectors = [
@@ -554,7 +554,7 @@ class RSSParser:
             
             # Parse HTML
             from bs4 import BeautifulSoup
-            soup = BeautifulSoup(self.http_client.get_text_with_encoding_fallback(response), 'lxml')
+            soup = BeautifulSoup(response.text, 'lxml')
             
             # Try comprehensive content selectors (prioritized by likelihood)
             content_selectors = [

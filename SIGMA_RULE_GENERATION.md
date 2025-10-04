@@ -30,6 +30,14 @@ The SIGMA Rule Generation feature automatically creates detection rules from thr
 - **Validation Results**: Stores detailed validation errors and warnings
 - **Generation Timestamps**: Tracks when rules were generated and validated
 
+### 🔄 Conversation Log Display
+- **Interactive Visualization**: Shows the full back-and-forth conversation between LLM and pySigma validator
+- **Attempt-by-Attempt View**: Each retry attempt is displayed in a separate card with clear visual indicators
+- **Collapsible Sections**: Long prompts and responses can be collapsed/expanded for better readability
+- **Color-Coded Feedback**: Visual indicators for valid (green) and invalid (red) validation results
+- **Detailed Error Messages**: Shows specific validation errors and warnings from pySigma
+- **Progressive Learning**: See how the LLM improves its output based on validation feedback
+
 ## Usage
 
 ### Prerequisites
@@ -46,6 +54,7 @@ The SIGMA Rule Generation feature automatically creates detection rules from thr
 5. **Validation**: pySIGMA validates the generated rules
 6. **Iterative Fixing**: If validation fails, rules are retried with error feedback
 7. **Storage**: Valid rules are stored with complete metadata
+8. **View Results**: Click to view the generated rules and conversation log showing the LLM ↔ pySigma interaction
 
 ### API Endpoint
 
