@@ -124,6 +124,18 @@ def highlight_keywords(content: str, metadata: Dict[str, Any]) -> str:
 # Register the filter
 templates.env.filters["highlight_keywords"] = highlight_keywords
 
+# Register strftime filter for datetime formatting
+def strftime_filter(value, format='%Y-%m-%d %H:%M:%S'):
+    """Format a datetime object using strftime."""
+    if value is None:
+        return 'N/A'
+    try:
+        return value.strftime(format)
+    except (AttributeError, ValueError):
+        return str(value)
+
+templates.env.filters["strftime"] = strftime_filter
+
 # Application lifespan
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
@@ -2417,6 +2429,7 @@ async def api_generate_sigma(article_id: int, request: Request):
         # Iterative fixing loop (up to 3 attempts)
         sigma_rules = None
         validation_results = []
+        conversation_log = []  # Capture LLM ↔ validator conversation per attempt
         attempt = 0  # Start at 0, increment at beginning of loop
         max_attempts = 3
         
@@ -2444,6 +2457,17 @@ async def api_generate_sigma(article_id: int, request: Request):
                     }
                 ]
                 
+                # Record initial prompt for this attempt
+                conversation_entry = {
+                    "attempt": attempt,
+                    "messages": [
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": prompt}
+                    ],
+                    "llm_response": None,
+                    "validation": None
+                }
+
                 # Add validation feedback if this is a retry
                 if attempt > 1 and validation_results:
                     last_validation = validation_results[-1]
@@ -2454,6 +2478,10 @@ async def api_generate_sigma(article_id: int, request: Request):
                         )
                         
                         messages.append({
+                            "role": "user",
+                            "content": feedback_prompt
+                        })
+                        conversation_entry["messages"].append({
                             "role": "user",
                             "content": feedback_prompt
                         })
@@ -2495,6 +2523,7 @@ async def api_generate_sigma(article_id: int, request: Request):
                         
                         result = response.json()
                         sigma_rules = result['choices'][0]['message']['content']
+                        conversation_entry["llm_response"] = sigma_rules
                         model_used = 'chatgpt'
                         model_name = 'gpt-4'
                     else:
@@ -2527,6 +2556,7 @@ async def api_generate_sigma(article_id: int, request: Request):
                         
                         result = response.json()
                         sigma_rules = result.get('response', 'No SIGMA rules available')
+                        conversation_entry["llm_response"] = sigma_rules
                         model_used = 'ollama'
                         model_name = ollama_model
                         logger.info(f"Successfully got SIGMA rules from Ollama: {len(sigma_rules)} characters")
@@ -2558,6 +2588,7 @@ async def api_generate_sigma(article_id: int, request: Request):
                                     all_valid = False
                             
                             validation_results = attempt_validation_results
+                            conversation_entry["validation"] = attempt_validation_results
                             
                             # If all rules are valid, break out of the loop
                             if all_valid:
@@ -2578,6 +2609,7 @@ async def api_generate_sigma(article_id: int, request: Request):
                                 'warnings': [],
                                 'rule_info': None
                             }]
+                            conversation_entry["validation"] = validation_results
                             
                             if attempt == max_attempts:
                                 break
@@ -2590,6 +2622,10 @@ async def api_generate_sigma(article_id: int, request: Request):
         if not sigma_rules:
             raise HTTPException(status_code=500, detail="Failed to generate SIGMA rules after all attempts")
         
+        # Persist full conversation log across attempts
+        if conversation_entry:
+            conversation_log.append(conversation_entry)
+
         # Determine if rules passed validation
         all_rules_valid = all(result.get('is_valid', False) for result in validation_results)
         
@@ -2602,6 +2638,7 @@ async def api_generate_sigma(article_id: int, request: Request):
             'model_used': model_used,
             'model_name': model_name,
             'validation_results': validation_results,
+            'conversation': conversation_log,
             'validation_passed': all_rules_valid,
             'attempts_made': attempt
         }
@@ -2620,6 +2657,7 @@ async def api_generate_sigma(article_id: int, request: Request):
             "model_used": current_metadata['sigma_rules']['model_used'],
             "model_name": current_metadata['sigma_rules']['model_name'],
             "validation_results": validation_results,
+            "conversation": conversation_log,
             "validation_passed": all_rules_valid,
             "attempts_made": attempt
         }
