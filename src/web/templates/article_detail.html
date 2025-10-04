@@ -2974,7 +2974,14 @@
                 </div>
                 
                 ${validationStatusHtml}
-                
+
+                <div class="mt-4">
+                    <h4 class="text-md font-medium text-gray-900 mb-2">LLM ↔ pySigma Conversation</h4>
+                    <div id="sigmaConversation" class="space-y-3 max-h-80 overflow-y-auto p-3 border rounded">
+                        <!-- Filled by script below -->
+                    </div>
+                </div>
+
                 <div class="bg-gray-50 p-4 rounded-lg max-h-96 overflow-y-auto">
                     <pre class="text-sm font-mono whitespace-pre-wrap text-gray-800">${sigmaRules}</pre>
                 </div>
@@ -2993,6 +3000,46 @@
         `;
         
         document.body.appendChild(modal);
+
+        // Render conversation entries if present
+        try {
+            const convo = (data && data.conversation) ? data.conversation : [];
+            const container = document.getElementById('sigmaConversation');
+            if (container) {
+                if (!convo.length) {
+                    container.innerHTML = '<div class="text-sm text-gray-600">No conversation log available.</div>';
+                } else {
+                    container.innerHTML = convo.map(entry => {
+                        const attempt = entry.attempt || 0;
+                        const msgHtml = (entry.messages || []).map(m => {
+                            const role = m.role || 'user';
+                            const content = (m.content || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                            return `<div class=\"mb-1\"><span class=\"font-semibold\">${role}:</span> <pre class=\"text-xs whitespace-pre-wrap bg-gray-50 p-2 rounded border\">${content}</pre></div>`;
+                        }).join('');
+                        const llm = (entry.llm_response || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                        const val = entry.validation || [];
+                        const valHtml = val.map(v => {
+                            const errs = (v.errors || []).map(e => `<li class=\"text-red-700\">${e.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</li>`).join('');
+                            const warns = (v.warnings || []).map(w => `<li class=\"text-yellow-700\">${w.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</li>`).join('');
+                            return `<div class=\"mb-2 p-2 bg-white border rounded\">`
+                                + `<div class=\"text-sm\">Rule #${v.rule_index || '?' } — <span class=\"${v.is_valid ? 'text-green-700' : 'text-red-700'}\">${v.is_valid ? 'valid' : 'invalid'}</span></div>`
+                                + (errs ? `<ul class=\"list-disc ml-5 mt-1\">${errs}</ul>` : '')
+                                + (warns ? `<ul class=\"list-disc ml-5 mt-1\">${warns}</ul>` : '')
+                                + `</div>`;
+                        }).join('');
+                        return `<div class=\"p-3 bg-gray-100 rounded\">`
+                            + `<div class=\"font-semibold mb-2\">Attempt ${attempt}</div>`
+                            + `<div class=\"mb-2\">${msgHtml}</div>`
+                            + `<div class=\"mb-2\"><span class=\"font-semibold\">LLM Response</span>`
+                            + `<pre class=\"text-xs whitespace-pre-wrap bg-white p-2 rounded border\">${llm}</pre></div>`
+                            + `<div><span class=\"font-semibold\">pySigma Validation</span>${valHtml || '<div class=\"text-sm text-gray-600\">No validation details.</div>'}</div>`
+                            + `</div>`;
+                    }).join('');
+                }
+            }
+        } catch (e) {
+            console.error('Failed to render sigma conversation', e);
+        }
     }
     
     function closeSigmaRulesModal() {

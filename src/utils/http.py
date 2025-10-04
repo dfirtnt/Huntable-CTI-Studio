@@ -145,8 +145,24 @@ class HTTPClient:
         self._error_count = 0
         self._total_time = 0.0
     
-    async def get(self, url: str, headers: Optional[Dict[str, str]] = None, params: Optional[Dict] = None) -> Response:
-        """Make a GET request with retry logic."""
+    async def __aenter__(self):
+        """Async context manager entry."""
+        return self
+    
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        """Async context manager exit."""
+        return None
+    
+    async def get(self, url: str, headers: Optional[Dict[str, str]] = None, params: Optional[Dict] = None, source_id: Optional[str] = None, use_conditional: bool = False) -> Response:
+        """Make a GET request with retry logic.
+        
+        Args:
+            url: URL to fetch
+            headers: Optional HTTP headers
+            params: Optional query parameters
+            source_id: Optional source identifier for tracking (unused, for compatibility)
+            use_conditional: Optional flag for conditional requests (unused, for compatibility)
+        """
         if not url:
             raise ValueError("URL cannot be None")
         if not url.strip():
