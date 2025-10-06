@@ -32,15 +32,45 @@ def clean_sigma_rule(rule_content: str) -> str:
     # Remove markdown code blocks
     cleaned = rule_content.strip()
     
-    # Remove ```yaml or ``` at the beginning
+    # Debug logging
+    logger.debug(f"Original content starts with: {repr(cleaned[:50])}")
+    
+    # Remove any leading text before the first ```yaml or ```
+    lines = cleaned.split('\n')
+    start_idx = 0
+    
+    # Find the first line that starts with ```
+    for i, line in enumerate(lines):
+        if line.strip().startswith('```'):
+            start_idx = i
+            break
+    
+    # Rejoin from the markdown start
+    cleaned = '\n'.join(lines[start_idx:])
+    
+    # Remove various markdown code block formats at the beginning
     if cleaned.startswith('```yaml'):
         cleaned = cleaned[7:]  # Remove ```yaml
+        logger.debug("Removed ```yaml prefix")
+    elif cleaned.startswith('```yml'):
+        cleaned = cleaned[6:]   # Remove ```yml
+        logger.debug("Removed ```yml prefix")
     elif cleaned.startswith('```'):
         cleaned = cleaned[3:]   # Remove ```
+        logger.debug("Removed ``` prefix")
     
     # Remove ``` at the end
     if cleaned.endswith('```'):
         cleaned = cleaned[:-3]
+        logger.debug("Removed ``` suffix")
+    
+    # Remove any remaining markdown artifacts
+    cleaned = cleaned.strip()
+    
+    # Remove any leading/trailing whitespace and newlines
+    cleaned = '\n'.join(line.rstrip() for line in cleaned.split('\n'))
+    
+    logger.debug(f"Cleaned content starts with: {repr(cleaned[:50])}")
     
     return cleaned.strip()
 
@@ -360,7 +390,9 @@ def validate_sigma_rule(rule_yaml: str) -> ValidationResult:
         if rule_data is None:
             return ValidationResult(False, ["Empty or invalid YAML content"], [])
     except yaml.YAMLError as e:
-        return ValidationResult(False, [f"Invalid YAML syntax: {e}"], [])
+        # Provide more helpful error message with content preview
+        content_preview = cleaned_content[:200] + "..." if len(cleaned_content) > 200 else cleaned_content
+        return ValidationResult(False, [f"Invalid YAML syntax: {e}\n\nContent preview:\n{content_preview}"], [])
     
     validator = SigmaValidator()
     return validator.validate_rule(rule_data)

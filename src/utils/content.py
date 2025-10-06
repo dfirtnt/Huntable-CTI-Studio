@@ -552,7 +552,7 @@ WINDOWS_MALWARE_KEYWORDS = {
         'perfect_discriminators': [
             'rundll32', 'comspec', 'msiexec', 'wmic', 'iex', 'findstr',
             'hklm', 'appdata', 'programdata', 'powershell.exe', 'wbem',
-            'EventID', '.lnk', 'D:\\', 'C:\\', '.iso', '<Command>', 'MZ',
+            '.lnk', 'D:\\', 'C:\\', '.iso', '<Command>', 'MZ',
             'svchost', '-accepteula', 'lsass.exe', 'WINDIR', 'wintmp',
             '\\temp\\', '\\pipe\\', '%WINDIR%', '%wintmp%', 'FromBase64String',
             'MemoryStream', 'New-Object', 'DownloadString', 'Defender query',

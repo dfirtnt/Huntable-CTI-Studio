@@ -71,7 +71,7 @@ Final Score = max(0.0, min(100.0, perfect + good + lolbas + intelligence - negat
 **Perfect Discriminators** (75 points max):
 - `rundll32`, `comspec`, `msiexec`, `wmic`, `iex`, `findstr`
 - `hklm`, `appdata`, `programdata`, `powershell.exe`, `wbem`
-- `EventID`, `.lnk`, `D:\`, `.iso`, `<Command>`, `MZ`
+- `.lnk`, `D:\`, `.iso`, `<Command>`, `MZ`
 - `svchost`, `-accepteula`, `lsass.exe`, `WINDIR`, `wintmp`
 - `\temp\`, `\pipe\`, `%WINDIR%`, `%wintmp%`, `Defender query`
 - **Cmd.exe obfuscation regex patterns**: `%VAR:~0,4%`, `!VAR!`, `cmd /V:ON`, `s^e^t`, `c^a^l^l`
