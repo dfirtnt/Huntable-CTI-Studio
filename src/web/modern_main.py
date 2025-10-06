@@ -2353,33 +2353,36 @@ async def api_generate_sigma(article_id: int, request: Request):
         if not article:
             raise HTTPException(status_code=404, detail="Article not found")
         
-        # Check if article is marked as "chosen" (required for SIGMA generation)
-        training_category = article.article_metadata.get('training_category', '') if article.article_metadata else ''
-        logger.info(f"SIGMA generation request for article {article_id}, training_category: '{training_category}'")
-        if training_category != 'chosen':
-            raise HTTPException(status_code=400, detail="SIGMA rules can only be generated for articles marked as 'Chosen'. Please classify this article first.")
-        
-        # Check if SIGMA rules already exist and return cached version
-        existing_sigma_rules = article.article_metadata.get('sigma_rules', {}) if article.article_metadata else {}
-        if existing_sigma_rules and existing_sigma_rules.get('rules'):
-            logger.info(f"Returning cached SIGMA rules for article {article_id}")
-            return {
-                "success": True,
-                "article_id": article_id,
-                "sigma_rules": existing_sigma_rules['rules'],
-                "generated_at": existing_sigma_rules['generated_at'],
-                "content_type": existing_sigma_rules['content_type'],
-                "model_used": existing_sigma_rules['model_used'],
-                "model_name": existing_sigma_rules['model_name'],
-                "cached": True
-            }
-        
-        # Get request body
+        # Get request body first to check force_regenerate
         body = await request.json()
+        force_regenerate = body.get('force_regenerate', False)  # Force regeneration
         include_content = body.get('include_content', True)  # Default to full content
         api_key = body.get('api_key')  # Get API key from request
         ai_model = body.get('ai_model', 'chatgpt')  # Get AI model from request
         author_name = body.get('author_name', 'CTIScraper User')  # Get author name from request
+        
+        # Check if article is marked as "chosen" (required for SIGMA generation)
+        training_category = article.article_metadata.get('training_category', '') if article.article_metadata else ''
+        logger.info(f"SIGMA generation request for article {article_id}, training_category: '{training_category}', force_regenerate: {force_regenerate}")
+        if training_category != 'chosen':
+            raise HTTPException(status_code=400, detail="SIGMA rules can only be generated for articles marked as 'Chosen'. Please classify this article first.")
+        
+        # If force regeneration is requested, skip cache check
+        if not force_regenerate:
+            # Check if SIGMA rules already exist and return cached version
+            existing_sigma_rules = article.article_metadata.get('sigma_rules', {}) if article.article_metadata else {}
+            if existing_sigma_rules and existing_sigma_rules.get('rules'):
+                logger.info(f"Returning cached SIGMA rules for article {article_id}")
+                return {
+                    "success": True,
+                    "article_id": article_id,
+                    "sigma_rules": existing_sigma_rules['rules'],
+                    "generated_at": existing_sigma_rules['generated_at'],
+                    "content_type": existing_sigma_rules['content_type'],
+                    "model_used": existing_sigma_rules['model_used'],
+                    "model_name": existing_sigma_rules['model_name'],
+                    "cached": True
+                }
         
         logger.info(f"SIGMA generation request for article {article_id}, ai_model: {ai_model}, api_key provided: {bool(api_key)}, author: {author_name}")
         
