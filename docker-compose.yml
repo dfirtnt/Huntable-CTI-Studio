@@ -57,6 +57,9 @@ services:
       - LLM_MAX_TOKENS=2048
       - OLLAMA_CONTENT_LIMIT=8000
       - CHATGPT_CONTENT_LIMIT=20000
+      - ANTHROPIC_API_URL=https://api.anthropic.com/v1/messages
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - ANTHROPIC_CONTENT_LIMIT=200000
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - CHATGPT_API_KEY=${CHATGPT_API_KEY}
       - TZ=America/New_York
@@ -90,6 +93,7 @@ services:
       - REDIS_URL=redis://:cti_redis_secure_2024@redis:6379/0
       - ENVIRONMENT=development
       - LOG_LEVEL=DEBUG
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - CHATGPT_API_KEY=${CHATGPT_API_KEY}
     volumes:
