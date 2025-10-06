@@ -67,6 +67,7 @@
                     <select id="aiModel" 
                             class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
                         <option value="chatgpt">ChatGPT (OpenAI)</option>
+                        <option value="anthropic">Claude (Anthropic)</option>
                         <option value="mistral">Mistral (Local Ollama)</option>
                     </select>
                     <p class="text-sm text-gray-500 mt-1">Choose your preferred AI model for summaries and analysis</p>
@@ -78,6 +79,7 @@
                         <p class="font-medium mb-1">Model Details:</p>
                         <ul class="list-disc list-inside space-y-1">
                             <li><strong>ChatGPT:</strong> Fast, high-quality responses (requires OpenAI API key)</li>
+                            <li><strong>Claude:</strong> Advanced reasoning, long context (requires Anthropic API key)</li>
                             <li><strong>Mistral:</strong> Local processing, no API costs (slower but private)</li>
                         </ul>
                     </div>
@@ -151,7 +153,7 @@
             
             <div class="space-y-4">
                 <!-- OpenAI API Key -->
-                <div>
+                <div id="openaiApiKeySection">
                     <label for="openaiApiKey" class="block text-sm font-medium text-gray-700 mb-2">
                         OpenAI API Key
                     </label>
@@ -169,7 +171,29 @@
                             </svg>
                         </button>
                     </div>
-                    <p class="text-sm text-gray-500 mt-1">Required for CustomGPT analysis functionality</p>
+                    <p class="text-sm text-gray-500 mt-1">Required for ChatGPT analysis functionality</p>
+                </div>
+                
+                <!-- Anthropic API Key -->
+                <div id="anthropicApiKeySection" style="display: none;">
+                    <label for="anthropicApiKey" class="block text-sm font-medium text-gray-700 mb-2">
+                        Anthropic API Key
+                    </label>
+                    <div class="relative">
+                        <input type="password" 
+                               id="anthropicApiKey" 
+                               placeholder="sk-ant-..." 
+                               class="w-full px-3 py-2 pr-10 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                        <button type="button" 
+                                id="toggleAnthropicApiKey" 
+                                class="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600">
+                            <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                            </svg>
+                        </button>
+                    </div>
+                    <p class="text-sm text-gray-500 mt-1">Required for Claude analysis functionality</p>
                 </div>
                 
                 <!-- Test API Key Button -->
@@ -229,6 +253,10 @@
         const openaiApiKey = settings.openaiApiKey || '';
         document.getElementById('openaiApiKey').value = openaiApiKey;
         
+        // Set Anthropic API key
+        const anthropicApiKey = settings.anthropicApiKey || '';
+        document.getElementById('anthropicApiKey').value = anthropicApiKey;
+        
         // Set AI model
         const aiModel = settings.aiModel || 'chatgpt';
         document.getElementById('aiModel').value = aiModel;
@@ -245,9 +273,26 @@
     function updateApiConfigurationVisibility() {
         const aiModel = document.getElementById('aiModel').value;
         const apiSection = document.getElementById('apiConfigurationSection');
+        const openaiSection = document.getElementById('openaiApiKeySection');
+        const anthropicSection = document.getElementById('anthropicApiKeySection');
+        const testApiKeyBtn = document.getElementById('testApiKey');
+        const testSummaryBtn = document.getElementById('testChatGPTSummary');
         
-        if (aiModel === 'chatgpt') {
+        if (aiModel === 'chatgpt' || aiModel === 'anthropic') {
             apiSection.style.display = 'block';
+            
+            // Show/hide API key sections based on selected model
+            if (aiModel === 'chatgpt') {
+                openaiSection.style.display = 'block';
+                anthropicSection.style.display = 'none';
+                testApiKeyBtn.textContent = '🧪 Test OpenAI API Key';
+                testSummaryBtn.textContent = '📝 Test ChatGPT Summary';
+            } else if (aiModel === 'anthropic') {
+                openaiSection.style.display = 'none';
+                anthropicSection.style.display = 'block';
+                testApiKeyBtn.textContent = '🧪 Test Anthropic API Key';
+                testSummaryBtn.textContent = '📝 Test Claude Summary';
+            }
         } else {
             apiSection.style.display = 'none';
         }
@@ -259,6 +304,7 @@
             commentPromptsEnabled: getToggleState('commentPromptsToggle'),
             articlesPerPage: document.getElementById('articlesPerPage').value,
             openaiApiKey: document.getElementById('openaiApiKey').value,
+            anthropicApiKey: document.getElementById('anthropicApiKey').value,
             aiModel: document.getElementById('aiModel').value,
             sigmaAuthor: document.getElementById('sigmaAuthor').value
         };
@@ -267,14 +313,18 @@
         showSuccessNotification();
     }
     
-    // Test ChatGPT Summary functionality
+    // Test Summary functionality (ChatGPT or Claude)
     async function testChatGPTSummary() {
-        const apiKey = document.getElementById('openaiApiKey').value;
+        const aiModel = document.getElementById('aiModel').value;
+        const apiKey = aiModel === 'anthropic' ? 
+                      document.getElementById('anthropicApiKey').value : 
+                      document.getElementById('openaiApiKey').value;
         const statusElement = document.getElementById('chatgptSummaryStatus');
         const testButton = document.getElementById('testChatGPTSummary');
         
         if (!apiKey) {
-            statusElement.textContent = '❌ Please enter an API key first';
+            const keyType = aiModel === 'anthropic' ? 'Anthropic' : 'OpenAI';
+            statusElement.textContent = `❌ Please enter a ${keyType} API key first`;
             statusElement.className = 'ml-3 text-sm text-red-600';
             return;
         }
@@ -282,12 +332,14 @@
         // Disable button and show loading
         testButton.disabled = true;
         testButton.textContent = '📝 Testing...';
-        statusElement.textContent = '⏳ Testing ChatGPT summary...';
+        const modelName = aiModel === 'anthropic' ? 'Claude' : 'ChatGPT';
+        statusElement.textContent = `⏳ Testing ${modelName} summary...`;
         statusElement.className = 'ml-3 text-sm text-gray-600';
         
         try {
             // Test with a simple prompt
-            const response = await fetch('/api/test-chatgpt-summary', {
+            const endpoint = aiModel === 'anthropic' ? '/api/test-claude-summary' : '/api/test-chatgpt-summary';
+            const response = await fetch(endpoint, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -300,7 +352,7 @@
             
             if (response.ok) {
                 const result = await response.json();
-                statusElement.textContent = `✅ ChatGPT Summary working! Model: ${result.model_name}`;
+                statusElement.textContent = `✅ ${modelName} Summary working! Model: ${result.model_name}`;
                 statusElement.className = 'ml-3 text-sm text-green-600';
             } else {
                 const error = await response.json();
@@ -313,18 +365,22 @@
         } finally {
             // Re-enable button
             testButton.disabled = false;
-            testButton.textContent = '📝 Test ChatGPT Summary';
+            testButton.textContent = `📝 Test ${modelName} Summary`;
         }
     }
     
-    // Test OpenAI API key
+    // Test API key (OpenAI or Anthropic)
     async function testApiKey() {
-        const apiKey = document.getElementById('openaiApiKey').value;
+        const aiModel = document.getElementById('aiModel').value;
+        const apiKey = aiModel === 'anthropic' ? 
+                      document.getElementById('anthropicApiKey').value : 
+                      document.getElementById('openaiApiKey').value;
         const statusElement = document.getElementById('apiKeyStatus');
         const testButton = document.getElementById('testApiKey');
         
         if (!apiKey) {
-            statusElement.textContent = '❌ Please enter an API key first';
+            const keyType = aiModel === 'anthropic' ? 'Anthropic' : 'OpenAI';
+            statusElement.textContent = `❌ Please enter a ${keyType} API key first`;
             statusElement.className = 'ml-3 text-sm text-red-600';
             return;
         }
@@ -336,7 +392,8 @@
         statusElement.className = 'ml-3 text-sm text-gray-600';
         
         try {
-            const response = await fetch('/api/test-openai-key', {
+            const endpoint = aiModel === 'anthropic' ? '/api/test-anthropic-key' : '/api/test-openai-key';
+            const response = await fetch(endpoint, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -359,8 +416,9 @@
             statusElement.className = 'ml-3 text-sm text-red-600';
         } finally {
             // Re-enable button
+            const keyType = aiModel === 'anthropic' ? 'Anthropic' : 'OpenAI';
             testButton.disabled = false;
-            testButton.textContent = '🧪 Test API Key';
+            testButton.textContent = `🧪 Test ${keyType} API Key`;
         }
     }
     
@@ -368,6 +426,26 @@
     function toggleApiKeyVisibility() {
         const input = document.getElementById('openaiApiKey');
         const button = document.getElementById('toggleApiKey');
+        const icon = button.querySelector('svg');
+        
+        if (input.type === 'password') {
+            input.type = 'text';
+            icon.innerHTML = `
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.878 9.878L3 3m6.878 6.878L21 21"></path>
+            `;
+        } else {
+            input.type = 'password';
+            icon.innerHTML = `
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+            `;
+        }
+    }
+    
+    // Toggle Anthropic API key visibility
+    function toggleAnthropicApiKeyVisibility() {
+        const input = document.getElementById('anthropicApiKey');
+        const button = document.getElementById('toggleAnthropicApiKey');
         const icon = button.querySelector('svg');
         
         if (input.type === 'password') {
@@ -441,6 +519,11 @@
         // API key visibility toggle
         document.getElementById('toggleApiKey').addEventListener('click', function() {
             toggleApiKeyVisibility();
+        });
+        
+        // Anthropic API key visibility toggle
+        document.getElementById('toggleAnthropicApiKey').addEventListener('click', function() {
+            toggleAnthropicApiKeyVisibility();
         });
         
         // Test API key button

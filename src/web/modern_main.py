@@ -1946,9 +1946,11 @@ async def api_chatgpt_summary(article_id: int, request: Request):
                     "cached": True
                 }
         
-        # Check if API key is provided (only required for ChatGPT)
+        # Check if API key is provided (required for ChatGPT and Anthropic)
         if ai_model == 'chatgpt' and not api_key:
             raise HTTPException(status_code=400, detail="OpenAI API key is required for ChatGPT. Please configure it in Settings.")
+        elif ai_model == 'anthropic' and not api_key:
+            raise HTTPException(status_code=400, detail="Anthropic API key is required for Claude. Please configure it in Settings.")
         
         # Prepare the summary prompt
         if include_content:
@@ -1956,6 +1958,9 @@ async def api_chatgpt_summary(article_id: int, request: Request):
             if ai_model == 'chatgpt':
                 # Using ChatGPT - can handle more content
                 content_limit = int(os.getenv('CHATGPT_CONTENT_LIMIT', '40000'))
+            elif ai_model == 'anthropic':
+                # Using Anthropic - can handle very large content
+                content_limit = int(os.getenv('ANTHROPIC_CONTENT_LIMIT', '200000'))
             else:
                 # Using Ollama - more conservative limit
                 content_limit = int(os.getenv('OLLAMA_CONTENT_LIMIT', '4000'))
@@ -2024,6 +2029,44 @@ async def api_chatgpt_summary(article_id: int, request: Request):
                 summary = result['choices'][0]['message']['content']
                 model_used = 'chatgpt'
                 model_name = 'gpt-4'
+        elif ai_model == 'anthropic':
+            # Use Anthropic API
+            anthropic_api_url = os.getenv('ANTHROPIC_API_URL', 'https://api.anthropic.com/v1/messages')
+            
+            async with httpx.AsyncClient() as client:
+                response = await client.post(
+                    anthropic_api_url,
+                    headers={
+                        "x-api-key": api_key,
+                        "Content-Type": "application/json",
+                        "anthropic-version": "2023-06-01"
+                    },
+                    json={
+                        "model": "claude-3-haiku-20240307",
+                        "max_tokens": 2048,
+                        "temperature": 0.3,
+                        "messages": [
+                            {
+                                "role": "user",
+                                "content": f"You are a cybersecurity expert specializing in threat intelligence analysis. Provide clear, concise summaries of threat intelligence articles.\n\n{prompt}"
+                            }
+                        ]
+                    },
+                    timeout=60.0
+                )
+                
+                if response.status_code != 200:
+                    error_detail = f"Failed to get summary from Anthropic: {response.status_code}"
+                    if response.status_code == 401:
+                        error_detail = "Invalid API key. Please check your Anthropic API key in Settings."
+                    elif response.status_code == 429:
+                        error_detail = "Rate limit exceeded. Please try again later."
+                    raise HTTPException(status_code=500, detail=error_detail)
+                
+                result = response.json()
+                summary = result['content'][0]['text']
+                model_used = 'anthropic'
+                model_name = 'claude-3-haiku-20240307'
         else:
             # Use Ollama API
             ollama_url = os.getenv('LLM_API_URL', 'http://cti_ollama:11434')
@@ -2113,14 +2156,19 @@ async def api_custom_prompt(article_id: int, request: Request):
         if not custom_prompt:
             raise HTTPException(status_code=400, detail="Custom prompt is required")
         
-        # Check if API key is provided (only required for ChatGPT)
+        # Check if API key is provided (required for ChatGPT and Anthropic)
         if ai_model == 'chatgpt' and not api_key:
             raise HTTPException(status_code=400, detail="OpenAI API key is required for ChatGPT. Please configure it in Settings.")
+        elif ai_model == 'anthropic' and not api_key:
+            raise HTTPException(status_code=400, detail="Anthropic API key is required for Claude. Please configure it in Settings.")
         
         # Smart content truncation based on model
         if ai_model == 'chatgpt':
             # Using ChatGPT - can handle more content
             content_limit = int(os.getenv('CHATGPT_CONTENT_LIMIT', '15000'))
+        elif ai_model == 'anthropic':
+            # Using Anthropic - can handle very large content
+            content_limit = int(os.getenv('ANTHROPIC_CONTENT_LIMIT', '200000'))
         else:
             # Using Ollama - more conservative limit
             content_limit = int(os.getenv('OLLAMA_CONTENT_LIMIT', '4000'))
@@ -2182,6 +2230,44 @@ async def api_custom_prompt(article_id: int, request: Request):
             ai_response = result['choices'][0]['message']['content']
             model_used = 'chatgpt'
             model_name = 'gpt-4'
+        elif ai_model == 'anthropic':
+            # Use Anthropic API
+            anthropic_api_url = os.getenv('ANTHROPIC_API_URL', 'https://api.anthropic.com/v1/messages')
+            
+            async with httpx.AsyncClient() as client:
+                response = await client.post(
+                    anthropic_api_url,
+                    headers={
+                        "x-api-key": api_key,
+                        "Content-Type": "application/json",
+                        "anthropic-version": "2023-06-01"
+                    },
+                    json={
+                        "model": "claude-3-haiku-20240307",
+                        "max_tokens": 2048,
+                        "temperature": 0.3,
+                        "messages": [
+                            {
+                                "role": "user",
+                                "content": f"You are a cybersecurity expert specializing in threat intelligence analysis. Provide clear, helpful responses to questions about threat intelligence articles.\n\n{full_prompt}"
+                            }
+                        ]
+                    },
+                    timeout=60.0
+                )
+            
+            if response.status_code != 200:
+                error_detail = f"Failed to get response from Anthropic: {response.status_code}"
+                if response.status_code == 401:
+                    error_detail = "Invalid API key. Please check your Anthropic API key in Settings."
+                elif response.status_code == 429:
+                    error_detail = "Rate limit exceeded. Please try again later."
+                raise HTTPException(status_code=500, detail=error_detail)
+            
+            result = response.json()
+            ai_response = result['content'][0]['text']
+            model_used = 'anthropic'
+            model_name = 'claude-3-haiku-20240307'
         else:
             # Use Ollama API
             ollama_url = os.getenv('LLM_API_URL', 'http://cti_ollama:11434')
@@ -2344,6 +2430,104 @@ async def test_openai_key(request: Request):
         logger.error(f"Test OpenAI API key error: {e}")
         raise HTTPException(status_code=500, detail="Failed to test API key")
 
+@app.post("/api/test-anthropic-key")
+async def test_anthropic_key(request: Request):
+    """Test Anthropic API key validity."""
+    try:
+        body = await request.json()
+        api_key = body.get('api_key')
+        
+        if not api_key:
+            raise HTTPException(status_code=400, detail="API key is required")
+        
+        # Test the API key by making a simple request to Anthropic
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                "https://api.anthropic.com/v1/messages",
+                headers={
+                    "x-api-key": api_key,
+                    "Content-Type": "application/json",
+                    "anthropic-version": "2023-06-01"
+                },
+                json={
+                    "model": "claude-3-haiku-20240307",
+                    "max_tokens": 10,
+                    "messages": [
+                        {
+                            "role": "user",
+                            "content": "Hello"
+                        }
+                    ]
+                },
+                timeout=10.0
+            )
+            
+            if response.status_code == 200:
+                return {"success": True, "message": "API key is valid"}
+            elif response.status_code == 401:
+                raise HTTPException(status_code=400, detail="Invalid API key")
+            else:
+                raise HTTPException(status_code=400, detail=f"API error: {response.status_code}")
+                
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Test Anthropic API key error: {e}")
+        raise HTTPException(status_code=500, detail="Failed to test API key")
+
+@app.post("/api/test-claude-summary")
+async def test_claude_summary(request: Request):
+    """Test Claude summary functionality."""
+    try:
+        body = await request.json()
+        api_key = body.get('api_key')
+        test_prompt = body.get('test_prompt', 'Please provide a brief summary of cybersecurity threats.')
+        
+        if not api_key:
+            raise HTTPException(status_code=400, detail="API key is required")
+        
+        # Test the API key by making a simple request to Anthropic
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                "https://api.anthropic.com/v1/messages",
+                headers={
+                    "x-api-key": api_key,
+                    "Content-Type": "application/json",
+                    "anthropic-version": "2023-06-01"
+                },
+                json={
+                    "model": "claude-3-haiku-20240307",
+                    "max_tokens": 100,
+                    "temperature": 0.3,
+                    "messages": [
+                        {
+                            "role": "user",
+                            "content": f"You are a cybersecurity expert. {test_prompt}"
+                        }
+                    ]
+                },
+                timeout=30.0
+            )
+            
+            if response.status_code == 200:
+                result = response.json()
+                return {
+                    "success": True, 
+                    "message": "Claude summary generation works",
+                    "model_name": "claude-3-haiku-20240307",
+                    "response": result['content'][0]['text'][:200] + "..." if len(result['content'][0]['text']) > 200 else result['content'][0]['text']
+                }
+            elif response.status_code == 401:
+                raise HTTPException(status_code=400, detail="Invalid API key")
+            else:
+                raise HTTPException(status_code=400, detail=f"API error: {response.status_code}")
+                
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Test Claude summary error: {e}")
+        raise HTTPException(status_code=500, detail="Failed to test Claude summary")
+
 @app.post("/api/articles/{article_id}/generate-sigma")
 async def api_generate_sigma(article_id: int, request: Request):
     """API endpoint for generating SIGMA detection rules from an article."""
@@ -2397,6 +2581,9 @@ async def api_generate_sigma(article_id: int, request: Request):
             if ai_model == 'chatgpt':
                 # Using ChatGPT - can handle more content
                 content_limit = int(os.getenv('CHATGPT_CONTENT_LIMIT', '8000'))
+            elif ai_model == 'anthropic':
+                # Using Anthropic - can handle very large content
+                content_limit = int(os.getenv('ANTHROPIC_CONTENT_LIMIT', '200000'))
             else:
                 # Using Ollama - more conservative limit
                 content_limit = int(os.getenv('OLLAMA_CONTENT_LIMIT', '4000'))
@@ -2529,6 +2716,55 @@ async def api_generate_sigma(article_id: int, request: Request):
                         conversation_entry["llm_response"] = sigma_rules
                         model_used = 'chatgpt'
                         model_name = 'gpt-4'
+                    elif ai_model == 'anthropic':
+                        # Use Anthropic API
+                        anthropic_api_url = os.getenv('ANTHROPIC_API_URL', 'https://api.anthropic.com/v1/messages')
+                        
+                        # Convert messages to Anthropic format
+                        anthropic_messages = []
+                        for msg in messages:
+                            if msg['role'] == 'system':
+                                # Anthropic doesn't have system messages, prepend to first user message
+                                if anthropic_messages and anthropic_messages[-1]['role'] == 'user':
+                                    anthropic_messages[-1]['content'] = f"{msg['content']}\n\n{anthropic_messages[-1]['content']}"
+                                else:
+                                    # If no user message yet, create one with system content
+                                    anthropic_messages.append({
+                                        "role": "user",
+                                        "content": msg['content']
+                                    })
+                            else:
+                                anthropic_messages.append(msg)
+                        
+                        response = await client.post(
+                            anthropic_api_url,
+                            headers={
+                                "x-api-key": api_key,
+                                "Content-Type": "application/json",
+                                "anthropic-version": "2023-06-01"
+                            },
+                            json={
+                                "model": "claude-3-haiku-20240307",
+                                "max_tokens": 2048,
+                                "temperature": 0.2,
+                                "messages": anthropic_messages
+                            },
+                            timeout=120.0
+                        )
+                        
+                        if response.status_code != 200:
+                            error_detail = f"Failed to generate SIGMA rules: {response.status_code}"
+                            if response.status_code == 401:
+                                error_detail = "Invalid API key. Please check your Anthropic API key in Settings."
+                            elif response.status_code == 429:
+                                error_detail = "Rate limit exceeded. Please try again later."
+                            raise HTTPException(status_code=500, detail=error_detail)
+                        
+                        result = response.json()
+                        sigma_rules = result['content'][0]['text']
+                        conversation_entry["llm_response"] = sigma_rules
+                        model_used = 'anthropic'
+                        model_name = 'claude-3-haiku-20240307'
                     else:
                         # Use Ollama API
                         ollama_url = os.getenv('LLM_API_URL', 'http://cti_ollama:11434')
@@ -2725,9 +2961,11 @@ async def api_extract_iocs(article_id: int, request: Request):
         
         logger.info(f"IOC extraction request for article {article_id}, ai_model: {ai_model}, api_key provided: {bool(api_key)}, force_regenerate: {force_regenerate}, use_llm_validation: {use_llm_validation}")
         
-        # Check if API key is provided (only required for ChatGPT)
+        # Check if API key is provided (required for ChatGPT and Anthropic)
         if ai_model == 'chatgpt' and not api_key:
             raise HTTPException(status_code=400, detail="OpenAI API key is required for ChatGPT. Please configure it in Settings.")
+        elif ai_model == 'anthropic' and not api_key:
+            raise HTTPException(status_code=400, detail="Anthropic API key is required for Claude. Please configure it in Settings.")
         
         # If force regeneration is requested, skip cache check
         if not force_regenerate:
@@ -2820,9 +3058,11 @@ async def api_rank_with_gpt4o(article_id: int, request: Request):
         
         logger.info(f"Ranking request for article {article_id}, ai_model: {ai_model}, api_key provided: {bool(api_key)}")
         
-        # Check if API key is provided (only required for ChatGPT)
+        # Check if API key is provided (required for ChatGPT and Anthropic)
         if ai_model == 'chatgpt' and not api_key:
             raise HTTPException(status_code=400, detail="OpenAI API key is required for ChatGPT. Please configure it in Settings.")
+        elif ai_model == 'anthropic' and not api_key:
+            raise HTTPException(status_code=400, detail="Anthropic API key is required for Claude. Please configure it in Settings.")
         
         # Prepare the article content for analysis
         if not article.content:
@@ -2832,6 +3072,9 @@ async def api_rank_with_gpt4o(article_id: int, request: Request):
         if ai_model == 'chatgpt':
             # Using ChatGPT - can handle more content
             max_chars = 400000  # Leave room for prompt
+        elif ai_model == 'anthropic':
+            # Using Anthropic - can handle very large content
+            max_chars = 800000  # Very large context window
         else:
             # Using Ollama - more conservative limit
             max_chars = 100000  # Much smaller for local LLM
@@ -2887,6 +3130,41 @@ async def api_rank_with_gpt4o(article_id: int, request: Request):
                 analysis = result['choices'][0]['message']['content']
                 model_used = 'chatgpt'
                 model_name = 'gpt-4o'
+        elif ai_model == 'anthropic':
+            # Use Anthropic API
+            anthropic_api_url = os.getenv('ANTHROPIC_API_URL', 'https://api.anthropic.com/v1/messages')
+            
+            async with httpx.AsyncClient() as client:
+                response = await client.post(
+                    anthropic_api_url,
+                    headers={
+                        "x-api-key": api_key,
+                        "Content-Type": "application/json",
+                        "anthropic-version": "2023-06-01"
+                    },
+                    json={
+                        "model": "claude-3-haiku-20240307",
+                        "max_tokens": 2000,
+                        "temperature": 0.3,
+                        "messages": [
+                            {
+                                "role": "user",
+                                "content": sigma_prompt
+                            }
+                        ]
+                    },
+                    timeout=60.0
+                )
+                
+                if response.status_code != 200:
+                    error_detail = response.text
+                    logger.error(f"Anthropic API error: {error_detail}")
+                    raise HTTPException(status_code=500, detail=f"Anthropic API error: {error_detail}")
+                
+                result = response.json()
+                analysis = result['content'][0]['text']
+                model_used = 'anthropic'
+                model_name = 'claude-3-haiku-20240307'
         else:
             # Use Ollama API
             ollama_url = os.getenv('LLM_API_URL', 'http://cti_ollama:11434')
