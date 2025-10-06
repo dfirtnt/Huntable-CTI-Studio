@@ -9,7 +9,6 @@
 "wbem" OR 
 "==" OR 
 "c:\\windows\\" OR 
-"Event ID" OR "EventID" OR 
 ".bat" OR 
 ".ps1" OR  
 ".lnk" OR 
@@ -40,7 +39,6 @@
 "temp" OR 
 "powershell.exe" OR 
 "wbem" OR 
-"Event ID" OR "EventID" OR 
 ".bat" OR 
 ".ps1" OR 
 ".lnk" OR 
@@ -65,7 +63,6 @@
 "wbem" OR 
 "Event" OR 
 "ID" OR 
-"EventID" OR 
 "bat" OR 
 "ps1" OR 
 "lnk" OR 
@@ -93,7 +90,7 @@
 "bat" OR "ps1" OR "lnk" OR "vhdx" OR "iso"
 
 # Query 4: Technical indicators
-"wbem" OR "EventID" OR "Event ID" OR "Command" OR "pipe" OR "MZ" OR "accepteula"
+"wbem" OR "Command" OR "pipe" OR "MZ" OR "accepteula"
 
 # NOTES:
 # - All searches are case-insensitive (no need for multiple case variations)

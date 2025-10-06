@@ -183,9 +183,7 @@ print(f"IOCs: {result.iocs}")
     "registry_key": [],
     "file_path": [],
     "mutex": [],
-    "named_pipe": [],
-    "process_cmdline": [],
-    "event_id": []
+    "named_pipe": []
   },
   "extracted_at": "2025-09-04T22:03:03.666060",
   "content_type": "full content",

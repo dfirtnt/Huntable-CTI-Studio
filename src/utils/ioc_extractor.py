@@ -65,9 +65,7 @@ class HybridIOCExtractor:
                 'registry_key': [],  # iocextract doesn't support registry keys
                 'file_path': [],     # iocextract doesn't support file paths
                 'mutex': [],         # iocextract doesn't support mutexes
-                'named_pipe': [],    # iocextract doesn't support named pipes
-                'process_cmdline': [], # iocextract doesn't support process/cmdline
-                'event_id': []       # iocextract doesn't support event IDs
+                'named_pipe': []     # iocextract doesn't support named pipes
             }
             
             # Clean up duplicates and empty lists
@@ -105,8 +103,7 @@ class HybridIOCExtractor:
             logger.error(f"Error extracting raw IOCs: {e}")
             return {
                 'ip': [], 'domain': [], 'url': [], 'email': [], 'file_hash': [],
-                'registry_key': [], 'file_path': [], 'mutex': [], 'named_pipe': [],
-                'process_cmdline': [], 'event_id': []
+                'registry_key': [], 'file_path': [], 'mutex': [], 'named_pipe': []
             }
     
     async def validate_with_llm(self, raw_iocs: Dict[str, List[str]], filtered_content: str, api_key: str) -> Dict[str, List[str]]:
@@ -133,7 +130,7 @@ CRITICAL: Return ONLY valid JSON. Do not include any explanatory text, comments,
 
 Rules:
 - Validate that IOCs are actually malicious/relevant to threats
-- Categorize IOCs into appropriate types (IP, Domain, URL, File Hash, Registry Key, File Path, Email, Mutex, Named Pipe, Process/Command-Line, Event ID)
+- Categorize IOCs into appropriate types (IP, Domain, URL, File Hash, Registry Key, File Path, Email, Mutex, Named Pipe)
 - Remove false positives and non-malicious IOCs
 - Normalize values (lowercase domains, full paths, valid hash lengths)
 - Return empty arrays for categories with no valid IOCs
@@ -154,9 +151,7 @@ Output format (return ONLY this JSON structure):
   "file_path": [],
   "email": [],
   "mutex": [],
-  "named_pipe": [],
-  "process_cmdline": [],
-  "event_id": []
+  "named_pipe": []
 }}"""
 
             # Use ChatGPT API for validation
