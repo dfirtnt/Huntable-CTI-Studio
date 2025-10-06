@@ -354,5 +354,13 @@ def validate_sigma_rule(rule_yaml: str) -> ValidationResult:
     # Clean the rule content first
     cleaned_content = clean_sigma_rule(rule_yaml)
     
+    # Parse YAML to dictionary
+    try:
+        rule_data = yaml.safe_load(cleaned_content)
+        if rule_data is None:
+            return ValidationResult(False, ["Empty or invalid YAML content"], [])
+    except yaml.YAMLError as e:
+        return ValidationResult(False, [f"Invalid YAML syntax: {e}"], [])
+    
     validator = SigmaValidator()
-    return validator.validate_rule(cleaned_content)
+    return validator.validate_rule(rule_data)
