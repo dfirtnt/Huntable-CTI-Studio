@@ -2983,7 +2983,13 @@ async def api_extract_iocs(article_id: int, request: Request):
                     "model_name": existing_iocs['model_name'],
                     "extraction_method": existing_iocs.get('extraction_method', 'unknown'),
                     "confidence": existing_iocs.get('confidence', 0.0),
-                    "cached": True
+                    "cached": True,
+                    "llm_validation_used": existing_iocs.get('metadata', {}).get('validation_applied', False),
+                    "validation_model": existing_iocs['model_name'] if existing_iocs.get('metadata', {}).get('validation_applied', False) else None,
+                    "validation_timestamp": existing_iocs['extracted_at'] if existing_iocs.get('metadata', {}).get('validation_applied', False) else None,
+                    "validation_summary": f"Validated {existing_iocs.get('validated_count', 0)} IOCs from {existing_iocs.get('raw_count', 0)} raw extractions" if existing_iocs.get('metadata', {}).get('validation_applied', False) else None,
+                    "false_positives_removed": (existing_iocs.get('raw_count', 0) - existing_iocs.get('validated_count', 0)) if existing_iocs.get('metadata', {}).get('validation_applied', False) else 0,
+                    "validation_confidence": existing_iocs.get('confidence', 0.0) if existing_iocs.get('metadata', {}).get('validation_applied', False) else None
                 }
         
         # Initialize hybrid IOC extractor (default: iocextract only)
@@ -3031,7 +3037,13 @@ async def api_extract_iocs(article_id: int, request: Request):
             "confidence": extraction_result.confidence,
             "processing_time": extraction_result.processing_time,
             "raw_count": extraction_result.raw_count,
-            "validated_count": extraction_result.validated_count
+            "validated_count": extraction_result.validated_count,
+            "llm_validation_used": extraction_result.metadata.get('validation_applied', False),
+            "validation_model": current_metadata['extracted_iocs']['model_name'] if extraction_result.metadata.get('validation_applied', False) else None,
+            "validation_timestamp": current_metadata['extracted_iocs']['extracted_at'] if extraction_result.metadata.get('validation_applied', False) else None,
+            "validation_summary": f"Validated {extraction_result.validated_count} IOCs from {extraction_result.raw_count} raw extractions" if extraction_result.metadata.get('validation_applied', False) else None,
+            "false_positives_removed": extraction_result.raw_count - extraction_result.validated_count if extraction_result.metadata.get('validation_applied', False) else 0,
+            "validation_confidence": extraction_result.confidence if extraction_result.metadata.get('validation_applied', False) else None
         }
         
     except HTTPException:
