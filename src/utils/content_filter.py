@@ -32,10 +32,17 @@ class FilterResult:
     score: float
     cost_estimate: float
     metadata: Optional[Dict] = None
+    is_huntable: bool = True
+    filtered_content: Optional[str] = None
+    removed_chunks: Optional[List] = None
+    cost_savings: float = 0.0
+    confidence: float = 0.0
     
     def __post_init__(self):
         if self.metadata is None:
             self.metadata = {}
+        if self.removed_chunks is None:
+            self.removed_chunks = []
 
 
 @dataclass
@@ -449,6 +456,10 @@ class ContentFilter:
         cost_savings = (original_tokens - filtered_tokens) / original_tokens if original_tokens > 0 else 0
         
         return FilterResult(
+            passed=len(huntable_chunks) > 0,
+            reason="Content filtered successfully" if len(huntable_chunks) > 0 else "No huntable content found",
+            score=sum(chunk[1] for chunk in huntable_chunks) / len(huntable_chunks) if huntable_chunks else 0,
+            cost_estimate=len(filtered_content) // 4,  # Rough token estimate
             is_huntable=len(huntable_chunks) > 0,
             confidence=sum(chunk[1] for chunk in huntable_chunks) / len(huntable_chunks) if huntable_chunks else 0,
             filtered_content=filtered_content,
