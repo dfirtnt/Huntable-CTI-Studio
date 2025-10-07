@@ -1,4 +1,14 @@
 # Enhanced GPT-4o ranking endpoint with content filtering
+from fastapi import HTTPException, Request
+from datetime import datetime
+import httpx
+import os
+import logging
+
+# Import the app instance and other dependencies
+from src.web.modern_main import app, async_db_manager, logger
+from src.models.article import ArticleUpdate
+
 @app.post("/api/articles/{article_id}/gpt4o-rank-optimized")
 async def api_gpt4o_rank_optimized(article_id: int, request: Request):
     """Enhanced API endpoint for GPT4o SIGMA huntability ranking with content filtering."""

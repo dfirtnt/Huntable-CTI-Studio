@@ -19,6 +19,8 @@ Generate a Sigma detection rule based on this threat intelligence:
 - Make rules specific enough to avoid false positives
 
 **Output Format:**
+IMPORTANT: Use ONLY spaces for indentation, NEVER tabs. YAML requires exactly 2 spaces per indentation level.
+
 ```yaml
 title: [Descriptive rule title]
 id: [UUID or generated ID]
@@ -36,6 +38,13 @@ tags:
 references:
   - [URL or reference]
 ```
+
+**YAML Formatting Rules:**
+- Use exactly 2 spaces for each indentation level
+- NEVER use tabs
+- Ensure proper YAML syntax
+- All field names must be lowercase
+- Use quotes for values containing special characters
 
 **Threat Intelligence Content:**
 {content}
