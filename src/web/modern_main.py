@@ -1764,175 +1764,6 @@ async def api_bulk_action(request: Request):
         logger.error(f"API bulk action error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.post("/api/articles/{article_id}/analyze-threat-hunting")
-async def api_analyze_threat_hunting(article_id: int, request: Request):
-    """API endpoint for analyzing an article with CustomGPT for threat hunting and detection engineering."""
-    try:
-        # Get the article
-        article = await async_db_manager.get_article(article_id)
-        if not article:
-            raise HTTPException(status_code=404, detail="Article not found")
-        
-        # Get request body to determine what to analyze
-        body = await request.json()
-        analyze_content = body.get('analyze_content', False)  # Default to URL only
-        
-        # Get CustomGPT configuration from environment
-        customgpt_api_url = os.getenv('CUSTOMGPT_API_URL')
-        customgpt_api_key = os.getenv('CUSTOMGPT_API_KEY')
-        
-        # Prepare the analysis prompt
-        if analyze_content:
-            # Use content filtering for high-value chunks if enabled
-            content_filtering_enabled = os.getenv('CONTENT_FILTERING_ENABLED', 'true').lower() == 'true'
-            
-            if content_filtering_enabled:
-                from src.utils.gpt4o_optimizer import optimize_article_content
-                import asyncio
-                
-                try:
-                    min_confidence = float(os.getenv('CONTENT_FILTERING_CONFIDENCE', '0.7'))
-                    optimization_result = await optimize_article_content(article.content, min_confidence=min_confidence)
-                    if optimization_result['success']:
-                        content = optimization_result['filtered_content']
-                        logger.info(f"Content filtered: {optimization_result['tokens_saved']:,} tokens saved, "
-                                  f"{optimization_result['cost_reduction_percent']:.1f}% cost reduction")
-                    else:
-                        # Fallback to original content if filtering fails
-                        content = article.content
-                        logger.warning("Content filtering failed, using original content")
-                except Exception as e:
-                    logger.error(f"Content filtering error: {e}, using original content")
-                    content = article.content
-            else:
-                # Use original content if filtering is disabled
-                content = article.content
-            
-            # Analyze both URL and content
-            prompt = format_prompt("huntability_ranking", 
-                title=article.title,
-                source=article.canonical_url or 'N/A',
-                url=article.canonical_url or 'N/A',
-                content_length=len(content),
-                content=content
-            )
-        else:
-            # Analyze URL and metadata only
-            prompt = format_prompt("huntability_ranking_alt", 
-                title=article.title,
-                source=article.canonical_url or 'N/A',
-                url=article.canonical_url or 'N/A',
-                published_date=article.published_at or 'N/A',
-                content_length=len(article.content)
-            )
-        
-        # Get CustomGPT configuration from environment
-        customgpt_api_url = os.getenv('CUSTOMGPT_API_URL')
-        customgpt_api_key = os.getenv('CUSTOMGPT_API_KEY')
-        
-        if not customgpt_api_url or not customgpt_api_key:
-            # Fallback to Ollama if CustomGPT not configured
-            ollama_url = os.getenv('LLM_API_URL', 'http://cti_ollama:11434')
-            ollama_model = os.getenv('LLM_MODEL', 'llama3.2:1b')
-            
-            logger.info(f"Using Ollama at {ollama_url} with model {ollama_model}")
-            
-            # Use Ollama API
-            async with httpx.AsyncClient() as client:
-                try:
-                    response = await client.post(
-                        f"{ollama_url}/api/generate",
-                        json={
-                            "model": ollama_model,
-                            "prompt": prompt,
-                            "stream": False,
-                            "options": {
-                                "temperature": 0.3,
-                                "num_predict": 2048
-                            }
-                        },
-                        timeout=300.0
-                    )
-                    
-                    if response.status_code != 200:
-                        logger.error(f"Ollama API error: {response.status_code} - {response.text}")
-                        raise HTTPException(status_code=500, detail=f"Failed to get analysis from Ollama: {response.status_code}")
-                    
-                    result = response.json()
-                    analysis = result.get('response', 'No analysis available')
-                    logger.info(f"Successfully got analysis from Ollama: {len(analysis)} characters")
-                    
-                except Exception as e:
-                    logger.error(f"Ollama API request failed: {e}")
-                    logger.error(f"Exception type: {type(e)}")
-                    logger.error(f"Exception args: {e.args}")
-                    import traceback
-                    logger.error(f"Traceback: {traceback.format_exc()}")
-                    raise HTTPException(status_code=500, detail=f"Failed to get analysis from Ollama: {str(e)}")
-                
-        else:
-            # Use CustomGPT API
-            async with httpx.AsyncClient() as client:
-                response = await client.post(
-                    f"{customgpt_api_url}/v1/chat/completions",
-                    headers={
-                        "Authorization": f"Bearer {customgpt_api_key}",
-                        "Content-Type": "application/json"
-                    },
-                    json={
-                        "model": "gpt-4",  # or your specific CustomGPT model
-                        "messages": [
-                            {
-                                "role": "system",
-                                "content": "You are a cybersecurity expert specializing in threat hunting and detection engineering. Provide clear, actionable analysis of threat intelligence articles."
-                            },
-                            {
-                                "role": "user",
-                                "content": prompt
-                            }
-                        ],
-                        "max_tokens": 2048,
-                        "temperature": 0.3
-                    },
-                    timeout=60.0
-                )
-                
-                if response.status_code != 200:
-                    raise HTTPException(status_code=500, detail="Failed to get analysis from CustomGPT")
-                
-                result = response.json()
-                analysis = result['choices'][0]['message']['content']
-        
-        # Store the analysis in article metadata
-        current_metadata = article.article_metadata.copy() if article.article_metadata else {}
-        current_metadata['threat_hunting_analysis'] = {
-            'analysis': analysis,
-            'analyzed_at': datetime.now().isoformat(),
-            'analyzed_content': analyze_content,
-            'model_used': 'customgpt' if customgpt_api_url else 'ollama',
-            'model_name': 'gpt-4' if customgpt_api_url else ollama_model
-        }
-        
-        # Update the article
-        update_data = ArticleUpdate(article_metadata=current_metadata)
-        await async_db_manager.update_article(article_id, update_data)
-        
-        return {
-            "success": True,
-            "article_id": article_id,
-            "analysis": analysis,
-            "analyzed_at": current_metadata['threat_hunting_analysis']['analyzed_at'],
-            "analyzed_content": analyze_content,
-            "model_used": current_metadata['threat_hunting_analysis']['model_used'],
-            "model_name": current_metadata['threat_hunting_analysis']['model_name']
-        }
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"API analyze threat hunting error: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-
 @app.post("/api/articles/{article_id}/chatgpt-summary")
 async def api_chatgpt_summary(article_id: int, request: Request):
     """API endpoint for generating a summary of an article using ChatGPT or local LLM."""
@@ -2867,7 +2698,9 @@ async def api_generate_sigma(article_id: int, request: Request):
                             all_valid = True
                             
                             for i, rule_text in enumerate(individual_rules):
-                                validation_result = validate_sigma_rule(rule_text)
+                                # Clean up YAML formatting issues (replace tabs with spaces)
+                                cleaned_rule_text = rule_text.replace('\t', '  ')  # Replace tabs with 2 spaces
+                                validation_result = validate_sigma_rule(cleaned_rule_text)
                                 attempt_validation_results.append({
                                     'rule_index': i + 1,
                                     'is_valid': validation_result.is_valid,
@@ -2878,12 +2711,17 @@ async def api_generate_sigma(article_id: int, request: Request):
                                 
                                 if not validation_result.is_valid:
                                     all_valid = False
+                                
+                                # Update the rule text with cleaned version for storage
+                                individual_rules[i] = cleaned_rule_text
                             
                             validation_results = attempt_validation_results
                             conversation_entry["validation"] = attempt_validation_results
                             
                             # If all rules are valid, break out of the loop
                             if all_valid:
+                                # Update sigma_rules with cleaned version
+                                sigma_rules = '\n---\n'.join(individual_rules)
                                 logger.info(f"SIGMA rules passed validation on attempt {attempt}")
                                 break
                             else:
@@ -3011,6 +2849,8 @@ async def api_extract_iocs(article_id: int, request: Request):
         ai_model = body.get('ai_model', 'chatgpt')  # Get AI model from request
         force_regenerate = body.get('force_regenerate', False)  # Force regeneration
         use_llm_validation = body.get('use_llm_validation', True)  # Use LLM validation
+        use_filtering = body.get('use_filtering', True)  # Enable filtering by default
+        min_confidence = body.get('min_confidence', 0.7)  # Confidence threshold
         
         logger.info(f"IOC extraction request for article {article_id}, ai_model: {ai_model}, api_key provided: {bool(api_key)}, force_regenerate: {force_regenerate}, use_llm_validation: {use_llm_validation}")
         
@@ -3050,7 +2890,28 @@ async def api_extract_iocs(article_id: int, request: Request):
         
         # Prepare content for extraction
         if include_content:
-            content = article.content
+            # Use content filtering for high-value chunks if enabled
+            content_filtering_enabled = os.getenv('CONTENT_FILTERING_ENABLED', 'true').lower() == 'true'
+            
+            if content_filtering_enabled and use_filtering:
+                from src.utils.gpt4o_optimizer import optimize_article_content
+                
+                try:
+                    optimization_result = await optimize_article_content(article.content, min_confidence=min_confidence)
+                    if optimization_result['success']:
+                        content = optimization_result['filtered_content']
+                        logger.info(f"Content filtered for IOC extraction: {optimization_result['tokens_saved']:,} tokens saved, "
+                                  f"{optimization_result['cost_reduction_percent']:.1f}% cost reduction")
+                    else:
+                        # Fallback to original content if filtering fails
+                        content = article.content
+                        logger.warning("Content filtering failed for IOC extraction, using original content")
+                except Exception as e:
+                    logger.error(f"Content filtering error for IOC extraction: {e}, using original content")
+                    content = article.content
+            else:
+                # Use original content if filtering is disabled
+                content = article.content
         else:
             # Metadata-only content
             content = f"Title: {article.title}\nURL: {article.canonical_url or 'N/A'}\nPublished: {article.published_at or 'N/A'}\nSource: {article.source_id}"
@@ -3071,7 +2932,13 @@ async def api_extract_iocs(article_id: int, request: Request):
             'processing_time': extraction_result.processing_time,
             'raw_count': extraction_result.raw_count,
             'validated_count': extraction_result.validated_count,
-            'metadata': extraction_result.metadata
+            'metadata': extraction_result.metadata,
+            'content_filtering': {
+                'enabled': content_filtering_enabled and use_filtering if include_content else False,
+                'min_confidence': min_confidence if content_filtering_enabled and use_filtering and include_content else None,
+                'tokens_saved': optimization_result.get('tokens_saved', 0) if content_filtering_enabled and use_filtering and include_content else 0,
+                'cost_reduction_percent': optimization_result.get('cost_reduction_percent', 0) if content_filtering_enabled and use_filtering and include_content else 0
+            }
         }
         
         # Update the article
@@ -3096,7 +2963,8 @@ async def api_extract_iocs(article_id: int, request: Request):
             "validation_timestamp": current_metadata['extracted_iocs']['extracted_at'] if extraction_result.metadata.get('validation_applied', False) else None,
             "validation_summary": f"Validated {extraction_result.validated_count} IOCs from {extraction_result.raw_count} raw extractions" if extraction_result.metadata.get('validation_applied', False) else None,
             "false_positives_removed": extraction_result.raw_count - extraction_result.validated_count if extraction_result.metadata.get('validation_applied', False) else 0,
-            "validation_confidence": extraction_result.confidence if extraction_result.metadata.get('validation_applied', False) else None
+            "validation_confidence": extraction_result.confidence if extraction_result.metadata.get('validation_applied', False) else None,
+            "content_filtering": current_metadata['extracted_iocs']['content_filtering']
         }
         
     except HTTPException:
@@ -3120,6 +2988,8 @@ async def api_rank_with_gpt4o(article_id: int, request: Request):
         api_key = body.get('api_key')  # Get API key from request
         ai_model = body.get('ai_model', 'chatgpt')  # Get AI model from request
         optimization_options = body.get('optimization_options', {})
+        use_filtering = body.get('use_filtering', True)  # Enable filtering by default
+        min_confidence = body.get('min_confidence', 0.7)  # Confidence threshold
         
         logger.info(f"Ranking request for article {article_id}, ai_model: {ai_model}, api_key provided: {bool(api_key)}")
         
@@ -3133,7 +3003,30 @@ async def api_rank_with_gpt4o(article_id: int, request: Request):
         if not article.content:
             raise HTTPException(status_code=400, detail="Article content is required for analysis")
         
-        # Smart content truncation based on model
+        # Use content filtering for high-value chunks if enabled
+        content_filtering_enabled = os.getenv('CONTENT_FILTERING_ENABLED', 'true').lower() == 'true'
+        
+        if content_filtering_enabled and use_filtering:
+            from src.utils.gpt4o_optimizer import optimize_article_content
+            
+            try:
+                optimization_result = await optimize_article_content(article.content, min_confidence=min_confidence)
+                if optimization_result['success']:
+                    content_to_analyze = optimization_result['filtered_content']
+                    logger.info(f"Content filtered for GPT-4o ranking: {optimization_result['tokens_saved']:,} tokens saved, "
+                              f"{optimization_result['cost_reduction_percent']:.1f}% cost reduction")
+                else:
+                    # Fallback to original content if filtering fails
+                    content_to_analyze = article.content
+                    logger.warning("Content filtering failed for GPT-4o ranking, using original content")
+            except Exception as e:
+                logger.error(f"Content filtering error for GPT-4o ranking: {e}, using original content")
+                content_to_analyze = article.content
+        else:
+            # Use original content if filtering is disabled
+            content_to_analyze = article.content
+        
+        # Smart content truncation based on model (after filtering)
         if ai_model == 'chatgpt':
             # Using ChatGPT - can handle more content
             max_chars = 400000  # Leave room for prompt
@@ -3144,7 +3037,6 @@ async def api_rank_with_gpt4o(article_id: int, request: Request):
             # Using Ollama - more conservative limit
             max_chars = 100000  # Much smaller for local LLM
         
-        content_to_analyze = article.content
         if len(content_to_analyze) > max_chars:
             content_to_analyze = content_to_analyze[:max_chars] + "\n\n[Content truncated due to length]"
         
@@ -3276,7 +3168,13 @@ async def api_rank_with_gpt4o(article_id: int, request: Request):
             'analyzed_at': datetime.now().isoformat(),
             'model_used': model_used,
             'model_name': model_name,
-            'optimization_options': optimization_options
+            'optimization_options': optimization_options,
+            'content_filtering': {
+                'enabled': content_filtering_enabled and use_filtering,
+                'min_confidence': min_confidence if content_filtering_enabled and use_filtering else None,
+                'tokens_saved': optimization_result.get('tokens_saved', 0) if content_filtering_enabled and use_filtering else 0,
+                'cost_reduction_percent': optimization_result.get('cost_reduction_percent', 0) if content_filtering_enabled and use_filtering else 0
+            }
         }
         
         # Update the article
@@ -3290,7 +3188,8 @@ async def api_rank_with_gpt4o(article_id: int, request: Request):
             "analyzed_at": article.article_metadata['gpt4o_ranking']['analyzed_at'],
             "model_used": model_used,
             "model_name": model_name,
-            "optimization_options": optimization_options
+            "optimization_options": optimization_options,
+            "content_filtering": article.article_metadata['gpt4o_ranking']['content_filtering']
         }
         
     except HTTPException:
