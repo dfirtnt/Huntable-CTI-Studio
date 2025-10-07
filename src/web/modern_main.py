@@ -4088,6 +4088,15 @@ async def jobs_page(request: Request):
     )
 
 
+@app.get("/help", response_class=HTMLResponse)
+async def help_page(request: Request):
+    """Help and documentation page."""
+    return templates.TemplateResponse(
+        "help.html",
+        {"request": request, "environment": ENVIRONMENT}
+    )
+
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(

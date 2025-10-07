@@ -1,0 +1,103 @@
+# Recommended Models for CTI Scraper Pipeline
+# 
+# This configuration file lists the recommended models for different stages
+# of the chunk-level filtering and labeling system.
+
+# Stage A: Quality Classification (Fast, Cheap)
+quality_classification:
+  description: "Fast quality classification using sentence transformers"
+  recommended_models:
+    - name: "sentence-transformers/all-MiniLM-L6-v2"
+      description: "Fast, good quality embeddings (384 dimensions)"
+      use_case: "Default choice for most applications"
+      performance: "Fast inference, good quality"
+      size: "~90MB"
+      
+    - name: "sentence-transformers/all-mpnet-base-v2"
+      description: "Better quality embeddings (768 dimensions)"
+      use_case: "When quality is more important than speed"
+      performance: "Slower inference, better quality"
+      size: "~420MB"
+      
+    - name: "bert-base-uncased"
+      description: "Plain HuggingFace backbone"
+      use_case: "When you need a standard BERT model"
+      performance: "Standard BERT performance"
+      size: "~440MB"
+      
+    - name: "roberta-base"
+      description: "Alternative plain HuggingFace backbone"
+      use_case: "When you prefer RoBERTa over BERT"
+      performance: "Standard RoBERTa performance"
+      size: "~500MB"
+
+# Stage B: Artifact Extraction (LoRA Fine-tune)
+artifact_extraction:
+  description: "LLM-based artifact extraction with domain transfer"
+  recommended_models:
+    - name: "meta-llama/Meta-Llama-3-8B-Instruct"
+      description: "Best quality for artifact extraction"
+      use_case: "Production systems with high accuracy requirements"
+      performance: "Excellent quality, requires significant resources"
+      size: "~16GB"
+      requirements: "Requires Meta approval for commercial use"
+      
+    - name: "mistralai/Mistral-7B-Instruct-v0.3"
+      description: "Good balance of quality and resource usage"
+      use_case: "Default choice for most production systems"
+      performance: "Good quality, reasonable resource usage"
+      size: "~14GB"
+      
+    - name: "Qwen2.5-3B-Instruct"
+      description: "Smaller model for resource-constrained environments"
+      use_case: "When you must stay small due to resource constraints"
+      performance: "Lower accuracy but much smaller footprint"
+      size: "~6GB"
+      note: "Use only if larger models are not feasible"
+
+# Optional: Named Entity Recognition (IOCs only)
+ner_extraction:
+  description: "NER models for additional IOC extraction"
+  recommended_models:
+    - name: "dslim/bert-base-NER"
+      description: "Fast NER model good for IOCs"
+      use_case: "Additional IOC extraction alongside LLM extraction"
+      performance: "Fast inference, good for IOCs"
+      size: "~440MB"
+      
+    - name: "dbmdz/bert-large-cased-finetuned-conll03-english"
+      description: "Better accuracy NER model"
+      use_case: "When accuracy is more important than speed"
+      performance: "Better accuracy, slower inference"
+      size: "~1.3GB"
+
+# Model Selection Guidelines
+selection_guidelines:
+  quality_classification:
+    - "Start with all-MiniLM-L6-v2 for most use cases"
+    - "Use all-mpnet-base-v2 if you need better quality and can afford slower inference"
+    - "Use bert-base-uncased or roberta-base if you need standard HF backbones"
+    
+  artifact_extraction:
+    - "Use Mistral-7B-Instruct-v0.3 as the default choice"
+    - "Use Meta-Llama-3-8B-Instruct if you need maximum quality and have resources"
+    - "Use Qwen2.5-3B-Instruct only if larger models are not feasible"
+    
+  ner_extraction:
+    - "Use dslim/bert-base-NER for most cases"
+    - "Use dbmdz/bert-large-cased-finetuned-conll03-english if you need better accuracy"
+
+# Performance Considerations
+performance_notes:
+  - "Quality classification models are fast and can run on CPU"
+  - "Artifact extraction models require significant GPU memory"
+  - "Consider using model quantization (4-bit, 8-bit) for large models"
+  - "Use model caching to avoid repeated downloads"
+  - "Consider using model serving solutions for production deployments"
+
+# Security Considerations
+security_notes:
+  - "Some models require approval for commercial use (e.g., Meta-Llama)"
+  - "Ensure models are downloaded from trusted sources"
+  - "Consider model provenance and licensing requirements"
+  - "Validate model outputs, especially for security-critical applications"

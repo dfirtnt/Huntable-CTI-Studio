@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🎓 Fine-tune CTI-to-Hunt Logic Model</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            font-weight: 300;
+        }
+        
+        .main-content {
+            padding: 40px;
+        }
+        
+        .step-section {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 30px;
+            margin-bottom: 30px;
+            border-left: 5px solid #667eea;
+        }
+        
+        .step-section.active {
+            border-left-color: #27ae60;
+            background: #f0f9f0;
+        }
+        
+        .step-section.disabled {
+            opacity: 0.6;
+            pointer-events: none;
+        }
+        
+        .step-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        
+        .step-number {
+            background: #667eea;
+            color: white;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            margin-right: 15px;
+        }
+        
+        .step-section.active .step-number {
+            background: #27ae60;
+        }
+        
+        .upload-area {
+            border: 2px dashed #667eea;
+            border-radius: 10px;
+            padding: 40px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-bottom: 20px;
+        }
+        
+        .upload-area:hover {
+            border-color: #4c63d2;
+            background: #f0f4ff;
+        }
+        
+        .upload-area.dragover {
+            border-color: #27ae60;
+            background: #f0f9f0;
+        }
+        
+        #csv_file {
+            display: none;
+        }
+        
+        .upload-btn {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px;
+            transition: all 0.3s ease;
+        }
+        
+        .upload-btn:hover {
+            background: #4c63d2;
+            transform: translateY(-1px);
+        }
+        
+        .csv-info {
+            background: white;
+            border: 1px solid #e0e6ed;
+            border-radius: 5px;
+            padding: 20px;
+            margin-top: 20px;
+            display: none;
+        }
+        
+        .column-selector {
+            margin: 15px 0;
+        }
+        
+        .column-selector label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 5px;
+        }
+        
+        .column-selector select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+        
+        .sample-data {
+            background: #f8f9fa;
+            border: 1px solid #e0e6ed;
+            border-radius: 5px;
+            padding: 15px;
+            margin: 15px 0;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        
+        .sample-data pre {
+            font-size: 12px;
+            white-space: pre-wrap;
+        }
+        
+        .progress-bar {
+            background: #e0e6ed;
+            border-radius: 10px;
+            height: 20px;
+            margin: 20px 0;
+            overflow: hidden;
+        }
+        
+        .progress-fill {
+            background: linear-gradient(90deg, #667eea 0%, #27ae60 100%);
+            height: 100%;
+            width: 0%;
+            transition: width 0.5s ease;
+        }
+        
+        .status-message {
+            text-align: center;
+            padding: 15px;
+            font-weight: 500;
+        }
+        
+        .btn {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 12px 25px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: all 0.3s ease;
+            margin: 10px 5px;
+        }
+        
+        .btn:hover {
+            background: #4c63d2;
+            transform: translateY(-1px);
+        }
+        
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .btn.success {
+            background: #27ae60;
+        }
+        
+        .btn.success:hover {
+            background: #219a52;
+        }
+        
+        .results-section {
+            background: #f0f9f0;
+            border: 2px solid #27ae60;
+            border-radius: 10px;
+            padding: 20px;
+            margin-top: 20px;
+            display: none;
+        }
+        
+        .error-message {
+            background: #ffeaea;
+            border: 1px solid #e74c3c;
+            color: #e74c3c;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 15px 0;
+        }
+        
+        .success-message {
+            background: #f0f9f0;
+            border: 1px solid #27ae60;
+            color: #27ae60;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 15px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎓 Fine-tune CTI-to-Hunt Logic Model</h1>
+            <p>Upload your CSV data and create a custom model for better hunt logic generation</p>
+        </div>
+        
+        <div class="main-content">
+            <!-- Step 1: Upload CSV -->
+            <div class="step-section active" id="step1">
+                <div class="step-header">
+                    <div class="step-number">1</div>
+                    <h3>Upload Your CTI Training Data (CSV)</h3>
+                </div>
+                
+                <div class="upload-area" onclick="document.getElementById('csv_file').click()">
+                    <div>📤</div>
+                    <h4>Click to upload or drag and drop your CSV file</h4>
+                    <p>Maximum file size: 100MB</p>
+                    <button class="upload-btn" type="button">Choose CSV File</button>
+                </div>
+                
+                <input type="file" id="csv_file" accept=".csv" onchange="handleFileUpload(event)">
+                
+                <div class="csv-info" id="csv-info">
+                    <h4>📊 CSV File Information</h4>
+                    <div id="file-details"></div>
+                    
+                    <div class="column-selector">
+                        <label for="cti-column">Which column contains your CTI text?</label>
+                        <select id="cti-column">
+                            <option value="">Select CTI column...</option>
+                        </select>
+                    </div>
+                    
+                    <div class="column-selector">
+                        <label for="hunt-column">Which column contains hunt logic? (Optional)</label>
+                        <select id="hunt-column">
+                            <option value="">No hunt logic column</option>
+                        </select>
+                    </div>
+                    
+                    <div class="sample-data">
+                        <strong>Sample data:</strong>
+                        <pre id="sample-preview"></pre>
+                    </div>
+                    
+                    <button class="btn" onclick="processCSV()">📋 Process Training Data</button>
+                </div>
+            </div>
+            
+            <!-- Step 2: Review Data -->
+            <div class="step-section disabled" id="step2">
+                <div class="step-header">
+                    <div class="step-number">2</div>
+                    <h3>Review Training Data</h3>
+                </div>
+                
+                <div id="training-summary"></div>
+                <button class="btn success" onclick="startTraining()" id="start-training-btn" disabled>🚀 Start Fine-tuning</button>
+            </div>
+            
+            <!-- Step 3: Training Progress -->
+            <div class="step-section disabled" id="step3">
+                <div class="step-header">
+                    <div class="step-number">3</div>
+                    <h3>Fine-tuning in Progress</h3>
+                </div>
+                
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progress-fill"></div>
+                </div>
+                <div class="status-message" id="status-message">Ready to start training...</div>
+                
+                <div class="results-section" id="results-section">
+                    <h4>🎉 Fine-tuning Complete!</h4>
+                    <div id="training-results"></div>
+                    <button class="btn success" onclick="testModel()">🧪 Test Your Model</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let uploadedFile = null;
+        let csvData = null;
+        
+        function handleFileUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            if (!file.name.endsWith('.csv')) {
+                alert('Please upload a CSV file');
+                return;
+            }
+            
+            uploadedFile = file;
+            uploadFile(file);
+        }
+        
+        async function uploadFile(file) {
+            const formData = new FormData();
+            formData.append('csv_file', file);
+            
+            try {
+                const response = await fetch('/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    csvData = data;
+                    displayCSVInfo(data);
+                } else {
+                    showError(data.error);
+                }
+            } catch (error) {
+                showError(`Upload failed: ${error.message}`);
+            }
+        }
+        
+        function displayCSVInfo(data) {
+            document.getElementById('csv-info').style.display = 'block';
+            
+            const fileDetails = `
+                <p><strong>File:</strong> ${data.filename}</p>
+                <p><strong>Rows:</strong> ${data.rows}</p>
+                <p><strong>Columns:</strong> ${data.columns.join(', ')}</p>
+            `;
+            document.getElementById('file-details').innerHTML = fileDetails;
+            
+            // Populate column dropdowns
+            const ctiSelect = document.getElementById('cti-column');
+            const huntSelect = document.getElementById('hunt-column');
+            
+            ctiSelect.innerHTML = '<option value="">Select CTI column...</option>';
+            huntSelect.innerHTML = '<option value="">No hunt logic column</option>';
+            
+            data.columns.forEach(col => {
+                ctiSelect.innerHTML += `<option value="${col}">${col}</option>`;
+                huntSelect.innerHTML += `<option value="${col}">${col}</option>`;
+            });
+            
+            // Show sample data
+            document.getElementById('sample-preview').textContent = JSON.stringify(data.sample_data, null, 2);
+        }
+        
+        async function processCSV() {
+            const ctiColumn = document.getElementById('cti-column').value;
+            const huntColumn = document.getElementById('hunt-column').value;
+            
+            if (!ctiColumn) {
+                alert('Please select the CTI column');
+                return;
+            }
+            
+            try {
+                const response = await fetch('/process_csv', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        file_path: csvData.file_path,
+                        cti_column: ctiColumn,
+                        hunt_column: huntColumn
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    showTrainingSummary(data);
+                    activateStep(2);
+                } else {
+                    showError(data.error);
+                }
+            } catch (error) {
+                showError(`Processing failed: ${error.message}`);
+            }
+        }
+        
+        function showTrainingSummary(data) {
+            const summary = `
+                <div class="success-message">
+                    ✅ ${data.message}
+                    <br>Ready to fine-tune with ${data.training_examples} examples
+                </div>
+            `;
+            document.getElementById('training-summary').innerHTML = summary;
+            document.getElementById('start-training-btn').disabled = false;
+        }
+        
+        async function startTraining() {
+            activateStep(3);
+            document.getElementById('status-message').textContent = 'Starting fine-tuning...';
+            
+            try {
+                const response = await fetch('/start_training', {
+                    method: 'POST'
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    // Monitor training progress
+                    monitorTraining();
+                } else {
+                    showError(data.error);
+                }
+            } catch (error) {
+                showError(`Training failed: ${error.message}`);
+            }
+        }
+        
+        async function monitorTraining() {
+            const checkStatus = async () => {
+                try {
+                    const response = await fetch('/training_status');
+                    const status = await response.json();
+                    
+                    document.getElementById('progress-fill').style.width = status.progress + '%';
+                    document.getElementById('status-message').textContent = status.message;
+                    
+                    if (status.status === 'completed') {
+                        showTrainingResults(status);
+                    } else if (status.status === 'error') {
+                        showError(status.message);
+                    } else {
+                        setTimeout(checkStatus, 2000);
+                    }
+                } catch (error) {
+                    showError(`Status check failed: ${error.message}`);
+                }
+            };
+            
+            checkStatus();
+        }
+        
+        function showTrainingResults(status) {
+            const results = `
+                <p><strong>Status:</strong> ${status.message}</p>
+                <p>🎉 Your model is ready for testing!</p>
+                <p>You can now use it in the A/B testing interface</p>
+            `;
+            document.getElementById('training-results').innerHTML = results;
+            document.getElementById('results-section').style.display = 'block';
+        }
+        
+        function activateStep(stepNumber) {
+            // Remove active class from all steps
+            document.querySelectorAll('.step-section').forEach(step => {
+                step.classList.remove('active');
+                step.classList.add('disabled');
+            });
+            
+            // Activate current step
+            document.getElementById(`step${stepNumber}`).classList.add('active');
+            document.getElementById(`step${stepNumber}`).classList.remove('disabled');
+        }
+        
+        function showError(message) {
+            const errorDiv = document.createElement('div');
+            errorDiv.className = 'error-message';
+            errorDiv.textContent = '❌ ' + message;
+            document.querySelector('.main-content').appendChild(errorDiv);
+            
+            setTimeout(() => errorDiv.remove(), 5000);
+        }
+        
+        function testModel() {
+            window.open('http://localhost:5002', '_blank');
+        }
+        
+        // Drag and drop functionality
+        const uploadArea = document.querySelector('.upload-area');
+        
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+        
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+        
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                document.getElementById('csv_file').files = files;
+                handleFileUpload({ target: { files: files } });
+            }
+        });
+    </script>
+</body>
+</html>
