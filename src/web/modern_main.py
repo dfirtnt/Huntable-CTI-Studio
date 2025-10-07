@@ -1782,6 +1782,9 @@ async def api_chatgpt_summary(article_id: int, request: Request):
         
         logger.info(f"Summary request for article {article_id}, ai_model: {ai_model}, api_key provided: {bool(api_key)}, force_regenerate: {force_regenerate}")
         
+        # Initialize metadata for caching
+        current_metadata = article.article_metadata.copy() if article.article_metadata else {}
+        
         # If force regeneration is requested, skip cache check
         if not force_regenerate:
             # Check if summary already exists and return cached version
@@ -1977,7 +1980,6 @@ async def api_chatgpt_summary(article_id: int, request: Request):
                     raise HTTPException(status_code=500, detail=f"Failed to get summary from Ollama: {str(e)}")
         
         # Store the summary in article metadata
-        current_metadata = article.article_metadata.copy() if article.article_metadata else {}
         current_metadata['chatgpt_summary'] = {
             'summary': summary,
             'summarized_at': datetime.now().isoformat(),
@@ -2029,6 +2031,9 @@ async def api_custom_prompt(article_id: int, request: Request):
             raise HTTPException(status_code=400, detail="OpenAI API key is required for ChatGPT. Please configure it in Settings.")
         elif ai_model == 'anthropic' and not api_key:
             raise HTTPException(status_code=400, detail="Anthropic API key is required for Claude. Please configure it in Settings.")
+        
+        # Initialize metadata for caching
+        current_metadata = article.article_metadata.copy() if article.article_metadata else {}
         
         # Use content filtering for high-value chunks if enabled
         content_filtering_enabled = os.getenv('CONTENT_FILTERING_ENABLED', 'true').lower() == 'true'
@@ -2187,7 +2192,6 @@ async def api_custom_prompt(article_id: int, request: Request):
                     raise HTTPException(status_code=500, detail=f"Failed to get response from Ollama: {str(e)}")
         
         # Store the custom prompt response in article metadata
-        current_metadata = article.article_metadata.copy() if article.article_metadata else {}
         if 'custom_prompts' not in current_metadata:
             current_metadata['custom_prompts'] = []
         
@@ -2450,6 +2454,9 @@ async def api_generate_sigma(article_id: int, request: Request):
                 }
         
         logger.info(f"SIGMA generation request for article {article_id}, ai_model: {ai_model}, api_key provided: {bool(api_key)}, author: {author_name}")
+        
+        # Initialize metadata for caching
+        current_metadata = article.article_metadata.copy() if article.article_metadata else {}
         
         # Check if API key is provided (only required for ChatGPT)
         if ai_model == 'chatgpt' and not api_key:
@@ -2797,7 +2804,6 @@ async def api_generate_sigma(article_id: int, request: Request):
         all_rules_valid = all(result.get('is_valid', False) for result in validation_results)
         
         # Store the SIGMA rules in article metadata
-        current_metadata = article.article_metadata.copy() if article.article_metadata else {}
         current_metadata['sigma_rules'] = {
             'rules': sigma_rules,
             'generated_at': datetime.now().isoformat(),
