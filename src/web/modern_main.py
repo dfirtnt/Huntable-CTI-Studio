@@ -155,16 +155,17 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     try:
         existing_identifiers = await async_db_manager.list_source_identifiers()
 
-        if not existing_identifiers:
+        # Only sync on initial setup (when very few sources exist)
+        if not existing_identifiers or len(existing_identifiers) < 5:
             config_path = Path(os.getenv("SOURCES_CONFIG", "config/sources.yaml"))
             if config_path.exists():
-                logger.info("Seeding sources from %s", config_path)
+                logger.info("Initial setup detected (%d sources), seeding from %s", len(existing_identifiers), config_path)
                 sync_service = SourceSyncService(config_path, async_db_manager)
                 await sync_service.sync()
             else:
                 logger.warning("Source config seed file missing: %s", config_path)
         else:
-            logger.info("Skipping YAML seed; %d sources already present", len(existing_identifiers))
+            logger.info("Skipping YAML sync; %d sources already present (manual changes preserved)", len(existing_identifiers))
 
         stats = await async_db_manager.get_database_stats()
         logger.info(f"Database connection successful: {stats['total_sources']} sources, {stats['total_articles']} articles")
@@ -1487,7 +1488,12 @@ async def article_detail(request: Request, article_id: int):
             {
                 "request": request, 
                 "article": article, 
-                "source": source
+                "source": source,
+                "ollama_content_limit": int(os.getenv('OLLAMA_CONTENT_LIMIT', '1000000')),
+                "chatgpt_content_limit": int(os.getenv('CHATGPT_CONTENT_LIMIT', '1000000')),
+                "anthropic_content_limit": int(os.getenv('ANTHROPIC_CONTENT_LIMIT', '1000000')),
+                "content_filtering_enabled": os.getenv('CONTENT_FILTERING_ENABLED', 'true').lower() == 'true',
+                "content_filtering_confidence": float(os.getenv('CONTENT_FILTERING_CONFIDENCE', '0.7'))
             }
         )
     except Exception as e:
@@ -1771,20 +1777,36 @@ async def api_analyze_threat_hunting(article_id: int, request: Request):
         body = await request.json()
         analyze_content = body.get('analyze_content', False)  # Default to URL only
         
+        # Get CustomGPT configuration from environment
+        customgpt_api_url = os.getenv('CUSTOMGPT_API_URL')
+        customgpt_api_key = os.getenv('CUSTOMGPT_API_KEY')
+        
         # Prepare the analysis prompt
         if analyze_content:
-            # Smart content truncation based on model
-            if customgpt_api_url and customgpt_api_key:
-                # Using ChatGPT - can handle more content
-                content_limit = int(os.getenv('CHATGPT_CONTENT_LIMIT', '15000'))
-            else:
-                # Using Ollama - more conservative limit
-                content_limit = int(os.getenv('OLLAMA_CONTENT_LIMIT', '4000'))
+            # Use content filtering for high-value chunks if enabled
+            content_filtering_enabled = os.getenv('CONTENT_FILTERING_ENABLED', 'true').lower() == 'true'
             
-            # Truncate content intelligently
-            content = article.content[:content_limit]
-            if len(article.content) > content_limit:
-                content += f"\n\n[Content truncated at {content_limit:,} characters. Full article has {len(article.content):,} characters.]"
+            if content_filtering_enabled:
+                from src.utils.gpt4o_optimizer import optimize_article_content
+                import asyncio
+                
+                try:
+                    min_confidence = float(os.getenv('CONTENT_FILTERING_CONFIDENCE', '0.7'))
+                    optimization_result = await optimize_article_content(article.content, min_confidence=min_confidence)
+                    if optimization_result['success']:
+                        content = optimization_result['filtered_content']
+                        logger.info(f"Content filtered: {optimization_result['tokens_saved']:,} tokens saved, "
+                                  f"{optimization_result['cost_reduction_percent']:.1f}% cost reduction")
+                    else:
+                        # Fallback to original content if filtering fails
+                        content = article.content
+                        logger.warning("Content filtering failed, using original content")
+                except Exception as e:
+                    logger.error(f"Content filtering error: {e}, using original content")
+                    content = article.content
+            else:
+                # Use original content if filtering is disabled
+                content = article.content
             
             # Analyze both URL and content
             prompt = format_prompt("huntability_ranking", 
@@ -1811,7 +1833,7 @@ async def api_analyze_threat_hunting(article_id: int, request: Request):
         if not customgpt_api_url or not customgpt_api_key:
             # Fallback to Ollama if CustomGPT not configured
             ollama_url = os.getenv('LLM_API_URL', 'http://cti_ollama:11434')
-            ollama_model = os.getenv('LLM_MODEL', 'mistral')
+            ollama_model = os.getenv('LLM_MODEL', 'llama3.2:1b')
             
             logger.info(f"Using Ollama at {ollama_url} with model {ollama_model}")
             
@@ -1829,7 +1851,7 @@ async def api_analyze_threat_hunting(article_id: int, request: Request):
                                 "num_predict": 2048
                             }
                         },
-                        timeout=180.0
+                        timeout=300.0
                     )
                     
                     if response.status_code != 200:
@@ -1954,21 +1976,36 @@ async def api_chatgpt_summary(article_id: int, request: Request):
         
         # Prepare the summary prompt
         if include_content:
-            # Smart content truncation based on model
-            if ai_model == 'chatgpt':
-                # Using ChatGPT - can handle more content
-                content_limit = int(os.getenv('CHATGPT_CONTENT_LIMIT', '40000'))
-            elif ai_model == 'anthropic':
-                # Using Anthropic - can handle very large content
-                content_limit = int(os.getenv('ANTHROPIC_CONTENT_LIMIT', '200000'))
-            else:
-                # Using Ollama - more conservative limit
-                content_limit = int(os.getenv('OLLAMA_CONTENT_LIMIT', '4000'))
+            # Use content filtering for high-value chunks if enabled
+            content_filtering_enabled = os.getenv('CONTENT_FILTERING_ENABLED', 'true').lower() == 'true'
             
-            # Truncate content intelligently
-            content = article.content[:content_limit]
-            if len(article.content) > content_limit:
-                content += f"\n\n[Content truncated at {content_limit:,} characters. Full article has {len(article.content):,} characters.]"
+            if content_filtering_enabled:
+                from src.utils.gpt4o_optimizer import optimize_article_content
+                
+                try:
+                    min_confidence = float(os.getenv('CONTENT_FILTERING_CONFIDENCE', '0.6'))
+                    # Add timeout to content filtering to prevent delays
+                    optimization_result = await asyncio.wait_for(
+                        optimize_article_content(article.content, min_confidence=min_confidence),
+                        timeout=30.0  # 30 second timeout for content filtering
+                    )
+                    if optimization_result['success']:
+                        content = optimization_result['filtered_content']
+                        logger.info(f"Content filtered for summary: {optimization_result['tokens_saved']:,} tokens saved, "
+                                  f"{optimization_result['cost_reduction_percent']:.1f}% cost reduction")
+                    else:
+                        # Fallback to original content if filtering fails
+                        content = article.content
+                        logger.warning("Content filtering failed for summary, using original content")
+                except asyncio.TimeoutError:
+                    logger.warning("Content filtering timed out for summary, using original content")
+                    content = article.content
+                except Exception as e:
+                    logger.error(f"Content filtering error for summary: {e}, using original content")
+                    content = article.content
+            else:
+                # Use original content if filtering is disabled
+                content = article.content
             
             # Summarize both URL and content
             prompt = format_prompt("article_summary", 
@@ -2070,7 +2107,7 @@ async def api_chatgpt_summary(article_id: int, request: Request):
         else:
             # Use Ollama API
             ollama_url = os.getenv('LLM_API_URL', 'http://cti_ollama:11434')
-            ollama_model = os.getenv('LLM_MODEL', 'mistral')
+            ollama_model = os.getenv('LLM_MODEL', 'llama3.2:1b')
             
             logger.info(f"Using Ollama at {ollama_url} with model {ollama_model}")
             
@@ -2087,7 +2124,7 @@ async def api_chatgpt_summary(article_id: int, request: Request):
                                 "num_predict": 2048
                             }
                         },
-                        timeout=180.0
+                        timeout=300.0
                     )
                     
                     if response.status_code != 200:
@@ -2162,21 +2199,29 @@ async def api_custom_prompt(article_id: int, request: Request):
         elif ai_model == 'anthropic' and not api_key:
             raise HTTPException(status_code=400, detail="Anthropic API key is required for Claude. Please configure it in Settings.")
         
-        # Smart content truncation based on model
-        if ai_model == 'chatgpt':
-            # Using ChatGPT - can handle more content
-            content_limit = int(os.getenv('CHATGPT_CONTENT_LIMIT', '15000'))
-        elif ai_model == 'anthropic':
-            # Using Anthropic - can handle very large content
-            content_limit = int(os.getenv('ANTHROPIC_CONTENT_LIMIT', '200000'))
-        else:
-            # Using Ollama - more conservative limit
-            content_limit = int(os.getenv('OLLAMA_CONTENT_LIMIT', '4000'))
+        # Use content filtering for high-value chunks if enabled
+        content_filtering_enabled = os.getenv('CONTENT_FILTERING_ENABLED', 'true').lower() == 'true'
         
-        # Truncate content intelligently
-        content = article.content[:content_limit]
-        if len(article.content) > content_limit:
-            content += f"\n\n[Content truncated at {content_limit:,} characters. Full article has {len(article.content):,} characters.]"
+        if content_filtering_enabled:
+            from src.utils.gpt4o_optimizer import optimize_article_content
+            
+            try:
+                min_confidence = float(os.getenv('CONTENT_FILTERING_CONFIDENCE', '0.7'))
+                optimization_result = await optimize_article_content(article.content, min_confidence=min_confidence)
+                if optimization_result['success']:
+                    content = optimization_result['filtered_content']
+                    logger.info(f"Content filtered for ranking: {optimization_result['tokens_saved']:,} tokens saved, "
+                              f"{optimization_result['cost_reduction_percent']:.1f}% cost reduction")
+                else:
+                    # Fallback to original content if filtering fails
+                    content = article.content
+                    logger.warning("Content filtering failed for ranking, using original content")
+            except Exception as e:
+                logger.error(f"Content filtering error for ranking: {e}, using original content")
+                content = article.content
+        else:
+            # Use original content if filtering is disabled
+            content = article.content
         
         # Prepare the custom prompt
         full_prompt = format_prompt("database_chat", 
@@ -2271,7 +2316,7 @@ async def api_custom_prompt(article_id: int, request: Request):
         else:
             # Use Ollama API
             ollama_url = os.getenv('LLM_API_URL', 'http://cti_ollama:11434')
-            ollama_model = os.getenv('LLM_MODEL', 'mistral')
+            ollama_model = os.getenv('LLM_MODEL', 'llama3.2:1b')
             
             logger.info(f"Using Ollama at {ollama_url} with model {ollama_model}")
             
@@ -2288,7 +2333,7 @@ async def api_custom_prompt(article_id: int, request: Request):
                                 "num_predict": 2048
                             }
                         },
-                        timeout=180.0
+                        timeout=300.0
                     )
                     
                     if response.status_code != 200:
@@ -2577,21 +2622,29 @@ async def api_generate_sigma(article_id: int, request: Request):
         
         # Prepare the SIGMA generation prompt
         if include_content:
-            # Smart content truncation based on model
-            if ai_model == 'chatgpt':
-                # Using ChatGPT - can handle more content
-                content_limit = int(os.getenv('CHATGPT_CONTENT_LIMIT', '8000'))
-            elif ai_model == 'anthropic':
-                # Using Anthropic - can handle very large content
-                content_limit = int(os.getenv('ANTHROPIC_CONTENT_LIMIT', '200000'))
-            else:
-                # Using Ollama - more conservative limit
-                content_limit = int(os.getenv('OLLAMA_CONTENT_LIMIT', '4000'))
+            # Use content filtering for high-value chunks if enabled (higher confidence for SIGMA)
+            content_filtering_enabled = os.getenv('CONTENT_FILTERING_ENABLED', 'true').lower() == 'true'
             
-            # Truncate content intelligently
-            content = article.content[:content_limit]
-            if len(article.content) > content_limit:
-                content += f"\n\n[Content truncated at {content_limit:,} characters. Full article has {len(article.content):,} characters.]"
+            if content_filtering_enabled:
+                from src.utils.gpt4o_optimizer import optimize_article_content
+                
+                try:
+                    min_confidence = float(os.getenv('CONTENT_FILTERING_CONFIDENCE', '0.8'))
+                    optimization_result = await optimize_article_content(article.content, min_confidence=min_confidence)
+                    if optimization_result['success']:
+                        content = optimization_result['filtered_content']
+                        logger.info(f"Content filtered for SIGMA: {optimization_result['tokens_saved']:,} tokens saved, "
+                                  f"{optimization_result['cost_reduction_percent']:.1f}% cost reduction")
+                    else:
+                        # Fallback to original content if filtering fails
+                        content = article.content
+                        logger.warning("Content filtering failed for SIGMA, using original content")
+                except Exception as e:
+                    logger.error(f"Content filtering error for SIGMA: {e}, using original content")
+                    content = article.content
+            else:
+                # Use original content if filtering is disabled
+                content = article.content
             
             # Enhanced SIGMA-specific prompt based on SigmaHQ best practices - simplified
             prompt = format_prompt("sigma_generation", 
@@ -2768,7 +2821,7 @@ async def api_generate_sigma(article_id: int, request: Request):
                     else:
                         # Use Ollama API
                         ollama_url = os.getenv('LLM_API_URL', 'http://cti_ollama:11434')
-                        ollama_model = os.getenv('LLM_MODEL', 'mistral')
+                        ollama_model = os.getenv('LLM_MODEL', 'llama3.2:1b')
                         
                         logger.info(f"Using Ollama at {ollama_url} with model {ollama_model}")
                         
@@ -2786,7 +2839,7 @@ async def api_generate_sigma(article_id: int, request: Request):
                                     "num_predict": 2048
                                 }
                             },
-                            timeout=180.0
+                            timeout=300.0
                         )
                         
                         if response.status_code != 200:
@@ -3180,7 +3233,7 @@ async def api_rank_with_gpt4o(article_id: int, request: Request):
         else:
             # Use Ollama API
             ollama_url = os.getenv('LLM_API_URL', 'http://cti_ollama:11434')
-            ollama_model = os.getenv('LLM_MODEL', 'mistral')
+            ollama_model = os.getenv('LLM_MODEL', 'llama3.2:1b')
             
             logger.info(f"Using Ollama at {ollama_url} with model {ollama_model}")
             
@@ -3197,7 +3250,7 @@ async def api_rank_with_gpt4o(article_id: int, request: Request):
                                 "num_predict": 2000
                             }
                         },
-                        timeout=180.0
+                        timeout=300.0
                     )
                     
                     if response.status_code != 200:

@@ -1552,12 +1552,12 @@
         
         // Check content size limits
         const contentLength = {{ article.content|length if article.content else 0 }};
-        const contentLimit = aiModel === 'chatgpt' ? 40000 : 
-                           aiModel === 'anthropic' ? 200000 : 8000;
+        const contentLimit = aiModel === 'chatgpt' ? {{ chatgpt_content_limit }} : 
+                           aiModel === 'anthropic' ? {{ anthropic_content_limit }} : {{ ollama_content_limit }};
         
         if (contentLength > contentLimit) {
             const modelName = aiModel === 'chatgpt' ? 'ChatGPT' : 
-                            aiModel === 'anthropic' ? 'Claude' : 'Mistral';
+                            aiModel === 'anthropic' ? 'Claude' : 'Llama';
             showNotification(`Article too large for ${modelName}. Content: ${contentLength.toLocaleString()} chars, limit: ${contentLimit.toLocaleString()} chars.`, 'warning');
             return;
         }
@@ -1665,7 +1665,7 @@
                     
                     <div class="mt-4 p-2 bg-gray-50 rounded text-xs text-gray-600">
                         Using: ${aiModel === 'chatgpt' ? 'ChatGPT (OpenAI)' : 
-                               aiModel === 'anthropic' ? 'Claude (Anthropic)' : 'Mistral (Local)'}
+                               aiModel === 'anthropic' ? 'Claude (Anthropic)' : 'Llama (Local)'}
                     </div>
                 </div>
             </div>
@@ -2169,7 +2169,7 @@
         const settings = JSON.parse(localStorage.getItem('ctiScraperSettings') || '{}');
         const aiModel = settings.aiModel || 'chatgpt';
         const modelDisplayName = aiModel === 'chatgpt' ? 'ChatGPT (OpenAI)' : 
-                                aiModel === 'anthropic' ? 'Claude (Anthropic)' : 'Mistral (Local Ollama)';
+                                aiModel === 'anthropic' ? 'Claude (Anthropic)' : 'Llama (Local Ollama)';
         
         const modal = document.createElement('div');
         modal.id = 'customPromptModal';
@@ -2445,7 +2445,7 @@
         if (existingAnalysis && existingAnalysis !== 'null') {
             // Show existing analysis
             showAnalysisModal(existingAnalysis, true, {
-                model_name: existingModelName !== 'null' ? existingModelName : 'mistral',
+                model_name: existingModelName !== 'null' ? existingModelName : 'llama3.2:1b',
                 model_used: 'ollama'
             });
         } else {
@@ -2586,7 +2586,7 @@
         document.addEventListener('keydown', handleEsc);
         
         const analysisType = data?.analyzed_content ? 'Full Content' : 'Metadata Only';
-        const modelUsed = data?.model_name || (data?.model_used === 'customgpt' ? 'CustomGPT' : (data?.model_used === 'ollama' ? 'Mistral (via Ollama)' : 'Unknown'));
+        const modelUsed = data?.model_name || (data?.model_used === 'customgpt' ? 'CustomGPT' : (data?.model_used === 'ollama' ? 'Llama (via Ollama)' : 'Unknown'));
         const analyzedAt = data?.analyzed_at ? new Date(data.analyzed_at).toLocaleString() : 'Unknown';
         
         modal.innerHTML = `
@@ -2661,7 +2661,7 @@
             // Show existing summary
             console.log('Found existing summary, showing it...'); // Debug log
             showChatGPTSummaryModal(existingSummary, {
-                model_name: existingModelName !== 'null' ? existingModelName : 'mistral',
+                model_name: existingModelName !== 'null' ? existingModelName : 'llama3.2:1b',
                 model_used: 'ollama',
                 summarized_at: existingSummarizedAt !== 'null' ? existingSummarizedAt : null,
                 content_type: 'full content'
@@ -3814,8 +3814,8 @@
         
         // Check content size limits
         const contentLength = {{ article.content|length if article.content else 0 }};
-        const contentLimit = aiModel === 'chatgpt' ? 40000 : 
-                           aiModel === 'anthropic' ? 200000 : 8000;
+        const contentLimit = aiModel === 'chatgpt' ? {{ chatgpt_content_limit }} : 
+                           aiModel === 'anthropic' ? {{ anthropic_content_limit }} : {{ ollama_content_limit }};
         
         if (contentLength > contentLimit) {
             // Disable button and add explanation
