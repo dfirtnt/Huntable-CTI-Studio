@@ -31,7 +31,7 @@ python run_tests.py --install
 
 # Or manually
 pip install -r requirements-test.txt
-playwright install chromium
+playwright install --with-deps chromium
 ```
 
 ### 3. Run Your First Test (2 minutes)
@@ -116,7 +116,7 @@ curl http://localhost:8001/health
 ```bash
 # Reinstall dependencies
 pip install -r requirements-test.txt
-playwright install --force
+playwright install --with-deps --force chromium
 ```
 
 ### **Database Issues**

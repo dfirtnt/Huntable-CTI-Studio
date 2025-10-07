@@ -166,6 +166,44 @@ def run_performance_tests(docker_mode: bool = False) -> bool:
         "Running performance tests"
     )
 
+def run_ai_tests(docker_mode: bool = False, skip_real_api: bool = False) -> bool:
+    """Run all AI Assistant tests."""
+    if docker_mode:
+        cmd = "docker exec cti_web python -m pytest tests/ui/test_ai_assistant_ui.py tests/integration/test_ai_cross_model_integration.py tests/integration/test_ai_real_api_integration.py -m ai -v --tb=short"
+        if skip_real_api:
+            cmd += " -e SKIP_REAL_API_TESTS=1"
+        return run_command(cmd, "Running all AI Assistant tests in Docker")
+    
+    cmd = "python3 -m pytest tests/ui/test_ai_assistant_ui.py tests/integration/test_ai_cross_model_integration.py tests/integration/test_ai_real_api_integration.py -m ai -v --tb=short"
+    if skip_real_api:
+        cmd += " -e SKIP_REAL_API_TESTS=1"
+    return run_command(cmd, "Running all AI Assistant tests")
+
+def run_ai_ui_tests(docker_mode: bool = False) -> bool:
+    """Run AI UI tests only."""
+    if docker_mode:
+        return run_command(
+            "docker exec cti_web python -m pytest tests/ui/test_ai_assistant_ui.py -m 'ui and ai' -v --tb=short",
+            "Running AI UI tests in Docker"
+        )
+    return run_command(
+        "python3 -m pytest tests/ui/test_ai_assistant_ui.py -m 'ui and ai' -v --tb=short",
+        "Running AI UI tests"
+    )
+
+def run_ai_integration_tests(docker_mode: bool = False, skip_real_api: bool = False) -> bool:
+    """Run AI integration tests only."""
+    if docker_mode:
+        cmd = "docker exec cti_web python -m pytest tests/integration/test_ai_cross_model_integration.py tests/integration/test_ai_real_api_integration.py -m 'integration and ai' -v --tb=short"
+        if skip_real_api:
+            cmd += " -e SKIP_REAL_API_TESTS=1"
+        return run_command(cmd, "Running AI integration tests in Docker")
+    
+    cmd = "python3 -m pytest tests/integration/test_ai_cross_model_integration.py tests/integration/test_ai_real_api_integration.py -m 'integration and ai' -v --tb=short"
+    if skip_real_api:
+        cmd += " -e SKIP_REAL_API_TESTS=1"
+    return run_command(cmd, "Running AI integration tests")
+
 def generate_test_report() -> None:
     """Generate a test summary report."""
     print("\n📊 Test Summary Report")
@@ -191,6 +229,7 @@ def generate_test_report() -> None:
     print("  • UI Tests: tests/ui/")
     print("  • Smoke Tests: tests/ -m smoke")
     print("  • Performance Tests: tests/ -m slow")
+    print("  • AI Assistant Tests: tests/ui/test_ai_assistant_ui.py + tests/integration/test_ai_*.py")
     print("  • All Tests: tests/")
     print("  • Coverage: tests/ --cov=src")
 
@@ -211,12 +250,18 @@ Test Categories:
   api          API endpoint tests (~2m)
   integration  System integration tests (~3m)
   ui           Web interface tests (~5m)
+  ai           AI Assistant tests (~3m)
+  ai-ui        AI UI tests only (~1m)
+  ai-integration AI integration tests (~2m)
   all          Complete test suite (~8m)
 
 Examples:
   python run_tests.py --smoke                    # Quick health check
   python run_tests.py --all --coverage           # Full suite with coverage
   python run_tests.py --docker --integration     # Docker-based integration tests
+  python run_tests.py --ai                       # All AI Assistant tests
+  python run_tests.py --ai-ui --coverage         # AI UI tests with coverage
+  python run_tests.py --ai-skip-real-api         # AI tests without real API calls
   python run_tests.py --install                  # Install test dependencies
         """
     )
@@ -236,6 +281,12 @@ Examples:
     parser.add_argument("--coverage", action="store_true", help="Run tests with coverage")
     parser.add_argument("--all", action="store_true", help="Run all tests")
     parser.add_argument("--check-app", action="store_true", help="Check if app is running")
+    
+    # AI Assistant test categories
+    parser.add_argument("--ai", action="store_true", help="Run all AI Assistant tests")
+    parser.add_argument("--ai-ui", action="store_true", help="Run AI UI tests only")
+    parser.add_argument("--ai-integration", action="store_true", help="Run AI integration tests only")
+    parser.add_argument("--ai-skip-real-api", action="store_true", help="Skip real API tests (cost/rate limiting)")
     
     args = parser.parse_args()
     
@@ -295,8 +346,18 @@ Examples:
     if args.all:
         success &= run_all_tests(docker_mode)
     
+    # AI Assistant test categories
+    if args.ai:
+        success &= run_ai_tests(docker_mode, args.ai_skip_real_api)
+    
+    if args.ai_ui:
+        success &= run_ai_ui_tests(docker_mode)
+    
+    if args.ai_integration:
+        success &= run_ai_integration_tests(docker_mode, args.ai_skip_real_api)
+    
     # If no specific tests specified, run smoke tests
-    if not any([args.unit, args.api, args.integration, args.ui, args.smoke, args.performance, args.coverage, args.all]):
+    if not any([args.unit, args.api, args.integration, args.ui, args.smoke, args.performance, args.coverage, args.all, args.ai, args.ai_ui, args.ai_integration]):
         print("\n🎯 No specific tests specified, running smoke tests...")
         success &= run_smoke_tests(docker_mode)
     
