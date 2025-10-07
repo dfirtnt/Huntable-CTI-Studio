@@ -2038,7 +2038,12 @@ async def api_custom_prompt(article_id: int, request: Request):
             
             try:
                 min_confidence = float(os.getenv('CONTENT_FILTERING_CONFIDENCE', '0.7'))
-                optimization_result = await optimize_article_content(article.content, min_confidence=min_confidence)
+                optimization_result = await optimize_article_content(
+                    article.content, 
+                    min_confidence=min_confidence,
+                    article_metadata=article.article_metadata,
+                    content_hash=article.content_hash
+                )
                 if optimization_result['success']:
                     content = optimization_result['filtered_content']
                     logger.info(f"Content filtered for ranking: {optimization_result['tokens_saved']:,} tokens saved, "
@@ -2461,7 +2466,12 @@ async def api_generate_sigma(article_id: int, request: Request):
                 
                 try:
                     min_confidence = float(os.getenv('CONTENT_FILTERING_CONFIDENCE', '0.8'))
-                    optimization_result = await optimize_article_content(article.content, min_confidence=min_confidence)
+                    optimization_result = await optimize_article_content(
+                        article.content, 
+                        min_confidence=min_confidence,
+                        article_metadata=article.article_metadata,
+                        content_hash=article.content_hash
+                    )
                     if optimization_result['success']:
                         content = optimization_result['filtered_content']
                         logger.info(f"Content filtered for SIGMA: {optimization_result['tokens_saved']:,} tokens saved, "
@@ -2888,6 +2898,9 @@ async def api_extract_iocs(article_id: int, request: Request):
         # Initialize hybrid IOC extractor (default: iocextract only)
         ioc_extractor = HybridIOCExtractor(use_llm_validation=use_llm_validation)
         
+        # Initialize metadata for caching
+        current_metadata = article.article_metadata.copy() if article.article_metadata else {}
+        
         # Prepare content for extraction
         if include_content:
             # Use content filtering for high-value chunks if enabled
@@ -2897,11 +2910,21 @@ async def api_extract_iocs(article_id: int, request: Request):
                 from src.utils.gpt4o_optimizer import optimize_article_content
                 
                 try:
-                    optimization_result = await optimize_article_content(article.content, min_confidence=min_confidence)
+                    optimization_result = await optimize_article_content(
+                        article.content, 
+                        min_confidence=min_confidence,
+                        article_metadata=current_metadata,
+                        content_hash=article.content_hash
+                    )
                     if optimization_result['success']:
                         content = optimization_result['filtered_content']
                         logger.info(f"Content filtered for IOC extraction: {optimization_result['tokens_saved']:,} tokens saved, "
                                   f"{optimization_result['cost_reduction_percent']:.1f}% cost reduction")
+                        
+                        # Update article metadata with cached chunks (if not already cached)
+                        if not optimization_result.get('cached', False):
+                            update_data = ArticleUpdate(article_metadata=current_metadata)
+                            await async_db_manager.update_article(article_id, update_data)
                     else:
                         # Fallback to original content if filtering fails
                         content = article.content
@@ -2920,7 +2943,6 @@ async def api_extract_iocs(article_id: int, request: Request):
         extraction_result = await ioc_extractor.extract_iocs(content, api_key)
         
         # Store the IOCs in article metadata
-        current_metadata = article.article_metadata.copy() if article.article_metadata else {}
         current_metadata['extracted_iocs'] = {
             'iocs': extraction_result.iocs,
             'extracted_at': datetime.now().isoformat(),
@@ -3010,7 +3032,12 @@ async def api_rank_with_gpt4o(article_id: int, request: Request):
             from src.utils.gpt4o_optimizer import optimize_article_content
             
             try:
-                optimization_result = await optimize_article_content(article.content, min_confidence=min_confidence)
+                optimization_result = await optimize_article_content(
+                    article.content, 
+                    min_confidence=min_confidence,
+                    article_metadata=article.article_metadata,
+                    content_hash=article.content_hash
+                )
                 if optimization_result['success']:
                     content_to_analyze = optimization_result['filtered_content']
                     logger.info(f"Content filtered for GPT-4o ranking: {optimization_result['tokens_saved']:,} tokens saved, "

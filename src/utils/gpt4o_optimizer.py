@@ -7,6 +7,7 @@ system to reduce costs by filtering out non-huntable content.
 
 import asyncio
 import logging
+from datetime import datetime, timedelta
 from typing import Optional, Dict, Any
 from src.utils.content_filter import ContentFilter, FilterResult
 
@@ -206,9 +207,158 @@ class GPT4oContentOptimizer:
 gpt4o_optimizer = GPT4oContentOptimizer()
 
 # Convenience functions for integration
-async def optimize_article_content(content: str, min_confidence: float = 0.7) -> Dict[str, Any]:
-    """Optimize article content for GPT-4o analysis."""
-    return await gpt4o_optimizer.optimize_content_for_gpt4o(content, min_confidence)
+async def optimize_article_content(content: str, min_confidence: float = 0.7, 
+                                 article_metadata: Optional[Dict[str, Any]] = None,
+                                 content_hash: Optional[str] = None) -> Dict[str, Any]:
+    """
+    Optimize article content for GPT-4o analysis with smart chunk caching.
+    
+    Args:
+        content: Full article content
+        min_confidence: Minimum confidence threshold for keeping chunks
+        article_metadata: Article metadata dict (for cache storage/retrieval)
+        content_hash: Content hash for cache validation
+        
+    Returns:
+        Dictionary with optimized content and metadata
+    """
+    # Check for cached chunks first
+    if article_metadata and content_hash:
+        cached_result = _get_cached_chunks(article_metadata, content_hash, min_confidence)
+        if cached_result:
+            logger.info(f"Using cached chunks for content optimization (cache hit)")
+            return cached_result
+    
+    # Generate chunks if not cached
+    result = await gpt4o_optimizer.optimize_content_for_gpt4o(content, min_confidence)
+    
+    # Store in cache if we have article metadata
+    if article_metadata and content_hash and result['success']:
+        _store_cached_chunks(article_metadata, content_hash, min_confidence, result)
+        logger.info(f"Cached chunks for future use (cache miss)")
+    
+    return result
+
+def _get_cached_chunks(article_metadata: Dict[str, Any], content_hash: str, 
+                      min_confidence: float) -> Optional[Dict[str, Any]]:
+    """
+    Retrieve cached chunks from article metadata if valid.
+    
+    Args:
+        article_metadata: Article metadata dictionary
+        content_hash: Current content hash for validation
+        min_confidence: Confidence threshold for validation
+        
+    Returns:
+        Cached optimization result or None if cache miss/invalid
+    """
+    try:
+        cached_chunks = article_metadata.get('content_chunks')
+        if not cached_chunks:
+            return None
+        
+        # Validate cache
+        if not _is_cache_valid(cached_chunks, content_hash, min_confidence):
+            return None
+        
+        # Return cached result
+        return {
+            'success': True,
+            'original_content': cached_chunks.get('original_content', ''),
+            'filtered_content': cached_chunks.get('filtered_content', ''),
+            'original_tokens': cached_chunks.get('original_tokens', 0),
+            'filtered_tokens': cached_chunks.get('filtered_tokens', 0),
+            'tokens_saved': cached_chunks.get('tokens_saved', 0),
+            'cost_savings': cached_chunks.get('cost_savings', 0.0),
+            'cost_reduction_percent': cached_chunks.get('cost_reduction_percent', 0.0),
+            'is_huntable': cached_chunks.get('is_huntable', True),
+            'confidence': cached_chunks.get('confidence', 0.5),
+            'removed_chunks': cached_chunks.get('removed_chunks', []),
+            'chunks_removed': cached_chunks.get('chunks_removed', 0),
+            'chunks_kept': cached_chunks.get('chunks_kept', 1),
+            'cached': True,
+            'cache_hit': True
+        }
+        
+    except Exception as e:
+        logger.warning(f"Error retrieving cached chunks: {e}")
+        return None
+
+def _store_cached_chunks(article_metadata: Dict[str, Any], content_hash: str,
+                        min_confidence: float, result: Dict[str, Any]) -> None:
+    """
+    Store optimization result in article metadata cache.
+    
+    Args:
+        article_metadata: Article metadata dictionary (will be modified)
+        content_hash: Content hash for validation
+        min_confidence: Confidence threshold used
+        result: Optimization result to cache
+    """
+    try:
+        # Store cache entry
+        article_metadata['content_chunks'] = {
+            'content_hash': content_hash,
+            'chunked_at': datetime.now().isoformat(),
+            'min_confidence': min_confidence,
+            'original_content': result.get('original_content', ''),
+            'filtered_content': result.get('filtered_content', ''),
+            'original_tokens': result.get('original_tokens', 0),
+            'filtered_tokens': result.get('filtered_tokens', 0),
+            'tokens_saved': result.get('tokens_saved', 0),
+            'cost_savings': result.get('cost_savings', 0.0),
+            'cost_reduction_percent': result.get('cost_reduction_percent', 0.0),
+            'is_huntable': result.get('is_huntable', True),
+            'confidence': result.get('confidence', 0.5),
+            'removed_chunks': result.get('removed_chunks', []),
+            'chunks_removed': result.get('chunks_removed', 0),
+            'chunks_kept': result.get('chunks_kept', 1)
+        }
+        
+        logger.debug(f"Cached chunks for content hash {content_hash[:8]}...")
+        
+    except Exception as e:
+        logger.warning(f"Error storing cached chunks: {e}")
+
+def _is_cache_valid(cached_chunks: Dict[str, Any], content_hash: str, 
+                   min_confidence: float) -> bool:
+    """
+    Validate cached chunks for reuse.
+    
+    Args:
+        cached_chunks: Cached chunks data
+        content_hash: Current content hash
+        min_confidence: Current confidence threshold
+        
+    Returns:
+        True if cache is valid for reuse
+    """
+    try:
+        # Check content hash
+        if cached_chunks.get('content_hash') != content_hash:
+            return False
+        
+        # Check confidence threshold (if different, need to re-filter)
+        if cached_chunks.get('min_confidence') != min_confidence:
+            return False
+        
+        # Check age (optional TTL - 7 days)
+        chunked_at = cached_chunks.get('chunked_at')
+        if chunked_at:
+            try:
+                cache_time = datetime.fromisoformat(chunked_at.replace('Z', '+00:00'))
+                age = datetime.now() - cache_time.replace(tzinfo=None)
+                if age > timedelta(days=7):
+                    return False
+            except (ValueError, TypeError):
+                # If we can't parse the date, invalidate cache
+                return False
+        
+        return True
+        
+    except Exception as e:
+        logger.warning(f"Error validating cache: {e}")
+        return False
 
 def estimate_gpt4o_cost(content: str, use_filtering: bool = True) -> Dict[str, Any]:
     """Estimate GPT-4o cost with optional content filtering."""
