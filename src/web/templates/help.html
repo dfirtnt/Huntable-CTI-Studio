@@ -1,0 +1,627 @@
+{% extends "base.html" %}
+
+{% block title %}Help & Documentation - CTI Scraper{% endblock %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <!-- Header -->
+    <div class="text-center mb-8">
+        <h1 class="text-4xl font-bold text-gray-900 mb-4">🛡️ Help & Documentation</h1>
+        <p class="text-xl text-gray-600">Comprehensive guide to CTI Scraper features and functionality</p>
+    </div>
+
+    <!-- Help Sections -->
+    <div class="space-y-6">
+        
+        <!-- Software Testing Section -->
+        <div class="bg-white rounded-lg shadow-sm border border-gray-200">
+            <div class="p-6">
+                <button onclick="toggleSection('testing')" class="w-full text-left flex items-center justify-between">
+                    <h2 class="text-2xl font-bold text-gray-900 flex items-center">
+                        <span class="mr-3">🧪</span>
+                        Software Testing & Quality Assurance
+                    </h2>
+                    <svg id="testing-icon" class="w-6 h-6 text-gray-500 transform transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                    </svg>
+                </button>
+                
+                <div id="testing-content" class="mt-6 hidden">
+                    <div class="prose max-w-none">
+                        <h3 class="text-lg font-semibold text-gray-800 mb-4">Test Suite Overview</h3>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+                            <div class="bg-green-50 border border-green-200 rounded-lg p-4">
+                                <h4 class="font-semibold text-green-800">✅ Unit Tests</h4>
+                                <p class="text-sm text-green-700">539 tests across 21 files</p>
+                                <p class="text-xs text-green-600">Core functionality testing with mocked dependencies</p>
+                            </div>
+                            <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                                <h4 class="font-semibold text-blue-800">🎭 UI Tests</h4>
+                                <p class="text-sm text-blue-700">61 tests across 5 files</p>
+                                <p class="text-xs text-blue-600">User interface testing with Playwright</p>
+                            </div>
+                            <div class="bg-purple-50 border border-purple-200 rounded-lg p-4">
+                                <h4 class="font-semibold text-purple-800">🔗 Integration Tests</h4>
+                                <p class="text-sm text-purple-700">46 tests across 4 files</p>
+                                <p class="text-xs text-purple-600">Cross-component testing with real dependencies</p>
+                            </div>
+                        </div>
+
+                        <h4 class="font-semibold text-gray-800 mb-3">Quick Test Commands</h4>
+                        <div class="bg-gray-50 rounded-lg p-4 mb-4">
+                            <div class="space-y-2 font-mono text-sm">
+                                <div><span class="text-blue-600"># Health check</span><br>python run_tests.py --smoke</div>
+                                <div><span class="text-blue-600"># Full suite with coverage</span><br>python run_tests.py --all --coverage</div>
+                                <div><span class="text-blue-600"># Docker-based testing</span><br>python run_tests.py --docker --integration</div>
+                                <div><span class="text-blue-600"># Install dependencies</span><br>python run_tests.py --install</div>
+                            </div>
+                        </div>
+
+                        <h4 class="font-semibold text-gray-800 mb-3">Test Categories</h4>
+                        <div class="overflow-x-auto">
+                            <table class="min-w-full divide-y divide-gray-200">
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Category</th>
+                                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Files</th>
+                                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Tests</th>
+                                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Duration</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="bg-white divide-y divide-gray-200">
+                                    <tr>
+                                        <td class="px-4 py-2 text-sm font-medium text-gray-900">Unit Tests</td>
+                                        <td class="px-4 py-2 text-sm text-gray-500">21</td>
+                                        <td class="px-4 py-2 text-sm text-gray-500">539</td>
+                                        <td class="px-4 py-2 text-sm text-gray-500">~1m</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="px-4 py-2 text-sm font-medium text-gray-900">UI Tests</td>
+                                        <td class="px-4 py-2 text-sm text-gray-500">5</td>
+                                        <td class="px-4 py-2 text-sm text-gray-500">61</td>
+                                        <td class="px-4 py-2 text-sm text-gray-500">~5m</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="px-4 py-2 text-sm font-medium text-gray-900">Integration Tests</td>
+                                        <td class="px-4 py-2 text-sm text-gray-500">4</td>
+                                        <td class="px-4 py-2 text-sm text-gray-500">46</td>
+                                        <td class="px-4 py-2 text-sm text-gray-500">~3m</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="px-4 py-2 text-sm font-medium text-gray-900">API Tests</td>
+                                        <td class="px-4 py-2 text-sm text-gray-500">1</td>
+                                        <td class="px-4 py-2 text-sm text-gray-500">15</td>
+                                        <td class="px-4 py-2 text-sm text-gray-500">~2m</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="px-4 py-2 text-sm font-medium text-gray-900">E2E Tests</td>
+                                        <td class="px-4 py-2 text-sm text-gray-500">1</td>
+                                        <td class="px-4 py-2 text-sm text-gray-500">13</td>
+                                        <td class="px-4 py-2 text-sm text-gray-500">~8m</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <div class="mt-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                            <h4 class="font-semibold text-yellow-800 mb-2">⚠️ Known Issues</h4>
+                            <ul class="text-sm text-yellow-700 space-y-1">
+                                <li>• 202 tests skipped due to async mock configuration issues</li>
+                                <li>• 1 HTTP client retry test failing</li>
+                                <li>• Some tests require Docker containers to be running</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Hunt Scoring System Section -->
+        <div class="bg-white rounded-lg shadow-sm border border-gray-200">
+            <div class="p-6">
+                <button onclick="toggleSection('scoring')" class="w-full text-left flex items-center justify-between">
+                    <h2 class="text-2xl font-bold text-gray-900 flex items-center">
+                        <span class="mr-3">🎯</span>
+                        Hunt Scoring System Logic
+                    </h2>
+                    <svg id="scoring-icon" class="w-6 h-6 text-gray-500 transform transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                    </svg>
+                </button>
+                
+                <div id="scoring-content" class="mt-6 hidden">
+                    <div class="prose max-w-none">
+                        <h3 class="text-lg font-semibold text-gray-800 mb-4">Logarithmic Bucket Scoring System</h3>
+                        <p class="text-gray-600 mb-4">The system uses logarithmic buckets with diminishing returns to provide realistic score distributions based on Windows malware keywords analysis across 319 articles.</p>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                            <div class="bg-green-50 border border-green-200 rounded-lg p-4">
+                                <h4 class="font-semibold text-green-800 mb-2">Perfect Discriminators (75 points max)</h4>
+                                <p class="text-sm text-green-700 mb-2">Keywords that appear exclusively in "Chosen" content:</p>
+                                <ul class="text-xs text-green-600 space-y-1">
+                                    <li>• Process Names: rundll32, msiexec, svchost, lsass.exe</li>
+                                    <li>• Registry: hklm, appdata, programdata, WINDIR</li>
+                                    <li>• Commands: iex, wmic, powershell.exe</li>
+                                    <li>• File Types: .lnk, .iso</li>
+                                    <li>• Technical: MZ, -accepteula, wintmp</li>
+                                </ul>
+                            </div>
+                            
+                            <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                                <h4 class="font-semibold text-blue-800 mb-2">LOLBAS Executables (10 points max)</h4>
+                                <p class="text-sm text-blue-700 mb-2">40+ legitimate Windows executables commonly abused:</p>
+                                <ul class="text-xs text-blue-600 space-y-1">
+                                    <li>• System Tools: certutil.exe, cmd.exe, reg.exe</li>
+                                    <li>• Network Tools: bitsadmin.exe, netsh.exe, wmic.exe</li>
+                                    <li>• Script Engines: cscript.exe, mshta.exe, wscript.exe</li>
+                                    <li>• Installation: msiexec.exe, regsvr32.exe, rundll32.exe</li>
+                                </ul>
+                            </div>
+                        </div>
+
+                        <h4 class="font-semibold text-gray-800 mb-3">Scoring Formula</h4>
+                        <div class="bg-gray-50 rounded-lg p-4 mb-4">
+                            <div class="font-mono text-sm space-y-1">
+                                <div>Perfect Score = min(35 × log(matches + 1), 75.0)</div>
+                                <div>LOLBAS Score = min(5 × log(matches + 1), 10.0)</div>
+                                <div>Intelligence Score = min(4 × log(matches + 1), 10.0)</div>
+                                <div>Good Score = min(2.5 × log(matches + 1), 5.0)</div>
+                                <div>Negative Penalty = min(3 × log(matches + 1), 10.0)</div>
+                                <div class="font-semibold text-gray-800">Final Score = max(0.0, min(100.0, perfect + good + lolbas + intelligence - negative))</div>
+                            </div>
+                        </div>
+
+                        <h4 class="font-semibold text-gray-800 mb-3">Score Distribution (754 articles)</h4>
+                        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+                            <div class="text-center p-3 bg-gray-100 rounded">
+                                <div class="text-2xl font-bold text-gray-800">730</div>
+                                <div class="text-sm text-gray-600">0-19 (96.8%)</div>
+                                <div class="text-xs text-gray-500">Low value</div>
+                            </div>
+                            <div class="text-center p-3 bg-yellow-100 rounded">
+                                <div class="text-2xl font-bold text-yellow-800">12</div>
+                                <div class="text-sm text-gray-600">20-39 (1.6%)</div>
+                                <div class="text-xs text-gray-500">Moderate</div>
+                            </div>
+                            <div class="text-center p-3 bg-blue-100 rounded">
+                                <div class="text-2xl font-bold text-blue-800">8</div>
+                                <div class="text-sm text-gray-600">40-59 (1.1%)</div>
+                                <div class="text-xs text-gray-500">Good</div>
+                            </div>
+                            <div class="text-center p-3 bg-green-100 rounded">
+                                <div class="text-2xl font-bold text-green-800">3</div>
+                                <div class="text-sm text-gray-600">60-79 (0.4%)</div>
+                                <div class="text-xs text-gray-500">High value</div>
+                            </div>
+                        </div>
+
+                        <div class="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                            <h4 class="font-semibold text-blue-800 mb-2">💡 Benefits</h4>
+                            <ul class="text-sm text-blue-700 space-y-1">
+                                <li>• Automatic quality assessment without manual review</li>
+                                <li>• Data-driven scoring based on actual article classification</li>
+                                <li>• Technical focus on actionable threat hunting content</li>
+                                <li>• Scalable system that works for all incoming articles</li>
+                                <li>• Advanced regex support for cmd.exe obfuscation patterns</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Web Scraper Section -->
+        <div class="bg-white rounded-lg shadow-sm border border-gray-200">
+            <div class="p-6">
+                <button onclick="toggleSection('scraper')" class="w-full text-left flex items-center justify-between">
+                    <h2 class="text-2xl font-bold text-gray-900 flex items-center">
+                        <span class="mr-3">🕷️</span>
+                        Web Scraper Configuration
+                    </h2>
+                    <svg id="scraper-icon" class="w-6 h-6 text-gray-500 transform transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                    </svg>
+                </button>
+                
+                <div id="scraper-content" class="mt-6 hidden">
+                    <div class="prose max-w-none">
+                        <h3 class="text-lg font-semibold text-gray-800 mb-4">How the Web Scraper Works</h3>
+                        <p class="text-gray-600 mb-4">CTI Scraper uses a hybrid approach combining RSS feeds and web scraping to collect threat intelligence content from 40+ premium sources.</p>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                            <div class="bg-green-50 border border-green-200 rounded-lg p-4">
+                                <h4 class="font-semibold text-green-800 mb-2">🔄 RSS-First Approach</h4>
+                                <p class="text-sm text-green-700 mb-2">Preferred method for most sources:</p>
+                                <ul class="text-xs text-green-600 space-y-1">
+                                    <li>• Automatic fallback to web scraping if RSS fails</li>
+                                    <li>• Respects robots.txt and rate limiting</li>
+                                    <li>• Efficient and respectful to source servers</li>
+                                    <li>• Full content extraction from RSS feeds</li>
+                                </ul>
+                            </div>
+                            
+                            <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                                <h4 class="font-semibold text-blue-800 mb-2">🕷️ Web Scraping Fallback</h4>
+                                <p class="text-sm text-blue-700 mb-2">When RSS is unavailable or blocked:</p>
+                                <ul class="text-xs text-blue-600 space-y-1">
+                                    <li>• Modern CSS selectors for content extraction</li>
+                                    <li>• JSON-LD structured data support</li>
+                                    <li>• Anti-bot protection bypass</li>
+                                    <li>• Configurable rate limiting</li>
+                                </ul>
+                            </div>
+                        </div>
+
+                        <h4 class="font-semibold text-gray-800 mb-3">Configurable Parameters</h4>
+                        <div class="overflow-x-auto">
+                            <table class="min-w-full divide-y divide-gray-200">
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Parameter</th>
+                                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Description</th>
+                                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Default</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="bg-white divide-y divide-gray-200">
+                                    <tr>
+                                        <td class="px-4 py-2 text-sm font-medium text-gray-900">Check Frequency</td>
+                                        <td class="px-4 py-2 text-sm text-gray-500">How often to check for new content</td>
+                                        <td class="px-4 py-2 text-sm text-gray-500">30 minutes</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="px-4 py-2 text-sm font-medium text-gray-900">Lookback Window</td>
+                                        <td class="px-4 py-2 text-sm text-gray-500">Days back to look for articles</td>
+                                        <td class="px-4 py-2 text-sm text-gray-500">180 days</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="px-4 py-2 text-sm font-medium text-gray-900">Min Content Length</td>
+                                        <td class="px-4 py-2 text-sm text-gray-500">Minimum article length to collect</td>
+                                        <td class="px-4 py-2 text-sm text-gray-500">2000 characters</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="px-4 py-2 text-sm font-medium text-gray-900">Rate Limiting</td>
+                                        <td class="px-4 py-2 text-sm text-gray-500">Requests per minute limit</td>
+                                        <td class="px-4 py-2 text-sm text-gray-500">5-10 requests/min</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="px-4 py-2 text-sm font-medium text-gray-900">User Agent</td>
+                                        <td class="px-4 py-2 text-sm text-gray-500">Browser identification string</td>
+                                        <td class="px-4 py-2 text-sm text-gray-500">Modern browser UA</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <h4 class="font-semibold text-gray-800 mb-3 mt-6">Premium Threat Intelligence Sources</h4>
+                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
+                            <div class="bg-red-50 border border-red-200 rounded-lg p-3">
+                                <h5 class="font-semibold text-red-800 text-sm">🔴 Premium Sources</h5>
+                                <ul class="text-xs text-red-600 space-y-1 mt-1">
+                                    <li>• Cisco Talos Intelligence</li>
+                                    <li>• Palo Alto Unit42</li>
+                                    <li>• Kaspersky Securelist</li>
+                                    <li>• Microsoft Security</li>
+                                    <li>• Group-IB Threat Intel</li>
+                                </ul>
+                            </div>
+                            <div class="bg-orange-50 border border-orange-200 rounded-lg p-3">
+                                <h5 class="font-semibold text-orange-800 text-sm">🟠 Research Sources</h5>
+                                <ul class="text-xs text-orange-600 space-y-1 mt-1">
+                                    <li>• VMRay Blog</li>
+                                    <li>• Huntress Blog</li>
+                                    <li>• Elastic Security Labs</li>
+                                    <li>• Check Point Research</li>
+                                    <li>• SentinelOne Labs</li>
+                                </ul>
+                            </div>
+                            <div class="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                                <h5 class="font-semibold text-blue-800 text-sm">🔵 News Sources</h5>
+                                <ul class="text-xs text-blue-600 space-y-1 mt-1">
+                                    <li>• The Hacker News</li>
+                                    <li>• Bleeping Computer</li>
+                                    <li>• Dark Reading</li>
+                                    <li>• SecurityWeek</li>
+                                    <li>• SANS ISC</li>
+                                </ul>
+                            </div>
+                        </div>
+
+                        <div class="mt-6 p-4 bg-green-50 border border-green-200 rounded-lg">
+                            <h4 class="font-semibold text-green-800 mb-2">🎯 Content Filtering</h4>
+                            <p class="text-sm text-green-700 mb-2">Advanced filtering ensures only high-quality threat intelligence content is collected:</p>
+                            <ul class="text-sm text-green-600 space-y-1">
+                                <li>• Title keyword filtering (removes webinars, job postings, etc.)</li>
+                                <li>• Content length requirements (minimum 2000 characters)</li>
+                                <li>• URL pattern matching for relevant articles only</li>
+                                <li>• Threat intelligence keyword requirements for some sources</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- AI Assistant Section -->
+        <div class="bg-white rounded-lg shadow-sm border border-gray-200">
+            <div class="p-6">
+                <button onclick="toggleSection('ai')" class="w-full text-left flex items-center justify-between">
+                    <h2 class="text-2xl font-bold text-gray-900 flex items-center">
+                        <span class="mr-3">🤖</span>
+                        AI Assistant & Chunking Logic
+                    </h2>
+                    <svg id="ai-icon" class="w-6 h-6 text-gray-500 transform transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                    </svg>
+                </button>
+                
+                <div id="ai-content" class="mt-6 hidden">
+                    <div class="prose max-w-none">
+                        <h3 class="text-lg font-semibold text-gray-800 mb-4">AI-Powered Content Analysis</h3>
+                        <p class="text-gray-600 mb-4">CTI Scraper uses multiple AI models to analyze threat intelligence content, generate summaries, and create SIGMA rules for detection engineering.</p>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                            <div class="bg-green-50 border border-green-200 rounded-lg p-4">
+                                <h4 class="font-semibold text-green-800 mb-2">🤖 ChatGPT (OpenAI)</h4>
+                                <ul class="text-xs text-green-600 space-y-1">
+                                    <li>• Fast, high-quality responses</li>
+                                    <li>• Excellent for summaries</li>
+                                    <li>• Requires OpenAI API key</li>
+                                    <li>• Cost-effective for most tasks</li>
+                                </ul>
+                            </div>
+                            <div class="bg-purple-50 border border-purple-200 rounded-lg p-4">
+                                <h4 class="font-semibold text-purple-800 mb-2">🧠 Claude (Anthropic)</h4>
+                                <ul class="text-xs text-purple-600 space-y-1">
+                                    <li>• Advanced reasoning capabilities</li>
+                                    <li>• Long context understanding</li>
+                                    <li>• Requires Anthropic API key</li>
+                                    <li>• Best for complex analysis</li>
+                                </ul>
+                            </div>
+                            <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                                <h4 class="font-semibold text-blue-800 mb-2">🦙 Llama (Local Ollama)</h4>
+                                <ul class="text-xs text-blue-600 space-y-1">
+                                    <li>• Local processing, no API costs</li>
+                                    <li>• Fast and private</li>
+                                    <li>• No external dependencies</li>
+                                    <li>• Good for basic analysis</li>
+                                </ul>
+                            </div>
+                        </div>
+
+                        <h4 class="font-semibold text-gray-800 mb-3">Content Chunking Algorithm</h4>
+                        <p class="text-gray-600 mb-4">The system uses intelligent chunking to break down large articles into manageable pieces for AI analysis while preserving context and technical details.</p>
+                        
+                        <div class="bg-gray-50 rounded-lg p-4 mb-4">
+                            <h5 class="font-semibold text-gray-800 mb-2">Chunking Parameters</h5>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <div class="text-sm font-medium text-gray-700">Chunk Size: 1000 characters</div>
+                                    <div class="text-xs text-gray-500">Maximum characters per chunk</div>
+                                </div>
+                                <div>
+                                    <div class="text-sm font-medium text-gray-700">Overlap: 200 characters</div>
+                                    <div class="text-xs text-gray-500">Characters to overlap between chunks</div>
+                                </div>
+                                <div>
+                                    <div class="text-sm font-medium text-gray-700">Sentence Boundary Breaking</div>
+                                    <div class="text-xs text-gray-500">Breaks at sentence endings when possible</div>
+                                </div>
+                                <div>
+                                    <div class="text-sm font-medium text-gray-700">Context Preservation</div>
+                                    <div class="text-xs text-gray-500">Maintains technical content integrity</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <h4 class="font-semibold text-gray-800 mb-3">Content Filtering System</h4>
+                        <p class="text-gray-600 mb-4">Advanced ML-based filtering reduces API costs by 20-80% while maintaining analysis quality.</p>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-4">
+                            <div class="bg-green-50 border border-green-200 rounded-lg p-4">
+                                <h5 class="font-semibold text-green-800 mb-2">✅ Huntable Patterns (17 patterns)</h5>
+                                <ul class="text-xs text-green-600 space-y-1">
+                                    <li>• Command patterns: powershell.exe, cmd.exe, bash</li>
+                                    <li>• Process patterns: node.exe, ws_tomcatservice.exe</li>
+                                    <li>• File patterns: .dll, .exe, .bat, .ps1</li>
+                                    <li>• Network patterns: URLs, IP addresses</li>
+                                    <li>• Technical patterns: CVE, backdoor, shell, exploit</li>
+                                </ul>
+                            </div>
+                            
+                            <div class="bg-red-50 border border-red-200 rounded-lg p-4">
+                                <h5 class="font-semibold text-red-800 mb-2">❌ Not Huntable Patterns (11 patterns)</h5>
+                                <ul class="text-xs text-red-600 space-y-1">
+                                    <li>• Acknowledgments: gratitude, thank you</li>
+                                    <li>• Contact info: contact mandiant, investigations</li>
+                                    <li>• Marketing: book a demo, try free</li>
+                                    <li>• General statements: this highlights how</li>
+                                    <li>• Navigation: platform solutions resources</li>
+                                </ul>
+                            </div>
+                        </div>
+
+                        <h4 class="font-semibold text-gray-800 mb-3">Machine Learning Model</h4>
+                        <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <div>
+                                    <div class="text-sm font-medium text-blue-800">Algorithm</div>
+                                    <div class="text-xs text-blue-600">RandomForestClassifier</div>
+                                </div>
+                                <div>
+                                    <div class="text-sm font-medium text-blue-800">Accuracy</div>
+                                    <div class="text-xs text-blue-600">80% on test data</div>
+                                </div>
+                                <div>
+                                    <div class="text-sm font-medium text-blue-800">Features</div>
+                                    <div class="text-xs text-blue-600">23 extracted features per chunk</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="mt-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                            <h4 class="font-semibold text-yellow-800 mb-2">💰 Cost Optimization</h4>
+                            <p class="text-sm text-yellow-700 mb-2">The filtering system provides significant cost savings:</p>
+                            <ul class="text-sm text-yellow-600 space-y-1">
+                                <li>• 20-80% content reduction before AI analysis</li>
+                                <li>• Configurable confidence thresholds (0.5-0.8)</li>
+                                <li>• Perfect discriminator protection (threat hunting keywords never filtered)</li>
+                                <li>• Real-time cost savings calculation</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Settings Guide Section -->
+        <div class="bg-white rounded-lg shadow-sm border border-gray-200">
+            <div class="p-6">
+                <button onclick="toggleSection('settings')" class="w-full text-left flex items-center justify-between">
+                    <h2 class="text-2xl font-bold text-gray-900 flex items-center">
+                        <span class="mr-3">⚙️</span>
+                        Settings Tab Guide
+                    </h2>
+                    <svg id="settings-icon" class="w-6 h-6 text-gray-500 transform transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                    </svg>
+                </button>
+                
+                <div id="settings-content" class="mt-6 hidden">
+                    <div class="prose max-w-none">
+                        <h3 class="text-lg font-semibold text-gray-800 mb-4">Configuration Overview</h3>
+                        <p class="text-gray-600 mb-4">The Settings tab allows you to configure AI models, API keys, SIGMA rule generation, and other system preferences.</p>
+                        
+                        <div class="space-y-6">
+                            <!-- AI Assistant Configuration -->
+                            <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                                <h4 class="font-semibold text-blue-800 mb-3">🤖 AI Assistant Configuration</h4>
+                                <div class="space-y-3">
+                                    <div>
+                                        <div class="text-sm font-medium text-blue-700">Preferred AI Model</div>
+                                        <div class="text-xs text-blue-600">Choose between ChatGPT, Claude, or Llama for analysis</div>
+                                    </div>
+                                    <div>
+                                        <div class="text-sm font-medium text-blue-700">API Keys</div>
+                                        <div class="text-xs text-blue-600">Configure OpenAI and Anthropic API keys for external AI services</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- SIGMA Rule Configuration -->
+                            <div class="bg-green-50 border border-green-200 rounded-lg p-4">
+                                <h4 class="font-semibold text-green-800 mb-3">📋 SIGMA Rule Configuration</h4>
+                                <div class="space-y-3">
+                                    <div>
+                                        <div class="text-sm font-medium text-green-700">SIGMA Author</div>
+                                        <div class="text-xs text-green-600">Your name/identifier for generated SIGMA rules</div>
+                                    </div>
+                                    <div>
+                                        <div class="text-sm font-medium text-green-700">Comment Prompts</div>
+                                        <div class="text-xs text-green-600">Enable/disable descriptive comments in SIGMA rules</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Display Preferences -->
+                            <div class="bg-purple-50 border border-purple-200 rounded-lg p-4">
+                                <h4 class="font-semibold text-purple-800 mb-3">🎨 Display Preferences</h4>
+                                <div class="space-y-3">
+                                    <div>
+                                        <div class="text-sm font-medium text-purple-700">Articles Per Page</div>
+                                        <div class="text-xs text-purple-600">Number of articles to display per page (25, 50, 100)</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <h4 class="font-semibold text-gray-800 mb-3 mt-6">Configuration Categories</h4>
+                        <div class="overflow-x-auto">
+                            <table class="min-w-full divide-y divide-gray-200">
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Section</th>
+                                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Purpose</th>
+                                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Key Settings</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="bg-white divide-y divide-gray-200">
+                                    <tr>
+                                        <td class="px-4 py-2 text-sm font-medium text-gray-900">AI Assistant</td>
+                                        <td class="px-4 py-2 text-sm text-gray-500">Configure AI models and API access</td>
+                                        <td class="px-4 py-2 text-sm text-gray-500">Model selection, API keys</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="px-4 py-2 text-sm font-medium text-gray-900">SIGMA Rules</td>
+                                        <td class="px-4 py-2 text-sm text-gray-500">Customize rule generation</td>
+                                        <td class="px-4 py-2 text-sm text-gray-500">Author name, comment prompts</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="px-4 py-2 text-sm font-medium text-gray-900">Display</td>
+                                        <td class="px-4 py-2 text-sm text-gray-500">UI preferences and pagination</td>
+                                        <td class="px-4 py-2 text-sm text-gray-500">Articles per page</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="px-4 py-2 text-sm font-medium text-gray-900">API Configuration</td>
+                                        <td class="px-4 py-2 text-sm text-gray-500">External service integration</td>
+                                        <td class="px-4 py-2 text-sm text-gray-500">OpenAI, Anthropic keys</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <div class="mt-6 p-4 bg-green-50 border border-green-200 rounded-lg">
+                            <h4 class="font-semibold text-green-800 mb-2">💾 Settings Persistence</h4>
+                            <p class="text-sm text-green-700 mb-2">All settings are automatically saved to your browser's local storage:</p>
+                            <ul class="text-sm text-green-600 space-y-1">
+                                <li>• Settings persist across browser sessions</li>
+                                <li>• No server-side storage required</li>
+                                <li>• Instant configuration changes</li>
+                                <li>• Per-browser customization support</li>
+                            </ul>
+                        </div>
+
+                        <div class="mt-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                            <h4 class="font-semibold text-yellow-800 mb-2">🔒 Security Notes</h4>
+                            <ul class="text-sm text-yellow-700 space-y-1">
+                                <li>• API keys are stored locally in your browser only</li>
+                                <li>• No API keys are transmitted to external servers except for AI analysis</li>
+                                <li>• Clear browser data to remove stored API keys</li>
+                                <li>• Use environment variables for production deployments</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<script>
+function toggleSection(sectionId) {
+    const content = document.getElementById(sectionId + '-content');
+    const icon = document.getElementById(sectionId + '-icon');
+    
+    if (content.classList.contains('hidden')) {
+        content.classList.remove('hidden');
+        icon.classList.add('rotate-180');
+    } else {
+        content.classList.add('hidden');
+        icon.classList.remove('rotate-180');
+    }
+}
+
+// Initialize with first section open
+document.addEventListener('DOMContentLoaded', function() {
+    toggleSection('testing');
+});
+</script>
+
+<style>
+.rotate-180 {
+    transform: rotate(180deg);
+}
+</style>
+{% endblock %}

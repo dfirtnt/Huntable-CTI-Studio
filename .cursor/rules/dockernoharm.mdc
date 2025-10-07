@@ -1,0 +1,7 @@
+---
+description:NEVER use docker-compose down -v - it removes all Docker volumes including database data
+Always use docker-compose down (without -v) to preserve data volumes
+globs:
+alwaysApply: true
+---
+description:NEVER  git commit . nor git push origin main without getting positive confirmation from user. 
