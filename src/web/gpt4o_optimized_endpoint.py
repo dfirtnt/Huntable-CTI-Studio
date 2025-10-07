@@ -38,7 +38,12 @@ async def api_gpt4o_rank_optimized(article_id: int, request: Request):
         # Optimize content if filtering is enabled
         if use_filtering:
             logger.info(f"Optimizing content for article {article_id} with confidence threshold {min_confidence}")
-            optimization_result = await optimize_article_content(article.content, min_confidence)
+            optimization_result = await optimize_article_content(
+                article.content, 
+                min_confidence=min_confidence,
+                article_metadata=article.article_metadata,
+                content_hash=article.content_hash
+            )
             
             if optimization_result['success']:
                 content_to_analyze = optimization_result['filtered_content']
