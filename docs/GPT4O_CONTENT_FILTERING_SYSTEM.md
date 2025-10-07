@@ -22,16 +22,19 @@ The GPT-4o Content Filtering System is a hybrid machine learning and pattern-bas
 
 The system uses a **hybrid approach** combining:
 
-1. **Pattern-based filters** (fast, deterministic)
-2. **Machine learning model** (contextual, adaptive)
-3. **Chunk-based analysis** (preserves context)
+1. **Hunt scoring system** (threat hunting quality assessment)
+2. **Pattern-based filters** (fast, deterministic)
+3. **Machine learning model** (contextual, adaptive with hunt score integration)
+4. **Chunk-based analysis** (preserves context)
 
 ```
 Article Content
       ↓
 Chunking (1000 chars, 200 overlap)
       ↓
-Pattern Analysis + ML Classification
+Hunt Scoring (0-100) + Pattern Analysis + ML Classification
+      ↓
+Enhanced ML Classification (with hunt score features)
       ↓
 Filtered Content (Huntable Chunks Only)
       ↓
@@ -47,12 +50,15 @@ Analysis Results + Cost Savings
 **Core filtering engine** with pattern matching and ML classification.
 
 **Key Features:**
-- 17 huntable patterns (commands, technical terms, IOCs)
-- 11 not huntable patterns (acknowledgments, marketing, general statements)
+- **97 perfect discriminators** from threat hunting analysis
+- **40+ LOLBAS executables** for comprehensive coverage
+- **Cross-platform patterns** (Windows, macOS, Linux)
+- **Intelligence indicators** (APT groups, campaigns, TTPs)
 - **Perfect discriminator protection** - chunks containing threat hunting keywords are never filtered
 - **Command line obfuscation pattern support** - advanced regex patterns for cmd.exe obfuscation
-- RandomForestClassifier with 80% accuracy
-- 23 extracted features per chunk
+- **Hunt score integration** - ML confidence enhanced by threat hunting scores
+- RandomForestClassifier with enhanced accuracy through hunt score features
+- 27+ extracted features per chunk (including hunt score features)
 - Configurable confidence thresholds
 
 ### 2. GPT-4o Optimizer (`src/utils/gpt4o_optimizer.py`)

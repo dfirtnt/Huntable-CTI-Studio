@@ -41,10 +41,12 @@ docs/
 
 ### 🤖 AI Features
 - **Hybrid IOC Extraction**: `development/HYBRID_IOC_EXTRACTION.md` - Advanced IOC extraction system
+- **Content Filtering System**: `CONTENT_FILTERING_SYSTEM.md` - ML-based content filtering with hunt score integration
+- **GPT-4o Optimization**: `GPT4O_CONTENT_FILTERING_SYSTEM.md` - Enhanced filtering system documentation
 
 ### 🏗️ Architecture & Quality
 - **Advanced Quality System**: `development/ADVANCED_QUALITY_SYSTEM.md` - Quality assessment framework
-- **Threat Hunting Scoring**: `development/THREAT_HUNTING_SCORING.md` - Scoring algorithms
+- **Threat Hunting Scoring**: `development/THREAT_HUNTING_SCORING.md` - Scoring algorithms with ML integration
 
 ### 📦 Deployment
 - **Migration Summary**: `deployment/MIGRATION_SUMMARY.md` - Migration procedures
