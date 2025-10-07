@@ -40,6 +40,22 @@ I've successfully designed and implemented a machine learning-based content filt
 - **Confidence threshold** selection (0.5, 0.7, 0.8)
 - **Real-time feedback** on cost savings
 
+## Hunt Scoring Integration
+
+**Enhanced Alignment (2024):**
+- **Expanded Patterns**: Integrated all 97 perfect discriminators from hunt scoring system
+- **LOLBAS Coverage**: Added 40+ LOLBAS executables to huntable patterns
+- **Intelligence Indicators**: Included APT groups, campaigns, and threat intelligence terms
+- **Cross-Platform**: Added macOS and Linux patterns for comprehensive coverage
+- **Confidence Scoring**: Enhanced ML classification with hunt score integration
+- **Feature Engineering**: Hunt score now used as ML feature for improved accuracy
+
+**Key Improvements:**
+- **Pattern Synchronization**: Single source of truth for threat hunting keywords
+- **Confidence Enhancement**: Hunt scores boost ML confidence for high-quality content
+- **Quality Preservation**: Perfect discriminators protected from filtering
+- **Cost Optimization**: Better filtering accuracy reduces GPT-4o costs
+
 ## Validation Results
 
 ### ML Model Performance

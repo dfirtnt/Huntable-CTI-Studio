@@ -172,32 +172,103 @@ class ContentFilter:
         """Load pattern-based rules for content classification."""
         return {
             "huntable_patterns": [
-                # Command patterns
+                # Command patterns (expanded from hunt scoring)
                 r"powershell\.exe.*-encodedCommand",
                 r"invoke-webrequest.*-uri",
                 r"cmd\.exe.*\/c",
                 r"bash.*-c",
                 r"curl.*-o",
                 r"wget.*-O",
+                r"rundll32|comspec|msiexec|wmic|iex|findstr",
+                r"powershell\.exe|cmd\.exe|bash|powershell",
                 
-                # Process patterns
+                # Process patterns (expanded with LOLBAS)
                 r"node\.exe.*spawn",
                 r"ws_tomcatservice\.exe",
                 r"powershell\.exe.*download",
+                r"certutil|schtasks|bitsadmin|ftp|netsh|cscript|mshta",
+                r"regsvr32|rundll32|forfiles|explorer|ieexec",
+                r"conhost|svchost|lsass|csrss|smss|wininit",
+                r"nltest|odbcconf|scrobj|addinutil|appinstaller",
+                r"aspnet_compiler|at\.exe|atbroker|certoc|certreq",
+                r"cipher|cmdkey|cmdl32|cmstp|colorcpl|computerdefaults",
+                r"configsecuritypolicy|control\.exe|csc|customshellhost",
+                r"datasvcutil|desktopimgdownldr|devicecredentialdeployment",
+                r"dfsvc|diantz|diskshadow|dnscmd|esentutl|eventvwr",
+                r"expand\.exe|extexport|extrac32|finger\.exe|fltmc|gpscript",
+                r"replace\.exe|sc|print\.exe|ssh|teams\.exe|rdrleakdiag\.exe",
                 
-                # File patterns
-                r"[A-Za-z]:\\\\[^\s]+\.(dll|exe|bat|ps1)",
+                # File patterns (expanded)
+                r"[A-Za-z]:\\\\[^\s]+\.(dll|exe|bat|ps1|lnk|iso)",
                 r"\/[^\s]+\.(sh|py|pl)",
+                r"\.lnk|\.iso|\.bat|\.ps1|\.dll|\.exe",
+                r"\\temp\\|\\pipe\\|%WINDIR%|%wintmp%",
                 
-                # Network patterns
+                # Network patterns (expanded)
                 r"http[s]?://[^\s]+",
                 r"\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b",
+                r"tcp://|hxxp|127\.0\.0\.1|8080",
                 
-                # Technical patterns
+                # Technical patterns (expanded from hunt scoring)
                 r"CVE-\d{4}-\d+",
                 r"backdoor|shell|exploit|payload",
                 r"lateral movement|persistence",
                 r"command and control|c2",
+                r"APT|threat actor|attribution|campaign|incident",
+                r"breach|compromise|malware family|IOC|indicator",
+                r"TTP|technique|observed|discovered|detected in wild",
+                r"real-world|in the wild|active campaign|ongoing threat",
+                r"victim|targeted|exploited|compromised|infiltrated",
+                r"FIN|TA|UNC|APT1|APT28|APT29|Lazarus|Carbanak",
+                r"Cozy Bear|Fancy Bear|Wizard Spider|Ryuk|Maze",
+                r"ransomware|data breach|cyber attack|espionage",
+                r"sophisticated attack|advanced persistent threat",
+                r"golden-ticket|silver-ticket",
+                
+                # Registry and system patterns
+                r"hklm|appdata|programdata|wbem|HKCU|System32",
+                r"currentversion|EventCode|parent-child",
+                
+                # PowerShell and obfuscation patterns
+                r"FromBase64String|MemoryStream|New-Object|DownloadString",
+                r"invoke-mimikatz|hashdump|invoke-shellcode|invoke-eternalblue",
+                r"mimikatz|kerberoast|psexec",
+                r"Defender query|KQL|2>&1",
+                
+                # macOS patterns (from hunt scoring)
+                r"homebrew|/users/shared/|chmod 777",
+                r"tccd|spctl|csrutil|mach-o|plist|osascript|TCC\.db",
+                
+                # Linux patterns (from hunt scoring)
+                r"auditd|systemd|xattr|EndpointSecurity|osquery",
+                r"zeek|dns_query|ja3|syslog|sudo|cron|LD_PRELOAD|launchd",
+                r"auditlog|iam|snort|proxy|http_request|anomaly",
+                r"linux|macos|cloud|aws|azure|network|ssl",
+                r"codesign|cloudtrail|guardduty|s3|ec2|gcp",
+                r"suricata|netflow|beaconing|user-agent",
+                
+                # Character patterns
+                r"==|!=|<=|>=|::|-->|->|//|--|\\\\|\|",
+                r"\{\}|<>|\[\]|\^|\"|CN=|XOR|Base64",
+                r"User-Agent|sshd|MpPreference|Whoami|C\$|MSBuild|7z",
+                
+                # Cmd.exe obfuscation regex patterns
+                r"%[A-Za-z0-9_]+:~[0-9]+(,[0-9]+)?%",
+                r"%[A-Za-z0-9_]+:[^=%%]+=[^%]*%",
+                r"![A-Za-z0-9_]+!",
+                r"\bcmd(\.exe)?\s*/V(?::[^ \t/]+)?",
+                r"\bset\s+[A-Za-z0-9_]+\s*=",
+                r"\bcall\s+(set|%[A-Za-z0-9_]+%|![A-Za-z0-9_]+!)",
+                r"(%[^%]+%){4,}",
+                r"\bfor\s+/?[A-Za-z]*\s+%[A-Za-z]\s+in\s*\(",
+                r"![A-Za-z0-9_]+:~%[A-Za-z],1!",
+                r"\bfor\s+/L\s+%[A-Za-z]\s+in\s*\([^)]+\)",
+                r"%[A-Za-z0-9_]+:~-[0-9]+%|%[A-Za-z0-9_]+:~[0-9]+%",
+                r"%[A-Za-z0-9_]+:\*[^!%]+=!%",
+                r"[^\w](s\^+e\^*t|s\^*e\^+t)[^\w]",
+                r"[^\w](c\^+a\^*l\^*l|c\^*a\^+l\^*l|c\^*a\^*l\^+l)[^\w]",
+                r"\^|\"",
+                r"%[^%]+%<[^>]*|set\s+[A-Za-z0-9_]+\s*=\s*[^&|>]*\|",
             ],
             
             "not_huntable_patterns": [
@@ -222,8 +293,8 @@ class ContentFilter:
             ]
         }
     
-    def extract_features(self, text: str) -> Dict[str, float]:
-        """Extract features from text for ML classification."""
+    def extract_features(self, text: str, hunt_score: Optional[float] = None) -> Dict[str, float]:
+        """Extract features from text for ML classification with hunt score integration."""
         text_lower = text.lower()
         
         features = {
@@ -270,6 +341,18 @@ class ContentFilter:
             features["not_huntable_pattern_ratio"] = 0
             features["technical_term_ratio"] = 0
             features["marketing_term_ratio"] = 0
+        
+        # Add hunt score as feature if available
+        if hunt_score is not None:
+            features["hunt_score"] = hunt_score / 100.0  # Normalize to 0-1 range
+            features["hunt_score_high"] = 1.0 if hunt_score >= 70 else 0.0  # High quality threshold
+            features["hunt_score_medium"] = 1.0 if 30 <= hunt_score < 70 else 0.0  # Medium quality
+            features["hunt_score_low"] = 1.0 if hunt_score < 30 else 0.0  # Low quality
+        else:
+            features["hunt_score"] = 0.0
+            features["hunt_score_high"] = 0.0
+            features["hunt_score_medium"] = 0.0
+            features["hunt_score_low"] = 0.0
         
         return features
     
@@ -362,19 +445,23 @@ class ContentFilter:
             logger.error(f"Error loading model: {e}")
             return False
     
-    def predict_huntability(self, text: str) -> Tuple[bool, float]:
+    def predict_huntability(self, text: str, hunt_score: Optional[float] = None) -> Tuple[bool, float]:
         """
-        Predict if text is huntable using ML model.
+        Predict if text is huntable using ML model with hunt score integration.
         
+        Args:
+            text: Text to classify
+            hunt_score: Optional threat hunting score (0-100) from hunt scoring system
+            
         Returns:
             (is_huntable, confidence_score)
         """
         if not self.model:
             # Fallback to pattern-based classification
-            return self._pattern_based_classification(text)
+            return self._pattern_based_classification(text, hunt_score)
         
         try:
-            features = self.extract_features(text)
+            features = self.extract_features(text, hunt_score)
             feature_vector = np.array(list(features.values())).reshape(1, -1)
             
             # Get prediction and probability
@@ -382,14 +469,20 @@ class ContentFilter:
             probabilities = self.model.predict_proba(feature_vector)[0]
             confidence = max(probabilities)
             
+            # Enhanced confidence with hunt score integration
+            if hunt_score is not None:
+                # Boost confidence for high hunt scores, reduce for low scores
+                hunt_boost = (hunt_score - 50) / 100  # -0.5 to +0.5 range
+                confidence = max(0.0, min(1.0, confidence + hunt_boost * 0.3))
+            
             return bool(prediction), confidence
             
         except Exception as e:
             logger.error(f"Error in ML prediction: {e}")
-            return self._pattern_based_classification(text)
+            return self._pattern_based_classification(text, hunt_score)
     
-    def _pattern_based_classification(self, text: str) -> Tuple[bool, float]:
-        """Fallback pattern-based classification."""
+    def _pattern_based_classification(self, text: str, hunt_score: Optional[float] = None) -> Tuple[bool, float]:
+        """Fallback pattern-based classification with hunt score integration."""
         text_lower = text.lower()
         
         huntable_score = sum(1 for pattern in self.pattern_rules["huntable_patterns"] 
@@ -397,22 +490,33 @@ class ContentFilter:
         not_huntable_score = sum(1 for pattern in self.pattern_rules["not_huntable_patterns"] 
                                if re.search(pattern, text_lower))
         
-        if huntable_score > not_huntable_score:
-            confidence = min(0.9, huntable_score / max(huntable_score + not_huntable_score, 1))
-            return True, confidence
+        # Base classification
+        is_huntable = huntable_score > not_huntable_score
+        base_confidence = min(0.9, max(huntable_score, not_huntable_score) / max(huntable_score + not_huntable_score, 1))
+        
+        # Integrate hunt score if available
+        if hunt_score is not None:
+            # Hunt score influence: high scores boost huntable confidence, low scores reduce it
+            hunt_influence = (hunt_score - 50) / 100  # -0.5 to +0.5 range
+            if is_huntable:
+                confidence = min(1.0, base_confidence + hunt_influence * 0.4)
+            else:
+                confidence = max(0.0, base_confidence - hunt_influence * 0.4)
         else:
-            confidence = min(0.9, not_huntable_score / max(huntable_score + not_huntable_score, 1))
-            return False, confidence
+            confidence = base_confidence
+        
+        return is_huntable, confidence
     
     def filter_content(self, content: str, min_confidence: float = 0.7, 
-                      chunk_size: int = 1000) -> FilterResult:
+                      chunk_size: int = 1000, hunt_score: Optional[float] = None) -> FilterResult:
         """
-        Filter content to remove non-huntable chunks.
+        Filter content to remove non-huntable chunks with hunt score integration.
         
         Args:
             content: Full article content
             min_confidence: Minimum confidence threshold for filtering
             chunk_size: Size of chunks to analyze
+            hunt_score: Optional threat hunting score (0-100) from hunt scoring system
             
         Returns:
             FilterResult with filtered content and metadata
@@ -434,7 +538,7 @@ class ContentFilter:
                 huntable_chunks.append((start_offset, end_offset, chunk_text))
                 continue
             
-            is_huntable, confidence = self.predict_huntability(chunk_text)
+            is_huntable, confidence = self.predict_huntability(chunk_text, hunt_score)
             
             if is_huntable and confidence >= min_confidence:
                 huntable_chunks.append((start_offset, end_offset, chunk_text))
