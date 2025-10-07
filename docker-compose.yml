@@ -52,10 +52,10 @@ services:
       - ENVIRONMENT=development
       - LOG_LEVEL=DEBUG
       - LLM_API_URL=http://cti_ollama:11434
-      - LLM_MODEL=mistral:7b
+      - LLM_MODEL=llama3.2:1b
       - LLM_TEMPERATURE=0.3
       - LLM_MAX_TOKENS=2048
-      - OLLAMA_CONTENT_LIMIT=8000
+      - OLLAMA_CONTENT_LIMIT=40000
       - CHATGPT_CONTENT_LIMIT=20000
       - ANTHROPIC_API_URL=https://api.anthropic.com/v1/messages
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
@@ -146,6 +146,9 @@ services:
     environment:
       - OLLAMA_HOST=0.0.0.0
       - OLLAMA_ORIGINS=*
+      - OLLAMA_NUM_PARALLEL=1
+      - OLLAMA_MAX_LOADED_MODELS=1
+      - OLLAMA_MAX_QUEUE=512
     networks:
       - cti_network
     restart: unless-stopped
