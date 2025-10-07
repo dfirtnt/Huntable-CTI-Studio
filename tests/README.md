@@ -9,7 +9,7 @@
 | Category | Files | Tests | Status | Description |
 |----------|-------|-------|--------|-------------|
 | **Unit Tests** | 21 | 539 | ✅ Active | Core functionality testing |
-| **UI Tests** | 5 | 61 | ✅ Active | User interface testing |
+| **UI Tests** | 5 | 61 | ✅ Active | User interface testing (Playwright sync API) |
 | **Integration Tests** | 4 | 46 | ✅ Active | Cross-component testing |
 | **API Tests** | 1 | 15 | ✅ Active | API endpoint testing |
 | **E2E Tests** | 1 | 13 | ✅ Active | End-to-end workflow testing |
@@ -83,7 +83,7 @@ Core functionality testing with mocked dependencies:
 - **`test_database.py`** (5 tests) - Database models and schemas
 
 ### UI Tests (61 tests)
-User interface testing with Playwright:
+User interface testing with Playwright sync API:
 
 - **`test_ai_assistant_ui.py`** (15 tests) - AI Assistant interface
 - **`test_ui_flows.py`** (13 tests) - User workflow testing
@@ -105,7 +105,7 @@ API endpoint testing:
 - **`test_endpoints.py`** (15 tests) - REST API endpoints
 
 ### E2E Tests (13 tests)
-End-to-end workflow testing:
+End-to-end workflow testing with Playwright sync API:
 
 - **`test_web_interface.py`** (13 tests) - Complete web interface workflows
 
@@ -123,9 +123,9 @@ End-to-end workflow testing:
 - **GPT-4o Endpoint** (15 tests) - All passing
 - **Ollama Integration** (20 tests) - All passing
 - **IOC Extractor** (20 tests) - All passing
-- **UI Tests** (61 tests) - All passing
+- **UI Tests** (61 tests) - All passing (Playwright sync API)
 - **API Tests** (15 tests) - All passing
-- **E2E Tests** (13 tests) - All passing
+- **E2E Tests** (13 tests) - All passing (Playwright sync API)
 
 ### ⏭️ Skipped Tests (202 tests)
 Tests that need async mock configuration fixes:

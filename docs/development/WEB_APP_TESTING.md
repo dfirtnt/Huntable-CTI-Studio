@@ -41,31 +41,70 @@ trace = on-first-retry
 ### Browser Setup
 ```python
 import pytest
-from playwright.async_api import async_playwright, Page
+from playwright.sync_api import sync_playwright, Page
+
+@pytest.fixture(scope="session")
+def browser_context_args():
+    """Browser context arguments for Playwright tests"""
+    return {
+        "viewport": {"width": 1280, "height": 720},
+        "ignore_https_errors": True,
+        "record_video_dir": "test-results/videos/",
+    }
+
+@pytest.fixture(scope="session")
+def browser_type_launch_args():
+    """Browser launch arguments"""
+    return {
+        "headless": True,
+        "slow_mo": 100,
+    }
+
+@pytest.fixture(scope="session")
+def playwright_context():
+    """Playwright context for session-scoped tests"""
+    with sync_playwright() as p:
+        yield p
+
+@pytest.fixture(scope="session")
+def browser(playwright_context):
+    """Browser instance for session-scoped tests"""
+    browser = playwright_context.chromium.launch(headless=True)
+    yield browser
+    browser.close()
+
+@pytest.fixture(scope="session")
+def context(browser):
+    """Browser context for session-scoped tests"""
+    context = browser.new_context(
+        viewport={"width": 1280, "height": 720},
+        ignore_https_errors=True,
+        record_video_dir="test-results/videos/",
+    )
+    yield context
+    context.close()
 
 @pytest.fixture
-async def browser_page():
-    """Playwright browser page fixture."""
-    async with async_playwright() as p:
-        browser = await p.chromium.launch(headless=False)
-        page = await browser.new_page()
-        yield page
-        await browser.close()
+def page(context):
+    """Page instance for each test"""
+    page = context.new_page()
+    yield page
+    page.close()
 ```
 
 ### Basic Navigation
 ```python
 @pytest.mark.ui
-async def test_basic_navigation(page: Page):
+def test_basic_navigation(page: Page):
     """Test basic page navigation."""
     # Navigate to homepage
-    await page.goto("http://localhost:8001/")
+    page.goto("http://localhost:8001/")
     
     # Verify page loaded
-    await expect(page).to_have_title("CTI Scraper")
+    expect(page).to_have_title("CTI Scraper")
     
     # Check for key elements
-    await expect(page.locator("h1")).to_be_visible()
+    expect(page.locator("h1")).to_be_visible()
 ```
 
 ## 🧪 Test Examples
@@ -73,89 +112,89 @@ async def test_basic_navigation(page: Page):
 ### Homepage Testing
 ```python
 @pytest.mark.ui
-async def test_homepage_loads(page: Page):
+def test_homepage_loads(page: Page):
     """Test homepage loads correctly."""
-    await page.goto("http://localhost:8001/")
+    page.goto("http://localhost:8001/")
     
     # Verify page title
-    await expect(page).to_have_title("CTI Scraper")
+    expect(page).to_have_title("CTI Scraper")
     
     # Check navigation menu
     nav_items = ["Dashboard", "Articles", "Sources", "Analysis"]
     for item in nav_items:
-        await expect(page.locator(f"text={item}")).to_be_visible()
+        expect(page.locator(f"text={item}")).to_be_visible()
     
     # Verify main content area
-    await expect(page.locator("main")).to_be_visible()
+    expect(page.locator("main")).to_be_visible()
 ```
 
 ### Navigation Testing
 ```python
 @pytest.mark.ui
-async def test_navigation_menu(page: Page):
+def test_navigation_menu(page: Page):
     """Test navigation between pages."""
-    await page.goto("http://localhost:8001/")
+    page.goto("http://localhost:8001/")
     
     # Test navigation to articles
-    await page.click("text=Articles")
-    await expect(page).to_have_url("http://localhost:8001/articles")
-    await expect(page.locator("h1:has-text('Articles')")).to_be_visible()
+    page.click("text=Articles")
+    expect(page).to_have_url("http://localhost:8001/articles")
+    expect(page.locator("h1:has-text('Articles')")).to_be_visible()
     
     # Test navigation to sources
-    await page.click("text=Sources")
-    await expect(page).to_have_url("http://localhost:8001/sources")
-    await expect(page.locator("h1:has-text('Sources')")).to_be_visible()
+    page.click("text=Sources")
+    expect(page).to_have_url("http://localhost:8001/sources")
+    expect(page.locator("h1:has-text('Sources')")).to_be_visible()
     
     # Test navigation to analysis
-    await page.click("text=Analysis")
-    await expect(page).to_have_url("http://localhost:8001/analysis")
-    await expect(page.locator("h1:has-text('Analysis')")).to_be_visible()
+    page.click("text=Analysis")
+    expect(page).to_have_url("http://localhost:8001/analysis")
+    expect(page.locator("h1:has-text('Analysis')")).to_be_visible()
 ```
 
 ### Form Testing
 ```python
 @pytest.mark.ui
-async def test_add_source_form(page: Page):
+def test_add_source_form(page: Page):
     """Test adding a new source."""
-    await page.goto("http://localhost:8001/sources")
+    page.goto("http://localhost:8001/sources")
     
     # Click add source button
-    await page.click("button:has-text('Add Source')")
+    page.click("button:has-text('Add Source')")
     
     # Fill form fields
-    await page.fill("input[name='name']", "Test Source")
-    await page.fill("input[name='url']", "https://example.com/feed")
-    await page.select_option("select[name='type']", "rss")
+    page.fill("input[name='name']", "Test Source")
+    page.fill("input[name='url']", "https://example.com/feed")
+    page.select_option("select[name='type']", "rss")
     
     # Submit form
-    await page.click("button:has-text('Save')")
+    page.click("button:has-text('Save')")
     
     # Verify source was added
-    await expect(page.locator("text=Test Source")).to_be_visible()
-    await expect(page.locator(".success-message")).to_be_visible()
+    expect(page.locator("text=Test Source")).to_be_visible()
+    expect(page.locator(".success-message")).to_be_visible()
 ```
 
 ### Search Functionality
 ```python
 @pytest.mark.ui
-async def test_search_functionality(page: Page):
+def test_search_functionality(page: Page):
     """Test search functionality."""
-    await page.goto("http://localhost:8001/articles")
+    page.goto("http://localhost:8001/articles")
     
     # Enter search term
-    await page.fill("input[placeholder='Search articles...']", "threat")
-    await page.press("input[placeholder='Search articles...']", "Enter")
+    page.fill("input[placeholder='Search articles...']", "threat")
+    page.press("input[placeholder='Search articles...']", "Enter")
     
     # Verify search results
-    await expect(page.locator(".search-results")).to_be_visible()
+    expect(page.locator(".search-results")).to_be_visible()
     
     # Check that results contain search term
     results = page.locator(".article-item")
-    count = await results.count()
+    count = results.count()
     assert count > 0
     
     # Verify search term highlighting
-    await expect(page.locator(".highlight")).to_be_visible()
+    expect(page.locator(".highlight")).to_be_visible()
 ```
 
 ## 📱 Responsive Design Testing
@@ -163,7 +202,7 @@ async def test_search_functionality(page: Page):
 ### Viewport Testing
 ```python
 @pytest.mark.ui
-async def test_responsive_design(page: Page):
+def test_responsive_design(page: Page):
     """Test responsive design across different viewports."""
     viewports = [
         {"width": 1920, "height": 1080, "name": "desktop"},
@@ -172,40 +211,40 @@ async def test_responsive_design(page: Page):
     ]
     
     for viewport in viewports:
-        await page.set_viewport_size(viewport["width"], viewport["height"])
-        await page.goto("http://localhost:8001/")
+        page.set_viewport_size(viewport["width"], viewport["height"])
+        page.goto("http://localhost:8001/")
         
         # Verify navigation is accessible
         if viewport["name"] == "mobile":
             # Check for mobile menu
-            await expect(page.locator(".mobile-menu-toggle")).to_be_visible()
+            expect(page.locator(".mobile-menu-toggle")).to_be_visible()
         else:
             # Check for desktop navigation
-            await expect(page.locator(".nav-menu")).to_be_visible()
+            expect(page.locator(".nav-menu")).to_be_visible()
         
         # Verify content is readable
-        await expect(page.locator("main")).to_be_visible()
+        expect(page.locator("main")).to_be_visible()
 ```
 
 ### Mobile Navigation
 ```python
 @pytest.mark.ui
-async def test_mobile_navigation(page: Page):
+def test_mobile_navigation(page: Page):
     """Test mobile navigation functionality."""
     # Set mobile viewport
-    await page.set_viewport_size(375, 667)
-    await page.goto("http://localhost:8001/")
+    page.set_viewport_size(375, 667)
+    page.goto("http://localhost:8001/")
     
     # Open mobile menu
-    await page.click(".mobile-menu-toggle")
-    await expect(page.locator(".mobile-menu")).to_be_visible()
+    page.click(".mobile-menu-toggle")
+    expect(page.locator(".mobile-menu")).to_be_visible()
     
     # Navigate using mobile menu
-    await page.click(".mobile-menu a:has-text('Articles')")
-    await expect(page).to_have_url("http://localhost:8001/articles")
+    page.click(".mobile-menu a:has-text('Articles')")
+    expect(page).to_have_url("http://localhost:8001/articles")
     
     # Verify menu closes
-    await expect(page.locator(".mobile-menu")).to_be_hidden()
+    expect(page.locator(".mobile-menu")).to_be_hidden()
 ```
 
 ## 🎨 Visual Testing
@@ -213,38 +252,38 @@ async def test_mobile_navigation(page: Page):
 ### Screenshot Testing
 ```python
 @pytest.mark.ui
-async def test_homepage_screenshot(page: Page):
+def test_homepage_screenshot(page: Page):
     """Test homepage visual appearance."""
-    await page.goto("http://localhost:8001/")
+    page.goto("http://localhost:8001/")
     
     # Take screenshot
-    await page.screenshot(path="test-results/homepage.png")
+    page.screenshot(path="test-results/homepage.png")
     
     # Verify key visual elements
-    await expect(page.locator(".header")).to_be_visible()
-    await expect(page.locator(".main-content")).to_be_visible()
-    await expect(page.locator(".footer")).to_be_visible()
+    expect(page.locator(".header")).to_be_visible()
+    expect(page.locator(".main-content")).to_be_visible()
+    expect(page.locator(".footer")).to_be_visible()
 ```
 
 ### Element Visibility
 ```python
 @pytest.mark.ui
-async def test_element_visibility(page: Page):
+def test_element_visibility(page: Page):
     """Test element visibility and layout."""
-    await page.goto("http://localhost:8001/articles")
+    page.goto("http://localhost:8001/articles")
     
     # Check article list visibility
-    await expect(page.locator(".article-list")).to_be_visible()
+    expect(page.locator(".article-list")).to_be_visible()
     
     # Check pagination
-    await expect(page.locator(".pagination")).to_be_visible()
+    expect(page.locator(".pagination")).to_be_visible()
     
     # Check filters
-    await expect(page.locator(".filters")).to_be_visible()
+    expect(page.locator(".filters")).to_be_visible()
     
     # Verify responsive behavior
-    await page.set_viewport_size(375, 667)
-    await expect(page.locator(".mobile-filters")).to_be_visible()
+    page.set_viewport_size(375, 667)
+    expect(page.locator(".mobile-filters")).to_be_visible()
 ```
 
 ## ⚡ Performance Testing
@@ -252,12 +291,12 @@ async def test_element_visibility(page: Page):
 ### Load Time Testing
 ```python
 @pytest.mark.ui
-async def test_page_load_times(page: Page):
+def test_page_load_times(page: Page):
     """Test page load performance."""
     # Test homepage load time
     start_time = time.time()
-    await page.goto("http://localhost:8001/")
-    await expect(page.locator("main")).to_be_visible()
+    page.goto("http://localhost:8001/")
+    expect(page.locator("main")).to_be_visible()
     load_time = time.time() - start_time
     
     # Verify load time is acceptable
@@ -265,8 +304,8 @@ async def test_page_load_times(page: Page):
     
     # Test articles page load time
     start_time = time.time()
-    await page.goto("http://localhost:8001/articles")
-    await expect(page.locator(".article-list")).to_be_visible()
+    page.goto("http://localhost:8001/articles")
+    expect(page.locator(".article-list")).to_be_visible()
     load_time = time.time() - start_time
     
     assert load_time < 3.0, f"Articles page load time {load_time}s exceeds 3s limit"
@@ -275,7 +314,7 @@ async def test_page_load_times(page: Page):
 ### Network Performance
 ```python
 @pytest.mark.ui
-async def test_network_performance(page: Page):
+def test_network_performance(page: Page):
     """Test network request performance."""
     # Monitor network requests
     responses = []
@@ -286,10 +325,10 @@ async def test_network_performance(page: Page):
     page.on("response", handle_response)
     
     # Navigate to page
-    await page.goto("http://localhost:8001/articles")
+    page.goto("http://localhost:8001/articles")
     
     # Wait for all requests to complete
-    await page.wait_for_load_state("networkidle")
+    page.wait_for_load_state("networkidle")
     
     # Analyze response times
     for response in responses:
@@ -304,49 +343,49 @@ async def test_network_performance(page: Page):
 ### Basic Accessibility
 ```python
 @pytest.mark.ui
-async def test_accessibility_basics(page: Page):
+def test_accessibility_basics(page: Page):
     """Test basic accessibility features."""
-    await page.goto("http://localhost:8001/")
+    page.goto("http://localhost:8001/")
     
     # Check for proper heading structure
-    h1_count = await page.locator("h1").count()
+    h1_count = page.locator("h1").count()
     assert h1_count == 1, "Page should have exactly one h1 element"
     
     # Check for alt text on images
     images = page.locator("img")
-    count = await images.count()
+    count = images.count()
     for i in range(count):
-        alt_text = await images.nth(i).get_attribute("alt")
+        alt_text = images.nth(i).get_attribute("alt")
         assert alt_text is not None, "Images should have alt text"
     
     # Check for form labels
     inputs = page.locator("input")
-    count = await inputs.count()
+    count = inputs.count()
     for i in range(count):
-        input_id = await inputs.nth(i).get_attribute("id")
+        input_id = inputs.nth(i).get_attribute("id")
         if input_id:
             label = page.locator(f"label[for='{input_id}']")
-            await expect(label).to_be_visible()
+            expect(label).to_be_visible()
 ```
 
 ### Keyboard Navigation
 ```python
 @pytest.mark.ui
-async def test_keyboard_navigation(page: Page):
+def test_keyboard_navigation(page: Page):
     """Test keyboard navigation functionality."""
-    await page.goto("http://localhost:8001/")
+    page.goto("http://localhost:8001/")
     
     # Test tab navigation
-    await page.keyboard.press("Tab")
+    page.keyboard.press("Tab")
     focused_element = page.locator(":focus")
-    await expect(focused_element).to_be_visible()
+    expect(focused_element).to_be_visible()
     
     # Test enter key on buttons
-    await page.keyboard.press("Tab")  # Navigate to button
-    await page.keyboard.press("Enter")  # Activate button
+    page.keyboard.press("Tab")  # Navigate to button
+    page.keyboard.press("Enter")  # Activate button
     
     # Verify button was activated
-    await expect(page.locator(".button-active")).to_be_visible()
+    expect(page.locator(".button-active")).to_be_visible()
 ```
 
 ## 🚨 Error Handling Testing
@@ -354,41 +393,41 @@ async def test_keyboard_navigation(page: Page):
 ### Error Page Testing
 ```python
 @pytest.mark.ui
-async def test_error_pages(page: Page):
+def test_error_pages(page: Page):
     """Test error page handling."""
     # Test 404 page
-    await page.goto("http://localhost:8001/nonexistent-page")
-    await expect(page.locator("h1:has-text('404')")).to_be_visible()
-    await expect(page.locator("text=Page not found")).to_be_visible()
+    page.goto("http://localhost:8001/nonexistent-page")
+    expect(page.locator("h1:has-text('404')")).to_be_visible()
+    expect(page.locator("text=Page not found")).to_be_visible()
     
     # Test 500 page (simulate server error)
-    await page.route("**/api/articles", lambda route: route.fulfill(status=500))
-    await page.goto("http://localhost:8001/articles")
-    await expect(page.locator("text=Server error")).to_be_visible()
+    page.route("**/api/articles", lambda route: route.fulfill(status=500))
+    page.goto("http://localhost:8001/articles")
+    expect(page.locator("text=Server error")).to_be_visible()
 ```
 
 ### Form Validation
 ```python
 @pytest.mark.ui
-async def test_form_validation(page: Page):
+def test_form_validation(page: Page):
     """Test form validation and error handling."""
-    await page.goto("http://localhost:8001/sources")
-    await page.click("button:has-text('Add Source')")
+    page.goto("http://localhost:8001/sources")
+    page.click("button:has-text('Add Source')")
     
     # Submit empty form
-    await page.click("button:has-text('Save')")
+    page.click("button:has-text('Save')")
     
     # Verify validation errors
-    await expect(page.locator(".error-message")).to_be_visible()
-    await expect(page.locator("text=Name is required")).to_be_visible()
-    await expect(page.locator("text=URL is required")).to_be_visible()
+    expect(page.locator(".error-message")).to_be_visible()
+    expect(page.locator("text=Name is required")).to_be_visible()
+    expect(page.locator("text=URL is required")).to_be_visible()
     
     # Fill invalid data
-    await page.fill("input[name='url']", "invalid-url")
-    await page.click("button:has-text('Save')")
+    page.fill("input[name='url']", "invalid-url")
+    page.click("button:has-text('Save')")
     
     # Verify URL validation
-    await expect(page.locator("text=Invalid URL format")).to_be_visible()
+    expect(page.locator("text=Invalid URL format")).to_be_visible()
 ```
 
 ## 🎯 CTIScraper-Specific Tests
@@ -396,62 +435,62 @@ async def test_form_validation(page: Page):
 ### Source Management
 ```python
 @pytest.mark.ui
-async def test_source_management_workflow(page: Page):
+def test_source_management_workflow(page: Page):
     """Test complete source management workflow."""
-    await page.goto("http://localhost:8001/sources")
+    page.goto("http://localhost:8001/sources")
     
     # Add new source
-    await page.click("button:has-text('Add Source')")
-    await page.fill("input[name='name']", "Test Threat Feed")
-    await page.fill("input[name='url']", "https://example.com/threat-feed.xml")
-    await page.select_option("select[name='type']", "rss")
-    await page.click("button:has-text('Save')")
+    page.click("button:has-text('Add Source')")
+    page.fill("input[name='name']", "Test Threat Feed")
+    page.fill("input[name='url']", "https://example.com/threat-feed.xml")
+    page.select_option("select[name='type']", "rss")
+    page.click("button:has-text('Save')")
     
     # Verify source was added
-    await expect(page.locator("text=Test Threat Feed")).to_be_visible()
+    expect(page.locator("text=Test Threat Feed")).to_be_visible()
     
     # Edit source
-    await page.click("button:has-text('Edit')")
-    await page.fill("input[name='name']", "Updated Threat Feed")
-    await page.click("button:has-text('Update')")
+    page.click("button:has-text('Edit')")
+    page.fill("input[name='name']", "Updated Threat Feed")
+    page.click("button:has-text('Update')")
     
     # Verify source was updated
-    await expect(page.locator("text=Updated Threat Feed")).to_be_visible()
+    expect(page.locator("text=Updated Threat Feed")).to_be_visible()
     
     # Delete source
-    await page.click("button:has-text('Delete')")
-    await page.click("button:has-text('Confirm')")
+    page.click("button:has-text('Delete')")
+    page.click("button:has-text('Confirm')")
     
     # Verify source was deleted
-    await expect(page.locator("text=Updated Threat Feed")).to_be_hidden()
+    expect(page.locator("text=Updated Threat Feed")).to_be_hidden()
 ```
 
 ### Article Processing
 ```python
 @pytest.mark.ui
-async def test_article_processing_ui(page: Page):
+def test_article_processing_ui(page: Page):
     """Test article processing user interface."""
-    await page.goto("http://localhost:8001/articles")
+    page.goto("http://localhost:8001/articles")
     
     # Verify article list loads
-    await expect(page.locator(".article-list")).to_be_visible()
+    expect(page.locator(".article-list")).to_be_visible()
     
     # Check article scoring display
     articles = page.locator(".article-item")
-    count = await articles.count()
+    count = articles.count()
     assert count > 0, "Should have articles to display"
     
     # Verify threat scores are displayed
-    await expect(page.locator(".threat-score")).to_be_visible()
+    expect(page.locator(".threat-score")).to_be_visible()
     
     # Test article filtering
-    await page.click("button:has-text('High Threat')")
-    await expect(page.locator(".article-item")).to_be_visible()
+    page.click("button:has-text('High Threat')")
+    expect(page.locator(".article-item")).to_be_visible()
     
     # Test article search
-    await page.fill("input[placeholder='Search articles...']", "malware")
-    await page.press("input[placeholder='Search articles...']", "Enter")
-    await expect(page.locator(".search-results")).to_be_visible()
+    page.fill("input[placeholder='Search articles...']", "malware")
+    page.press("input[placeholder='Search articles...']", "Enter")
+    expect(page.locator(".search-results")).to_be_visible()
 ```
 
 ## 🚀 Running UI Tests
@@ -512,7 +551,7 @@ pytest tests/e2e/test_web_interface.py::test_homepage_loads -v -s
 PWDEBUG=1 pytest -m ui -s
 
 # Use browser developer tools
-await page.pause()  # Pause execution for manual inspection
+page.pause()  # Pause execution for manual inspection
 ```
 
 ## 📊 Test Reports

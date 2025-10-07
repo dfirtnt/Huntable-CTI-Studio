@@ -69,7 +69,9 @@ services:
       - ./src:/app/src
       - ./config:/app/config
       - ./logs:/app/logs
+      - ./tests:/app/tests
       - ./backups:/app/backups
+      - ./tests:/app/tests
       - /var/run/docker.sock:/var/run/docker.sock
       - /var/db/timezone/zoneinfo/America/New_York:/etc/localtime:ro
     depends_on:
@@ -100,6 +102,7 @@ services:
       - ./src:/app/src
       - ./config:/app/config
       - ./logs:/app/logs
+      - ./tests:/app/tests
     depends_on:
       postgres:
         condition: service_healthy
@@ -125,6 +128,7 @@ services:
       - ./src:/app/src
       - ./config:/app/config
       - ./logs:/app/logs
+      - ./tests:/app/tests
     depends_on:
       postgres:
         condition: service_healthy
@@ -183,6 +187,7 @@ services:
       - ./src:/app/src
       - ./config:/app/config
       - ./logs:/app/logs
+      - ./tests:/app/tests
     depends_on:
       postgres:
         condition: service_healthy

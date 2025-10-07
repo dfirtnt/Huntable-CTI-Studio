@@ -147,7 +147,7 @@
                     <div class="prose max-w-none">
                         <h3 class="text-lg font-semibold text-gray-800 mb-4">Test Suite Overview</h3>
                         
-                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
                             <div class="bg-green-50 border border-green-200 rounded-lg p-4">
                                 <h4 class="font-semibold text-green-800">✅ Unit Tests</h4>
                                 <p class="text-sm text-green-700">539 tests across 21 files</p>
@@ -163,6 +163,11 @@
                                 <p class="text-sm text-purple-700">46 tests across 4 files</p>
                                 <p class="text-xs text-purple-600">Cross-component testing with real dependencies</p>
                             </div>
+                            <div class="bg-orange-50 border border-orange-200 rounded-lg p-4">
+                                <h4 class="font-semibold text-orange-800">🤖 AI Assistant Tests</h4>
+                                <p class="text-sm text-orange-700">45 tests across 3 files</p>
+                                <p class="text-xs text-orange-600">AI model integration and UI testing</p>
+                            </div>
                         </div>
 
                         <h4 class="font-semibold text-gray-800 mb-3">Quick Test Commands</h4>
@@ -171,6 +176,9 @@
                                 <div><span class="text-blue-600"># Health check</span><br>python run_tests.py --smoke</div>
                                 <div><span class="text-blue-600"># Full suite with coverage</span><br>python run_tests.py --all --coverage</div>
                                 <div><span class="text-blue-600"># Docker-based testing</span><br>python run_tests.py --docker --integration</div>
+                                <div><span class="text-blue-600"># AI Assistant tests</span><br>python run_tests.py --ai</div>
+                                <div><span class="text-blue-600"># AI UI tests with coverage</span><br>python run_tests.py --ai-ui --coverage</div>
+                                <div><span class="text-blue-600"># AI tests without real API calls</span><br>python run_tests.py --ai-skip-real-api</div>
                                 <div><span class="text-blue-600"># Install dependencies</span><br>python run_tests.py --install</div>
                             </div>
                         </div>
@@ -216,6 +224,12 @@
                                         <td class="px-4 py-2 text-sm text-gray-500">1</td>
                                         <td class="px-4 py-2 text-sm text-gray-500">13</td>
                                         <td class="px-4 py-2 text-sm text-gray-500">~8m</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="px-4 py-2 text-sm font-medium text-gray-900">AI Assistant Tests</td>
+                                        <td class="px-4 py-2 text-sm text-gray-500">3</td>
+                                        <td class="px-4 py-2 text-sm text-gray-500">45</td>
+                                        <td class="px-4 py-2 text-sm text-gray-500">~3m</td>
                                     </tr>
                                 </tbody>
                             </table>

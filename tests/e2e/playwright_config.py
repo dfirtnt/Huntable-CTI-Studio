@@ -8,7 +8,6 @@ def run(playwright: Playwright) -> None:
         viewport={"width": 1280, "height": 720},
         ignore_https_errors=True,
         record_video_dir="test-results/videos/",
-        record_trace_dir="test-results/traces/",
     )
     page = context.new_page()
     
