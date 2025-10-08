@@ -4215,17 +4215,42 @@ async def api_dashboard_data():
                 })
         failing_sources.sort(key=lambda x: x['consecutive_failures'], reverse=True)
         
-        # Top articles
-        articles = await async_db_manager.list_articles(limit=4)
+        # Top articles - get highest hunt scores using direct SQL query
+        from src.models.article import ArticleListFilter
+        from sqlalchemy import text
+        
+        async with async_db_manager.get_session() as session:
+            # Direct SQL query to get top articles by hunt score
+            query = text("""
+                SELECT id, title, article_metadata
+                FROM articles 
+                WHERE article_metadata->>'threat_hunting_score' IS NOT NULL 
+                AND (article_metadata->>'threat_hunting_score')::float > 0
+                ORDER BY (article_metadata->>'threat_hunting_score')::float DESC 
+                LIMIT 4
+            """)
+            
+            result = await session.execute(query)
+            db_articles = result.fetchall()
+        
         top_articles = []
-        for article in articles:
+        for db_article in db_articles:
+            article_metadata = db_article.article_metadata or {}
+            hunt_score = float(article_metadata.get('threat_hunting_score', 0))
+            
+            # Get classification from metadata
+            classification = "Unclassified"  # Default
+            training_category = article_metadata.get('training_category')
+            if training_category:
+                # Capitalize first letter for display
+                classification = training_category.capitalize()
+            
             top_articles.append({
-                "id": article.id,
-                "title": article.title[:100] if article.title else "Untitled",
-                "hunt_score": 8.5 + (article.id % 10) * 0.1,  # Generate mock score
-                "classification": ["Chosen", "Unclassified", "Rejected"][article.id % 3]
+                "id": db_article.id,
+                "title": db_article.title[:100] if db_article.title else "Untitled",
+                "hunt_score": round(hunt_score, 1),
+                "classification": classification
             })
-        top_articles.sort(key=lambda x: x["hunt_score"], reverse=True)
         
         return {
             "health": {
