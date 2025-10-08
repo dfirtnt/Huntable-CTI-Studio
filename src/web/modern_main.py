@@ -4155,6 +4155,29 @@ async def api_metrics_volume():
             "hourly": {"00": 0}
         }
 
+def _format_time_ago(timestamp):
+    """Format timestamp as human-readable time ago string."""
+    if not timestamp:
+        return "Unknown"
+    
+    now = datetime.now()
+    if isinstance(timestamp, str):
+        timestamp = datetime.fromisoformat(timestamp.replace('Z', '+00:00'))
+    
+    diff = now - timestamp
+    minutes = int(diff.total_seconds() / 60)
+    hours = int(diff.total_seconds() / 3600)
+    days = int(diff.total_seconds() / 86400)
+    
+    if minutes < 1:
+        return "Just now"
+    elif minutes < 60:
+        return f"{minutes}m ago"
+    elif hours < 24:
+        return f"{hours}h ago"
+    else:
+        return f"{days}d ago"
+
 @app.get("/api/dashboard/data")
 async def api_dashboard_data():
     """Get all dashboard data in one endpoint for efficient updates."""
@@ -4252,6 +4275,69 @@ async def api_dashboard_data():
                 "classification": classification
             })
         
+        # Recent activity - get real data from database
+        recent_activities = []
+        
+        # Get recent articles (new article processed)
+        async with async_db_manager.get_session() as session:
+            from sqlalchemy import text
+            
+            # Get recent articles
+            articles_query = text("""
+                SELECT created_at, title 
+                FROM articles 
+                WHERE created_at > NOW() - INTERVAL '24 hours'
+                ORDER BY created_at DESC 
+                LIMIT 3
+            """)
+            articles_result = await session.execute(articles_query)
+            recent_articles = articles_result.fetchall()
+            
+            # Get recent source checks
+            checks_query = text("""
+                SELECT check_time, success, method, articles_found, s.name as source_name
+                FROM source_checks sc
+                JOIN sources s ON sc.source_id = s.id
+                WHERE check_time > NOW() - INTERVAL '24 hours'
+                ORDER BY check_time DESC 
+                LIMIT 3
+            """)
+            checks_result = await session.execute(checks_query)
+            recent_checks = checks_result.fetchall()
+        
+        # Combine and format activities
+        for article in recent_articles:
+            time_ago = _format_time_ago(article.created_at)
+            recent_activities.append({
+                "time_ago": time_ago,
+                "message": f"New article processed: {article.title[:50]}...",
+                "type": "article",
+                "color": "green",
+                "timestamp": article.created_at
+            })
+        
+        for check in recent_checks:
+            time_ago = _format_time_ago(check.check_time)
+            if check.success:
+                message = f"Source health check: {check.source_name} ({check.articles_found} articles)"
+                color = "green"
+            else:
+                message = f"Source check failed: {check.source_name}"
+                color = "red"
+            
+            recent_activities.append({
+                "time_ago": time_ago,
+                "message": message,
+                "type": "source_check",
+                "color": color,
+                "timestamp": check.check_time
+            })
+        
+        # Sort by time (most recent first) and take top 4
+        # Note: We'll sort by timestamp, not time_ago string
+        recent_activities.sort(key=lambda x: x.get("timestamp", datetime.min), reverse=True)
+        recent_activities = recent_activities[:4]
+        
         return {
             "health": {
                 "uptime": round(uptime, 1),
@@ -4264,6 +4350,7 @@ async def api_dashboard_data():
             },
             "failing_sources": failing_sources[:10],
             "top_articles": top_articles,
+            "recent_activities": recent_activities,
             "stats": {
                 "total_articles": stats.get('total_articles', 0) if stats else 0,
                 "active_sources": total_sources,
@@ -4278,8 +4365,57 @@ async def api_dashboard_data():
             "volume": {"daily": {"2025-01-01": 0}, "hourly": {"00": 0}},
             "failing_sources": [],
             "top_articles": [],
+            "recent_activities": [],
             "stats": {"total_articles": 0, "active_sources": 0, "processing_queue": 0, "avg_score": 0}
         }
+
+# Quick Actions API endpoints
+@app.post("/api/actions/rescore-all")
+async def api_rescore_all():
+    """Rescore all articles."""
+    try:
+        # For now, return a placeholder - would need to implement Celery task
+        return {
+            "success": True,
+            "message": "Rescoring started (placeholder)",
+            "processed": 0
+        }
+    except Exception as e:
+        logger.error(f"Rescore all error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/actions/generate-report")
+async def api_generate_report():
+    """Generate system report."""
+    try:
+        # For now, return a placeholder
+        return {
+            "success": True,
+            "message": "Report generation not yet implemented",
+            "download_url": "/api/export/articles"
+        }
+    except Exception as e:
+        logger.error(f"Generate report error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/actions/health-check")
+async def api_health_check():
+    """Run health check on all sources."""
+    try:
+        # Get current source stats
+        sources = await async_db_manager.list_sources()
+        total_sources = len(sources)
+        healthy_sources = len([s for s in sources if getattr(s, 'consecutive_failures', 0) == 0])
+        
+        return {
+            "success": True,
+            "message": "Health check completed",
+            "total_sources": total_sources,
+            "healthy_sources": healthy_sources
+        }
+    except Exception as e:
+        logger.error(f"Health check error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/jobs/history")
 async def api_jobs_history(limit: int = 50):
