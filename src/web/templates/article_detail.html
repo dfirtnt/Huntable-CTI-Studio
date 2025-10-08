@@ -3128,7 +3128,7 @@
                 ${data ? `
                 <div class="mt-4 text-xs text-gray-500">
                     <div class="flex justify-between">
-                        <span>Generated: ${data.timestamp ? new Date(data.timestamp).toLocaleString() : 'Unknown'}</span>
+                        <span>Generated: ${data.analyzed_at ? new Date(data.analyzed_at).toLocaleString() : 'Unknown'}</span>
                         <span>Model: ${data.model_name || data.model || 'gpt-4o'}</span>
                     </div>
                 </div>
