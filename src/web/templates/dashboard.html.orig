@@ -402,24 +402,15 @@
 
     async function runHealthCheck() {
         try {
-            showNotification('Running health check...', 'info');
+            showNotification('Navigating to health checks...', 'info');
             
-            const response = await fetch('/api/actions/health-check', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' }
-            });
+            // Set flag to auto-run checks when health checks page loads
+            sessionStorage.setItem('autoRunHealthChecks', 'true');
             
-            if (response.ok) {
-                const result = await response.json();
-                showNotification(`Health check completed: ${result.healthy_sources}/${result.total_sources} sources healthy`, 'success');
-                // Refresh dashboard data
-                setTimeout(() => loadDashboardData(), 2000);
-            } else {
-                const error = await response.json();
-                showNotification(`Health check failed: ${error.detail}`, 'error');
-            }
+            // Navigate to health checks page
+            window.location.href = '/health-checks';
         } catch (error) {
-            showNotification(`Health check failed: ${error.message}`, 'error');
+            showNotification(`Navigation failed: ${error.message}`, 'error');
         }
     }
 
