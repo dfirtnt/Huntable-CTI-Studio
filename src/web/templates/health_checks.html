@@ -636,7 +636,9 @@
                     },
                     y: {
                         stacked: true,
-                        beginAtZero: true
+                        type: 'logarithmic',
+                        beginAtZero: true,
+                        min: 1
                     }
                 },
                 plugins: {
@@ -692,5 +694,27 @@
 
     // Auto-refresh timestamp every 30 seconds
     setInterval(updateOverallStatus, 30000);
+
+    // Auto-run all checks when page loads (if coming from dashboard)
+    document.addEventListener('DOMContentLoaded', function() {
+        // Check if we came from the dashboard health check button
+        const urlParams = new URLSearchParams(window.location.search);
+        const autoRun = urlParams.get('auto_run') || sessionStorage.getItem('autoRunHealthChecks');
+        
+        if (autoRun) {
+            // Clear the flag
+            sessionStorage.removeItem('autoRunHealthChecks');
+            
+            // Run all checks automatically
+            setTimeout(async () => {
+                await updateOverallStatus();
+                await updateDatabaseHealth();
+                await updateDeduplicationHealth();
+                await updateServicesHealth();
+                await updateCeleryHealth();
+                await updateIngestionAnalytics();
+            }, 500); // Small delay to ensure page is fully loaded
+        }
+    });
 </script>
 {% endblock %}
