@@ -56,28 +56,8 @@
         <!-- 3. Top Failing Sources -->
         <div class="bg-gray-800 text-gray-100 p-6 rounded-2xl shadow-lg">
             <h3 class="text-lg font-semibold mb-4">Failing Sources</h3>
-            <div class="space-y-2 max-h-64 overflow-y-auto">
-                <div class="flex justify-between items-center p-2 rounded bg-red-900 bg-opacity-50">
-                    <div>
-                        <div class="font-medium text-sm">CyberIntelBlog</div>
-                        <div class="text-sm text-gray-400 leading-relaxed">7 failures</div>
-                    </div>
-                    <div class="text-sm text-gray-400 leading-relaxed">2025-10-03</div>
-                </div>
-                <div class="flex justify-between items-center p-2 rounded bg-red-900 bg-opacity-30">
-                    <div>
-                        <div class="font-medium text-sm">APTTracker</div>
-                        <div class="text-sm text-gray-400 leading-relaxed">5 failures</div>
-                    </div>
-                    <div class="text-sm text-gray-400 leading-relaxed">2025-10-04</div>
-                </div>
-                <div class="flex justify-between items-center p-2 rounded bg-yellow-900 bg-opacity-30">
-                    <div>
-                        <div class="font-medium text-sm">ThreatIntelDaily</div>
-                        <div class="text-sm text-gray-400 leading-relaxed">3 failures</div>
-                    </div>
-                    <div class="text-sm text-gray-400 leading-relaxed">2025-10-04</div>
-                </div>
+            <div id="failing-sources-container" class="space-y-2 max-h-64 overflow-y-auto">
+                <!-- Dynamic content will be loaded here -->
             </div>
         </div>
 
@@ -239,6 +219,9 @@
             
             // Update timestamp
             
+            // Update Failing Sources
+            updateFailingSources();
+            
             // Update High-Score Articles
             const topArticlesContainer = document.getElementById("high-score-articles-container");
             if (topArticlesContainer && data.top_articles) {
@@ -345,6 +328,48 @@
         window.chartsInitialized = true;
         loadDashboardData();
         setInterval(loadDashboardData, 60000);
+    }
+
+    // Function to update failing sources
+    async function updateFailingSources() {
+        try {
+            const response = await fetch('/api/sources/failing');
+            if (!response.ok) throw new Error('Failed to fetch failing sources');
+            
+            const failingSources = await response.json();
+            const container = document.getElementById('failing-sources-container');
+            
+            if (!container) return;
+            
+            if (failingSources.length === 0) {
+                container.innerHTML = '<div class="text-center text-gray-400 py-4">No failing sources</div>';
+                return;
+            }
+            
+            container.innerHTML = failingSources.map(source => {
+                const bgOpacity = source.consecutive_failures >= 5 ? 'bg-opacity-50' : 
+                                 source.consecutive_failures >= 3 ? 'bg-opacity-40' : 'bg-opacity-30';
+                const bgColor = source.consecutive_failures >= 5 ? 'bg-red-900' : 
+                               source.consecutive_failures >= 3 ? 'bg-red-900' : 'bg-yellow-900';
+                
+                return `
+                    <div class="flex justify-between items-center p-2 rounded ${bgColor} ${bgOpacity}">
+                        <div>
+                            <div class="font-medium text-sm">${source.source_name}</div>
+                            <div class="text-sm text-gray-400 leading-relaxed">${source.consecutive_failures} failures</div>
+                        </div>
+                        <div class="text-sm text-gray-400 leading-relaxed">${source.last_success}</div>
+                    </div>
+                `;
+            }).join('');
+            
+        } catch (error) {
+            console.error('Error updating failing sources:', error);
+            const container = document.getElementById('failing-sources-container');
+            if (container) {
+                container.innerHTML = '<div class="text-center text-red-400 py-4">Error loading failing sources</div>';
+            }
+        }
     }
 
     if (document.readyState === 'loading') {

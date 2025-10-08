@@ -635,13 +635,16 @@ async def api_sources_failing():
         failing_sources = []
         
         for source in sources:
-            # Mock failure data (in production, track actual failures)
-            consecutive_failures = source.get('consecutive_failures', 0)
+            # Get real failure data from database
+            consecutive_failures = getattr(source, 'consecutive_failures', 0)
             if consecutive_failures > 0:
+                last_success = source.last_success
+                last_success_str = last_success.strftime('%Y-%m-%d') if last_success else 'Never'
+                
                 failing_sources.append({
-                    "source_name": source.get('name', 'Unknown'),
+                    "source_name": source.name,
                     "consecutive_failures": consecutive_failures,
-                    "last_success": source.get('last_success', '2025-01-01T00:00:00Z')
+                    "last_success": last_success_str
                 })
         
         # Sort by failures (most failing first)
