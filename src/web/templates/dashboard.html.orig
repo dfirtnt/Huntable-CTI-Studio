@@ -165,10 +165,12 @@
 
 {% block scripts %}
 <script>
-    // Chart.js configuration for dark theme
-    Chart.defaults.color = '#9CA3AF';
-    Chart.defaults.borderColor = '#374151';
-    Chart.defaults.backgroundColor = '#374151';
+    // Chart.js configuration for dark theme (guard if CDN not loaded yet)
+    if (window.Chart && window.Chart.defaults) {
+        Chart.defaults.color = '#9CA3AF';
+        Chart.defaults.borderColor = '#374151';
+        Chart.defaults.backgroundColor = '#374151';
+    }
 
     // Global chart instances
     let dailyChart = null;
@@ -272,16 +274,20 @@
             console.error('Failed to load dashboard data:', error);
         }
     }
+    // Expose for base.html auto-refresh
+    window.loadDashboardData = loadDashboardData;
 
-    // Initialize charts and start polling
-    if (window.chartsInitialized) return;
-    window.chartsInitialized = true;
-    document.addEventListener('DOMContentLoaded', function() {
-        // Get canvas contexts
-        const dailyCtx = document.getElementById('dailyChart').getContext('2d');
-        const hourlyCtx = document.getElementById('hourlyChart').getContext('2d');
-        
-        // Initialize charts
+    // Initialize charts and start polling (robust to timing/CDN)
+    function initCharts() {
+        if (window.chartsInitialized) return;
+        if (!window.Chart) { setTimeout(initCharts, 300); return; }
+
+        const dailyCanvas = document.getElementById('dailyChart');
+        const hourlyCanvas = document.getElementById('hourlyChart');
+        if (!dailyCanvas || !hourlyCanvas) { setTimeout(initCharts, 100); return; }
+        const dailyCtx = dailyCanvas.getContext('2d');
+        const hourlyCtx = hourlyCanvas.getContext('2d');
+
         dailyChart = new Chart(dailyCtx, {
             type: 'line',
             data: {
@@ -335,12 +341,16 @@
                 }
             }
         });
-        
-        // Load initial data
+
+        window.chartsInitialized = true;
         loadDashboardData();
-        
-        // Start polling every 60 seconds
         setInterval(loadDashboardData, 60000);
-    });
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initCharts);
+    } else {
+        initCharts();
+    }
 </script>
 {% endblock %}

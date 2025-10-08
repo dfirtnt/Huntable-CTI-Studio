@@ -212,11 +212,17 @@
         // Initialize environment banner on page load
         document.addEventListener('DOMContentLoaded', detectEnvironment);
         
-        // Auto-refresh dashboard every 30 seconds
+        // Auto-refresh dashboard safely every 60 seconds (data-only refresh if available)
         if (window.location.pathname === '/') {
             setInterval(() => {
-                htmx.ajax('GET', '/', {target: 'body', swap: 'innerHTML'});
-            }, 30000);
+                if (typeof window.loadDashboardData === 'function') {
+                    // Prefer in-place data refresh to avoid destroying scripts/components
+                    window.loadDashboardData();
+                } else {
+                    // Fallback: full page reload ensures scripts re-execute
+                    window.location.reload();
+                }
+            }, 60000);
         }
         
         // Cross-page AI completion notification system

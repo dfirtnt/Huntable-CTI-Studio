@@ -511,7 +511,7 @@ async def dashboard(request: Request):
         current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         
         return templates.TemplateResponse(
-            "dashboard.html",
+            "dashboard.html.orig",
             {
                 "request": request,
                 "stats": stats,

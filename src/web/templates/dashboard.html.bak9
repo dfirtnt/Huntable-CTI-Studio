@@ -281,6 +281,9 @@
         const dailyCtx = document.getElementById('dailyChart').getContext('2d');
         const hourlyCtx = document.getElementById('hourlyChart').getContext('2d');
         
+        // Prevent re-initialization if charts already exist
+        if (dailyChart !== null || hourlyChart !== null) return;
+        
         // Initialize charts
         dailyChart = new Chart(dailyCtx, {
             type: 'line',

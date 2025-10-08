@@ -274,8 +274,6 @@
     }
 
     // Initialize charts and start polling
-    if (window.chartsInitialized) return;
-    window.chartsInitialized = true;
     document.addEventListener('DOMContentLoaded', function() {
         // Get canvas contexts
         const dailyCtx = document.getElementById('dailyChart').getContext('2d');

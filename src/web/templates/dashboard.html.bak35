@@ -206,8 +206,7 @@
                 dailyChart.data.labels = dailyKeys;
                 dailyChart.data.datasets[0].data = dailyValues;
                 console.log('Daily chart data after:', dailyChart.data.datasets[0].data);
-                dailyChart.update('none');
-                setTimeout(() => dailyChart.resize(), 100);
+                dailyChart.update('none');                setTimeout(() => dailyChart.resize(), 100);
             } else {
                 console.log('Daily chart update failed:', {
                     dailyChart: !!dailyChart,
@@ -215,7 +214,7 @@
                     chartData: !!dailyChart?.data,
                     datasets: !!dailyChart?.data?.datasets,
                     dataset0: !!dailyChart?.data?.datasets?.[0]
-                });
+                }, 1000);
             }
             
             if (hourlyChart && data.volume.hourly && hourlyChart.data && hourlyChart.data.datasets && hourlyChart.data.datasets[0]) {
@@ -223,8 +222,7 @@
                 hourlyChart.data.labels = Object.keys(data.volume.hourly);
                 hourlyChart.data.datasets[0].data = Object.values(data.volume.hourly);
                 console.log('Hourly chart data after:', hourlyChart.data.datasets[0].data);
-                hourlyChart.update('none');
-                setTimeout(() => hourlyChart.resize(), 100);
+                hourlyChart.update('none');                setTimeout(() => hourlyChart.resize(), 100);
             } else {
                 console.log('Hourly chart update failed:', {
                     hourlyChart: !!hourlyChart,
@@ -232,7 +230,7 @@
                     chartData: !!hourlyChart?.data,
                     datasets: !!hourlyChart?.data?.datasets,
                     dataset0: !!hourlyChart?.data?.datasets?.[0]
-                });
+                }, 1000);
             }
             
             // Update timestamp
@@ -264,7 +262,7 @@
                         <p class="text-sm text-gray-400 leading-relaxed">Click to view article details</p>
                     `;
                     topArticlesContainer.appendChild(card);
-                });
+                }, 1000);
             }
                         document.getElementById('last-updated').textContent = new Date().toLocaleString();
             
@@ -273,15 +271,20 @@
         }
     }
 
-    // Initialize charts and start polling
-    if (window.chartsInitialized) return;
+        // Prevent re-initialization if charts already exist
+        // Charts will be initialized below    // Initialize charts and start polling
+    if (window.chartsInitialized && dailyChart !== null) return;
     window.chartsInitialized = true;
-    document.addEventListener('DOMContentLoaded', function() {
+    setTimeout(function() {
+        console.log('DOMContentLoaded fired');
         // Get canvas contexts
         const dailyCtx = document.getElementById('dailyChart').getContext('2d');
         const hourlyCtx = document.getElementById('hourlyChart').getContext('2d');
         
-        // Initialize charts
+        // Prevent re-initialization if charts already exist
+        // Charts will be initialized below        // Initialize charts
+        console.log('Creating daily chart');
+        try {
         dailyChart = new Chart(dailyCtx, {
             type: 'line',
             data: {
@@ -289,7 +292,7 @@
                 datasets: [{
                     label: 'Articles',
                     data: [234, 287, 260, 312, 298],
-                    borderColor: '#10B981',
+                    borderColor: '#ff0000',
                     backgroundColor: 'rgba(16, 185, 129, 0.1)',
                     tension: 0.3,
                     fill: true
@@ -307,7 +310,7 @@
                     y: { grid: { color: '#374151' } }
                 }
             }
-        });
+        }, 1000);
 
         hourlyChart = new Chart(hourlyCtx, {
             type: 'line',
@@ -334,13 +337,14 @@
                     y: { grid: { color: '#374151' } }
                 }
             }
-        });
+        }, 1000);
         
-        // Load initial data
-        loadDashboardData();
+        // Load initial data after charts are initialized
+        // loadDashboardData();
+// loadDashboardData();
         
         // Start polling every 60 seconds
-        setInterval(loadDashboardData, 60000);
-    });
+        // setInterval(loadDashboardData, 60000);
+    }, 1000);
 </script>
 {% endblock %}

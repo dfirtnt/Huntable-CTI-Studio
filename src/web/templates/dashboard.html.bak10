@@ -201,13 +201,10 @@
             console.log('Updating charts...', data.volume);
             if (dailyChart && data.volume.daily && dailyChart.data && dailyChart.data.datasets && dailyChart.data.datasets[0]) {
                 console.log('Daily chart data before:', dailyChart.data.datasets[0].data);
-                const dailyKeys = Object.keys(data.volume.daily).sort();
-                const dailyValues = dailyKeys.map(key => data.volume.daily[key]);
-                dailyChart.data.labels = dailyKeys;
-                dailyChart.data.datasets[0].data = dailyValues;
+                dailyChart.data.labels = Object.keys(data.volume.daily);
+                dailyChart.data.datasets[0].data = Object.values(data.volume.daily);
                 console.log('Daily chart data after:', dailyChart.data.datasets[0].data);
                 dailyChart.update('none');
-                setTimeout(() => dailyChart.resize(), 100);
             } else {
                 console.log('Daily chart update failed:', {
                     dailyChart: !!dailyChart,
@@ -224,7 +221,6 @@
                 hourlyChart.data.datasets[0].data = Object.values(data.volume.hourly);
                 console.log('Hourly chart data after:', hourlyChart.data.datasets[0].data);
                 hourlyChart.update('none');
-                setTimeout(() => hourlyChart.resize(), 100);
             } else {
                 console.log('Hourly chart update failed:', {
                     hourlyChart: !!hourlyChart,
@@ -274,8 +270,6 @@
     }
 
     // Initialize charts and start polling
-    if (window.chartsInitialized) return;
-    window.chartsInitialized = true;
     document.addEventListener('DOMContentLoaded', function() {
         // Get canvas contexts
         const dailyCtx = document.getElementById('dailyChart').getContext('2d');
