@@ -36,6 +36,8 @@ The CTI Scraper uses a microservices architecture with the following components:
    - Local large language model for content analysis
    - Provides threat hunting and detection engineering analysis
    - Runs Llama 3.2 1B model for content processing
+   - Configured for parallel processing (3 concurrent requests, 2 loaded models)
+   - Supports multiple AI endpoints: summaries, SIGMA rules, rankings, and RAG chat
 
 ### Additional Services
 
@@ -111,6 +113,24 @@ For development and external access:
 - Database: `postgres:5432` (Docker container)
 - Redis: `redis:6379` (Docker container)
 - Ollama: `cti_ollama:11434` (Docker container)
+
+### Ollama Configuration
+
+The Ollama service is configured for optimal performance with multiple AI endpoints:
+
+```yaml
+environment:
+  - OLLAMA_NUM_PARALLEL=3      # Allow 3 concurrent requests
+  - OLLAMA_MAX_LOADED_MODELS=2 # Keep 2 models loaded in memory
+  - OLLAMA_MAX_QUEUE=512       # Queue size for requests
+```
+
+**Supported AI Endpoints:**
+- Article summaries (`/api/articles/{id}/chatgpt-summary`)
+- Custom prompts (`/api/articles/{id}/custom-prompt`)
+- SIGMA rule generation (`/api/articles/{id}/generate-sigma`)
+- Content ranking (`/api/articles/{id}/rank-with-gpt4o`)
+- RAG chat interface (`/api/chat/rag`)
 
 ## CLI Tool Integration
 

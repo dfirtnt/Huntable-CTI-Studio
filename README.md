@@ -39,6 +39,7 @@ A comprehensive threat intelligence aggregation and analysis platform designed f
 - **RESTful API**: Comprehensive API for integration with other security tools
 - **Database Management**: Command-line backup and restore tools for data protection
 - **RAG Chat Interface**: Interactive chat with threat intelligence database using semantic search
+- **AI-Powered Responses**: Template-based responses with optional LLM integration for enhanced analysis
 - **Clickable Results**: Direct links to article details from chat responses
 
 ## 🏗️ Architecture
@@ -50,6 +51,7 @@ A comprehensive threat intelligence aggregation and analysis platform designed f
 - **Redis Cache**: High-speed caching and task queue management
 - **Celery Workers**: Distributed task processing for scalable content collection
 - **Sentence Transformers**: AI-powered semantic embeddings for RAG functionality
+- **Ollama LLM Service**: Local large language model with parallel processing support
 - **Docker Containers**: Containerized deployment for consistent environments
 
 ### Data Flow
