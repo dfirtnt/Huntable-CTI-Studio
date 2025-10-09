@@ -556,6 +556,7 @@ WINDOWS_MALWARE_KEYWORDS = {
             'svchost', '-accepteula', 'lsass.exe', 'WINDIR', 'wintmp',
             '\\temp\\', '\\pipe\\', '%WINDIR%', '%wintmp%', 'FromBase64String',
             'MemoryStream', 'New-Object', 'DownloadString', 'Defender query',
+            'sptth',
             # Promoted from LOLBAS (100% avg scores in high-scoring articles)
             'reg.exe', 'winlogon.exe', 'conhost.exe', 'msiexec.exe', 'wscript.exe', 'services.exe',
             # Promoted from Good discriminators (100% avg scores)

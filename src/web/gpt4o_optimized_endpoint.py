@@ -67,10 +67,7 @@ async def api_gpt4o_rank_optimized(article_id: int, request: Request):
             tokens_saved = 0
             chunks_removed = 0
         
-        # Truncate content if still too long (GPT4o has 128K token limit, roughly 500K characters)
-        max_chars = 400000  # Leave room for prompt
-        if len(content_to_analyze) > max_chars:
-            content_to_analyze = content_to_analyze[:max_chars] + "\n\n[Content truncated due to length]"
+        # Use full content (no hardcoded truncation)
         
         # SIGMA-focused prompt (same as original)
         sigma_prompt = """# Blog Content SIGMA-Suitability Huntability Ranking System
