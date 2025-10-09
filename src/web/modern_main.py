@@ -3775,8 +3775,62 @@ async def api_rag_chat(request: Request):
             
             context = "\n".join(context_parts)
             
-            # Generate response using template (LLM disabled due to performance issues)
-            response = f"""Based on the threat intelligence articles in our database, here's what I found related to your query:
+            # Generate response using LLM
+            try:
+                # Check if we should use LLM or fallback to template
+                use_llm = os.getenv('USE_LLM_RESPONSES', 'false').lower() == 'true'
+                
+                if use_llm:
+                    # Use Ollama for LLM responses
+                    ollama_url = os.getenv('LLM_API_URL', 'http://cti_ollama:11434')
+                    ollama_model = os.getenv('LLM_MODEL', 'llama3.2:1b')
+                    
+                    # Create a minimal prompt for the LLM (truncate context to avoid timeouts)
+                    truncated_context = context[:500] + "..." if len(context) > 500 else context
+                    llm_prompt = f"""Query: {message}
+
+Context: {truncated_context}
+
+Analysis:"""
+
+                    async with httpx.AsyncClient() as client:
+                        try:
+                            llm_response = await client.post(
+                                f"{ollama_url}/api/generate",
+                                json={
+                                    "model": ollama_model,
+                                    "prompt": llm_prompt,
+                                    "stream": False,
+                                    "options": {
+                                        "temperature": 0.3,
+                                        "num_predict": 2048
+                                    }
+                                },
+                                timeout=20.0  # Minimal timeout for chat
+                            )
+                            
+                            if llm_response.status_code == 200:
+                                result = llm_response.json()
+                                response = result.get('response', 'No response available')
+                                logger.info(f"Successfully generated LLM response: {len(response)} characters")
+                            else:
+                                logger.warning(f"LLM request failed: {llm_response.status_code}, falling back to template")
+                                raise Exception(f"LLM API error: {llm_response.status_code}")
+                                
+                        except Exception as e:
+                            logger.warning(f"LLM request failed: {e}, falling back to template")
+                            logger.warning(f"Exception type: {type(e)}")
+                            logger.warning(f"Exception args: {e.args}")
+                            import traceback
+                            logger.warning(f"Traceback: {traceback.format_exc()}")
+                            raise Exception(f"LLM unavailable: {str(e)}")
+                else:
+                    raise Exception("LLM disabled by configuration")
+                    
+            except Exception as e:
+                logger.info(f"Using template response due to: {e}")
+                # Fallback to template response
+                response = f"""Based on the threat intelligence articles in our database, here's what I found related to your query:
 
 {context}
 
