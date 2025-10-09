@@ -2240,16 +2240,23 @@
                     </div>
                 </div>
                 
-                <div class="flex justify-end space-x-3">
-                    <button onclick="closeCustomPromptModal()" 
+                <div class="flex justify-between">
+                    <button onclick="showCustomPromptHistory()" 
                             class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-colors">
-                        Cancel
+                        <span class="mr-2">📚</span>
+                        View Previous Prompts
                     </button>
-                    <button onclick="generateCustomPrompt()" 
-                            class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-colors">
-                        <span class="mr-2">🤖</span>
-                        Generate Response
-                    </button>
+                    <div class="flex space-x-3">
+                        <button onclick="closeCustomPromptModal()" 
+                                class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-colors">
+                            Cancel
+                        </button>
+                        <button onclick="generateCustomPrompt()" 
+                                class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-colors">
+                            <span class="mr-2">🤖</span>
+                            Generate Response
+                        </button>
+                    </div>
                 </div>
             </div>
         `;
@@ -2443,6 +2450,117 @@
         if (modal) {
             modal.remove();
         }
+    }
+    
+    function showCustomPromptHistory() {
+        closeCustomPromptModal();
+        
+        const modal = document.createElement('div');
+        modal.id = 'customPromptHistoryModal';
+        modal.className = 'fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50';
+        
+        // Add click outside to close
+        modal.addEventListener('click', function(e) {
+            if (e.target === modal) {
+                closeCustomPromptHistoryModal();
+            }
+        });
+        
+        // Add ESC key to close
+        const handleEsc = function(e) {
+            if (e.key === 'Escape') {
+                closeCustomPromptHistoryModal();
+                document.removeEventListener('keydown', handleEsc);
+            }
+        };
+        document.addEventListener('keydown', handleEsc);
+        
+        // Get stored custom prompts from article metadata
+        const customPrompts = {{ article.article_metadata.get('custom_prompts', []) | tojson }};
+        
+        let historyContent = '';
+        if (customPrompts && customPrompts.length > 0) {
+            historyContent = customPrompts.map((prompt, index) => {
+                const respondedAt = new Date(prompt.responded_at).toLocaleString();
+                const responsePreview = prompt.response.substring(0, 200) + (prompt.response.length > 200 ? '...' : '');
+                
+                return `
+                    <div class="border border-gray-200 rounded-lg p-4 mb-4 bg-white">
+                        <div class="flex justify-between items-start mb-3">
+                            <div class="flex-1">
+                                <h4 class="font-semibold text-gray-900 mb-2">${prompt.prompt}</h4>
+                                <div class="text-sm text-gray-600 mb-2">
+                                    <span class="font-medium">Model:</span> ${prompt.model_name || prompt.model_used || 'Unknown'} • 
+                                    <span class="font-medium">Date:</span> ${respondedAt}
+                                </div>
+                            </div>
+                            <button onclick="showFullPromptResponse(${index})" 
+                                    class="ml-4 px-3 py-1 text-sm bg-purple-100 text-purple-700 rounded hover:bg-purple-200 transition-colors">
+                                View Full
+                            </button>
+                        </div>
+                        <div class="bg-gray-50 rounded p-3">
+                            <div class="text-sm text-gray-700 font-mono whitespace-pre-wrap">${responsePreview}</div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        } else {
+            historyContent = `
+                <div class="text-center py-8 text-gray-500">
+                    <div class="text-4xl mb-4">📝</div>
+                    <p class="text-lg font-medium mb-2">No Previous Prompts</p>
+                    <p class="text-sm">You haven't asked any custom questions about this article yet.</p>
+                </div>
+            `;
+        }
+        
+        modal.innerHTML = `
+            <div class="relative top-10 mx-auto p-5 border w-11/12 max-w-4xl shadow-lg rounded-md bg-white">
+                <div class="flex justify-between items-center mb-6">
+                    <h3 class="text-xl font-bold text-gray-900">📚 Custom Prompt History</h3>
+                    <div class="flex space-x-3">
+                        <button onclick="showCustomPromptModal()" 
+                                class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-colors">
+                            <span class="mr-2">💬</span>
+                            Ask New Question
+                        </button>
+                        <button onclick="closeCustomPromptHistoryModal()" class="text-gray-400 hover:text-gray-600">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="max-h-96 overflow-y-auto">
+                    ${historyContent}
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+    }
+    
+    function closeCustomPromptHistoryModal() {
+        const modal = document.getElementById('customPromptHistoryModal');
+        if (modal) {
+            modal.remove();
+        }
+    }
+    
+    function showFullPromptResponse(index) {
+        const customPrompts = {{ article.article_metadata.get('custom_prompts', []) | tojson }};
+        if (!customPrompts || !customPrompts[index]) {
+            showNotification('Prompt not found', 'error');
+            return;
+        }
+        
+        const prompt = customPrompts[index];
+        closeCustomPromptHistoryModal();
+        showCustomResponseModal(prompt.response, prompt.prompt, {
+            model_name: prompt.model_name || prompt.model_used,
+            responded_at: prompt.responded_at
+        });
     }
     
     
