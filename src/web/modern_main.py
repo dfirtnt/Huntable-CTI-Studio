@@ -3228,19 +3228,8 @@ async def api_rank_with_gpt4o(article_id: int, request: Request):
             # Use original content if filtering is disabled
             content_to_analyze = article.content
         
-        # Smart content truncation based on model (after filtering)
-        if ai_model == 'chatgpt':
-            # Using ChatGPT - can handle more content
-            max_chars = 400000  # Leave room for prompt
-        elif ai_model == 'anthropic':
-            # Using Anthropic - can handle very large content
-            max_chars = 800000  # Very large context window
-        else:
-            # Using Ollama - more conservative limit
-            max_chars = 100000  # Much smaller for local LLM
-        
-        if len(content_to_analyze) > max_chars:
-            content_to_analyze = content_to_analyze[:max_chars] + "\n\n[Content truncated due to length]"
+        # Use environment-configured content limits (no hardcoded truncation)
+        # Content filtering already optimizes content, so we trust the configured limits
         
         # Get the source name from source_id
         source = await async_db_manager.get_source(article.source_id)
@@ -3430,11 +3419,8 @@ async def api_gpt4o_rank(article_id: int, request: Request):
         if not article.content:
             raise HTTPException(status_code=400, detail="Article content is required for analysis")
         
-        # Truncate content if too long (GPT4o has 128K token limit, roughly 500K characters)
-        max_chars = 400000  # Leave room for prompt
+        # Use full content (no hardcoded truncation)
         content_to_analyze = article.content
-        if len(content_to_analyze) > max_chars:
-            content_to_analyze = content_to_analyze[:max_chars] + "\n\n[Content truncated due to length]"
         
         # Get the source name from source_id
         source = await async_db_manager.get_source(article.source_id)
@@ -3697,10 +3683,7 @@ async def api_gpt4o_rank_optimized(article_id: int, request: Request):
             tokens_saved = 0
             chunks_removed = 0
         
-        # Truncate content if still too long (GPT4o has 128K token limit, roughly 500K characters)
-        max_chars = 400000  # Leave room for prompt
-        if len(content_to_analyze) > max_chars:
-            content_to_analyze = content_to_analyze[:max_chars] + "\n\n[Content truncated due to length]"
+        # Use full content (no hardcoded truncation)
         
         # Get the source name from source_id
         source = await async_db_manager.get_source(article.source_id)
