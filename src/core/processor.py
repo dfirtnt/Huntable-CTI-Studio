@@ -171,7 +171,15 @@ class ContentProcessor:
             
             # Normalize content
             normalized_title = ContentCleaner.normalize_whitespace(article.title)
+            # Debug: Check content before cleaning
+            non_printable_before = sum(1 for c in article.content if ord(c) < 32 and c not in '\n\r\t')
+            logger.info(f"ContentProcessor: Before cleaning - {len(article.content)} chars, {non_printable_before} non-printable")
+            
             normalized_content = ContentCleaner.clean_html(article.content)
+            
+            # Debug: Check content after cleaning
+            non_printable_after = sum(1 for c in normalized_content if ord(c) < 32 and c not in '\n\r\t')
+            logger.info(f"ContentProcessor: After cleaning - {len(normalized_content)} chars, {non_printable_after} non-printable")
             
             # Generate or update content hash
             content_hash = ContentCleaner.calculate_content_hash(normalized_title, normalized_content)

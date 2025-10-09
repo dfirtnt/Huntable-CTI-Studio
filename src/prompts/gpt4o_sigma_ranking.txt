@@ -38,7 +38,7 @@ Only content that maps to structured log telemetry receives points. Ignore netwo
 - 3 = Detailed examples but limited coverage
 - 4 = Multiple detailed command chains with full arguments
 
-### Category B – Persistence & System/Service Modification (0-3 pts)
+### Category B - Persistence & System/Service Modification (0-3 pts)
 
 **Data Sources:** 
 - Windows: Sysmon Event IDs 12/13/19/7045, Security 4697
@@ -62,7 +62,7 @@ Only content that maps to structured log telemetry receives points. Ignore netwo
 - 2 = Specific mechanism but incomplete details
 - 3 = Exact configurations, API calls, plist files, or settings ready for SIGMA rules
 
-### Category C – Log-Correlated Behavior (0-2 pts)
+### Category C - Log-Correlated Behavior (0-2 pts)
 
 **Data Sources:** Multiple log sources in sequence (Windows/Linux/macOS/Cloud)
 
@@ -80,7 +80,7 @@ Only content that maps to structured log telemetry receives points. Ignore netwo
 - 1 = Limited correlation opportunities
 - 2 = Clear multi-log correlation patterns
 
-### Category D – Structured Log Patterns (0-1 pt)
+### Category D - Structured Log Patterns (0-1 pt)
 
 **Data Sources:** Any structured log format (file creation, API calls, service events)
 

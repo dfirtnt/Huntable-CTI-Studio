@@ -3,24 +3,38 @@
 {% block title %}Articles - CTI Scraper{% endblock %}
 
 {% block content %}
-<div class="space-y-6">
-    <!-- Header -->
-    <div class="bg-white rounded-lg shadow-sm p-6">
+<div class="container mx-auto px-4 py-8">
+    <div class="mb-8">
+        <h1 class="text-3xl font-bold text-gray-900 dark:text-white mb-2">📰 Threat Intelligence Articles</h1>
+        <p class="text-gray-600 dark:text-gray-400">Browse and search collected threat intelligence articles</p>
+    </div>
+
+    <!-- Header Stats -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-8">
         <div class="flex items-center justify-between">
             <div>
-                <h1 class="text-3xl font-bold text-gray-900">Threat Intelligence Articles</h1>
-                <p class="mt-2 text-gray-600">Browse and search collected threat intelligence articles</p>
-            </div>
-            <div class="text-right">
-                <p class="text-sm text-gray-500">Total Articles</p>
-                <p class="text-2xl font-bold text-blue-600">{{ pagination.total_articles }}</p>
+                <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">📊 Article Statistics</h2>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div class="text-center">
+                        <div class="text-2xl font-bold text-blue-600 dark:text-blue-400">{{ pagination.total_articles }}</div>
+                        <div class="text-sm text-gray-500 dark:text-gray-400">Total Articles</div>
+                    </div>
+                    <div class="text-center">
+                        <div class="text-2xl font-bold text-green-600 dark:text-green-400">{{ stats.chosen_count }}</div>
+                        <div class="text-sm text-gray-500 dark:text-gray-400">Chosen</div>
+                    </div>
+                    <div class="text-center">
+                        <div class="text-2xl font-bold text-red-600 dark:text-red-400">{{ stats.rejected_count }}</div>
+                        <div class="text-sm text-gray-500 dark:text-gray-400">Rejected</div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
 
     <!-- Filters -->
-    <div class="bg-white rounded-lg shadow-sm p-6">
-        <h3 class="text-lg font-medium text-gray-900 mb-4">Filters & Search</h3>
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-8">
+        <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">🔍 Filters & Search</h2>
         <form method="GET" class="grid grid-cols-1 md:grid-cols-4 gap-4">
             <!-- Hidden inputs to preserve sort parameters -->
             <input type="hidden" name="sort_by" value="{{ filters.sort_by or 'threat_hunting_score' }}">
@@ -211,8 +225,8 @@
     </div>
 
     <!-- Sorting Controls -->
-    <div class="bg-white rounded-lg shadow-sm p-6">
-        <h3 class="text-lg font-medium text-gray-900 mb-4">Sort Articles</h3>
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-8">
+        <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">📊 Sort Articles</h2>
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
             <!-- Sort By -->
             <div>
@@ -248,13 +262,13 @@
     </div>
 
     <!-- Articles List -->
-    <div class="bg-white rounded-lg shadow-sm">
-        <div class="px-6 py-4 border-b border-gray-200">
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+        <div class="mb-6">
             <div class="flex items-center justify-between">
                 <div class="flex items-center space-x-4">
-                    <h3 class="text-lg font-medium text-gray-900">
-                        Articles ({{ pagination.start_idx }}-{{ pagination.end_idx }} of {{ pagination.total_articles }})
-                    </h3>
+                    <h2 class="text-xl font-semibold text-gray-900 dark:text-white">
+                        📰 Articles ({{ pagination.start_idx }}-{{ pagination.end_idx }} of {{ pagination.total_articles }})
+                    </h2>
                     {% if articles %}
                     <label class="flex items-center text-sm text-gray-600">
                         <input type="checkbox" 
@@ -265,7 +279,7 @@
                     </label>
                     {% endif %}
                 </div>
-                <div class="text-sm text-gray-500">
+                <div class="text-sm text-gray-500 dark:text-gray-400">
                     Page {{ pagination.page }} of {{ pagination.total_pages }}
                 </div>
             </div>
@@ -312,9 +326,9 @@
         </div>
 
         {% if articles %}
-        <div class="divide-y divide-gray-200">
+        <div class="space-y-4">
             {% for article in articles %}
-            <div class="px-6 py-4 hover:bg-gray-50 transition-colors">
+            <div class="p-6 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg hover:shadow-md transition-all duration-200">
                 <div class="flex items-start justify-between">
                     <div class="flex items-start space-x-3">
                         <input type="checkbox" 
@@ -322,16 +336,16 @@
                                data-article-id="{{ article.id }}"
                                onchange="updateBulkActions()">
                         <div class="flex-1 min-w-0">
-                            <div class="flex items-center space-x-2 mb-2">
-                            <a href="/articles/{{ article.id }}" class="text-lg font-medium text-blue-600 hover:text-blue-800">
+                            <div class="flex items-center space-x-2 mb-3">
+                            <a href="/articles/{{ article.id }}" class="text-lg font-semibold text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300">
                                 {{ article.title }}
                             </a>
-                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200">
                                 #{{ article.id }}
                             </span>
                         </div>
                         
-                        <div class="flex items-center space-x-4 text-sm text-gray-500 mb-2">
+                        <div class="flex items-center space-x-4 text-sm text-gray-600 dark:text-gray-400 mb-3">
                             <span>Source: 
                                 {% set source_name = source_lookup[article.source_id].name if article.source_id in source_lookup else article.source_id %}
                                 {% if article.canonical_url %}
@@ -348,15 +362,15 @@
                             <span>Content: {{ article.content|length }} characters</span>
                             <span>Classification: 
                                 {% if article.article_metadata and article.article_metadata.get('training_category') == 'chosen' %}
-                                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                    <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 border border-green-200 dark:border-green-700">
                                         ✅ Chosen
                                     </span>
                                 {% elif article.article_metadata and article.article_metadata.get('training_category') == 'rejected' %}
-                                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                                    <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 border border-red-200 dark:border-red-700">
                                         ❌ Rejected
                                     </span>
                                 {% else %}
-                                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                                    <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200 border border-yellow-200 dark:border-yellow-700">
                                         ⏳ Unclassified
                                     </span>
                                 {% endif %}
@@ -365,19 +379,19 @@
                             <span>Threat Hunting Score: 
                                 {% set score = article.article_metadata.get('threat_hunting_score', 0) %}
                                 {% if score >= 80 %}
-                                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                    <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-bold bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 border border-green-200 dark:border-green-700">
                                         🎯 {{ "%.1f"|format(score) }}
                                     </span>
                                 {% elif score >= 60 %}
-                                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                                    <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-bold bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200 border border-yellow-200 dark:border-yellow-700">
                                         🟡 {{ "%.1f"|format(score) }}
                                     </span>
                                 {% elif score >= 40 %}
-                                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
+                                    <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-bold bg-orange-100 dark:bg-orange-900 text-orange-800 dark:text-orange-200 border border-orange-200 dark:border-orange-700">
                                         🟠 {{ "%.1f"|format(score) }}
                                     </span>
                                 {% else %}
-                                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                                    <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-bold bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 border border-red-200 dark:border-red-700">
                                         🔴 {{ "%.1f"|format(score) }}
                                     </span>
                                 {% endif %}
@@ -387,11 +401,11 @@
                             <span>Annotations: 
                                 {% set annotation_count = article.article_metadata.get('annotation_count', 0) %}
                                 {% if annotation_count > 0 %}
-                                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                    <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 border border-blue-200 dark:border-blue-700">
                                         📝 {{ annotation_count }}
                                     </span>
                                 {% else %}
-                                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
+                                    <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-600">
                                         📝 {{ annotation_count }}
                                     </span>
                                 {% endif %}
@@ -405,7 +419,7 @@
                             <div class="flex flex-wrap gap-1">
                                 {% if article.article_metadata.get('perfect_keyword_matches') %}
                                     {% for keyword in article.article_metadata.get('perfect_keyword_matches', [])[:3] %}
-                                    <span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800" title="Perfect Discriminator">
+                                    <span class="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 border border-green-200 dark:border-green-700" title="Perfect Discriminator">
                                         ✅ {{ keyword }}
                                     </span>
                                     {% endfor %}
@@ -418,7 +432,7 @@
                                 
                                 {% if article.article_metadata.get('good_keyword_matches') %}
                                     {% for keyword in article.article_metadata.get('good_keyword_matches', [])[:2] %}
-                                    <span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-800" title="Good Discriminator">
+                                    <span class="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-200 border border-purple-200 dark:border-purple-700" title="Good Discriminator">
                                         🟡 {{ keyword }}
                                     </span>
                                     {% endfor %}
@@ -431,7 +445,7 @@
                                 
                                 {% if article.article_metadata.get('lolbas_matches') %}
                                     {% for keyword in article.article_metadata.get('lolbas_matches', [])[:2] %}
-                                    <span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800" title="LOLBAS Executable">
+                                    <span class="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 border border-blue-200 dark:border-blue-700" title="LOLBAS Executable">
                                         🔧 {{ keyword }}
                                     </span>
                                     {% endfor %}
@@ -446,14 +460,14 @@
                         </div>
                         {% endif %}
 
-                        <p class="text-gray-600 mb-3">
+                        <p class="text-gray-700 dark:text-gray-300 mb-4 leading-relaxed">
                             {{ article.content[:300] }}{% if article.content|length > 300 %}...{% endif %}
                         </p>
 
                         <div class="flex items-center space-x-2">
                             {% if article.canonical_url %}
-                            <a href="{{ article.canonical_url }}" target="_blank" class="inline-flex items-center px-3 py-1.5 border border-gray-300 text-xs font-medium rounded text-gray-700 bg-white hover:bg-gray-50 transition-colors">
-                                Original Source
+                            <a href="{{ article.canonical_url }}" target="_blank" class="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 text-sm font-medium rounded-md text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors">
+                                📖 Original Source
                             </a>
                             {% endif %}
                         </div>
@@ -464,10 +478,10 @@
             {% endfor %}
         </div>
         {% else %}
-        <div class="px-6 py-12 text-center">
-            <div class="text-gray-400 text-6xl mb-4">📰</div>
-            <h3 class="text-lg font-medium text-gray-900 mb-2">No articles found</h3>
-            <p class="text-gray-500">
+        <div class="text-center py-12">
+            <div class="text-gray-400 dark:text-gray-500 text-6xl mb-4">📰</div>
+            <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-2">No articles found</h3>
+            <p class="text-gray-500 dark:text-gray-400">
                 {% if filters.search or filters.source or filters.quality_min %}
                 Try adjusting your filters or search terms.
                 {% else %}
@@ -479,9 +493,9 @@
 
         <!-- Pagination -->
         {% if pagination.total_pages > 1 %}
-        <div class="px-6 py-4 bg-gray-50 border-t border-gray-200">
+        <div class="mt-6 pt-4 border-t border-gray-200 dark:border-gray-600">
             <div class="flex items-center justify-between">
-                <div class="text-sm text-gray-700">
+                <div class="text-sm text-gray-700 dark:text-gray-300">
                     Showing {{ pagination.start_idx }} to {{ pagination.end_idx }} of {{ pagination.total_articles }} results
                 </div>
                 <div class="flex items-center space-x-2">

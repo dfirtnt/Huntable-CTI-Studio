@@ -35,7 +35,7 @@ The CTI Scraper uses a microservices architecture with the following components:
 6. **Ollama LLM Service** (`cti_ollama`)
    - Local large language model for content analysis
    - Provides threat hunting and detection engineering analysis
-   - Runs Mistral model for content processing
+   - Runs Llama 3.2 1B model for content processing
 
 ### Additional Services
 

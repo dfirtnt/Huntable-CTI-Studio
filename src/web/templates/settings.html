@@ -3,24 +3,24 @@
 {% block title %}Settings - CTIScraper{% endblock %}
 
 {% block content %}
-<div class="max-w-4xl mx-auto px-4 py-8">
+<div class="container mx-auto px-4 py-8">
     <div class="mb-8">
-        <h1 class="text-3xl font-bold text-gray-900">⚙️ Settings</h1>
-        <p class="text-gray-600 mt-2">Configure your CTIScraper preferences</p>
+        <h1 class="text-3xl font-bold text-gray-900 dark:text-white mb-2">⚙️ Settings</h1>
+        <p class="text-gray-600 dark:text-gray-400">Configure your CTIScraper preferences</p>
     </div>
 
     <!-- Settings Sections -->
-    <div class="space-y-6">
+    <div class="space-y-8">
         <!-- Classification Settings -->
-        <div class="bg-white rounded-lg shadow-sm p-6">
-            <h2 class="text-xl font-bold text-gray-900 mb-4">🏷️ Classification Settings</h2>
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+            <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">🏷️ Classification Settings</h2>
             
             <div class="space-y-4">
                 <!-- Comment Prompts Toggle -->
                 <div class="flex items-center justify-between">
                     <div>
-                        <h3 class="text-lg font-medium text-gray-900">Comment Prompts</h3>
-                        <p class="text-sm text-gray-600">Show comment prompts when classifying articles as Chosen or Rejected</p>
+                        <h3 class="text-lg font-medium text-gray-900 dark:text-white">Comment Prompts</h3>
+                        <p class="text-sm text-gray-600 dark:text-gray-400">Show comment prompts when classifying articles as Chosen or Rejected</p>
                     </div>
                     <div class="flex items-center">
                         <button id="commentPromptsToggle" 
@@ -35,13 +35,13 @@
         </div>
 
         <!-- Display Settings -->
-        <div class="bg-white rounded-lg shadow-sm p-6">
-            <h2 class="text-xl font-bold text-gray-900 mb-4">📊 Display Settings</h2>
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+            <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">📊 Display Settings</h2>
             
             <div class="space-y-4">
                 <!-- Articles Per Page -->
                 <div>
-                    <label for="articlesPerPage" class="block text-sm font-medium text-gray-700 mb-2">
+                    <label for="articlesPerPage" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                         Articles Per Page
                     </label>
                     <select id="articlesPerPage" 
@@ -55,13 +55,13 @@
         </div>
 
         <!-- AI Model Configuration -->
-        <div class="bg-white rounded-lg shadow-sm p-6">
-            <h2 class="text-xl font-bold text-gray-900 mb-4">🤖 AI Assistant Configuration</h2>
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+            <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">🤖 AI Assistant Configuration</h2>
             
             <div class="space-y-4">
                 <!-- AI Model Selection -->
                 <div>
-                    <label for="aiModel" class="block text-sm font-medium text-gray-700 mb-2">
+                    <label for="aiModel" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                         Preferred AI Model
                     </label>
                     <select id="aiModel" 
@@ -70,7 +70,7 @@
                         <option value="anthropic">Claude (Anthropic)</option>
                         <option value="ollama">Llama (Local Ollama)</option>
                     </select>
-                    <p class="text-sm text-gray-500 mt-1">Choose your preferred AI model for summaries and analysis</p>
+                    <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Choose your preferred AI model for summaries and analysis</p>
                 </div>
                 
                 <!-- Model Description -->
@@ -88,8 +88,8 @@
         </div>
 
         <!-- SIGMA Rule Configuration -->
-        <div class="bg-white rounded-lg shadow-sm p-6">
-            <h2 class="text-xl font-bold text-gray-900 mb-4">🔍 SIGMA Rule Configuration</h2>
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+            <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">🔍 SIGMA Rule Configuration</h2>
             
             <div class="space-y-4">
                 <!-- SIGMA Rule Author -->
@@ -120,14 +120,14 @@
 
 
         <!-- Data Export -->
-        <div class="bg-white rounded-lg shadow-sm p-6">
-            <h2 class="text-xl font-bold text-gray-900 mb-4">📤 Data Export</h2>
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+            <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">📤 Data Export</h2>
             
             <div class="space-y-4">
                 <!-- Export Annotations -->
                 <div>
-                    <h3 class="text-lg font-medium text-gray-900 mb-2">Export Annotations</h3>
-                    <p class="text-sm text-gray-600 mb-4">Download all text classifications (huntable/not huntable) as a CSV file</p>
+                    <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-2">Export Annotations</h3>
+                    <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">Download all text classifications (huntable/not huntable) as a CSV file</p>
                     
                     <button id="exportAnnotationsBtn" 
                             class="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
@@ -148,8 +148,8 @@
         </div>
 
         <!-- API Configuration -->
-        <div id="apiConfigurationSection" class="bg-white rounded-lg shadow-sm p-6" style="display: none;">
-            <h2 class="text-xl font-bold text-gray-900 mb-4">🔑 API Configuration</h2>
+        <div id="apiConfigurationSection" class="bg-white dark:bg-gray-800 rounded-lg shadow p-6" style="display: none;">
+            <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">🔑 API Configuration</h2>
             
             <div class="space-y-4">
                 <!-- OpenAI API Key -->
