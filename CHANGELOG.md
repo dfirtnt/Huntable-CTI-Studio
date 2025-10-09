@@ -8,6 +8,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Article Detail Page Readability**: Enhanced article content readability with black text for maximum contrast
+- **Dark Mode Support**: Improved dark mode support for keyword highlights and user annotations
+- **Enhanced Annotation System**: Updated JavaScript annotation classes for consistent dark mode styling
+
+### Changed
+- **Keyword Highlighting**: Updated `highlight_keywords` filter to support dark mode with proper contrast
+- **User Annotations**: Enhanced annotation spans with dark mode classes for better visibility
+- **Content Display**: Improved article content text contrast and readability across themes
+
+### Fixed
+- **Readability Issues**: Resolved low contrast issues in article detail page content display
+- **Dark Mode Compatibility**: Fixed keyword highlights and annotations to work properly in dark mode
+- **Visual Consistency**: Ensured consistent styling across light and dark themes
+
+## [Previous Releases]
 - **SIGMA Conversation Log**: Enhanced SIGMA rule generation UI to display the full back-and-forth conversation between LLM and pySigma validator
   - Shows each attempt with prompts, LLM responses, and validation results
   - Collapsible sections for long content to improve readability
