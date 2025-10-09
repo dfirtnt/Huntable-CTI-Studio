@@ -4614,12 +4614,87 @@ async def api_dashboard_data():
 async def api_rescore_all():
     """Rescore all articles."""
     try:
-        # For now, return a placeholder - would need to implement Celery task
+        from src.core.processor import ContentProcessor
+        from src.models.article import ArticleCreate
+        
+        # Get all articles from database
+        articles = await async_db_manager.list_articles()
+        total_articles = len(articles)
+        
+        if total_articles == 0:
+            return {
+                "success": True,
+                "message": "No articles found to rescore",
+                "processed": 0
+            }
+        
+        # Filter articles that need rescoring (missing threat hunting scores)
+        articles_to_rescore = [
+            a for a in articles 
+            if not a.article_metadata or 'threat_hunting_score' not in a.article_metadata
+        ]
+        
+        if not articles_to_rescore:
+            return {
+                "success": True,
+                "message": "All articles already have scores",
+                "processed": 0
+            }
+        
+        # Create processor
+        processor = ContentProcessor(enable_content_enhancement=True)
+        
+        success_count = 0
+        error_count = 0
+        
+        # Process articles in batches to avoid memory issues
+        batch_size = 10
+        for i in range(0, len(articles_to_rescore), batch_size):
+            batch = articles_to_rescore[i:i + batch_size]
+            
+            for article in batch:
+                try:
+                    # Create ArticleCreate object for processing
+                    article_create = ArticleCreate(
+                        source_id=article.source_id,
+                        canonical_url=article.canonical_url,
+                        title=article.title,
+                        content=article.content,
+                        content_hash=article.content_hash,
+                        published_at=article.published_at,
+                        article_metadata=article.article_metadata or {}
+                    )
+                    
+                    # Regenerate threat hunting score
+                    enhanced_metadata = await processor._enhance_metadata(article_create)
+                    
+                    if 'threat_hunting_score' in enhanced_metadata:
+                        # Update the article in database
+                        if not article.article_metadata:
+                            article.article_metadata = {}
+                        
+                        # Update threat hunting score and keyword matches
+                        article.article_metadata['threat_hunting_score'] = enhanced_metadata['threat_hunting_score']
+                        article.article_metadata['perfect_keyword_matches'] = enhanced_metadata.get('perfect_keyword_matches', [])
+                        article.article_metadata['good_keyword_matches'] = enhanced_metadata.get('good_keyword_matches', [])
+                        article.article_metadata['lolbas_matches'] = enhanced_metadata.get('lolbas_matches', [])
+                        
+                        # Save the updated article
+                        await async_db_manager.update_article(article.id, article)
+                        success_count += 1
+                    else:
+                        error_count += 1
+                        
+                except Exception as e:
+                    logger.error(f"Error processing article {article.id}: {e}")
+                    error_count += 1
+        
         return {
             "success": True,
-            "message": "Rescoring started (placeholder)",
-            "processed": 0
+            "message": f"Rescoring completed: {success_count} articles processed successfully, {error_count} errors",
+            "processed": success_count
         }
+        
     except Exception as e:
         logger.error(f"Rescore all error: {e}")
         raise HTTPException(status_code=500, detail=str(e))

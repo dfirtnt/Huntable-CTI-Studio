@@ -157,6 +157,46 @@ class TestErrorHandling:
         # Should handle gracefully, either default or error
         assert response.status_code in [200, 400, 500]
 
+class TestQuickActionsEndpoints:
+    """Test quick action endpoints."""
+    
+    @pytest.mark.api
+    @pytest.mark.smoke
+    @pytest.mark.asyncio
+    async def test_rescore_all_articles(self, async_client: httpx.AsyncClient):
+        """Test the rescore all articles endpoint."""
+        response = await async_client.post("/api/actions/rescore-all")
+        assert response.status_code == 200
+        
+        data = response.json()
+        assert "success" in data
+        assert "message" in data
+        assert "processed" in data
+        assert data["success"] is True
+        assert isinstance(data["processed"], int)
+        assert data["processed"] >= 0
+    
+    @pytest.mark.api
+    @pytest.mark.asyncio
+    async def test_rescore_all_response_format(self, async_client: httpx.AsyncClient):
+        """Test the rescore all articles response format."""
+        response = await async_client.post("/api/actions/rescore-all")
+        assert response.status_code == 200
+        
+        data = response.json()
+        # Verify all required fields are present
+        required_fields = ["success", "message", "processed"]
+        for field in required_fields:
+            assert field in data, f"Missing required field: {field}"
+        
+        # Verify field types
+        assert isinstance(data["success"], bool)
+        assert isinstance(data["message"], str)
+        assert isinstance(data["processed"], int)
+        
+        # Verify success message format
+        assert "Rescoring completed" in data["message"] or "No articles found" in data["message"] or "All articles already have scores" in data["message"]
+
 class TestPerformance:
     """Test performance and response times."""
     
