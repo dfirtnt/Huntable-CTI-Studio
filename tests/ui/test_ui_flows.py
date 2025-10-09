@@ -198,6 +198,86 @@ class TestErrorHandling:
             # Or redirects to a valid page
             expect(page).to_have_url(lambda url: "999999" not in url)
 
+class TestQuickActionsFlows:
+    """Test quick action button flows."""
+    
+    @pytest.mark.ui
+    @pytest.mark.smoke
+    def test_rescore_all_articles_button(self, page: Page):
+        """Test the rescore all articles button functionality."""
+        base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
+        page.goto(f"{base_url}/")
+        
+        # Wait for page to load
+        page.wait_for_load_state("networkidle")
+        
+        # Find and click the rescore button
+        rescore_button = page.locator("button:has-text('Rescore All Articles')")
+        expect(rescore_button).to_be_visible()
+        
+        # Click the button
+        rescore_button.click()
+        
+        # Wait for API call to complete
+        page.wait_for_timeout(2000)
+        
+        # Check for success notification
+        notification = page.locator(".fixed.top-4.right-4")
+        if notification.count() > 0:
+            expect(notification).to_be_visible()
+            # Notification should contain success message
+            expect(notification).to_contain_text("Rescoring completed")
+    
+    @pytest.mark.ui
+    @pytest.mark.slow
+    def test_rescore_button_with_articles(self, page: Page):
+        """Test rescore button when articles exist."""
+        base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
+        page.goto(f"{base_url}/")
+        
+        # Wait for page to load
+        page.wait_for_load_state("networkidle")
+        
+        # Check if there are articles to rescore
+        rescore_button = page.locator("button:has-text('Rescore All Articles')")
+        expect(rescore_button).to_be_visible()
+        
+        # Click the button
+        rescore_button.click()
+        
+        # Wait for processing to complete
+        page.wait_for_timeout(5000)
+        
+        # Check for notification
+        notification = page.locator(".fixed.top-4.right-4")
+        if notification.count() > 0:
+            expect(notification).to_be_visible()
+            # Should show either success or "already have scores" message
+            notification_text = notification.text_content()
+            assert any(msg in notification_text for msg in [
+                "Rescoring completed",
+                "No articles found",
+                "All articles already have scores"
+            ])
+    
+    @pytest.mark.ui
+    def test_quick_actions_section(self, page: Page):
+        """Test that quick actions section is properly displayed."""
+        base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
+        page.goto(f"{base_url}/")
+        
+        # Check for quick actions section
+        quick_actions = page.locator("text=Quick Actions")
+        expect(quick_actions).to_be_visible()
+        
+        # Check for rescore button
+        rescore_button = page.locator("button:has-text('Rescore All Articles')")
+        expect(rescore_button).to_be_visible()
+        
+        # Check for health check button
+        health_button = page.locator("button:has-text('Run Health Check')")
+        expect(health_button).to_be_visible()
+
 class TestPerformance:
     """Test UI performance."""
     
