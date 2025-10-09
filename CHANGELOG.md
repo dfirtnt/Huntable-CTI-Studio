@@ -11,16 +11,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Article Detail Page Readability**: Enhanced article content readability with black text for maximum contrast
 - **Dark Mode Support**: Improved dark mode support for keyword highlights and user annotations
 - **Enhanced Annotation System**: Updated JavaScript annotation classes for consistent dark mode styling
+- **LLM Integration**: Added LLM integration with template fallback for RAG chat responses
+- **Ollama Parallelism**: Increased Ollama parallelism to handle multiple concurrent AI endpoints
 
 ### Changed
 - **Keyword Highlighting**: Updated `highlight_keywords` filter to support dark mode with proper contrast
 - **User Annotations**: Enhanced annotation spans with dark mode classes for better visibility
 - **Content Display**: Improved article content text contrast and readability across themes
+- **Chat Interface**: Updated UI message from "LLM disabled" to "AI-powered responses enabled"
+- **Ollama Configuration**: Increased `OLLAMA_NUM_PARALLEL` from 1 to 3 and `OLLAMA_MAX_LOADED_MODELS` from 1 to 2
 
 ### Fixed
 - **Readability Issues**: Resolved low contrast issues in article detail page content display
 - **Dark Mode Compatibility**: Fixed keyword highlights and annotations to work properly in dark mode
 - **Visual Consistency**: Ensured consistent styling across light and dark themes
+- **LLM Resource Contention**: Fixed Ollama timeout issues caused by multiple AI endpoints competing for resources
+- **Chat Interface Status**: Removed hardcoded "LLM disabled" message and implemented proper status display
 
 ## [Previous Releases]
 - **SIGMA Conversation Log**: Enhanced SIGMA rule generation UI to display the full back-and-forth conversation between LLM and pySigma validator
