@@ -26,7 +26,7 @@ def main():
     parser = argparse.ArgumentParser(description="Run CTI Scraper test suites")
     parser.add_argument(
         "suite",
-        choices=["light", "full", "unit", "all", "critical"],
+        choices=["light", "full", "unit", "all", "critical", "rag", "embedding"],
         help="Test suite to run"
     )
     parser.add_argument(
@@ -86,6 +86,14 @@ def main():
         "all": {
             "cmd": base_cmd + ["tests/"],
             "description": "All Tests"
+        },
+        "rag": {
+            "cmd": base_cmd + ["-m", "api", "tests/api/test_rag_endpoints.py", "tests/test_rag_service.py"],
+            "description": "RAG Feature Tests (API endpoints and service)"
+        },
+        "embedding": {
+            "cmd": base_cmd + ["tests/test_embedding_service.py", "tests/test_celery_embedding_tasks.py"],
+            "description": "Embedding Service Tests (unit and Celery tasks)"
         }
     }
     

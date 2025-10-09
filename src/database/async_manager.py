@@ -1453,6 +1453,380 @@ class AsyncDatabaseManager:
             created_at=db_annotation.created_at,
             updated_at=db_annotation.updated_at
         )
+    
+    async def get_annotation_with_article_info(self, annotation_id: int) -> Optional[ArticleAnnotationTable]:
+        """Get annotation with article and source information for embedding generation."""
+        try:
+            async with self.get_session() as session:
+                result = await session.execute(
+                    select(ArticleAnnotationTable)
+                    .options(selectinload(ArticleAnnotationTable.article).selectinload(ArticleTable.source))
+                    .where(ArticleAnnotationTable.id == annotation_id)
+                )
+                return result.scalar_one_or_none()
+                
+        except Exception as e:
+            logger.error(f"Failed to get annotation with article info {annotation_id}: {e}")
+            return None
+    
+    async def get_annotations_with_article_info(self, annotation_ids: List[int]) -> List[ArticleAnnotationTable]:
+        """Get multiple annotations with article and source information."""
+        try:
+            async with self.get_session() as session:
+                result = await session.execute(
+                    select(ArticleAnnotationTable)
+                    .options(selectinload(ArticleAnnotationTable.article).selectinload(ArticleTable.source))
+                    .where(ArticleAnnotationTable.id.in_(annotation_ids))
+                )
+                return result.scalars().all()
+                
+        except Exception as e:
+            logger.error(f"Failed to get annotations with article info: {e}")
+            return []
+    
+    async def get_annotations_without_embeddings(self) -> List[ArticleAnnotationTable]:
+        """Get all annotations that don't have embeddings yet."""
+        try:
+            async with self.get_session() as session:
+                result = await session.execute(
+                    select(ArticleAnnotationTable)
+                    .where(ArticleAnnotationTable.embedding.is_(None))
+                    .order_by(ArticleAnnotationTable.created_at)
+                )
+                return result.scalars().all()
+                
+        except Exception as e:
+            logger.error(f"Failed to get annotations without embeddings: {e}")
+            return []
+    
+    async def update_annotation_embedding(self, annotation_id: int, embedding: List[float], 
+                                       model_name: str = "all-mpnet-base-v2") -> bool:
+        """Update annotation with its embedding vector."""
+        try:
+            async with self.get_session() as session:
+                await session.execute(
+                    update(ArticleAnnotationTable)
+                    .where(ArticleAnnotationTable.id == annotation_id)
+                    .values(
+                        embedding=embedding,
+                        embedding_model=model_name,
+                        embedded_at=func.now()
+                    )
+                )
+                await session.commit()
+                logger.debug(f"Updated embedding for annotation {annotation_id}")
+                return True
+                
+        except Exception as e:
+            logger.error(f"Failed to update annotation embedding {annotation_id}: {e}")
+            return False
+    
+    async def search_similar_annotations(self, query_embedding: List[float], limit: int = 10, 
+                                      threshold: float = 0.7, annotation_type: Optional[str] = None) -> List[Dict[str, Any]]:
+        """Search for similar annotations using cosine similarity."""
+        try:
+            async with self.get_session() as session:
+                # Build query with optional filters
+                query = select(
+                    ArticleAnnotationTable.id,
+                    ArticleAnnotationTable.selected_text,
+                    ArticleAnnotationTable.annotation_type,
+                    ArticleAnnotationTable.confidence_score,
+                    ArticleAnnotationTable.article_id,
+                    ArticleTable.title.label('article_title'),
+                    SourceTable.name.label('source_name'),
+                    text("1 - (embedding <=> :query_vector) AS similarity")
+                ).select_from(
+                    ArticleAnnotationTable.__table__
+                    .join(ArticleTable.__table__, ArticleAnnotationTable.article_id == ArticleTable.id)
+                    .join(SourceTable.__table__, ArticleTable.source_id == SourceTable.id)
+                ).where(
+                    ArticleAnnotationTable.embedding.is_not(None)
+                ).order_by(
+                    text("embedding <=> :query_vector")
+                ).limit(limit)
+                
+                # Add annotation type filter if specified
+                if annotation_type:
+                    query = query.where(ArticleAnnotationTable.annotation_type == annotation_type)
+                
+                # Execute query with vector similarity
+                # Convert embedding list to string format for pgvector
+                embedding_str = '[' + ','.join(map(str, query_embedding)) + ']'
+                result = await session.execute(
+                    query.params(query_vector=embedding_str)
+                )
+                
+                # Filter by similarity threshold and format results
+                similar_annotations = []
+                for row in result:
+                    similarity = float(row.similarity)
+                    if similarity >= threshold:
+                        similar_annotations.append({
+                            'id': row.id,
+                            'selected_text': row.selected_text,
+                            'annotation_type': row.annotation_type,
+                            'confidence_score': row.confidence_score,
+                            'article_id': row.article_id,
+                            'article_title': row.article_title,
+                            'source_name': row.source_name,
+                            'similarity': similarity
+                        })
+                
+                logger.debug(f"Found {len(similar_annotations)} similar annotations above threshold {threshold}")
+                return similar_annotations
+                
+        except Exception as e:
+            logger.error(f"Failed to search similar annotations: {e}")
+            return []
+    
+    async def get_embedding_stats(self) -> Dict[str, Any]:
+        """Get statistics about embeddings in the database."""
+        try:
+            async with self.get_session() as session:
+                # Count total annotations
+                total_result = await session.execute(
+                    select(func.count(ArticleAnnotationTable.id))
+                )
+                total_annotations = total_result.scalar() or 0
+                
+                # Count annotations with embeddings
+                embedded_result = await session.execute(
+                    select(func.count(ArticleAnnotationTable.id))
+                    .where(ArticleAnnotationTable.embedding.is_not(None))
+                )
+                embedded_count = embedded_result.scalar() or 0
+                
+                # Count by annotation type
+                huntable_embedded_result = await session.execute(
+                    select(func.count(ArticleAnnotationTable.id))
+                    .where(
+                        and_(
+                            ArticleAnnotationTable.embedding.is_not(None),
+                            ArticleAnnotationTable.annotation_type == 'huntable'
+                        )
+                    )
+                )
+                huntable_embedded = huntable_embedded_result.scalar() or 0
+                
+                not_huntable_embedded_result = await session.execute(
+                    select(func.count(ArticleAnnotationTable.id))
+                    .where(
+                        and_(
+                            ArticleAnnotationTable.embedding.is_not(None),
+                            ArticleAnnotationTable.annotation_type == 'not_huntable'
+                        )
+                    )
+                )
+                not_huntable_embedded = not_huntable_embedded_result.scalar() or 0
+                
+                # Calculate percentages
+                embedding_coverage = (embedded_count / total_annotations * 100) if total_annotations > 0 else 0
+                
+                return {
+                    'total_annotations': total_annotations,
+                    'embedded_count': embedded_count,
+                    'embedding_coverage_percent': round(embedding_coverage, 1),
+                    'huntable_embedded': huntable_embedded,
+                    'not_huntable_embedded': not_huntable_embedded,
+                    'pending_embeddings': total_annotations - embedded_count
+                }
+                
+        except Exception as e:
+            logger.error(f"Failed to get embedding stats: {e}")
+            return {
+                'total_annotations': 0,
+                'embedded_count': 0,
+                'embedding_coverage_percent': 0.0,
+                'huntable_embedded': 0,
+                'not_huntable_embedded': 0,
+                'pending_embeddings': 0
+            }
+
+    # Article embedding methods
+    async def get_article_with_source_info(self, article_id: int) -> Optional[ArticleTable]:
+        """Get article with source information for embedding generation."""
+        try:
+            async with self.get_session() as session:
+                result = await session.execute(
+                    select(ArticleTable)
+                    .options(selectinload(ArticleTable.source))
+                    .where(ArticleTable.id == article_id)
+                )
+                return result.scalar_one_or_none()
+                
+        except Exception as e:
+            logger.error(f"Failed to get article with source info {article_id}: {e}")
+            return None
+    
+    async def get_articles_with_source_info(self, article_ids: List[int]) -> List[ArticleTable]:
+        """Get multiple articles with source information."""
+        try:
+            async with self.get_session() as session:
+                result = await session.execute(
+                    select(ArticleTable)
+                    .options(selectinload(ArticleTable.source))
+                    .where(ArticleTable.id.in_(article_ids))
+                )
+                return result.scalars().all()
+                
+        except Exception as e:
+            logger.error(f"Failed to get articles with source info: {e}")
+            return []
+    
+    async def get_articles_without_embeddings(self) -> List[ArticleTable]:
+        """Get all articles that don't have embeddings yet."""
+        try:
+            async with self.get_session() as session:
+                result = await session.execute(
+                    select(ArticleTable)
+                    .where(ArticleTable.embedding.is_(None))
+                    .order_by(ArticleTable.created_at)
+                )
+                return result.scalars().all()
+                
+        except Exception as e:
+            logger.error(f"Failed to get articles without embeddings: {e}")
+            return []
+    
+    async def update_article_embedding(self, article_id: int, embedding: List[float], 
+                                     model_name: str = "all-mpnet-base-v2") -> bool:
+        """Update article with its embedding vector."""
+        try:
+            async with self.get_session() as session:
+                await session.execute(
+                    update(ArticleTable)
+                    .where(ArticleTable.id == article_id)
+                    .values(
+                        embedding=embedding,
+                        embedding_model=model_name,
+                        embedded_at=func.now()
+                    )
+                )
+                await session.commit()
+                logger.debug(f"Updated embedding for article {article_id}")
+                return True
+                
+        except Exception as e:
+            logger.error(f"Failed to update article embedding {article_id}: {e}")
+            return False
+    
+    async def search_similar_articles(self, query_embedding: List[float], limit: int = 10, 
+                                    threshold: float = 0.7, source_id: Optional[int] = None) -> List[Dict[str, Any]]:
+        """Search for similar articles using cosine similarity."""
+        try:
+            async with self.get_session() as session:
+                # Build query with optional filters
+                query = select(
+                    ArticleTable.id,
+                    ArticleTable.title,
+                    ArticleTable.summary,
+                    ArticleTable.content,
+                    ArticleTable.published_at,
+                    ArticleTable.source_id,
+                    SourceTable.name.label('source_name'),
+                    text("1 - (embedding <=> :query_vector) AS similarity")
+                ).select_from(
+                    ArticleTable.__table__
+                    .join(SourceTable.__table__, ArticleTable.source_id == SourceTable.id)
+                ).where(
+                    ArticleTable.embedding.is_not(None)
+                ).order_by(
+                    text("embedding <=> :query_vector")
+                ).limit(limit)
+                
+                # Add source filter if specified
+                if source_id:
+                    query = query.where(ArticleTable.source_id == source_id)
+                
+                # Execute query with vector similarity
+                # Convert embedding list to string format for pgvector
+                embedding_str = '[' + ','.join(map(str, query_embedding)) + ']'
+                result = await session.execute(
+                    query.params(query_vector=embedding_str)
+                )
+                
+                # Filter by similarity threshold and format results
+                similar_articles = []
+                for row in result:
+                    similarity = float(row[7])  # similarity is the 8th column (index 7)
+                    if similarity >= threshold:
+                        similar_articles.append({
+                            'id': row.id,
+                            'title': row.title,
+                            'summary': row.summary,
+                            'content': row.content[:500] + '...' if len(row.content) > 500 else row.content,
+                            'published_at': row.published_at.isoformat() if row.published_at else None,
+                            'source_id': row.source_id,
+                            'source_name': row.source_name,
+                            'similarity': similarity
+                        })
+                
+                logger.debug(f"Found {len(similar_articles)} similar articles above threshold {threshold}")
+                return similar_articles
+                
+        except Exception as e:
+            logger.error(f"Failed to search similar articles: {e}")
+            return []
+    
+    async def get_article_embedding_stats(self) -> Dict[str, Any]:
+        """Get statistics about article embeddings in the database."""
+        try:
+            async with self.get_session() as session:
+                # Count total articles
+                total_result = await session.execute(
+                    select(func.count(ArticleTable.id))
+                )
+                total_articles = total_result.scalar() or 0
+                
+                # Count articles with embeddings
+                embedded_result = await session.execute(
+                    select(func.count(ArticleTable.id))
+                    .where(ArticleTable.embedding.is_not(None))
+                )
+                embedded_count = embedded_result.scalar() or 0
+                
+                # Count by source
+                source_stats_result = await session.execute(
+                    select(
+                        SourceTable.name,
+                        func.count(ArticleTable.id).label('total'),
+                        func.count(ArticleTable.embedding).label('embedded')
+                    ).select_from(
+                        ArticleTable.__table__
+                        .join(SourceTable.__table__, ArticleTable.source_id == SourceTable.id)
+                    ).group_by(SourceTable.id, SourceTable.name)
+                )
+                
+                source_stats = []
+                for row in source_stats_result:
+                    source_stats.append({
+                        'source_name': row.name,
+                        'total_articles': row.total,
+                        'embedded_articles': row.embedded,
+                        'coverage_percent': round((row.embedded / row.total * 100) if row.total > 0 else 0, 1)
+                    })
+                
+                # Calculate percentages
+                embedding_coverage = (embedded_count / total_articles * 100) if total_articles > 0 else 0
+                
+                return {
+                    'total_articles': total_articles,
+                    'embedded_count': embedded_count,
+                    'embedding_coverage_percent': round(embedding_coverage, 1),
+                    'pending_embeddings': total_articles - embedded_count,
+                    'source_stats': source_stats
+                }
+                
+        except Exception as e:
+            logger.error(f"Failed to get article embedding stats: {e}")
+            return {
+                'total_articles': 0,
+                'embedded_count': 0,
+                'embedding_coverage_percent': 0.0,
+                'pending_embeddings': 0,
+                'source_stats': []
+            }
 
     async def close(self):
         """Close database connections properly."""

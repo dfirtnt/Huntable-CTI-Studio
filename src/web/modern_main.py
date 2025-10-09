@@ -236,6 +236,12 @@ app.add_middleware(TrustedHostMiddleware, allowed_hosts=["*"])
 # Static files
 app.mount("/static", StaticFiles(directory="src/web/static"), name="static")
 
+# Chat page
+@app.get("/chat")
+async def chat_page(request: Request):
+    """Serve the RAG chat interface."""
+    return templates.TemplateResponse("chat.html", {"request": request})
+
 # Dependency for database session
 async def get_db_session() -> AsyncSession:
     """Get database session for dependency injection."""
@@ -3499,6 +3505,311 @@ async def api_gpt4o_rank(article_id: int, request: Request):
     except Exception as e:
         logger.error(f"GPT4o ranking error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# Semantic search endpoint
+@app.post("/api/search/semantic")
+async def api_semantic_search(request: Request):
+    """
+    Perform semantic search on articles using vector embeddings.
+    
+    Request body:
+    {
+        "query": "search query text",
+        "top_k": 10,
+        "threshold": 0.7,
+        "source_id": 1
+    }
+    """
+    try:
+        from src.services.rag_service import get_rag_service
+        
+        body = await request.json()
+        query = body.get("query", "")
+        
+        if not query:
+            raise HTTPException(status_code=400, detail="Query is required")
+        
+        # Extract search parameters
+        top_k = body.get("top_k", 10)
+        threshold = body.get("threshold", 0.7)
+        source_id = body.get("source_id")
+        
+        # Perform semantic search
+        rag_service = get_rag_service()
+        results = await rag_service.semantic_search(
+            query=query,
+            filters={
+                "top_k": top_k,
+                "threshold": threshold,
+                "source_id": source_id
+            }
+        )
+        
+        return results
+        
+    except Exception as e:
+        logger.error(f"Semantic search error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# Similar articles endpoint
+@app.get("/api/articles/{article_id}/similar")
+async def api_similar_articles(article_id: int, limit: int = 10, threshold: float = 0.7):
+    """
+    Find similar articles to a given article.
+    
+    Returns articles with similar semantic content.
+    """
+    try:
+        from src.services.rag_service import get_rag_service
+        
+        # Get the target article
+        article = await async_db_manager.get_article(article_id)
+        if not article:
+            raise HTTPException(status_code=404, detail="Article not found")
+        
+        # Check if article has embedding
+        if not article.embedding:
+            raise HTTPException(status_code=400, detail="Article does not have an embedding")
+        
+        # Search for similar articles
+        rag_service = get_rag_service()
+        similar_articles = await rag_service.find_similar_articles(
+            query=article.title + " " + article.content[:500],  # Use title + content preview
+            top_k=limit + 1,  # +1 to exclude the original
+            threshold=threshold
+        )
+        
+        # Filter out the original article
+        similar_articles = [
+            art for art in similar_articles 
+            if art['id'] != article_id
+        ][:limit]
+        
+        return {
+            "target_article": {
+                "id": article.id,
+                "title": article.title,
+                "source_id": article.source_id
+            },
+            "similar_articles": similar_articles,
+            "total_results": len(similar_articles)
+        }
+        
+    except Exception as e:
+        logger.error(f"Similar articles error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# Embedding statistics endpoint
+@app.get("/api/embeddings/stats")
+async def api_embedding_stats():
+    """
+    Get statistics about embedding coverage and usage.
+    
+    Returns:
+    {
+        "total_articles": 1000,
+        "embedded_count": 750,
+        "embedding_coverage_percent": 75.0,
+        "pending_embeddings": 250,
+        "source_stats": [...]
+    }
+    """
+    try:
+        from src.services.rag_service import get_rag_service
+        
+        rag_service = get_rag_service()
+        stats = await rag_service.get_embedding_coverage()
+        
+        return stats
+        
+    except Exception as e:
+        logger.error(f"Embedding stats error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/embeddings/update")
+async def api_update_embeddings(request: Request):
+    """
+    Trigger embedding update for articles without embeddings.
+    
+    Request body:
+    {
+        "batch_size": 50
+    }
+    
+    Returns:
+    {
+        "success": true,
+        "message": "Embedding update task started",
+        "task_id": "task-id",
+        "batch_size": 50,
+        "estimated_articles": 250,
+        "current_coverage": 75.0
+    }
+    """
+    try:
+        from celery import Celery
+        
+        body = await request.json()
+        batch_size = body.get("batch_size", 50)
+        
+        # Get Celery app instance
+        celery_app = Celery('cti_scraper')
+        celery_app.config_from_object('src.worker.celeryconfig')
+        
+        # Trigger the retroactive embedding task
+        task = celery_app.send_task(
+            'src.worker.celery_app.retroactive_embed_all_articles',
+            args=[batch_size],
+            queue='default'
+        )
+        
+        # Get current stats for response
+        from src.services.rag_service import get_rag_service
+        rag_service = get_rag_service()
+        stats = await rag_service.get_embedding_coverage()
+        
+        return {
+            "success": True,
+            "message": "Embedding update task started",
+            "task_id": task.id,
+            "batch_size": batch_size,
+            "estimated_articles": stats.get("pending_embeddings", 0),
+            "current_coverage": stats.get("embedding_coverage_percent", 0)
+        }
+        
+    except Exception as e:
+        logger.error(f"Embedding update error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# Generate embedding for specific article
+@app.post("/api/articles/{article_id}/embed")
+async def api_generate_embedding(article_id: int):
+    """
+    Generate embedding for a specific article.
+    
+    Triggers async Celery task to generate the embedding.
+    """
+    try:
+        from src.worker.celery_app import generate_article_embedding
+        
+        # Check if article exists
+        article = await async_db_manager.get_article(article_id)
+        if not article:
+            raise HTTPException(status_code=404, detail="Article not found")
+        
+        # Check if already has embedding
+        if article.embedding:
+            return {
+                "status": "already_embedded",
+                "message": f"Article {article_id} already has an embedding",
+                "embedded_at": article.embedded_at
+            }
+        
+        # Submit Celery task
+        task = generate_article_embedding.delay(article_id)
+        
+        return {
+            "status": "task_submitted",
+            "task_id": task.id,
+            "message": f"Embedding generation started for article {article_id}"
+        }
+        
+    except Exception as e:
+        logger.error(f"Generate embedding error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# RAG Chat endpoint
+@app.post("/api/chat/rag")
+async def api_rag_chat(request: Request):
+    """
+    Chat with the database using RAG (Retrieval-Augmented Generation).
+    
+    Request body:
+    {
+        "message": "What are the latest cybersecurity threats?",
+        "conversation_history": [
+            {"role": "user", "content": "Hello"},
+            {"role": "assistant", "content": "Hi! How can I help you with threat intelligence?"}
+        ],
+        "max_results": 5,
+        "similarity_threshold": 0.6
+    }
+    """
+    try:
+        from src.services.rag_service import get_rag_service
+        
+        body = await request.json()
+        message = body.get("message", "")
+        conversation_history = body.get("conversation_history", [])
+        max_results = body.get("max_results", 5)
+        similarity_threshold = body.get("similarity_threshold", 0.4)
+        
+        if not message:
+            raise HTTPException(status_code=400, detail="Message is required")
+        
+        # Get RAG service
+        rag_service = get_rag_service()
+        
+        # Find relevant articles using semantic search
+        relevant_articles = await rag_service.find_similar_articles(
+            query=message,
+            top_k=max_results,
+            threshold=similarity_threshold
+        )
+        
+        # Generate response based on retrieved context
+        if relevant_articles:
+            # Create context from relevant articles
+            context_parts = []
+            for article in relevant_articles:
+                context_parts.append(f"**{article['title']}** (Source: {article['source_name']}, Similarity: {article['similarity']:.3f})")
+                context_parts.append(f"Summary: {article['summary'] or 'No summary available'}")
+                context_parts.append(f"Content: {article['content'][:300]}...")
+                context_parts.append("---")
+            
+            context = "\n".join(context_parts)
+            
+            # Generate response using template (LLM disabled due to performance issues)
+            response = f"""Based on the threat intelligence articles in our database, here's what I found related to your query:
+
+{context}
+
+**Summary**: I found {len(relevant_articles)} relevant articles that match your query. The articles cover various aspects of cybersecurity threats and provide detailed information from trusted sources.
+
+Would you like me to search for more specific information or dive deeper into any particular topic?"""
+        else:
+            response = """I couldn't find any relevant articles in our threat intelligence database that match your query. 
+
+This could be because:
+- The query doesn't match the content we have
+- The similarity threshold is too high
+- We don't have articles covering this specific topic
+
+Try rephrasing your question or asking about broader cybersecurity topics like malware, ransomware, threat actors, or security vulnerabilities."""
+        
+        # Add to conversation history
+        conversation_history.append({"role": "user", "content": message})
+        conversation_history.append({"role": "assistant", "content": response})
+        
+        return {
+            "response": response,
+            "conversation_history": conversation_history,
+            "relevant_articles": relevant_articles,
+            "total_results": len(relevant_articles),
+            "query": message,
+            "timestamp": datetime.now().isoformat()
+        }
+        
+    except Exception as e:
+        logger.error(f"RAG chat error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 
 # Chunk debug endpoint
 @app.get("/api/articles/{article_id}/chunk-debug")
