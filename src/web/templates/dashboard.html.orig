@@ -163,8 +163,7 @@
                 dailyChart.data.labels = dailyKeys;
                 dailyChart.data.datasets[0].data = dailyValues;
                 console.log('Daily chart data after:', dailyChart.data.datasets[0].data);
-                dailyChart.update('none');
-                setTimeout(() => dailyChart.resize(), 100);
+                dailyChart.update('active');
             } else {
                 console.log('Daily chart update failed:', {
                     dailyChart: !!dailyChart,
@@ -177,11 +176,17 @@
             
             if (hourlyChart && data.volume.hourly && hourlyChart.data && hourlyChart.data.datasets && hourlyChart.data.datasets[0]) {
                 console.log('Hourly chart data before:', hourlyChart.data.datasets[0].data);
-                hourlyChart.data.labels = Object.keys(data.volume.hourly);
-                hourlyChart.data.datasets[0].data = Object.values(data.volume.hourly);
+                // Sort hourly keys properly (00, 01, 02, etc.)
+                const hourlyKeys = Object.keys(data.volume.hourly).sort((a, b) => {
+                    const hourA = parseInt(a);
+                    const hourB = parseInt(b);
+                    return hourA - hourB;
+                });
+                const hourlyValues = hourlyKeys.map(key => data.volume.hourly[key]);
+                hourlyChart.data.labels = hourlyKeys;
+                hourlyChart.data.datasets[0].data = hourlyValues;
                 console.log('Hourly chart data after:', hourlyChart.data.datasets[0].data);
-                hourlyChart.update('none');
-                setTimeout(() => hourlyChart.resize(), 100);
+                hourlyChart.update('active');
             } else {
                 console.log('Hourly chart update failed:', {
                     hourlyChart: !!hourlyChart,
@@ -249,13 +254,14 @@
         const dailyCtx = dailyCanvas.getContext('2d');
         const hourlyCtx = hourlyCanvas.getContext('2d');
 
+        // Initialize charts with empty data - will be populated by API
         dailyChart = new Chart(dailyCtx, {
             type: 'line',
             data: {
-                labels: ['2025-10-01', '2025-10-02', '2025-10-03', '2025-10-04', '2025-10-05'],
+                labels: [],
                 datasets: [{
                     label: 'Articles',
-                    data: [234, 287, 260, 312, 298],
+                    data: [],
                     borderColor: '#10B981',
                     backgroundColor: 'rgba(16, 185, 129, 0.1)',
                     tension: 0.3,
@@ -279,10 +285,10 @@
         hourlyChart = new Chart(hourlyCtx, {
             type: 'line',
             data: {
-                labels: ['00', '01', '02', '03', '04', '05', '06', '07'],
+                labels: [],
                 datasets: [{
                     label: 'Articles',
-                    data: [10, 15, 22, 19, 8, 12, 18, 25],
+                    data: [],
                     borderColor: '#3B82F6',
                     backgroundColor: 'rgba(59, 130, 246, 0.1)',
                     tension: 0.3,
@@ -304,8 +310,11 @@
         });
 
         window.chartsInitialized = true;
-        loadDashboardData();
-        setInterval(loadDashboardData, 60000);
+        
+        // Load data first, then start polling
+        loadDashboardData().then(() => {
+            setInterval(loadDashboardData, 60000);
+        });
     }
 
     // Function to update failing sources
