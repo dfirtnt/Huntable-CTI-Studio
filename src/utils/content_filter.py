@@ -112,185 +112,65 @@ class ContentFilter:
         self._cost_estimates = []
         
     def _has_perfect_keywords(self, text: str) -> bool:
-        """Check if text contains any perfect discriminators from threat hunting scorer."""
-        text_lower = text.lower()
+        """Check if text contains any perfect discriminators using Hunt Scoring system."""
+        from .content import ThreatHuntingScorer
         
-        # Check all perfect discriminators
-        for keyword in WINDOWS_MALWARE_KEYWORDS['perfect_discriminators']:
-            if self._keyword_matches(keyword, text_lower):
-                return True
+        # Use Hunt Scoring system to check for perfect discriminators
+        hunt_result = ThreatHuntingScorer.score_threat_hunting_content(text, "Content Filter Analysis")
+        perfect_matches = hunt_result.get('perfect_keyword_matches', [])
         
-        return False
+        return len(perfect_matches) > 0
     
-    def _keyword_matches(self, keyword: str, text: str) -> bool:
-        """Check if keyword matches in text using word boundaries or regex patterns."""
-        # Regex patterns for cmd.exe obfuscation techniques
-        regex_patterns = [
-            r'%[A-Za-z0-9_]+:~[0-9]+(,[0-9]+)?%',  # env-var substring access
-            r'%[A-Za-z0-9_]+:[^=%%]+=[^%]*%',  # env-var string substitution
-            r'![A-Za-z0-9_]+!',  # delayed expansion markers
-            r'\bcmd(\.exe)?\s*/V(?::[^ \t/]+)?',  # /V:ON obfuscated variants
-            r'\bset\s+[A-Za-z0-9_]+\s*=',  # multiple SET stages
-            r'\bcall\s+(set|%[A-Za-z0-9_]+%|![A-Za-z0-9_]+!)',  # CALL invocation
-            r'(%[^%]+%){4,}',  # adjacent env-var concatenation
-            r'\bfor\s+/?[A-Za-z]*\s+%[A-Za-z]\s+in\s*\(',  # FOR loops
-            r'![A-Za-z0-9_]+:~%[A-Za-z],1!',  # FOR-indexed substring extraction
-            r'\bfor\s+/L\s+%[A-Za-z]\s+in\s*\([^)]+\)',  # reversal via /L
-            r'%[A-Za-z0-9_]+:~-[0-9]+%|%[A-Za-z0-9_]+:~[0-9]+%',  # tail trimming
-            r'%[A-Za-z0-9_]+:\*[^!%]+=!%',  # asterisk-based substitution
-            r'[^\w](s\^+e\^*t|s\^*e\^+t)[^\w]',  # caret-obfuscated set
-            r'[^\w](c\^+a\^*l\^*l|c\^*a\^+l\^*l|c\^*a\^*l\^+l)[^\w]',  # caret-obfuscated call
-            r'[^\w]([a-z]\^+[a-z](\^+[a-z])*)[^\w]',  # caret-obfuscated commands (any length)
-            r'%[^%]+%<[^>]*|set\s+[A-Za-z0-9_]+\s*=\s*[^&|>]*\|'  # stdin piping patterns
-        ]
-        
-        # Check if keyword is a regex pattern
-        if keyword in regex_patterns:
-            return bool(re.search(keyword, text, re.IGNORECASE))
-        
-        # Escape special regex characters for literal matching
-        escaped_keyword = re.escape(keyword)
-        
-        # For certain keywords, allow partial matches
-        partial_match_keywords = ['hunting', 'detection', 'monitor', 'alert', 'executable', 'parent-child', 'defender query']
-        
-        # For symbol keywords and path prefixes, don't use word boundaries
-        symbol_keywords = ['==', '!=', '<=', '>=', '::', '-->', '->', '//', '--', '\\', '|', 'C:\\', 'D:\\']
-        
-        if keyword.lower() in partial_match_keywords:
-            # Allow partial matches for these keywords
-            return keyword.lower() in text
-        elif keyword in symbol_keywords:
-            # For symbols, don't use word boundaries
-            return keyword in text
-        else:
-            # Use word boundaries for exact matches
-            pattern = r'\b' + escaped_keyword + r'\b'
-            return bool(re.search(pattern, text))
     
     def _load_pattern_rules(self) -> Dict[str, List[str]]:
-        """Load pattern-based rules for content classification."""
+        """Load pattern-based rules for content classification using Hunt Scoring patterns."""
+        from .content import WINDOWS_MALWARE_KEYWORDS
+        import re
+        
+        # Use Hunt Scoring patterns as the source of truth
+        huntable_patterns = []
+        
+        # Add perfect discriminators (escape regex special characters)
+        for pattern in WINDOWS_MALWARE_KEYWORDS['perfect_discriminators']:
+            if pattern.startswith('r'):
+                # Already a regex pattern
+                huntable_patterns.append(pattern)
+            else:
+                # Escape literal patterns
+                huntable_patterns.append(re.escape(pattern))
+        
+        # Add good discriminators
+        for pattern in WINDOWS_MALWARE_KEYWORDS['good_discriminators']:
+            if pattern.startswith('r'):
+                huntable_patterns.append(pattern)
+            else:
+                huntable_patterns.append(re.escape(pattern))
+        
+        # Add LOLBAS executables
+        for pattern in WINDOWS_MALWARE_KEYWORDS['lolbas_executables']:
+            if pattern.startswith('r'):
+                huntable_patterns.append(pattern)
+            else:
+                huntable_patterns.append(re.escape(pattern))
+        
+        # Add intelligence indicators
+        for pattern in WINDOWS_MALWARE_KEYWORDS['intelligence_indicators']:
+            if pattern.startswith('r'):
+                huntable_patterns.append(pattern)
+            else:
+                huntable_patterns.append(re.escape(pattern))
+        
+        # Add negative indicators
+        not_huntable_patterns = []
+        for pattern in WINDOWS_MALWARE_KEYWORDS['negative_indicators']:
+            if pattern.startswith('r'):
+                not_huntable_patterns.append(pattern)
+            else:
+                not_huntable_patterns.append(re.escape(pattern))
+        
         return {
-            "huntable_patterns": [
-                # Command patterns (expanded from hunt scoring)
-                r"powershell\.exe.*-encodedCommand",
-                r"invoke-webrequest.*-uri",
-                r"cmd\.exe.*\/c",
-                r"bash.*-c",
-                r"curl.*-o",
-                r"wget.*-O",
-                r"rundll32|comspec|msiexec|wmic|iex|findstr",
-                r"powershell\.exe|cmd\.exe|bash|powershell",
-                
-                # Process patterns (expanded with LOLBAS)
-                r"node\.exe.*spawn",
-                r"ws_tomcatservice\.exe",
-                r"powershell\.exe.*download",
-                r"certutil|schtasks|bitsadmin|ftp|netsh|cscript|mshta",
-                r"regsvr32|rundll32|forfiles|explorer|ieexec",
-                r"conhost|svchost|lsass|csrss|smss|wininit",
-                r"nltest|odbcconf|scrobj|addinutil|appinstaller",
-                r"aspnet_compiler|at\.exe|atbroker|certoc|certreq",
-                r"cipher|cmdkey|cmdl32|cmstp|colorcpl|computerdefaults",
-                r"configsecuritypolicy|control\.exe|csc|customshellhost",
-                r"datasvcutil|desktopimgdownldr|devicecredentialdeployment",
-                r"dfsvc|diantz|diskshadow|dnscmd|esentutl|eventvwr",
-                r"expand\.exe|extexport|extrac32|finger\.exe|fltmc|gpscript",
-                r"replace\.exe|sc|print\.exe|ssh|teams\.exe|rdrleakdiag\.exe",
-                
-                # File patterns (expanded)
-                r"[A-Za-z]:\\\\[^\s]+\.(dll|exe|bat|ps1|lnk|iso)",
-                r"\/[^\s]+\.(sh|py|pl)",
-                r"\.lnk|\.iso|\.bat|\.ps1|\.dll|\.exe",
-                r"\\temp\\|\\pipe\\|%WINDIR%|%wintmp%",
-                
-                # Network patterns (expanded)
-                r"http[s]?://[^\s]+",
-                r"\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b",
-                r"tcp://|hxxp|127\.0\.0\.1|8080",
-                
-                # Technical patterns (expanded from hunt scoring)
-                r"CVE-\d{4}-\d+",
-                r"backdoor|shell|exploit|payload",
-                r"lateral movement|persistence",
-                r"command and control|c2",
-                r"APT|threat actor|attribution|campaign|incident",
-                r"breach|compromise|malware family|IOC|indicator",
-                r"TTP|technique|observed|discovered|detected in wild",
-                r"real-world|in the wild|active campaign|ongoing threat",
-                r"victim|targeted|exploited|compromised|infiltrated",
-                r"FIN|TA|UNC|APT1|APT28|APT29|Lazarus|Carbanak",
-                r"Cozy Bear|Fancy Bear|Wizard Spider|Ryuk|Maze",
-                r"ransomware|data breach|cyber attack|espionage",
-                r"sophisticated attack|advanced persistent threat",
-                r"golden-ticket|silver-ticket",
-                
-                # Registry and system patterns
-                r"hklm|appdata|programdata|wbem|HKCU|System32",
-                r"currentversion|EventCode|parent-child",
-                
-                # PowerShell and obfuscation patterns
-                r"FromBase64String|MemoryStream|New-Object|DownloadString",
-                r"invoke-mimikatz|hashdump|invoke-shellcode|invoke-eternalblue",
-                r"mimikatz|kerberoast|psexec",
-                r"Defender query|KQL|2>&1",
-                
-                # macOS patterns (from hunt scoring)
-                r"homebrew|/users/shared/|chmod 777",
-                r"tccd|spctl|csrutil|mach-o|plist|osascript|TCC\.db",
-                
-                # Linux patterns (from hunt scoring)
-                r"auditd|systemd|xattr|EndpointSecurity|osquery",
-                r"zeek|dns_query|ja3|syslog|sudo|cron|LD_PRELOAD|launchd",
-                r"auditlog|iam|snort|proxy|http_request|anomaly",
-                r"linux|macos|cloud|aws|azure|network|ssl",
-                r"codesign|cloudtrail|guardduty|s3|ec2|gcp",
-                r"suricata|netflow|beaconing|user-agent",
-                
-                # Character patterns
-                r"==|!=|<=|>=|::|-->|->|//|--|\\\\|\|",
-                r"\{\}|<>|\[\]|\^|\"|CN=|XOR|Base64",
-                r"User-Agent|sshd|MpPreference|Whoami|C\$|MSBuild|7z",
-                
-                # Cmd.exe obfuscation regex patterns
-                r"%[A-Za-z0-9_]+:~[0-9]+(,[0-9]+)?%",
-                r"%[A-Za-z0-9_]+:[^=%%]+=[^%]*%",
-                r"![A-Za-z0-9_]+!",
-                r"\bcmd(\.exe)?\s*/V(?::[^ \t/]+)?",
-                r"\bset\s+[A-Za-z0-9_]+\s*=",
-                r"\bcall\s+(set|%[A-Za-z0-9_]+%|![A-Za-z0-9_]+!)",
-                r"(%[^%]+%){4,}",
-                r"\bfor\s+/?[A-Za-z]*\s+%[A-Za-z]\s+in\s*\(",
-                r"![A-Za-z0-9_]+:~%[A-Za-z],1!",
-                r"\bfor\s+/L\s+%[A-Za-z]\s+in\s*\([^)]+\)",
-                r"%[A-Za-z0-9_]+:~-[0-9]+%|%[A-Za-z0-9_]+:~[0-9]+%",
-                r"%[A-Za-z0-9_]+:\*[^!%]+=!%",
-                r"[^\w](s\^+e\^*t|s\^*e\^+t)[^\w]",
-                r"[^\w](c\^+a\^*l\^*l|c\^*a\^+l\^*l|c\^*a\^*l\^+l)[^\w]",
-                r"\^|\"",
-                r"%[^%]+%<[^>]*|set\s+[A-Za-z0-9_]+\s*=\s*[^&|>]*\|",
-            ],
-            
-            "not_huntable_patterns": [
-                # Acknowledgments
-                r"acknowledgement|gratitude|thank you|appreciate",
-                r"contact.*mandiant|investigations@mandiant",
-                
-                # Marketing content
-                r"book a demo|request a demo|try.*free",
-                r"managed security platform|managed edr",
-                r"privacy policy|cookie policy|terms of use",
-                
-                # General statements
-                r"this highlights how|we don't have any intentions",
-                r"proof of concept.*not yet available",
-                r"should you discover.*take down the system",
-                
-                # Navigation/footer content
-                r"platform.*solutions.*resources.*about",
-                r"partner login|search platform",
-                r"© \d{4}.*all rights reserved",
-            ]
+            "huntable_patterns": huntable_patterns,
+            "not_huntable_patterns": not_huntable_patterns
         }
     
     def extract_features(self, text: str, hunt_score: Optional[float] = None) -> Dict[str, float]:
@@ -380,7 +260,7 @@ class ContentFilter:
             if chunk_text:
                 chunks.append((start, end, chunk_text))
             
-            start = max(start + chunk_size - overlap, end)
+            start = start + chunk_size - overlap
         
         return chunks
     
@@ -482,28 +362,42 @@ class ContentFilter:
             return self._pattern_based_classification(text, hunt_score)
     
     def _pattern_based_classification(self, text: str, hunt_score: Optional[float] = None) -> Tuple[bool, float]:
-        """Fallback pattern-based classification with hunt score integration."""
-        text_lower = text.lower()
+        """Pattern-based classification using Hunt Scoring system results."""
+        from .content import ThreatHuntingScorer
         
-        huntable_score = sum(1 for pattern in self.pattern_rules["huntable_patterns"] 
-                           if re.search(pattern, text_lower))
-        not_huntable_score = sum(1 for pattern in self.pattern_rules["not_huntable_patterns"] 
-                               if re.search(pattern, text_lower))
+        # Use Hunt Scoring system as the source of truth
+        hunt_result = ThreatHuntingScorer.score_threat_hunting_content(text, "Content Filter Analysis")
         
-        # Base classification
-        is_huntable = huntable_score > not_huntable_score
-        base_confidence = min(0.9, max(huntable_score, not_huntable_score) / max(huntable_score + not_huntable_score, 1))
+        # Extract scores from Hunt Scoring result
+        perfect_score = hunt_result.get('perfect_keyword_matches', [])
+        good_score = hunt_result.get('good_keyword_matches', [])
+        lolbas_score = hunt_result.get('lolbas_matches', [])
+        intelligence_score = hunt_result.get('intelligence_matches', [])
+        negative_score = hunt_result.get('negative_matches', [])
         
-        # Integrate hunt score if available
-        if hunt_score is not None:
-            # Hunt score influence: high scores boost huntable confidence, low scores reduce it
-            hunt_influence = (hunt_score - 50) / 100  # -0.5 to +0.5 range
-            if is_huntable:
-                confidence = min(1.0, base_confidence + hunt_influence * 0.4)
-            else:
-                confidence = max(0.0, base_confidence - hunt_influence * 0.4)
+        # Calculate total positive indicators
+        positive_indicators = len(perfect_score) + len(good_score) + len(lolbas_score) + len(intelligence_score)
+        negative_indicators = len(negative_score)
+        
+        # Classification based on Hunt Scoring logic
+        is_huntable = positive_indicators > negative_indicators
+        
+        # Confidence based on Hunt Scoring score
+        hunt_score_value = hunt_result.get('threat_hunting_score', 0)
+        if hunt_score_value > 0:
+            # Convert hunt score (0-100) to confidence (0-1)
+            confidence = min(1.0, hunt_score_value / 100.0)
         else:
-            confidence = base_confidence
+            # Fallback confidence based on pattern counts
+            total_patterns = positive_indicators + negative_indicators
+            if total_patterns > 0:
+                confidence = max(positive_indicators, negative_indicators) / total_patterns
+            else:
+                confidence = 0.0
+        
+        # Ensure minimum confidence for huntable content
+        if is_huntable and confidence == 0.0 and positive_indicators > 0:
+            confidence = 0.1  # Minimum confidence for huntable content
         
         return is_huntable, confidence
     
@@ -535,13 +429,13 @@ class ContentFilter:
         for start_offset, end_offset, chunk_text in chunks:
             # Always preserve chunks containing perfect discriminators
             if self._has_perfect_keywords(chunk_text):
-                huntable_chunks.append((start_offset, end_offset, chunk_text))
+                huntable_chunks.append((start_offset, end_offset, chunk_text, 1.0))  # Perfect confidence
                 continue
             
             is_huntable, confidence = self.predict_huntability(chunk_text, hunt_score)
             
             if is_huntable and confidence >= min_confidence:
-                huntable_chunks.append((start_offset, end_offset, chunk_text))
+                huntable_chunks.append((start_offset, end_offset, chunk_text, confidence))
             else:
                 removed_chunks.append({
                     'text': chunk_text,
@@ -562,10 +456,10 @@ class ContentFilter:
         return FilterResult(
             passed=len(huntable_chunks) > 0,
             reason="Content filtered successfully" if len(huntable_chunks) > 0 else "No huntable content found",
-            score=sum(chunk[1] for chunk in huntable_chunks) / len(huntable_chunks) if huntable_chunks else 0,
+            score=sum(chunk[3] for chunk in huntable_chunks) / len(huntable_chunks) if huntable_chunks else 0,
             cost_estimate=len(filtered_content) // 4,  # Rough token estimate
             is_huntable=len(huntable_chunks) > 0,
-            confidence=sum(chunk[1] for chunk in huntable_chunks) / len(huntable_chunks) if huntable_chunks else 0,
+            confidence=sum(chunk[3] for chunk in huntable_chunks) / len(huntable_chunks) if huntable_chunks else 0,
             filtered_content=filtered_content,
             removed_chunks=removed_chunks,
             cost_savings=cost_savings

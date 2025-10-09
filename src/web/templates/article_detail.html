@@ -3,12 +3,12 @@
 {% block title %}{{ article.title[:50] }}... - CTI Scraper{% endblock %}
 
 {% block content %}
-<div class="space-y-6">
+<div class="container mx-auto px-4 py-8">
     <!-- Breadcrumb -->
-    <nav class="flex" aria-label="Breadcrumb">
+    <nav class="flex mb-8" aria-label="Breadcrumb">
         <ol class="inline-flex items-center space-x-1 md:space-x-3">
             <li class="inline-flex items-center">
-                <a href="/" class="inline-flex items-center text-sm font-medium text-gray-700 hover:text-blue-600">
+                <a href="/" class="inline-flex items-center text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400">
                     <svg class="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
                         <path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z"></path>
                     </svg>
@@ -17,35 +17,35 @@
             </li>
             <li>
                 <div class="flex items-center">
-                    <svg class="w-6 h-6 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
+                    <svg class="w-6 h-6 text-gray-400 dark:text-gray-500" fill="currentColor" viewBox="0 0 20 20">
                         <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd"></path>
                     </svg>
-                    <a href="/articles" class="ml-1 text-sm font-medium text-gray-700 hover:text-blue-600 md:ml-2">Articles</a>
+                    <a href="/articles" class="ml-1 text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 md:ml-2">Articles</a>
                 </div>
             </li>
             <li aria-current="page">
                 <div class="flex items-center">
-                    <svg class="w-6 h-6 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
+                    <svg class="w-6 h-6 text-gray-400 dark:text-gray-500" fill="currentColor" viewBox="0 0 20 20">
                         <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd"></path>
                     </svg>
-                    <span class="ml-1 text-sm font-medium text-gray-500 md:ml-2">Article #{{ article.id }}</span>
+                    <span class="ml-1 text-sm font-medium text-gray-500 dark:text-gray-400 md:ml-2">Article #{{ article.id }}</span>
                 </div>
             </li>
         </ol>
     </nav>
 
     <!-- Article Header -->
-    <div class="bg-white rounded-lg shadow-sm p-6">
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-8">
         <div class="flex items-start justify-between">
             <div class="flex-1">
-                <h1 class="text-3xl font-bold text-gray-900 mb-4">{{ article.title }}</h1>
+                <h1 class="text-3xl font-bold text-gray-900 dark:text-white mb-6 leading-tight">{{ article.title }}</h1>
                 
-                <div class="flex items-center space-x-6 text-sm text-gray-500 mb-4">
+                <div class="flex items-center space-x-6 text-sm text-gray-600 dark:text-gray-400 mb-6">
                     <div class="flex items-center">
                         <span class="mr-2">📰</span>
                         <span>Source: 
                             {% if article.canonical_url %}
-                                <a href="{{ article.canonical_url }}" target="_blank" class="text-blue-600 hover:text-blue-800 hover:underline">
+                                <a href="{{ article.canonical_url }}" target="_blank" class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 hover:underline">
                                     {{ source.name if source else article.source_id }}
                                 </a>
                             {% else %}
@@ -73,19 +73,19 @@
                         <span>Threat Hunting Score: 
                             {% set score = article.article_metadata.get('threat_hunting_score', 0) %}
                             {% if score >= 80 %}
-                                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-bold bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 border border-green-200 dark:border-green-700">
                                     🎯 {{ "%.1f"|format(score) }}
                                 </span>
                             {% elif score >= 60 %}
-                                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                                <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-bold bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200 border border-yellow-200 dark:border-yellow-700">
                                     🟡 {{ "%.1f"|format(score) }}
                                 </span>
                             {% elif score >= 40 %}
-                                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
+                                <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-bold bg-orange-100 dark:bg-orange-900 text-orange-800 dark:text-orange-200 border border-orange-200 dark:border-orange-700">
                                     🟠 {{ "%.1f"|format(score) }}
                                 </span>
                             {% else %}
-                                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                                <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-bold bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 border border-red-200 dark:border-red-700">
                                     🔴 {{ "%.1f"|format(score) }}
                                 </span>
                             {% endif %}
@@ -97,7 +97,7 @@
                 {% if article.canonical_url %}
                 <div class="mb-4">
                     <a href="{{ article.canonical_url }}" target="_blank" 
-                       class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 transition-colors">
+                       class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 transition-colors">
                         <span class="mr-2">🔗</span>
                         View Original Source
                     </a>
@@ -118,29 +118,29 @@
 
     <!-- Keyword Matches Display -->
     {% if article.article_metadata %}
-    <div class="bg-white rounded-lg shadow-sm p-6">
-        <h2 class="text-xl font-bold text-gray-900 mb-4">🎯 Keyword Matches</h2>
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-8">
+        <h2 class="text-xl font-bold text-gray-900 dark:text-white mb-6">🎯 Keyword Matches</h2>
         
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
             <!-- Perfect Discriminators -->
-            <div class="bg-green-50 border border-green-200 rounded-lg p-4">
+            <div class="bg-green-50 dark:bg-green-900 border border-green-200 dark:border-green-700 rounded-lg p-4">
                 <div class="flex items-center justify-between mb-3">
-                    <h3 class="text-sm font-semibold text-green-800 flex items-center">
+                    <h3 class="text-sm font-semibold text-green-800 dark:text-green-200 flex items-center">
                         <span class="mr-2">✅</span>
                         Perfect Discriminators
                     </h3>
-                    <span class="text-xs font-bold text-green-700 bg-green-200 px-2 py-1 rounded-full flex items-center justify-center min-w-[3rem]">
+                    <span class="text-xs font-bold text-green-700 dark:text-green-200 bg-green-200 dark:bg-green-700 px-2 py-1 rounded-full flex items-center justify-center min-w-[3rem]">
                         75 pts
                     </span>
                 </div>
                 <div class="flex flex-wrap gap-1">
                     {% for keyword in article.article_metadata.get('perfect_keyword_matches', []) %}
-                    <span class="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-green-100 text-green-800">
+                    <span class="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-green-100 dark:bg-green-800 text-green-800 dark:text-green-200 border border-green-200 dark:border-green-600">
                         {{ keyword }}
                     </span>
                     {% endfor %}
                     {% if not article.article_metadata.get('perfect_keyword_matches') %}
-                    <span class="text-xs text-gray-500 italic">No matches</span>
+                    <span class="text-xs text-gray-500 dark:text-gray-400 italic">No matches</span>
                     {% endif %}
                 </div>
             </div>
@@ -163,7 +163,7 @@
                     </span>
                     {% endfor %}
                     {% if not article.article_metadata.get('good_keyword_matches') %}
-                    <span class="text-xs text-gray-500 italic">No matches</span>
+                    <span class="text-xs text-gray-500 dark:text-gray-400 italic">No matches</span>
                     {% endif %}
                 </div>
             </div>
@@ -186,7 +186,7 @@
                     </span>
                     {% endfor %}
                     {% if not article.article_metadata.get('lolbas_matches') %}
-                    <span class="text-xs text-gray-500 italic">No matches</span>
+                    <span class="text-xs text-gray-500 dark:text-gray-400 italic">No matches</span>
                     {% endif %}
                 </div>
             </div>
@@ -209,7 +209,7 @@
                     </span>
                     {% endfor %}
                     {% if not article.article_metadata.get('intelligence_matches') %}
-                    <span class="text-xs text-gray-500 italic">No matches</span>
+                    <span class="text-xs text-gray-500 dark:text-gray-400 italic">No matches</span>
                     {% endif %}
                 </div>
             </div>
@@ -232,7 +232,7 @@
                     </span>
                     {% endfor %}
                     {% if not article.article_metadata.get('negative_matches') %}
-                    <span class="text-xs text-gray-500 italic">No matches</span>
+                    <span class="text-xs text-gray-500 dark:text-gray-400 italic">No matches</span>
                     {% endif %}
                 </div>
             </div>
@@ -243,8 +243,8 @@
     {% endif %}
 
     <!-- Classification Controls -->
-    <div class="bg-white rounded-lg shadow-sm p-6">
-        <h2 class="text-xl font-bold text-gray-900 mb-4">🏷️ Article Classification</h2>
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-8">
+        <h2 class="text-xl font-bold text-gray-900 dark:text-white mb-6">🏷️ Article Classification</h2>
         
         <!-- Settings Status -->
         <!-- Current Classification Status -->
@@ -340,81 +340,81 @@
             </button>
         </div>
     </div>
-    <div class="bg-white rounded-lg shadow-sm p-6">
-        <h2 class="text-xl font-bold text-gray-900 mb-4">📄 Article Content</h2>
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-8">
+        <h2 class="text-xl font-bold text-gray-900 dark:text-white mb-6">📄 Article Content</h2>
         
-        <div class="bg-gray-50 rounded-lg p-4">
-            <div class="flex items-center justify-between mb-4">
-                <h3 class="text-lg font-semibold text-gray-800">Article Content</h3>
+        <div class="bg-gray-100 dark:bg-gray-900 rounded-lg p-6">
+            <div class="flex items-center justify-between mb-6">
+                <h3 class="text-lg font-semibold text-gray-800 dark:text-gray-200">Article Content</h3>
                 <div class="flex items-center space-x-4">
                     <div class="flex items-center space-x-2">
-                        <span class="text-sm text-gray-500">Select text to annotate</span>
+                        <span class="text-sm text-gray-600 dark:text-gray-400">Select text to annotate</span>
                         <div class="flex items-center space-x-1">
-                            <span class="w-3 h-3 bg-green-100 border border-green-300 rounded"></span>
-                            <span class="text-xs text-gray-600">Huntable</span>
+                            <span class="w-3 h-3 bg-green-100 dark:bg-green-900 border border-green-300 dark:border-green-700 rounded"></span>
+                            <span class="text-xs text-gray-600 dark:text-gray-400">Huntable</span>
                         </div>
                         <div class="flex items-center space-x-1">
-                            <span class="w-3 h-3 bg-red-100 border border-red-300 rounded"></span>
-                            <span class="text-xs text-gray-600">Not Huntable</span>
+                            <span class="w-3 h-3 bg-red-100 dark:bg-red-900 border border-red-300 dark:border-red-700 rounded"></span>
+                            <span class="text-xs text-gray-600 dark:text-gray-400">Not Huntable</span>
                         </div>
                     </div>
                 </div>
             </div>
             <div class="prose max-w-none">
-                <div id="article-content" class="whitespace-pre-wrap text-sm text-gray-800 font-mono leading-relaxed select-text">{{ article.content|highlight_keywords(article.article_metadata)|safe }}</div>
+                <div id="article-content" class="whitespace-pre-wrap text-base text-black font-mono leading-relaxed select-text bg-gray-50 dark:bg-gray-950 p-6 rounded-lg border-2 border-gray-300 dark:border-gray-600 shadow-inner">{{ article.content|highlight_keywords(article.article_metadata)|safe }}</div>
             </div>
         </div>
     </div>
 
     <!-- Article Metadata -->
-    <div class="bg-white rounded-lg shadow-sm p-6">
-        <h2 class="text-xl font-bold text-gray-900 mb-4">📋 Article Metadata</h2>
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-8">
+        <h2 class="text-xl font-bold text-gray-900 dark:text-white mb-6">📋 Article Metadata</h2>
         
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
-                <h3 class="text-lg font-semibold text-gray-800 mb-2">Basic Information</h3>
-                <dl class="space-y-2">
+                <h3 class="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-4">Basic Information</h3>
+                <dl class="space-y-3">
                     <div>
-                        <dt class="text-sm font-medium text-gray-500">Article ID</dt>
-                        <dd class="text-sm text-gray-900">#{{ article.id }}</dd>
+                        <dt class="text-sm font-medium text-gray-600 dark:text-gray-400">Article ID</dt>
+                        <dd class="text-sm text-gray-900 dark:text-gray-100">#{{ article.id }}</dd>
                     </div>
                     <div>
-                        <dt class="text-sm font-medium text-gray-500">Source ID</dt>
-                        <dd class="text-sm text-gray-900">{{ article.source_id }}</dd>
+                        <dt class="text-sm font-medium text-gray-600 dark:text-gray-400">Source ID</dt>
+                        <dd class="text-sm text-gray-900 dark:text-gray-100">{{ article.source_id }}</dd>
                     </div>
                     <div>
-                        <dt class="text-sm font-medium text-gray-500">Published At</dt>
-                        <dd class="text-sm text-gray-900">{{ article.published_at.strftime('%Y-%m-%d %H:%M:%S') if article.published_at else 'N/A' }}</dd>
+                        <dt class="text-sm font-medium text-gray-600 dark:text-gray-400">Published At</dt>
+                        <dd class="text-sm text-gray-900 dark:text-gray-100">{{ article.published_at.strftime('%Y-%m-%d %H:%M:%S') if article.published_at else 'N/A' }}</dd>
                     </div>
                     <div>
-                        <dt class="text-sm font-medium text-gray-500">Discovered At</dt>
-                        <dd class="text-sm text-gray-900">{{ article.discovered_at.strftime('%Y-%m-%d %H:%M:%S') if article.discovered_at else 'N/A' }}</dd>
+                        <dt class="text-sm font-medium text-gray-600 dark:text-gray-400">Discovered At</dt>
+                        <dd class="text-sm text-gray-900 dark:text-gray-100">{{ article.discovered_at.strftime('%Y-%m-%d %H:%M:%S') if article.discovered_at else 'N/A' }}</dd>
                     </div>
                     <div>
-                        <dt class="text-sm font-medium text-gray-500">Processing Status</dt>
-                        <dd class="text-sm text-gray-900">{{ article.processing_status }}</dd>
+                        <dt class="text-sm font-medium text-gray-600 dark:text-gray-400">Processing Status</dt>
+                        <dd class="text-sm text-gray-900 dark:text-gray-100">{{ article.processing_status }}</dd>
                     </div>
                     <div>
-                        <dt class="text-sm font-medium text-gray-500">Word Count</dt>
-                        <dd class="text-sm text-gray-900">{{ article.word_count or 'N/A' }}</dd>
+                        <dt class="text-sm font-medium text-gray-600 dark:text-gray-400">Word Count</dt>
+                        <dd class="text-sm text-gray-900 dark:text-gray-100">{{ article.word_count or 'N/A' }}</dd>
                     </div>
                 </dl>
             </div>
             
             <div>
-                <h3 class="text-lg font-semibold text-gray-800 mb-2">Content Details</h3>
-                <dl class="space-y-2">
+                <h3 class="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-4">Content Details</h3>
+                <dl class="space-y-3">
                     <div>
-                        <dt class="text-sm font-medium text-gray-500">Content Length</dt>
-                        <dd class="text-sm text-gray-900">{{ article.content|length }} characters</dd>
+                        <dt class="text-sm font-medium text-gray-600 dark:text-gray-400">Content Length</dt>
+                        <dd class="text-sm text-gray-900 dark:text-gray-100">{{ article.content|length }} characters</dd>
                     </div>
                     <div>
-                        <dt class="text-sm font-medium text-gray-500">Content Hash</dt>
-                        <dd class="text-sm text-gray-900 font-mono">{{ article.content_hash[:20] }}...</dd>
+                        <dt class="text-sm font-medium text-gray-600 dark:text-gray-400">Content Hash</dt>
+                        <dd class="text-sm text-gray-900 dark:text-gray-100 font-mono">{{ article.content_hash[:20] }}...</dd>
                     </div>
                     <div>
-                        <dt class="text-sm font-medium text-gray-500">Authors</dt>
-                        <dd class="text-sm text-gray-900">
+                        <dt class="text-sm font-medium text-gray-600 dark:text-gray-400">Authors</dt>
+                        <dd class="text-sm text-gray-900 dark:text-gray-100">
                             {% if article.authors %}
                                 {{ article.authors|join(', ') }}
                             {% else %}
@@ -423,8 +423,8 @@
                         </dd>
                     </div>
                     <div>
-                        <dt class="text-sm font-medium text-gray-500">Tags</dt>
-                        <dd class="text-sm text-gray-900">
+                        <dt class="text-sm font-medium text-gray-600 dark:text-gray-400">Tags</dt>
+                        <dd class="text-sm text-gray-900 dark:text-gray-100">
                             {% if article.tags %}
                                 {{ article.tags|join(', ') }}
                             {% else %}
@@ -550,8 +550,8 @@
             
             // Check if this text is already highlighted by looking for spans with our classes
             const cssClass = classification === 'huntable' 
-                ? 'bg-blue-100' 
-                : 'bg-red-100';
+                ? 'bg-blue-100 dark:bg-blue-900' 
+                : 'bg-red-100 dark:bg-red-900';
             
             // Look for existing spans with our annotation classes
             const existingSpans = this.contentElement.querySelectorAll(`span.${cssClass}`);
@@ -594,8 +594,8 @@
             
             // Create the highlight span
             const cssClass = classification === 'huntable' 
-                ? 'bg-blue-100 border-blue-300 text-blue-800' 
-                : 'bg-red-100 border-red-300 text-red-800';
+                ? 'bg-blue-100 dark:bg-blue-900 border-blue-300 dark:border-blue-700 text-blue-800 dark:text-blue-200' 
+                : 'bg-red-100 dark:bg-red-900 border-red-300 dark:border-red-700 text-red-800 dark:text-red-200';
             
             const highlightSpan = `<span class="px-1 py-0.5 rounded text-xs font-medium border ${cssClass}" title="${classification === 'huntable' ? 'Huntable' : 'Not Huntable'}: ${text.substring(0, 50)}...">${text}</span>`;
             
@@ -719,8 +719,8 @@
                     
                     // Create highlight span
                     const cssClass = classification === 'huntable' 
-                        ? 'bg-blue-100 border-blue-300 text-blue-800' 
-                        : 'bg-red-100 border-red-300 text-red-800';
+                        ? 'bg-blue-100 dark:bg-blue-900 border-blue-300 dark:border-blue-700 text-blue-800 dark:text-blue-200' 
+                        : 'bg-red-100 dark:bg-red-900 border-red-300 dark:border-red-700 text-red-800 dark:text-red-200';
                     
                     const highlightSpan = document.createElement('span');
                     highlightSpan.className = `px-1 py-0.5 rounded text-xs font-medium border ${cssClass}`;
@@ -772,8 +772,8 @@
         addLongTextClassification(start, end, classification, text) {
             // For very long text, try to highlight multiple parts of it
             const cssClass = classification === 'huntable' 
-                ? 'bg-blue-100 border-blue-300 text-blue-800' 
-                : 'bg-red-100 border-red-300 text-red-800';
+                ? 'bg-blue-100 dark:bg-blue-900 border-blue-300 dark:border-blue-700 text-blue-800 dark:text-blue-200' 
+                : 'bg-red-100 dark:bg-red-900 border-red-300 dark:border-red-700 text-red-800 dark:text-red-200';
             
             // Get the current HTML content
             const content = this.contentElement.innerHTML;
@@ -882,8 +882,8 @@
                 
                 if (clickedSpan) {
                     // Check if it's a user annotation (not a keyword discriminator)
-                    const isHuntableAnnotation = clickedSpan.classList.contains('bg-blue-100');
-                    const isNotHuntableAnnotation = clickedSpan.classList.contains('bg-red-100');
+                    const isHuntableAnnotation = clickedSpan.classList.contains('bg-blue-100') || clickedSpan.classList.contains('dark:bg-blue-900');
+                    const isNotHuntableAnnotation = clickedSpan.classList.contains('bg-red-100') || clickedSpan.classList.contains('dark:bg-red-900');
                     
                     if (isHuntableAnnotation || isNotHuntableAnnotation) {
                         e.preventDefault();
@@ -1612,14 +1612,17 @@
         document.addEventListener('keydown', handleEsc);
         
         // Get AI model from settings to determine button text
-        const rankingButtonText = aiModel === 'chatgpt' ? 'Rank with GPT4o' : 
-                                 aiModel === 'anthropic' ? 'Rank with Claude' : 'Rank with Local AI';
+        const rankingButtonText = hasRanking ? 
+            (aiModel === 'chatgpt' ? 'Display GPT4o Rank' : 
+             aiModel === 'anthropic' ? 'Display Claude Rank' : 'Display LLM Rank') :
+            (aiModel === 'chatgpt' ? 'Rank with GPT4o' : 
+             aiModel === 'anthropic' ? 'Rank with Claude' : 'Rank with Local LLM');
         
         modal.innerHTML = `
             <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
                 <div class="mt-3 text-center">
                     <h3 class="text-lg font-medium text-gray-900 mb-4">🤖 AI Assistant</h3>
-                    <p class="text-sm text-gray-500 mb-6">Choose what you'd like to ${hasSummary || hasSigmaRules || hasIOCs ? 'view or regenerate' : 'generate'}:</p>
+                    <p class="text-sm text-gray-500 mb-6">Choose what you'd like to ${hasSummary || hasSigmaRules || hasIOCs || hasRanking ? 'view or regenerate' : 'generate'}:</p>
                     
                     <div class="space-y-3">
                         <button onclick="generateAIAnalysis('summary')" 
@@ -1655,6 +1658,12 @@
                                 class="w-full inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-colors">
                             <span class="mr-2">💬</span>
                             Custom Prompt
+                        </button>
+                        
+                        <button onclick="showChunkDebugModal()" 
+                                class="w-full inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-gray-600 hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-colors">
+                            <span class="mr-2">🔍</span>
+                            Chunk Debug Mode
                         </button>
                         
                         <button onclick="closeAIAssistantModal()" 
@@ -3134,8 +3143,13 @@
                 </div>
                 ` : ''}
                 
-                <div class="mt-6 flex justify-end">
-                    <button onclick="closeGPT4oRankingModal()" class="px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-500">
+                <div class="mt-6 flex justify-between">
+                    <button onclick="regenerateGPT4oRanking()" 
+                            class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors">
+                        🔄 Regenerate Analysis
+                    </button>
+                    <button onclick="closeGPT4oRankingModal()" 
+                            class="px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-500">
                         Close
                     </button>
                 </div>
@@ -3178,6 +3192,14 @@
         
         // Call generateAIAnalysis with force regeneration and LLM validation setting
         generateAIAnalysis('iocs', true, useLLMValidation);
+    }
+    
+    function regenerateGPT4oRanking() {
+        // Close current modal
+        closeGPT4oRankingModal();
+        
+        // Call generateAIAnalysis with force regeneration
+        generateAIAnalysis('ranking', true);
     }
     
     // Text annotation system now handled by LayeredTextManager
@@ -3588,6 +3610,401 @@
         }
     });
     
+    // Chunk Debug Modal Functions
+    async function showChunkDebugModal() {
+        closeAIAssistantModal();
+        
+        // Show loading modal
+        const loadingModal = document.createElement('div');
+        loadingModal.id = 'chunkDebugLoadingModal';
+        loadingModal.className = 'fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50';
+        loadingModal.innerHTML = `
+            <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+                <div class="mt-3 text-center">
+                    <div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-blue-100">
+                        <svg class="animate-spin h-6 w-6 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                    </div>
+                    <h3 class="text-lg font-medium text-gray-900 mt-4">Analyzing Chunks</h3>
+                    <p class="text-sm text-gray-500 mt-2">Processing article content and analyzing chunking decisions...</p>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(loadingModal);
+        
+        try {
+            // Get chunk debug data
+            const response = await fetch(`/api/articles/{{ article.id }}/chunk-debug?chunk_size=1000&overlap=200&min_confidence=0.7`);
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
+            const debugData = await response.json();
+            
+            // Remove loading modal
+            loadingModal.remove();
+            
+            // Show chunk debug modal
+            showChunkDebugResults(debugData);
+            
+        } catch (error) {
+            console.error('Chunk debug error:', error);
+            loadingModal.remove();
+            showNotification('Failed to load chunk debug data: ' + error.message, 'error');
+        }
+    }
+    
+    function showChunkDebugResults(data) {
+        // Create modal
+        const modal = document.createElement('div');
+        modal.id = 'chunkDebugModal';
+        modal.className = 'fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50';
+        
+        // Generate chunk visualization
+        const chunkVisualization = generateChunkVisualization(data);
+        
+        modal.innerHTML = `
+            <div class="relative top-4 mx-auto p-6 border w-11/12 max-w-7xl shadow-lg rounded-md bg-white max-h-[90vh] overflow-y-auto">
+                <div class="flex justify-between items-center mb-6">
+                    <h3 class="text-2xl font-bold text-gray-900">🔍 Chunk Debug Analysis</h3>
+                    <button onclick="closeChunkDebugModal()" class="text-gray-400 hover:text-gray-600">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </button>
+                </div>
+                
+                <!-- Statistics Overview -->
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                    <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                        <div class="text-2xl font-bold text-blue-600">${data.total_chunks}</div>
+                        <div class="text-sm text-blue-800">Total Chunks</div>
+                    </div>
+                    <div class="bg-green-50 border border-green-200 rounded-lg p-4">
+                        <div class="text-2xl font-bold text-green-600">${data.kept_chunks}</div>
+                        <div class="text-sm text-green-800">Kept for LLM</div>
+                    </div>
+                    <div class="bg-red-50 border border-red-200 rounded-lg p-4">
+                        <div class="text-2xl font-bold text-red-600">${data.removed_chunks}</div>
+                        <div class="text-sm text-red-800">Filtered Out</div>
+                    </div>
+                    <div class="bg-purple-50 border border-purple-200 rounded-lg p-4">
+                        <div class="text-2xl font-bold text-purple-600">${data.filtering_stats.reduction_percent.toFixed(1)}%</div>
+                        <div class="text-sm text-purple-800">Content Reduction</div>
+                    </div>
+                </div>
+                
+                <!-- Cost Analysis -->
+                <div class="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-6">
+                    <h4 class="text-lg font-semibold text-gray-900 mb-3">💰 Cost Analysis</h4>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div>
+                            <div class="text-sm text-gray-600">Original Content</div>
+                            <div class="text-lg font-semibold">${data.content_length.toLocaleString()} chars</div>
+                        </div>
+                        <div>
+                            <div class="text-sm text-gray-600">Estimated Cost Savings</div>
+                            <div class="text-lg font-semibold text-green-600">$${data.filtering_stats.cost_savings.toFixed(4)}</div>
+                        </div>
+                        <div>
+                            <div class="text-sm text-gray-600">Tokens Saved</div>
+                            <div class="text-lg font-semibold text-blue-600">${data.filtering_stats.tokens_saved.toLocaleString()}</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Chunk Visualization -->
+                <div class="mb-6">
+                    <h4 class="text-lg font-semibold text-gray-900 mb-3">📊 Chunk Visualization</h4>
+                    <div class="bg-white border border-gray-200 rounded-lg p-4">
+                        ${chunkVisualization}
+                    </div>
+                </div>
+                
+                <!-- Filter Controls -->
+                <div class="mb-6">
+                    <h4 class="text-lg font-semibold text-gray-900 mb-3">🎛️ Filter Controls</h4>
+                    <div class="flex flex-wrap gap-4">
+                        <button onclick="filterChunks('all')" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors">
+                            Show All Chunks
+                        </button>
+                        <button onclick="filterChunks('kept')" class="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors">
+                            Show Kept Only
+                        </button>
+                        <button onclick="filterChunks('removed')" class="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors">
+                            Show Removed Only
+                        </button>
+                        <button onclick="filterChunks('threat')" class="px-4 py-2 bg-orange-600 text-white rounded-md hover:bg-orange-700 transition-colors">
+                            Show Threat Keywords
+                        </button>
+                        <button onclick="filterChunks('perfect')" class="px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors">
+                            Show Perfect Discriminators
+                        </button>
+                        <button onclick="filterChunks('ml')" class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors">
+                            Show ML Predictions
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Chunk Details -->
+                <div class="mb-6">
+                    <h4 class="text-lg font-semibold text-gray-900 mb-3">📝 Chunk Details</h4>
+                    <div id="chunkDetails" class="space-y-4">
+                        ${generateChunkDetails(data.chunk_analysis)}
+                    </div>
+                </div>
+                
+                <div class="flex justify-end">
+                    <button onclick="closeChunkDebugModal()" 
+                            class="px-6 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-500 transition-colors">
+                        Close
+                    </button>
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(modal);
+        
+        // Store debug data globally for filtering
+        window.chunkDebugData = data;
+    }
+    
+    function generateChunkVisualization(data) {
+        const totalLength = data.content_length;
+        const chunks = data.chunk_analysis;
+        
+        let html = '<div class="relative bg-gray-100 rounded-lg p-2 mb-4" style="height: 60px;">';
+        
+        chunks.forEach((chunk, index) => {
+            const width = (chunk.length / totalLength) * 100;
+            const left = (chunk.start / totalLength) * 100;
+            const color = chunk.is_kept ? 'bg-green-500' : 'bg-red-500';
+            const opacity = chunk.is_kept ? 'opacity-80' : 'opacity-60';
+            
+            html += `
+                <div class="absolute ${color} ${opacity} rounded cursor-pointer hover:opacity-100 transition-opacity"
+                     style="left: ${left}%; width: ${width}%; height: 100%;"
+                     title="Chunk ${index + 1}: ${chunk.length} chars (${chunk.is_kept ? 'KEPT' : 'REMOVED'})"
+                     onclick="highlightChunk(${index})">
+                </div>
+            `;
+        });
+        
+        html += '</div>';
+        
+        // Add legend
+        html += `
+            <div class="flex items-center space-x-4 text-sm">
+                <div class="flex items-center">
+                    <div class="w-4 h-4 bg-green-500 rounded mr-2"></div>
+                    <span>Kept for LLM</span>
+                </div>
+                <div class="flex items-center">
+                    <div class="w-4 h-4 bg-red-500 rounded mr-2"></div>
+                    <span>Filtered Out</span>
+                </div>
+            </div>
+        `;
+        
+        return html;
+    }
+    
+    function generateChunkDetails(chunks) {
+        return chunks.map((chunk, index) => `
+            <div class="chunk-detail border rounded-lg p-4 ${chunk.is_kept ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}" data-chunk-id="${index}">
+                <div class="flex justify-between items-start mb-2">
+                    <div class="flex items-center space-x-2">
+                        <span class="font-semibold text-gray-900">Chunk ${index + 1}</span>
+                        <span class="px-2 py-1 text-xs rounded-full ${chunk.is_kept ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}">
+                            ${chunk.is_kept ? 'KEPT' : 'REMOVED'}
+                        </span>
+                        ${chunk.has_threat_keywords ? '<span class="px-2 py-1 text-xs rounded-full bg-orange-100 text-orange-800">THREAT</span>' : ''}
+                        ${chunk.has_command_patterns ? '<span class="px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-800">COMMAND</span>' : ''}
+                        ${chunk.has_perfect_discriminators ? '<span class="px-2 py-1 text-xs rounded-full bg-purple-100 text-purple-800">PERFECT</span>' : ''}
+                    </div>
+                    <div class="text-sm text-gray-500">
+                        ${chunk.length} chars (${chunk.start}-${chunk.end})
+                    </div>
+                </div>
+                
+                <!-- ML Prediction Details -->
+                ${chunk.ml_details && !chunk.ml_details.error ? `
+                    <div class="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-3">
+                        <div class="flex items-center justify-between mb-2">
+                            <h5 class="font-semibold text-blue-900">🤖 Random Forest Prediction</h5>
+                            <span class="px-2 py-1 text-xs rounded-full ${chunk.ml_details.prediction_label === 'Huntable' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}">
+                                ${chunk.ml_details.prediction_label}
+                            </span>
+                        </div>
+                        <div class="grid grid-cols-2 gap-4 text-sm">
+                            <div>
+                                <div class="text-gray-600">Confidence:</div>
+                                <div class="font-semibold">${(chunk.ml_details.confidence * 100).toFixed(1)}%</div>
+                            </div>
+                            <div>
+                                <div class="text-gray-600">Probabilities:</div>
+                                <div class="font-semibold">
+                                    Huntable: ${(chunk.ml_details.probabilities.huntable * 100).toFixed(1)}% | 
+                                    Not Huntable: ${(chunk.ml_details.probabilities.not_huntable * 100).toFixed(1)}%
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Top Features -->
+                        ${chunk.ml_details.top_features ? `
+                            <div class="mt-3">
+                                <div class="text-gray-600 text-sm mb-1">Top Contributing Features:</div>
+                                <div class="flex flex-wrap gap-1">
+                                    ${Object.entries(chunk.ml_details.top_features).slice(0, 5).map(([feature, importance]) => `
+                                        <span class="px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded" title="Importance: ${(importance * 100).toFixed(1)}%">
+                                            ${feature}: ${(importance * 100).toFixed(1)}%
+                                        </span>
+                                    `).join('')}
+                                </div>
+                            </div>
+                        ` : ''}
+                    </div>
+                ` : chunk.ml_details && chunk.ml_details.error ? `
+                    <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-3">
+                        <div class="text-yellow-800 text-sm">
+                            <strong>ML Error:</strong> ${chunk.ml_details.error}
+                        </div>
+                    </div>
+                ` : `
+                    <div class="bg-gray-50 border border-gray-200 rounded-lg p-3 mb-3">
+                        <div class="text-gray-600 text-sm">
+                            <strong>Pattern-based Classification</strong> (ML model not available)
+                        </div>
+                    </div>
+                `}
+                
+                <div class="text-sm text-gray-700 mb-2">
+                    <strong>Reason:</strong> ${chunk.reason}
+                    ${chunk.confidence > 0 ? ` | <strong>Confidence:</strong> ${(chunk.confidence * 100).toFixed(1)}%` : ''}
+                </div>
+                
+                <!-- Feature Details -->
+                <div class="mb-3">
+                    <button onclick="toggleFeatureDetails(${index})" class="text-sm text-blue-600 hover:text-blue-800 font-medium">
+                        📊 Show Feature Details
+                    </button>
+                    <div id="featureDetails${index}" class="hidden mt-2 bg-gray-50 rounded p-3 text-xs">
+                        <div class="grid grid-cols-2 gap-2">
+                            ${Object.entries(chunk.features).map(([key, value]) => `
+                                <div class="flex justify-between">
+                                    <span class="text-gray-600">${key}:</span>
+                                    <span class="font-mono">${typeof value === 'number' ? value.toFixed(3) : value}</span>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="text-sm text-gray-600 bg-white rounded p-2 border">
+                    <div class="flex justify-between items-center mb-2">
+                        <span class="text-xs text-gray-500">Chunk Content (${chunk.length} chars)</span>
+                        <button onclick="toggleChunkContent(${index})" class="text-xs text-blue-600 hover:text-blue-800 font-medium">
+                            📄 ${chunk.text.length > 200 ? 'Show Full Text' : 'View Text'}
+                        </button>
+                    </div>
+                    <div id="chunkContent${index}" class="max-h-32 overflow-y-auto">
+                        ${chunk.text.substring(0, 200)}${chunk.text.length > 200 ? '...' : ''}
+                    </div>
+                    <div id="chunkContentFull${index}" class="hidden max-h-96 overflow-y-auto text-xs font-mono whitespace-pre-wrap">
+                        ${chunk.text}
+                    </div>
+                </div>
+            </div>
+        `).join('');
+    }
+    
+    function filterChunks(filter) {
+        const chunkDetails = document.getElementById('chunkDetails');
+        const chunks = chunkDetails.querySelectorAll('.chunk-detail');
+        
+        chunks.forEach(chunk => {
+            const chunkId = parseInt(chunk.dataset.chunkId);
+            const chunkData = window.chunkDebugData.chunk_analysis[chunkId];
+            
+            let show = false;
+            
+            switch(filter) {
+                case 'all':
+                    show = true;
+                    break;
+                case 'kept':
+                    show = chunkData.is_kept;
+                    break;
+                case 'removed':
+                    show = !chunkData.is_kept;
+                    break;
+                case 'threat':
+                    show = chunkData.has_threat_keywords || chunkData.has_command_patterns;
+                    break;
+                case 'perfect':
+                    show = chunkData.has_perfect_discriminators;
+                    break;
+                case 'ml':
+                    show = chunkData.ml_details && !chunkData.ml_details.error;
+                    break;
+            }
+            
+            chunk.style.display = show ? 'block' : 'none';
+        });
+    }
+    
+    function highlightChunk(chunkIndex) {
+        // Scroll to chunk detail
+        const chunkDetail = document.querySelector(`[data-chunk-id="${chunkIndex}"]`);
+        if (chunkDetail) {
+            chunkDetail.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            chunkDetail.classList.add('ring-2', 'ring-blue-500');
+            setTimeout(() => {
+                chunkDetail.classList.remove('ring-2', 'ring-blue-500');
+            }, 2000);
+        }
+    }
+    
+    function closeChunkDebugModal() {
+        const modal = document.getElementById('chunkDebugModal');
+        if (modal) {
+            modal.remove();
+        }
+        // Clear global data
+        window.chunkDebugData = null;
+    }
+    
+    function toggleFeatureDetails(chunkIndex) {
+        const featureDetails = document.getElementById(`featureDetails${chunkIndex}`);
+        if (featureDetails) {
+            featureDetails.classList.toggle('hidden');
+        }
+    }
+    
+    function toggleChunkContent(chunkIndex) {
+        const preview = document.getElementById(`chunkContent${chunkIndex}`);
+        const full = document.getElementById(`chunkContentFull${chunkIndex}`);
+        const button = preview.parentElement.querySelector('button');
+        
+        if (preview && full && button) {
+            const isHidden = full.classList.contains('hidden');
+            
+            if (isHidden) {
+                // Show full content
+                preview.classList.add('hidden');
+                full.classList.remove('hidden');
+                button.textContent = '📄 Hide Text';
+            } else {
+                // Show preview
+                preview.classList.remove('hidden');
+                full.classList.add('hidden');
+                button.textContent = '📄 Show Full Text';
+            }
+        }
+    }
+
     // Check AI Assistant button state on page load
     document.addEventListener('DOMContentLoaded', function() {
         checkAIAssistantButtonState();

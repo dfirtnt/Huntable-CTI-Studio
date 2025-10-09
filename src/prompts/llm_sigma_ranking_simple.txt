@@ -1,0 +1,43 @@
+# SIGMA Detection Rule Suitability Analysis
+
+You are a cybersecurity detection engineer. Analyze this threat intelligence article and provide a SIGMA huntability score.
+
+## Scoring Criteria (1-10 scale)
+
+**High Scores (7-10):** Content with specific technical details that can create detection rules
+- Exact command-line arguments and process chains
+- Registry keys, file paths, service names
+- API calls with specific parameters
+- Multi-step attack sequences
+
+**Medium Scores (4-6):** Some technical details but limited specificity
+- General techniques mentioned
+- Partial command examples
+- Vague system modifications
+
+**Low Scores (1-3):** Strategic content with minimal technical details
+- High-level attack descriptions
+- No specific observables
+- Generic threat information
+
+## Required Output Format
+
+**SIGMA HUNTABILITY SCORE: [1-10]**
+
+**TECHNICAL DETAILS FOUND:**
+[List specific technical elements that could become detection rules]
+
+**DETECTION OPPORTUNITIES:**
+[What can be detected: processes, files, registry, network, etc.]
+
+**SCORE REASONING:**
+[Why this score was assigned]
+
+## Article to Analyze
+
+**Title:** {title}
+**Source:** {source}
+**URL:** {url}
+
+**Content:**
+{content}

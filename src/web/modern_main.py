@@ -67,11 +67,11 @@ def highlight_keywords(content: str, metadata: Dict[str, Any]) -> str:
     # Get all keyword matches
     all_keywords = []
     keyword_types = {
-        'perfect_keyword_matches': ('perfect', 'bg-green-100 text-green-800 border-green-300'),
-        'good_keyword_matches': ('good', 'bg-purple-100 text-purple-800 border-purple-300'),
-        'lolbas_matches': ('lolbas', 'bg-blue-100 text-blue-800 border-blue-300'),
-        'intelligence_matches': ('intelligence', 'bg-red-100 text-red-800 border-red-300'),
-        'negative_matches': ('negative', 'bg-gray-100 text-gray-800 border-gray-300')
+        'perfect_keyword_matches': ('perfect', 'bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 border-green-300 dark:border-green-700'),
+        'good_keyword_matches': ('good', 'bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-200 border-purple-300 dark:border-purple-700'),
+        'lolbas_matches': ('lolbas', 'bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 border-blue-300 dark:border-blue-700'),
+        'intelligence_matches': ('intelligence', 'bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 border-red-300 dark:border-red-700'),
+        'negative_matches': ('negative', 'bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200 border-gray-300 dark:border-gray-600')
     }
     
     for key, (type_name, css_classes) in keyword_types.items():
@@ -907,63 +907,100 @@ async def api_scrape_url(request: dict):
                 response = await client.get(url, headers=headers)
                 response.raise_for_status()
                 
-                # Check if content is compressed and handle decompression
+                # Get raw content first
+                raw_content = response.content
                 content_encoding = response.headers.get('content-encoding', '').lower()
-                html_content = response.text
                 
-                # If httpx didn't handle decompression properly, try manual decompression
-                if not html_content or len(html_content) < 100 or html_content.startswith('U'):
+                # Try to decode as text first
+                try:
+                    html_content = raw_content.decode('utf-8', errors='replace')
+                except Exception:
+                    html_content = raw_content.decode('latin-1', errors='replace')
+                
+                # If content is too short or looks corrupted, try manual decompression
+                if len(html_content) < 100 or not html_content.strip():
                     if content_encoding == 'br':
                         import brotli
                         try:
-                            html_content = brotli.decompress(response.content).decode('utf-8', errors='replace')
+                            html_content = brotli.decompress(raw_content).decode('utf-8', errors='replace')
                         except Exception:
-                            html_content = response.content.decode('utf-8', errors='replace')
+                            html_content = raw_content.decode('utf-8', errors='replace')
                     elif content_encoding == 'gzip':
                         import gzip
                         try:
-                            html_content = gzip.decompress(response.content).decode('utf-8', errors='replace')
+                            html_content = gzip.decompress(raw_content).decode('utf-8', errors='replace')
                         except Exception:
-                            html_content = response.content.decode('utf-8', errors='replace')
+                            html_content = raw_content.decode('utf-8', errors='replace')
                     else:
-                        html_content = response.content.decode('utf-8', errors='replace')
+                        html_content = raw_content.decode('utf-8', errors='replace')
                 
-                # Clean up any remaining issues
+                # Clean up any remaining issues - remove null bytes and replacement characters
                 html_content = html_content.replace('\x00', '').replace('\ufffd', '')
+                
+                # Additional cleanup for binary data that might have leaked through
+                # Remove any remaining control characters except common whitespace
+                html_content = ''.join(c for c in html_content if ord(c) >= 32 or c in '\n\r\t')
                     
             except httpx.RequestError as e:
                 raise HTTPException(status_code=400, detail=f"Failed to fetch URL: {str(e)}")
             except UnicodeDecodeError as e:
                 raise HTTPException(status_code=400, detail=f"Failed to decode content: {str(e)}")
         
-        # Simple content extraction (basic implementation)
+        # Simple content extraction with comprehensive sanitization
         import re
         from bs4 import BeautifulSoup
         
-        soup = BeautifulSoup(html_content, 'html.parser')
+        # Debug: Check for corruption in raw HTML
+        non_printable_in_html = sum(1 for c in html_content if ord(c) < 32 and c not in '\n\r\t')
+        logger.info(f"Raw HTML validation: {len(html_content)} total chars, {non_printable_in_html} non-printable")
         
         # Extract title
         extracted_title = title
         if not extracted_title:
-            title_tag = soup.find('title')
-            if title_tag:
-                extracted_title = title_tag.get_text().strip()
-            else:
+            try:
+                soup = BeautifulSoup(html_content, 'html.parser')
+                title_tag = soup.find('title')
+                if title_tag:
+                    extracted_title = title_tag.get_text().strip()
+                else:
+                    extracted_title = "Untitled Article"
+            except Exception as e:
+                logger.warning(f"Error extracting title: {e}")
                 extracted_title = "Untitled Article"
         
-        # Extract main content
-        content_selectors = ['article', 'main', '.content', '.post-content', '.article-content', 'body']
-        content_text = ""
-        
-        for selector in content_selectors:
-            element = soup.select_one(selector)
-            if element:
-                content_text = element.get_text(separator=' ', strip=True)
-                if len(content_text) > 200:  # Minimum content length
-                    break
-        
-        if not content_text or len(content_text) < 200:
+        # Extract content with comprehensive sanitization
+        try:
+            soup = BeautifulSoup(html_content, 'html.parser')
+            
+            # Remove unwanted elements
+            for element in soup(['script', 'style', 'nav', 'header', 'footer', 'aside']):
+                element.decompose()
+            
+            # Get text content
             content_text = soup.get_text(separator=' ', strip=True)
+            
+        except Exception as e:
+            logger.warning(f"Error parsing HTML with BeautifulSoup: {e}")
+            # Fallback to simple regex extraction
+            content_text = re.sub(r'<[^>]+>', ' ', html_content)
+            content_text = re.sub(r'\s+', ' ', content_text).strip()
+        
+        # Validate content for corruption - check for excessive binary/control characters
+        if content_text:
+            # Count non-printable characters
+            non_printable_count = sum(1 for c in content_text if ord(c) < 32 and c not in '\n\r\t')
+            total_chars = len(content_text)
+            
+            # Log debugging info for corruption detection
+            logger.info(f"Content validation: {total_chars} total chars, {non_printable_count} non-printable")
+            
+            # If more than 5% of characters are non-printable, consider it corrupted
+            if total_chars > 0 and (non_printable_count / total_chars) > 0.05:
+                logger.error(f"Content corruption detected: {non_printable_count}/{total_chars} non-printable characters")
+                raise HTTPException(status_code=400, detail="Content appears to be corrupted with binary data")
+            
+            # Remove any remaining control characters except newlines, carriage returns, and tabs
+            content_text = ''.join(c for c in content_text if ord(c) >= 32 or c in '\n\r\t')
         
         # Get or create a "Manual" source for adhoc scraping
         from src.models.source import SourceFilter
@@ -999,6 +1036,10 @@ async def api_scrape_url(request: dict):
                         manual_source = source
                         break
         
+        # Ensure we have a valid manual source
+        if not manual_source:
+            raise HTTPException(status_code=500, detail="Failed to create or retrieve manual source")
+        
         # Check for existing article if not forcing
         if not force_scrape:
             existing_article = await async_db_manager.get_article_by_url(url)
@@ -1010,11 +1051,21 @@ async def api_scrape_url(request: dict):
                     "article_title": existing_article.title
                 }
         
-        # Create article using ContentProcessor for proper scoring
+        # Create article directly without ContentProcessor to avoid corruption
         from src.models.article import ArticleCreate
-        from src.core.processor import ContentProcessor
         from datetime import datetime
         import hashlib
+        
+        # Final comprehensive content sanitization before database storage
+        # Remove any remaining control characters and binary data
+        content_text = ''.join(c for c in content_text if ord(c) >= 32 or c in '\n\r\t')
+        
+        # Additional sanitization: remove any remaining non-ASCII characters that might cause issues
+        # Keep only printable ASCII characters and common Unicode characters
+        content_text = ''.join(c for c in content_text if ord(c) < 127 or c.isprintable())
+        
+        # Final cleanup of excessive whitespace
+        content_text = re.sub(r'\s+', ' ', content_text).strip()
         
         # Calculate content hash for deduplication
         from src.utils.content import ContentCleaner
@@ -1053,10 +1104,60 @@ async def api_scrape_url(request: dict):
         
         # Save processed article to database
         try:
-            await async_db_manager.create_article(processed_article)
+            # Try to create article with async manager
+            created_article = await async_db_manager.create_article(processed_article)
             
-            # Get the created article to return its ID
-            created_article = await async_db_manager.get_article_by_url(url)
+            if not created_article:
+                # If async manager fails, try direct database insertion as fallback
+                logger.warning("Async database manager failed, trying direct insertion")
+                try:
+                    from src.database.manager import DatabaseManager
+                    sync_db_manager = DatabaseManager()
+                    
+                    # Apply the same content sanitization to the sync path
+                    sanitized_content = processed_article.content
+                    if sanitized_content:
+                        # Remove any remaining control characters and binary data
+                        sanitized_content = ''.join(c for c in sanitized_content if ord(c) >= 32 or c in '\n\r\t')
+                        
+                        # Additional sanitization: remove any remaining non-ASCII characters that might cause issues
+                        sanitized_content = ''.join(c for c in sanitized_content if ord(c) < 127 or c.isprintable())
+                        
+                        # Final cleanup of excessive whitespace
+                        sanitized_content = re.sub(r'\s+', ' ', sanitized_content).strip()
+                    
+                    # Create a sanitized copy of the article data
+                    from src.models.article import ArticleCreate
+                    sanitized_article = ArticleCreate(
+                        source_id=processed_article.source_id,
+                        canonical_url=processed_article.canonical_url,
+                        title=processed_article.title,
+                        published_at=processed_article.published_at,
+                        content=sanitized_content,
+                        summary=processed_article.summary,
+                        authors=processed_article.authors,
+                        tags=processed_article.tags,
+                        article_metadata=processed_article.article_metadata,
+                        content_hash=processed_article.content_hash
+                    )
+                    
+                    # Use sync manager to create article (bulk method with single article)
+                    created_articles, errors = sync_db_manager.create_articles_bulk([sanitized_article])
+                    
+                    if errors:
+                        raise HTTPException(status_code=500, detail=f"Sync database errors: {errors}")
+                    
+                    if not created_articles:
+                        raise HTTPException(status_code=500, detail="No articles were created by sync manager")
+                    
+                    created_article = created_articles[0]
+                    
+                    if not created_article:
+                        raise HTTPException(status_code=500, detail="Failed to create article with both async and sync managers")
+                        
+                except Exception as sync_error:
+                    logger.error(f"Sync database manager also failed: {sync_error}")
+                    raise HTTPException(status_code=500, detail=f"Failed to create article: {str(sync_error)}")
             
             logger.info(f"Successfully scraped and processed manual URL: {url} -> Article ID: {created_article.id}")
             
@@ -3069,14 +3170,31 @@ async def api_rank_with_gpt4o(article_id: int, request: Request):
         optimization_options = body.get('optimization_options', {})
         use_filtering = body.get('use_filtering', True)  # Enable filtering by default
         min_confidence = body.get('min_confidence', 0.7)  # Confidence threshold
+        force_regenerate = body.get('force_regenerate', False)  # Force regeneration
         
-        logger.info(f"Ranking request for article {article_id}, ai_model: {ai_model}, api_key provided: {bool(api_key)}")
+        logger.info(f"Ranking request for article {article_id}, ai_model: {ai_model}, api_key provided: {bool(api_key)}, force_regenerate: {force_regenerate}")
         
         # Check if API key is provided (required for ChatGPT and Anthropic)
         if ai_model == 'chatgpt' and not api_key:
             raise HTTPException(status_code=400, detail="OpenAI API key is required for ChatGPT. Please configure it in Settings.")
         elif ai_model == 'anthropic' and not api_key:
             raise HTTPException(status_code=400, detail="Anthropic API key is required for Claude. Please configure it in Settings.")
+        
+        # Check for existing ranking data (unless force regeneration is requested)
+        if not force_regenerate:
+            existing_ranking = article.article_metadata.get('gpt4o_ranking') if article.article_metadata else None
+            if existing_ranking:
+                logger.info(f"Returning existing ranking for article {article_id}")
+                return {
+                    "success": True,
+                    "article_id": article_id,
+                    "analysis": existing_ranking.get('analysis', ''),
+                    "analyzed_at": existing_ranking.get('analyzed_at', ''),
+                    "model_used": existing_ranking.get('model_used', ''),
+                    "model_name": existing_ranking.get('model_name', ''),
+                    "optimization_options": existing_ranking.get('optimization_options', {}),
+                    "content_filtering": existing_ranking.get('content_filtering', {})
+                }
         
         # Prepare the article content for analysis
         if not article.content:
@@ -3128,13 +3246,23 @@ async def api_rank_with_gpt4o(article_id: int, request: Request):
         source = await async_db_manager.get_source(article.source_id)
         source_name = source.name if source else f"Source {article.source_id}"
         
-        # SIGMA-focused prompt
-        sigma_prompt = format_prompt("gpt4o_sigma_ranking", 
-            title=article.title,
-            source=source_name,
-            url=article.canonical_url or 'N/A',
-            content=content_to_analyze
-        )
+        # Choose prompt based on AI model
+        if ai_model in ['chatgpt', 'anthropic']:
+            # Use detailed prompt for cloud models
+            sigma_prompt = format_prompt("gpt4o_sigma_ranking", 
+                title=article.title,
+                source=source_name,
+                url=article.canonical_url or 'N/A',
+                content=content_to_analyze
+            )
+        else:
+            # Use simplified prompt for local LLMs
+            sigma_prompt = format_prompt("llm_sigma_ranking_simple", 
+                title=article.title,
+                source=source_name,
+                url=article.canonical_url or 'N/A',
+                content=content_to_analyze
+            )
         
         # Generate ranking based on AI model
         if ai_model == 'chatgpt':
@@ -3385,6 +3513,135 @@ async def api_gpt4o_rank(article_id: int, request: Request):
     except Exception as e:
         logger.error(f"GPT4o ranking error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+# Chunk debug endpoint
+@app.get("/api/articles/{article_id}/chunk-debug")
+async def api_chunk_debug(article_id: int, chunk_size: int = 1000, overlap: int = 200, min_confidence: float = 0.7):
+    """
+    Debug endpoint to analyze chunking and filtering for an article.
+    
+    Returns detailed information about:
+    - Original chunks created
+    - Chunks kept/removed by filtering
+    - LLM processing decisions
+    - Cost savings analysis
+    """
+    try:
+        article = await async_db_manager.get_article(article_id)
+        if not article:
+            raise HTTPException(status_code=404, detail="Article not found")
+        
+        from src.utils.content_filter import ContentFilter
+        from src.utils.gpt4o_optimizer import estimate_gpt4o_cost
+        import numpy as np
+        
+        # Initialize content filter
+        content_filter = ContentFilter()
+        if not content_filter.model:
+            content_filter.load_model()
+        
+        # Get original chunks
+        original_chunks = content_filter.chunk_content(article.content, chunk_size, overlap)
+        
+        # Apply filtering
+        filter_result = content_filter.filter_content(article.content, min_confidence, chunk_size)
+        
+        # Analyze chunks by testing each one individually
+        chunk_analysis = []
+        for i, (start, end, chunk_text) in enumerate(original_chunks):
+            # Test this chunk individually
+            chunk_result = content_filter.filter_content(chunk_text, min_confidence, len(chunk_text))
+            
+            # Extract features for this chunk
+            features = content_filter.extract_features(chunk_text)
+            # Convert numpy types to native Python types for JSON serialization
+            features = {k: float(v) if hasattr(v, 'item') else v for k, v in features.items()}
+            
+            # Get detailed ML prediction info if model is available
+            ml_details = None
+            if content_filter.model:
+                try:
+                    feature_vector = np.array(list(features.values())).reshape(1, -1)
+                    prediction = content_filter.model.predict(feature_vector)[0]
+                    probabilities = content_filter.model.predict_proba(feature_vector)[0]
+                    
+                    # Get feature importance if available
+                    feature_importance = None
+                    if hasattr(content_filter.model, 'feature_importances_'):
+                        feature_names = list(features.keys())
+                        feature_importance = dict(zip(feature_names, content_filter.model.feature_importances_))
+                        # Sort by importance
+                        feature_importance = dict(sorted(feature_importance.items(), key=lambda x: x[1], reverse=True))
+                    
+                    ml_details = {
+                        'prediction': int(prediction),
+                        'prediction_label': 'Huntable' if prediction == 1 else 'Not Huntable',
+                        'probabilities': {
+                            'not_huntable': float(probabilities[0]),
+                            'huntable': float(probabilities[1])
+                        },
+                        'confidence': float(max(probabilities)),
+                        'feature_importance': feature_importance,
+                        'top_features': dict(list(feature_importance.items())[:10]) if feature_importance else None
+                    }
+                except Exception as e:
+                    logger.warning(f"Error getting ML details for chunk {i}: {e}")
+                    ml_details = {'error': str(e)}
+            
+            chunk_analysis.append({
+                'chunk_id': i,
+                'start': start,
+                'end': end,
+                'length': len(chunk_text),
+                'text': chunk_text,
+                'is_kept': chunk_result.passed,
+                'confidence': chunk_result.confidence,
+                'reason': chunk_result.reason,
+                'features': features,
+                'ml_details': ml_details,
+                'has_threat_keywords': any(features.get(k, 0) > 0 for k in features.keys() if 'threat' in k.lower() or 'hunt' in k.lower()),
+                'has_command_patterns': any(features.get(k, 0) > 0 for k in features.keys() if 'command' in k.lower() or 'pattern' in k.lower()),
+                'has_perfect_discriminators': content_filter._has_perfect_keywords(chunk_text)
+            })
+        
+        # Get cost estimates
+        cost_estimate = estimate_gpt4o_cost(article.content, use_filtering=True)
+        
+        # Calculate statistics
+        total_chunks = len(original_chunks)
+        kept_chunks = len([c for c in chunk_analysis if c['is_kept']])
+        removed_chunks = total_chunks - kept_chunks
+        
+        return {
+            'article_id': article_id,
+            'article_title': article.title,
+            'content_length': len(article.content),
+            'chunk_size': chunk_size,
+            'overlap': overlap,
+            'min_confidence': min_confidence,
+            'total_chunks': total_chunks,
+            'kept_chunks': kept_chunks,
+            'removed_chunks': removed_chunks,
+            'chunk_analysis': chunk_analysis,
+            'filter_result': {
+                'is_huntable': filter_result.is_huntable,
+                'confidence': filter_result.confidence,
+                'cost_savings': filter_result.cost_savings,
+                'kept_chunks_count': kept_chunks,
+                'removed_chunks_count': removed_chunks
+            },
+            'cost_estimate': cost_estimate,
+            'filtering_stats': {
+                'reduction_percent': (removed_chunks / total_chunks * 100) if total_chunks > 0 else 0,
+                'content_reduction_percent': ((len(article.content) - len(filter_result.filtered_content)) / len(article.content) * 100) if len(article.content) > 0 else 0,
+                'tokens_saved': cost_estimate.get('cost_savings', 0) * 200000,  # Rough estimate
+                'cost_savings': cost_estimate.get('cost_savings', 0.0)
+            }
+        }
+        
+    except Exception as e:
+        logger.error(f"Chunk debug error: {e}")
+        raise HTTPException(status_code=500, detail=f"Chunk debug failed: {str(e)}")
 
 # Enhanced GPT-4o ranking endpoint with content filtering
 @app.post("/api/articles/{article_id}/gpt4o-rank-optimized")

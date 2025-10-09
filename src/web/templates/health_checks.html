@@ -3,17 +3,16 @@
 {% block title %}Health Checks - CTI Scraper{% endblock %}
 
 {% block content %}
-<div class="min-h-screen bg-gray-50 py-8">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <!-- Header -->
-        <div class="mb-8">
-            <h1 class="text-3xl font-bold text-gray-900">🏥 System Health Checks</h1>
-            <p class="mt-2 text-gray-700">Monitor system performance, deduplication, and service health</p>
-        </div>
+<div class="container mx-auto px-4 py-8">
+    <div class="mb-8">
+        <h1 class="text-3xl font-bold text-gray-900 dark:text-white mb-2">🏥 System Health Checks</h1>
+        <p class="text-gray-600 dark:text-gray-400">Monitor system performance, deduplication, and service health</p>
+    </div>
 
-        <!-- Health Check Controls -->
-        <div class="mb-8 bg-white rounded-lg shadow-sm p-6">
-            <div class="flex flex-wrap gap-4">
+    <!-- Health Check Controls -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-8">
+        <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">🔧 Health Check Controls</h2>
+        <div class="flex flex-wrap gap-4">
                 <button id="runAllChecks" 
                         class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
                     🔄 Run All Checks
@@ -45,52 +44,51 @@
             </div>
         </div>
 
-        <!-- Overall Status -->
-        <div id="overallStatus" class="mb-8 bg-white rounded-lg shadow-sm p-6">
-            <h2 class="text-xl font-bold text-gray-900 mb-4">📊 Overall System Status</h2>
-            <div id="overallStatusContent" class="text-gray-600">
-                Click "Run All Checks" to get system status
-            </div>
+    <!-- Overall Status -->
+    <div id="overallStatus" class="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-8">
+        <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">📊 Overall System Status</h2>
+        <div id="overallStatusContent" class="text-gray-600 dark:text-gray-400">
+            Click "Run All Checks" to get system status
         </div>
+    </div>
 
-        <!-- Database Health -->
-        <div class="mb-8 bg-white rounded-lg shadow-sm p-6">
-            <h2 class="text-xl font-bold text-gray-900 mb-4">🗄️ Database Health</h2>
-            <div id="databaseHealthContent" class="text-gray-600">
-                Click "Database Health" to check database status
-            </div>
+    <!-- Database Health -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-8">
+        <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">🗄️ Database Health</h2>
+        <div id="databaseHealthContent" class="text-gray-600 dark:text-gray-400">
+            Click "Database Health" to check database status
         </div>
+    </div>
 
-        <!-- Deduplication Health -->
-        <div class="mb-8 bg-white rounded-lg shadow-sm p-6">
-            <h2 class="text-xl font-bold text-gray-900 mb-4">🔍 Deduplication System Health</h2>
-            <div id="deduplicationHealthContent" class="text-gray-600">
-                Click "Deduplication Health" to check deduplication status
-            </div>
+    <!-- Deduplication Health -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-8">
+        <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">🔍 Deduplication System Health</h2>
+        <div id="deduplicationHealthContent" class="text-gray-600 dark:text-gray-400">
+            Click "Deduplication Health" to check deduplication status
         </div>
+    </div>
 
-        <!-- Services Health -->
-        <div class="mb-8 bg-white rounded-lg shadow-sm p-6">
-            <h2 class="text-xl font-bold text-gray-900 mb-4">🔧 External Services Health</h2>
-            <div id="servicesHealthContent" class="text-gray-600">
-                Click "Services Health" to check external services
-            </div>
+    <!-- Services Health -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-8">
+        <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">🔧 External Services Health</h2>
+        <div id="servicesHealthContent" class="text-gray-600 dark:text-gray-400">
+            Click "Services Health" to check external services
         </div>
+    </div>
 
-        <!-- Celery Health -->
-        <div class="mb-8 bg-white rounded-lg shadow-sm p-6">
-            <h2 class="text-xl font-bold text-gray-900 mb-4">⚙️ Celery Workers Health</h2>
-            <div id="celeryHealthContent" class="text-gray-600">
-                Click "Celery Health" to check background task processing
-            </div>
+    <!-- Celery Health -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-8">
+        <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">⚙️ Celery Workers Health</h2>
+        <div id="celeryHealthContent" class="text-gray-600 dark:text-gray-400">
+            Click "Celery Health" to check background task processing
         </div>
+    </div>
 
-        <!-- Ingestion Analytics -->
-        <div class="mb-8 bg-white rounded-lg shadow-sm p-6">
-            <h2 class="text-xl font-bold text-gray-900 mb-4">📊 Article Ingestion Analytics</h2>
-            <div id="ingestionAnalyticsContent" class="text-gray-600">
-                Click "Ingestion Analytics" to view article collection trends
-            </div>
+    <!-- Ingestion Analytics -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-8">
+        <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">📊 Article Ingestion Analytics</h2>
+        <div id="ingestionAnalyticsContent" class="text-gray-600 dark:text-gray-400">
+            Click "Ingestion Analytics" to view article collection trends
         </div>
     </div>
 </div>
