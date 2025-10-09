@@ -23,6 +23,8 @@ A comprehensive threat intelligence aggregation and analysis platform designed f
 - **Intelligent Classification**: GPT-4 powered article relevance assessment and categorization
 - **IOC Extraction**: Hybrid IOC extraction combining iocextract with optional LLM validation
 - **SIGMA Rule Generation**: AI-powered generation of detection rules with pySIGMA validation
+- **RAG Chat Interface**: Interactive chat with threat intelligence database using semantic search
+- **Vector Embeddings**: Sentence Transformers integration for semantic similarity search
 
 ### 📊 Advanced Analytics
 - **Text Annotation System**: Web-based interface for marking huntable vs non-huntable content
@@ -36,14 +38,18 @@ A comprehensive threat intelligence aggregation and analysis platform designed f
 - **Export Capabilities**: CSV export for annotations and classified content
 - **RESTful API**: Comprehensive API for integration with other security tools
 - **Database Management**: Command-line backup and restore tools for data protection
+- **RAG Chat Interface**: Interactive chat with threat intelligence database using semantic search
+- **Clickable Results**: Direct links to article details from chat responses
 
 ## 🏗️ Architecture
 
 ### Core Components
 - **FastAPI Backend**: High-performance async web framework with automatic API documentation
 - **PostgreSQL Database**: Robust data storage with advanced indexing and query optimization
+- **pgvector Extension**: Vector similarity search for semantic embeddings
 - **Redis Cache**: High-speed caching and task queue management
 - **Celery Workers**: Distributed task processing for scalable content collection
+- **Sentence Transformers**: AI-powered semantic embeddings for RAG functionality
 - **Docker Containers**: Containerized deployment for consistent environments
 
 ### Data Flow

@@ -7,6 +7,7 @@ Handles source checking, article collection, and other async operations.
 import os
 import logging
 import time
+from typing import List
 from celery import Celery
 from celery.schedules import crontab
 
@@ -355,6 +356,211 @@ def check_source(self, source_identifier: str):
         logger.error(f"Source check task failed: {exc}")
         # Retry with exponential backoff
         raise self.retry(exc=exc, countdown=60 * (2 ** self.request.retries))
+
+
+@celery_app.task(bind=True, max_retries=3)
+def generate_article_embedding(self, article_id: int):
+    """Generate embedding for a single article."""
+    try:
+        import asyncio
+        from src.database.async_manager import AsyncDatabaseManager
+        from src.services.embedding_service import get_embedding_service
+        
+        async def run_embedding_generation():
+            """Run the actual embedding generation."""
+            db = AsyncDatabaseManager()
+            try:
+                # Get the article with source info
+                article = await db.get_article_with_source_info(article_id)
+                if not article:
+                    return {"status": "error", "message": f"Article {article_id} not found"}
+                
+                # Check if already embedded
+                if article.embedding is not None:
+                    return {"status": "success", "message": f"Article {article_id} already has embedding"}
+                
+                # Generate embedding using enriched context
+                embedding_service = get_embedding_service()
+                enriched_text = embedding_service.create_enriched_text(
+                    article_title=article.title,
+                    source_name=article.source.name,
+                    article_content=article.content,
+                    summary=article.summary,
+                    tags=article.tags
+                )
+                
+                embedding = embedding_service.generate_embedding(enriched_text)
+                
+                # Store embedding in database
+                await db.update_article_embedding(
+                    article_id=article_id,
+                    embedding=embedding,
+                    model_name="all-mpnet-base-v2"
+                )
+                
+                logger.info(f"Generated embedding for article {article_id}")
+                return {
+                    "status": "success",
+                    "article_id": article_id,
+                    "embedding_dimension": len(embedding),
+                    "message": f"Successfully generated embedding for article {article_id}"
+                }
+                
+            except Exception as e:
+                logger.error(f"Embedding generation failed for article {article_id}: {e}")
+                raise e
+            finally:
+                await db.close()
+        
+        # Run the async function
+        result = asyncio.run(run_embedding_generation())
+        return result
+        
+    except Exception as exc:
+        logger.error(f"Article embedding task failed: {exc}")
+        raise self.retry(exc=exc, countdown=60 * (2 ** self.request.retries))
+
+
+@celery_app.task(bind=True, max_retries=3)
+def batch_generate_embeddings(self, article_ids: List[int], batch_size: int = 32):
+    """Generate embeddings for multiple articles in batches."""
+    try:
+        import asyncio
+        from src.database.async_manager import AsyncDatabaseManager
+        from src.services.embedding_service import get_embedding_service
+        
+        async def run_batch_embedding():
+            """Run batch embedding generation."""
+            db = AsyncDatabaseManager()
+            try:
+                total_processed = 0
+                total_skipped = 0
+                total_errors = 0
+                
+                # Process in batches
+                for i in range(0, len(article_ids), batch_size):
+                    batch_ids = article_ids[i:i + batch_size]
+                    
+                    # Get articles for this batch
+                    articles = await db.get_articles_with_source_info(batch_ids)
+                    
+                    # Filter out already embedded articles
+                    articles_to_process = [
+                        article for article in articles 
+                        if article.embedding is None
+                    ]
+                    
+                    if not articles_to_process:
+                        total_skipped += len(batch_ids)
+                        continue
+                    
+                    # Prepare texts for batch embedding
+                    texts_to_embed = []
+                    article_mapping = []
+                    
+                    for article in articles_to_process:
+                        embedding_service = get_embedding_service()
+                        enriched_text = embedding_service.create_enriched_text(
+                            article_title=article.title,
+                            source_name=article.source.name,
+                            article_content=article.content,
+                            summary=article.summary,
+                            tags=article.tags
+                        )
+                        texts_to_embed.append(enriched_text)
+                        article_mapping.append(article.id)
+                    
+                    # Generate embeddings in batch
+                    embeddings = embedding_service.generate_embeddings_batch(texts_to_embed, batch_size)
+                    
+                    # Store embeddings
+                    for article_id, embedding in zip(article_mapping, embeddings):
+                        try:
+                            await db.update_article_embedding(
+                                article_id=article_id,
+                                embedding=embedding,
+                                model_name="all-mpnet-base-v2"
+                            )
+                            total_processed += 1
+                        except Exception as e:
+                            logger.error(f"Failed to store embedding for article {article_id}: {e}")
+                            total_errors += 1
+                    
+                    total_skipped += len(batch_ids) - len(articles_to_process)
+                
+                logger.info(f"Batch embedding complete: {total_processed} processed, {total_skipped} skipped, {total_errors} errors")
+                return {
+                    "status": "success",
+                    "total_processed": total_processed,
+                    "total_skipped": total_skipped,
+                    "total_errors": total_errors,
+                    "message": f"Processed {total_processed} articles, skipped {total_skipped}, {total_errors} errors"
+                }
+                
+            except Exception as e:
+                logger.error(f"Batch embedding generation failed: {e}")
+                raise e
+            finally:
+                await db.close()
+        
+        # Run the async function
+        result = asyncio.run(run_batch_embedding())
+        return result
+        
+    except Exception as exc:
+        logger.error(f"Batch embedding task failed: {exc}")
+        raise self.retry(exc=exc, countdown=120 * (2 ** self.request.retries))
+
+
+@celery_app.task(bind=True, max_retries=2)
+def retroactive_embed_all_articles(self, batch_size: int = 1000):
+    """Generate embeddings for all existing articles without embeddings."""
+    try:
+        import asyncio
+        from src.database.async_manager import AsyncDatabaseManager
+        
+        async def run_retroactive_embedding():
+            """Run retroactive embedding for all articles."""
+            db = AsyncDatabaseManager()
+            try:
+                # Get all articles without embeddings
+                articles_without_embeddings = await db.get_articles_without_embeddings()
+                
+                if not articles_without_embeddings:
+                    return {
+                        "status": "success",
+                        "message": "No articles found without embeddings"
+                    }
+                
+                total_articles = len(articles_without_embeddings)
+                logger.info(f"Starting retroactive embedding for {total_articles} articles")
+                
+                # Process in batches
+                article_ids = [article.id for article in articles_without_embeddings]
+                
+                # Use the batch generation task
+                batch_result = batch_generate_embeddings.delay(article_ids, batch_size)
+                
+                return {
+                    "status": "success",
+                    "total_articles": total_articles,
+                    "batch_task_id": batch_result.id,
+                    "message": f"Started retroactive embedding for {total_articles} articles"
+                }
+                
+            except Exception as e:
+                logger.error(f"Retroactive embedding failed: {e}")
+                raise e
+            finally:
+                await db.close()
+        
+        # Run the async function
+        result = asyncio.run(run_retroactive_embedding())
+        return result
+        
+    except Exception as exc:
+        logger.error(f"Retroactive embedding task failed: {exc}")
+        raise self.retry(exc=exc, countdown=300 * (2 ** self.request.retries))
 
 
 @celery_app.task(bind=True, max_retries=3)

@@ -2,16 +2,16 @@
 
 ## 📊 Test Suite Overview
 
-**Total Test Coverage**: 674 test methods across 32 test files
+**Total Test Coverage**: 700+ test methods across 35+ test files
 
 ### Test Categories
 
 | Category | Files | Tests | Status | Description |
 |----------|-------|-------|--------|-------------|
-| **Unit Tests** | 21 | 539 | ✅ Active | Core functionality testing |
-| **UI Tests** | 5 | 61 | ✅ Active | User interface testing (Playwright sync API) |
+| **Unit Tests** | 24 | 580+ | ✅ Active | Core functionality testing |
+| **UI Tests** | 6 | 80+ | ✅ Active | User interface testing (Playwright sync API) |
 | **Integration Tests** | 4 | 46 | ✅ Active | Cross-component testing |
-| **API Tests** | 1 | 15 | ✅ Active | API endpoint testing |
+| **API Tests** | 2 | 35+ | ✅ Active | API endpoint testing |
 | **E2E Tests** | 1 | 13 | ✅ Active | End-to-end workflow testing |
 
 ## 🚀 Quick Start
@@ -41,6 +41,12 @@ python3 -m pytest tests/api/ -v
 
 # E2E tests only
 python3 -m pytest tests/e2e/ -v
+
+# RAG feature tests
+python3 tests/run_lightweight_tests.py rag
+
+# Embedding service tests
+python3 tests/run_lightweight_tests.py embedding
 ```
 
 ### Specialized Test Runners
@@ -99,10 +105,11 @@ Cross-component testing with real dependencies:
 - **`test_ai_real_api_integration.py`** (10 tests) - Real AI API integration
 - **`test_ai_cross_model_integration.py`** (11 tests) - Cross-model AI integration
 
-### API Tests (15 tests)
+### API Tests (35+ tests)
 API endpoint testing:
 
 - **`test_endpoints.py`** (15 tests) - REST API endpoints
+- **`test_rag_endpoints.py`** (20+ tests) - RAG chat and semantic search endpoints
 
 ### E2E Tests (13 tests)
 End-to-end workflow testing with Playwright sync API:
@@ -111,7 +118,7 @@ End-to-end workflow testing with Playwright sync API:
 
 ## 🎯 Test Status by Module
 
-### ✅ Fully Functional (222 tests)
+### ✅ Fully Functional (280+ tests)
 - **Threat Hunting Scorer** (26 tests) - All passing
 - **Content Filter** (25 tests) - All passing
 - **SIGMA Validator** (50 tests) - All passing
@@ -123,9 +130,12 @@ End-to-end workflow testing with Playwright sync API:
 - **GPT-4o Endpoint** (15 tests) - All passing
 - **Ollama Integration** (20 tests) - All passing
 - **IOC Extractor** (20 tests) - All passing
-- **UI Tests** (61 tests) - All passing (Playwright sync API)
-- **API Tests** (15 tests) - All passing
+- **UI Tests** (80+ tests) - All passing (Playwright sync API)
+- **API Tests** (35+ tests) - All passing
 - **E2E Tests** (13 tests) - All passing (Playwright sync API)
+- **RAG Service** (25+ tests) - All passing
+- **Embedding Service** (30+ tests) - All passing
+- **Celery Embedding Tasks** (20+ tests) - All passing
 
 ### ⏭️ Skipped Tests (202 tests)
 Tests that need async mock configuration fixes:
@@ -248,6 +258,8 @@ Many tests are skipped due to async mock configuration issues. See `SKIPPED_TEST
 - ✅ AI Assistant tests (implemented)
 - ✅ Core functionality tests (working)
 - ✅ UI tests (working)
+- ✅ RAG Chat feature tests (implemented)
+- ✅ Embedding service tests (implemented)
 
 ### Priority 2 (Important)
 - 🔄 Fix skipped async tests

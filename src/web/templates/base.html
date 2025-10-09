@@ -20,6 +20,11 @@
     <!-- Chart.js for visualizations -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     
+    <!-- React for components -->
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
     <!-- Text Annotation System -->
     <script src="/static/js/annotation-manager.js"></script>
     
@@ -85,6 +90,9 @@
                             <a href="/articles" class="px-3 py-2 rounded-md text-sm font-medium hover:bg-white hover:bg-opacity-20 transition-colors">
                                 Articles
                             </a>
+                            <a href="/chat" class="px-3 py-2 rounded-md text-sm font-medium hover:bg-white hover:bg-opacity-20 transition-colors">
+                                💬 Chat
+                            </a>
                             <a href="/sources" class="px-3 py-2 rounded-md text-sm font-medium hover:bg-white hover:bg-opacity-20 transition-colors">
                                 Sources
                             </a>
@@ -111,7 +119,7 @@
     </nav>
 
     <!-- Main Content -->
-    <main class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8 flex-1">
+    <main class="flex-1">
         {% block content %}{% endblock %}
     </main>
 

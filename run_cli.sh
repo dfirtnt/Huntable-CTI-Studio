@@ -35,6 +35,9 @@ show_usage() {
     echo "  backup list [--backup-dir <dir>]              - List available backups"
     echo "  backup restore <file> [--backup-dir <dir>] [--force] - Restore database"
     echo "  rescore [--article-id <id>] [--force] [--dry-run] - Rescore threat hunting scores"
+    echo "  embed [--batch-size <size>] [--annotation-type <type>] [--dry-run] - Generate embeddings for annotations"
+    echo "  embed search [--limit <n>] [--threshold <score>] [--annotation-type <type>] - Semantic search"
+    echo "  embed stats                                    - Show embedding statistics"
     echo ""
     echo "Examples:"
     echo "  $0 init"
@@ -46,6 +49,9 @@ show_usage() {
     echo "  $0 backup restore cti_scraper_backup_20250907_134653.sql.gz"
     echo "  $0 rescore --force"
     echo "  $0 rescore --article-id 965"
+    echo "  $0 embed --batch-size 1000"
+    echo "  $0 embed search --limit 10 --threshold 0.7"
+    echo "  $0 embed stats"
 }
 
 # Check if command is provided
@@ -340,6 +346,64 @@ case "$1" in
                     ;;
             esac
         done
+        ;;
+    "embed")
+        CLI_CMD="$CLI_CMD embed"
+        shift
+        case "$1" in
+            "search")
+                CLI_CMD="$CLI_CMD search"
+                shift
+                while [[ $# -gt 0 ]]; do
+                    case $1 in
+                        --limit)
+                            CLI_CMD="$CLI_CMD --limit $2"
+                            shift 2
+                            ;;
+                        --threshold)
+                            CLI_CMD="$CLI_CMD --threshold $2"
+                            shift 2
+                            ;;
+                        --annotation-type)
+                            CLI_CMD="$CLI_CMD --annotation-type $2"
+                            shift 2
+                            ;;
+                        *)
+                            echo "Unknown option: $1"
+                            show_usage
+                            exit 1
+                            ;;
+                    esac
+                done
+                ;;
+            "stats")
+                CLI_CMD="$CLI_CMD stats"
+                ;;
+            *)
+                # Default embed command (generate embeddings)
+                while [[ $# -gt 0 ]]; do
+                    case $1 in
+                        --batch-size)
+                            CLI_CMD="$CLI_CMD --batch-size $2"
+                            shift 2
+                            ;;
+                        --annotation-type)
+                            CLI_CMD="$CLI_CMD --annotation-type $2"
+                            shift 2
+                            ;;
+                        --dry-run)
+                            CLI_CMD="$CLI_CMD --dry-run"
+                            shift
+                            ;;
+                        *)
+                            echo "Unknown option: $1"
+                            show_usage
+                            exit 1
+                            ;;
+                    esac
+                done
+                ;;
+        esac
         ;;
     *)
         echo "Unknown command: $1"

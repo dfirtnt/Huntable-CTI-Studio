@@ -8,6 +8,7 @@ from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.sql import func
 import uuid
+from pgvector.sqlalchemy import Vector
 
 Base = declarative_base()
 
@@ -77,6 +78,11 @@ class ArticleTable(Base):
     # Quality metrics
     word_count = Column(Integer, nullable=False, default=0)
     
+    # Vector embedding fields
+    embedding = Column(Vector(768), nullable=True, index=True)  # 768-dimensional embedding vector
+    embedding_model = Column(String(100), nullable=True, default='all-mpnet-base-v2')
+    embedded_at = Column(DateTime, nullable=True)
+    
     # Timestamps
     created_at = Column(DateTime, nullable=False, default=func.now())
     updated_at = Column(DateTime, nullable=False, default=func.now(), onupdate=func.now())
@@ -112,7 +118,7 @@ class SourceCheckTable(Base):
 
 
 class ArticleAnnotationTable(Base):
-    """Database table for article text annotations."""
+    """Database table for article text annotations with vector embeddings."""
     
     __tablename__ = 'article_annotations'
     
@@ -126,6 +132,11 @@ class ArticleAnnotationTable(Base):
     context_before = Column(Text, nullable=True)
     context_after = Column(Text, nullable=True)
     confidence_score = Column(Float, nullable=False, default=0.0)
+    
+    # Vector embedding fields
+    embedding = Column(Vector(768), nullable=True, index=True)  # 768-dimensional embedding vector
+    embedding_model = Column(String(100), nullable=True, default='all-mpnet-base-v2')
+    embedded_at = Column(DateTime, nullable=True)
     
     # Timestamps
     created_at = Column(DateTime, nullable=False, default=func.now())

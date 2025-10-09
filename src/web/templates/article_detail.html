@@ -2477,9 +2477,12 @@
         
         // Get stored custom prompts from article metadata
         const customPrompts = {{ article.article_metadata.get('custom_prompts', []) | tojson }};
+        console.log('Custom prompts data:', customPrompts);
+        console.log('Custom prompts length:', customPrompts ? customPrompts.length : 'null');
         
         let historyContent = '';
         if (customPrompts && customPrompts.length > 0) {
+            console.log('Processing custom prompts...');
             historyContent = customPrompts.map((prompt, index) => {
                 const respondedAt = new Date(prompt.responded_at).toLocaleString();
                 const responsePreview = prompt.response.substring(0, 200) + (prompt.response.length > 200 ? '...' : '');
@@ -2505,7 +2508,9 @@
                     </div>
                 `;
             }).join('');
+            console.log('Generated history content:', historyContent);
         } else {
+            console.log('No custom prompts found, showing empty state');
             historyContent = `
                 <div class="text-center py-8 text-gray-500">
                     <div class="text-4xl mb-4">📝</div>
