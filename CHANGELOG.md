@@ -8,6 +8,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Threshold Selector**: Added confidence threshold slider to Chunk Debug modal with 3 preset levels (0.5, 0.7, 0.8)
+- **Real-time Threshold Updates**: Implemented dynamic threshold changes with immediate API calls and UI updates
+- **User Feedback System**: Added feedback mechanism to Chunk Debug modal for ML model improvement
+- **Model Retraining**: Added retraining button to update ML model using collected user feedback
+- **Enhanced Statistics Cards**: Added unique IDs to statistics cards for reliable real-time updates
+- **Dynamic Chunk Visualization**: Updated chunk visualization to reflect threshold changes in real-time
 - **Article Detail Page Readability**: Enhanced article content readability with black text for maximum contrast
 - **Dark Mode Support**: Improved dark mode support for keyword highlights and user annotations
 - **Enhanced Annotation System**: Updated JavaScript annotation classes for consistent dark mode styling
@@ -15,6 +21,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Ollama Parallelism**: Increased Ollama parallelism to handle multiple concurrent AI endpoints
 
 ### Changed
+- **Chunk Debug Modal**: Enhanced with threshold selector, real-time updates, and user feedback system
+- **ML Model Integration**: Improved model loading and retraining capabilities with user feedback
+- **Statistics Display**: Fixed statistics cards to update dynamically with threshold changes
+- **Chunk Visualization**: Updated to reflect threshold changes in real-time
 - **Keyword Highlighting**: Updated `highlight_keywords` filter to support dark mode with proper contrast
 - **User Annotations**: Enhanced annotation spans with dark mode classes for better visibility
 - **Content Display**: Improved article content text contrast and readability across themes
@@ -22,6 +32,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Ollama Configuration**: Increased `OLLAMA_NUM_PARALLEL` from 1 to 3 and `OLLAMA_MAX_LOADED_MODELS` from 1 to 2
 
 ### Fixed
+- **Statistics Cards**: Fixed statistics cards not updating when threshold slider changes
+- **Chunk Visualization**: Fixed chunk visualization not reflecting threshold changes
+- **Threshold Selector**: Fixed null reference errors in threshold update functions
 - **Readability Issues**: Resolved low contrast issues in article detail page content display
 - **Dark Mode Compatibility**: Fixed keyword highlights and annotations to work properly in dark mode
 - **Visual Consistency**: Ensured consistent styling across light and dark themes
