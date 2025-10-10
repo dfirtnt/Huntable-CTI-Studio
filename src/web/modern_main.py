@@ -4080,13 +4080,20 @@ async def api_chunk_debug(article_id: int, chunk_size: int = 1000, overlap: int 
                     prediction = content_filter.model.predict(feature_vector)[0]
                     probabilities = content_filter.model.predict_proba(feature_vector)[0]
                     
-                    # Get feature importance if available
-                    feature_importance = None
+                    # Calculate per-chunk feature contributions
+                    feature_contribution = None
                     if hasattr(content_filter.model, 'feature_importances_'):
                         feature_names = list(features.keys())
-                        feature_importance = dict(zip(feature_names, content_filter.model.feature_importances_))
-                        # Sort by importance
-                        feature_importance = dict(sorted(feature_importance.items(), key=lambda x: x[1], reverse=True))
+                        feature_values = np.array(list(features.values()))
+                        global_importance = content_filter.model.feature_importances_
+                        
+                        # Calculate contribution as feature_value * global_importance
+                        contributions = feature_values * global_importance
+                        
+                        # Create feature contribution dictionary with raw scores
+                        feature_contribution = dict(zip(feature_names, contributions))
+                        # Sort by contribution
+                        feature_contribution = dict(sorted(feature_contribution.items(), key=lambda x: x[1], reverse=True))
                     
                     ml_details = {
                         'prediction': int(prediction),
@@ -4096,8 +4103,8 @@ async def api_chunk_debug(article_id: int, chunk_size: int = 1000, overlap: int 
                             'huntable': float(probabilities[1])
                         },
                         'confidence': float(max(probabilities)),
-                        'feature_importance': feature_importance,
-                        'top_features': dict(list(feature_importance.items())[:10]) if feature_importance else None
+                        'feature_contribution': feature_contribution,
+                        'top_features': dict(list(feature_contribution.items())[:10]) if feature_contribution else None
                     }
                 except Exception as e:
                     logger.warning(f"Error getting ML details for chunk {i}: {e}")
