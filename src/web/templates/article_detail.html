@@ -3758,8 +3758,9 @@
         document.body.appendChild(loadingModal);
         
         try {
-            // Get chunk debug data
-            const response = await fetch(`/api/articles/{{ article.id }}/chunk-debug?chunk_size=1000&overlap=200&min_confidence=0.7`);
+            // Get chunk debug data with current threshold
+            const currentThreshold = window.chunkDebugThreshold || 0.7;
+            const response = await fetch(`/api/articles/{{ article.id }}/chunk-debug?chunk_size=1000&overlap=200&min_confidence=${currentThreshold}`);
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
@@ -3799,22 +3800,53 @@
                     </button>
                 </div>
                 
+                <!-- Threshold Selector -->
+                <div class="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <h4 class="text-lg font-semibold text-blue-900 mb-2">🎯 Confidence Threshold</h4>
+                            <p class="text-sm text-blue-700">Adjust the minimum confidence required to keep chunks</p>
+                        </div>
+                        <div class="flex items-center space-x-4">
+                            <label for="thresholdSlider" class="text-sm font-medium text-blue-900">Threshold:</label>
+                            <input type="range" id="thresholdSlider" min="0" max="2" step="1" value="1" 
+                                   class="w-32 h-2 bg-blue-200 rounded-lg appearance-none cursor-pointer"
+                                   onchange="updateThresholdFromSlider(this.value)">
+                            <span id="thresholdValue" class="text-lg font-bold text-blue-900">0.7</span>
+                        </div>
+                    </div>
+                    <div class="mt-3 grid grid-cols-3 gap-2 text-xs">
+                        <div class="text-center p-2 bg-white rounded border">
+                            <div class="font-semibold text-green-600">0.5 (Aggressive)</div>
+                            <div class="text-gray-600">Keeps more chunks</div>
+                        </div>
+                        <div class="text-center p-2 bg-white rounded border">
+                            <div class="font-semibold text-blue-600">0.7 (Balanced)</div>
+                            <div class="text-gray-600">Current setting</div>
+                        </div>
+                        <div class="text-center p-2 bg-white rounded border">
+                            <div class="font-semibold text-red-600">0.8 (Conservative)</div>
+                            <div class="text-gray-600">Removes more chunks</div>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Statistics Overview -->
                 <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
                     <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                        <div class="text-2xl font-bold text-blue-600">${data.total_chunks}</div>
+                        <div id="totalChunksCount" class="text-2xl font-bold text-blue-600">${data.total_chunks}</div>
                         <div class="text-sm text-blue-800">Total Chunks</div>
                     </div>
                     <div class="bg-green-50 border border-green-200 rounded-lg p-4">
-                        <div class="text-2xl font-bold text-green-600">${data.kept_chunks}</div>
+                        <div id="keptChunksCount" class="text-2xl font-bold text-green-600">${data.kept_chunks}</div>
                         <div class="text-sm text-green-800">Kept for LLM</div>
                     </div>
                     <div class="bg-red-50 border border-red-200 rounded-lg p-4">
-                        <div class="text-2xl font-bold text-red-600">${data.removed_chunks}</div>
+                        <div id="removedChunksCount" class="text-2xl font-bold text-red-600">${data.removed_chunks}</div>
                         <div class="text-sm text-red-800">Filtered Out</div>
                     </div>
                     <div class="bg-purple-50 border border-purple-200 rounded-lg p-4">
-                        <div class="text-2xl font-bold text-purple-600">${data.filtering_stats.reduction_percent.toFixed(1)}%</div>
+                        <div id="contentReductionPercent" class="text-2xl font-bold text-purple-600">${data.filtering_stats.reduction_percent.toFixed(1)}%</div>
                         <div class="text-sm text-purple-800">Content Reduction</div>
                     </div>
                 </div>
@@ -3842,7 +3874,9 @@
                 <div class="mb-6">
                     <h4 class="text-lg font-semibold text-gray-900 mb-3">📊 Chunk Visualization</h4>
                     <div class="bg-white border border-gray-200 rounded-lg p-4">
-                        ${chunkVisualization}
+                        <div id="chunkVisualizationContainer">
+                            ${chunkVisualization}
+                        </div>
                     </div>
                 </div>
                 
@@ -3879,7 +3913,11 @@
                     </div>
                 </div>
                 
-                <div class="flex justify-end">
+                <div class="flex justify-between">
+                    <button onclick="triggerModelRetraining()" 
+                            class="px-6 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors">
+                        🤖 Retrain Model with Feedback
+                    </button>
                     <button onclick="closeChunkDebugModal()" 
                             class="px-6 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-500 transition-colors">
                         Close
@@ -3892,6 +3930,12 @@
         
         // Store debug data globally for filtering
         window.chunkDebugData = data;
+        
+        // Initialize slider position based on current threshold
+        const thresholdSlider = document.getElementById('thresholdSlider');
+        if (thresholdSlider) {
+            thresholdSlider.value = getSliderFromThreshold(data.min_confidence);
+        }
     }
     
     function generateChunkVisualization(data) {
@@ -4135,6 +4179,96 @@
         window.chunkDebugData = null;
     }
     
+    // Threshold mapping function
+    function getThresholdFromSlider(sliderValue) {
+        const thresholds = [0.5, 0.7, 0.8];
+        return thresholds[parseInt(sliderValue)];
+    }
+    
+    function getSliderFromThreshold(threshold) {
+        const thresholds = [0.5, 0.7, 0.8];
+        return thresholds.indexOf(threshold);
+    }
+    
+    // Update threshold from slider position
+    async function updateThresholdFromSlider(sliderValue) {
+        const threshold = getThresholdFromSlider(sliderValue);
+        await updateThreshold(threshold);
+    }
+    
+    // Threshold update function
+    async function updateThreshold(newThreshold) {
+        try {
+            // Update the display value
+            const thresholdValueEl = document.getElementById('thresholdValue');
+            if (thresholdValueEl) {
+                thresholdValueEl.textContent = newThreshold;
+            }
+            
+            // Update slider position
+            const thresholdSlider = document.getElementById('thresholdSlider');
+            if (thresholdSlider) {
+                thresholdSlider.value = getSliderFromThreshold(parseFloat(newThreshold));
+                thresholdSlider.disabled = true; // Show loading state
+            }
+            
+            // Store the threshold globally
+            window.chunkDebugThreshold = parseFloat(newThreshold);
+            
+            // Reload chunk debug data with new threshold
+            const response = await fetch(`/api/articles/{{ article.id }}/chunk-debug?chunk_size=1000&overlap=200&min_confidence=${newThreshold}`);
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
+            const debugData = await response.json();
+            
+            // Update the modal with new data
+            updateChunkDebugResults(debugData);
+            
+        } catch (error) {
+            console.error('Threshold update error:', error);
+            showNotification('Failed to update threshold: ' + error.message, 'error');
+        } finally {
+            // Re-enable slider
+            const thresholdSlider = document.getElementById('thresholdSlider');
+            if (thresholdSlider) {
+                thresholdSlider.disabled = false;
+            }
+        }
+    }
+    
+    function updateChunkDebugResults(data) {
+        // Update statistics cards using IDs
+        const totalChunksEl = document.getElementById('totalChunksCount');
+        const keptChunksEl = document.getElementById('keptChunksCount');
+        const removedChunksEl = document.getElementById('removedChunksCount');
+        const reductionEl = document.getElementById('contentReductionPercent');
+        
+        if (totalChunksEl) totalChunksEl.textContent = data.total_chunks;
+        if (keptChunksEl) keptChunksEl.textContent = data.kept_chunks;
+        if (removedChunksEl) removedChunksEl.textContent = data.removed_chunks;
+        if (reductionEl) reductionEl.textContent = `${data.filtering_stats.reduction_percent.toFixed(1)}%`;
+        
+        // Update chunk details
+        const chunkDetails = document.getElementById('chunkDetails');
+        if (chunkDetails) {
+            chunkDetails.innerHTML = generateChunkDetails(data.chunk_analysis);
+        }
+        
+        // Update chunk visualization
+        const chunkVisualizationContainer = document.getElementById('chunkVisualizationContainer');
+        if (chunkVisualizationContainer) {
+            chunkVisualizationContainer.innerHTML = generateChunkVisualization(data);
+        }
+        
+        // Update global data
+        window.chunkDebugData = data;
+        
+        // Show notification
+        showNotification(`Threshold updated to ${window.chunkDebugThreshold}. ${data.kept_chunks} chunks kept, ${data.removed_chunks} removed.`, 'success');
+    }
+    
     // Feedback Functions
     async function submitChunkFeedback(chunkIndex, isCorrect) {
         const chunkData = window.chunkDebugData.chunk_analysis[chunkIndex];
@@ -4206,6 +4340,51 @@
         } catch (error) {
             console.error('Feedback submission error:', error);
             showNotification('Failed to submit feedback: ' + error.message, 'error');
+        }
+    }
+    
+    async function triggerModelRetraining() {
+        try {
+            // Show confirmation dialog
+            const confirmed = confirm('This will retrain the ML model using collected user feedback. This may take a few minutes. Continue?');
+            if (!confirmed) {
+                return;
+            }
+            
+            // Show loading state
+            const button = event.target;
+            const originalText = button.textContent;
+            button.textContent = '🔄 Retraining...';
+            button.disabled = true;
+            
+            const response = await fetch('/api/model/retrain', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
+            
+            const result = await response.json();
+            
+            if (response.ok) {
+                showNotification('Model retraining completed successfully!', 'success');
+                
+                // Ask if user wants to reload the page to see updated model
+                const reload = confirm('Model retraining complete! Reload the page to see the updated model in action?');
+                if (reload) {
+                    window.location.reload();
+                }
+            } else {
+                throw new Error(result.detail || 'Retraining failed');
+            }
+            
+        } catch (error) {
+            console.error('Retraining error:', error);
+            showNotification('Failed to retrain model: ' + error.message, 'error');
+        } finally {
+            // Restore button state
+            button.textContent = originalText;
+            button.disabled = false;
         }
     }
     
