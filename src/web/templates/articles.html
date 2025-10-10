@@ -703,6 +703,23 @@
         currentArticleData = null;
     }
     
+    // Close classification modal when clicking outside
+    document.getElementById('classificationModal').addEventListener('click', function(e) {
+        if (e.target === this) {
+            closeClassificationModal();
+        }
+    });
+    
+    // Close classification modal with ESC key
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            const modal = document.getElementById('classificationModal');
+            if (modal && !modal.classList.contains('hidden')) {
+                closeClassificationModal();
+            }
+        }
+    });
+    
     async function loadArticleData(articleId) {
         try {
             const response = await fetch(`/api/articles/${articleId}`);

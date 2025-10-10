@@ -585,6 +585,16 @@ document.getElementById('resultModal').addEventListener('click', function(e) {
         closeModal();
     }
 });
+
+// Close modal with ESC key
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+        const modal = document.getElementById('resultModal');
+        if (modal && !modal.classList.contains('hidden')) {
+            closeModal();
+        }
+    }
+});
 </script>
 
 <!-- Source Configuration Modal -->
@@ -672,6 +682,23 @@ function closeSourceConfig() {
     document.getElementById('sourceConfigModal').classList.add('hidden');
     currentSourceId = null;
 }
+
+// Close source config modal when clicking outside
+document.getElementById('sourceConfigModal').addEventListener('click', function(e) {
+    if (e.target === this) {
+        closeSourceConfig();
+    }
+});
+
+// Close source config modal with ESC key
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+        const modal = document.getElementById('sourceConfigModal');
+        if (modal && !modal.classList.contains('hidden')) {
+            closeSourceConfig();
+        }
+    }
+});
 
 function saveSourceConfig() {
     const days = parseInt(document.getElementById('configLookbackDays').value);
