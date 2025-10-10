@@ -1837,8 +1837,8 @@
                 requestBody.author_name = sigmaAuthor;
             }
             
-            // Add optimization options for ranking
-            if (type === 'ranking') {
+            // Add optimization options for ranking, summary, and sigma
+            if (type === 'ranking' || type === 'summary' || type === 'sigma') {
                 const optimizationOptions = await showOptimizationDialog();
                 if (!optimizationOptions) {
                     // User cancelled - clean up and return
@@ -2700,10 +2700,14 @@
         const summarizedAt = data?.summarized_at ? new Date(data.summarized_at).toLocaleString() : 'Unknown';
         const contentType = data?.content_type || 'full content';
         
+        // Determine modal title based on model used
+        const isChatGPT = modelUsed.includes('gpt') || modelUsed.includes('chatgpt');
+        const modalTitle = isChatGPT ? '📝 ChatGPT Summary' : '📝 AI Summary';
+        
         modal.innerHTML = `
             <div class="relative top-10 mx-auto p-5 border w-11/12 max-w-4xl shadow-lg rounded-md bg-white">
                 <div class="flex justify-between items-center mb-4">
-                    <h3 class="text-xl font-bold text-gray-900">📝 ChatGPT Summary</h3>
+                    <h3 class="text-xl font-bold text-gray-900">${modalTitle}</h3>
                     <button onclick="closeChatGPTSummaryModal()" class="text-gray-400 hover:text-gray-600">
                         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
@@ -2730,6 +2734,30 @@
                             <span class="text-gray-900">${data?.cached ? '<span class="text-blue-600 font-medium">(Cached)</span>' : '<span class="text-green-600 font-medium">(Fresh)</span>'}</span>
                         </div>
                     </div>
+                    
+                    ${data?.optimization ? `
+                    <div class="mt-3 p-3 bg-green-50 border border-green-200 rounded-md">
+                        <div class="flex items-center mb-2">
+                            <span class="text-green-600 font-medium">🚀 Content Optimization Applied</span>
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-2 text-xs">
+                            ${isChatGPT ? `
+                            <div>
+                                <span class="font-medium text-gray-700">Cost Savings:</span>
+                                <span class="text-green-600 font-medium">$${data.optimization.cost_savings.toFixed(4)}</span>
+                            </div>
+                            ` : ''}
+                            <div>
+                                <span class="font-medium text-gray-700">Tokens Saved:</span>
+                                <span class="text-green-600 font-medium">${data.optimization.tokens_saved.toLocaleString()}</span>
+                            </div>
+                            <div>
+                                <span class="font-medium text-gray-700">Chunks Removed:</span>
+                                <span class="text-green-600 font-medium">${data.optimization.chunks_removed}</span>
+                            </div>
+                        </div>
+                    </div>
+                    ` : ''}
                 </div>
                 
                 <div class="bg-gray-50 rounded-lg p-4 max-h-96 overflow-y-auto">
@@ -2875,6 +2903,30 @@
                     <span class="font-medium">Generated at:</span> ${generatedAt}
                     ${data?.cached ? ' | <span class="font-medium text-blue-600">(Cached)</span>' : ''}
                 </div>
+                
+                ${data?.optimization ? `
+                <div class="mb-4 p-3 bg-green-50 border border-green-200 rounded-md">
+                    <div class="flex items-center mb-2">
+                        <span class="text-green-600 font-medium">🚀 Content Optimization Applied</span>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-2 text-xs">
+                        ${modelUsed.includes('gpt') || modelUsed.includes('chatgpt') ? `
+                        <div>
+                            <span class="font-medium text-gray-700">Cost Savings:</span>
+                            <span class="text-green-600 font-medium">$${data.optimization.cost_savings.toFixed(4)}</span>
+                        </div>
+                        ` : ''}
+                        <div>
+                            <span class="font-medium text-gray-700">Tokens Saved:</span>
+                            <span class="text-green-600 font-medium">${data.optimization.tokens_saved.toLocaleString()}</span>
+                        </div>
+                        <div>
+                            <span class="font-medium text-gray-700">Chunks Removed:</span>
+                            <span class="text-green-600 font-medium">${data.optimization.chunks_removed}</span>
+                        </div>
+                    </div>
+                </div>
+                ` : ''}
                 
                 ${errorBannerHtml}
                 ${validationStatusHtml}
