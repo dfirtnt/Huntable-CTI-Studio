@@ -87,6 +87,24 @@ This automated script will:
 
 ### Manual Installation (Alternative)
 
+## Quick Start (Recommended)
+
+**Automated setup with backups enabled by default:**
+
+```bash
+git clone https://github.com/starlord/CTIScraper.git
+cd CTIScraper
+./setup.sh
+```
+
+This will:
+- Set up the environment
+- Start all services
+- Configure automated daily backups
+- Verify the installation
+
+## Manual Setup
+
 If you prefer manual setup or the automated script fails:
 
 1. **Clone the repository**
@@ -116,6 +134,34 @@ If you prefer manual setup or the automated script fails:
    # View logs
    docker-compose logs -f
    ```
+
+## Automated Backups
+
+The CTI Scraper includes a comprehensive backup system that runs automatically:
+
+- **Daily backups**: Full system backup at 2:00 AM (configurable)
+- **Weekly cleanup**: Automatic retention policy enforcement
+- **Components backed up**: Database, ML models, configuration, training data, Docker volumes
+- **Retention policy**: 7 daily + 4 weekly + 3 monthly backups
+
+### Backup Management
+
+```bash
+# Check backup status
+./scripts/setup_automated_backups.sh --status
+
+# Create manual backup
+./scripts/backup_restore.sh create
+
+# List available backups
+./scripts/backup_restore.sh list
+
+# Restore from backup
+./scripts/backup_restore.sh restore system_backup_YYYYMMDD_HHMMSS
+
+# Disable automated backups
+./scripts/setup_automated_backups.sh --uninstall
+```
 
 5. **Access the application**
    - **Web Interface**: http://localhost:8001

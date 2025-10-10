@@ -10,19 +10,34 @@ The CTI Scraper includes comprehensive database backup and restore capabilities 
 - Restore databases with safety checks and snapshots
 - Use both command-line scripts and CLI integration
 
+> **Note**: This document covers the legacy database-only backup system. For comprehensive system backups including ML models, configuration files, and Docker volumes, see [BACKUP_SYSTEM.md](development/BACKUP_SYSTEM.md).
+
 ## Quick Start
 
 ### Using the Helper Script (Recommended)
 
 ```bash
-# Create a backup
-./backup_restore.sh create
+# Create a database-only backup
+./scripts/backup_restore.sh db-create
 
-# List available backups
-./backup_restore.sh list
+# List available database backups
+./scripts/backup_restore.sh db-list
 
-# Restore from backup
-./backup_restore.sh restore cti_scraper_backup_20250907_134653.sql.gz
+# Restore from database backup
+./scripts/backup_restore.sh db-restore cti_scraper_backup_20250907_134653.sql.gz
+```
+
+### Using the Comprehensive System Backup (Recommended)
+
+```bash
+# Create a full system backup (includes database + models + config + volumes)
+./scripts/backup_restore.sh create
+
+# List all backups
+./scripts/backup_restore.sh list
+
+# Restore full system
+./scripts/backup_restore.sh restore system_backup_20251010_103000
 ```
 
 ### Using Direct Scripts
@@ -231,6 +246,44 @@ python3 scripts/restore_database.py --list --backup-dir /backups/ci
 - Restore time varies with database size
 - Consider disk space for backup storage
 
+## Migration to Comprehensive Backup System
+
+### Why Migrate?
+
+The comprehensive backup system provides:
+- **Complete system recovery**: Database + ML models + configuration + Docker volumes
+- **Better organization**: Structured backup directories with metadata
+- **Enhanced verification**: Checksum validation and integrity testing
+- **Selective restore**: Restore only the components you need
+- **Retention management**: Automated cleanup of old backups
+
+### Migration Steps
+
+1. **Create your first comprehensive backup**:
+   ```bash
+   ./scripts/backup_restore.sh create
+   ```
+
+2. **Verify the backup**:
+   ```bash
+   ./scripts/backup_restore.sh verify system_backup_YYYYMMDD_HHMMSS
+   ```
+
+3. **Test restore**:
+   ```bash
+   ./scripts/backup_restore.sh restore system_backup_YYYYMMDD_HHMMSS --dry-run
+   ```
+
+4. **Keep legacy backups**: The old database-only backups remain compatible and can be restored using the legacy commands.
+
+### Legacy Command Mapping
+
+| Legacy Command | New Command | Notes |
+|----------------|-------------|-------|
+| `./backup_restore.sh create` | `./scripts/backup_restore.sh db-create` | Database-only backup |
+| `./backup_restore.sh list` | `./scripts/backup_restore.sh db-list` | Database-only backups |
+| `./backup_restore.sh restore` | `./scripts/backup_restore.sh db-restore` | Database-only restore |
+
 ## Support
 
 For issues or questions:
@@ -238,3 +291,4 @@ For issues or questions:
 2. Verify Docker containers are running
 3. Check file permissions and paths
 4. Review backup file integrity
+5. For comprehensive backup issues, see [BACKUP_SYSTEM.md](development/BACKUP_SYSTEM.md)
