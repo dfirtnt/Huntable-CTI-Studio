@@ -1833,6 +1833,12 @@
             // Add LLM validation setting for IOC extraction
             if (type === 'iocs') {
                 requestBody.use_llm_validation = useLLMValidation;
+                
+                // Add optimization options for IOC extraction when LLM validation is enabled
+                if (useLLMValidation && requestBody.optimization_options) {
+                    requestBody.use_filtering = requestBody.optimization_options.useFiltering;
+                    requestBody.min_confidence = requestBody.optimization_options.minConfidence;
+                }
             }
             
             // Add author name for SIGMA rules
@@ -1841,8 +1847,8 @@
                 requestBody.author_name = sigmaAuthor;
             }
             
-            // Add optimization options for ranking, summary, and sigma
-            if (type === 'ranking' || type === 'summary' || type === 'sigma') {
+            // Add optimization options for ranking, summary, sigma, and IOC extraction with LLM validation
+            if (type === 'ranking' || type === 'summary' || type === 'sigma' || (type === 'iocs' && useLLMValidation)) {
                 const optimizationOptions = await showOptimizationDialog();
                 if (!optimizationOptions) {
                     // User cancelled - clean up and return
