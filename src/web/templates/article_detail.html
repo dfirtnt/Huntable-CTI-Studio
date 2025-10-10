@@ -2124,7 +2124,7 @@
         const chunksHtml = debugInfo.removed_chunks.map((chunk, index) => `
             <div class="mb-4 p-3 bg-red-50 border border-red-200 rounded">
                 <div class="flex justify-between items-center mb-2">
-                    <h4 class="text-sm font-medium text-red-900">Chunk ${index + 1}</h4>
+                    <h4 class="text-sm font-medium text-red-900">Chunk ${chunk.chunk_id}</h4>
                     <span class="text-xs text-red-600">${chunk.text.length} chars</span>
                 </div>
                 <div class="text-xs text-red-800 bg-white p-2 rounded border max-h-32 overflow-y-auto">
@@ -4027,7 +4027,7 @@
             html += `
                 <div class="absolute ${color} ${opacity} rounded cursor-pointer hover:opacity-100 transition-opacity"
                      style="left: ${left}%; width: ${width}%; height: 100%;"
-                     title="Chunk ${index + 1}: ${chunk.length} chars (${chunk.is_kept ? 'KEPT' : 'REMOVED'})"
+                     title="Chunk ${chunk.chunk_id}: ${chunk.length} chars (${chunk.is_kept ? 'KEPT' : 'REMOVED'})"
                      onclick="highlightChunk(${index})">
                 </div>
             `;
@@ -4057,7 +4057,7 @@
             <div class="chunk-detail border rounded-lg p-4 ${chunk.is_kept ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}" data-chunk-id="${index}">
                 <div class="flex justify-between items-start mb-2">
                     <div class="flex items-center space-x-2">
-                        <span class="font-semibold text-gray-900">Chunk ${index + 1}</span>
+                        <span class="font-semibold text-gray-900">Chunk ${chunk.chunk_id}</span>
                         <span class="px-2 py-1 text-xs rounded-full ${chunk.is_kept ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}">
                             ${chunk.is_kept ? 'KEPT' : 'REMOVED'}
                         </span>
@@ -4099,8 +4099,8 @@
                                 <div class="text-gray-600 text-sm mb-1">Top Contributing Features:</div>
                                 <div class="flex flex-wrap gap-1">
                                     ${Object.entries(chunk.ml_details.top_features).slice(0, 5).map(([feature, importance]) => `
-                                        <span class="px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded" title="Importance: ${(importance * 100).toFixed(1)}%">
-                                            ${feature}: ${(importance * 100).toFixed(1)}%
+                                        <span class="px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded" title="Contribution: ${importance.toFixed(3)}">
+                                            ${feature}: ${importance.toFixed(3)}
                                         </span>
                                     `).join('')}
                                 </div>
