@@ -13,7 +13,7 @@ This document provides instructions for directly querying the CTI Scraper databa
 - **Port**: `5432`
 - **Database**: `cti_scraper`
 - **Username**: `cti_user`
-- **Password**: `cti_password_2024`
+- **Password**: `cti_postgres_secure_2024`
 
 ## Connecting to the Database
 
@@ -34,7 +34,7 @@ docker exec cti_postgres psql -U cti_user -d cti_scraper -c "YOUR_QUERY_HERE"
 docker exec -it cti_web bash
 
 # Then connect to PostgreSQL
-psql postgresql://cti_user:cti_password_2024@postgres:5432/cti_scraper
+psql postgresql://cti_user:cti_postgres_secure_2024@postgres:5432/cti_scraper
 ```
 
 ## Common Queries
@@ -65,8 +65,8 @@ SELECT
     a.published_at,
     a.created_at,
     CASE 
-        WHEN a.metadata->>'training_category' = 'chosen' THEN '✅ Chosen'
-        WHEN a.metadata->>'training_category' = 'rejected' THEN '❌ Rejected'
+        WHEN a.article_metadata->>'training_category' = 'chosen' THEN '✅ Chosen'
+        WHEN a.article_metadata->>'training_category' = 'rejected' THEN '❌ Rejected'
         ELSE '⏳ Unclassified'
     END as classification
 FROM articles a
@@ -78,9 +78,9 @@ LIMIT 20;
 SELECT 
     s.name as source_name,
     COUNT(*) as article_count,
-    COUNT(CASE WHEN a.metadata->>'training_category' = 'chosen' THEN 1 END) as chosen_count,
-    COUNT(CASE WHEN a.metadata->>'training_category' = 'rejected' THEN 1 END) as rejected_count,
-    COUNT(CASE WHEN a.metadata->>'training_category' IS NULL THEN 1 END) as unclassified_count
+    COUNT(CASE WHEN a.article_metadata->>'training_category' = 'chosen' THEN 1 END) as chosen_count,
+    COUNT(CASE WHEN a.article_metadata->>'training_category' = 'rejected' THEN 1 END) as rejected_count,
+    COUNT(CASE WHEN a.article_metadata->>'training_category' IS NULL THEN 1 END) as unclassified_count
 FROM articles a
 JOIN sources s ON a.source_id = s.id
 GROUP BY s.id, s.name
@@ -122,9 +122,9 @@ ORDER BY a.published_at DESC;
 SELECT 
     COUNT(*) as total_articles,
     COUNT(DISTINCT source_id) as total_sources,
-    COUNT(CASE WHEN metadata->>'training_category' = 'chosen' THEN 1 END) as chosen_articles,
-    COUNT(CASE WHEN metadata->>'training_category' = 'rejected' THEN 1 END) as rejected_articles,
-    COUNT(CASE WHEN metadata->>'training_category' IS NULL THEN 1 END) as unclassified_articles
+    COUNT(CASE WHEN article_metadata->>'training_category' = 'chosen' THEN 1 END) as chosen_articles,
+    COUNT(CASE WHEN article_metadata->>'training_category' = 'rejected' THEN 1 END) as rejected_articles,
+    COUNT(CASE WHEN article_metadata->>'training_category' IS NULL THEN 1 END) as unclassified_articles
 FROM articles;
 
 -- Articles by date (last 30 days)
@@ -221,7 +221,7 @@ ORDER BY SIMILARITY(a1.title, a2.title) DESC;
         a.canonical_url,
         a.published_at,
         a.created_at,
-        a.metadata->>'training_category' as classification
+        a.article_metadata->>'training_category' as classification
     FROM articles a
     JOIN sources s ON a.source_id = s.id
     ORDER BY a.created_at DESC
@@ -246,25 +246,80 @@ ORDER BY SIMILARITY(a1.title, a2.title) DESC;
 ### Main Tables
 
 #### `sources`
-- `id`: Primary key (string)
+- `id`: Primary key (integer, auto-increment)
+- `identifier`: Unique identifier (string)
 - `name`: Source name
 - `url`: Main website URL
 - `rss_url`: RSS feed URL
 - `check_frequency`: How often to check this source (seconds)
+- `lookback_days`: Number of days to look back for articles
 - `active`: Whether source is active
+- `config`: JSON configuration object
+- `last_check`: Timestamp of last check
+- `last_success`: Timestamp of last successful check
+- `consecutive_failures`: Number of consecutive failures
+- `total_articles`: Total articles collected from this source
+- `average_response_time`: Average response time in seconds
 - `created_at`: Creation timestamp
 - `updated_at`: Last update timestamp
 
 #### `articles`
-- `id`: Primary key (integer)
-- `title`: Article title
-- `content`: Article content
+- `id`: Primary key (integer, auto-increment)
 - `source_id`: Foreign key to sources
 - `canonical_url`: Original article URL
+- `title`: Article title
 - `published_at`: Publication date
+- `modified_at`: Last modification date
+- `authors`: JSON array of authors
+- `tags`: JSON array of tags
+- `summary`: Article summary
+- `content`: Article content
+- `content_hash`: SHA-256 hash of content for deduplication
+- `article_metadata`: JSON field with additional data
+- `simhash`: Simhash for similarity detection
+- `simhash_bucket`: Bucket for simhash indexing
+- `discovered_at`: When article was discovered
+- `processing_status`: Current processing status
+- `word_count`: Number of words in content
 - `created_at`: Collection timestamp
 - `updated_at`: Last update timestamp
-- `metadata`: JSON field with additional data
+- `embedding`: Vector embedding for semantic search (768 dimensions)
+- `embedding_model`: Model used for embedding generation
+- `embedded_at`: When embedding was generated
+
+#### `article_annotations`
+- `id`: Primary key (integer, auto-increment)
+- `article_id`: Foreign key to articles
+- `user_id`: User who created the annotation (optional)
+- `annotation_type`: Type of annotation (huntable/not_huntable)
+- `selected_text`: Text that was annotated
+- `start_position`: Start position in article content
+- `end_position`: End position in article content
+- `context_before`: Text before the selection
+- `context_after`: Text after the selection
+- `confidence_score`: Confidence score for the annotation
+- `created_at`: Creation timestamp
+- `updated_at`: Last update timestamp
+- `embedding`: Vector embedding for semantic search (768 dimensions)
+- `embedding_model`: Model used for embedding generation
+- `embedded_at`: When embedding was generated
+
+### Additional Tables
+
+#### `content_hashes`
+- Stores content hashes for deduplication
+- Links to articles via `article_id`
+
+#### `simhash_buckets`
+- Stores simhash buckets for similarity detection
+- Links to articles via `article_id`
+
+#### `source_checks`
+- Tracks source health checks
+- Links to sources via `source_id`
+
+#### `url_tracking`
+- Tracks URLs for monitoring purposes
 
 ### Useful Views
 
@@ -274,8 +329,8 @@ CREATE VIEW article_stats AS
 SELECT 
     s.name as source_name,
     COUNT(a.id) as total_articles,
-    COUNT(CASE WHEN a.metadata->>'training_category' = 'chosen' THEN 1 END) as chosen_count,
-    COUNT(CASE WHEN a.metadata->>'training_category' = 'rejected' THEN 1 END) as rejected_count,
+    COUNT(CASE WHEN a.article_metadata->>'training_category' = 'chosen' THEN 1 END) as chosen_count,
+    COUNT(CASE WHEN a.article_metadata->>'training_category' = 'rejected' THEN 1 END) as rejected_count,
     MAX(a.created_at) as last_collection
 FROM sources s
 LEFT JOIN articles a ON s.id = a.source_id
