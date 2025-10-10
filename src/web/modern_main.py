@@ -4132,6 +4132,58 @@ async def api_feedback_chunk_classification(request: Request):
         raise HTTPException(status_code=500, detail=f"Feedback collection failed: {str(e)}")
 
 
+@app.post("/api/model/retrain")
+async def api_model_retrain():
+    """Trigger model retraining using collected user feedback."""
+    try:
+        import subprocess
+        import os
+        
+        # Check if feedback file exists
+        feedback_file = "outputs/chunk_classification_feedback.csv"
+        if not os.path.exists(feedback_file):
+            return {"success": False, "message": "No feedback data found to retrain with"}
+        
+        # Run the retraining script
+        retrain_script = "scripts/retrain_with_feedback.py"
+        if not os.path.exists(retrain_script):
+            return {"success": False, "message": "Retraining script not found"}
+        
+        # Execute retraining script
+        result = subprocess.run([
+            "python3", retrain_script, "--verbose"
+        ], capture_output=True, text=True, timeout=300)  # 5 minute timeout
+        
+        if result.returncode == 0:
+            # Copy updated model to container if retraining was successful
+            if os.path.exists("models/content_filter.pkl"):
+                try:
+                    subprocess.run([
+                        "docker", "cp", "models/content_filter.pkl", "cti_web:/app/models/content_filter.pkl"
+                    ], check=True)
+                except subprocess.CalledProcessError:
+                    # Docker copy failed, but retraining succeeded
+                    pass
+            
+            return {
+                "success": True, 
+                "message": "Model retraining completed successfully",
+                "output": result.stdout
+            }
+        else:
+            return {
+                "success": False, 
+                "message": f"Retraining failed: {result.stderr}",
+                "output": result.stdout
+            }
+        
+    except subprocess.TimeoutExpired:
+        return {"success": False, "message": "Retraining timed out after 5 minutes"}
+    except Exception as e:
+        logger.error(f"Model retraining failed: {str(e)}")
+        return {"success": False, "message": f"Retraining failed: {str(e)}"}
+
+
 # Enhanced GPT-4o ranking endpoint with content filtering
 @app.post("/api/articles/{article_id}/gpt4o-rank-optimized")
 async def api_gpt4o_rank_optimized(article_id: int, request: Request):

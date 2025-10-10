@@ -108,7 +108,7 @@ def retrain_model_with_feedback(original_file: str = "outputs/combined_training_
     
     # Train the model
     print("\n🤖 Training ML model...")
-    filter_system = ContentFilter()
+    filter_system = ContentFilter(model_path="/app/models/content_filter.pkl")
     
     success = filter_system.train_model(output_file)
     
