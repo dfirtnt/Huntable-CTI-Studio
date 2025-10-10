@@ -34,8 +34,8 @@
                             <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
                                 <h4 class="font-semibold text-blue-800">🎯 Hunt Scoring Integration</h4>
                                 <ul class="text-sm text-blue-700 space-y-1 mt-2">
-                                    <li>• 97 perfect discriminators from threat hunting analysis</li>
-                                    <li>• 40+ LOLBAS executables for comprehensive coverage</li>
+                                    <li>• 66 perfect discriminators from threat hunting analysis</li>
+                                    <li>• 64 LOLBAS executables for comprehensive coverage</li>
                                     <li>• Cross-platform patterns (Windows, macOS, Linux)</li>
                                     <li>• Intelligence indicators (APT groups, campaigns, TTPs)</li>
                                 </ul>
@@ -150,7 +150,7 @@
                         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
                             <div class="bg-green-50 border border-green-200 rounded-lg p-4">
                                 <h4 class="font-semibold text-green-800">✅ Unit Tests</h4>
-                                <p class="text-sm text-green-700">539 tests across 21 files</p>
+                                <p class="text-sm text-green-700">442 active tests across 21 files</p>
                                 <p class="text-xs text-green-600">Core functionality testing with mocked dependencies</p>
                             </div>
                             <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
@@ -198,7 +198,7 @@
                                     <tr>
                                         <td class="px-4 py-2 text-sm font-medium text-gray-900">Unit Tests</td>
                                         <td class="px-4 py-2 text-sm text-gray-500">21</td>
-                                        <td class="px-4 py-2 text-sm text-gray-500">539</td>
+                                        <td class="px-4 py-2 text-sm text-gray-500">442</td>
                                         <td class="px-4 py-2 text-sm text-gray-500">~1m</td>
                                     </tr>
                                     <tr>
@@ -239,8 +239,9 @@
                             <h4 class="font-semibold text-yellow-800 mb-2">⚠️ Known Issues</h4>
                             <ul class="text-sm text-yellow-700 space-y-1">
                                 <li>• 202 tests skipped due to async mock configuration issues</li>
-                                <li>• 1 HTTP client retry test failing</li>
+                                <li>• 1 HTTP client retry test failing (38/39 tests passing)</li>
                                 <li>• Some tests require Docker containers to be running</li>
+                                <li>• Total test suite: 674 tests (442 active, 202 skipped, 30 failing)</li>
                             </ul>
                         </div>
                     </div>
@@ -358,7 +359,7 @@
                 <div id="scraper-content" class="mt-6 hidden">
                     <div class="prose max-w-none">
                         <h3 class="text-lg font-semibold text-gray-800 mb-4">How the Web Scraper Works</h3>
-                        <p class="text-gray-600 mb-4">CTI Scraper uses a hybrid approach combining RSS feeds and web scraping to collect threat intelligence content from 40+ premium sources.</p>
+                        <p class="text-gray-600 mb-4">CTI Scraper uses a hybrid approach combining RSS feeds and web scraping to collect threat intelligence content from 50+ premium sources.</p>
                         
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
                             <div class="bg-green-50 border border-green-200 rounded-lg p-4">
@@ -473,6 +474,125 @@
             </div>
         </div>
 
+        <!-- Chunk Debugging Modal Section -->
+        <div class="bg-white rounded-lg shadow-sm border border-gray-200">
+            <div class="p-6">
+                <button onclick="toggleSection('chunk-debug')" class="w-full text-left flex items-center justify-between">
+                    <h2 class="text-2xl font-bold text-gray-900 flex items-center">
+                        <span class="mr-3">🔍</span>
+                        Chunk Debugging Modal
+                    </h2>
+                    <svg id="chunk-debug-icon" class="w-6 h-6 text-gray-500 transform transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                    </svg>
+                </button>
+                
+                <div id="chunk-debug-content" class="mt-6 hidden">
+                    <div class="prose max-w-none">
+                        <h3 class="text-lg font-semibold text-gray-800 mb-4">Advanced Chunk Analysis Tool</h3>
+                        <p class="text-gray-600 mb-4">The Chunk Debugging Modal provides detailed insights into how articles are processed, filtered, and analyzed by the ML-based content filtering system.</p>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                            <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                                <h4 class="font-semibold text-blue-800 mb-2">🔍 Visual Chunk Analysis</h4>
+                                <ul class="text-xs text-blue-600 space-y-1">
+                                    <li>• Interactive chunk visualization with color-coded filtering decisions</li>
+                                    <li>• Real-time threshold adjustment with slider control</li>
+                                    <li>• Chunk-by-chunk analysis of ML predictions</li>
+                                    <li>• Cost savings calculation and optimization metrics</li>
+                                </ul>
+                            </div>
+                            
+                            <div class="bg-green-50 border border-green-200 rounded-lg p-4">
+                                <h4 class="font-semibold text-green-800 mb-2">📊 Detailed Metrics</h4>
+                                <ul class="text-xs text-green-600 space-y-1">
+                                    <li>• Perfect discriminator detection and scoring</li>
+                                    <li>• LOLBAS executable pattern matching</li>
+                                    <li>• Threat keyword density analysis</li>
+                                    <li>• ML confidence scores and feature extraction</li>
+                                </ul>
+                            </div>
+                        </div>
+
+                        <h4 class="font-semibold text-gray-800 mb-3">How to Access</h4>
+                        <div class="bg-gray-50 rounded-lg p-4 mb-4">
+                            <div class="space-y-3 text-sm">
+                                <div class="flex items-start">
+                                    <span class="bg-blue-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold mr-3 mt-0.5">1</span>
+                                    <div>
+                                        <strong>Navigate to Article:</strong> Go to any article detail page
+                                    </div>
+                                </div>
+                                <div class="flex items-start">
+                                    <span class="bg-blue-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold mr-3 mt-0.5">2</span>
+                                    <div>
+                                        <strong>Open Debug Modal:</strong> Click the "🔍 Debug Chunks" button in the article header
+                                    </div>
+                                </div>
+                                <div class="flex items-start">
+                                    <span class="bg-blue-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold mr-3 mt-0.5">3</span>
+                                    <div>
+                                        <strong>Analyze Results:</strong> Review chunk analysis, adjust thresholds, and examine filtering decisions
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <h4 class="font-semibold text-gray-800 mb-3">Key Features</h4>
+                        <div class="overflow-x-auto">
+                            <table class="min-w-full divide-y divide-gray-200">
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Feature</th>
+                                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Description</th>
+                                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Benefit</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="bg-white divide-y divide-gray-200">
+                                    <tr>
+                                        <td class="px-4 py-2 text-sm font-medium text-gray-900">Threshold Slider</td>
+                                        <td class="px-4 py-2 text-sm text-gray-500">Real-time adjustment of ML confidence threshold (0.5-0.8)</td>
+                                        <td class="px-4 py-2 text-sm text-gray-500">Optimize filtering sensitivity</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="px-4 py-2 text-sm font-medium text-gray-900">Chunk Filtering</td>
+                                        <td class="px-4 py-2 text-sm text-gray-500">Filter chunks by status (kept/removed/threat/perfect)</td>
+                                        <td class="px-4 py-2 text-sm text-gray-500">Focus on specific content types</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="px-4 py-2 text-sm font-medium text-gray-900">Cost Analysis</td>
+                                        <td class="px-4 py-2 text-sm text-gray-500">Calculate GPT-4o API cost savings from filtering</td>
+                                        <td class="px-4 py-2 text-sm text-gray-500">Quantify optimization benefits</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="px-4 py-2 text-sm font-medium text-gray-900">ML Details</td>
+                                        <td class="px-4 py-2 text-sm text-gray-500">Show ML prediction confidence and feature analysis</td>
+                                        <td class="px-4 py-2 text-sm text-gray-500">Understand filtering decisions</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="px-4 py-2 text-sm font-medium text-gray-900">Model Retraining</td>
+                                        <td class="px-4 py-2 text-sm text-gray-500">Trigger model retraining with user feedback</td>
+                                        <td class="px-4 py-2 text-sm text-gray-500">Improve filtering accuracy</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <div class="mt-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                            <h4 class="font-semibold text-yellow-800 mb-2">💡 Use Cases</h4>
+                            <ul class="text-sm text-yellow-700 space-y-1">
+                                <li>• <strong>Content Quality Assessment:</strong> Verify that high-value threat hunting content is preserved</li>
+                                <li>• <strong>Cost Optimization:</strong> Analyze filtering effectiveness and adjust thresholds</li>
+                                <li>• <strong>ML Model Validation:</strong> Review ML predictions and identify improvement opportunities</li>
+                                <li>• <strong>Debugging Filter Issues:</strong> Investigate why specific content is filtered or kept</li>
+                                <li>• <strong>Threshold Tuning:</strong> Find optimal confidence thresholds for your use case</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- AI Assistant Section -->
         <div class="bg-white rounded-lg shadow-sm border border-gray-200">
             <div class="p-6">
@@ -551,7 +671,7 @@
                         
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-4">
                             <div class="bg-green-50 border border-green-200 rounded-lg p-4">
-                                <h5 class="font-semibold text-green-800 mb-2">✅ Huntable Patterns (97+ patterns)</h5>
+                                <h5 class="font-semibold text-green-800 mb-2">✅ Huntable Patterns (130+ patterns)</h5>
                                 <ul class="text-xs text-green-600 space-y-1">
                                     <li>• Perfect discriminators: rundll32, msiexec, powershell.exe</li>
                                     <li>• LOLBAS executables: certutil, schtasks, wmic, regsvr32</li>
@@ -599,6 +719,136 @@
                                 <li>• Configurable confidence thresholds (0.5-0.8)</li>
                                 <li>• Perfect discriminator protection (threat hunting keywords never filtered)</li>
                                 <li>• Real-time cost savings calculation</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- RAG Chat Interface Section -->
+        <div class="bg-white rounded-lg shadow-sm border border-gray-200">
+            <div class="p-6">
+                <button onclick="toggleSection('rag-chat')" class="w-full text-left flex items-center justify-between">
+                    <h2 class="text-2xl font-bold text-gray-900 flex items-center">
+                        <span class="mr-3">💬</span>
+                        RAG Chat Interface
+                    </h2>
+                    <svg id="rag-chat-icon" class="w-6 h-6 text-gray-500 transform transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                    </svg>
+                </button>
+                
+                <div id="rag-chat-content" class="mt-6 hidden">
+                    <div class="prose max-w-none">
+                        <h3 class="text-lg font-semibold text-gray-800 mb-4">Interactive Threat Intelligence Chat</h3>
+                        <p class="text-gray-600 mb-4">The RAG (Retrieval-Augmented Generation) chat interface allows you to interact with your threat intelligence database using natural language queries and semantic search.</p>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                            <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                                <h4 class="font-semibold text-blue-800 mb-2">🔍 Semantic Search</h4>
+                                <ul class="text-xs text-blue-600 space-y-1">
+                                    <li>• Vector embeddings using Sentence Transformers</li>
+                                    <li>• Semantic similarity search across all articles</li>
+                                    <li>• Context-aware retrieval of relevant content</li>
+                                    <li>• Cross-reference related threat intelligence</li>
+                                </ul>
+                            </div>
+                            
+                            <div class="bg-green-50 border border-green-200 rounded-lg p-4">
+                                <h4 class="font-semibold text-green-800 mb-2">🤖 AI-Powered Responses</h4>
+                                <ul class="text-xs text-green-600 space-y-1">
+                                    <li>• Multiple AI model support (ChatGPT, Claude, Ollama)</li>
+                                    <li>• Template-based responses with LLM enhancement</li>
+                                    <li>• Clickable article links in responses</li>
+                                    <li>• Context-aware analysis and summaries</li>
+                                </ul>
+                            </div>
+                        </div>
+
+                        <h4 class="font-semibold text-gray-800 mb-3">How to Use</h4>
+                        <div class="bg-gray-50 rounded-lg p-4 mb-4">
+                            <div class="space-y-3 text-sm">
+                                <div class="flex items-start">
+                                    <span class="bg-blue-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold mr-3 mt-0.5">1</span>
+                                    <div>
+                                        <strong>Access Chat:</strong> Click the "💬 Chat" button in the navigation menu
+                                    </div>
+                                </div>
+                                <div class="flex items-start">
+                                    <span class="bg-blue-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold mr-3 mt-0.5">2</span>
+                                    <div>
+                                        <strong>Ask Questions:</strong> Type natural language queries about threat intelligence
+                                    </div>
+                                </div>
+                                <div class="flex items-start">
+                                    <span class="bg-blue-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold mr-3 mt-0.5">3</span>
+                                    <div>
+                                        <strong>Explore Results:</strong> Click on article links to view detailed content
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <h4 class="font-semibold text-gray-800 mb-3">Example Queries</h4>
+                        <div class="bg-gray-50 rounded-lg p-4 mb-4">
+                            <div class="space-y-2 text-sm">
+                                <div><span class="font-semibold text-gray-700">"What are the latest ransomware techniques?"</span></div>
+                                <div><span class="font-semibold text-gray-700">"Show me articles about APT28 campaigns"</span></div>
+                                <div><span class="font-semibold text-gray-700">"Find IOCs related to phishing attacks"</span></div>
+                                <div><span class="font-semibold text-gray-700">"What are the newest LOLBAS techniques?"</span></div>
+                                <div><span class="font-semibold text-gray-700">"Show me articles about CVE-2024-*"</span></div>
+                            </div>
+                        </div>
+
+                        <h4 class="font-semibold text-gray-800 mb-3">Key Features</h4>
+                        <div class="overflow-x-auto">
+                            <table class="min-w-full divide-y divide-gray-200">
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Feature</th>
+                                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Description</th>
+                                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Benefit</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="bg-white divide-y divide-gray-200">
+                                    <tr>
+                                        <td class="px-4 py-2 text-sm font-medium text-gray-900">Semantic Search</td>
+                                        <td class="px-4 py-2 text-sm text-gray-500">Vector-based similarity search across all articles</td>
+                                        <td class="px-4 py-2 text-sm text-gray-500">Find relevant content even with different wording</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="px-4 py-2 text-sm font-medium text-gray-900">AI Responses</td>
+                                        <td class="px-4 py-2 text-sm text-gray-500">Intelligent analysis and summarization of results</td>
+                                        <td class="px-4 py-2 text-sm text-gray-500">Get contextual insights and summaries</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="px-4 py-2 text-sm font-medium text-gray-900">Clickable Links</td>
+                                        <td class="px-4 py-2 text-sm text-gray-500">Direct links to relevant articles in responses</td>
+                                        <td class="px-4 py-2 text-sm text-gray-500">Quick access to source material</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="px-4 py-2 text-sm font-medium text-gray-900">Multiple Models</td>
+                                        <td class="px-4 py-2 text-sm text-gray-500">Support for ChatGPT, Claude, and local Ollama</td>
+                                        <td class="px-4 py-2 text-sm text-gray-500">Choose the best AI model for your needs</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="px-4 py-2 text-sm font-medium text-gray-900">Context Preservation</td>
+                                        <td class="px-4 py-2 text-sm text-gray-500">Maintains conversation context across queries</td>
+                                        <td class="px-4 py-2 text-sm text-gray-500">More natural and coherent interactions</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <div class="mt-6 p-4 bg-green-50 border border-green-200 rounded-lg">
+                            <h4 class="font-semibold text-green-800 mb-2">✅ Benefits</h4>
+                            <ul class="text-sm text-green-700 space-y-1">
+                                <li>• <strong>Natural Language Queries:</strong> Ask questions in plain English</li>
+                                <li>• <strong>Semantic Understanding:</strong> Find content by meaning, not just keywords</li>
+                                <li>• <strong>Contextual Analysis:</strong> Get intelligent summaries and insights</li>
+                                <li>• <strong>Rapid Discovery:</strong> Quickly find relevant threat intelligence</li>
+                                <li>• <strong>Interactive Exploration:</strong> Follow up with related questions</li>
                             </ul>
                         </div>
                     </div>
