@@ -2329,6 +2329,19 @@
             </div>
         `;
         document.body.appendChild(modal);
+        
+        // Add Enter key handler to textarea
+        const textarea = document.getElementById('customPrompt');
+        if (textarea) {
+            textarea.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    generateCustomPrompt();
+                }
+            });
+            // Focus the textarea
+            textarea.focus();
+        }
     }
     
     function closeCustomPromptModal() {
@@ -2514,7 +2527,7 @@
                     <button onclick="showCustomPromptModal()" 
                             class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-colors">
                         <span class="mr-2">💬</span>
-                        Ask Another Question
+                        Ask a new question
                     </button>
                     <button onclick="closeCustomResponseModal()" 
                             class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-colors">
