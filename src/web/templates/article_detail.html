@@ -1815,6 +1815,9 @@
         console.log('typeText:', typeText);
         console.log('typeIcon:', typeIcon);
         
+        // Track if request has started
+        let requestStarted = false;
+        
         // Add ESC key handler to close loading modal
         const handleEsc = function(e) {
             if (e.key === 'Escape') {
@@ -1823,7 +1826,11 @@
                     modal.remove();
                 }
                 document.removeEventListener('keydown', handleEsc);
-                showNotification('AI generation continues in the background. You can return to this article later to view the results.', 'info');
+                
+                // Only show background message if request actually started
+                if (requestStarted) {
+                    showNotification('AI generation continues in the background. You can return to this article later to view the results.', 'info');
+                }
             }
         };
         document.addEventListener('keydown', handleEsc);
@@ -1903,6 +1910,9 @@
                 },
                 body: JSON.stringify(requestBody)
             });
+            
+            // Mark request as started
+            requestStarted = true;
             
             // Race between fetch and timeout
             const response = await Promise.race([fetchPromise, timeoutPromise]);
@@ -2354,6 +2364,9 @@
         loadingModal.id = 'loadingModal';
         loadingModal.className = 'fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50';
         
+        // Track if request has started
+        let requestStarted = false;
+        
         // Add ESC key handler to close loading modal
         const handleEsc = function(e) {
             if (e.key === 'Escape') {
@@ -2362,7 +2375,11 @@
                     modal.remove();
                 }
                 document.removeEventListener('keydown', handleEsc);
-                showNotification('Custom prompt generation continues in the background. You can return to this article later to view the results.', 'info');
+                
+                // Only show background message if request actually started
+                if (requestStarted) {
+                    showNotification('Custom prompt generation continues in the background. You can return to this article later to view the results.', 'info');
+                }
             }
         };
         document.addEventListener('keydown', handleEsc);
@@ -2403,6 +2420,9 @@
                     ai_model: aiModel
                 })
             });
+            
+            // Mark request as started
+            requestStarted = true;
             
             // Race between fetch and timeout
             const response = await Promise.race([fetchPromise, timeoutPromise]);
