@@ -57,7 +57,7 @@ The CTI Scraper uses a microservices architecture with the following components:
   - Debug logging enabled
   - CLI tools included
   - Exposed ports for external access
-  - Separate data volumes (`*_dev`)
+  - Persistent data volumes
 
 - **Usage**:
   ```bash
@@ -171,9 +171,9 @@ The CLI tool was previously running locally with SQLite, causing:
 
 ### Volumes
 
-- **PostgreSQL Data**: `postgres_data` (production) / `postgres_data_dev` (development)
-- **Redis Data**: `redis_data` (production) / `redis_data_dev` (development)
-- **Ollama Models**: `ollama_data` (production) / `ollama_data_dev` (development)
+- **PostgreSQL Data**: `postgres_data` (persistent storage)
+- **Redis Data**: `redis_data` (persistent storage)
+- **Ollama Models**: `ollama_data` (persistent storage)
 
 ### Backup Strategy
 

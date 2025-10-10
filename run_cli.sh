@@ -26,9 +26,7 @@ show_usage() {
     echo "  collect [--source <id>] [--force] [--dry-run] - Collect articles"
     echo "  monitor [--interval <seconds>]               - Monitor sources"
     echo "  test [--source <id>] [--dry-run]              - Test sources"
-    echo "  sources list [--active] [--format <format>]   - List sources"
-    echo "  sources add <id> <name> <url> [--rss-url]    - Add source"
-    echo "  sources disable <id>                         - Disable source"
+    echo "  sync-sources [--config <file>] [--validate-feeds] - Sync sources from YAML"
     echo "  export [--format <format>] [--days <days>]   - Export articles"
     echo "  stats                                         - Show statistics"
     echo "  backup create [--backup-dir <dir>] [--no-compress] - Create database backup"
@@ -42,7 +40,7 @@ show_usage() {
     echo "Examples:"
     echo "  $0 init"
     echo "  $0 collect --source threatpost"
-    echo "  $0 sources list --active"
+    echo "  $0 sync-sources"
     echo "  $0 export --format json --days 7"
     echo "  $0 backup create"
     echo "  $0 backup list"
@@ -150,66 +148,11 @@ case "$1" in
         done
         ;;
     "sources")
-        CLI_CMD="$CLI_CMD sources"
-        shift
-        case "$1" in
-            "list")
-                CLI_CMD="$CLI_CMD list"
-                shift
-                while [[ $# -gt 0 ]]; do
-                    case $1 in
-                        --active)
-                            CLI_CMD="$CLI_CMD --active"
-                            shift
-                            ;;
-                        --format)
-                            CLI_CMD="$CLI_CMD --format $2"
-                            shift 2
-                            ;;
-                        *)
-                            echo "Unknown option: $1"
-                            show_usage
-                            exit 1
-                            ;;
-                    esac
-                done
-                ;;
-            "add")
-                if [ $# -lt 4 ]; then
-                    echo "Error: sources add requires <id> <name> <url>"
-                    show_usage
-                    exit 1
-                fi
-                CLI_CMD="$CLI_CMD add $2 $3 $4"
-                shift 4
-                while [[ $# -gt 0 ]]; do
-                    case $1 in
-                        --rss-url)
-                            CLI_CMD="$CLI_CMD --rss-url $2"
-                            shift 2
-                            ;;
-                        *)
-                            echo "Unknown option: $1"
-                            show_usage
-                            exit 1
-                            ;;
-                    esac
-                done
-                ;;
-            "disable")
-                if [ $# -lt 2 ]; then
-                    echo "Error: sources disable requires <id>"
-                    show_usage
-                    exit 1
-                fi
-                CLI_CMD="$CLI_CMD disable $2"
-                ;;
-            *)
-                echo "Unknown sources command: $1"
-                show_usage
-                exit 1
-                ;;
-        esac
+        echo "Note: Sources management is now handled via the web interface at http://localhost:8001/sources"
+        echo "Available CLI commands:"
+        echo "  sync-sources  - Synchronize database sources from YAML configuration"
+        echo "  stats         - Show database statistics including sources"
+        exit 0
         ;;
     "export")
         CLI_CMD="$CLI_CMD export"

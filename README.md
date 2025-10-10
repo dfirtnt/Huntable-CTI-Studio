@@ -414,6 +414,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - [Contributing Guidelines](CONTRIBUTING.md)
 - [Changelog](CHANGELOG.md)
 - [SIGMA Rule Generation](SIGMA_RULE_GENERATION.md)
+- [API Endpoints Reference](docs/API_ENDPOINTS.md)
 - [Web App Testing Guide](WebAppDevtestingGuide.md)
 - [Testing Workflow Guide](docs/development/TESTING_WORKFLOW.md)
 - [Virtual Environments Guide](docs/development/VIRTUAL_ENVIRONMENTS.md)
