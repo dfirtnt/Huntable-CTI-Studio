@@ -7,10 +7,11 @@ The SIGMA Rule Generation feature automatically creates detection rules from thr
 ## Features
 
 ### 🤖 AI-Powered Rule Generation
-- **GPT-4 Integration**: Uses OpenAI's GPT-4 model for intelligent rule generation
+- **Multiple AI Models**: Supports ChatGPT (OpenAI), Claude (Anthropic), and Ollama (local LLM)
 - **Content Analysis**: Analyzes article content to extract relevant detection patterns
 - **Context Awareness**: Understands threat techniques and attack patterns
 - **Multiple Rule Generation**: Can generate multiple rules per article when appropriate
+- **Content Filtering**: ML-based content optimization to reduce token usage and costs
 
 ### ✅ pySIGMA Validation
 - **Automatic Validation**: All generated rules are validated using pySIGMA
@@ -41,30 +42,39 @@ The SIGMA Rule Generation feature automatically creates detection rules from thr
 ## Usage
 
 ### Prerequisites
-- Article must have a threat hunting score > 70
-- OpenAI API key must be configured in environment variables
+- Article must be classified as "chosen" (required)
+- Threat hunting score < 65 shows warning but allows proceeding
+- AI model API key must be configured (varies by model)
 - pySIGMA library must be installed
 
 ### How to Use
 
-1. **Navigate to Article**: Go to any article with threat hunting score > 70
+1. **Navigate to Article**: Go to any article classified as "chosen"
 2. **Click Generate Button**: Click "Generate SIGMA Rules" button
-3. **AI Processing**: GPT-4 analyzes the article content
+3. **AI Processing**: Selected AI model analyzes the article content
 4. **Rule Generation**: AI generates appropriate SIGMA detection rules
 5. **Validation**: pySIGMA validates the generated rules
-6. **Iterative Fixing**: If validation fails, rules are retried with error feedback
+6. **Iterative Fixing**: If validation fails, rules are retried with error feedback (up to 3 attempts)
 7. **Storage**: Valid rules are stored with complete metadata
 8. **View Results**: Click to view the generated rules and conversation log showing the LLM ↔ pySigma interaction
 
 ### API Endpoint
 
 ```http
-POST /api/articles/{article_id}/generate-sigma-rules
+POST /api/articles/{article_id}/generate-sigma
 Content-Type: application/json
 
 {
+  "force_regenerate": false,
   "include_content": true,
-  "max_rules": 3
+  "ai_model": "chatgpt",
+  "api_key": "your_api_key_here",
+  "author_name": "CTIScraper User",
+  "temperature": 0.2,
+  "optimization_options": {
+    "useFiltering": true,
+    "minConfidence": 0.7
+  }
 }
 ```
 
@@ -72,65 +82,93 @@ Content-Type: application/json
 ```json
 {
   "success": true,
-  "rules": [
+  "article_id": 633,
+  "sigma_rules": "Generated SIGMA rule content...",
+  "generated_at": "2025-10-10T15:28:28.134389",
+  "content_type": "full content",
+  "model_used": "ollama",
+  "model_name": "llama3.2:1b",
+  "validation_results": [
     {
-      "title": "Detection Rule Title",
-      "description": "Rule description",
-      "logsource": {
-        "product": "windows",
-        "service": "sysmon"
-      },
-      "detection": {
-        "selection": {
-          "CommandLine": "malicious_command"
-        },
-        "condition": "selection"
-      },
-      "level": "high"
+      "rule_index": 1,
+      "is_valid": false,
+      "errors": ["Invalid YAML syntax"],
+      "warnings": [],
+      "rule_info": {}
     }
   ],
-  "metadata": {
-    "generated_at": "2025-01-27T10:30:00Z",
-    "model_used": "gpt-4",
-    "validation_passed": true,
-    "attempts_made": 1,
-    "validation_results": [...]
-  }
+  "conversation": [...],
+  "validation_passed": false,
+  "attempts_made": 3,
+  "temperature": 0.0,
+  "optimization": {
+    "enabled": true,
+    "cost_savings": 0.014549999999999999,
+    "tokens_saved": 2910,
+    "chunks_removed": 15,
+    "min_confidence": 0.7
+  },
+  "message": "⚠️ SIGMA rules generated but failed pySIGMA validation after 3 attempts. Please review the validation errors and consider manual correction."
 }
 ```
 
 ## Configuration
 
-### Environment Variables
+### AI Model Support
 
-```bash
-# OpenAI Configuration
-CHATGPT_API_KEY=your_openai_api_key_here
-OPENAI_API_URL=https://api.openai.com/v1
+The system supports multiple AI models:
 
-# Optional: Custom model selection
-SIGMA_GENERATION_MODEL=gpt-4
+**ChatGPT (OpenAI)**
+- Model: GPT-4 or GPT-3.5-turbo
+- API Key: Required in request body
+- Best for: High-quality rule generation
+
+**Claude (Anthropic)**
+- Model: claude-3-haiku-20240307
+- API Key: Required in request body
+- Best for: Complex analysis and reasoning
+
+**Ollama (Local LLM)**
+- Model: llama3.2:1b (configurable)
+- API Key: Not required
+- Best for: Local processing and privacy
+
+### Request Parameters
+
+```json
+{
+  "force_regenerate": false,        // Skip cache and regenerate
+  "include_content": true,          // Use full content vs metadata only
+  "ai_model": "chatgpt",           // chatgpt, anthropic, or ollama
+  "api_key": "your_key_here",      // Required for ChatGPT/Claude
+  "author_name": "Your Name",       // Rule author name
+  "temperature": 0.2,              // LLM creativity (0.0-1.0)
+  "optimization_options": {         // Content filtering options
+    "useFiltering": true,
+    "minConfidence": 0.7
+  }
+}
 ```
 
-### Source Configuration
+### Prerequisites
 
 Articles are eligible for SIGMA rule generation if:
-- Threat hunting score > 70
-- Content length > 2000 characters
-- Article is classified as "chosen"
+- Article is classified as "chosen" (required)
+- Threat hunting score < 65 shows warning but allows proceeding
 - Content contains threat intelligence indicators
 
 ## Technical Details
 
 ### Generation Process
 
-1. **Content Analysis**: GPT-4 analyzes article title and content
-2. **Pattern Extraction**: Identifies relevant attack patterns and techniques
-3. **Rule Creation**: Generates appropriate SIGMA detection rules
-4. **Format Compliance**: Ensures proper YAML structure and required fields
-5. **Validation**: pySIGMA validates the generated rules
-6. **Error Handling**: Failed rules trigger retry with error feedback
-7. **Storage**: Valid rules stored in article metadata
+1. **Content Analysis**: Selected AI model analyzes article title and content
+2. **Content Filtering**: ML-based optimization reduces token usage and costs
+3. **Pattern Extraction**: Identifies relevant attack patterns and techniques
+4. **Rule Creation**: Generates appropriate SIGMA detection rules
+5. **Format Compliance**: Ensures proper YAML structure and required fields
+6. **Validation**: pySIGMA validates the generated rules
+7. **Iterative Fixing**: Failed rules trigger retry with error feedback (up to 3 attempts)
+8. **Storage**: Rules stored in article metadata with complete audit trail
 
 ### Validation Process
 
@@ -160,9 +198,30 @@ Articles are eligible for SIGMA rule generation if:
 
 **Retry Logic:**
 - Maximum 3 attempts per rule set
-- Error feedback provided to GPT-4
+- Error feedback provided to selected AI model
 - Progressive improvement with each attempt
 - Graceful failure after max attempts
+- Complete conversation log captured for debugging
+
+### Content Filtering System
+
+The system includes ML-based content filtering to optimize costs and performance:
+
+**Features:**
+- Reduces token usage by filtering irrelevant content
+- Maintains high-confidence content for rule generation
+- Configurable confidence thresholds
+- Cost savings tracking and reporting
+
+**Configuration:**
+```json
+{
+  "optimization_options": {
+    "useFiltering": true,      // Enable content filtering
+    "minConfidence": 0.7       // Minimum confidence threshold
+  }
+}
+```
 
 ## Examples
 
@@ -213,20 +272,22 @@ level: high
 
 ### Common Issues
 
-**OpenAI API Errors:**
-- Check API key configuration
-- Verify API quota and billing
+**API Key Errors:**
+- Check API key configuration in request body
+- Verify API quota and billing for ChatGPT/Claude
 - Monitor rate limiting
 
 **pySIGMA Validation Failures:**
 - Ensure pySIGMA is properly installed
 - Check rule format compliance
 - Review validation error messages
+- Examine conversation log for debugging
 
 **Generation Failures:**
-- Verify article content quality
-- Check threat hunting score threshold
-- Review OpenAI model availability
+- Verify article is classified as "chosen"
+- Check threat hunting score (warning below 65)
+- Review AI model availability and configuration
+- Check content filtering settings
 
 ### Debug Information
 
@@ -243,15 +304,17 @@ docker-compose logs -f web | grep "SIGMA"
 ## Security Considerations
 
 ### Data Privacy
-- Article content sent to OpenAI for analysis
-- No sensitive data stored in OpenAI logs
+- Article content sent to selected AI model for analysis
+- No sensitive data stored in AI provider logs
 - Rules stored locally in database
+- Ollama option provides local processing
 
 ### Input Validation
 - Article ID validation
-- Content length checks
-- Threat score thresholds
+- Classification requirement ("chosen")
+- Threat score thresholds (warning below 65)
 - Rate limiting on generation requests
+- API key validation for external models
 
 ### Output Validation
 - pySIGMA validation ensures rule safety
@@ -282,4 +345,4 @@ For issues and questions:
 
 ---
 
-**Note**: This feature requires OpenAI API access and pySIGMA validation. Ensure proper configuration and monitoring for production use.
+**Note**: This feature supports multiple AI models (ChatGPT, Claude, Ollama) and requires pySIGMA validation. Ensure proper configuration and monitoring for production use.
