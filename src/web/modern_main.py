@@ -3108,6 +3108,7 @@ async def api_extract_iocs(article_id: int, request: Request):
         use_llm_validation = body.get('use_llm_validation', True)  # Use LLM validation
         use_filtering = body.get('use_filtering', True)  # Enable filtering by default
         min_confidence = body.get('min_confidence', 0.7)  # Confidence threshold
+        optimization_options = body.get('optimization_options', {})  # Get optimization options
         
         logger.info(f"IOC extraction request for article {article_id}, ai_model: {ai_model}, api_key provided: {bool(api_key)}, force_regenerate: {force_regenerate}, use_llm_validation: {use_llm_validation}")
         
@@ -3157,27 +3158,30 @@ async def api_extract_iocs(article_id: int, request: Request):
                 from src.utils.gpt4o_optimizer import optimize_article_content
                 
                 try:
-                    optimization_result = await optimize_article_content(
-                        article.content, 
-                        min_confidence=min_confidence,
-                        article_metadata=current_metadata,
-                        content_hash=article.content_hash
-                    )
-                    if optimization_result['success']:
-                        content = optimization_result['filtered_content']
-                        logger.info(f"Content filtered for IOC extraction: {optimization_result['tokens_saved']:,} tokens saved, "
-                                  f"{optimization_result['cost_reduction_percent']:.1f}% cost reduction")
-                        
-                        # Update article metadata with cached chunks (if not already cached)
-                        if not optimization_result.get('cached', False):
-                            update_data = ArticleUpdate(article_metadata=current_metadata)
-                            await async_db_manager.update_article(article_id, update_data)
+                    # Use optimization options if provided, otherwise use request parameters
+                    use_filtering_opt = optimization_options.get('useFiltering', use_filtering)
+                    min_confidence_opt = optimization_options.get('minConfidence', min_confidence)
+                    
+                    if use_filtering_opt:
+                        optimization_result = await optimize_article_content(
+                            article.content, 
+                            min_confidence=min_confidence_opt,
+                            article_metadata=article.article_metadata,
+                            content_hash=article.content_hash
+                        )
+                        if optimization_result['success']:
+                            content = optimization_result['filtered_content']
+                            logger.info(f"Content filtered for IOC extraction: {optimization_result['tokens_saved']:,} tokens saved, "
+                                      f"{optimization_result['cost_reduction_percent']:.1f}% cost reduction")
+                        else:
+                            # Fallback to original content if filtering fails
+                            content = article.content
+                            logger.warning("Content filtering failed for IOC extraction, using original content")
                     else:
-                        # Fallback to original content if filtering fails
                         content = article.content
-                        logger.warning("Content filtering failed for IOC extraction, using original content")
+                        logger.info("Content filtering disabled for IOC extraction")
                 except Exception as e:
-                    logger.error(f"Content filtering error for IOC extraction: {e}, using original content")
+                    logger.error(f"Content filtering error for IOC extraction: {e}")
                     content = article.content
             else:
                 # Use original content if filtering is disabled
