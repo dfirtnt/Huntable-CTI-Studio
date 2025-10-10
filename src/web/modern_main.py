@@ -4075,6 +4075,63 @@ async def api_chunk_debug(article_id: int, chunk_size: int = 1000, overlap: int 
         logger.error(f"Chunk debug error: {e}")
         raise HTTPException(status_code=500, detail=f"Chunk debug failed: {str(e)}")
 
+
+@app.post("/api/feedback/chunk-classification")
+async def api_feedback_chunk_classification(request: Request):
+    """Collect user feedback on chunk classifications for model improvement."""
+    try:
+        feedback_data = await request.json()
+        
+        # Validate required fields
+        required_fields = ['article_id', 'chunk_id', 'chunk_text', 'model_classification', 'is_correct']
+        for field in required_fields:
+            if field not in feedback_data:
+                raise HTTPException(status_code=400, detail=f"Missing required field: {field}")
+        
+        # Store feedback in CSV file
+        feedback_file = "outputs/chunk_classification_feedback.csv"
+        
+        # Create CSV if it doesn't exist
+        import os
+        import csv
+        from datetime import datetime
+        
+        file_exists = os.path.exists(feedback_file)
+        
+        with open(feedback_file, 'a', newline='', encoding='utf-8') as csvfile:
+            fieldnames = [
+                'timestamp', 'article_id', 'chunk_id', 'chunk_text', 
+                'model_classification', 'model_confidence', 'model_reason',
+                'is_correct', 'user_classification', 'comment'
+            ]
+            
+            writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+            
+            # Write header if file is new
+            if not file_exists:
+                writer.writeheader()
+            
+            # Write feedback data
+            writer.writerow({
+                'timestamp': feedback_data.get('timestamp', datetime.now().isoformat()),
+                'article_id': feedback_data['article_id'],
+                'chunk_id': feedback_data['chunk_id'],
+                'chunk_text': feedback_data['chunk_text'],
+                'model_classification': feedback_data['model_classification'],
+                'model_confidence': feedback_data.get('model_confidence', 0),
+                'model_reason': feedback_data.get('model_reason', ''),
+                'is_correct': feedback_data['is_correct'],
+                'user_classification': feedback_data.get('user_classification', ''),
+                'comment': feedback_data.get('comment', '')
+            })
+        
+        return {"success": True, "message": "Feedback recorded successfully"}
+        
+    except Exception as e:
+        logger.error(f"Feedback collection failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Feedback collection failed: {str(e)}")
+
+
 # Enhanced GPT-4o ranking endpoint with content filtering
 @app.post("/api/articles/{article_id}/gpt4o-rank-optimized")
 async def api_gpt4o_rank_optimized(article_id: int, request: Request):
