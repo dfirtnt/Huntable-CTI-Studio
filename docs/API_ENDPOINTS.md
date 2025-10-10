@@ -4,7 +4,7 @@ This document provides a comprehensive list of all API endpoints available in th
 
 ## Overview
 
-The CTI Scraper provides 81 API endpoints across multiple categories:
+The CTI Scraper provides 80+ API endpoints across multiple categories:
 - **Health & Monitoring**: 8 endpoints
 - **Sources Management**: 12 endpoints  
 - **Articles Management**: 25 endpoints

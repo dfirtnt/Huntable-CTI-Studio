@@ -38,6 +38,7 @@ docs/
 - **Database Queries**: `development/DATABASE_QUERY_GUIDE.md` - Database operations
 - **Boolean Search**: `development/boolean-search.md` - Search functionality
 - **Search Queries**: `development/search-queries.md` - Query examples and patterns
+- **Web App Testing**: `WebAppDevtestingGuide.md` - Web application testing guide
 
 ### 🤖 AI Features
 - **Hybrid IOC Extraction**: `development/HYBRID_IOC_EXTRACTION.md` - Advanced IOC extraction system

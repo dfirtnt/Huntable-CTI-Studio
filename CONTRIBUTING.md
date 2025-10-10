@@ -22,9 +22,10 @@ This project and everyone participating in it is governed by our Code of Conduct
 
 ### Prerequisites
 
-- Python 3.9+
+- Python 3.11+
 - PostgreSQL 15+
 - Redis 7+
+- Docker & Docker Compose
 - Git
 
 ### Fork and Clone
@@ -45,28 +46,20 @@ This project and everyone participating in it is governed by our Code of Conduct
 ### 1. Environment Setup
 
 ```bash
-# Create virtual environment
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-
-# Install dependencies
-pip install -r requirements.txt
-pip install -r requirements-test.txt
-
 # Copy environment template
 cp env.example .env
 # Edit .env with your local settings
+
+# Start Docker services
+./start.sh
 ```
 
 ### 2. Database Setup
 
 ```bash
-# Start PostgreSQL and Redis
-brew services start postgresql@15  # macOS
-brew services start redis
-
-# Create database
-createdb cti_scraper_test
+# Database is automatically set up with Docker
+# No manual setup required - PostgreSQL runs in container
+# Access via: docker exec cti_postgres psql -U cti_user -d cti_scraper
 ```
 
 ### 3. Run Tests

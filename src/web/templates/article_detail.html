@@ -516,19 +516,19 @@
         
         async loadExistingClassifications() {
             try {
-                console.log('Loading existing classifications for article {{ article.id }}');
+                // Loading existing classifications for article {{ article.id }}
                 const response = await fetch(`/api/articles/{{ article.id }}/annotations`);
                 const data = await response.json();
                 
-                console.log('API response:', data);
+                // API response received
                 
                 if (data.success && data.annotations) {
-                    console.log(`Found ${data.annotations.length} existing annotations`);
+                    // Found ${data.annotations.length} existing annotations
                     
                     // Wait a bit for the page to fully load before adding annotations
                     setTimeout(() => {
                         data.annotations.forEach(annotation => {
-                            console.log(`Loading annotation: ${annotation.annotation_type} - "${annotation.selected_text.substring(0, 50)}..."`);
+                            // Loading annotation: ${annotation.annotation_type}
                             this.addExistingClassification(
                                 annotation.start_position,
                                 annotation.end_position,
@@ -538,7 +538,7 @@
                         });
                     }, 100);
                 } else {
-                    console.log('No existing annotations found');
+                    // No existing annotations found
                 }
             } catch (error) {
                 console.error('Failed to load existing classifications:', error);
@@ -546,7 +546,7 @@
         }
         
         addExistingClassification(start, end, classification, text) {
-            console.log(`Checking existing annotation: ${classification} - "${text.substring(0, 50)}..."`);
+            // Checking existing annotation: ${classification}
             
             // Check if this text is already highlighted by looking for spans with our classes
             const cssClass = classification === 'huntable' 
