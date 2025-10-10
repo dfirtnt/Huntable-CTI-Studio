@@ -4029,6 +4029,29 @@
                     </div>
                 </div>
                 
+                <!-- ML Accuracy Statistics -->
+                <div class="bg-indigo-50 border border-indigo-200 rounded-lg p-4 mb-6">
+                    <h4 class="text-lg font-semibold text-indigo-900 mb-3">🤖 ML Model Performance</h4>
+                    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                        <div>
+                            <div class="text-sm text-indigo-600">ML Predictions</div>
+                            <div class="text-lg font-semibold">${data.ml_stats.total_predictions}</div>
+                        </div>
+               <div>
+                   <div class="text-sm text-indigo-600">Matching Predictions</div>
+                   <div class="text-lg font-semibold text-green-600">${data.ml_stats.correct_predictions}</div>
+               </div>
+                        <div>
+                            <div class="text-sm text-indigo-600">Accuracy</div>
+                            <div class="text-lg font-semibold ${data.ml_stats.accuracy_percent >= 80 ? 'text-green-600' : data.ml_stats.accuracy_percent >= 60 ? 'text-yellow-600' : 'text-red-600'}">${data.ml_stats.accuracy_percent.toFixed(1)}%</div>
+                        </div>
+                        <div>
+                            <div class="text-sm text-indigo-600">Mismatches</div>
+                            <div class="text-lg font-semibold text-yellow-600">${data.ml_stats.mismatches}</div>
+                        </div>
+                    </div>
+                </div>
+                
                 <!-- Cost Analysis -->
                 <div class="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-6">
                     <h4 class="text-lg font-semibold text-gray-900 mb-3">💰 Cost Analysis</h4>
@@ -4080,6 +4103,9 @@
                         <button onclick="filterChunks('ml')" class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors">
                             Show ML Predictions
                         </button>
+                        <button onclick="filterChunks('mismatch')" class="px-4 py-2 bg-yellow-600 text-white rounded-md hover:bg-yellow-700 transition-colors" title="Show chunks where ML prediction differs from actual decision">
+                            Show ML Mismatches
+                        </button>
                     </div>
                 </div>
                 
@@ -4128,10 +4154,14 @@
             const color = chunk.is_kept ? 'bg-green-500' : 'bg-red-500';
             const opacity = chunk.is_kept ? 'opacity-80' : 'opacity-60';
             
+            // Add mismatch indicator
+            const mismatchClass = chunk.ml_mismatch ? 'ring-2 ring-yellow-400' : '';
+            const mismatchTitle = chunk.ml_mismatch ? ' (ML MISMATCH)' : '';
+            
             html += `
-                <div class="absolute ${color} ${opacity} rounded cursor-pointer hover:opacity-100 transition-opacity"
+                <div class="absolute ${color} ${opacity} ${mismatchClass} rounded cursor-pointer hover:opacity-100 transition-opacity"
                      style="left: ${left}%; width: ${width}%; height: 100%;"
-                     title="Chunk ${chunk.chunk_id}: ${chunk.length} chars (${chunk.is_kept ? 'KEPT' : 'REMOVED'})"
+                     title="Chunk ${chunk.chunk_id}: ${chunk.length} chars (${chunk.is_kept ? 'KEPT' : 'REMOVED'})${mismatchTitle}"
                      onclick="highlightChunk(${index})">
                 </div>
             `;
@@ -4149,6 +4179,10 @@
                 <div class="flex items-center">
                     <div class="w-4 h-4 bg-red-500 rounded mr-2"></div>
                     <span>Filtered Out</span>
+                </div>
+                <div class="flex items-center">
+                    <div class="w-4 h-4 bg-yellow-400 rounded mr-2 ring-2 ring-yellow-400"></div>
+                    <span>ML Mismatch</span>
                 </div>
             </div>
         `;
@@ -4168,6 +4202,7 @@
                         ${chunk.has_threat_keywords ? '<span class="px-2 py-1 text-xs rounded-full bg-orange-100 text-orange-800">THREAT</span>' : ''}
                         ${chunk.has_command_patterns ? '<span class="px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-800">COMMAND</span>' : ''}
                         ${chunk.has_perfect_discriminators ? '<span class="px-2 py-1 text-xs rounded-full bg-purple-100 text-purple-800">PERFECT</span>' : ''}
+                        ${chunk.ml_mismatch ? '<span class="px-2 py-1 text-xs rounded-full bg-yellow-100 text-yellow-800">ML MISMATCH</span>' : ''}
                     </div>
                     <div class="text-sm text-gray-500">
                         ${chunk.length} chars (${chunk.start}-${chunk.end})
@@ -4230,34 +4265,19 @@
                     ${chunk.confidence > 0 ? ` | <strong>Confidence:</strong> ${(chunk.confidence * 100).toFixed(1)}%` : ''}
                 </div>
                 
-                <!-- Feedback Section -->
+                <!-- Feedback Section (only show when ML model is available) -->
+                ${chunk.ml_details && !chunk.ml_details.error ? `
                 <div class="mb-3 p-3 bg-gray-50 rounded-lg border">
                     <div class="flex items-center justify-between mb-2">
-                        <span class="text-sm font-medium text-gray-700">Was this classification correct?</span>
+                        <span class="text-sm font-medium text-gray-700">Was this ML classification correct?</span>
                         <div class="flex gap-2">
                             <button onclick="submitChunkFeedback(${index}, true)" 
                                     class="px-3 py-1 text-xs bg-green-100 text-green-800 rounded hover:bg-green-200 transition-colors">
-                                ✅ Correct
+                                ✅ Correct - ${chunk.ml_details.prediction_label}
                             </button>
                             <button onclick="submitChunkFeedback(${index}, false)" 
                                     class="px-3 py-1 text-xs bg-red-100 text-red-800 rounded hover:bg-red-200 transition-colors">
-                                ❌ Incorrect
-                            </button>
-                        </div>
-                    </div>
-                    <div id="feedbackForm${index}" class="hidden">
-                        <textarea id="feedbackComment${index}" 
-                                  placeholder="Optional: Explain why this classification is incorrect..."
-                                  class="w-full p-2 text-xs border rounded resize-none" 
-                                  rows="2"></textarea>
-                        <div class="flex justify-end gap-2 mt-2">
-                            <button onclick="cancelFeedback(${index})" 
-                                    class="px-3 py-1 text-xs bg-gray-100 text-gray-600 rounded hover:bg-gray-200">
-                                Cancel
-                            </button>
-                            <button onclick="submitDetailedFeedback(${index})" 
-                                    class="px-3 py-1 text-xs bg-blue-100 text-blue-800 rounded hover:bg-blue-200">
-                                Submit Feedback
+                                ❌ Incorrect - ${chunk.ml_details.prediction_label === 'Huntable' ? 'Not Huntable' : 'Huntable'}
                             </button>
                         </div>
                     </div>
@@ -4265,6 +4285,7 @@
                         ✅ Feedback submitted - Thank you!
                     </div>
                 </div>
+                ` : ''}
                 
                 <!-- Feature Details -->
                 <div class="mb-3">
@@ -4329,6 +4350,9 @@
                     break;
                 case 'ml':
                     show = chunkData.ml_details && !chunkData.ml_details.error;
+                    break;
+                case 'mismatch':
+                    show = chunkData.ml_mismatch === true;
                     break;
             }
             
@@ -4451,35 +4475,13 @@
     async function submitChunkFeedback(chunkIndex, isCorrect) {
         const chunkData = window.chunkDebugData.chunk_analysis[chunkIndex];
         
-        if (isCorrect) {
-            // Submit positive feedback immediately
-            await submitFeedback(chunkIndex, {
-                is_correct: true,
-                user_classification: chunkData.is_kept ? 'Huntable' : 'Not Huntable',
-                comment: 'User confirmed classification is correct'
-            });
-        } else {
-            // Show feedback form for incorrect classification
-            const feedbackForm = document.getElementById(`feedbackForm${chunkIndex}`);
-            feedbackForm.classList.remove('hidden');
-        }
-    }
-    
-    async function submitDetailedFeedback(chunkIndex) {
-        const chunkData = window.chunkDebugData.chunk_analysis[chunkIndex];
-        const comment = document.getElementById(`feedbackComment${chunkIndex}`).value;
-        
         await submitFeedback(chunkIndex, {
-            is_correct: false,
-            user_classification: chunkData.is_kept ? 'Not Huntable' : 'Huntable',
-            comment: comment || 'User marked classification as incorrect'
+            is_correct: isCorrect,
+            user_classification: isCorrect ? 
+                (chunkData.is_kept ? 'Huntable' : 'Not Huntable') : 
+                (chunkData.is_kept ? 'Not Huntable' : 'Huntable'),
+            comment: isCorrect ? 'User confirmed classification is correct' : 'User marked classification as incorrect'
         });
-    }
-    
-    function cancelFeedback(chunkIndex) {
-        const feedbackForm = document.getElementById(`feedbackForm${chunkIndex}`);
-        feedbackForm.classList.add('hidden');
-        document.getElementById(`feedbackComment${chunkIndex}`).value = '';
     }
     
     async function submitFeedback(chunkIndex, feedbackData) {
@@ -4506,18 +4508,31 @@
             });
             
             if (response.ok) {
-                // Hide feedback form and show success message
-                document.getElementById(`feedbackForm${chunkIndex}`).classList.add('hidden');
-                document.getElementById(`feedbackSubmitted${chunkIndex}`).classList.remove('hidden');
+                // Show success message
+                const feedbackSubmitted = document.getElementById(`feedbackSubmitted${chunkIndex}`);
+                if (feedbackSubmitted) {
+                    feedbackSubmitted.classList.remove('hidden');
+                }
                 
                 showNotification('Feedback submitted successfully!', 'success');
             } else {
-                throw new Error('Failed to submit feedback');
+                const errorText = await response.text();
+                throw new Error(`HTTP ${response.status}: ${errorText}`);
             }
             
         } catch (error) {
             console.error('Feedback submission error:', error);
-            showNotification('Failed to submit feedback: ' + error.message, 'error');
+            let errorMessage = 'Failed to submit feedback';
+            
+            if (error.message) {
+                errorMessage += ': ' + error.message;
+            } else if (error instanceof TypeError) {
+                errorMessage += ': Network error or server unavailable';
+            } else {
+                errorMessage += ': Unknown error occurred';
+            }
+            
+            showNotification(errorMessage, 'error');
         }
     }
     

@@ -4114,6 +4114,19 @@ async def api_chunk_debug(article_id: int, chunk_size: int = 1000, overlap: int 
                     logger.warning(f"Error getting ML details for chunk {i}: {e}")
                     ml_details = {'error': str(e)}
             
+            # Calculate ML mismatch
+            ml_mismatch = False
+            ml_prediction_correct = None
+            if ml_details and not ml_details.get('error'):
+                # ML prediction: 1 = Huntable, 0 = Not Huntable
+                ml_prediction = ml_details.get('prediction', 0)
+                actual_decision = chunk_result.passed  # True = Kept, False = Removed
+                
+                # Mismatch occurs when ML says "Not Huntable" but chunk was kept,
+                # or ML says "Huntable" but chunk was removed
+                ml_mismatch = (ml_prediction == 1 and not actual_decision) or (ml_prediction == 0 and actual_decision)
+                ml_prediction_correct = not ml_mismatch
+            
             chunk_analysis.append({
                 'chunk_id': i,
                 'start': start,
@@ -4127,7 +4140,9 @@ async def api_chunk_debug(article_id: int, chunk_size: int = 1000, overlap: int 
                 'ml_details': ml_details,
                 'has_threat_keywords': any(features.get(k, 0) > 0 for k in features.keys() if 'threat' in k.lower() or 'hunt' in k.lower()),
                 'has_command_patterns': any(features.get(k, 0) > 0 for k in features.keys() if 'command' in k.lower() or 'pattern' in k.lower()),
-                'has_perfect_discriminators': content_filter._has_perfect_keywords(chunk_text)
+                'has_perfect_discriminators': content_filter._has_perfect_keywords(chunk_text),
+                'ml_mismatch': ml_mismatch,
+                'ml_prediction_correct': ml_prediction_correct
             })
         
         # Get cost estimates
@@ -4137,6 +4152,13 @@ async def api_chunk_debug(article_id: int, chunk_size: int = 1000, overlap: int 
         total_chunks = len(original_chunks)
         kept_chunks = len([c for c in chunk_analysis if c['is_kept']])
         removed_chunks = total_chunks - kept_chunks
+        
+        # Calculate ML accuracy statistics
+        ml_predictions = [c for c in chunk_analysis if c['ml_prediction_correct'] is not None]
+        ml_correct = len([c for c in ml_predictions if c['ml_prediction_correct']])
+        ml_total = len(ml_predictions)
+        ml_accuracy = (ml_correct / ml_total * 100) if ml_total > 0 else 0
+        ml_mismatches = len([c for c in chunk_analysis if c['ml_mismatch']])
         
         return {
             'article_id': article_id,
@@ -4155,6 +4177,12 @@ async def api_chunk_debug(article_id: int, chunk_size: int = 1000, overlap: int 
                 'cost_savings': filter_result.cost_savings,
                 'kept_chunks_count': kept_chunks,
                 'removed_chunks_count': removed_chunks
+            },
+            'ml_stats': {
+                'total_predictions': ml_total,
+                'correct_predictions': ml_correct,
+                'accuracy_percent': ml_accuracy,
+                'mismatches': ml_mismatches
             },
             'cost_estimate': cost_estimate,
             'filtering_stats': {
@@ -4189,6 +4217,9 @@ async def api_feedback_chunk_classification(request: Request):
         import os
         import csv
         from datetime import datetime
+        
+        # Ensure outputs directory exists
+        os.makedirs(os.path.dirname(feedback_file), exist_ok=True)
         
         file_exists = os.path.exists(feedback_file)
         

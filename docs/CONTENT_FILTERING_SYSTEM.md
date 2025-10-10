@@ -7,7 +7,7 @@ I've successfully designed and implemented a machine learning-based content filt
 ## Key Findings from Annotation Analysis
 
 **Data Analysis:**
-- **21 total annotations:** 9 Huntable, 12 Not Huntable
+- **22 total annotations:** 9 Huntable, 13 Not Huntable
 - **Huntable patterns:** Commands (14), URLs (5), File paths (7), Processes (6), Technical terms (32)
 - **Not Huntable patterns:** Acknowledgments, general statements, marketing content
 - **Text characteristics:** Huntable texts are shorter (407 chars avg) but more technical
@@ -59,9 +59,10 @@ I've successfully designed and implemented a machine learning-based content filt
 ## Validation Results
 
 ### ML Model Performance
-- **Accuracy:** 80% on test data
+- **Accuracy:** 80% on test data (requires validation)
 - **Precision:** 100% for Huntable, 75% for Not Huntable
 - **Recall:** 50% for Huntable, 100% for Not Huntable
+- **Features:** 27 extracted features per chunk (including hunt score integration)
 
 ### Cost Savings Analysis
 **Sample Content (1,996 chars, ~499 tokens):**
@@ -136,6 +137,67 @@ GPT-4o API
 Analysis Results + Cost Savings
 ```
 
+## ML Mismatch Analysis (NEW)
+
+### Overview
+The system now includes comprehensive ML mismatch analysis to identify discrepancies between ML predictions and actual filtering decisions.
+
+### Features
+- **Visual Indicators**: Yellow rings around mismatched chunks in visualization
+- **Filter Button**: "Show ML Mismatches" to isolate problematic chunks
+- **Statistics Dashboard**: Real-time accuracy metrics and mismatch counts
+- **Chunk Tags**: "ML MISMATCH" badges for easy identification
+
+### API Integration
+```python
+# Chunk debug endpoint with mismatch analysis
+GET /api/articles/{article_id}/chunk-debug
+
+# Response includes:
+{
+    "ml_stats": {
+        "total_predictions": 18,
+        "correct_predictions": 13,
+        "accuracy_percent": 72.2,
+        "mismatches": 5
+    },
+    "chunk_analysis": [
+        {
+            "ml_mismatch": true,
+            "ml_prediction_correct": false,
+            "ml_details": {
+                "prediction": 0,
+                "prediction_label": "Not Huntable",
+                "confidence": 0.665
+            }
+        }
+    ]
+}
+```
+
+### Use Cases
+- **Model Validation**: Identify where ML predictions fail
+- **Training Data Collection**: Gather examples for model improvement
+- **Quality Assurance**: Monitor filtering accuracy over time
+- **Debugging**: Understand why specific chunks were filtered
+
+## Chunk Debug Interface (NEW)
+
+### Features
+- **Interactive Visualization**: Click-to-highlight chunks
+- **Real-time Filtering**: Multiple filter buttons for different chunk types
+- **Detailed Analysis**: Feature breakdown and ML prediction details
+- **Feedback System**: User feedback collection for model improvement
+
+### Filter Options
+- Show All Chunks
+- Show Kept Only
+- Show Removed Only
+- Show Threat Keywords
+- Show Perfect Discriminators
+- Show ML Predictions
+- **Show ML Mismatches** (NEW)
+
 ## Future Enhancements
 
 1. **Expand Training Data:** Collect more annotations to improve model accuracy
@@ -149,8 +211,11 @@ Analysis Results + Cost Savings
 The content filtering system successfully reduces GPT-4o costs by 20-80% while maintaining analysis quality. The ML model achieves 80% accuracy in classifying huntable vs non-huntable content, and the pattern-based fallback ensures reliable operation. Users can control filtering aggressiveness through confidence thresholds, providing flexibility for different use cases.
 
 **Key Metrics:**
-- ✅ 80% ML model accuracy
+- ✅ 80% ML model accuracy (requires validation)
 - ✅ 20-80% cost reduction
 - ✅ Preserves technical content
 - ✅ User-configurable filtering
 - ✅ Backward compatibility maintained
+- ✅ ML mismatch analysis for model validation
+- ✅ Interactive chunk debug interface
+- ✅ 27 features including hunt score integration
