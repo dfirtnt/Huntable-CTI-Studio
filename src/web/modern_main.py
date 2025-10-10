@@ -675,6 +675,193 @@ async def api_get_source(source_id: int):
         logger.error(f"API get source error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+# Backup API endpoints
+@app.post("/api/backup/create")
+async def api_create_backup(request: Request):
+    """API endpoint for creating a backup."""
+    try:
+        payload = await request.json()
+        backup_type = payload.get("type", "full")
+        compress = payload.get("compress", True)
+        verify = payload.get("verify", True)
+        
+        # Import backup system
+        import subprocess
+        import sys
+        from pathlib import Path
+        
+        # Get project root
+        project_root = Path(__file__).parent.parent.parent
+        
+        # Build command
+        cmd = [
+            sys.executable,
+            str(project_root / "scripts" / "backup_system.py"),
+            "--type", backup_type
+        ]
+        
+        if not compress:
+            cmd.append("--no-compress")
+        if not verify:
+            cmd.append("--no-verify")
+        
+        # Run backup
+        result = subprocess.run(
+            cmd,
+            cwd=str(project_root),
+            capture_output=True,
+            text=True,
+            timeout=300
+        )
+        
+        if result.returncode == 0:
+            # Extract backup name from output
+            output_lines = result.stdout.strip().split('\n')
+            backup_name = None
+            for line in output_lines:
+                if "Creating comprehensive system backup:" in line:
+                    backup_name = line.split(":")[-1].strip()
+                    break
+            
+            return {
+                "success": True,
+                "backup_name": backup_name or "unknown",
+                "message": "Backup created successfully"
+            }
+        else:
+            raise HTTPException(
+                status_code=500,
+                detail=f"Backup failed: {result.stderr}"
+            )
+            
+    except subprocess.TimeoutExpired:
+        raise HTTPException(status_code=500, detail="Backup timed out")
+    except Exception as e:
+        logger.error(f"Backup creation error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/backup/list")
+async def api_list_backups():
+    """API endpoint for listing backups."""
+    try:
+        import subprocess
+        import sys
+        from pathlib import Path
+        
+        # Get project root
+        project_root = Path(__file__).parent.parent.parent
+        
+        # Run list command
+        result = subprocess.run(
+            [sys.executable, str(project_root / "scripts" / "prune_backups.py"), "--stats"],
+            cwd=str(project_root),
+            capture_output=True,
+            text=True,
+            timeout=30
+        )
+        
+        if result.returncode == 0:
+            # Parse output to extract backup list
+            backups = []
+            lines = result.stdout.split('\n')
+            in_backup_list = False
+            
+            for line in lines:
+                if "Recent Backups" in line:
+                    in_backup_list = True
+                    continue
+                if in_backup_list and line.strip() and not line.startswith(' '):
+                    # Parse backup line
+                    parts = line.split()
+                    if len(parts) >= 3:
+                        backup_name = parts[1].rstrip(',')
+                        size_mb = parts[-1].replace('MB', '')
+                        try:
+                            backups.append({
+                                "name": backup_name,
+                                "size_mb": float(size_mb)
+                            })
+                        except ValueError:
+                            continue
+            
+            return backups
+        else:
+            raise HTTPException(
+                status_code=500,
+                detail=f"Failed to list backups: {result.stderr}"
+            )
+            
+    except subprocess.TimeoutExpired:
+        raise HTTPException(status_code=500, detail="List backups timed out")
+    except Exception as e:
+        logger.error(f"List backups error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/backup/status")
+async def api_backup_status():
+    """API endpoint for getting backup status."""
+    try:
+        import subprocess
+        import sys
+        from pathlib import Path
+        
+        # Get project root
+        project_root = Path(__file__).parent.parent.parent
+        
+        # Check if automated backups are configured
+        result = subprocess.run(
+            ["crontab", "-l"],
+            capture_output=True,
+            text=True,
+            timeout=10
+        )
+        
+        automated = "scripts/backup_restore.sh" in result.stdout if result.returncode == 0 else False
+        
+        # Get backup statistics
+        stats_result = subprocess.run(
+            [sys.executable, str(project_root / "scripts" / "prune_backups.py"), "--stats"],
+            cwd=str(project_root),
+            capture_output=True,
+            text=True,
+            timeout=30
+        )
+        
+        total_backups = 0
+        total_size_gb = 0.0
+        last_backup = None
+        
+        if stats_result.returncode == 0:
+            lines = stats_result.stdout.split('\n')
+            for line in lines:
+                if "Total backups:" in line:
+                    total_backups = int(line.split(":")[-1].strip())
+                elif "Total size:" in line:
+                    size_str = line.split(":")[-1].strip()
+                    if "GB" in size_str:
+                        total_size_gb = float(size_str.replace("GB", "").strip())
+                elif "Recent Backups" in line:
+                    # Get first backup as last backup
+                    for next_line in lines[lines.index(line)+1:]:
+                        if next_line.strip() and not next_line.startswith(' '):
+                            parts = next_line.split()
+                            if len(parts) >= 2:
+                                last_backup = parts[1].rstrip(',')
+                            break
+        
+        return {
+            "automated": automated,
+            "total_backups": total_backups,
+            "total_size_gb": total_size_gb,
+            "last_backup": last_backup
+        }
+        
+    except subprocess.TimeoutExpired:
+        raise HTTPException(status_code=500, detail="Status check timed out")
+    except Exception as e:
+        logger.error(f"Backup status error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 
 
         update_fields: Dict[str, Any] = {}

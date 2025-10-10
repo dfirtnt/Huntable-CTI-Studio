@@ -54,6 +54,237 @@
             </div>
         </div>
 
+        <!-- Backup Configuration -->
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+            <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">💾 Backup Configuration</h2>
+            
+            <div class="space-y-6">
+                <!-- Backup Schedule -->
+                <div>
+                    <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-3">🕐 Schedule</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label for="backupTime" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                Daily Backup Time
+                            </label>
+                            <input type="time" 
+                                   id="backupTime" 
+                                   value="02:00"
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                            <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Time for daily automated backups</p>
+                        </div>
+                        <div>
+                            <label for="cleanupTime" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                Weekly Cleanup Time
+                            </label>
+                            <input type="time" 
+                                   id="cleanupTime" 
+                                   value="03:00"
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                            <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Time for weekly cleanup (Sundays)</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Retention Policy -->
+                <div>
+                    <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-3">📊 Retention Policy</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                        <div>
+                            <label for="dailyRetention" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                Daily Backups
+                            </label>
+                            <input type="number" 
+                                   id="dailyRetention" 
+                                   value="7" 
+                                   min="0" 
+                                   max="30"
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                            <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Keep last N daily backups</p>
+                        </div>
+                        <div>
+                            <label for="weeklyRetention" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                Weekly Backups
+                            </label>
+                            <input type="number" 
+                                   id="weeklyRetention" 
+                                   value="4" 
+                                   min="0" 
+                                   max="12"
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                            <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Keep last N weekly backups</p>
+                        </div>
+                        <div>
+                            <label for="monthlyRetention" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                Monthly Backups
+                            </label>
+                            <input type="number" 
+                                   id="monthlyRetention" 
+                                   value="3" 
+                                   min="0" 
+                                   max="12"
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                            <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Keep last N monthly backups</p>
+                        </div>
+                        <div>
+                            <label for="maxSizeGb" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                Max Size (GB)
+                            </label>
+                            <input type="number" 
+                                   id="maxSizeGb" 
+                                   value="50" 
+                                   min="1" 
+                                   max="1000"
+                                   step="1"
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                            <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Maximum total backup size</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Backup Components -->
+                <div>
+                    <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-3">🧩 Backup Components</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        <div class="flex items-center">
+                            <input type="checkbox" 
+                                   id="backupDatabase" 
+                                   checked
+                                   class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
+                            <label for="backupDatabase" class="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                                Database
+                            </label>
+                        </div>
+                        <div class="flex items-center">
+                            <input type="checkbox" 
+                                   id="backupModels" 
+                                   checked
+                                   class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
+                            <label for="backupModels" class="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                                ML Models
+                            </label>
+                        </div>
+                        <div class="flex items-center">
+                            <input type="checkbox" 
+                                   id="backupConfig" 
+                                   checked
+                                   class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
+                            <label for="backupConfig" class="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                                Configuration
+                            </label>
+                        </div>
+                        <div class="flex items-center">
+                            <input type="checkbox" 
+                                   id="backupOutputs" 
+                                   checked
+                                   class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
+                            <label for="backupOutputs" class="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                                Training Data
+                            </label>
+                        </div>
+                        <div class="flex items-center">
+                            <input type="checkbox" 
+                                   id="backupLogs" 
+                                   checked
+                                   class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
+                            <label for="backupLogs" class="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                                Logs
+                            </label>
+                        </div>
+                        <div class="flex items-center">
+                            <input type="checkbox" 
+                                   id="backupDockerVolumes" 
+                                   checked
+                                   class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
+                            <label for="backupDockerVolumes" class="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                                Docker Volumes
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Backup Settings -->
+                <div>
+                    <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-3">⚙️ Backup Settings</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label for="backupDirectory" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                Backup Directory
+                            </label>
+                            <input type="text" 
+                                   id="backupDirectory" 
+                                   value="backups"
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                            <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Directory to store backups</p>
+                        </div>
+                        <div>
+                            <label for="backupType" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                Backup Type
+                            </label>
+                            <select id="backupType" 
+                                    class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                                <option value="full">Full System</option>
+                                <option value="database">Database Only</option>
+                                <option value="files">Files Only</option>
+                            </select>
+                            <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Type of backup to create</p>
+                        </div>
+                    </div>
+                    <div class="mt-4 space-y-3">
+                        <div class="flex items-center">
+                            <input type="checkbox" 
+                                   id="enableCompression" 
+                                   checked
+                                   class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
+                            <label for="enableCompression" class="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                                Enable Compression
+                            </label>
+                        </div>
+                        <div class="flex items-center">
+                            <input type="checkbox" 
+                                   id="enableVerification" 
+                                   checked
+                                   class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
+                            <label for="enableVerification" class="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                                Enable Verification
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Backup Actions -->
+                <div>
+                    <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-3">🚀 Backup Actions</h3>
+                    <div class="flex flex-wrap gap-3">
+                        <button id="createBackupBtn" 
+                                class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
+                            Create Backup Now
+                        </button>
+                        <button id="listBackupsBtn" 
+                                class="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2">
+                            List Backups
+                        </button>
+                        <button id="backupStatusBtn" 
+                                class="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2">
+                            Check Status
+                        </button>
+                        <button id="saveBackupConfigBtn" 
+                                class="px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2">
+                            Save Configuration
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Backup Status Display -->
+                <div id="backupStatusDisplay" class="hidden">
+                    <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-3">📊 Backup Status</h3>
+                    <div id="backupStatusContent" class="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
+                        <!-- Status content will be populated here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- AI Model Configuration -->
         <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
             <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">🤖 AI Assistant Configuration</h2>
@@ -291,6 +522,9 @@
         const sigmaAuthor = settings.sigmaAuthor || '';
         document.getElementById('sigmaAuthor').value = sigmaAuthor;
         
+        // Load backup configuration
+        loadBackupSettings();
+        
         // Update API Configuration section visibility
         updateApiConfigurationVisibility();
     }
@@ -324,6 +558,36 @@
         }
     }
     
+    // Load backup settings
+    function loadBackupSettings() {
+        const settings = JSON.parse(localStorage.getItem('ctiScraperSettings') || '{}');
+        const backupSettings = settings.backupSettings || {};
+        
+        // Set backup schedule
+        document.getElementById('backupTime').value = backupSettings.backupTime || '02:00';
+        document.getElementById('cleanupTime').value = backupSettings.cleanupTime || '03:00';
+        
+        // Set retention policy
+        document.getElementById('dailyRetention').value = backupSettings.dailyRetention || 7;
+        document.getElementById('weeklyRetention').value = backupSettings.weeklyRetention || 4;
+        document.getElementById('monthlyRetention').value = backupSettings.monthlyRetention || 3;
+        document.getElementById('maxSizeGb').value = backupSettings.maxSizeGb || 50;
+        
+        // Set backup components
+        document.getElementById('backupDatabase').checked = backupSettings.backupDatabase !== false;
+        document.getElementById('backupModels').checked = backupSettings.backupModels !== false;
+        document.getElementById('backupConfig').checked = backupSettings.backupConfig !== false;
+        document.getElementById('backupOutputs').checked = backupSettings.backupOutputs !== false;
+        document.getElementById('backupLogs').checked = backupSettings.backupLogs !== false;
+        document.getElementById('backupDockerVolumes').checked = backupSettings.backupDockerVolumes !== false;
+        
+        // Set backup settings
+        document.getElementById('backupDirectory').value = backupSettings.backupDirectory || 'backups';
+        document.getElementById('backupType').value = backupSettings.backupType || 'full';
+        document.getElementById('enableCompression').checked = backupSettings.enableCompression !== false;
+        document.getElementById('enableVerification').checked = backupSettings.enableVerification !== false;
+    }
+    
     // Save settings to localStorage
     function saveSettings() {
         const settings = {
@@ -333,7 +597,25 @@
             anthropicApiKey: document.getElementById('anthropicApiKey').value,
             aiModel: document.getElementById('aiModel').value,
             aiTemperature: document.getElementById('aiTemperature').value,
-            sigmaAuthor: document.getElementById('sigmaAuthor').value
+            sigmaAuthor: document.getElementById('sigmaAuthor').value,
+            backupSettings: {
+                backupTime: document.getElementById('backupTime').value,
+                cleanupTime: document.getElementById('cleanupTime').value,
+                dailyRetention: parseInt(document.getElementById('dailyRetention').value),
+                weeklyRetention: parseInt(document.getElementById('weeklyRetention').value),
+                monthlyRetention: parseInt(document.getElementById('monthlyRetention').value),
+                maxSizeGb: parseInt(document.getElementById('maxSizeGb').value),
+                backupDatabase: document.getElementById('backupDatabase').checked,
+                backupModels: document.getElementById('backupModels').checked,
+                backupConfig: document.getElementById('backupConfig').checked,
+                backupOutputs: document.getElementById('backupOutputs').checked,
+                backupLogs: document.getElementById('backupLogs').checked,
+                backupDockerVolumes: document.getElementById('backupDockerVolumes').checked,
+                backupDirectory: document.getElementById('backupDirectory').value,
+                backupType: document.getElementById('backupType').value,
+                enableCompression: document.getElementById('enableCompression').checked,
+                enableVerification: document.getElementById('enableVerification').checked
+            }
         };
         
         localStorage.setItem('ctiScraperSettings', JSON.stringify(settings));
@@ -568,7 +850,159 @@
             saveSettings();
         });
         
+        // Backup configuration fields
+        document.getElementById('backupTime').addEventListener('change', saveSettings);
+        document.getElementById('cleanupTime').addEventListener('change', saveSettings);
+        document.getElementById('dailyRetention').addEventListener('change', saveSettings);
+        document.getElementById('weeklyRetention').addEventListener('change', saveSettings);
+        document.getElementById('monthlyRetention').addEventListener('change', saveSettings);
+        document.getElementById('maxSizeGb').addEventListener('change', saveSettings);
+        document.getElementById('backupDirectory').addEventListener('change', saveSettings);
+        document.getElementById('backupType').addEventListener('change', saveSettings);
+        document.getElementById('enableCompression').addEventListener('change', saveSettings);
+        document.getElementById('enableVerification').addEventListener('change', saveSettings);
+        
+        // Backup component checkboxes
+        ['backupDatabase', 'backupModels', 'backupConfig', 'backupOutputs', 'backupLogs', 'backupDockerVolumes'].forEach(id => {
+            document.getElementById(id).addEventListener('change', saveSettings);
+        });
+        
+        // Backup action buttons
+        document.getElementById('createBackupBtn').addEventListener('click', createBackup);
+        document.getElementById('listBackupsBtn').addEventListener('click', listBackups);
+        document.getElementById('backupStatusBtn').addEventListener('click', checkBackupStatus);
+        document.getElementById('saveBackupConfigBtn').addEventListener('click', saveSettings);
+        
     });
+    
+    // Backup action functions
+    async function createBackup() {
+        const backupType = document.getElementById('backupType').value;
+        const compress = document.getElementById('enableCompression').checked;
+        const verify = document.getElementById('enableVerification').checked;
+        
+        try {
+            const response = await fetch('/api/backup/create', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    type: backupType,
+                    compress: compress,
+                    verify: verify
+                })
+            });
+            
+            if (response.ok) {
+                const result = await response.json();
+                showNotification(`Backup created successfully: ${result.backup_name}`, 'success');
+            } else {
+                const error = await response.json();
+                showNotification(`Backup failed: ${error.detail}`, 'error');
+            }
+        } catch (error) {
+            showNotification(`Backup failed: ${error.message}`, 'error');
+        }
+    }
+    
+    async function listBackups() {
+        try {
+            const response = await fetch('/api/backup/list');
+            if (response.ok) {
+                const backups = await response.json();
+                displayBackupList(backups);
+            } else {
+                showNotification('Failed to list backups', 'error');
+            }
+        } catch (error) {
+            showNotification(`Failed to list backups: ${error.message}`, 'error');
+        }
+    }
+    
+    async function checkBackupStatus() {
+        try {
+            const response = await fetch('/api/backup/status');
+            if (response.ok) {
+                const status = await response.json();
+                displayBackupStatus(status);
+            } else {
+                showNotification('Failed to get backup status', 'error');
+            }
+        } catch (error) {
+            showNotification(`Failed to get backup status: ${error.message}`, 'error');
+        }
+    }
+    
+    function displayBackupList(backups) {
+        const statusDisplay = document.getElementById('backupStatusDisplay');
+        const statusContent = document.getElementById('backupStatusContent');
+        
+        let html = '<h4 class="font-semibold mb-2">Available Backups:</h4>';
+        if (backups.length === 0) {
+            html += '<p class="text-gray-500">No backups found.</p>';
+        } else {
+            html += '<div class="space-y-2">';
+            backups.forEach(backup => {
+                html += `
+                    <div class="flex justify-between items-center p-2 bg-gray-100 dark:bg-gray-600 rounded">
+                        <span class="font-mono text-sm">${backup.name}</span>
+                        <span class="text-sm text-gray-500">${backup.size_mb} MB</span>
+                    </div>
+                `;
+            });
+            html += '</div>';
+        }
+        
+        statusContent.innerHTML = html;
+        statusDisplay.classList.remove('hidden');
+    }
+    
+    function displayBackupStatus(status) {
+        const statusDisplay = document.getElementById('backupStatusDisplay');
+        const statusContent = document.getElementById('backupStatusContent');
+        
+        let html = '<h4 class="font-semibold mb-2">Backup Status:</h4>';
+        html += `
+            <div class="space-y-2">
+                <div class="flex justify-between">
+                    <span>Automated Backups:</span>
+                    <span class="${status.automated ? 'text-green-600' : 'text-red-600'}">
+                        ${status.automated ? '✅ Enabled' : '❌ Disabled'}
+                    </span>
+                </div>
+                <div class="flex justify-between">
+                    <span>Total Backups:</span>
+                    <span>${status.total_backups}</span>
+                </div>
+                <div class="flex justify-between">
+                    <span>Total Size:</span>
+                    <span>${status.total_size_gb} GB</span>
+                </div>
+                <div class="flex justify-between">
+                    <span>Last Backup:</span>
+                    <span>${status.last_backup || 'Never'}</span>
+                </div>
+            </div>
+        `;
+        
+        statusContent.innerHTML = html;
+        statusDisplay.classList.remove('hidden');
+    }
+    
+    function showNotification(message, type) {
+        // Simple notification system
+        const notification = document.createElement('div');
+        notification.className = `fixed top-4 right-4 p-4 rounded-md shadow-lg z-50 ${
+            type === 'success' ? 'bg-green-500 text-white' : 'bg-red-500 text-white'
+        }`;
+        notification.textContent = message;
+        document.body.appendChild(notification);
+        
+        setTimeout(() => {
+            notification.remove();
+        }, 3000);
+    }
     
     
     async function exportAnnotations() {

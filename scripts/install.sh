@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# CTI Scraper Quick Setup Script
-# This script provides a quick setup for new installations with automated backups
+# CTI Scraper Installation Script
+# This script sets up the CTI Scraper with automated backups enabled by default
 
 set -e
 
@@ -37,21 +37,14 @@ show_usage() {
     echo ""
     echo "Options:"
     echo "  --no-backups              Skip automated backup setup"
-    echo "  --backup-time <time>       Backup time (HH:MM format, default: 2:00)"
+    echo "  --backup-time <time>      Backup time (HH:MM format, default: 2:00)"
+    echo "  --backup-dir <dir>        Backup directory (default: backups)"
     echo "  --help                    Show this help message"
     echo ""
     echo "Examples:"
-    echo "  $0                        # Quick setup with automated backups"
-    echo "  $0 --no-backups           # Quick setup without automated backups"
-    echo "  $0 --backup-time 1:30     # Quick setup with custom backup time"
-}
-
-# Function to check if we're in the right directory
-check_directory() {
-    if [ ! -f "docker-compose.yml" ]; then
-        print_error "Please run this script from the CTI Scraper root directory"
-        exit 1
-    fi
+    echo "  $0                        # Full installation with automated backups"
+    echo "  $0 --no-backups           # Installation without automated backups"
+    echo "  $0 --backup-time 1:30     # Installation with custom backup time"
 }
 
 # Function to check prerequisites
@@ -67,6 +60,12 @@ check_prerequisites() {
     # Check Docker Compose
     if ! command -v docker-compose &> /dev/null; then
         print_error "Docker Compose is not installed. Please install Docker Compose first."
+        exit 1
+    fi
+    
+    # Check Python
+    if ! command -v python3 &> /dev/null; then
+        print_error "Python 3 is not installed. Please install Python 3 first."
         exit 1
     fi
     
@@ -88,7 +87,7 @@ setup_environment() {
         if [ -f "env.example" ]; then
             print_status "Creating .env file from env.example"
             cp env.example .env
-            print_warning "Please edit .env file with your configuration"
+            print_warning "Please edit .env file with your configuration before starting services"
         else
             print_warning "No env.example found. Please create .env file manually"
         fi
@@ -107,7 +106,7 @@ setup_environment() {
     print_status "Environment setup complete!"
 }
 
-# Function to start services
+# Function to build and start services
 start_services() {
     print_header "Starting Services"
     
@@ -120,7 +119,7 @@ start_services() {
     
     # Wait for services to be healthy
     print_status "Waiting for services to be healthy..."
-    sleep 15
+    sleep 10
     
     # Check service status
     print_status "Service status:"
@@ -132,6 +131,7 @@ start_services() {
 # Function to setup automated backups
 setup_automated_backups() {
     local backup_time=$1
+    local backup_dir=$2
     
     print_header "Setting Up Automated Backups"
     
@@ -142,8 +142,8 @@ setup_automated_backups() {
     fi
     
     # Run backup setup
-    print_status "Configuring automated daily backups at $backup_time..."
-    ./scripts/setup_automated_backups.sh --backup-time "$backup_time"
+    print_status "Configuring automated daily backups..."
+    ./scripts/setup_automated_backups.sh --backup-time "$backup_time" --backup-dir "$backup_dir"
     
     print_status "Automated backups configured successfully!"
 }
@@ -176,15 +176,22 @@ verify_installation() {
         print_warning "⚠️  Web service is not ready yet"
     fi
     
+    # Check backup system
+    if [ -f "scripts/backup_system.py" ]; then
+        print_status "✅ Backup system is available"
+    else
+        print_warning "⚠️  Backup system not found"
+    fi
+    
     print_status "Installation verification complete!"
 }
 
 # Function to show post-installation information
 show_post_install_info() {
-    print_header "Setup Complete!"
+    print_header "Installation Complete!"
     
     echo ""
-    echo "🎉 CTI Scraper has been successfully set up!"
+    echo "🎉 CTI Scraper has been successfully installed!"
     echo ""
     echo "📋 Service Information:"
     echo "   • Web Interface: http://localhost:8001"
@@ -201,13 +208,24 @@ show_post_install_info() {
     echo "💾 Backup Commands:"
     echo "   • Create backup: ./scripts/backup_restore.sh create"
     echo "   • List backups: ./scripts/backup_restore.sh list"
+    echo "   • Restore backup: ./scripts/backup_restore.sh restore <backup_name>"
     echo "   • Check backup status: ./scripts/setup_automated_backups.sh --status"
+    echo ""
+    echo "📚 Documentation:"
+    echo "   • Backup System: docs/development/BACKUP_SYSTEM.md"
+    echo "   • Database Backup: docs/DATABASE_BACKUP_RESTORE.md"
+    echo "   • API Documentation: docs/API_ENDPOINTS.md"
     echo ""
     echo "⚠️  Next Steps:"
     echo "   1. Edit .env file with your configuration"
     echo "   2. Restart services: docker-compose restart"
     echo "   3. Access web interface: http://localhost:8001"
     echo "   4. Verify automated backups are working"
+    echo ""
+    echo "🆘 Support:"
+    echo "   • Check logs: docker-compose logs"
+    echo "   • Backup status: ./scripts/setup_automated_backups.sh --status"
+    echo "   • Troubleshooting: docs/development/"
     echo ""
 }
 
@@ -216,6 +234,7 @@ main() {
     # Default values
     local no_backups=false
     local backup_time="2:00"
+    local backup_dir="backups"
     local help=false
     
     # Parse command line arguments
@@ -227,6 +246,10 @@ main() {
                 ;;
             --backup-time)
                 backup_time="$2"
+                shift 2
+                ;;
+            --backup-dir)
+                backup_dir="$2"
                 shift 2
                 ;;
             --help)
@@ -247,11 +270,8 @@ main() {
         exit 0
     fi
     
-    # Check directory
-    check_directory
-    
-    # Start setup
-    print_header "CTI Scraper Quick Setup"
+    # Start installation
+    print_header "CTI Scraper Installation"
     
     # Check prerequisites
     check_prerequisites
@@ -264,7 +284,7 @@ main() {
     
     # Setup automated backups (unless disabled)
     if [ "$no_backups" = false ]; then
-        setup_automated_backups "$backup_time"
+        setup_automated_backups "$backup_time" "$backup_dir"
     else
         print_warning "Skipping automated backup setup"
     fi
