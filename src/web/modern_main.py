@@ -1938,6 +1938,7 @@ async def api_chatgpt_summary(article_id: int, request: Request):
         ai_model = body.get('ai_model', 'chatgpt')  # Get AI model from request
         force_regenerate = body.get('force_regenerate', False)  # Force regeneration
         optimization_options = body.get('optimization_options', {})  # Get optimization options
+        temperature = float(body.get('temperature', 0.3))  # Get temperature from request
         
         logger.info(f"Summary request for article {article_id}, ai_model: {ai_model}, api_key provided: {bool(api_key)}, force_regenerate: {force_regenerate}")
         
@@ -2054,9 +2055,9 @@ async def api_chatgpt_summary(article_id: int, request: Request):
                             }
                         ],
                         "max_tokens": 2048,
-                        "temperature": 0.3
+                        "temperature": temperature
                     },
-                    timeout=60.0
+                    timeout=180.0  # Increased timeout for large articles
                 )
                 
                 if response.status_code != 200:
@@ -2086,7 +2087,7 @@ async def api_chatgpt_summary(article_id: int, request: Request):
                     json={
                         "model": "claude-3-haiku-20240307",
                         "max_tokens": 2048,
-                        "temperature": 0.3,
+                        "temperature": temperature,
                         "messages": [
                             {
                                 "role": "user",
@@ -2094,7 +2095,7 @@ async def api_chatgpt_summary(article_id: int, request: Request):
                             }
                         ]
                     },
-                    timeout=60.0
+                    timeout=180.0  # Increased timeout for large articles
                 )
                 
                 if response.status_code != 200:
@@ -2112,7 +2113,7 @@ async def api_chatgpt_summary(article_id: int, request: Request):
         else:
             # Use Ollama API
             ollama_url = os.getenv('LLM_API_URL', 'http://cti_ollama:11434')
-            ollama_model = os.getenv('LLM_MODEL', 'llama3.2:1b')
+            ollama_model = os.getenv('LLM_MODEL', 'llama3.1:8b-instruct-q4_0')
             
             logger.info(f"Using Ollama at {ollama_url} with model {ollama_model}")
             
@@ -2125,11 +2126,11 @@ async def api_chatgpt_summary(article_id: int, request: Request):
                             "prompt": prompt,
                             "stream": False,
                             "options": {
-                                "temperature": 0.3,
+                                "temperature": temperature,
                                 "num_predict": 2048
                             }
                         },
-                        timeout=300.0
+                        timeout=600.0  # Increased timeout for large articles
                     )
                     
                     if response.status_code != 200:
@@ -2156,7 +2157,8 @@ async def api_chatgpt_summary(article_id: int, request: Request):
             'summarized_at': datetime.now().isoformat(),
             'content_type': 'full content' if include_content else 'metadata only',
             'model_used': model_used,
-            'model_name': model_name
+            'model_name': model_name,
+            'temperature': temperature
         }
         
         # Add optimization details if filtering was used
@@ -2193,7 +2195,8 @@ async def api_chatgpt_summary(article_id: int, request: Request):
             "summarized_at": current_metadata['chatgpt_summary']['summarized_at'],
             "content_type": current_metadata['chatgpt_summary']['content_type'],
             "model_used": current_metadata['chatgpt_summary']['model_used'],
-            "model_name": current_metadata['chatgpt_summary']['model_name']
+            "model_name": current_metadata['chatgpt_summary']['model_name'],
+            "temperature": current_metadata['chatgpt_summary']['temperature']
         }
         
         # Add optimization details to response if available
@@ -2357,7 +2360,7 @@ async def api_custom_prompt(article_id: int, request: Request):
         else:
             # Use Ollama API
             ollama_url = os.getenv('LLM_API_URL', 'http://cti_ollama:11434')
-            ollama_model = os.getenv('LLM_MODEL', 'llama3.2:1b')
+            ollama_model = os.getenv('LLM_MODEL', 'llama3.1:8b-instruct-q4_0')
             
             logger.info(f"Using Ollama at {ollama_url} with model {ollama_model}")
             
@@ -2630,6 +2633,7 @@ async def api_generate_sigma(article_id: int, request: Request):
         ai_model = body.get('ai_model', 'chatgpt')  # Get AI model from request
         author_name = body.get('author_name', 'CTIScraper User')  # Get author name from request
         optimization_options = body.get('optimization_options', {})  # Get optimization options
+        temperature = float(body.get('temperature', 0.2))  # Get temperature from request (default 0.2 for SIGMA)
         
         # Check if article is marked as "chosen" (required for SIGMA generation)
         training_category = article.article_metadata.get('training_category', '') if article.article_metadata else ''
@@ -2800,7 +2804,7 @@ async def api_generate_sigma(article_id: int, request: Request):
                                 "model": "gpt-4",
                                 "messages": messages,
                                 "max_tokens": 2048,
-                                "temperature": 0.2
+                                "temperature": temperature
                             },
                             timeout=120.0
                         )
@@ -2855,7 +2859,7 @@ async def api_generate_sigma(article_id: int, request: Request):
                             json={
                                 "model": "claude-3-haiku-20240307",
                                 "max_tokens": 2048,
-                                "temperature": 0.2,
+                                "temperature": temperature,
                                 "messages": anthropic_messages
                             },
                             timeout=120.0
@@ -2877,7 +2881,7 @@ async def api_generate_sigma(article_id: int, request: Request):
                     else:
                         # Use Ollama API
                         ollama_url = os.getenv('LLM_API_URL', 'http://cti_ollama:11434')
-                        ollama_model = os.getenv('LLM_MODEL', 'llama3.2:1b')
+                        ollama_model = os.getenv('LLM_MODEL', 'llama3.1:8b-instruct-q4_0')
                         
                         logger.info(f"Using Ollama at {ollama_url} with model {ollama_model}")
                         
@@ -2891,7 +2895,7 @@ async def api_generate_sigma(article_id: int, request: Request):
                                 "prompt": full_prompt,
                                 "stream": False,
                                 "options": {
-                                    "temperature": 0.2,
+                                    "temperature": temperature,
                                     "num_predict": 2048
                                 }
                             },
@@ -3021,7 +3025,8 @@ async def api_generate_sigma(article_id: int, request: Request):
             'validation_results': validation_results,
             'conversation': conversation_log,
             'validation_passed': all_rules_valid,
-            'attempts_made': attempt
+            'attempts_made': attempt,
+            'temperature': temperature
         }
         
         # Add optimization details if filtering was used
@@ -3063,7 +3068,8 @@ async def api_generate_sigma(article_id: int, request: Request):
             "validation_results": validation_results,
             "conversation": conversation_log,
             "validation_passed": all_rules_valid,
-            "attempts_made": attempt
+            "attempts_made": attempt,
+            "temperature": current_metadata['sigma_rules']['temperature']
         }
         
         # Add optimization details to response if available
@@ -3409,7 +3415,7 @@ async def api_rank_with_gpt4o(article_id: int, request: Request):
         else:
             # Use Ollama API
             ollama_url = os.getenv('LLM_API_URL', 'http://cti_ollama:11434')
-            ollama_model = os.getenv('LLM_MODEL', 'llama3.2:1b')
+            ollama_model = os.getenv('LLM_MODEL', 'llama3.1:8b-instruct-q4_0')
             
             logger.info(f"Using Ollama at {ollama_url} with model {ollama_model}")
             
@@ -3906,7 +3912,7 @@ async def api_rag_chat(request: Request):
                 if use_llm:
                     # Use Ollama for LLM responses
                     ollama_url = os.getenv('LLM_API_URL', 'http://cti_ollama:11434')
-                    ollama_model = os.getenv('LLM_MODEL', 'llama3.2:1b')
+                    ollama_model = os.getenv('LLM_MODEL', 'llama3.1:8b-instruct-q4_0')
                     
                     # Use full context for comprehensive analysis
                     truncated_context = context[:5000] + "..." if len(context) > 5000 else context

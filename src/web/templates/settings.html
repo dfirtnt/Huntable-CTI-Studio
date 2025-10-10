@@ -73,6 +73,27 @@
                     <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Choose your preferred AI model for summaries and analysis</p>
                 </div>
                 
+                <!-- Temperature Setting -->
+                <div>
+                    <label for="aiTemperature" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        AI Temperature
+                    </label>
+                    <div class="flex items-center space-x-4">
+                        <input type="range" 
+                               id="aiTemperature" 
+                               min="0.0" 
+                               max="1.0" 
+                               step="0.1" 
+                               value="0.3"
+                               class="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider">
+                        <span id="temperatureValue" class="text-sm font-medium text-gray-700 dark:text-gray-300 min-w-[3rem]">0.3</span>
+                    </div>
+                    <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                        Controls randomness: <span class="font-medium">0.0</span> = deterministic, 
+                        <span class="font-medium">1.0</span> = creative. Default: <span class="font-medium">0.3</span>
+                    </p>
+                </div>
+                
                 <!-- Model Description -->
                 <div class="p-3 bg-blue-50 border border-blue-200 rounded-md">
                     <div class="text-sm text-blue-800">
@@ -261,6 +282,11 @@
         const aiModel = settings.aiModel || 'chatgpt';
         document.getElementById('aiModel').value = aiModel;
         
+        // Set AI temperature
+        const aiTemperature = settings.aiTemperature || '0.3';
+        document.getElementById('aiTemperature').value = aiTemperature;
+        document.getElementById('temperatureValue').textContent = aiTemperature;
+        
         // Set SIGMA author
         const sigmaAuthor = settings.sigmaAuthor || '';
         document.getElementById('sigmaAuthor').value = sigmaAuthor;
@@ -306,6 +332,7 @@
             openaiApiKey: document.getElementById('openaiApiKey').value,
             anthropicApiKey: document.getElementById('anthropicApiKey').value,
             aiModel: document.getElementById('aiModel').value,
+            aiTemperature: document.getElementById('aiTemperature').value,
             sigmaAuthor: document.getElementById('sigmaAuthor').value
         };
         
@@ -612,5 +639,17 @@
             notification.remove();
         }, 5000);
     }
+    
+    // Temperature slider event listener
+    document.addEventListener('DOMContentLoaded', function() {
+        const temperatureSlider = document.getElementById('aiTemperature');
+        const temperatureValue = document.getElementById('temperatureValue');
+        
+        if (temperatureSlider && temperatureValue) {
+            temperatureSlider.addEventListener('input', function() {
+                temperatureValue.textContent = this.value;
+            });
+        }
+    });
 </script>
 {% endblock %}

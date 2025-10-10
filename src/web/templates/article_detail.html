@@ -1784,7 +1784,10 @@
         // Add ESC key handler to close loading modal
         const handleEsc = function(e) {
             if (e.key === 'Escape') {
-                loadingModal.remove();
+                const modal = document.getElementById('loadingModal');
+                if (modal && modal.parentNode) {
+                    modal.remove();
+                }
                 document.removeEventListener('keydown', handleEsc);
                 showNotification('AI generation continues in the background. You can return to this article later to view the results.', 'info');
             }
@@ -1811,7 +1814,7 @@
         try {
             // Create a timeout promise - longer for LLM operations
             const timeoutPromise = new Promise((_, reject) => {
-                const timeoutMs = aiModel === 'chatgpt' ? 60000 : 200000; // 60s for ChatGPT, 200s for LLM
+                const timeoutMs = aiModel === 'chatgpt' ? 180000 : 600000; // 180s for ChatGPT, 600s for LLM
                 setTimeout(() => reject(new Error(`Request timed out after ${timeoutMs/1000} seconds`)), timeoutMs);
             });
             
@@ -1823,7 +1826,8 @@
                 include_content: true,
                 api_key: apiKey,
                 force_regenerate: forceRegenerate,
-                ai_model: aiModel
+                ai_model: aiModel,
+                temperature: parseFloat(settings.aiTemperature || '0.3')
             };
             
             // Add LLM validation setting for IOC extraction
@@ -1843,10 +1847,10 @@
                 if (!optimizationOptions) {
                     // User cancelled - clean up and return
                     const loadingModal = document.getElementById('loadingModal');
-                    if (loadingModal) {
+                    if (loadingModal && loadingModal.parentNode) {
                         loadingModal.remove();
-                        document.removeEventListener('keydown', handleEsc);
                     }
+                    document.removeEventListener('keydown', handleEsc);
                     return;
                 }
                 requestBody.optimization_options = optimizationOptions;
@@ -1893,11 +1897,11 @@
         } finally {
             // Remove loading modal and clean up ESC handler
             const loadingModal = document.getElementById('loadingModal');
-            if (loadingModal) {
+            if (loadingModal && loadingModal.parentNode) {
                 loadingModal.remove();
-                // Clean up the ESC key handler
-                document.removeEventListener('keydown', handleEsc);
             }
+            // Clean up the ESC key handler
+            document.removeEventListener('keydown', handleEsc);
         }
     }
     
@@ -2079,7 +2083,9 @@
             
             // Handle button clicks
             modal.querySelector('#cancelBtn').addEventListener('click', () => {
-                document.body.removeChild(modal);
+                if (modal && modal.parentNode) {
+                    modal.remove();
+                }
                 resolve(null);
             });
             
@@ -2087,7 +2093,9 @@
                 const useFiltering = useFilteringCheckbox.checked;
                 const minConfidence = parseFloat(modal.querySelector('#minConfidence').value);
                 
-                document.body.removeChild(modal);
+                if (modal && modal.parentNode) {
+                    modal.remove();
+                }
                 resolve({
                     useFiltering,
                     minConfidence
@@ -2097,7 +2105,9 @@
             // Handle escape key
             const handleEscape = (e) => {
                 if (e.key === 'Escape') {
-                    document.body.removeChild(modal);
+                    if (modal && modal.parentNode) {
+                        modal.remove();
+                    }
                     document.removeEventListener('keydown', handleEscape);
                     resolve(null);
                 }
@@ -2164,7 +2174,9 @@
         // Handle escape key
         const handleEscape = (e) => {
             if (e.key === 'Escape') {
-                modal.remove();
+                if (modal && modal.parentNode) {
+                    modal.remove();
+                }
                 document.removeEventListener('keydown', handleEscape);
             }
         };
@@ -2299,7 +2311,10 @@
         // Add ESC key handler to close loading modal
         const handleEsc = function(e) {
             if (e.key === 'Escape') {
-                loadingModal.remove();
+                const modal = document.getElementById('loadingModal');
+                if (modal && modal.parentNode) {
+                    modal.remove();
+                }
                 document.removeEventListener('keydown', handleEsc);
                 showNotification('Custom prompt generation continues in the background. You can return to this article later to view the results.', 'info');
             }
@@ -2326,7 +2341,7 @@
         try {
             // Create a timeout promise - longer for LLM operations
             const timeoutPromise = new Promise((_, reject) => {
-                const timeoutMs = aiModel === 'chatgpt' ? 60000 : 200000; // 60s for ChatGPT, 200s for LLM
+                const timeoutMs = aiModel === 'chatgpt' ? 180000 : 600000; // 180s for ChatGPT, 600s for LLM
                 setTimeout(() => reject(new Error(`Request timed out after ${timeoutMs/1000} seconds`)), timeoutMs);
             });
             
@@ -2363,11 +2378,11 @@
         } finally {
             // Remove loading modal and clean up ESC handler
             const loadingModal = document.getElementById('loadingModal');
-            if (loadingModal) {
+            if (loadingModal && loadingModal.parentNode) {
                 loadingModal.remove();
-                // Clean up the ESC key handler
-                document.removeEventListener('keydown', handleEsc);
             }
+            // Clean up the ESC key handler
+            document.removeEventListener('keydown', handleEsc);
         }
     }
     
@@ -2625,7 +2640,7 @@
             
             // Create a timeout promise - longer for LLM operations
             const timeoutPromise = new Promise((_, reject) => {
-                const timeoutMs = aiModel === 'chatgpt' ? 60000 : 200000; // 60s for ChatGPT, 200s for LLM
+                const timeoutMs = aiModel === 'chatgpt' ? 180000 : 600000; // 180s for ChatGPT, 600s for LLM
                 setTimeout(() => reject(new Error(`Request timed out after ${timeoutMs/1000} seconds`)), timeoutMs);
             });
             
@@ -2667,7 +2682,7 @@
         } finally {
             // Remove loading modal
             const loadingModal = document.getElementById('loadingModal');
-            if (loadingModal) {
+            if (loadingModal && loadingModal.parentNode) {
                 loadingModal.remove();
             }
         }
@@ -2732,6 +2747,10 @@
                         <div>
                             <span class="font-medium text-gray-700">Status:</span>
                             <span class="text-gray-900">${data?.cached ? '<span class="text-blue-600 font-medium">(Cached)</span>' : '<span class="text-green-600 font-medium">(Fresh)</span>'}</span>
+                        </div>
+                        <div>
+                            <span class="font-medium text-gray-700">Temperature:</span>
+                            <span class="text-gray-900">${data?.temperature || '0.3'}</span>
                         </div>
                     </div>
                     
@@ -2900,7 +2919,8 @@
                 
                 <div class="mb-4 text-sm text-gray-600">
                     <span class="font-medium">Generated by:</span> ${modelUsed} | 
-                    <span class="font-medium">Generated at:</span> ${generatedAt}
+                    <span class="font-medium">Generated at:</span> ${generatedAt} |
+                    <span class="font-medium">Temperature:</span> ${data?.temperature || '0.2'}
                     ${data?.cached ? ' | <span class="font-medium text-blue-600">(Cached)</span>' : ''}
                 </div>
                 
@@ -3820,7 +3840,9 @@
             const debugData = await response.json();
             
             // Remove loading modal
-            loadingModal.remove();
+            if (loadingModal && loadingModal.parentNode) {
+                loadingModal.remove();
+            }
             
             // Show chunk debug modal
             showChunkDebugResults(debugData);
