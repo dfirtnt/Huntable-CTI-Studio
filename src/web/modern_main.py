@@ -1937,6 +1937,7 @@ async def api_chatgpt_summary(article_id: int, request: Request):
         api_key = body.get('api_key')  # Get API key from request
         ai_model = body.get('ai_model', 'chatgpt')  # Get AI model from request
         force_regenerate = body.get('force_regenerate', False)  # Force regeneration
+        optimization_options = body.get('optimization_options', {})  # Get optimization options
         
         logger.info(f"Summary request for article {article_id}, ai_model: {ai_model}, api_key provided: {bool(api_key)}, force_regenerate: {force_regenerate}")
         
@@ -1975,20 +1976,32 @@ async def api_chatgpt_summary(article_id: int, request: Request):
                 from src.utils.gpt4o_optimizer import optimize_article_content
                 
                 try:
-                    min_confidence = float(os.getenv('CONTENT_FILTERING_CONFIDENCE', '0.6'))
-                    # Add timeout to content filtering to prevent delays
-                    optimization_result = await asyncio.wait_for(
-                        optimize_article_content(article.content, min_confidence=min_confidence),
-                        timeout=30.0  # 30 second timeout for content filtering
-                    )
-                    if optimization_result['success']:
-                        content = optimization_result['filtered_content']
-                        logger.info(f"Content filtered for summary: {optimization_result['tokens_saved']:,} tokens saved, "
-                                  f"{optimization_result['cost_reduction_percent']:.1f}% cost reduction")
+                    # Use optimization options if provided, otherwise use environment defaults
+                    use_filtering = optimization_options.get('useFiltering', True)
+                    min_confidence = optimization_options.get('minConfidence', float(os.getenv('CONTENT_FILTERING_CONFIDENCE', '0.6')))
+                    
+                    if use_filtering:
+                        # Add timeout to content filtering to prevent delays
+                        optimization_result = await asyncio.wait_for(
+                            optimize_article_content(
+                                article.content, 
+                                min_confidence=min_confidence,
+                                article_metadata=article.article_metadata,
+                                content_hash=article.content_hash
+                            ),
+                            timeout=30.0  # 30 second timeout for content filtering
+                        )
+                        if optimization_result['success']:
+                            content = optimization_result['filtered_content']
+                            logger.info(f"Content filtered for summary: {optimization_result['tokens_saved']:,} tokens saved, "
+                                      f"{optimization_result['cost_reduction_percent']:.1f}% cost reduction")
+                        else:
+                            # Fallback to original content if filtering fails
+                            content = article.content
+                            logger.warning("Content filtering failed for summary, using original content")
                     else:
-                        # Fallback to original content if filtering fails
                         content = article.content
-                        logger.warning("Content filtering failed for summary, using original content")
+                        logger.info("Content filtering disabled for summary")
                 except asyncio.TimeoutError:
                     logger.warning("Content filtering timed out for summary, using original content")
                     content = article.content
@@ -2138,7 +2151,7 @@ async def api_chatgpt_summary(article_id: int, request: Request):
                     raise HTTPException(status_code=500, detail=f"Failed to get summary from Ollama: {str(e)}")
         
         # Store the summary in article metadata
-        current_metadata['chatgpt_summary'] = {
+        summary_metadata = {
             'summary': summary,
             'summarized_at': datetime.now().isoformat(),
             'content_type': 'full content' if include_content else 'metadata only',
@@ -2146,11 +2159,34 @@ async def api_chatgpt_summary(article_id: int, request: Request):
             'model_name': model_name
         }
         
+        # Add optimization details if filtering was used
+        if include_content and content_filtering_enabled and optimization_options.get('useFiltering', True):
+            try:
+                # Get optimization stats from the last optimization result
+                optimization_result = await optimize_article_content(
+                    article.content, 
+                    min_confidence=optimization_options.get('minConfidence', float(os.getenv('CONTENT_FILTERING_CONFIDENCE', '0.6'))),
+                    article_metadata=article.article_metadata,
+                    content_hash=article.content_hash
+                )
+                if optimization_result['success']:
+                    summary_metadata['optimization'] = {
+                        'enabled': True,
+                        'cost_savings': optimization_result['cost_savings'],
+                        'tokens_saved': optimization_result['tokens_saved'],
+                        'chunks_removed': optimization_result['chunks_removed'],
+                        'min_confidence': optimization_options.get('minConfidence', float(os.getenv('CONTENT_FILTERING_CONFIDENCE', '0.6')))
+                    }
+            except Exception as e:
+                logger.warning(f"Could not add optimization details to summary metadata: {e}")
+        
+        current_metadata['chatgpt_summary'] = summary_metadata
+        
         # Update the article
         update_data = ArticleUpdate(article_metadata=current_metadata)
         await async_db_manager.update_article(article_id, update_data)
         
-        return {
+        response_data = {
             "success": True,
             "article_id": article_id,
             "summary": summary,
@@ -2159,6 +2195,12 @@ async def api_chatgpt_summary(article_id: int, request: Request):
             "model_used": current_metadata['chatgpt_summary']['model_used'],
             "model_name": current_metadata['chatgpt_summary']['model_name']
         }
+        
+        # Add optimization details to response if available
+        if 'optimization' in current_metadata['chatgpt_summary']:
+            response_data['optimization'] = current_metadata['chatgpt_summary']['optimization']
+        
+        return response_data
         
     except HTTPException:
         raise
@@ -2587,6 +2629,7 @@ async def api_generate_sigma(article_id: int, request: Request):
         api_key = body.get('api_key')  # Get API key from request
         ai_model = body.get('ai_model', 'chatgpt')  # Get AI model from request
         author_name = body.get('author_name', 'CTIScraper User')  # Get author name from request
+        optimization_options = body.get('optimization_options', {})  # Get optimization options
         
         # Check if article is marked as "chosen" (required for SIGMA generation)
         training_category = article.article_metadata.get('training_category', '') if article.article_metadata else ''
@@ -2630,21 +2673,28 @@ async def api_generate_sigma(article_id: int, request: Request):
                 from src.utils.gpt4o_optimizer import optimize_article_content
                 
                 try:
-                    min_confidence = float(os.getenv('CONTENT_FILTERING_CONFIDENCE', '0.8'))
-                    optimization_result = await optimize_article_content(
-                        article.content, 
-                        min_confidence=min_confidence,
-                        article_metadata=article.article_metadata,
-                        content_hash=article.content_hash
-                    )
-                    if optimization_result['success']:
-                        content = optimization_result['filtered_content']
-                        logger.info(f"Content filtered for SIGMA: {optimization_result['tokens_saved']:,} tokens saved, "
-                                  f"{optimization_result['cost_reduction_percent']:.1f}% cost reduction")
+                    # Use optimization options if provided, otherwise use environment defaults
+                    use_filtering = optimization_options.get('useFiltering', True)
+                    min_confidence = optimization_options.get('minConfidence', float(os.getenv('CONTENT_FILTERING_CONFIDENCE', '0.8')))
+                    
+                    if use_filtering:
+                        optimization_result = await optimize_article_content(
+                            article.content, 
+                            min_confidence=min_confidence,
+                            article_metadata=article.article_metadata,
+                            content_hash=article.content_hash
+                        )
+                        if optimization_result['success']:
+                            content = optimization_result['filtered_content']
+                            logger.info(f"Content filtered for SIGMA: {optimization_result['tokens_saved']:,} tokens saved, "
+                                      f"{optimization_result['cost_reduction_percent']:.1f}% cost reduction")
+                        else:
+                            # Fallback to original content if filtering fails
+                            content = article.content
+                            logger.warning("Content filtering failed for SIGMA, using original content")
                     else:
-                        # Fallback to original content if filtering fails
                         content = article.content
-                        logger.warning("Content filtering failed for SIGMA, using original content")
+                        logger.info("Content filtering disabled for SIGMA")
                 except Exception as e:
                     logger.error(f"Content filtering error for SIGMA: {e}, using original content")
                     content = article.content
@@ -2962,7 +3012,7 @@ async def api_generate_sigma(article_id: int, request: Request):
         all_rules_valid = all(result.get('is_valid', False) for result in validation_results)
         
         # Store the SIGMA rules in article metadata
-        current_metadata['sigma_rules'] = {
+        sigma_metadata = {
             'rules': sigma_rules,
             'generated_at': datetime.now().isoformat(),
             'content_type': 'full content' if include_content else 'metadata only',
@@ -2973,6 +3023,29 @@ async def api_generate_sigma(article_id: int, request: Request):
             'validation_passed': all_rules_valid,
             'attempts_made': attempt
         }
+        
+        # Add optimization details if filtering was used
+        if include_content and content_filtering_enabled and optimization_options.get('useFiltering', True):
+            try:
+                # Get optimization stats from the last optimization result
+                optimization_result = await optimize_article_content(
+                    article.content, 
+                    min_confidence=optimization_options.get('minConfidence', float(os.getenv('CONTENT_FILTERING_CONFIDENCE', '0.8'))),
+                    article_metadata=article.article_metadata,
+                    content_hash=article.content_hash
+                )
+                if optimization_result['success']:
+                    sigma_metadata['optimization'] = {
+                        'enabled': True,
+                        'cost_savings': optimization_result['cost_savings'],
+                        'tokens_saved': optimization_result['tokens_saved'],
+                        'chunks_removed': optimization_result['chunks_removed'],
+                        'min_confidence': optimization_options.get('minConfidence', float(os.getenv('CONTENT_FILTERING_CONFIDENCE', '0.8')))
+                    }
+            except Exception as e:
+                logger.warning(f"Could not add optimization details to SIGMA metadata: {e}")
+        
+        current_metadata['sigma_rules'] = sigma_metadata
         
         # Update the article
         update_data = ArticleUpdate(article_metadata=current_metadata)
@@ -2992,6 +3065,10 @@ async def api_generate_sigma(article_id: int, request: Request):
             "validation_passed": all_rules_valid,
             "attempts_made": attempt
         }
+        
+        # Add optimization details to response if available
+        if 'optimization' in current_metadata['sigma_rules']:
+            response_data['optimization'] = current_metadata['sigma_rules']['optimization']
         
         # Add appropriate message based on validation status
         if all_rules_valid:

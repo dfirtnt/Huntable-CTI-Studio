@@ -18,7 +18,7 @@ def run_ai_tests(test_type="all", verbose=False, coverage=False):
     sys.path.insert(0, str(project_root))
     
     # Base pytest command
-    cmd = ["python", "-m", "pytest"]
+    cmd = ["python3", "-m", "pytest"]
     
     # Add test files based on type
     if test_type == "ui":
@@ -65,8 +65,7 @@ def run_ai_tests(test_type="all", verbose=False, coverage=False):
     
     # Add conftest files
     cmd.extend([
-        "-p", "tests.conftest_ai",
-        "-p", "tests.conftest"
+        "-p", "tests.conftest_ai"
     ])
     
     print(f"Running AI Assistant tests: {' '.join(cmd)}")
