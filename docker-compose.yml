@@ -57,6 +57,7 @@ services:
       - LLM_MAX_TOKENS=2048
       - OLLAMA_CONTENT_LIMIT=1000000
       - CHATGPT_CONTENT_LIMIT=1000000
+      - USE_LLM_RESPONSES=true
       - ANTHROPIC_API_URL=https://api.anthropic.com/v1/messages
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
       - ANTHROPIC_CONTENT_LIMIT=1000000
@@ -156,18 +157,18 @@ services:
     networks:
       - cti_network
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
     deploy:
       resources:
         reservations:
           memory: 8G
         limits:
           memory: 16G
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 60s
 
   # CLI Tool Service
   cli:

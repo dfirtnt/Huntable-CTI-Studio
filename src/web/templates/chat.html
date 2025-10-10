@@ -21,8 +21,8 @@
         const [isUpdatingEmbeddings, setIsUpdatingEmbeddings] = useState(false);
         const [embeddingStats, setEmbeddingStats] = useState(null);
         const [settings, setSettings] = useState({
-            maxResults: 5,
-            similarityThreshold: 0.4
+            maxResults: 50,  // Default to 50 articles for good coverage
+            similarityThreshold: 0.3  // Lower threshold for broader coverage
         });
         const messagesEndRef = useRef(null);
         const inputRef = useRef(null);
@@ -254,9 +254,10 @@
                                     onChange={(e) => setSettings(prev => ({ ...prev, maxResults: parseInt(e.target.value) }))}
                                     className="border border-gray-300 rounded px-2 py-1 text-xs"
                                 >
-                                    <option value={3}>3</option>
-                                    <option value={5}>5</option>
-                                    <option value={10}>10</option>
+                                    <option value={50}>50 Articles</option>
+                                    <option value={30}>30 Articles</option>
+                                    <option value={20}>20 Articles</option>
+                                    <option value={10}>10 Articles</option>
                                 </select>
                             </div>
                             

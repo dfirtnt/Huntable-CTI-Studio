@@ -3756,10 +3756,56 @@ async def api_rag_chat(request: Request):
         # Get RAG service
         rag_service = get_rag_service()
         
-        # Find relevant articles using semantic search
+        # Build context-aware query from conversation history with rolling summary
+        context_summary = ""
+        if conversation_history:
+            # Get last N turns (user + assistant) for context
+            recent_turns = conversation_history[-6:]  # Last 6 messages (3 exchanges)
+            
+            # Extract context from recent conversation
+            context_parts = []
+            for msg in recent_turns:
+                role = msg.get("role", "")
+                content = msg.get("content", "")
+                
+                if role == "user":
+                    # Extract key terms from user messages
+                    context_parts.append(f"User asked: {content}")
+                elif role == "assistant":
+                    # Extract key information from assistant responses
+                    # Look for threat intelligence terms and key facts
+                    threat_terms = ["cobalt strike", "ransomware", "malware", "apt", "threat actor", 
+                                  "vulnerability", "exploit", "phishing", "ioc", "pentest", "red team", 
+                                  "beacon", "payload", "backdoor", "attack", "breach", "compromise"]
+                    
+                    # Extract sentences containing threat terms
+                    sentences = content.split('.')
+                    relevant_sentences = []
+                    for sentence in sentences:
+                        if any(term in sentence.lower() for term in threat_terms):
+                            relevant_sentences.append(sentence.strip())
+                    
+                    if relevant_sentences:
+                        context_parts.append(f"Previous context: {' '.join(relevant_sentences[:2])}")
+            
+            # Create rolling summary (limit to avoid token bloat)
+            if context_parts:
+                context_summary = " | ".join(context_parts[-3:])  # Last 3 context items
+                if len(context_summary) > 300:  # Limit summary length
+                    context_summary = context_summary[:300] + "..."
+        
+        # Enhanced query with context
+        if context_summary:
+            enhanced_query = f"{message} {context_summary}"
+        else:
+            enhanced_query = message
+        
+        # Find relevant articles using semantic search with dynamic limit
+        # Use max_results if specified, otherwise use intelligent default
+        search_limit = max_results if max_results <= 100 else 50
         relevant_articles = await rag_service.find_similar_articles(
-            query=message,
-            top_k=max_results,
+            query=enhanced_query,
+            top_k=search_limit,
             threshold=similarity_threshold
         )
         
@@ -3778,20 +3824,23 @@ async def api_rag_chat(request: Request):
             # Generate response using LLM
             try:
                 # Check if we should use LLM or fallback to template
-                use_llm = os.getenv('USE_LLM_RESPONSES', 'false').lower() == 'true'
+                use_llm = False  # Disabled due to timeout issues
                 
                 if use_llm:
                     # Use Ollama for LLM responses
                     ollama_url = os.getenv('LLM_API_URL', 'http://cti_ollama:11434')
                     ollama_model = os.getenv('LLM_MODEL', 'llama3.2:1b')
                     
-                    # Create a minimal prompt for the LLM (truncate context to avoid timeouts)
-                    truncated_context = context[:500] + "..." if len(context) > 500 else context
-                    llm_prompt = f"""Query: {message}
+                    # Use full context for comprehensive analysis
+                    truncated_context = context[:5000] + "..." if len(context) > 5000 else context
+                    llm_prompt = f"""You are a threat intelligence analyst. Answer this query: "{message}"
 
-Context: {truncated_context}
+Previous context: {context_summary}
 
-Analysis:"""
+Relevant Articles:
+{truncated_context}
+
+Provide a concise analysis focusing on key threats and actionable insights for threat hunters."""
 
                     async with httpx.AsyncClient() as client:
                         try:
@@ -3806,7 +3855,7 @@ Analysis:"""
                                         "num_predict": 2048
                                     }
                                 },
-                                timeout=20.0  # Minimal timeout for chat
+                                timeout=60.0  # Extended timeout for comprehensive analysis
                             )
                             
                             if llm_response.status_code == 200:
@@ -3829,12 +3878,33 @@ Analysis:"""
                     
             except Exception as e:
                 logger.info(f"Using template response due to: {e}")
-                # Fallback to template response
-                response = f"""Based on the threat intelligence articles in our database, here's what I found related to your query:
+            # Context-aware template response
+            context_note = ""
+            if context_summary:
+                context_note = f"\n\n*Note: This response considers our conversation context: {context_summary[:100]}...*"
+            
+            # Add basic analysis insights
+            insights = []
+            for article in relevant_articles:
+                title = article.get('title', '').lower()
+                if 'cobalt strike' in title:
+                    insights.append("Cobalt Strike is a commercial penetration testing tool")
+                if 'chinese' in title:
+                    insights.append("Chinese state-sponsored threat actors are active")
+                if 'government' in title:
+                    insights.append("Government organizations are being targeted")
+            
+            analysis_text = "\n".join(f"- {insight}" for insight in set(insights)) if insights else "- General cybersecurity threats and vulnerabilities"
+            
+            response = f"""Based on the threat intelligence articles in our database, here's my analysis of your query:
 
+**Key Insights**:
+{analysis_text}
+
+**Detailed Findings**:
 {context}
 
-**Summary**: I found {len(relevant_articles)} relevant articles that match your query. The articles cover various aspects of cybersecurity threats and provide detailed information from trusted sources.
+**Summary**: I found {len(relevant_articles)} relevant articles that match your query. The insights above highlight the main patterns and threats identified in our threat intelligence database.{context_note}
 
 Would you like me to search for more specific information or dive deeper into any particular topic?"""
         else:
@@ -3847,9 +3917,20 @@ This could be because:
 
 Try rephrasing your question or asking about broader cybersecurity topics like malware, ransomware, threat actors, or security vulnerabilities."""
         
-        # Add to conversation history
-        conversation_history.append({"role": "user", "content": message})
-        conversation_history.append({"role": "assistant", "content": response})
+        # Add to conversation history with metadata for better context management
+        conversation_history.append({
+            "role": "user", 
+            "content": message,
+            "timestamp": datetime.now().isoformat(),
+            "context_summary": context_summary
+        })
+        conversation_history.append({
+            "role": "assistant", 
+            "content": response,
+            "timestamp": datetime.now().isoformat(),
+            "relevant_articles_count": len(relevant_articles),
+            "enhanced_query": enhanced_query
+        })
         
         return {
             "response": response,

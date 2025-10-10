@@ -39,7 +39,7 @@
         <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">📊 Overall Quality Summary</h2>
         <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
             <div class="text-center">
-                <p class="text-2xl font-bold text-gray-900">{{ total_articles }}</p>
+                <p class="text-2xl font-bold text-gray-900 dark:text-white">{{ total_articles }}</p>
                 <p class="text-sm text-gray-500">Total Articles</p>
             </div>
             <div class="text-center">
@@ -149,7 +149,7 @@
         <div class="space-y-4">
             {% for source in sources %}
             {% if source.name.lower() != 'manual' %}
-            <div class="p-4 bg-gray-50 dark:bg-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors">
+            <div class="p-6 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg hover:shadow-md transition-all duration-200">
                 <div class="flex items-start justify-between">
                     <div class="flex-1 min-w-0">
                         <div class="flex items-center space-x-2 mb-2">
@@ -157,7 +157,7 @@
                             <div class="flex items-center justify-center w-6 h-6 bg-green-100 text-green-800 text-xs font-bold rounded-full">
                                 {{ source.total_articles or 0 }}
                             </div>
-                            <h4 class="text-lg font-medium text-gray-900">
+                            <h4 class="text-lg font-medium text-gray-900 dark:text-white">
                                 <a href="/articles?source_id={{ source.id }}" class="text-blue-600 hover:text-blue-800 hover:underline transition-colors">
                                     {{ source.name }}
                                 </a>
@@ -171,12 +171,12 @@
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-3">
                             <div>
                                 <p class="text-sm text-gray-500">URL</p>
-                                <p class="text-sm font-medium text-gray-900 break-all">{{ source.url }}</p>
+                                <p class="text-sm font-medium text-gray-900 dark:text-gray-100 break-all">{{ source.url }}</p>
                             </div>
                             {% if source.rss_url %}
                             <div>
                                 <p class="text-sm text-gray-500">RSS Feed</p>
-                                <p class="text-sm font-medium text-gray-900 break-all">{{ source.rss_url }}</p>
+                                <p class="text-sm font-medium text-gray-900 dark:text-gray-100 break-all">{{ source.rss_url }}</p>
                             </div>
                             {% endif %}
                         </div>
@@ -184,34 +184,34 @@
                         <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-3">
                             <div>
                                 <p class="text-sm text-gray-500">Collection Method</p>
-                                <p class="text-sm font-medium text-gray-900">
+                                <p class="text-sm font-medium text-gray-900 dark:text-gray-100">
                                     {% if source.rss_url %}RSS Feed{% else %}Web Scraping{% endif %}
                                 </p>
                             </div>
                             <div>
                                 <p class="text-sm text-gray-500">Last Check</p>
-                                <p class="text-sm font-medium text-gray-900">
+                                <p class="text-sm font-medium text-gray-900 dark:text-gray-100">
                                     {% if source.last_check %}{{ source.last_check.strftime('%Y-%m-%d %H:%M') }}{% else %}Never{% endif %}
                                 </p>
                             </div>
                             <div>
                                 <p class="text-sm text-gray-500">Articles Collected</p>
-                                <p class="text-sm font-medium text-gray-900">{{ source.total_articles or 0 }}</p>
+                                <p class="text-sm font-medium text-gray-900 dark:text-gray-100">{{ source.total_articles or 0 }}</p>
                             </div>
                         </div>
 
                         <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-3">
                             <div>
                                 <p class="text-sm text-gray-500">Check Frequency</p>
-                                <p class="text-sm font-medium text-gray-900">{{ source.check_frequency // 60 }} minutes</p>
+                                <p class="text-sm font-medium text-gray-900 dark:text-gray-100">{{ source.check_frequency // 60 }} minutes</p>
                             </div>
                             <div>
                                 <p class="text-sm text-gray-500">Lookback Window</p>
-                                <p class="text-sm font-medium text-gray-900">{{ source.lookback_days }} days</p>
+                                <p class="text-sm font-medium text-gray-900 dark:text-gray-100">{{ source.lookback_days }} days</p>
                             </div>
                             <div>
                                 <p class="text-sm text-gray-500">Min Content Length</p>
-                                <p class="text-sm font-medium text-gray-900">
+                                <p class="text-sm font-medium text-gray-900 dark:text-gray-100">
                                     {% if source.config and source.config.min_content_length %}
                                         {{ source.config.min_content_length }} chars
                                     {% else %}
@@ -224,12 +224,12 @@
                         <!-- Quality Metrics -->
                         {% if source.id in quality_stats and quality_stats[source.id].total_articles > 0 %}
                         {% set stat = quality_stats[source.id] %}
-                        <div class="bg-gray-50 rounded-lg p-3 mb-3">
+                        <div class="bg-gray-100 dark:bg-gray-700 rounded-lg p-3 mb-3" style="background-color: #f1f3f4;">
                             <h5 class="text-sm font-medium text-gray-700 mb-2">📊 Quality Metrics</h5>
                             <div class="grid grid-cols-2 md:grid-cols-5 gap-3">
                                 <div>
                                     <p class="text-xs text-gray-500">Total Articles</p>
-                                    <p class="text-sm font-medium text-gray-900">{{ stat.total_articles }}</p>
+                                    <p class="text-sm font-medium text-gray-900 dark:text-gray-100">{{ stat.total_articles }}</p>
                                 </div>
                                 <div>
                                     <p class="text-xs text-gray-500">Rejected</p>
@@ -259,7 +259,7 @@
                         {% if source.description %}
                         <div class="mb-3">
                             <p class="text-sm text-gray-500">Description</p>
-                            <p class="text-sm text-gray-900">{{ source.description }}</p>
+                            <p class="text-sm text-gray-900 dark:text-gray-100">{{ source.description }}</p>
                         </div>
                         {% endif %}
 
@@ -312,7 +312,7 @@
             <div class="flex items-start justify-between">
                 <div class="flex-1 min-w-0">
                     <div class="flex items-center space-x-2 mb-2">
-                        <h4 class="text-lg font-medium text-gray-900">
+                        <h4 class="text-lg font-medium text-gray-900 dark:text-white">
                             <a href="/articles?source_id={{ source.id }}" class="text-blue-600 hover:text-blue-800 hover:underline transition-colors">
                                 {{ source.name }}
                             </a>
@@ -326,35 +326,35 @@
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-3">
                         <div>
                             <p class="text-sm text-gray-500">URL</p>
-                            <p class="text-sm font-medium text-gray-900 break-all">{{ source.url or 'N/A' }}</p>
+                            <p class="text-sm font-medium text-gray-900 dark:text-gray-100 break-all">{{ source.url or 'N/A' }}</p>
                         </div>
                         <div>
                             <p class="text-sm text-gray-500">Collection Method</p>
-                            <p class="text-sm font-medium text-gray-900">Manual Entry</p>
+                            <p class="text-sm font-medium text-gray-900 dark:text-gray-100">Manual Entry</p>
                         </div>
                     </div>
 
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-3">
                         <div>
                             <p class="text-sm text-gray-500">Last Check</p>
-                            <p class="text-sm font-medium text-gray-900">
+                            <p class="text-sm font-medium text-gray-900 dark:text-gray-100">
                                 {% if source.last_check %}{{ source.last_check.strftime('%Y-%m-%d %H:%M') }}{% else %}Never{% endif %}
                             </p>
                         </div>
                         <div>
                             <p class="text-sm text-gray-500">Lookback Window</p>
-                            <p class="text-sm font-medium text-gray-900">{{ source.lookback_days }} days</p>
+                            <p class="text-sm font-medium text-gray-900 dark:text-gray-100">{{ source.lookback_days }} days</p>
                         </div>
                         <div>
                             <p class="text-sm text-gray-500">Articles Collected</p>
-                            <p class="text-sm font-medium text-gray-900">{{ source.total_articles or 0 }}</p>
+                            <p class="text-sm font-medium text-gray-900 dark:text-gray-100">{{ source.total_articles or 0 }}</p>
                         </div>
                     </div>
 
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-3">
                         <div>
                             <p class="text-sm text-gray-500">Min Content Length</p>
-                            <p class="text-sm font-medium text-gray-900">
+                            <p class="text-sm font-medium text-gray-900 dark:text-gray-100">
                                 {% if source.config and source.config.min_content_length %}
                                     {{ source.config.min_content_length }} chars
                                 {% else %}
@@ -364,19 +364,19 @@
                         </div>
                         <div>
                             <p class="text-sm text-gray-500">Check Frequency</p>
-                            <p class="text-sm font-medium text-gray-900">{{ source.check_frequency // 60 }} minutes</p>
+                            <p class="text-sm font-medium text-gray-900 dark:text-gray-100">{{ source.check_frequency // 60 }} minutes</p>
                         </div>
                     </div>
 
                     <!-- Quality Metrics -->
                     {% if source.id in quality_stats and quality_stats[source.id].total_articles > 0 %}
                     {% set stat = quality_stats[source.id] %}
-                    <div class="bg-gray-50 rounded-lg p-3 mb-3">
+                    <div class="bg-gray-100 dark:bg-gray-700 rounded-lg p-3 mb-3" style="background-color: #f1f3f4;">
                         <h5 class="text-sm font-medium text-gray-700 mb-2">📊 Quality Metrics</h5>
                         <div class="grid grid-cols-2 md:grid-cols-5 gap-3">
                             <div>
                                 <p class="text-xs text-gray-500">Total Articles</p>
-                                <p class="text-sm font-medium text-gray-900">{{ stat.total_articles }}</p>
+                                <p class="text-sm font-medium text-gray-900 dark:text-gray-100">{{ stat.total_articles }}</p>
                             </div>
                             <div>
                                 <p class="text-xs text-gray-500">Rejected</p>
@@ -433,7 +433,7 @@
                 </div>
                 <div class="ml-4">
                     <p class="text-sm font-medium text-gray-500">Active Sources</p>
-                    <p class="text-2xl font-bold text-gray-900">{{ sources|selectattr('active')|list|length }}</p>
+                    <p class="text-2xl font-bold text-gray-900 dark:text-white">{{ sources|selectattr('active')|list|length }}</p>
                 </div>
             </div>
         </div>
@@ -448,7 +448,7 @@
                 </div>
                 <div class="ml-4">
                     <p class="text-sm font-medium text-gray-500">RSS Sources</p>
-                    <p class="text-2xl font-bold text-gray-900">{{ sources|selectattr('rss_url')|list|length }}</p>
+                    <p class="text-2xl font-bold text-gray-900 dark:text-white">{{ sources|selectattr('rss_url')|list|length }}</p>
                 </div>
             </div>
         </div>
@@ -465,7 +465,7 @@
             <div class="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
                 <div class="flex items-start">
                     <div class="mt-3 text-center sm:mt-0 sm:text-left">
-                        <h3 class="text-lg leading-6 font-medium text-gray-900" id="modalTitle">
+                        <h3 class="text-lg leading-6 font-medium text-gray-900 dark:text-white" id="modalTitle">
                             Source Action Result
                         </h3>
                         <div class="mt-2">
@@ -631,7 +631,7 @@ document.getElementById('resultModal').addEventListener('click', function(e) {
             <div class="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
                 <div class="flex items-start">
                     <div class="mt-3 text-center sm:mt-0 sm:text-left w-full">
-                        <h3 class="text-lg leading-6 font-medium text-gray-900" id="sourceConfigModalTitle">
+                        <h3 class="text-lg leading-6 font-medium text-gray-900 dark:text-white" id="sourceConfigModalTitle">
                             Configure Source Settings
                         </h3>
                         <div class="mt-4 space-y-6">
@@ -1052,7 +1052,7 @@ function monitorTaskProgress(taskId, sourceId, sourceName) {
     <div class="bg-white rounded-lg shadow-sm p-6">
         <div class="flex items-center justify-between mb-4">
             <div>
-                <h2 class="text-xl font-bold text-gray-900">Manual URL Scraping</h2>
+                <h2 class="text-xl font-bold text-gray-900 dark:text-white">Manual URL Scraping</h2>
                 <p class="mt-1 text-sm text-gray-600">Add individual URLs for immediate scraping and analysis</p>
             </div>
         </div>
