@@ -42,7 +42,7 @@
             
             <!-- Search -->
             <div>
-                <label for="search" class="block text-sm font-medium text-gray-700 mb-1">Search</label>
+                <label for="search" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Search</label>
                 <div class="relative">
                     <input type="text" name="search" id="search" autofocus value="{{ filters.search or '' }}" 
                            placeholder="Search titles, content, or use boolean logic..." 
@@ -57,7 +57,7 @@
                     </button>
                 </div>
                 <div class="mt-2">
-                    <label class="flex items-center text-sm text-gray-600">
+                    <label class="flex items-center text-sm text-gray-600 dark:text-gray-300">
                         <input type="checkbox" name="title_only" id="title-only" value="1" 
                                {% if filters.title_only %}checked{% endif %}
                                class="mr-2 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
@@ -122,7 +122,7 @@
 
             <!-- Source Filter -->
             <div>
-                <label for="source" class="block text-sm font-medium text-gray-700 mb-1">Source</label>
+                <label for="source" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Source</label>
                 <select name="source" id="source" 
                         class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
                     <option value="">All Sources</option>
@@ -136,7 +136,7 @@
 
             <!-- Classification Filter -->
             <div>
-                <label for="classification" class="block text-sm font-medium text-gray-700 mb-1">Article Classification</label>
+                <label for="classification" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Article Classification</label>
                 <select name="classification" id="classification" 
                         class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
                     <option value="">All Classifications</option>
@@ -148,7 +148,7 @@
 
             <!-- Per Page -->
             <div>
-                <label for="per_page" class="block text-sm font-medium text-gray-700 mb-1">Per Page</label>
+                <label for="per_page" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Per Page</label>
                 <select name="per_page" id="per_page" 
                         class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
                     <option value="20" {% if pagination.per_page|string == "20" %}selected{% endif %}>20</option>
@@ -159,7 +159,7 @@
 
             <!-- Threat Hunting Score Range -->
             <div>
-                <label for="threat_hunting_range" class="block text-sm font-medium text-gray-700 mb-1">Threat Hunting Score</label>
+                <label for="threat_hunting_range" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Threat Hunting Score</label>
                 <select name="threat_hunting_range" id="threat_hunting_range" 
                         class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
                     <option value="">All Scores</option>
@@ -230,7 +230,7 @@
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
             <!-- Sort By -->
             <div>
-                <label for="sort-by" class="block text-sm font-medium text-gray-700 mb-1">Sort By</label>
+                <label for="sort-by" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Sort By</label>
                 <select name="sort_by" id="sort-by" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-sm">
                     <option value="discovered_at" {% if filters.sort_by == 'discovered_at' %}selected{% endif %}>Discovery Date</option>
                     <option value="published_at" {% if filters.sort_by == 'published_at' %}selected{% endif %}>Publication Date</option>
@@ -245,7 +245,7 @@
             
             <!-- Sort Order -->
             <div>
-                <label for="sort-order" class="block text-sm font-medium text-gray-700 mb-1">Order</label>
+                <label for="sort-order" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Order</label>
                 <select name="sort_order" id="sort-order" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-sm">
                     <option value="desc" {% if filters.sort_order == 'desc' %}selected{% endif %}>Desc</option>
                     <option value="asc" {% if filters.sort_order == 'asc' %}selected{% endif %}>Asc</option>
@@ -270,7 +270,7 @@
                         📰 Articles ({{ pagination.start_idx }}-{{ pagination.end_idx }} of {{ pagination.total_articles }})
                     </h2>
                     {% if articles %}
-                    <label class="flex items-center text-sm text-gray-600">
+                    <label class="flex items-center text-sm text-gray-600 dark:text-gray-300">
                         <input type="checkbox" 
                                id="select-all-matching" 
                                class="mr-2 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
