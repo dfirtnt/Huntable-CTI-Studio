@@ -4008,6 +4008,42 @@
                     ${chunk.confidence > 0 ? ` | <strong>Confidence:</strong> ${(chunk.confidence * 100).toFixed(1)}%` : ''}
                 </div>
                 
+                <!-- Feedback Section -->
+                <div class="mb-3 p-3 bg-gray-50 rounded-lg border">
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="text-sm font-medium text-gray-700">Was this classification correct?</span>
+                        <div class="flex gap-2">
+                            <button onclick="submitChunkFeedback(${index}, true)" 
+                                    class="px-3 py-1 text-xs bg-green-100 text-green-800 rounded hover:bg-green-200 transition-colors">
+                                ✅ Correct
+                            </button>
+                            <button onclick="submitChunkFeedback(${index}, false)" 
+                                    class="px-3 py-1 text-xs bg-red-100 text-red-800 rounded hover:bg-red-200 transition-colors">
+                                ❌ Incorrect
+                            </button>
+                        </div>
+                    </div>
+                    <div id="feedbackForm${index}" class="hidden">
+                        <textarea id="feedbackComment${index}" 
+                                  placeholder="Optional: Explain why this classification is incorrect..."
+                                  class="w-full p-2 text-xs border rounded resize-none" 
+                                  rows="2"></textarea>
+                        <div class="flex justify-end gap-2 mt-2">
+                            <button onclick="cancelFeedback(${index})" 
+                                    class="px-3 py-1 text-xs bg-gray-100 text-gray-600 rounded hover:bg-gray-200">
+                                Cancel
+                            </button>
+                            <button onclick="submitDetailedFeedback(${index})" 
+                                    class="px-3 py-1 text-xs bg-blue-100 text-blue-800 rounded hover:bg-blue-200">
+                                Submit Feedback
+                            </button>
+                        </div>
+                    </div>
+                    <div id="feedbackSubmitted${index}" class="hidden text-xs text-green-600">
+                        ✅ Feedback submitted - Thank you!
+                    </div>
+                </div>
+                
                 <!-- Feature Details -->
                 <div class="mb-3">
                     <button onclick="toggleFeatureDetails(${index})" class="text-sm text-blue-600 hover:text-blue-800 font-medium">
@@ -4097,6 +4133,80 @@
         }
         // Clear global data
         window.chunkDebugData = null;
+    }
+    
+    // Feedback Functions
+    async function submitChunkFeedback(chunkIndex, isCorrect) {
+        const chunkData = window.chunkDebugData.chunk_analysis[chunkIndex];
+        
+        if (isCorrect) {
+            // Submit positive feedback immediately
+            await submitFeedback(chunkIndex, {
+                is_correct: true,
+                user_classification: chunkData.is_kept ? 'Huntable' : 'Not Huntable',
+                comment: 'User confirmed classification is correct'
+            });
+        } else {
+            // Show feedback form for incorrect classification
+            const feedbackForm = document.getElementById(`feedbackForm${chunkIndex}`);
+            feedbackForm.classList.remove('hidden');
+        }
+    }
+    
+    async function submitDetailedFeedback(chunkIndex) {
+        const chunkData = window.chunkDebugData.chunk_analysis[chunkIndex];
+        const comment = document.getElementById(`feedbackComment${chunkIndex}`).value;
+        
+        await submitFeedback(chunkIndex, {
+            is_correct: false,
+            user_classification: chunkData.is_kept ? 'Not Huntable' : 'Huntable',
+            comment: comment || 'User marked classification as incorrect'
+        });
+    }
+    
+    function cancelFeedback(chunkIndex) {
+        const feedbackForm = document.getElementById(`feedbackForm${chunkIndex}`);
+        feedbackForm.classList.add('hidden');
+        document.getElementById(`feedbackComment${chunkIndex}`).value = '';
+    }
+    
+    async function submitFeedback(chunkIndex, feedbackData) {
+        try {
+            const chunkData = window.chunkDebugData.chunk_analysis[chunkIndex];
+            
+            const payload = {
+                article_id: window.chunkDebugData.article_id,
+                chunk_id: chunkIndex,
+                chunk_text: chunkData.text,
+                model_classification: chunkData.is_kept ? 'Huntable' : 'Not Huntable',
+                model_confidence: chunkData.confidence,
+                model_reason: chunkData.reason,
+                ...feedbackData,
+                timestamp: new Date().toISOString()
+            };
+            
+            const response = await fetch('/api/feedback/chunk-classification', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(payload)
+            });
+            
+            if (response.ok) {
+                // Hide feedback form and show success message
+                document.getElementById(`feedbackForm${chunkIndex}`).classList.add('hidden');
+                document.getElementById(`feedbackSubmitted${chunkIndex}`).classList.remove('hidden');
+                
+                showNotification('Feedback submitted successfully!', 'success');
+            } else {
+                throw new Error('Failed to submit feedback');
+            }
+            
+        } catch (error) {
+            console.error('Feedback submission error:', error);
+            showNotification('Failed to submit feedback: ' + error.message, 'error');
+        }
     }
     
     function toggleFeatureDetails(chunkIndex) {

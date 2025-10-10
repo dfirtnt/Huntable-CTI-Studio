@@ -172,57 +172,50 @@ Chunk 4: 1103-1246 chars (Lateral movement details)
 
 ## Pattern Filters
 
-### Huntable Patterns (17 patterns)
+The pattern-based classification uses the comprehensive Hunt Scoring keyword system from `src/utils/content.py`, providing 270 total patterns for content classification.
 
-**Command Patterns:**
-- `powershell\.exe.*-encodedCommand`
-- `invoke-webrequest.*-uri`
-- `cmd\.exe.*\/c`
-- `bash.*-c`
-- `curl.*-o`
-- `wget.*-O`
+### Huntable Patterns (244 patterns)
 
-**Process Patterns:**
-- `node\.exe.*spawn`
-- `ws_tomcatservice\.exe`
-- `powershell\.exe.*download`
+**Perfect Discriminators (55 patterns):**
+- **Process Names**: `rundll32`, `msiexec`, `svchost`, `lsass.exe`, `powershell.exe`
+- **Registry References**: `hklm`, `appdata`, `programdata`, `WINDIR`, `wbem`
+- **Command Execution**: `iex`, `wmic`, `comspec`, `findstr`
+- **File Types**: `.lnk`, `.iso`, `MZ`, `-accepteula`
+- **Path Patterns**: `\temp\`, `\pipe\`, `%WINDIR%`, `%wintmp%`
+- **Cross-Platform**: `homebrew`, `/users/shared/`, `chmod 777`, `tccd`, `spctl`
+- **Technical Patterns**: `xor`, `tcp://`, `CN=`, `-ComObject`, `Base64`
 
-**File Patterns:**
-- `[A-Za-z]:\\\\[^\s]+\.(dll|exe|bat|ps1)`
-- `\/[^\s]+\.(sh|py|pl)`
+**Good Discriminators (78 patterns):**
+- **Windows Paths**: `c:\windows\`, `temp`, `pipe`, `::`
+- **File Extensions**: `.bat`, `.ps1`, `.exe`, `mach-o`, `plist`
+- **Technical Patterns**: `==`, `[.]`, `-->`, `currentversion`, `Event ID`
+- **Attack Techniques**: `mimikatz`, `kerberoast`, `psexec`, `payload`
+- **Cross-Platform**: `osascript`, `TCC.db`, `sudo`, `cron`, `launchd`
+- **Cloud/Network**: `aws`, `azure`, `gcp`, `ssl`, `proxy`, `network`
 
-**Network Patterns:**
-- `http[s]?://[^\s]+`
-- `\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b`
+**LOLBAS Executables (65 patterns):**
+- **System Tools**: `certutil`, `cmd`, `schtasks`, `wmic`, `regsvr32`, `rundll32`
+- **Network Tools**: `bitsadmin`, `ftp`, `netsh`, `powershell`
+- **Script Engines**: `cscript`, `mshta`, `wscript`, `msiexec`
+- **File Operations**: `forfiles`, `explorer`, `ieexec`, `conhost`
+- **And 40+ more legitimate Windows executables commonly abused by threat actors**
 
-**Technical Patterns:**
-- `CVE-\d{4}-\d+`
-- `backdoor|shell|exploit|payload`
-- `lateral movement|persistence`
-- `command and control|c2`
+**Intelligence Indicators (46 patterns):**
+- **Threat Activity**: `APT`, `threat actor`, `campaign`, `incident`, `breach`, `compromise`
+- **Threat Groups**: `FIN`, `TA`, `UNC`, `APT1`, `APT28`, `Lazarus`, `Carbanak`
+- **Attack Types**: `ransomware`, `data breach`, `cyber attack`, `espionage`
+- **Technical Terms**: `IOC`, `indicator`, `TTP`, `technique`, `malware family`
+- **Attack Techniques**: `golden-ticket`, `silver-ticket`, `lateral movement`
 
-### Not Huntable Patterns (11 patterns)
+### Not Huntable Patterns (26 patterns)
 
-**Acknowledgments:**
-- `acknowledgement|gratitude|thank you|appreciate`
-
-**Contact Information:**
-- `contact.*mandiant|investigations@mandiant`
-
-**Marketing Content:**
-- `book a demo|request a demo|try.*free`
-- `managed security platform|managed edr`
-- `privacy policy|cookie policy|terms of use`
-
-**General Statements:**
-- `this highlights how|we don't have any intentions`
-- `proof of concept.*not yet available`
-- `should you discover.*take down the system`
-
-**Navigation/Footer:**
-- `platform.*solutions.*resources.*about`
-- `partner login|search platform`
-- `© \d{4}.*all rights reserved`
+**Educational/Marketing Content:**
+- `what is`, `how to`, `guide to`, `tutorial`, `best practices`
+- `statistics`, `survey`, `report shows`, `study reveals`
+- `learn more`, `read more`, `click here`, `download now`
+- `free trial`, `contact us`, `get started`, `sign up`
+- `blog post`, `newsletter`, `webinar`, `training`
+- `overview`, `introduction`, `basics`, `fundamentals`
 
 ## Machine Learning Model
 
