@@ -222,9 +222,9 @@ The pattern-based classification uses the comprehensive Hunt Scoring keyword sys
 ### Model Details
 
 **Algorithm:** RandomForestClassifier
-**Training Data:** 21 annotated examples (9 huntable, 12 not huntable)
-**Accuracy:** 80% on test data
-**Features:** 23 extracted features per chunk
+**Training Data:** 22 annotated examples (9 huntable, 13 not huntable)
+**Accuracy:** 80% on test data (requires validation)
+**Features:** 27 extracted features per chunk
 
 ### Feature Categories
 
@@ -260,6 +260,12 @@ The pattern-based classification uses the comprehensive Hunt Scoring keyword sys
 - `has_commands`: Boolean for command presence
 - `has_urls`: Boolean for URL presence
 - `has_file_paths`: Boolean for file path presence
+
+**Hunt Score Integration (NEW):**
+- `hunt_score`: Normalized hunt score (0-1 range)
+- `hunt_score_high`: Boolean for high-quality content (≥70)
+- `hunt_score_medium`: Boolean for medium-quality content (30-69)
+- `hunt_score_low`: Boolean for low-quality content (<30)
 
 ### Training Process
 
@@ -506,6 +512,67 @@ features = filter_system.extract_features(text)
 ```bash
 python3 scripts/test_filter_comprehensive.py
 ```
+
+## ML Mismatch Analysis (NEW)
+
+### Overview
+The system now includes comprehensive ML mismatch analysis to identify discrepancies between ML predictions and actual filtering decisions.
+
+### Features
+- **Visual Indicators**: Yellow rings around mismatched chunks in visualization
+- **Filter Button**: "Show ML Mismatches" to isolate problematic chunks
+- **Statistics Dashboard**: Real-time accuracy metrics and mismatch counts
+- **Chunk Tags**: "ML MISMATCH" badges for easy identification
+
+### API Integration
+```python
+# Chunk debug endpoint with mismatch analysis
+GET /api/articles/{article_id}/chunk-debug
+
+# Response includes:
+{
+    "ml_stats": {
+        "total_predictions": 18,
+        "correct_predictions": 13,
+        "accuracy_percent": 72.2,
+        "mismatches": 5
+    },
+    "chunk_analysis": [
+        {
+            "ml_mismatch": true,
+            "ml_prediction_correct": false,
+            "ml_details": {
+                "prediction": 0,
+                "prediction_label": "Not Huntable",
+                "confidence": 0.665
+            }
+        }
+    ]
+}
+```
+
+### Use Cases
+- **Model Validation**: Identify where ML predictions fail
+- **Training Data Collection**: Gather examples for model improvement
+- **Quality Assurance**: Monitor filtering accuracy over time
+- **Debugging**: Understand why specific chunks were filtered
+
+## Chunk Debug Interface (NEW)
+
+### Features
+- **Interactive Visualization**: Click-to-highlight chunks
+- **Real-time Filtering**: Multiple filter buttons for different chunk types
+- **Detailed Analysis**: Feature breakdown and ML prediction details
+- **Feedback System**: User feedback collection for model improvement
+
+### Filter Options
+- Show All Chunks
+- Show Kept Only
+- Show Removed Only
+- Show Threat Keywords
+- Show Perfect Discriminators
+- Show ML Predictions
+- **Show ML Mismatches** (NEW)
 
 ## Future Enhancements
 
