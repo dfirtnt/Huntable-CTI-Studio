@@ -769,7 +769,7 @@ async def api_list_backups():
                 if "Recent Backups" in line:
                     in_backup_list = True
                     continue
-                if in_backup_list and line.strip() and line.strip().startswith('1.'):
+                if in_backup_list and line.strip() and any(line.strip().startswith(f'{i}.') for i in range(1, 11)):
                     # Parse backup line format: " 1. system_backup_20251011_011007"
                     parts = line.strip().split('.', 1)
                     if len(parts) >= 2:
