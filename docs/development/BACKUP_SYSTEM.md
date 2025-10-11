@@ -28,8 +28,9 @@ The system backs up the following components:
 ├── config/                      # Configuration files
 │   └── sources.yaml
 ├── outputs/                     # Training data & feedback
-│   ├── chunk_classification_feedback.csv
-│   └── combined_training_data.csv
+│   └── training_data/
+│       ├── chunk_classification_feedback.csv
+│       └── combined_training_data.csv
 ├── docker_volumes/              # Docker volume exports
 │   ├── postgres_data.tar.gz
 │   ├── redis_data.tar.gz

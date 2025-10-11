@@ -73,6 +73,7 @@ services:
       - ./tests:/app/tests
       - ./backups:/app/backups
       - ./models:/app/models
+      - ./outputs:/app/outputs
       - /var/run/docker.sock:/var/run/docker.sock
       - /var/db/timezone/zoneinfo/America/New_York:/etc/localtime:ro
     depends_on:

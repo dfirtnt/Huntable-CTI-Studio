@@ -15,7 +15,7 @@ sys.path.append(str(Path(__file__).parent.parent / 'src'))
 
 from utils.content_filter import ContentFilter
 
-def load_feedback_data(feedback_file: str = "outputs/chunk_classification_feedback.csv"):
+def load_feedback_data(feedback_file: str = "outputs/training_data/chunk_classification_feedback.csv"):
     """Load user feedback data from CSV file."""
     if not os.path.exists(feedback_file):
         print(f"⚠️  No feedback file found at {feedback_file}")
@@ -84,9 +84,9 @@ def combine_training_data(original_file: str, feedback_df: pd.DataFrame):
     
     return combined_df
 
-def retrain_model_with_feedback(original_file: str = "outputs/combined_training_data.csv", 
-                               feedback_file: str = "outputs/chunk_classification_feedback.csv",
-                               output_file: str = "outputs/retrained_training_data.csv"):
+def retrain_model_with_feedback(original_file: str = "outputs/training_data/combined_training_data.csv", 
+                               feedback_file: str = "outputs/training_data/chunk_classification_feedback.csv",
+                               output_file: str = "outputs/training_data/retrained_training_data.csv"):
     """Retrain the model using original data plus user feedback."""
     
     print("🚀 Starting model retraining with user feedback...")
@@ -101,6 +101,9 @@ def retrain_model_with_feedback(original_file: str = "outputs/combined_training_
     if combined_df is None:
         print("❌ Failed to prepare training data")
         return False
+    
+    # Ensure output directory exists
+    os.makedirs(os.path.dirname(output_file), exist_ok=True)
     
     # Save combined training data
     combined_df.to_csv(output_file, index=False)

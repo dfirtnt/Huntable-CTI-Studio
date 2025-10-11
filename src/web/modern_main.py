@@ -4398,14 +4398,14 @@ async def api_feedback_chunk_classification(request: Request):
                 raise HTTPException(status_code=400, detail=f"Missing required field: {field}")
         
         # Store feedback in CSV file
-        feedback_file = "outputs/chunk_classification_feedback.csv"
+        feedback_file = "outputs/training_data/chunk_classification_feedback.csv"
         
         # Create CSV if it doesn't exist
         import os
         import csv
         from datetime import datetime
         
-        # Ensure outputs directory exists
+        # Ensure outputs/training_data directory exists
         os.makedirs(os.path.dirname(feedback_file), exist_ok=True)
         
         file_exists = os.path.exists(feedback_file)
