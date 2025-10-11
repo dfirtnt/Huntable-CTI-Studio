@@ -15,11 +15,11 @@ import tempfile
 
 # Database configuration
 DB_CONFIG = {
-    'host': os.getenv('POSTGRES_HOST', 'postgres'),
+    'host': os.getenv('POSTGRES_HOST', 'cti_postgres'),  # Container name for Docker network
     'port': os.getenv('POSTGRES_PORT', '5432'),
     'database': os.getenv('POSTGRES_DB', 'cti_scraper'),
     'user': os.getenv('POSTGRES_USER', 'cti_user'),
-    'password': os.getenv('POSTGRES_PASSWORD', 'cti_password')
+    'password': os.getenv('POSTGRES_PASSWORD', 'cti_password')  # Use environment variable
 }
 
 # Backup directory

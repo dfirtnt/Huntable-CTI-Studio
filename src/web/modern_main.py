@@ -696,8 +696,7 @@ async def api_create_backup(request: Request):
         # Build command
         cmd = [
             sys.executable,
-            str(project_root / "scripts" / "backup_system.py"),
-            "--type", backup_type
+            str(project_root / "scripts" / "backup_system.py")
         ]
         
         if not compress:
@@ -808,15 +807,8 @@ async def api_backup_status():
         # Get project root
         project_root = Path(__file__).parent.parent.parent
         
-        # Check if automated backups are configured
-        result = subprocess.run(
-            ["crontab", "-l"],
-            capture_output=True,
-            text=True,
-            timeout=10
-        )
-        
-        automated = "scripts/backup_restore.sh" in result.stdout if result.returncode == 0 else False
+        # Check if automated backups are configured (skip in Docker container)
+        automated = False
         
         # Get backup statistics
         stats_result = subprocess.run(
@@ -838,15 +830,25 @@ async def api_backup_status():
                     total_backups = int(line.split(":")[-1].strip())
                 elif "Total size:" in line:
                     size_str = line.split(":")[-1].strip()
-                    if "GB" in size_str:
-                        total_size_gb = float(size_str.replace("GB", "").strip())
+                    # Check for GB first (in parentheses), then MB
+                    if "GB" in size_str and "(" in size_str:
+                        # Extract GB value from parentheses like "29.90 MB (0.03 GB)"
+                        import re
+                        gb_match = re.search(r'\(([0-9.]+)\s*GB\)', size_str)
+                        if gb_match:
+                            total_size_gb = float(gb_match.group(1))
+                    elif "MB" in size_str:
+                        # Convert MB to GB for consistency
+                        size_part = size_str.split()[0]  # Get first part before space
+                        total_size_gb = float(size_part.replace("MB", "").strip()) / 1024
                 elif "Recent Backups" in line:
                     # Get first backup as last backup
                     for next_line in lines[lines.index(line)+1:]:
-                        if next_line.strip() and not next_line.startswith(' '):
-                            parts = next_line.split()
+                        if next_line.strip() and next_line.strip().startswith('1.'):
+                            # Extract backup name from "1. system_backup_20251011_001102" format
+                            parts = next_line.strip().split('.', 1)
                             if len(parts) >= 2:
-                                last_backup = parts[1].rstrip(',')
+                                last_backup = parts[1].strip()
                             break
         
         return {

@@ -56,8 +56,9 @@ DB_CONFIG = {
     'password': 'cti_password'
 }
 
-# Docker volume names
-DOCKER_VOLUMES = ['postgres_data', 'redis_data', 'ollama_data']
+# Docker volume names (matching docker-compose.yml)
+# Note: Docker volume backup disabled in containerized environment for security
+DOCKER_VOLUMES = []
 
 # Critical file patterns to validate
 CRITICAL_PATTERNS = {
@@ -162,37 +163,47 @@ def validate_critical_files(directory: Path, patterns: List[str]) -> Tuple[List[
     return valid_files, errors
 
 def backup_database(backup_dir: Path, compress: bool = True) -> Dict[str, Any]:
-    """Backup PostgreSQL database."""
+    """Backup PostgreSQL database using existing backup_database_v3.py logic."""
     print("🗄️  Backing up database...")
     
-    if not check_docker_container('cti_postgres'):
-        raise RuntimeError("PostgreSQL container 'cti_postgres' is not running!")
-    
-    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-    backup_filename = f"database_{timestamp}.sql"
-    backup_filepath = backup_dir / backup_filename
-    
+    # Import and use existing database backup logic
     try:
-        # Create pg_dump command
-        dump_cmd = get_docker_exec_cmd(
-            'cti_postgres',
-            f"pg_dump -U {DB_CONFIG['user']} -d {DB_CONFIG['database']} --verbose --no-password"
-        )
+        # Add scripts directory to path to import backup_database_v3
+        scripts_path = Path(__file__).parent
+        sys.path.insert(0, str(scripts_path))
         
-        # Execute backup
-        with open(backup_filepath, 'w') as f:
-            result = subprocess.run(dump_cmd, stdout=f, stderr=subprocess.PIPE, text=True)
+        # Import the existing backup function
+        from backup_database_v3 import create_backup, get_database_stats
         
-        if result.returncode != 0:
-            raise RuntimeError(f"Database backup failed: {result.stderr}")
+        # Use existing backup logic
+        backup_result = create_backup()
         
-        # Get database info
-        size_cmd = get_docker_exec_cmd(
-            'cti_postgres',
-            "psql -U cti_user -d cti_scraper -c \"SELECT pg_size_pretty(pg_database_size('cti_scraper'));\" -t"
-        )
-        size_result = subprocess.run(size_cmd, capture_output=True, text=True, check=True)
-        db_size = size_result.stdout.strip()
+        if not backup_result or not backup_result.get('success'):
+            raise RuntimeError("Database backup failed using existing backup logic")
+        
+        # Get backup info from the result
+        backup_filename = backup_result['metadata']['backup_filename']
+        source_path = Path(backup_result['backup_path'])
+        dest_path = backup_dir / backup_filename
+        
+        if source_path.exists():
+            shutil.move(str(source_path), str(dest_path))
+            backup_filepath = dest_path
+            
+            # Also move metadata file if it exists
+            source_metadata = Path(backup_result['metadata_path'])
+            if source_metadata.exists():
+                metadata_filename = backup_filename.replace('.sql', '.json')
+                dest_metadata = backup_dir / metadata_filename
+                shutil.move(str(source_metadata), str(dest_metadata))
+        else:
+            raise RuntimeError(f"Backup file not found at {source_path}")
+        
+        # Get database size for metadata
+        stats = get_database_stats()
+        db_size = "Unknown"
+        if stats:
+            db_size = f"{stats['articles']} articles, {stats['sources']} sources"
         
         # Compress if requested
         if compress:
@@ -221,8 +232,8 @@ def backup_database(backup_dir: Path, compress: bool = True) -> Dict[str, Any]:
         }
         
     except Exception as e:
-        # Clean up partial backup
-        if backup_filepath.exists():
+        # Clean up partial backup if it exists
+        if 'backup_filepath' in locals() and backup_filepath.exists():
             backup_filepath.unlink()
         raise RuntimeError(f"Database backup failed: {e}")
 

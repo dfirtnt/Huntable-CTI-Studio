@@ -13,7 +13,7 @@ This document provides instructions for directly querying the CTI Scraper databa
 - **Port**: `5432`
 - **Database**: `cti_scraper`
 - **Username**: `cti_user`
-- **Password**: `cti_postgres_secure_2024`
+- **Password**: `${POSTGRES_PASSWORD}` (environment variable)
 
 ## Connecting to the Database
 
@@ -34,7 +34,7 @@ docker exec cti_postgres psql -U cti_user -d cti_scraper -c "YOUR_QUERY_HERE"
 docker exec -it cti_web bash
 
 # Then connect to PostgreSQL
-psql postgresql://cti_user:cti_postgres_secure_2024@postgres:5432/cti_scraper
+psql postgresql://cti_user:${POSTGRES_PASSWORD}@postgres:5432/cti_scraper
 ```
 
 ## Common Queries

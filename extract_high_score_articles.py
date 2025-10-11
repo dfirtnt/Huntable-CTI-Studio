@@ -17,7 +17,7 @@ DB_CONFIG = {
     'port': 5432,
     'database': 'cti_scraper',
     'user': 'cti_user',
-    'password': 'cti_postgres_secure_2024'
+    'password': os.getenv('POSTGRES_PASSWORD', 'cti_password')
 }
 
 def sanitize_filename(title: str) -> str:

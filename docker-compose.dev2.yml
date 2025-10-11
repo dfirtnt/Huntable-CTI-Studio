@@ -47,8 +47,8 @@ services:
       dockerfile: Dockerfile
     container_name: cti_web_dev2
     environment:
-      - DATABASE_URL=postgresql+asyncpg://cti_user:cti_postgres_secure_2024@postgres:5432/cti_scraper
-      - REDIS_URL=redis://:cti_redis_secure_2024@redis:6379/0
+      - DATABASE_URL=postgresql+asyncpg://cti_user:${POSTGRES_PASSWORD}@postgres:5432/cti_scraper
+      - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
       - ENVIRONMENT=development
       - LOG_LEVEL=DEBUG
       - LLM_API_URL=http://cti_ollama:11434
@@ -92,8 +92,8 @@ services:
       dockerfile: Dockerfile
     container_name: cti_worker_dev2
     environment:
-      - DATABASE_URL=postgresql+asyncpg://cti_user:cti_postgres_secure_2024@postgres:5432/cti_scraper
-      - REDIS_URL=redis://:cti_redis_secure_2024@redis:6379/0
+      - DATABASE_URL=postgresql+asyncpg://cti_user:${POSTGRES_PASSWORD}@postgres:5432/cti_scraper
+      - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
       - ENVIRONMENT=development
       - LOG_LEVEL=DEBUG
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
@@ -121,8 +121,8 @@ services:
       dockerfile: Dockerfile
     container_name: cti_scheduler_dev2
     environment:
-      - DATABASE_URL=postgresql+asyncpg://cti_user:cti_postgres_secure_2024@postgres:5432/cti_scraper
-      - REDIS_URL=redis://:cti_redis_secure_2024@redis:6379/0
+      - DATABASE_URL=postgresql+asyncpg://cti_user:${POSTGRES_PASSWORD}@postgres:5432/cti_scraper
+      - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
       - ENVIRONMENT=development
       - LOG_LEVEL=DEBUG
     volumes:
@@ -177,8 +177,8 @@ services:
       dockerfile: Dockerfile
     container_name: cti_cli_dev2
     environment:
-      - DATABASE_URL=postgresql+asyncpg://cti_user:cti_postgres_secure_2024@postgres:5432/cti_scraper
-      - REDIS_URL=redis://:cti_redis_secure_2024@redis:6379/0
+      - DATABASE_URL=postgresql+asyncpg://cti_user:${POSTGRES_PASSWORD}@postgres:5432/cti_scraper
+      - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
       - ENVIRONMENT=development
       - LOG_LEVEL=DEBUG
       - SOURCES_CONFIG=/app/config/sources.yaml

@@ -47,8 +47,8 @@ services:
       dockerfile: Dockerfile
     container_name: cti_web
     environment:
-      - DATABASE_URL=postgresql+asyncpg://cti_user:cti_postgres_secure_2024@postgres:5432/cti_scraper
-      - REDIS_URL=redis://:cti_redis_secure_2024@redis:6379/0
+      - DATABASE_URL=postgresql+asyncpg://cti_user:${POSTGRES_PASSWORD}@postgres:5432/cti_scraper
+      - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
       - ENVIRONMENT=development
       - LOG_LEVEL=DEBUG
       - LLM_API_URL=http://cti_ollama:11434
@@ -74,6 +74,7 @@ services:
       - ./backups:/app/backups
       - ./models:/app/models
       - ./outputs:/app/outputs
+      - ./scripts:/app/scripts
       - /var/run/docker.sock:/var/run/docker.sock
       - /var/db/timezone/zoneinfo/America/New_York:/etc/localtime:ro
     depends_on:
@@ -93,8 +94,8 @@ services:
       dockerfile: Dockerfile
     container_name: cti_worker
     environment:
-      - DATABASE_URL=postgresql+asyncpg://cti_user:cti_postgres_secure_2024@postgres:5432/cti_scraper
-      - REDIS_URL=redis://:cti_redis_secure_2024@redis:6379/0
+      - DATABASE_URL=postgresql+asyncpg://cti_user:${POSTGRES_PASSWORD}@postgres:5432/cti_scraper
+      - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
       - ENVIRONMENT=development
       - LOG_LEVEL=DEBUG
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
@@ -122,8 +123,8 @@ services:
       dockerfile: Dockerfile
     container_name: cti_scheduler
     environment:
-      - DATABASE_URL=postgresql+asyncpg://cti_user:cti_postgres_secure_2024@postgres:5432/cti_scraper
-      - REDIS_URL=redis://:cti_redis_secure_2024@redis:6379/0
+      - DATABASE_URL=postgresql+asyncpg://cti_user:${POSTGRES_PASSWORD}@postgres:5432/cti_scraper
+      - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
       - ENVIRONMENT=development
       - LOG_LEVEL=DEBUG
     volumes:
@@ -178,8 +179,8 @@ services:
       dockerfile: Dockerfile
     container_name: cti_cli
     environment:
-      - DATABASE_URL=postgresql+asyncpg://cti_user:cti_postgres_secure_2024@postgres:5432/cti_scraper
-      - REDIS_URL=redis://:cti_redis_secure_2024@redis:6379/0
+      - DATABASE_URL=postgresql+asyncpg://cti_user:${POSTGRES_PASSWORD}@postgres:5432/cti_scraper
+      - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
       - ENVIRONMENT=development
       - LOG_LEVEL=DEBUG
       - SOURCES_CONFIG=/app/config/sources.yaml

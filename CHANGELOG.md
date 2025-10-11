@@ -8,15 +8,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- **GitHub-Ready Repository**: Complete repository preparation for GitHub deployment
-- **Security Audit**: Comprehensive security scanning and vulnerability assessment
-- **Documentation Updates**: Updated all Markdown documentation to match current codebase
-- **Testing Infrastructure**: Enhanced testing guide and web app testing documentation
-- **Dependency Security**: Verified all dependencies are secure with no known CVEs
-- **Debug Cleanup**: Removed debug prints and sensitive console.log statements
-- **Environment Configuration**: Comprehensive .env.example with all configuration options
-- **CI/CD Pipeline**: Complete GitHub Actions workflow with security scanning
-- **Security Policy**: Professional security policy and vulnerability reporting process
+- **Backup System Integration**: Fixed database backup integration using existing backup_database_v3.py
+- **Backup Verification**: Added comprehensive backup testing with test database restore validation
+- **Security Hardening**: Removed hardcoded credentials and moved to environment variables
+- **Enhanced .gitignore**: Added comprehensive .gitignore with Docker and security exclusions
+- **Environment Variables**: Updated docker-compose.yml to use environment variables for credentials
+- **Backup Status API**: Fixed backup status parsing to show accurate size and last backup information
+- **Redundant UI Cleanup**: Removed redundant "Save Configuration" button from settings page
+
+### Fixed
+- **Database Backup**: Fixed database backup to include actual data (1,187 articles, 35 sources)
+- **Backup Size Display**: Corrected backup size display from 29.9 GB to actual 0.03 GB
+- **Volume Mount**: Added scripts volume mount to Docker web container
+- **API Arguments**: Removed invalid --type argument from backup API calls
+- **Status Parsing**: Fixed backup status parsing to extract correct backup names and sizes
+- **Container Permissions**: Resolved Docker socket permission issues for backup operations
+
+### Security
+- **Credential Removal**: Removed hardcoded passwords from docker-compose.yml and backup scripts
+- **Environment Variables**: All sensitive configuration now uses environment variables
+- **Security Scanning**: Comprehensive security audit with no critical vulnerabilities found
+- **Dependency Updates**: All dependencies verified secure with latest versions
 - **Threshold Selector**: Added confidence threshold slider to Chunk Debug modal with 3 preset levels (0.5, 0.7, 0.8)
 - **Real-time Threshold Updates**: Implemented dynamic threshold changes with immediate API calls and UI updates
 - **User Feedback System**: Added feedback mechanism to Chunk Debug modal for ML model improvement
