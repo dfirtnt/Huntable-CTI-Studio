@@ -4058,15 +4058,15 @@
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div>
                             <div class="text-sm text-gray-600">Original Content</div>
-                            <div class="text-lg font-semibold">${data.content_length.toLocaleString()} chars</div>
+                            <div id="originalContentLength" class="text-lg font-semibold">${data.content_length.toLocaleString()} chars</div>
                         </div>
                         <div>
                             <div class="text-sm text-gray-600">Estimated Cost Savings</div>
-                            <div class="text-lg font-semibold text-green-600">$${data.filtering_stats.cost_savings.toFixed(4)}</div>
+                            <div id="costSavings" class="text-lg font-semibold text-green-600">$${data.filtering_stats.cost_savings.toFixed(4)}</div>
                         </div>
                         <div>
                             <div class="text-sm text-gray-600">Tokens Saved</div>
-                            <div class="text-lg font-semibold text-blue-600">${data.filtering_stats.tokens_saved.toLocaleString()}</div>
+                            <div id="tokensSaved" class="text-lg font-semibold text-blue-600">${data.filtering_stats.tokens_saved.toLocaleString()}</div>
                         </div>
                     </div>
                 </div>
@@ -4451,6 +4451,15 @@
         if (keptChunksEl) keptChunksEl.textContent = data.kept_chunks;
         if (removedChunksEl) removedChunksEl.textContent = data.removed_chunks;
         if (reductionEl) reductionEl.textContent = `${data.filtering_stats.reduction_percent.toFixed(1)}%`;
+        
+        // Update cost analysis
+        const originalContentEl = document.getElementById('originalContentLength');
+        const costSavingsEl = document.getElementById('costSavings');
+        const tokensSavedEl = document.getElementById('tokensSaved');
+        
+        if (originalContentEl) originalContentEl.textContent = `${data.content_length.toLocaleString()} chars`;
+        if (costSavingsEl) costSavingsEl.textContent = `$${data.filtering_stats.cost_savings.toFixed(4)}`;
+        if (tokensSavedEl) tokensSavedEl.textContent = `${data.filtering_stats.tokens_saved.toLocaleString()}`;
         
         // Update chunk details
         const chunkDetails = document.getElementById('chunkDetails');

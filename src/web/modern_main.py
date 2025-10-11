@@ -4332,8 +4332,17 @@ async def api_chunk_debug(article_id: int, chunk_size: int = 1000, overlap: int 
                 'ml_prediction_correct': ml_prediction_correct
             })
         
-        # Get cost estimates
+        # Get cost estimates with current threshold
         cost_estimate = estimate_gpt4o_cost(article.content, use_filtering=True)
+        
+        # Calculate cost savings based on actual filtering results
+        original_tokens = len(article.content) // 4
+        filtered_tokens = len(filter_result.filtered_content) // 4
+        tokens_saved = original_tokens - filtered_tokens
+        
+        # Calculate cost savings (GPT-4o input cost: $5 per 1M tokens)
+        input_cost_per_token = 5.0 / 1000000
+        actual_cost_savings = tokens_saved * input_cost_per_token
         
         # Calculate statistics
         total_chunks = len(original_chunks)
@@ -4375,8 +4384,8 @@ async def api_chunk_debug(article_id: int, chunk_size: int = 1000, overlap: int 
             'filtering_stats': {
                 'reduction_percent': (removed_chunks / total_chunks * 100) if total_chunks > 0 else 0,
                 'content_reduction_percent': ((len(article.content) - len(filter_result.filtered_content)) / len(article.content) * 100) if len(article.content) > 0 else 0,
-                'tokens_saved': cost_estimate.get('cost_savings', 0) * 200000,  # Rough estimate
-                'cost_savings': cost_estimate.get('cost_savings', 0.0)
+                'tokens_saved': tokens_saved,
+                'cost_savings': actual_cost_savings
             }
         }
         

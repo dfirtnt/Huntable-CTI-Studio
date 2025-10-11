@@ -126,18 +126,26 @@ class GPT4oContentOptimizer:
         """
         try:
             if use_filtering:
-                # Get optimized content
-                optimization_result = asyncio.run(
-                    self.optimize_content_for_gpt4o(content)
-                )
+                # Use synchronous content filter instead of async optimization
+                from src.utils.content_filter import ContentFilter
+                content_filter = ContentFilter()
+                if not content_filter.model:
+                    content_filter.load_model()
                 
-                if optimization_result['success']:
-                    input_tokens = optimization_result['filtered_tokens']
-                    cost_savings = optimization_result['cost_savings']
+                # Apply filtering synchronously
+                filter_result = content_filter.filter_content(content, min_confidence=0.7)
+                
+                if filter_result.is_huntable:
+                    # Calculate tokens for filtered content
+                    filtered_tokens = len(filter_result.filtered_content) // 4
+                    original_tokens = len(content) // 4
+                    input_tokens = filtered_tokens
+                    cost_savings = filter_result.cost_savings
                 else:
-                    # Fallback to original content
-                    input_tokens = len(content) // 4
-                    cost_savings = 0.0
+                    # Content was filtered out entirely
+                    input_tokens = 0
+                    original_tokens = len(content) // 4
+                    cost_savings = (original_tokens / 1000000) * 5.00  # Full input cost saved
             else:
                 input_tokens = len(content) // 4
                 cost_savings = 0.0
