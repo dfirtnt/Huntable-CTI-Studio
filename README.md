@@ -37,6 +37,8 @@ A comprehensive threat intelligence aggregation and analysis platform designed f
 - **Real-time Updates**: Live monitoring of collection and processing status
 - **Export Capabilities**: CSV export for annotations and classified content
 - **RESTful API**: Comprehensive API for integration with other security tools
+- **Automated Backup System**: Comprehensive backup with database, config, and data protection
+- **Backup Management**: Web-based backup creation, listing, and status monitoring
 - **Database Management**: Command-line backup and restore tools for data protection
 - **RAG Chat Interface**: Interactive chat with threat intelligence database using semantic search
 - **AI-Powered Responses**: Template-based responses with optional LLM integration for enhanced analysis
@@ -205,8 +207,9 @@ WORKERS=4
 - **Web Server**: FastAPI application with modern web interface
 - **Worker Processes**: Celery workers for background scraping and processing
 - **Scheduler**: Automated source checking and maintenance tasks
-- **Database**: PostgreSQL for structured data storage
+- **Database**: PostgreSQL for structured data storage with automated backups
 - **Cache**: Redis for session management and task queuing
+- **Backup System**: Automated daily backups with retention policy (7 daily + 4 weekly + 3 monthly)
 
 ### Classification System
 

@@ -39,9 +39,16 @@ The CTI Scraper uses a microservices architecture with the following components:
    - Configured for parallel processing (3 concurrent requests, 2 loaded models)
    - Supports multiple AI endpoints: summaries, SIGMA rules, rankings, and RAG chat
 
+7. **Automated Backup System**
+   - Daily backup scheduling with cron jobs (2:00 AM daily, 3:00 AM weekly cleanup)
+   - Comprehensive backup including database, config, models, and outputs
+   - Retention policy: 7 daily + 4 weekly + 3 monthly backups
+   - Maximum backup size: 50GB total
+   - Web-based backup management interface
+
 ### Additional Services
 
-7. **CLI Tool Service** (`cli`) - **NEW**
+8. **CLI Tool Service** (`cli`) - **NEW**
    - Containerized command-line interface
    - Uses same PostgreSQL database as web application
    - Eliminates data inconsistency between CLI and web operations

@@ -22,6 +22,7 @@ The CTI Scraper uses a multi-layered testing approach with Docker-based testing,
 4. **API Tests**: REST API endpoint testing
 5. **UI Tests**: Web interface testing
 6. **Docker Tests**: Containerized testing
+7. **Backup Tests**: Backup system functionality and restore verification
 
 ## Quick Start
 
@@ -31,6 +32,19 @@ The CTI Scraper uses a multi-layered testing approach with Docker-based testing,
 # Quick smoke test
 python run_tests.py --smoke
 ./run_tests.sh smoke
+```
+
+### Backup System Testing
+
+```bash
+# Test backup creation and restore
+python run_tests.py --backup
+./run_tests.sh backup
+
+# Test backup API endpoints
+curl -X POST http://localhost:8001/api/backup/create
+curl -X GET http://localhost:8001/api/backup/list
+curl -X GET http://localhost:8001/api/backup/status
 ```
 
 ### Full Test Suite

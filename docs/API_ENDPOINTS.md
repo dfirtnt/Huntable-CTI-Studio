@@ -4,7 +4,7 @@ This document provides a comprehensive list of all API endpoints available in th
 
 ## Overview
 
-The CTI Scraper provides 80+ API endpoints across multiple categories:
+The CTI Scraper provides 85+ API endpoints across multiple categories:
 - **Health & Monitoring**: 8 endpoints
 - **Sources Management**: 12 endpoints  
 - **Articles Management**: 25 endpoints
@@ -12,6 +12,7 @@ The CTI Scraper provides 80+ API endpoints across multiple categories:
 - **Annotations**: 8 endpoints
 - **Jobs & Tasks**: 6 endpoints
 - **Metrics & Dashboard**: 7 endpoints
+- **Backup Management**: 3 endpoints
 - **Web Pages**: 10 endpoints
 
 ## Health & Monitoring Endpoints
@@ -25,6 +26,13 @@ The CTI Scraper provides 80+ API endpoints across multiple categories:
 - `GET /api/health/celery` - Celery workers health
 - `GET /api/health/ingestion` - Ingestion analytics health
 - `GET /api/metrics/health` - Metrics health check
+
+## Backup Management Endpoints
+
+### Backup Operations
+- `POST /api/backup/create` - Create a new system backup
+- `GET /api/backup/list` - List all available backups with sizes
+- `GET /api/backup/status` - Get backup system status and statistics
 
 ## Sources Management Endpoints
 

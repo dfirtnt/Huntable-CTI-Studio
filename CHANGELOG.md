@@ -8,6 +8,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Automated Backup System**: Daily backup scheduling with cron jobs (2:00 AM daily, 3:00 AM weekly cleanup)
+- **Backup Retention Policy**: 7 daily + 4 weekly + 3 monthly backups with 50GB max size limit
+- **Intelligent Backup Detection**: API automatically detects automated backups by analyzing backup frequency
 - **Backup System Integration**: Fixed database backup integration using existing backup_database_v3.py
 - **Backup Verification**: Added comprehensive backup testing with test database restore validation
 - **Security Hardening**: Removed hardcoded credentials and moved to environment variables
@@ -17,6 +20,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Redundant UI Cleanup**: Removed redundant "Save Configuration" button from settings page
 
 ### Fixed
+- **List Backups API**: Fixed parsing to show all numbered backups (1-10) instead of just the first one
+- **Backup List Display**: Corrected multi-line backup entry parsing to extract names and sizes properly
 - **Database Backup**: Fixed database backup to include actual data (1,187 articles, 35 sources)
 - **Backup Size Display**: Corrected backup size display from 29.9 GB to actual 0.03 GB
 - **Volume Mount**: Added scripts volume mount to Docker web container
