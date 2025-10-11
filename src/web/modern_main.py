@@ -765,23 +765,32 @@ async def api_list_backups():
             lines = result.stdout.split('\n')
             in_backup_list = False
             
-            for line in lines:
+            for i, line in enumerate(lines):
                 if "Recent Backups" in line:
                     in_backup_list = True
                     continue
-                if in_backup_list and line.strip() and not line.startswith(' '):
-                    # Parse backup line
-                    parts = line.split()
-                    if len(parts) >= 3:
-                        backup_name = parts[1].rstrip(',')
-                        size_mb = parts[-1].replace('MB', '')
-                        try:
-                            backups.append({
-                                "name": backup_name,
-                                "size_mb": float(size_mb)
-                            })
-                        except ValueError:
-                            continue
+                if in_backup_list and line.strip() and line.strip().startswith('1.'):
+                    # Parse backup line format: " 1. system_backup_20251011_011007"
+                    parts = line.strip().split('.', 1)
+                    if len(parts) >= 2:
+                        backup_name = parts[1].strip()
+                        
+                        # Look for size on next few lines
+                        size_mb = 0.0
+                        for j in range(i+1, min(i+4, len(lines))):
+                            if '📊' in lines[j] and 'MB' in lines[j]:
+                                # Extract size from "📊 1.33 MB"
+                                size_parts = lines[j].split()
+                                for part in size_parts:
+                                    if part.replace('MB', '').replace('.', '').isdigit():
+                                        size_mb = float(part.replace('MB', ''))
+                                        break
+                                break
+                        
+                        backups.append({
+                            "name": backup_name,
+                            "size_mb": size_mb
+                        })
             
             return backups
         else:
