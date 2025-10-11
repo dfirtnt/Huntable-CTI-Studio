@@ -2302,7 +2302,7 @@ async def api_chatgpt_summary(article_id: int, request: Request):
         else:
             # Use Ollama API
             ollama_url = os.getenv('LLM_API_URL', 'http://cti_ollama:11434')
-            ollama_model = os.getenv('LLM_MODEL', 'llama3.1:8b-instruct-q4_0')
+            ollama_model = os.getenv('LLM_MODEL')
             
             logger.info(f"Using Ollama at {ollama_url} with model {ollama_model}")
             
@@ -2549,7 +2549,7 @@ async def api_custom_prompt(article_id: int, request: Request):
         else:
             # Use Ollama API
             ollama_url = os.getenv('LLM_API_URL', 'http://cti_ollama:11434')
-            ollama_model = os.getenv('LLM_MODEL', 'llama3.1:8b-instruct-q4_0')
+            ollama_model = os.getenv('LLM_MODEL')
             
             logger.info(f"Using Ollama at {ollama_url} with model {ollama_model}")
             
@@ -3070,7 +3070,7 @@ async def api_generate_sigma(article_id: int, request: Request):
                     else:
                         # Use Ollama API
                         ollama_url = os.getenv('LLM_API_URL', 'http://cti_ollama:11434')
-                        ollama_model = os.getenv('LLM_MODEL', 'llama3.1:8b-instruct-q4_0')
+                        ollama_model = os.getenv('LLM_MODEL')
                         
                         logger.info(f"Using Ollama at {ollama_url} with model {ollama_model}")
                         
@@ -3608,7 +3608,7 @@ async def api_rank_with_gpt4o(article_id: int, request: Request):
         else:
             # Use Ollama API
             ollama_url = os.getenv('LLM_API_URL', 'http://cti_ollama:11434')
-            ollama_model = os.getenv('LLM_MODEL', 'llama3.1:8b-instruct-q4_0')
+            ollama_model = os.getenv('LLM_MODEL')
             
             logger.info(f"Using Ollama at {ollama_url} with model {ollama_model}")
             
@@ -4105,7 +4105,7 @@ async def api_rag_chat(request: Request):
                 if use_llm:
                     # Use Ollama for LLM responses
                     ollama_url = os.getenv('LLM_API_URL', 'http://cti_ollama:11434')
-                    ollama_model = os.getenv('LLM_MODEL', 'llama3.1:8b-instruct-q4_0')
+                    ollama_model = os.getenv('LLM_MODEL')
                     
                     # Use full context for comprehensive analysis
                     truncated_context = context[:5000] + "..." if len(context) > 5000 else context
