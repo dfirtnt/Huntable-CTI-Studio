@@ -816,8 +816,24 @@ async def api_backup_status():
         # Get project root
         project_root = Path(__file__).parent.parent.parent
         
-        # Check if automated backups are configured (skip in Docker container)
-        automated = False
+        # Check if automated backups are configured
+        # In Docker environment, check if backups are being created regularly
+        # (if multiple backups exist with recent timestamps, assume automated)
+        try:
+            # Count recent backups (last 7 days)
+            recent_backups = 0
+            backup_dir = project_root / "backups"
+            if backup_dir.exists():
+                import time
+                week_ago = time.time() - (7 * 24 * 60 * 60)
+                for backup_folder in backup_dir.iterdir():
+                    if backup_folder.is_dir() and backup_folder.stat().st_mtime > week_ago:
+                        recent_backups += 1
+            
+            # If we have multiple recent backups, likely automated
+            automated = recent_backups >= 3
+        except Exception:
+            automated = False
         
         # Get backup statistics
         stats_result = subprocess.run(
