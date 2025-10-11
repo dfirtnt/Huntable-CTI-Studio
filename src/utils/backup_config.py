@@ -90,7 +90,8 @@ class BackupConfigManager:
         self.config.critical_patterns = {
             "models": ["*.pkl", "*.joblib", "*.h5", "*.onnx"],
             "config": ["*.yaml", "*.yml", "*.json"],
-            "outputs": ["*.csv", "*.json", "*.txt"]
+            "outputs": ["*.csv", "*.json", "*.txt"],
+            "training_data": ["*.csv", "*.json"]
         }
         
         self._load_config()

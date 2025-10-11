@@ -94,6 +94,9 @@ verification:
       - "*.csv"
       - "*.json"
       - "*.txt"
+    training_data:
+      - "*.csv"
+      - "*.json"
 
 # Logging settings
 logging:
