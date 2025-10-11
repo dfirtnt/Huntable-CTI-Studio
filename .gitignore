@@ -3,9 +3,17 @@
 .env.local
 .env.production
 .env.staging
+.env.development
+.env.test
 *.env
 secrets/
 credentials/
+api_keys.txt
+tokens.txt
+
+# Docker secrets
+docker-compose.override.yml
+docker-compose.local.yml
 
 # Python
 __pycache__/
