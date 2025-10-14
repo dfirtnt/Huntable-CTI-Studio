@@ -4497,12 +4497,24 @@
         try {
             const chunkData = window.chunkDebugData.chunk_analysis[chunkIndex];
             
+            // Get the huntable probability specifically
+            let huntable_probability = chunkData.confidence;
+            if (chunkData.ml_details && chunkData.ml_details.probabilities) {
+                huntable_probability = chunkData.ml_details.probabilities.huntable;
+            } else if (chunkData.ml_details && chunkData.ml_details.confidence) {
+                // If we only have max confidence, assume it's huntable if is_kept is true
+                huntable_probability = chunkData.is_kept ? chunkData.ml_details.confidence : (1.0 - chunkData.ml_details.confidence);
+            } else {
+                // Fallback: assume confidence is huntable if is_kept is true
+                huntable_probability = chunkData.is_kept ? chunkData.confidence : (1.0 - chunkData.confidence);
+            }
+            
             const payload = {
                 article_id: window.chunkDebugData.article_id,
                 chunk_id: chunkIndex,
                 chunk_text: chunkData.text,
                 model_classification: chunkData.is_kept ? 'Huntable' : 'Not Huntable',
-                model_confidence: chunkData.confidence,
+                model_confidence: huntable_probability,
                 model_reason: chunkData.reason,
                 ...feedbackData,
                 timestamp: new Date().toISOString()
@@ -4571,10 +4583,16 @@
             if (response.ok) {
                 showNotification('Model retraining completed successfully!', 'success');
                 
-                // Ask if user wants to reload the page to see updated model
-                const reload = confirm('Model retraining complete! Reload the page to see the updated model in action?');
-                if (reload) {
-                    window.location.reload();
+                // Check if comparison data is available
+                if (result.has_comparison) {
+                    // Show comparison modal
+                    await showComparisonModal();
+                } else {
+                    // Ask if user wants to reload the page to see updated model
+                    const reload = confirm('Model retraining complete! Reload the page to see the updated model in action?');
+                    if (reload) {
+                        window.location.reload();
+                    }
                 }
             } else {
                 throw new Error(result.detail || 'Retraining failed');
@@ -4668,6 +4686,353 @@
                 }
             }
         }
+    }
+    
+    // Model Comparison Modal Functions
+    async function showComparisonModal() {
+        try {
+            // Get the latest model version for comparison
+            const response = await fetch('/api/model/versions');
+            const data = await response.json();
+            
+            if (!data.success || data.versions.length < 2) {
+                // No comparison available, just reload
+                const reload = confirm('Model retraining complete! Reload the page to see the updated model in action?');
+                if (reload) {
+                    window.location.reload();
+                }
+                return;
+            }
+            
+            // Get the latest version (first in the list)
+            const latestVersion = data.versions[0];
+            
+            // Get comparison data
+            const compareResponse = await fetch(`/api/model/compare/${latestVersion.id}`);
+            const compareData = await compareResponse.json();
+            
+            if (!compareData.success) {
+                throw new Error('Failed to get comparison data');
+            }
+            
+            // Show the comparison modal
+            displayComparisonModal(compareData.comparison, latestVersion);
+            
+        } catch (error) {
+            console.error('Error showing comparison modal:', error);
+            // Fallback to reload prompt
+            const reload = confirm('Model retraining complete! Reload the page to see the updated model in action?');
+            if (reload) {
+                window.location.reload();
+            }
+        }
+    }
+    
+    function displayComparisonModal(comparison, version) {
+        // Create modal HTML
+        const modalHTML = `
+            <div id="comparisonModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                <div class="bg-white rounded-lg p-6 max-w-4xl max-h-[90vh] overflow-y-auto">
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="text-2xl font-bold text-gray-900">🤖 Model Performance Comparison</h2>
+                        <button onclick="closeComparisonModal()" class="text-gray-500 hover:text-gray-700">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                            </svg>
+                        </button>
+                    </div>
+                    
+                    <div class="mb-6">
+                        <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                            <h3 class="text-lg font-semibold text-blue-900 mb-2">Model Version ${version.version_number}</h3>
+                            <p class="text-blue-700">Trained on ${new Date(version.trained_at).toLocaleString()}</p>
+                        </div>
+                    </div>
+                    
+                    <!-- Metrics Comparison Table -->
+                    <div class="mb-6">
+                        <h3 class="text-lg font-semibold mb-3">Performance Metrics</h3>
+                        <div class="overflow-x-auto">
+                            <table class="min-w-full bg-white border border-gray-200">
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Metric</th>
+                                        <th class="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase">Before</th>
+                                        <th class="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase">After</th>
+                                        <th class="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase">Change</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-gray-200">
+                                    <tr>
+                                        <td class="px-4 py-2 font-medium">Accuracy</td>
+                                        <td class="px-4 py-2 text-center">${(comparison.old_version.accuracy * 100).toFixed(1)}%</td>
+                                        <td class="px-4 py-2 text-center">${(comparison.new_version.accuracy * 100).toFixed(1)}%</td>
+                                        <td class="px-4 py-2 text-center ${comparison.improvements.accuracy_change >= 0 ? 'text-green-600' : 'text-red-600'}">
+                                            ${comparison.improvements.accuracy_change >= 0 ? '+' : ''}${(comparison.improvements.accuracy_change * 100).toFixed(1)}%
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td class="px-4 py-2 font-medium">Precision (Huntable)</td>
+                                        <td class="px-4 py-2 text-center">${(comparison.old_version.precision_huntable * 100).toFixed(1)}%</td>
+                                        <td class="px-4 py-2 text-center">${(comparison.new_version.precision_huntable * 100).toFixed(1)}%</td>
+                                        <td class="px-4 py-2 text-center ${comparison.improvements.precision_huntable_change >= 0 ? 'text-green-600' : 'text-red-600'}">
+                                            ${comparison.improvements.precision_huntable_change >= 0 ? '+' : ''}${(comparison.improvements.precision_huntable_change * 100).toFixed(1)}%
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td class="px-4 py-2 font-medium">Recall (Huntable)</td>
+                                        <td class="px-4 py-2 text-center">${(comparison.old_version.recall_huntable * 100).toFixed(1)}%</td>
+                                        <td class="px-4 py-2 text-center">${(comparison.new_version.recall_huntable * 100).toFixed(1)}%</td>
+                                        <td class="px-4 py-2 text-center ${comparison.improvements.recall_huntable_change >= 0 ? 'text-green-600' : 'text-red-600'}">
+                                            ${comparison.improvements.recall_huntable_change >= 0 ? '+' : ''}${(comparison.improvements.recall_huntable_change * 100).toFixed(1)}%
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td class="px-4 py-2 font-medium">Training Data</td>
+                                        <td class="px-4 py-2 text-center">${comparison.old_version.training_data_size}</td>
+                                        <td class="px-4 py-2 text-center">${comparison.new_version.training_data_size}</td>
+                                        <td class="px-4 py-2 text-center text-blue-600">
+                                            +${comparison.improvements.training_data_increase}
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td class="px-4 py-2 font-medium">Feedback Samples</td>
+                                        <td class="px-4 py-2 text-center">${comparison.old_version.feedback_samples_count}</td>
+                                        <td class="px-4 py-2 text-center">${comparison.new_version.feedback_samples_count}</td>
+                                        <td class="px-4 py-2 text-center text-blue-600">
+                                            +${comparison.improvements.feedback_samples_added}
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    
+                    <!-- Summary -->
+                    <div class="mb-6">
+                        <h3 class="text-lg font-semibold mb-3">Summary</h3>
+                        ${comparison.summary.key_improvements.length > 0 ? `
+                            <div class="mb-3">
+                                <h4 class="font-medium text-green-700 mb-2">✅ Key Improvements:</h4>
+                                <ul class="list-disc list-inside text-green-600">
+                                    ${comparison.summary.key_improvements.map(improvement => `<li>${improvement}</li>`).join('')}
+                                </ul>
+                            </div>
+                        ` : ''}
+                        ${comparison.summary.areas_of_concern.length > 0 ? `
+                            <div class="mb-3">
+                                <h4 class="font-medium text-yellow-700 mb-2">⚠️ Areas of Concern:</h4>
+                                <ul class="list-disc list-inside text-yellow-600">
+                                    ${comparison.summary.areas_of_concern.map(concern => `<li>${concern}</li>`).join('')}
+                                </ul>
+                            </div>
+                        ` : ''}
+                    </div>
+                    
+                    <!-- Actions -->
+                    <div class="flex justify-end space-x-3">
+                        <button onclick="showFeedbackComparison()" class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700">
+                            View Feedback Impact
+                        </button>
+                        <button onclick="closeComparisonModal()" class="px-4 py-2 bg-gray-300 text-gray-700 rounded hover:bg-gray-400">
+                            Close
+                        </button>
+                        <button onclick="reloadWithNewModel()" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
+                            Reload Page with New Model
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        // Add modal to page
+        document.body.insertAdjacentHTML('beforeend', modalHTML);
+    }
+    
+    function closeComparisonModal() {
+        const modal = document.getElementById('comparisonModal');
+        if (modal) {
+            modal.remove();
+        }
+    }
+    
+    function reloadWithNewModel() {
+        closeComparisonModal();
+        window.location.reload();
+    }
+    
+    async function showFeedbackComparison() {
+        try {
+            const response = await fetch('/api/model/feedback-comparison');
+            const data = await response.json();
+            
+            if (!data.success) {
+                throw new Error(data.message || 'Failed to get feedback comparison');
+            }
+            
+            displayFeedbackComparisonModal(data);
+            
+        } catch (error) {
+            console.error('Error showing feedback comparison:', error);
+            showNotification('Failed to load feedback comparison: ' + error.message, 'error');
+        }
+    }
+    
+    function displayFeedbackComparisonModal(data) {
+        // Close the current modal
+        closeComparisonModal();
+        
+        // Filter to current article by default
+        const currentArticleId = window.chunkDebugData?.article_id;
+        const filteredData = {
+            ...data,
+            feedback_comparisons: data.feedback_comparisons.filter(c => c.article_id == currentArticleId)
+        };
+        
+        // Create feedback comparison modal
+        const modalHTML = `
+            <div id="feedbackComparisonModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                <div class="bg-white rounded-lg p-6 max-w-6xl max-h-[90vh] overflow-y-auto">
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="text-2xl font-bold text-gray-900">📊 Feedback Impact Analysis</h2>
+                        <button onclick="closeFeedbackComparisonModal()" class="text-gray-500 hover:text-gray-700">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                            </svg>
+                        </button>
+                    </div>
+                    
+                    <div class="mb-6">
+                        <div class="bg-green-50 border border-green-200 rounded-lg p-4">
+                            <h3 class="text-lg font-semibold text-green-900 mb-2">Model Version ${filteredData.model_version} vs ${filteredData.previous_model_version}</h3>
+                            <p class="text-green-700">Showing confidence changes for ${filteredData.feedback_comparisons.length} chunks from the latest retraining</p>
+                            <div class="mt-2 text-sm text-green-600">
+                                <strong>Comparison Period:</strong> ${filteredData.comparison_period}
+                            </div>
+                            <div class="mt-1 text-sm text-green-600">
+                                <strong>Current Article (${currentArticleId || 'N/A'}):</strong> 
+                                ${filteredData.feedback_comparisons.length} chunks
+                            </div>
+                        </div>
+                    </div>
+                    
+                    
+                    <!-- Feedback Comparison Table -->
+                    <div class="mb-6">
+                        <h3 class="text-lg font-semibold mb-3">Confidence Changes for Your Feedback</h3>
+                        <div class="overflow-x-auto">
+                            <table class="min-w-full bg-white border border-gray-200">
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Chunk Text</th>
+                                        <th class="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase">Old Huntable Confidence</th>
+                                        <th class="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase">New Huntable Confidence</th>
+                                        <th class="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase">Change</th>
+                                        <th class="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase">Your Feedback</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-gray-200">
+                                    ${filteredData.feedback_comparisons.map(comparison => `
+                                        <tr>
+                                            <td class="px-4 py-2 text-sm" data-article-id="${comparison.article_id}">
+                                                <div class="max-w-xs truncate" title="${comparison.chunk_text}">
+                                                    ${comparison.chunk_text}
+                                                </div>
+                                            </td>
+                                            <td class="px-4 py-2 text-center">
+                                                <span class="text-sm">${(comparison.old_huntable_probability * 100).toFixed(1)}%</span>
+                                                <div class="text-xs text-gray-500">${comparison.old_classification}</div>
+                                            </td>
+                                            <td class="px-4 py-2 text-center">
+                                                <span class="text-sm font-medium">${(comparison.new_huntable_probability * 100).toFixed(1)}%</span>
+                                                <div class="text-xs text-gray-500">${comparison.new_classification}</div>
+                                            </td>
+                                            <td class="px-4 py-2 text-center">
+                                                <span class="text-sm font-bold ${comparison.huntable_probability_change >= 0 ? 'text-green-600' : 'text-red-600'}">
+                                                    ${comparison.huntable_probability_change >= 0 ? '+' : ''}${(comparison.huntable_probability_change * 100).toFixed(1)}%
+                                                </span>
+                                            </td>
+                                            <td class="px-4 py-2 text-center">
+                                                <span class="text-xs px-2 py-1 rounded ${comparison.is_correct ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}">
+                                                    ${comparison.is_correct ? '✅ Correct' : '❌ Incorrect'}
+                                                </span>
+                                                <div class="text-xs text-gray-500 mt-1">${comparison.user_classification}</div>
+                                            </td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    
+                    <!-- Summary Statistics -->
+                    <div class="mb-6">
+                        <h3 class="text-lg font-semibold mb-3">Summary</h3>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                                <div class="text-sm text-blue-600">Average Huntable Confidence Change</div>
+                                <div class="text-lg font-semibold text-blue-900">
+                                    ${(filteredData.feedback_comparisons.reduce((sum, c) => sum + c.huntable_probability_change, 0) / filteredData.feedback_comparisons.length * 100).toFixed(1)}%
+                                </div>
+                            </div>
+                            <div class="bg-green-50 border border-green-200 rounded-lg p-4">
+                                <div class="text-sm text-green-600">Chunks with Improved Huntable Confidence</div>
+                                <div class="text-lg font-semibold text-green-900">
+                                    ${filteredData.feedback_comparisons.filter(c => c.huntable_probability_change > 0).length}
+                                </div>
+                            </div>
+                            <div class="bg-red-50 border border-red-200 rounded-lg p-4">
+                                <div class="text-sm text-red-600">Chunks with Decreased Huntable Confidence</div>
+                                <div class="text-lg font-semibold text-red-900">
+                                    ${filteredData.feedback_comparisons.filter(c => c.huntable_probability_change < 0).length}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Actions -->
+                    <div class="flex justify-end space-x-3">
+                        <button onclick="closeFeedbackComparisonModal()" class="px-4 py-2 bg-gray-300 text-gray-700 rounded hover:bg-gray-400">
+                            Close
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        // Add modal to page
+        document.body.insertAdjacentHTML('beforeend', modalHTML);
+    }
+    
+    function closeFeedbackComparisonModal() {
+        const modal = document.getElementById('feedbackComparisonModal');
+        if (modal) {
+            modal.remove();
+        }
+    }
+    
+    function filterFeedbackTable() {
+        const checkbox = document.getElementById('filterCurrentArticle');
+        const table = document.querySelector('#feedbackComparisonModal table tbody');
+        const currentArticleId = window.chunkDebugData?.article_id;
+        
+        if (!table || !currentArticleId) return;
+        
+        const rows = table.querySelectorAll('tr');
+        
+        rows.forEach(row => {
+            const articleIdCell = row.querySelector('td[data-article-id]');
+            if (articleIdCell) {
+                const rowArticleId = parseInt(articleIdCell.getAttribute('data-article-id'));
+                if (checkbox.checked) {
+                    // Show only current article
+                    row.style.display = rowArticleId === currentArticleId ? '' : 'none';
+                } else {
+                    // Show all articles
+                    row.style.display = '';
+                }
+            }
+        });
     }
 </script>
 {% endblock %}

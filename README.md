@@ -25,6 +25,9 @@ A comprehensive threat intelligence aggregation and analysis platform designed f
 - **SIGMA Rule Generation**: AI-powered generation of detection rules with pySIGMA validation
 - **RAG Chat Interface**: Interactive chat with threat intelligence database using semantic search
 - **Vector Embeddings**: Sentence Transformers integration for semantic similarity search
+- **ML-Powered Content Filtering**: Machine learning model for automated chunk classification
+- **Interactive Feedback System**: User feedback collection for continuous model improvement
+- **Model Versioning & Comparison**: Track model performance changes and confidence improvements
 
 ### 📊 Advanced Analytics
 - **Text Annotation System**: Web-based interface for marking huntable vs non-huntable content
@@ -43,6 +46,8 @@ A comprehensive threat intelligence aggregation and analysis platform designed f
 - **RAG Chat Interface**: Interactive chat with threat intelligence database using semantic search
 - **AI-Powered Responses**: Template-based responses with optional LLM integration for enhanced analysis
 - **Clickable Results**: Direct links to article details from chat responses
+- **ML Feedback Interface**: Interactive feedback system for model improvement with confidence tracking
+- **Model Performance Analytics**: Visual comparison of model versions and confidence improvements
 
 ## 🏗️ Architecture
 

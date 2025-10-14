@@ -193,3 +193,41 @@ class URLTrackingTable(Base):
     
     def __repr__(self):
         return f"<URLTracking(url='{self.url[:50]}...', last_checked={self.last_checked})>"
+
+
+class MLModelVersionTable(Base):
+    """Database table for tracking ML model versions and performance metrics."""
+    
+    __tablename__ = 'ml_model_versions'
+    
+    id = Column(Integer, primary_key=True, index=True)
+    version_number = Column(Integer, nullable=False)
+    trained_at = Column(DateTime, nullable=False, default=func.now())
+    training_data_size = Column(Integer, nullable=False)
+    feedback_samples_count = Column(Integer, nullable=False, default=0)
+    
+    # Test set performance metrics
+    accuracy = Column(Float, nullable=True)
+    precision_huntable = Column(Float, nullable=True)
+    precision_not_huntable = Column(Float, nullable=True)
+    recall_huntable = Column(Float, nullable=True)
+    recall_not_huntable = Column(Float, nullable=True)
+    f1_score_huntable = Column(Float, nullable=True)
+    f1_score_not_huntable = Column(Float, nullable=True)
+    
+    # Model configuration
+    model_params = Column(JSON, nullable=False, default=dict)
+    
+    # Training metadata
+    training_duration_seconds = Column(Float, nullable=True)
+    model_file_path = Column(Text, nullable=True)
+    
+    # Comparison metadata
+    compared_with_version = Column(Integer, ForeignKey('ml_model_versions.id'), nullable=True)
+    comparison_results = Column(JSON, nullable=True)
+    
+    # Timestamps
+    created_at = Column(DateTime, nullable=False, default=func.now())
+    
+    def __repr__(self):
+        return f"<MLModelVersion(id={self.id}, version={self.version_number}, accuracy={self.accuracy:.3f})>"

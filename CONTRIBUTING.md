@@ -138,6 +138,16 @@ pre-commit install
 - Use fixtures for common setup
 - Mock external dependencies
 
+### ML Feedback Feature Testing
+
+For ML feedback features, follow the balanced testing approach:
+- **Focus on critical paths** that are most likely to break
+- **Write integration tests** that catch real-world issues
+- **Keep tests simple and maintainable**
+- **Test the 3 essential areas**: Huntable probability calculation, API contracts, and retraining workflow
+
+See `tests/ML_FEEDBACK_TESTS_README.md` for detailed guidelines.
+
 ### Test Structure
 
 ```python

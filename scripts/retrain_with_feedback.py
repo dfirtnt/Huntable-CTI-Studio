@@ -88,6 +88,9 @@ def retrain_model_with_feedback(original_file: str = "outputs/training_data/comb
                                feedback_file: str = "outputs/training_data/chunk_classification_feedback.csv",
                                output_file: str = "outputs/training_data/retrained_training_data.csv"):
     """Retrain the model using original data plus user feedback."""
+    import shutil
+    import asyncio
+    from datetime import datetime
     
     print("🚀 Starting model retraining with user feedback...")
     print("=" * 60)
@@ -109,14 +112,94 @@ def retrain_model_with_feedback(original_file: str = "outputs/training_data/comb
     combined_df.to_csv(output_file, index=False)
     print(f"💾 Saved combined training data to: {output_file}")
     
+    # Backup current model before retraining
+    current_model_path = "/app/models/content_filter.pkl"
+    backup_model_path = None
+    old_version_id = None
+    
+    if os.path.exists(current_model_path):
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        backup_model_path = f"/app/models/content_filter_backup_{timestamp}.pkl"
+        shutil.copy2(current_model_path, backup_model_path)
+        print(f"💾 Backed up current model to: {backup_model_path}")
+        
+        # Get current model version for comparison
+        try:
+            from src.database.async_manager import AsyncDatabaseManager
+            from src.utils.model_versioning import MLModelVersionManager
+            
+            db_manager = AsyncDatabaseManager()
+            version_manager = MLModelVersionManager(db_manager)
+            
+            latest_version = asyncio.run(version_manager.get_latest_version())
+            if latest_version:
+                old_version_id = latest_version.id
+                print(f"📊 Current model version: {latest_version.version_number}")
+        except Exception as e:
+            print(f"⚠️  Could not get current model version: {e}")
+    
     # Train the model
     print("\n🤖 Training ML model...")
-    filter_system = ContentFilter(model_path="/app/models/content_filter.pkl")
+    filter_system = ContentFilter(model_path=current_model_path)
     
-    success = filter_system.train_model(output_file)
+    training_result = filter_system.train_model(output_file)
     
-    if success:
+    if training_result and training_result.get('success'):
         print("✅ Model retraining completed successfully!")
+        
+        # Save new model version to database
+        new_version_id = None
+        try:
+            from src.database.async_manager import AsyncDatabaseManager
+            from src.utils.model_versioning import MLModelVersionManager
+            
+            db_manager = AsyncDatabaseManager()
+            version_manager = MLModelVersionManager(db_manager)
+            
+            # Count feedback samples used
+            feedback_count = len(feedback_df[feedback_df['is_correct'] == False]) if not feedback_df.empty else 0
+            
+            new_version_id = asyncio.run(version_manager.save_model_version(
+                metrics=training_result,
+                training_config={'original_file': original_file, 'feedback_file': feedback_file},
+                feedback_count=feedback_count,
+                model_file_path=current_model_path
+            ))
+            
+            print(f"📊 Saved new model version: {new_version_id}")
+            
+            # Set the compared_with_version field for the new version
+            if old_version_id and new_version_id:
+                try:
+                    # Update the new version to reference the old version
+                    async def update_comparison_reference():
+                        async with db_manager.get_session() as session:
+                            from sqlalchemy import update
+                            from src.database.models import MLModelVersionTable
+                            await session.execute(
+                                update(MLModelVersionTable)
+                                .where(MLModelVersionTable.id == new_version_id)
+                                .values(compared_with_version=old_version_id)
+                            )
+                            await session.commit()
+                    
+                    asyncio.run(update_comparison_reference())
+                    print(f"📊 Set comparison reference: version {new_version_id} compares with version {old_version_id}")
+                    
+                    # Return comparison data for API response
+                    training_result['comparison'] = True
+                    training_result['new_version_id'] = new_version_id
+                    training_result['old_version_id'] = old_version_id
+                    
+                except Exception as e:
+                    print(f"⚠️  Could not set comparison reference: {e}")
+                    # Still return the version IDs for the API to handle comparison
+                    training_result['comparison'] = True
+                    training_result['new_version_id'] = new_version_id
+                    training_result['old_version_id'] = old_version_id
+            
+        except Exception as e:
+            print(f"⚠️  Could not save model version or run comparison: {e}")
         
         # Show statistics
         if not feedback_df.empty:
@@ -130,18 +213,22 @@ def retrain_model_with_feedback(original_file: str = "outputs/training_data/comb
             print(f"   - Incorrect classifications: {incorrect_feedback}")
             print(f"   - Accuracy from feedback: {correct_feedback/total_feedback*100:.1f}%")
         
-        return True
+        return training_result
     else:
         print("❌ Model retraining failed")
+        # Restore backup if training failed
+        if backup_model_path and os.path.exists(backup_model_path):
+            shutil.copy2(backup_model_path, current_model_path)
+            print(f"🔄 Restored backup model from: {backup_model_path}")
         return False
 
 def main():
     parser = argparse.ArgumentParser(description='Retrain ML model with user feedback')
-    parser.add_argument('--original', default='outputs/combined_training_data.csv',
+    parser.add_argument('--original', default='outputs/training_data/combined_training_data.csv',
                        help='Original training data file')
-    parser.add_argument('--feedback', default='outputs/chunk_classification_feedback.csv',
+    parser.add_argument('--feedback', default='outputs/training_data/chunk_classification_feedback.csv',
                        help='User feedback data file')
-    parser.add_argument('--output', default='outputs/retrained_training_data.csv',
+    parser.add_argument('--output', default='outputs/training_data/retrained_training_data.csv',
                        help='Output file for combined training data')
     parser.add_argument('--verbose', action='store_true',
                        help='Verbose output')

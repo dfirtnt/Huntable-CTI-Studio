@@ -4488,7 +4488,7 @@ async def api_model_retrain():
         import os
         
         # Check if feedback file exists
-        feedback_file = "outputs/chunk_classification_feedback.csv"
+        feedback_file = "outputs/training_data/chunk_classification_feedback.csv"
         if not os.path.exists(feedback_file):
             return {"success": False, "message": "No feedback data found to retrain with"}
         
@@ -4513,11 +4513,31 @@ async def api_model_retrain():
                     # Docker copy failed, but retraining succeeded
                     pass
             
-            return {
+            # Parse the retraining result for comparison data
+            response_data = {
                 "success": True, 
                 "message": "Model retraining completed successfully",
                 "output": result.stdout
             }
+            
+            # Check if we have multiple model versions for comparison
+            try:
+                from src.utils.model_versioning import MLModelVersionManager
+                version_manager = MLModelVersionManager(async_db_manager)
+                versions = await version_manager.get_all_versions(limit=2)
+                
+                # If we have 2 or more versions, comparison is available
+                if len(versions) >= 2:
+                    response_data["has_comparison"] = True
+                    response_data["comparison_available"] = True
+                    response_data["latest_version_id"] = versions[0].id
+                else:
+                    response_data["has_comparison"] = False
+            except Exception as e:
+                logger.warning(f"Could not check comparison availability: {e}")
+                response_data["has_comparison"] = False
+            
+            return response_data
         else:
             return {
                 "success": False, 
@@ -4530,6 +4550,269 @@ async def api_model_retrain():
     except Exception as e:
         logger.error(f"Model retraining failed: {str(e)}")
         return {"success": False, "message": f"Retraining failed: {str(e)}"}
+
+
+@app.get("/api/model/versions")
+async def api_get_model_versions():
+    """Get all ML model versions with metrics."""
+    try:
+        from src.utils.model_versioning import MLModelVersionManager
+        
+        version_manager = MLModelVersionManager(async_db_manager)
+        versions = await version_manager.get_all_versions(limit=50)
+        
+        # Convert to serializable format
+        versions_data = []
+        for version in versions:
+            versions_data.append({
+                'id': version.id,
+                'version_number': version.version_number,
+                'trained_at': version.trained_at.isoformat(),
+                'accuracy': version.accuracy,
+                'precision_huntable': version.precision_huntable,
+                'precision_not_huntable': version.precision_not_huntable,
+                'recall_huntable': version.recall_huntable,
+                'recall_not_huntable': version.recall_not_huntable,
+                'f1_score_huntable': version.f1_score_huntable,
+                'f1_score_not_huntable': version.f1_score_not_huntable,
+                'training_data_size': version.training_data_size,
+                'feedback_samples_count': version.feedback_samples_count,
+                'training_duration_seconds': version.training_duration_seconds,
+                'has_comparison': version.comparison_results is not None
+            })
+        
+        return {
+            'success': True,
+            'versions': versions_data,
+            'total_versions': len(versions_data)
+        }
+        
+    except Exception as e:
+        logger.error(f"Error getting model versions: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to get model versions: {str(e)}")
+
+
+@app.get("/api/model/compare/{version_id}")
+async def api_get_model_comparison(version_id: int):
+    """Get comparison results for a specific model version vs its predecessor."""
+    try:
+        from src.utils.model_versioning import MLModelVersionManager
+        
+        version_manager = MLModelVersionManager(async_db_manager)
+        
+        # Get the version
+        version = await version_manager.get_version_by_id(version_id)
+        if not version:
+            raise HTTPException(status_code=404, detail="Model version not found")
+        
+        # If comparison results are already stored, return them
+        if version.comparison_results:
+            return {
+                'success': True,
+                'comparison': version.comparison_results,
+                'version_id': version_id,
+                'version_number': version.version_number
+            }
+        
+        # Otherwise, try to find the previous version and generate comparison
+        if not version.compared_with_version:
+            # Find the previous version
+            all_versions = await version_manager.get_all_versions(limit=10)
+            current_version_num = version.version_number
+            
+            # Find the previous version
+            previous_version = None
+            for v in all_versions:
+                if v.version_number == current_version_num - 1:
+                    previous_version = v
+                    break
+            
+            if previous_version:
+                # Set the comparison reference
+                async with async_db_manager.get_session() as session:
+                    from sqlalchemy import update
+                    from src.database.models import MLModelVersionTable
+                    await session.execute(
+                        update(MLModelVersionTable)
+                        .where(MLModelVersionTable.id == version_id)
+                        .values(compared_with_version=previous_version.id)
+                    )
+                    await session.commit()
+                
+                # Now generate the comparison
+                comparison = await version_manager.compare_versions(
+                    previous_version.id, 
+                    version_id
+                )
+                
+                # Store the comparison results
+                await version_manager.update_comparison_results(version_id, comparison)
+                
+                return {
+                    'success': True,
+                    'comparison': comparison,
+                    'version_id': version_id,
+                    'version_number': version.version_number
+                }
+            else:
+                return {
+                    'success': False,
+                    'message': "No previous version to compare with"
+                }
+        else:
+            # Use existing comparison reference
+            comparison = await version_manager.compare_versions(
+                version.compared_with_version, 
+                version_id
+            )
+            
+            # Store the comparison results
+            await version_manager.update_comparison_results(version_id, comparison)
+            
+            return {
+                'success': True,
+                'comparison': comparison,
+                'version_id': version_id,
+                'version_number': version.version_number
+            }
+        
+    except Exception as e:
+        logger.error(f"Error getting model comparison: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to get model comparison: {str(e)}")
+
+
+@app.get("/api/model/feedback-comparison")
+async def api_get_feedback_comparison():
+    """Get before/after confidence levels for chunks that received user feedback."""
+    try:
+        import pandas as pd
+        import os
+        from src.utils.content_filter import ContentFilter
+        
+        # Load feedback data
+        feedback_file = "outputs/training_data/chunk_classification_feedback.csv"
+        if not os.path.exists(feedback_file):
+            return {"success": False, "message": "No feedback data found"}
+        
+        feedback_df = pd.read_csv(feedback_file)
+        if feedback_df.empty:
+            return {"success": False, "message": "No feedback data available"}
+        
+        # Get the latest model version and previous version
+        from src.utils.model_versioning import MLModelVersionManager
+        version_manager = MLModelVersionManager(async_db_manager)
+        latest_version = await version_manager.get_latest_version()
+        
+        if not latest_version:
+            return {"success": False, "message": "No model versions found"}
+        
+        # Get previous version for comparison
+        all_versions = await version_manager.get_all_versions(limit=2)
+        if len(all_versions) < 2:
+            return {"success": False, "message": "Need at least 2 model versions to show changes"}
+        
+        previous_version = all_versions[1]  # Second most recent
+        
+        # Load current model (latest version)
+        content_filter = ContentFilter()
+        if not content_filter.load_model():
+            return {"success": False, "message": "Failed to load current model"}
+        
+        # Filter feedback to only include entries from the last model version (after previous version was trained)
+        from datetime import datetime
+        import pytz
+        
+        previous_trained_at = previous_version.trained_at
+        
+        # Convert timestamp strings to datetime for comparison (handle timezone)
+        feedback_df['timestamp_dt'] = pd.to_datetime(feedback_df['timestamp'], utc=True)
+        
+        # Ensure previous_trained_at is timezone-aware
+        if previous_trained_at.tzinfo is None:
+            previous_trained_at = previous_trained_at.replace(tzinfo=pytz.UTC)
+        
+        # Only include feedback provided after the previous model was trained
+        recent_feedback = feedback_df[feedback_df['timestamp_dt'] > previous_trained_at]
+        
+        if recent_feedback.empty:
+            return {"success": False, "message": "No feedback provided since the last model version"}
+        
+        # Deduplicate feedback by article_id + chunk_id to get unique chunks you provided feedback on
+        unique_feedback = recent_feedback.drop_duplicates(subset=['article_id', 'chunk_id'], keep='last')
+        
+        # Only show chunks where the user actually provided feedback (not just chunks processed during retraining)
+        # Filter out chunks with 0.0 confidence as these are likely not actual feedback chunks
+        actual_feedback_chunks = unique_feedback[unique_feedback['model_confidence'] > 0.01]
+        
+        if actual_feedback_chunks.empty:
+            return {"success": False, "message": "No valid feedback chunks found (all have 0.0% confidence)"}
+        
+        unique_feedback = actual_feedback_chunks
+        
+        # Test each unique feedback chunk with current model
+        feedback_comparisons = []
+        
+        for _, row in unique_feedback.iterrows():
+            chunk_text = row['chunk_text']
+            stored_old_confidence = row['model_confidence']
+            old_classification = row['model_classification']
+            user_classification = row['user_classification']
+            is_correct = row['is_correct']
+            
+            # Get new prediction with current model
+            new_is_huntable, new_confidence = content_filter.predict_huntability(chunk_text)
+            new_classification = 'Huntable' if new_is_huntable else 'Not Huntable'
+            
+            # Extract huntable probability from model for new prediction
+            import numpy as np
+            features = content_filter.extract_features(chunk_text)
+            feature_vector = np.array(list(features.values())).reshape(1, -1)
+            probabilities = content_filter.model.predict_proba(feature_vector)[0]
+            new_huntable_probability = float(probabilities[1])  # Index 1 is "Huntable"
+            
+            # Calculate old huntable probability from stored data
+            if old_classification == 'Huntable':
+                old_huntable_probability = stored_old_confidence
+            else:
+                old_huntable_probability = 1.0 - stored_old_confidence
+            
+            # Calculate change in huntable probability
+            huntable_probability_change = new_huntable_probability - old_huntable_probability
+            
+            # Only include chunks with meaningful huntable probability changes (> 1% or < -1%)
+            if abs(huntable_probability_change) > 0.01:
+                feedback_comparisons.append({
+                    'article_id': row['article_id'],
+                    'chunk_id': row['chunk_id'],
+                    'chunk_text': chunk_text[:200] + '...' if len(chunk_text) > 200 else chunk_text,
+                    'old_classification': old_classification,
+                    'old_confidence': float(stored_old_confidence),
+                    'old_huntable_probability': float(old_huntable_probability),
+                    'new_classification': new_classification,
+                    'new_confidence': float(new_confidence),
+                    'new_huntable_probability': float(new_huntable_probability),
+                    'confidence_change': float(new_confidence - stored_old_confidence),
+                    'huntable_probability_change': float(huntable_probability_change),
+                    'user_classification': user_classification,
+                    'is_correct': is_correct,
+                    'timestamp': row['timestamp']
+                })
+        
+        # Sort by huntable probability change (biggest improvements first)
+        feedback_comparisons.sort(key=lambda x: x['huntable_probability_change'], reverse=True)
+        
+        return {
+            'success': True,
+            'feedback_comparisons': feedback_comparisons,
+            'total_feedback_chunks': len(feedback_comparisons),
+            'model_version': latest_version.version_number,
+            'previous_model_version': previous_version.version_number,
+            'comparison_period': f"Since model version {previous_version.version_number} (trained {previous_trained_at.strftime('%Y-%m-%d %H:%M')})"
+        }
+        
+    except Exception as e:
+        logger.error(f"Error getting feedback comparison: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to get feedback comparison: {str(e)}")
 
 
 # Enhanced GPT-4o ranking endpoint with content filtering
