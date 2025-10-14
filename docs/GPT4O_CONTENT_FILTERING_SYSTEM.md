@@ -50,8 +50,8 @@ Analysis Results + Cost Savings
 **Core filtering engine** with pattern matching and ML classification.
 
 **Key Features:**
-- **97 perfect discriminators** from threat hunting analysis
-- **40+ LOLBAS executables** for comprehensive coverage
+- **103 perfect discriminators** from threat hunting analysis (87 strings + 16 regex patterns)
+- **64 LOLBAS executables** for comprehensive coverage
 - **Cross-platform patterns** (Windows, macOS, Linux)
 - **Intelligence indicators** (APT groups, campaigns, TTPs)
 - **Perfect discriminator protection** - chunks containing threat hunting keywords are never filtered
@@ -172,11 +172,11 @@ Chunk 4: 1103-1246 chars (Lateral movement details)
 
 ## Pattern Filters
 
-The pattern-based classification uses the comprehensive Hunt Scoring keyword system from `src/utils/content.py`, providing 270 total patterns for content classification.
+The pattern-based classification uses the comprehensive Hunt Scoring keyword system from `src/utils/content.py`, providing 314 total patterns for content classification.
 
-### Huntable Patterns (244 patterns)
+### Huntable Patterns (289 patterns)
 
-**Perfect Discriminators (55 patterns):**
+**Perfect Discriminators (103 patterns):**
 - **Process Names**: `rundll32`, `msiexec`, `svchost`, `lsass.exe`, `powershell.exe`
 - **Registry References**: `hklm`, `appdata`, `programdata`, `WINDIR`, `wbem`
 - **Command Execution**: `iex`, `wmic`, `comspec`, `findstr`
@@ -185,7 +185,7 @@ The pattern-based classification uses the comprehensive Hunt Scoring keyword sys
 - **Cross-Platform**: `homebrew`, `/users/shared/`, `chmod 777`, `tccd`, `spctl`
 - **Technical Patterns**: `xor`, `tcp://`, `CN=`, `-ComObject`, `Base64`
 
-**Good Discriminators (78 patterns):**
+**Good Discriminators (77 patterns):**
 - **Windows Paths**: `c:\windows\`, `temp`, `pipe`, `::`
 - **File Extensions**: `.bat`, `.ps1`, `.exe`, `mach-o`, `plist`
 - **Technical Patterns**: `==`, `[.]`, `-->`, `currentversion`, `Event ID`
@@ -193,21 +193,21 @@ The pattern-based classification uses the comprehensive Hunt Scoring keyword sys
 - **Cross-Platform**: `osascript`, `TCC.db`, `sudo`, `cron`, `launchd`
 - **Cloud/Network**: `aws`, `azure`, `gcp`, `ssl`, `proxy`, `network`
 
-**LOLBAS Executables (65 patterns):**
+**LOLBAS Executables (64 patterns):**
 - **System Tools**: `certutil`, `cmd`, `schtasks`, `wmic`, `regsvr32`, `rundll32`
 - **Network Tools**: `bitsadmin`, `ftp`, `netsh`, `powershell`
 - **Script Engines**: `cscript`, `mshta`, `wscript`, `msiexec`
 - **File Operations**: `forfiles`, `explorer`, `ieexec`, `conhost`
 - **And 40+ more legitimate Windows executables commonly abused by threat actors**
 
-**Intelligence Indicators (46 patterns):**
+**Intelligence Indicators (45 patterns):**
 - **Threat Activity**: `APT`, `threat actor`, `campaign`, `incident`, `breach`, `compromise`
 - **Threat Groups**: `FIN`, `TA`, `UNC`, `APT1`, `APT28`, `Lazarus`, `Carbanak`
 - **Attack Types**: `ransomware`, `data breach`, `cyber attack`, `espionage`
 - **Technical Terms**: `IOC`, `indicator`, `TTP`, `technique`, `malware family`
 - **Attack Techniques**: `golden-ticket`, `silver-ticket`, `lateral movement`
 
-### Not Huntable Patterns (26 patterns)
+### Not Huntable Patterns (25 patterns)
 
 **Educational/Marketing Content:**
 - `what is`, `how to`, `guide to`, `tutorial`, `best practices`

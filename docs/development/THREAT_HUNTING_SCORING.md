@@ -53,7 +53,7 @@ Living Off the Land Binaries and Scripts - High technical value:
 
 3. **ML Content Filtering Integration** (`src/utils/content_filter.py`)
    - **Full integration** with hunt scoring system for enhanced accuracy
-   - **97 perfect discriminators** shared between systems
+   - **103 perfect discriminators** shared between systems
    - **Hunt score as ML feature** for improved classification confidence
    - **Confidence enhancement** through hunt score integration
    - **Perfect discriminator protection** - chunks containing threat hunting keywords are never filtered
@@ -74,7 +74,7 @@ Negative Penalty = min(3 × log(matches + 1), 10.0)   # -10 points max
 Final Score = max(0.0, min(100.0, perfect + good + lolbas + intelligence - negative))
 ```
 
-**Perfect Discriminators** (75 points max):
+**Perfect Discriminators** (75 points max, 103 patterns):
 - `rundll32`, `comspec`, `msiexec`, `wmic`, `iex`, `findstr`
 - `hklm`, `appdata`, `programdata`, `powershell.exe`, `wbem`
 - `.lnk`, `D:\`, `.iso`, `<Command>`, `MZ`
@@ -82,21 +82,21 @@ Final Score = max(0.0, min(100.0, perfect + good + lolbas + intelligence - negat
 - `\temp\`, `\pipe\`, `%WINDIR%`, `%wintmp%`, `Defender query`
 - **Cmd.exe obfuscation regex patterns**: `%VAR:~0,4%`, `!VAR!`, `cmd /V:ON`, `s^e^t`, `c^a^l^l`
 
-**LOLBAS Executables** (10 points max):
-- 40+ legitimate Windows executables commonly abused by threat actors
+**LOLBAS Executables** (10 points max, 64 patterns):
+- 64 legitimate Windows executables commonly abused by threat actors
 - Examples: `certutil.exe`, `cmd.exe`, `reg.exe`, `schtasks.exe`, `wmic.exe`
 - Practical attack techniques with high technical value
 
-**Intelligence Indicators** (10 points max):
+**Intelligence Indicators** (10 points max, 45 patterns):
 - Real threat activity: `APT`, `threat actor`, `campaign`, `ransomware`
 - Specific threat groups: `FIN`, `TA`, `UNC`, `Lazarus`, `Carbanak`
 - Real incidents: `breach`, `compromise`, `in the wild`, `active campaign`
 
-**Good Discriminators** (5 points max):
+**Good Discriminators** (5 points max, 77 patterns):
 - `temp`, `==`, `c:\windows\`, `Event ID`, `.bat`, `.ps1`
 - `pipe`, `::`, `[.]`, `-->`, `currentversion`, `EventCode`
 
-**Negative Indicators** (-10 points max):
+**Negative Indicators** (-10 points max, 25 patterns):
 - Educational/marketing content: `what is`, `how to`, `best practices`, `free trial`
 
 ### Metadata Fields Added
