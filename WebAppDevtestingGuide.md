@@ -9,6 +9,7 @@ The CTI Scraper web application testing strategy includes:
 - **IDE MCPs**: Development debugging and testing
 - **GitHub Actions CI/CD**: Automated testing pipeline
 - **Manual Testing**: Interactive testing for specific scenarios
+- **ML Feedback Regression Tests**: Essential tests for ML feedback features
 
 ## Testing Tools
 
@@ -129,6 +130,38 @@ def test_articles_endpoint():
 3. **Source Endpoints**: `/api/sources/*`
 4. **AI Endpoints**: `/api/chat/*`, `/api/articles/*/generate-sigma`
 5. **Annotation Endpoints**: `/api/annotations/*`
+6. **ML Feedback Endpoints**: `/api/model/*`, `/api/feedback/*`
+
+## ML Feedback Testing
+
+### Essential Regression Tests
+
+The ML feedback features have dedicated regression prevention tests:
+
+```bash
+# Run the 3 critical ML feedback tests
+./scripts/run_ml_feedback_tests.sh
+
+# Run individual test categories
+docker exec cti_web python -m pytest tests/integration/test_huntable_probability.py -v
+docker exec cti_web python -m pytest tests/api/test_ml_feedback.py -v
+docker exec cti_web python -m pytest tests/integration/test_retraining_integration.py -v
+```
+
+### ML Feedback Test Categories
+
+1. **Huntable Probability Tests**: Ensure consistent probability calculations
+2. **API Contract Tests**: Prevent frontend breakage from API changes
+3. **Retraining Integration Tests**: Ensure core workflow functionality
+
+### Test Philosophy
+
+- **Balanced approach**: Maximum protection with minimum maintenance overhead
+- **Focus on critical paths**: Test the most likely breakage scenarios
+- **Integration tests**: Catch real-world issues, not just unit-level problems
+- **Simple and maintainable**: Easy to understand and debug
+
+See `tests/ML_FEEDBACK_TESTS_README.md` for detailed guidelines.
 
 ## Database Testing
 

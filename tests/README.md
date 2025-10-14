@@ -2,7 +2,7 @@
 
 ## 📊 Test Suite Overview
 
-**Total Test Coverage**: 700+ test methods across 35+ test files
+**Total Test Coverage**: 710+ test methods across 38+ test files
 
 ### Test Categories
 
@@ -10,9 +10,10 @@
 |----------|-------|-------|--------|-------------|
 | **Unit Tests** | 24 | 580+ | ✅ Active | Core functionality testing |
 | **UI Tests** | 6 | 80+ | ✅ Active | User interface testing (Playwright sync API) |
-| **Integration Tests** | 4 | 46 | ✅ Active | Cross-component testing |
-| **API Tests** | 2 | 35+ | ✅ Active | API endpoint testing |
+| **Integration Tests** | 6 | 50+ | ✅ Active | Cross-component testing including ML feedback |
+| **API Tests** | 3 | 40+ | ✅ Active | API endpoint testing including ML feedback APIs |
 | **E2E Tests** | 1 | 13 | ✅ Active | End-to-end workflow testing |
+| **ML Feedback Tests** | 3 | 11 | ✅ Active | Essential regression prevention for ML features |
 
 ## 🚀 Quick Start
 
@@ -23,6 +24,17 @@ python3 -m pytest tests/ -v
 
 # Run with coverage
 python3 -m pytest tests/ --cov=src --cov-report=html
+```
+
+### Run ML Feedback Tests (Essential Regression Prevention)
+```bash
+# Run the 3 critical ML feedback tests
+./scripts/run_ml_feedback_tests.sh
+
+# Run individual ML feedback test categories
+docker exec cti_web python -m pytest tests/integration/test_huntable_probability.py -v
+docker exec cti_web python -m pytest tests/api/test_ml_feedback.py -v
+docker exec cti_web python -m pytest tests/integration/test_retraining_integration.py -v
 ```
 
 ### Run Specific Test Categories

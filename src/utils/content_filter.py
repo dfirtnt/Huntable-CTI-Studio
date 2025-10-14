@@ -266,6 +266,11 @@ class ContentFilter:
     
     def train_model(self, training_data_path: str = "highlighted_text_classifications.csv"):
         """Train the ML model on annotated data."""
+        import time
+        from sklearn.metrics import precision_score, recall_score, f1_score, classification_report
+        
+        start_time = time.time()
+        
         try:
             # Load training data
             df = pd.read_csv(training_data_path)
@@ -300,6 +305,13 @@ class ContentFilter:
             y_pred = self.model.predict(X_test)
             accuracy = accuracy_score(y_test, y_pred)
             
+            # Calculate detailed metrics
+            precision = precision_score(y_test, y_pred, average=None, zero_division=0)
+            recall = recall_score(y_test, y_pred, average=None, zero_division=0)
+            f1 = f1_score(y_test, y_pred, average=None, zero_division=0)
+            
+            training_duration = time.time() - start_time
+            
             logger.info(f"Model trained successfully. Accuracy: {accuracy:.3f}")
             logger.info("Classification Report:")
             logger.info(classification_report(y_test, y_pred, target_names=['Not Huntable', 'Huntable']))
@@ -309,11 +321,33 @@ class ContentFilter:
             Path(self.model_path).parent.mkdir(parents=True, exist_ok=True)
             joblib.dump(self.model, self.model_path)
             
-            return True
+            # Return comprehensive metrics dictionary
+            metrics = {
+                'success': True,
+                'training_data_size': len(df),
+                'training_duration_seconds': training_duration,
+                'test_set_size': len(y_test),
+                'accuracy': float(accuracy),
+                'precision_huntable': float(precision[1]) if len(precision) > 1 else 0.0,
+                'precision_not_huntable': float(precision[0]),
+                'recall_huntable': float(recall[1]) if len(recall) > 1 else 0.0,
+                'recall_not_huntable': float(recall[0]),
+                'f1_score_huntable': float(f1[1]) if len(f1) > 1 else 0.0,
+                'f1_score_not_huntable': float(f1[0]),
+                'model_params': {
+                    'n_estimators': 100,
+                    'max_depth': 10,
+                    'random_state': 42,
+                    'class_weight': 'balanced'
+                },
+                'classification_report': classification_report(y_test, y_pred, target_names=['Not Huntable', 'Huntable'], output_dict=True)
+            }
+            
+            return metrics
             
         except Exception as e:
             logger.error(f"Error training model: {e}")
-            return False
+            return {'success': False, 'error': str(e)}
     
     def load_model(self) -> bool:
         """Load pre-trained model."""

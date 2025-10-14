@@ -8,6 +8,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **ML-Powered Content Filtering**: Machine learning model for automated chunk classification with RandomForest
+- **Interactive Feedback System**: User feedback collection for continuous model improvement and retraining
+- **Model Versioning System**: Track model performance changes with database-backed version history
+- **Confidence Tracking**: Huntable probability tracking for consistent before/after comparisons
+- **Model Comparison Interface**: Visual comparison of model versions showing confidence improvements
+- **Feedback Impact Analysis**: Modal showing how user feedback improved model confidence on specific chunks
+- **Automated Model Retraining**: One-click model retraining with user feedback integration
+- **ML Feedback API Endpoints**: RESTful APIs for model versioning, comparison, and feedback analysis
+- **Essential Regression Tests**: 3 critical tests for ML feedback features to prevent breakage
 - **Automated Backup System**: Daily backup scheduling with cron jobs (2:00 AM daily, 3:00 AM weekly cleanup)
 - **Backup Retention Policy**: 7 daily + 4 weekly + 3 monthly backups with 50GB max size limit
 - **Intelligent Backup Detection**: API automatically detects automated backups by analyzing backup frequency
