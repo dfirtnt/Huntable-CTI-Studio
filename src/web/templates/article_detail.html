@@ -1398,17 +1398,8 @@
                     selection.removeAllRanges();
                     selection.addRange(range);
                     
-                    // Scroll the expanded selection into view if needed
-                    const rect = range.getBoundingClientRect();
-                    if (rect.top < 0 || rect.bottom > window.innerHeight) {
-                        // Use the first element in the range for scrolling
-                        const element = range.commonAncestorContainer.nodeType === Node.TEXT_NODE 
-                            ? range.commonAncestorContainer.parentElement 
-                            : range.commonAncestorContainer;
-                        if (element && element.scrollIntoView) {
-                            element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                        }
-                    }
+                    // Disable automatic scrolling for Auto 1000 to prevent background page jumping
+                    // The selection will be updated but the page position will remain stable
                 }
                 
                 // Re-enable the native selection event handler after a short delay
