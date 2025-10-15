@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}{{ article.title[:50] }}... - CTI Scraper{% endblock %}
+{% block title %}{{ article.title[:50] }}... - Huntable CTI Scraper{% endblock %}
 
 {% block content %}
 <div class="container mx-auto px-4 py-8">
@@ -928,6 +928,12 @@
                 // Only handle if the click was within our content area
                 if (this.contentElement.contains(e.target)) {
                     setTimeout(() => {
+                        // Skip if we're currently updating the selection programmatically
+                        if (this.isUpdatingSelection) {
+                            console.log('Skipping native selection handler - programmatic update in progress');
+                            return;
+                        }
+                        
                         const selection = window.getSelection();
                         const selectedText = selection.toString().trim();
                         
@@ -1088,7 +1094,7 @@
                 textPreview: selectedText.substring(0, 100)
             });
             
-            // Show classification modal
+            // Show classification modal with enhanced features
             this.showClassificationModal(selectedText, min, max);
         }
         
@@ -1113,18 +1119,80 @@
             }.bind(this);
             document.addEventListener('keydown', handleEsc);
             
+            // Calculate character count and length guidance
+            const charCount = text.length;
+            const targetLength = 1000;
+            
+            // Color coding for length guidance (production-aligned)
+            let lengthStatus = 'good'; // green
+            let lengthMessage = '✅ Excellent length for evaluation';
+            if (charCount < 800) {
+                lengthStatus = 'short'; // yellow
+                lengthMessage = '⚠️ Too short - add more context to match production chunks';
+            } else if (charCount < 950) {
+                lengthStatus = 'acceptable'; // blue
+                lengthMessage = '⚠️ Acceptable but not optimal - aim for 950-1000 chars';
+            } else if (charCount > 1000) {
+                lengthStatus = 'long'; // red
+                lengthMessage = '⚠️ Too long - will be chunked differently in production';
+            }
+            
             modal.innerHTML = `
                 <div class="bg-white rounded-lg p-6 max-w-md w-full mx-4">
-                    <h3 class="text-lg font-semibold mb-4">Classify Selected Text</h3>
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="text-lg font-semibold">Classify Selected Text</h3>
+                        <div class="char-counter ${lengthStatus}">
+                            ${charCount}/${targetLength} chars
+                        </div>
+                    </div>
+                    <div class="length-guidance ${lengthStatus} mb-4">
+                        ${lengthMessage}
+                    </div>
                     <p class="text-sm text-gray-600 mb-4">"${text.substring(0, 100)}${text.length > 100 ? '...' : ''}"</p>
+                    
+                    <!-- Expand/Contract Selection Controls -->
+                    <div class="expand-controls mb-4 p-3 bg-gray-50 rounded-lg">
+                        <div class="text-xs text-gray-600 mb-2">Adjust selection size:</div>
+                        <div class="flex flex-wrap gap-2">
+                            <button onclick="event.stopPropagation(); simpleTextManager.expandSelection(${start}, ${end}, -200);" 
+                                    class="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded hover:bg-blue-200">
+                                -200 chars
+                            </button>
+                            <button onclick="event.stopPropagation(); simpleTextManager.expandSelection(${start}, ${end}, -100);" 
+                                    class="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded hover:bg-blue-200">
+                                -100 chars
+                            </button>
+                            <button onclick="event.stopPropagation(); simpleTextManager.expandSelection(${start}, ${end}, -50);" 
+                                    class="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded hover:bg-blue-200">
+                                -50 chars
+                            </button>
+                            <button onclick="event.stopPropagation(); simpleTextManager.expandSelection(${start}, ${end}, 50);" 
+                                    class="text-xs px-2 py-1 bg-green-100 text-green-700 rounded hover:bg-green-200">
+                                +50 chars
+                            </button>
+                            <button onclick="event.stopPropagation(); simpleTextManager.expandSelection(${start}, ${end}, 100);" 
+                                    class="text-xs px-2 py-1 bg-green-100 text-green-700 rounded hover:bg-green-200">
+                                +100 chars
+                            </button>
+                            <button onclick="event.stopPropagation(); simpleTextManager.expandSelection(${start}, ${end}, 200);" 
+                                    class="text-xs px-2 py-1 bg-green-100 text-green-700 rounded hover:bg-green-200">
+                                +200 chars
+                            </button>
+                            <button onclick="event.stopPropagation(); simpleTextManager.autoExpandTo1000(${start}, ${end});" 
+                                    class="text-xs px-2 py-1 bg-purple-100 text-purple-700 rounded hover:bg-purple-200 font-semibold">
+                                🎯 Auto 1000
+                            </button>
+                        </div>
+                    </div>
+                    
                     <div class="flex space-x-3">
                         <button onclick="event.stopPropagation(); simpleTextManager.classifySelection(${start}, ${end}, 'huntable'); simpleTextManager.closeModal();" 
                                 class="flex-1 bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700">
-                            Huntable
+                            🎯 Huntable
                         </button>
                         <button onclick="event.stopPropagation(); simpleTextManager.classifySelection(${start}, ${end}, 'not_huntable'); simpleTextManager.closeModal();" 
                                 class="flex-1 bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700">
-                            Not Huntable
+                            ❌ Not Huntable
                         </button>
                         <button onclick="simpleTextManager.closeModal()" 
                                 class="px-4 py-2 border border-gray-300 rounded hover:bg-gray-50">
@@ -1135,6 +1203,387 @@
             `;
             
             document.body.appendChild(modal);
+            
+            // Add CSS styles if not already present
+            if (!document.getElementById('annotation-enhancement-styles')) {
+                const styles = document.createElement('style');
+                styles.id = 'annotation-enhancement-styles';
+                styles.textContent = `
+                    .char-counter {
+                        font-size: 11px;
+                        font-weight: 600;
+                        padding: 2px 6px;
+                        border-radius: 4px;
+                        margin-left: 8px;
+                    }
+                    
+                    .char-counter.good {
+                        background: #dcfce7;
+                        color: #15803d;
+                        border: 1px solid #16a34a;
+                    }
+                    
+                    .char-counter.short {
+                        background: #fef3c7;
+                        color: #d97706;
+                        border: 1px solid #f59e0b;
+                    }
+                    
+                    .char-counter.acceptable {
+                        background: #dbeafe;
+                        color: #1d4ed8;
+                        border: 1px solid #3b82f6;
+                    }
+                    
+                    .char-counter.long {
+                        background: #fef2f2;
+                        color: #dc2626;
+                        border: 1px solid #ef4444;
+                    }
+                    
+                    .length-guidance {
+                        font-size: 11px;
+                        padding: 6px 8px;
+                        border-radius: 4px;
+                        text-align: center;
+                    }
+                    
+                    .length-guidance.good {
+                        background: #dcfce7;
+                        color: #15803d;
+                        border: 1px solid #16a34a;
+                    }
+                    
+                    .length-guidance.short {
+                        background: #fef3c7;
+                        color: #d97706;
+                        border: 1px solid #f59e0b;
+                    }
+                    
+                    .length-guidance.acceptable {
+                        background: #dbeafe;
+                        color: #1d4ed8;
+                        border: 1px solid #3b82f6;
+                    }
+                    
+                    .length-guidance.long {
+                        background: #fef2f2;
+                        color: #dc2626;
+                        border: 1px solid #ef4444;
+                    }
+                `;
+                document.head.appendChild(styles);
+            }
+        }
+        
+        expandSelection(currentStart, currentEnd, expandBy) {
+            // Get the full article text
+            const fullText = this.contentElement.textContent;
+            
+            // Calculate new boundaries
+            let newStart, newEnd;
+            
+            if (expandBy > 0) {
+                // Expanding - add to both sides symmetrically
+                const halfExpand = Math.floor(expandBy / 2);
+                newStart = Math.max(0, currentStart - halfExpand);
+                newEnd = Math.min(fullText.length, currentEnd + halfExpand);
+            } else {
+                // Contracting - remove from both sides symmetrically
+                const halfContract = Math.floor(Math.abs(expandBy) / 2);
+                newStart = currentStart + halfContract;
+                newEnd = currentEnd - halfContract;
+            }
+            
+            // Apply smart boundary detection
+            const smartBoundaries = this.findSmartBoundaries(fullText, newStart, newEnd);
+            newStart = smartBoundaries.start;
+            newEnd = smartBoundaries.end;
+            
+            // Get new text
+            const newText = fullText.substring(newStart, newEnd);
+            
+            // Update the live text selection in the browser
+            this.updateLiveSelection(newStart, newEnd);
+            
+            // Update the current modal with new selection data
+            this.updateModalWithNewSelection(newText, newStart, newEnd);
+        }
+        
+        autoExpandTo1000(currentStart, currentEnd) {
+            // Get the full article text
+            const fullText = this.contentElement.textContent;
+            const currentText = fullText.substring(currentStart, currentEnd);
+            const currentLength = currentText.length;
+            const targetLength = 1000;
+            
+            let newStart, newEnd;
+            
+            if (currentLength >= targetLength) {
+                // Already at or over target, just trim to exactly 1000
+                const trimAmount = currentLength - targetLength;
+                const halfTrim = Math.floor(trimAmount / 2);
+                newStart = currentStart + halfTrim;
+                newEnd = currentEnd - (trimAmount - halfTrim);
+            } else {
+                // Need to expand - calculate how much to add
+                const expandBy = targetLength - currentLength;
+                const halfExpand = Math.floor(expandBy / 2);
+                
+                // Try to expand symmetrically
+                newStart = Math.max(0, currentStart - halfExpand);
+                newEnd = Math.min(fullText.length, currentEnd + halfExpand);
+                
+                // If we hit boundaries, expand more on the other side
+                if (newStart === 0 && newEnd < fullText.length) {
+                    const remainingExpand = targetLength - (newEnd - newStart);
+                    newEnd = Math.min(fullText.length, newEnd + remainingExpand);
+                } else if (newEnd === fullText.length && newStart > 0) {
+                    const remainingExpand = targetLength - (newEnd - newStart);
+                    newStart = Math.max(0, newStart - remainingExpand);
+                }
+                
+                // CRITICAL: Ensure we don't exceed 1000 characters for ML training
+                const finalLength = newEnd - newStart;
+                if (finalLength > targetLength) {
+                    const excess = finalLength - targetLength;
+                    const halfExcess = Math.floor(excess / 2);
+                    newStart += halfExcess;
+                    newEnd -= (excess - halfExcess);
+                    console.log(`Trimmed selection to stay under 1000 chars: ${finalLength} → ${newEnd - newStart}`);
+                }
+            }
+            
+            // Apply smart boundary detection
+            const smartBoundaries = this.findSmartBoundaries(fullText, newStart, newEnd);
+            newStart = smartBoundaries.start;
+            newEnd = smartBoundaries.end;
+            
+            // CRITICAL: Final check - ensure we don't exceed 1000 characters for ML training
+            const finalLength = newEnd - newStart;
+            if (finalLength > targetLength) {
+                const excess = finalLength - targetLength;
+                const halfExcess = Math.floor(excess / 2);
+                newStart += halfExcess;
+                newEnd -= (excess - halfExcess);
+                console.log(`Final trim to stay under 1000 chars: ${finalLength} → ${newEnd - newStart}`);
+            }
+            
+            const newText = fullText.substring(newStart, newEnd);
+            
+            console.log(`Auto-expand: ${currentLength} → ${newText.length} chars`);
+            
+            // Update the live text selection in the browser
+            this.updateLiveSelection(newStart, newEnd);
+            
+            // Update the current modal with new selection data
+            this.updateModalWithNewSelection(newText, newStart, newEnd);
+        }
+        
+        updateLiveSelection(newStart, newEnd) {
+            // Update the browser's text selection to show the expanded selection
+            try {
+                // Temporarily disable the native selection event handler to prevent conflicts
+                this.isUpdatingSelection = true;
+                
+                const range = document.createRange();
+                const startNode = this.getTextNodeAtOffset(newStart);
+                const endNode = this.getTextNodeAtOffset(newEnd);
+                
+                if (startNode && endNode) {
+                    range.setStart(startNode.node, startNode.offset);
+                    range.setEnd(endNode.node, endNode.offset);
+                    
+                    const selection = window.getSelection();
+                    selection.removeAllRanges();
+                    selection.addRange(range);
+                    
+                    // Scroll the expanded selection into view if needed
+                    const rect = range.getBoundingClientRect();
+                    if (rect.top < 0 || rect.bottom > window.innerHeight) {
+                        // Use the first element in the range for scrolling
+                        const element = range.commonAncestorContainer.nodeType === Node.TEXT_NODE 
+                            ? range.commonAncestorContainer.parentElement 
+                            : range.commonAncestorContainer;
+                        if (element && element.scrollIntoView) {
+                            element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        }
+                    }
+                }
+                
+                // Re-enable the native selection event handler after a short delay
+                setTimeout(() => {
+                    this.isUpdatingSelection = false;
+                }, 100);
+                
+            } catch (error) {
+                console.error('Error updating live selection:', error);
+                this.isUpdatingSelection = false;
+            }
+        }
+        
+        updateModalWithNewSelection(newText, newStart, newEnd) {
+            // NUCLEAR OPTION: Completely recreate the modal to force UI update
+            console.log('Recreating modal to force UI update');
+            
+            // Close the current modal
+            this.closeModal();
+            
+            // Wait a frame to ensure DOM cleanup
+            setTimeout(() => {
+                // Recreate the modal with new selection data
+                this.showClassificationModal(newText, newStart, newEnd);
+            }, 10);
+        }
+        
+        findSmartBoundaries(text, start, end) {
+            // Smart boundary detection - prefer sentence, paragraph, then word boundaries
+            const maxLookback = 100; // Don't look back more than 100 chars
+            const maxLookahead = 100; // Don't look ahead more than 100 chars
+            
+            // Find sentence boundaries (preferred)
+            const sentenceStart = this.findSentenceStart(text, start, maxLookback);
+            const sentenceEnd = this.findSentenceEnd(text, end, maxLookahead);
+            
+            if (sentenceStart !== start || sentenceEnd !== end) {
+                return { start: sentenceStart, end: sentenceEnd };
+            }
+            
+            // Find paragraph boundaries (second choice)
+            const paragraphStart = this.findParagraphStart(text, start, maxLookback);
+            const paragraphEnd = this.findParagraphEnd(text, end, maxLookahead);
+            
+            if (paragraphStart !== start || paragraphEnd !== end) {
+                return { start: paragraphStart, end: paragraphEnd };
+            }
+            
+            // Find word boundaries (last resort)
+            const wordStart = this.findWordStart(text, start, maxLookback);
+            const wordEnd = this.findWordEnd(text, end, maxLookahead);
+            
+            return { start: wordStart, end: wordEnd };
+        }
+        
+        findSentenceStart(text, position, maxLookback) {
+            const start = Math.max(0, position - maxLookback);
+            const searchText = text.substring(start, position);
+            
+            // Look for sentence endings followed by whitespace and capital letter
+            const sentenceEndRegex = /[.!?]\s+[A-Z]/g;
+            let match;
+            let lastMatch = start;
+            
+            while ((match = sentenceEndRegex.exec(searchText)) !== null) {
+                lastMatch = start + match.index + match[0].length - 1; // Position after the capital letter
+            }
+            
+            return lastMatch;
+        }
+        
+        findSentenceEnd(text, position, maxLookahead) {
+            const end = Math.min(text.length, position + maxLookahead);
+            const searchText = text.substring(position, end);
+            
+            // Look for sentence endings
+            const sentenceEndRegex = /[.!?](?=\s|$)/g;
+            const match = sentenceEndRegex.exec(searchText);
+            
+            if (match) {
+                return position + match.index + 1; // Position after the punctuation
+            }
+            
+            return position;
+        }
+        
+        findParagraphStart(text, position, maxLookback) {
+            const start = Math.max(0, position - maxLookback);
+            const searchText = text.substring(start, position);
+            
+            // Look for double newlines (paragraph breaks)
+            const paragraphBreak = searchText.lastIndexOf('\n\n');
+            if (paragraphBreak !== -1) {
+                return start + paragraphBreak + 2; // After the double newline
+            }
+            
+            return start;
+        }
+        
+        findParagraphEnd(text, position, maxLookahead) {
+            const end = Math.min(text.length, position + maxLookahead);
+            const searchText = text.substring(position, end);
+            
+            // Look for double newlines (paragraph breaks)
+            const paragraphBreak = searchText.indexOf('\n\n');
+            if (paragraphBreak !== -1) {
+                return position + paragraphBreak; // Before the double newline
+            }
+            
+            return position;
+        }
+        
+        findWordStart(text, position, maxLookback) {
+            const start = Math.max(0, position - maxLookback);
+            const searchText = text.substring(start, position);
+            
+            // Look for word boundary (space or punctuation followed by letter)
+            const wordBoundaryRegex = /[^\w](?=\w)/g;
+            let match;
+            let lastMatch = start;
+            
+            while ((match = wordBoundaryRegex.exec(searchText)) !== null) {
+                lastMatch = start + match.index + 1; // Position after the boundary
+            }
+            
+            return lastMatch;
+        }
+        
+        findWordEnd(text, position, maxLookahead) {
+            const end = Math.min(text.length, position + maxLookahead);
+            const searchText = text.substring(position, end);
+            
+            // Look for word boundary (letter followed by space or punctuation)
+            const wordBoundaryRegex = /\w(?=[^\w]|$)/g;
+            const match = wordBoundaryRegex.exec(searchText);
+            
+            if (match) {
+                return position + match.index + 1; // Position after the word
+            }
+            
+            return position;
+        }
+        
+        getTextNodeAtOffset(offset) {
+            // Helper method to find text node at character offset
+            let currentOffset = 0;
+            const walker = document.createTreeWalker(
+                this.contentElement,
+                NodeFilter.SHOW_TEXT,
+                null,
+                false
+            );
+            
+            let node;
+            while (node = walker.nextNode()) {
+                const nodeLength = node.textContent.length;
+                if (currentOffset + nodeLength >= offset) {
+                    return {
+                        node: node,
+                        offset: offset - currentOffset
+                    };
+                }
+                currentOffset += nodeLength;
+            }
+            
+            // Fallback to last node
+            const lastNode = this.contentElement.lastChild;
+            if (lastNode && lastNode.nodeType === Node.TEXT_NODE) {
+                return {
+                    node: lastNode,
+                    offset: lastNode.textContent.length
+                };
+            }
+            
+            return null;
         }
         
         async classifySelection(start, end, classification) {
@@ -1884,7 +2333,7 @@
             
             // Add author name for SIGMA rules
             if (type === 'sigma') {
-                const sigmaAuthor = settings.sigmaAuthor || 'CTIScraper User';
+                const sigmaAuthor = settings.sigmaAuthor || 'Huntable CTI Scraper User';
                 requestBody.author_name = sigmaAuthor;
             }
             

@@ -1,8 +1,8 @@
-# User Testing Guide for GPT-4o Content Filtering System
+# User Testing Guide for CTI Scraper
 
 ## 🎯 Testing Overview
 
-The content filtering system is ready for user testing! Here's exactly where and how to test it.
+The CTI Scraper system includes multiple components ready for user testing! This guide covers both the GPT-4o content filtering system and the enhanced annotation system for ML training data creation.
 
 ## 🌐 Web Interface Testing (Primary Method)
 
@@ -11,7 +11,9 @@ The content filtering system is ready for user testing! Here's exactly where and
 - ✅ Access to web interface at `http://localhost:8001`
 - ✅ OpenAI API key configured in Settings
 
-### Step-by-Step Testing
+## 📝 Enhanced Annotation System Testing
+
+### Step-by-Step Annotation Testing
 
 #### 1. Access the Web Interface
 ```bash
@@ -20,6 +22,46 @@ The content filtering system is ready for user testing! Here's exactly where and
 ```
 
 #### 2. Navigate to Article Detail Page
+1. Go to **Articles** section
+2. Click on any article to view details
+3. **Select text** in the article content area
+
+#### 3. Test Enhanced Annotation Modal
+When you select text, you should see:
+- **Character counter** (e.g., "186/1000 chars")
+- **Length guidance** with color coding:
+  - 🟢 Green: Excellent (950-1000 chars)
+  - 🟡 Yellow: Too short (<800 chars)
+  - 🔵 Blue: Acceptable (800-950 chars)
+  - 🔴 Red: Too long (>1000 chars)
+- **Expand/contract buttons**: -200, -100, -50, +50, +100, +200 chars
+- **🎯 Auto 1000** button for automatic expansion
+
+#### 4. Test Auto-Expand Functionality
+1. **Select a short text** (e.g., 200-300 characters)
+2. **Click 🎯 Auto 1000** button
+3. **Verify**:
+   - Character counter updates to ~1000/1000
+   - Status changes to "✅ Excellent length for evaluation"
+   - Text selection expands in the article (highlighted in blue)
+   - Modal shows expanded text preview
+
+#### 5. Test Smart Boundary Detection
+1. **Use manual expand buttons** (+100, +200 chars)
+2. **Verify** expansion respects sentence/word boundaries
+3. **Check** that text doesn't cut mid-word or mid-sentence
+
+#### 6. Test Classification
+1. **Expand text** to optimal length (950-1000 chars)
+2. **Click 🎯 Huntable** or **❌ Not Huntable**
+3. **Verify**:
+   - Text gets highlighted in the article
+   - Annotation is saved to database
+   - Success message appears
+
+## 🤖 GPT-4o Content Filtering Testing
+
+#### 1. Navigate to Article Detail Page
 1. Go to **Articles** section
 2. Click on any article to view details
 3. Look for the **"Rank with GPT4o"** button

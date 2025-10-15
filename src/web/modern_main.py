@@ -629,6 +629,252 @@ async def health_checks_page(request: Request):
             status_code=500
         )
 
+# System Diagnostics page (combines Jobs and Health)
+@app.get("/diags", response_class=HTMLResponse)
+async def diags_page(request: Request):
+    """System diagnostics page combining jobs and health monitoring."""
+    try:
+        return templates.TemplateResponse(
+            "diags.html",
+            {
+                "request": request,
+                "environment": ENVIRONMENT
+            }
+        )
+    except Exception as e:
+        logger.error(f"Diagnostics page error: {e}")
+        return templates.TemplateResponse(
+            "error.html",
+            {"request": request, "error": str(e)},
+            status_code=500
+        )
+
+# Analytics sub-pages
+@app.get("/analytics/scraper-metrics", response_class=HTMLResponse)
+async def scraper_metrics_page(request: Request):
+    """Scraper metrics analytics page."""
+    try:
+        return templates.TemplateResponse(
+            "scraper_metrics.html",
+            {
+                "request": request,
+                "environment": ENVIRONMENT
+            }
+        )
+    except Exception as e:
+        logger.error(f"Scraper metrics page error: {e}")
+        return templates.TemplateResponse(
+            "error.html",
+            {"request": request, "error": str(e)},
+            status_code=500
+        )
+
+# Analytics API endpoints
+@app.get("/api/analytics/scraper/overview")
+async def api_scraper_overview():
+    """Get scraper overview metrics."""
+    try:
+        # Get ingestion analytics for today's data
+        ingestion_data = await async_db_manager.get_ingestion_analytics()
+        
+        # Get today's articles count from daily trends
+        today = datetime.now().date().strftime("%Y-%m-%d")
+        articles_today = 0
+        for trend in ingestion_data.get('daily_trends', []):
+            if trend.get('date') == today:
+                articles_today = trend.get('articles_count', 0)
+                break
+        
+        # Get active sources count
+        sources = await async_db_manager.list_sources()
+        active_sources = len([s for s in sources if getattr(s, 'active', True)])
+        
+        # Calculate average response time (placeholder - would need actual timing data)
+        avg_response_time = 250  # ms placeholder
+        
+        # Calculate error rate (placeholder - would need actual error tracking)
+        error_rate = 2.5  # % placeholder
+        
+        return {
+            "articles_today": articles_today,
+            "active_sources": active_sources,
+            "avg_response_time": avg_response_time,
+            "error_rate": error_rate
+        }
+    except Exception as e:
+        logger.error(f"Failed to get scraper overview: {e}")
+        return {
+            "articles_today": 0,
+            "active_sources": 0,
+            "avg_response_time": 0,
+            "error_rate": 0
+        }
+
+@app.get("/api/analytics/scraper/collection-rate")
+async def api_scraper_collection_rate():
+    """Get collection rate data for the last 7 days."""
+    try:
+        # Get ingestion analytics data
+        ingestion_data = await async_db_manager.get_ingestion_analytics()
+        
+        # Get last 7 days from daily trends
+        daily_trends = ingestion_data.get('daily_trends', [])
+        
+        # Sort by date and take last 7 days
+        sorted_trends = sorted(daily_trends, key=lambda x: x.get('date', ''))[-7:]
+        
+        labels = []
+        values = []
+        
+        for trend in sorted_trends:
+            date_str = trend.get('date', '')
+            if date_str:
+                # Convert YYYY-MM-DD to MM/DD format
+                try:
+                    date_obj = datetime.strptime(date_str, "%Y-%m-%d")
+                    labels.append(date_obj.strftime("%m/%d"))
+                    values.append(trend.get('articles_count', 0))
+                except ValueError:
+                    continue
+        
+        return {
+            "labels": labels,
+            "values": values
+        }
+    except Exception as e:
+        logger.error(f"Failed to get collection rate data: {e}")
+        return {
+            "labels": [],
+            "values": []
+        }
+
+@app.get("/api/analytics/scraper/source-health")
+async def api_scraper_source_health():
+    """Get source health distribution data."""
+    try:
+        # Get sources and their health status
+        sources = await async_db_manager.list_sources()
+        
+        healthy_count = 0
+        warning_count = 0
+        error_count = 0
+        
+        for source in sources:
+            # Only count active sources
+            if not getattr(source, 'active', True):
+                continue
+                
+            # Simple health check based on last success
+            last_success = getattr(source, 'last_success', None)
+            if last_success:
+                try:
+                    # Handle both datetime objects and strings
+                    if isinstance(last_success, datetime):
+                        last_success_date = last_success.date()
+                    elif isinstance(last_success, str):
+                        # Handle different date formats
+                        if last_success.endswith('Z'):
+                            last_success_date = datetime.fromisoformat(last_success.replace('Z', '+00:00')).date()
+                        else:
+                            last_success_date = datetime.fromisoformat(last_success).date()
+                    else:
+                        error_count += 1
+                        continue
+                    
+                    days_since_success = (datetime.now().date() - last_success_date).days
+                    
+                    if days_since_success <= 0:  # Same day or recent
+                        healthy_count += 1
+                    elif days_since_success <= 2:
+                        warning_count += 1
+                    else:
+                        error_count += 1
+                except (ValueError, AttributeError) as e:
+                    logger.error(f"Date parsing error for {getattr(source, 'name', 'Unknown')}: {e}")
+                    error_count += 1
+            else:
+                error_count += 1
+        
+        return {
+            "labels": ["Healthy", "Warning", "Error"],
+            "values": [healthy_count, warning_count, error_count]
+        }
+    except Exception as e:
+        logger.error(f"Failed to get source health data: {e}")
+        return {
+            "labels": ["Healthy", "Warning", "Error"],
+            "values": [0, 0, 0]
+        }
+
+@app.get("/api/analytics/scraper/source-performance")
+async def api_scraper_source_performance():
+    """Get detailed source performance data."""
+    try:
+        sources = await async_db_manager.list_sources()
+        ingestion_data = await async_db_manager.get_ingestion_analytics()
+        
+        # Get source breakdown data
+        source_breakdown = ingestion_data.get('source_breakdown', [])
+        source_breakdown_dict = {item.get('source_name'): item for item in source_breakdown}
+        
+        performance_data = []
+        for source in sources:
+            # Only include active sources
+            if not getattr(source, 'active', True):
+                continue
+                
+            source_name = getattr(source, 'name', 'Unknown')
+            
+            # Get articles count for today from source breakdown
+            articles_today = 0
+            if source_name in source_breakdown_dict:
+                articles_today = source_breakdown_dict[source_name].get('articles_count', 0)
+            
+            # Determine status
+            last_success = getattr(source, 'last_success', None)
+            status = "healthy"
+            if last_success:
+                try:
+                    # Handle both datetime objects and strings
+                    if isinstance(last_success, datetime):
+                        last_success_date = last_success.date()
+                    elif isinstance(last_success, str):
+                        # Handle different date formats
+                        if last_success.endswith('Z'):
+                            last_success_date = datetime.fromisoformat(last_success.replace('Z', '+00:00')).date()
+                        else:
+                            last_success_date = datetime.fromisoformat(last_success).date()
+                    else:
+                        status = "error"
+                        continue
+                    
+                    days_since_success = (datetime.now().date() - last_success_date).days
+                    
+                    if days_since_success > 2:
+                        status = "error"
+                    elif days_since_success > 0:
+                        status = "warning"
+                except (ValueError, AttributeError):
+                    status = "error"
+            
+            performance_data.append({
+                "name": source_name,
+                "status": status,
+                "articles_today": articles_today,
+                "last_success": last_success or "Never",
+                "error_rate": 0,  # Placeholder
+                "avg_response": 200  # Placeholder
+            })
+        
+        return {
+            "sources": performance_data
+        }
+    except Exception as e:
+        logger.error(f"Failed to get source performance data: {e}")
+        return {
+            "sources": []
+        }
+
 # Sources management
 @app.get("/sources", response_class=HTMLResponse)
 async def sources_list(request: Request):
@@ -1192,7 +1438,14 @@ async def api_scrape_url(request: dict):
                 try:
                     html_content = raw_content.decode('utf-8', errors='replace')
                 except Exception:
-                    html_content = raw_content.decode('latin-1', errors='replace')
+                    try:
+                        html_content = raw_content.decode('latin-1', errors='replace')
+                    except Exception:
+                        # Final fallback - try to detect encoding
+                        import chardet
+                        detected = chardet.detect(raw_content)
+                        encoding = detected.get('encoding', 'utf-8')
+                        html_content = raw_content.decode(encoding, errors='replace')
                 
                 # If content is too short or looks corrupted, try manual decompression
                 if len(html_content) < 100 or not html_content.strip():
@@ -1247,6 +1500,9 @@ async def api_scrape_url(request: dict):
         
         # Extract content with comprehensive sanitization
         try:
+            # Debug: Log raw HTML before processing
+            logger.info(f"Raw HTML length: {len(html_content)}, first 200 chars: {html_content[:200]}")
+            
             soup = BeautifulSoup(html_content, 'html.parser')
             
             # Remove unwanted elements
@@ -1255,6 +1511,9 @@ async def api_scrape_url(request: dict):
             
             # Get text content
             content_text = soup.get_text(separator=' ', strip=True)
+            
+            # Debug: Log extracted text
+            logger.info(f"Extracted text length: {len(content_text)}, first 200 chars: {content_text[:200]}")
             
         except Exception as e:
             logger.warning(f"Error parsing HTML with BeautifulSoup: {e}")
@@ -1397,8 +1656,8 @@ async def api_scrape_url(request: dict):
                         # Remove any remaining control characters and binary data
                         sanitized_content = ''.join(c for c in sanitized_content if ord(c) >= 32 or c in '\n\r\t')
                         
-                        # Additional sanitization: remove any remaining non-ASCII characters that might cause issues
-                        sanitized_content = ''.join(c for c in sanitized_content if ord(c) < 127 or c.isprintable())
+                        # Additional sanitization: remove any remaining non-printable characters but keep Unicode
+                        sanitized_content = ''.join(c for c in sanitized_content if c.isprintable() or c in '\n\r\t')
                         
                         # Final cleanup of excessive whitespace
                         sanitized_content = re.sub(r'\s+', ' ', sanitized_content).strip()
@@ -5277,18 +5536,18 @@ async def api_export_annotations():
             
             query = text("""
             SELECT 
-                ROW_NUMBER() OVER (ORDER BY th.created_at) as record_number,
-                th.selected_text as highlighted_text,
+                ROW_NUMBER() OVER (ORDER BY aa.created_at) as record_number,
+                aa.selected_text as highlighted_text,
                 CASE 
-                    WHEN th.is_huntable = true THEN 'Huntable'
-                    WHEN th.is_huntable = false THEN 'Not Huntable'
-                    ELSE 'Unknown'
+                    WHEN aa.annotation_type = 'huntable' THEN 'Huntable'
+                    WHEN aa.annotation_type = 'not_huntable' THEN 'Not Huntable'
+                    ELSE aa.annotation_type
                 END as classification,
                 a.title as article_title,
-                th.created_at as classification_date
-            FROM text_highlights th
-            LEFT JOIN articles a ON th.article_id = a.id
-            ORDER BY th.created_at
+                aa.created_at as classification_date
+            FROM article_annotations aa
+            LEFT JOIN articles a ON aa.article_id = a.id
+            ORDER BY aa.created_at
             """)
             
             result = await session.execute(query)

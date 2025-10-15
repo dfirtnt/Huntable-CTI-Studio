@@ -7,10 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Enhanced Annotation System**: Advanced text selection and classification interface with character counting and length guidance
+- **Auto-Expand Selection**: One-click expansion to 1000 characters for ML training data alignment
+- **Smart Boundary Detection**: Intelligent text expansion that respects sentence, paragraph, and word boundaries
+- **Real-Time Character Counter**: Live character count display with color-coded length guidance (green/yellow/red)
+- **Production-Aligned Evaluation Data**: Automatic trimming to ensure evaluation excerpts match ML model's 1000-character chunking
+- **Live Selection Highlighting**: Visual feedback showing expanded text selection in real-time
+- **ML Training Compliance**: Ensures evaluation data stays within 950-1000 character range for optimal model performance
+
 ### Fixed
 - **Keyword Highlighting Bug**: Fixed overlapping keyword highlights extending beyond intended keywords
 - **PDF Upload Improvements**: Enhanced error handling for duplicate files and database errors
 - **CSS Class Conflicts**: Resolved conflicts between keyword highlighting and user annotation systems
+- **Annotation UI Display Bug**: Fixed character counter not updating after auto-expand operations
+- **Modal Update Conflicts**: Resolved event handler conflicts preventing UI updates during text expansion
 
 ### Added
 - **Chunk Deduplication System**: Database unique constraint prevents duplicate chunk storage
