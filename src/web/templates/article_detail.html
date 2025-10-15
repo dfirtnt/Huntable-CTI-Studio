@@ -554,7 +554,7 @@
                 : 'bg-red-100 dark:bg-red-900';
             
             // Look for existing spans with our annotation classes
-            const existingSpans = this.contentElement.querySelectorAll(`span.${cssClass}`);
+            const existingSpans = this.contentElement.querySelectorAll(`span[class*="${cssClass.split(' ')[0]}"]`);
             let alreadyHighlighted = false;
             
             for (const span of existingSpans) {
