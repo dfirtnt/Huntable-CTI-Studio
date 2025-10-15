@@ -18,7 +18,7 @@ pandas==2.3.3
 numpy==2.3.3
 sqlalchemy[asyncio]==2.0.43
 asyncpg==0.30.0
-PyYAML==6.0.1
+PyYAML==6.0.3
 psycopg2-binary==2.9.10
 alembic==1.16.5
 
@@ -42,7 +42,6 @@ click==8.3.0
 rich==14.1.0
 pydantic==2.11.9
 pydantic-settings==2.11.0
-pyyaml==6.0.3
 
 # Development and testing
 # Note: See requirements-test.txt for comprehensive testing dependencies
@@ -54,6 +53,9 @@ certifi==2025.8.3
 urllib3==2.5.0
 charset-normalizer==3.4.3
 python-multipart==0.0.20
+
+# PDF processing
+PyPDF2==3.0.1
 
 # SIGMA rule validation
 pysigma==0.11.23
