@@ -12,6 +12,7 @@ The GPT-4o Content Filtering System is a hybrid machine learning and pattern-bas
 - [Chunk-Based Filtering](#chunk-based-filtering)
 - [Pattern Filters](#pattern-filters)
 - [Machine Learning Model](#machine-learning-model)
+- [Enhanced Annotation System](#enhanced-annotation-system)
 - [Usage Examples](#usage-examples)
 - [Performance Metrics](#performance-metrics)
 - [Configuration](#configuration)
@@ -42,6 +43,56 @@ GPT-4o API
       ↓
 Analysis Results + Cost Savings
 ```
+
+## Enhanced Annotation System
+
+The enhanced annotation system provides a sophisticated interface for creating high-quality evaluation data for ML model training. It ensures that evaluation excerpts match the production chunking parameters used by the ML model.
+
+### Key Features
+
+#### 1. Real-Time Character Counting
+- **Live character counter** displays current selection length vs. target (1000 chars)
+- **Color-coded guidance**:
+  - 🟢 **Green**: Excellent (950-1000 chars) - Optimal for evaluation
+  - 🟡 **Yellow**: Too short (<800 chars) - Needs more context
+  - 🔵 **Blue**: Acceptable (800-950 chars) - Good but not optimal
+  - 🔴 **Red**: Too long (>1000 chars) - Will be chunked differently
+
+#### 2. Auto-Expand Functionality
+- **🎯 Auto 1000** button automatically expands selections to 1000 characters
+- **Smart boundary detection** respects sentence, paragraph, and word boundaries
+- **Automatic trimming** ensures selections stay within 1000-character limit
+- **Production alignment** matches ML model's chunking parameters
+
+#### 3. Manual Expansion Controls
+- **Precise adjustment buttons**: -200, -100, -50, +50, +100, +200 chars
+- **Symmetrical expansion** adds/removes text from both sides equally
+- **Smart boundary detection** prevents cutting mid-word or mid-sentence
+
+#### 4. Live Selection Highlighting
+- **Real-time visual feedback** shows expanded text selection in the article
+- **Browser-native highlighting** provides clear visual boundaries
+- **Auto-scroll** brings expanded selections into view when needed
+
+### ML Training Compliance
+
+The annotation system ensures evaluation data quality by:
+
+1. **Length Optimization**: Targets 950-1000 characters for optimal ML performance
+2. **Boundary Respect**: Maintains semantic coherence by respecting text boundaries
+3. **Production Alignment**: Matches the exact chunking used in production ML processing
+4. **Quality Control**: Visual feedback and guidance prevent suboptimal selections
+
+### Usage Workflow
+
+1. **Select text** in any article
+2. **Review character count** and length guidance
+3. **Use 🎯 Auto 1000** for optimal expansion
+4. **Verify selection** spans appropriate content
+5. **Classify** as huntable/not huntable
+6. **Save** to database for ML training
+
+This system enables threat intelligence experts to create high-quality, production-aligned evaluation datasets that improve ML model accuracy and performance.
 
 ## Components
 
