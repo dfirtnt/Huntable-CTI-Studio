@@ -353,10 +353,24 @@ class ContentFilter:
         """Load pre-trained model."""
         try:
             import joblib
+            import os
+            from datetime import datetime
+            
             self.model = joblib.load(self.model_path)
+            
+            # Set model version based on file modification time
+            if os.path.exists(self.model_path):
+                mtime = os.path.getmtime(self.model_path)
+                mod_date = datetime.fromtimestamp(mtime).strftime('%Y%m%d')
+                self.model_version = f"v{mod_date}"
+            else:
+                self.model_version = "unknown"
+            
+            logger.info(f"Loaded model version: {self.model_version}")
             return True
         except Exception as e:
             logger.error(f"Error loading model: {e}")
+            self.model_version = "unknown"
             return False
     
     def predict_huntability(self, text: str, hunt_score: Optional[float] = None) -> Tuple[bool, float]:
@@ -436,7 +450,8 @@ class ContentFilter:
         return is_huntable, confidence
     
     def filter_content(self, content: str, min_confidence: float = 0.7, 
-                      chunk_size: int = 1000, hunt_score: Optional[float] = None) -> FilterResult:
+                      chunk_size: int = 1000, hunt_score: Optional[float] = None,
+                      article_id: Optional[int] = None, store_analysis: bool = False) -> FilterResult:
         """
         Filter content to remove non-huntable chunks with hunt score integration.
         
@@ -445,6 +460,8 @@ class ContentFilter:
             min_confidence: Minimum confidence threshold for filtering
             chunk_size: Size of chunks to analyze
             hunt_score: Optional threat hunting score (0-100) from hunt scoring system
+            article_id: Article ID for storing analysis results
+            store_analysis: Whether to store chunk analysis results
             
         Returns:
             FilterResult with filtered content and metadata
@@ -456,19 +473,26 @@ class ContentFilter:
         # Chunk the content
         chunks = self.chunk_content(content, chunk_size)
         
-        # Classify each chunk
+        # Classify each chunk (predict once, reuse for both filtering and storage)
         huntable_chunks = []
         removed_chunks = []
+        all_chunks = []
+        all_ml_predictions = []
         
         for start_offset, end_offset, chunk_text in chunks:
-            # Always preserve chunks containing perfect discriminators
-            if self._has_perfect_keywords(chunk_text):
-                huntable_chunks.append((start_offset, end_offset, chunk_text, 1.0))  # Perfect confidence
-                continue
-            
+            # Get ML prediction for this chunk
             is_huntable, confidence = self.predict_huntability(chunk_text, hunt_score)
             
-            if is_huntable and confidence >= min_confidence:
+            # Store for analysis (do this before filtering)
+            all_chunks.append((start_offset, end_offset, chunk_text))
+            all_ml_predictions.append((is_huntable, confidence))
+            
+            # Apply filtering logic with perfect keyword override
+            has_perfect = self._has_perfect_keywords(chunk_text)
+            if has_perfect:
+                # Perfect keywords override ML prediction for filtering
+                huntable_chunks.append((start_offset, end_offset, chunk_text, 1.0))
+            elif is_huntable and confidence >= min_confidence:
                 huntable_chunks.append((start_offset, end_offset, chunk_text, confidence))
             else:
                 removed_chunks.append({
@@ -478,6 +502,25 @@ class ContentFilter:
                     'confidence': confidence,
                     'reason': 'Low huntability confidence' if not is_huntable else 'Below confidence threshold'
                 })
+        
+        # Store chunk analysis if requested and article_id provided
+        if store_analysis and article_id and hunt_score and hunt_score > 50:
+            try:
+                from src.services.chunk_analysis_service import ChunkAnalysisService
+                from src.database.manager import DatabaseManager
+                
+                # Store analysis results using predictions we already computed
+                db_manager = DatabaseManager()
+                db = db_manager.get_session()
+                try:
+                    service = ChunkAnalysisService(db)
+                    model_version = getattr(self, 'model_version', 'unknown')
+                    service.store_chunk_analysis(article_id, all_chunks, all_ml_predictions, model_version)
+                finally:
+                    db.close()
+                    
+            except Exception as e:
+                logger.warning(f"Failed to store chunk analysis for article {article_id}: {e}")
         
         # Reconstruct filtered content
         filtered_content = ' '.join([chunk[2] for chunk in huntable_chunks])

@@ -86,6 +86,7 @@ log/
 *.sqlite3
 backups/
 *.sql
+!init.sql/migrations/*.sql
 *.dump
 
 # Temporary files
@@ -199,11 +200,13 @@ outputs/
 test_*.html
 debug_*.py
 *_test.py
-test_*.py
 *_debug.py
 debug_*.log
 *.test
 *.spec
+# Exclude project test files
+test_*.py
+!test_chunk_deduplication_simple.py
 
 # Security
 *.pem

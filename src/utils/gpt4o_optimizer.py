@@ -34,7 +34,9 @@ class GPT4oContentOptimizer:
     
     async def optimize_content_for_gpt4o(self, content: str, 
                                        min_confidence: float = 0.7,
-                                       chunk_size: int = 1000) -> Dict[str, Any]:
+                                       chunk_size: int = 1000,
+                                       article_id: Optional[int] = None,
+                                       store_analysis: bool = False) -> Dict[str, Any]:
         """
         Optimize content for GPT-4o analysis by filtering non-huntable chunks.
         
@@ -42,6 +44,8 @@ class GPT4oContentOptimizer:
             content: Full article content
             min_confidence: Minimum confidence threshold for keeping chunks
             chunk_size: Size of chunks to analyze
+            article_id: Article ID for storing chunk analysis
+            store_analysis: Whether to store chunk analysis results
             
         Returns:
             Dictionary with optimized content and metadata
@@ -53,7 +57,8 @@ class GPT4oContentOptimizer:
             
             # Filter content
             filter_result = self.content_filter.filter_content(
-                content, min_confidence, chunk_size
+                content, min_confidence, chunk_size,
+                article_id=article_id, store_analysis=store_analysis
             )
             
             # Calculate cost estimates
@@ -217,7 +222,9 @@ gpt4o_optimizer = GPT4oContentOptimizer()
 # Convenience functions for integration
 async def optimize_article_content(content: str, min_confidence: float = 0.7, 
                                  article_metadata: Optional[Dict[str, Any]] = None,
-                                 content_hash: Optional[str] = None) -> Dict[str, Any]:
+                                 content_hash: Optional[str] = None,
+                                 article_id: Optional[int] = None,
+                                 store_analysis: bool = False) -> Dict[str, Any]:
     """
     Optimize article content for GPT-4o analysis with smart chunk caching.
     
@@ -226,6 +233,8 @@ async def optimize_article_content(content: str, min_confidence: float = 0.7,
         min_confidence: Minimum confidence threshold for keeping chunks
         article_metadata: Article metadata dict (for cache storage/retrieval)
         content_hash: Content hash for cache validation
+        article_id: Article ID for storing chunk analysis
+        store_analysis: Whether to store chunk analysis results
         
     Returns:
         Dictionary with optimized content and metadata
@@ -238,7 +247,9 @@ async def optimize_article_content(content: str, min_confidence: float = 0.7,
             return cached_result
     
     # Generate chunks if not cached
-    result = await gpt4o_optimizer.optimize_content_for_gpt4o(content, min_confidence)
+    result = await gpt4o_optimizer.optimize_content_for_gpt4o(
+        content, min_confidence, article_id=article_id, store_analysis=store_analysis
+    )
     
     # Store in cache if we have article metadata
     if article_metadata and content_hash and result['success']:

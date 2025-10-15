@@ -42,7 +42,9 @@ async def api_gpt4o_rank_optimized(article_id: int, request: Request):
                 article.content, 
                 min_confidence=min_confidence,
                 article_metadata=article.article_metadata,
-                content_hash=article.content_hash
+                content_hash=article.content_hash,
+                article_id=article_id,
+                store_analysis=True
             )
             
             if optimization_result['success']:

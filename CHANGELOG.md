@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Chunk Deduplication System**: Database unique constraint prevents duplicate chunk storage
+- **Chunk Analysis Tests**: Comprehensive test suite verifying deduplication and data integrity
 - **ML-Powered Content Filtering**: Machine learning model for automated chunk classification with RandomForest
 - **Interactive Feedback System**: User feedback collection for continuous model improvement and retraining
 - **Model Versioning System**: Track model performance changes with database-backed version history
@@ -29,6 +31,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Redundant UI Cleanup**: Removed redundant "Save Configuration" button from settings page
 
 ### Fixed
+- **Chunk Analysis Duplicates**: Fixed bug where chunks were stored twice (duplicate entries) for same article/model
+- **ML Prediction Optimization**: Eliminated redundant `predict_huntability()` calls (50% reduction from 2x to 1x per chunk)
 - **List Backups API**: Fixed parsing to show all numbered backups (1-10) instead of just the first one
 - **Backup List Display**: Corrected multi-line backup entry parsing to extract names and sizes properly
 - **Database Backup**: Fixed database backup to include actual data (1,187 articles, 35 sources)
