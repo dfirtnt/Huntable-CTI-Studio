@@ -15,12 +15,26 @@
             </div>
 
             <div class="mb-4">
-                <label for="file-upload" class="cursor-pointer">
-                    <span class="mt-2 block text-sm font-medium text-gray-900">
-                        Drop your PDF file here or click to browse
-                    </span>
-                    <input id="file-upload" name="file-upload" type="file" accept=".pdf" class="sr-only">
-                </label>
+                <div class="flex flex-col items-center space-y-4">
+                    <label for="file-upload" class="cursor-pointer">
+                        <span class="mt-2 block text-sm font-medium text-gray-900">
+                            Drop your PDF file here or click to browse
+                        </span>
+                        <input id="file-upload" name="file-upload" type="file" accept=".pdf" class="sr-only">
+                    </label>
+                    
+                    <div class="flex items-center space-x-2">
+                        <span class="text-sm text-gray-500">or</span>
+                    </div>
+                    
+                    <button type="button" onclick="document.getElementById('file-upload').click()" 
+                            class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
+                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+                        </svg>
+                        Browse Files
+                    </button>
+                </div>
             </div>
 
             <p class="text-xs text-gray-500">Maximum file size: 50MB</p>
@@ -136,7 +150,14 @@ document.addEventListener('DOMContentLoaded', function() {
             method: 'POST',
             body: formData
         })
-        .then(response => response.json())
+        .then(response => {
+            if (!response.ok) {
+                return response.json().then(errorData => {
+                    throw new Error(errorData.detail || `HTTP ${response.status}: ${response.statusText}`);
+                });
+            }
+            return response.json();
+        })
         .then(data => {
             hideAll();
             if (data.success) {
@@ -154,6 +175,13 @@ document.addEventListener('DOMContentLoaded', function() {
     function showSuccess(data) {
         uploadSuccess.classList.remove('hidden');
         successDetails.innerHTML = `Article ID: ${data.article_id || 'null'}, Threat Score: ${data.threat_hunting_score}, Pages: ${data.page_count}`;
+        
+        // Redirect to the new article after 3 seconds
+        if (data.article_id) {
+            setTimeout(() => {
+                window.location.href = `/articles/${data.article_id}`;
+            }, 3000);
+        }
     }
 
     function showError(message) {

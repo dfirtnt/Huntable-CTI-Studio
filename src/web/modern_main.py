@@ -70,7 +70,7 @@ def highlight_keywords(content: str, metadata: Dict[str, Any]) -> str:
         'perfect_keyword_matches': ('perfect', 'bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 border-green-300 dark:border-green-700'),
         'good_keyword_matches': ('good', 'bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-200 border-purple-300 dark:border-purple-700'),
         'lolbas_matches': ('lolbas', 'bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 border-blue-300 dark:border-blue-700'),
-        'intelligence_matches': ('intelligence', 'bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 border-red-300 dark:border-red-700'),
+        'intelligence_matches': ('intelligence', 'bg-orange-100 dark:bg-orange-900 text-orange-800 dark:text-orange-200 border-orange-300 dark:border-orange-700'),
         'negative_matches': ('negative', 'bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200 border-gray-300 dark:border-gray-600')
     }
     
@@ -85,16 +85,18 @@ def highlight_keywords(content: str, metadata: Dict[str, Any]) -> str:
     # Sort keywords by length (longest first) to avoid partial replacements
     all_keywords.sort(key=lambda x: len(x[0]), reverse=True)
     
-    # Create highlighted content
-    highlighted_content = content
+    # Create highlighted content using a more robust approach
+    import re
     
+    # Check if content is already highlighted (contains HTML spans)
+    if '<span class=' in content:
+        logger.warning("Content already contains HTML spans, skipping keyword highlighting to avoid nested spans")
+        return content
+    
+    # First, find all matches and their positions to avoid overlapping
+    matches = []
     for keyword, type_name, css_classes in all_keywords:
-        # Escape special regex characters in the keyword
-        import re
         escaped_keyword = re.escape(keyword)
-        
-        # Create highlight span
-        highlight_span = f'<span class="px-1 py-0.5 rounded text-xs font-medium border {css_classes}" title="{type_name.title()} discriminator: {keyword}">{keyword}</span>'
         
         # For certain keywords, allow partial matches (like "hunting" in "threat hunting")
         partial_match_keywords = ['hunting', 'detection', 'monitor', 'alert', 'executable', 'parent-child', 'defender query']
@@ -110,14 +112,52 @@ def highlight_keywords(content: str, metadata: Dict[str, Any]) -> str:
                 # Allow wildcard matching (e.g., "spawn" matches "spawns", "spawning", "spawned")
                 pattern = re.compile(escaped_keyword + r'\w*', re.IGNORECASE)
             else:
-                # Use word boundaries for other keywords
-                pattern = re.compile(r'\b' + escaped_keyword + r'\b', re.IGNORECASE)
+                # Use word boundaries for other keywords with case-insensitive matching
+                # Use a more robust pattern that handles case variations
+                pattern = re.compile(r'(?<![a-zA-Z])' + escaped_keyword + r'(?![a-zA-Z])', re.IGNORECASE)
             
-            highlighted_content = pattern.sub(highlight_span, highlighted_content)
+            # Find all matches for this keyword
+            for match in pattern.finditer(content):
+                matches.append({
+                    'start': match.start(),
+                    'end': match.end(),
+                    'keyword': keyword,
+                    'type_name': type_name,
+                    'css_classes': css_classes
+                })
         except re.error as e:
             # If regex compilation fails, skip this keyword
             logger.warning(f"Regex error for keyword '{keyword}': {e}")
             continue
+    
+    # Sort matches by start position
+    matches.sort(key=lambda x: x['start'])
+    
+    # Remove overlapping matches (keep the longest one)
+    non_overlapping = []
+    for match in matches:
+        # Check if this match overlaps with any existing match
+        overlaps = False
+        for existing in non_overlapping:
+            if (match['start'] < existing['end'] and match['end'] > existing['start']):
+                # Overlap detected - keep the longer match
+                if len(match['keyword']) > len(existing['keyword']):
+                    non_overlapping.remove(existing)
+                    non_overlapping.append(match)
+                overlaps = True
+                break
+        
+        if not overlaps:
+            non_overlapping.append(match)
+    
+    # Sort again by start position
+    non_overlapping.sort(key=lambda x: x['start'])
+    
+    # Build the highlighted content by replacing from end to start (to preserve positions)
+    highlighted_content = content
+    for match in reversed(non_overlapping):
+        highlight_span = f'<span class="px-1 py-0.5 rounded text-xs font-medium border {match["css_classes"]}" title="{match["type_name"].title()} discriminator: {match["keyword"]}">{match["keyword"]}</span>'
+        highlighted_content = highlighted_content[:match['start']] + highlight_span + highlighted_content[match['end']:]
     
     return highlighted_content
 
@@ -5326,21 +5366,73 @@ async def api_pdf_upload(file: UploadFile = File(...)):
             if not text_content.strip():
                 raise HTTPException(status_code=400, detail="Could not extract text from PDF")
 
-            # Create article from PDF content using Manual source (ID 53)
+            # Calculate content hash for deduplication
+            from src.utils.content import ContentCleaner
+            content_hash = ContentCleaner.calculate_content_hash(f"PDF Report: {file.filename}", text_content)
+
+            # Get the Manual source ID dynamically
+            from src.database.models import SourceTable
+            from sqlalchemy import select
+            async with async_db_manager.get_session() as session:
+                manual_source = await session.execute(
+                    select(SourceTable).where(SourceTable.name.ilike('%manual%'))
+                )
+                manual_source_obj = manual_source.scalar_one_or_none()
+                
+                if not manual_source_obj:
+                    raise HTTPException(status_code=500, detail="Manual source not found in database")
+                
+                manual_source_id = manual_source_obj.id
+
+            # Create article from PDF content using Manual source
             article_data = ArticleCreate(
                 title=f"PDF Report: {file.filename}",
                 content=text_content,
                 url=f"pdf://{file.filename}",
                 canonical_url=f"pdf://{file.filename}",
                 published_at=datetime.now(),
-                source_id=53  # Manual source ID
+                source_id=manual_source_id,
+                content_hash=content_hash
             )
 
             # Initialize metadata for return value
             current_metadata = article_data.article_metadata.copy()
 
             # Save article to database
-            article_id = await async_db_manager.create_article(article_data)
+            try:
+                created_article = await async_db_manager.create_article(article_data)
+                
+                if not created_article:
+                    # Check if it's a duplicate by trying to find existing article with same content hash
+                    from src.database.models import ArticleTable
+                    from sqlalchemy import select
+                    async with async_db_manager.get_session() as session:
+                        existing_article = await session.execute(
+                            select(ArticleTable).where(ArticleTable.content_hash == content_hash)
+                        )
+                        existing = existing_article.scalar_one_or_none()
+                        
+                        if existing:
+                            raise HTTPException(
+                                status_code=400, 
+                                detail=f"Duplicate PDF detected. This file has already been uploaded as Article ID {existing.id}: '{existing.title}'"
+                            )
+                        else:
+                            raise HTTPException(
+                                status_code=500, 
+                                detail="Failed to create article in database. Please try again or contact support."
+                            )
+                
+                article_id = created_article.id
+                
+            except HTTPException:
+                raise
+            except Exception as e:
+                logger.error(f"Database error during PDF upload: {e}")
+                raise HTTPException(
+                    status_code=500, 
+                    detail=f"Database error: {str(e)}. Please try again or contact support."
+                )
 
             # Generate threat hunting score for the PDF content using proper scoring system
             try:
