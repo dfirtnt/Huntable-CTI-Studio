@@ -1,0 +1,194 @@
+{% extends "base.html" %}
+
+{% block title %}Analytics - CTIScraper{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+    <div class="mb-8">
+        <h1 class="text-3xl font-bold text-gray-900 dark:text-white mb-2">📊 Analytics Dashboard</h1>
+        <p class="text-gray-600 dark:text-gray-400">Comprehensive analytics and metrics for threat intelligence collection and analysis</p>
+    </div>
+
+    <!-- Analytics Grid -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        
+        <!-- ML vs Hunt Comparison -->
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 hover:shadow-xl transition-shadow">
+            <div class="flex items-center mb-4">
+                <div class="bg-blue-100 dark:bg-blue-900 p-3 rounded-lg mr-4">
+                    <svg class="w-6 h-6 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                    </svg>
+                </div>
+                <div>
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white">ML vs Hunt Comparison</h3>
+                    <p class="text-sm text-gray-500 dark:text-gray-400">Model Performance</p>
+                </div>
+            </div>
+            <p class="text-gray-600 dark:text-gray-300 mb-4">Compare machine learning model performance against hunt scoring system for content classification accuracy and confidence metrics.</p>
+            <a href="/ml-hunt-comparison" class="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+                View Analysis
+                <svg class="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                </svg>
+            </a>
+        </div>
+
+        <!-- Scraper Metrics -->
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 hover:shadow-xl transition-shadow">
+            <div class="flex items-center mb-4">
+                <div class="bg-green-100 dark:bg-green-900 p-3 rounded-lg mr-4">
+                    <svg class="w-6 h-6 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                    </svg>
+                </div>
+                <div>
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Scraper Metrics</h3>
+                    <p class="text-sm text-gray-500 dark:text-gray-400">Collection Performance</p>
+                </div>
+            </div>
+            <p class="text-gray-600 dark:text-gray-300 mb-4">Monitor article collection performance, source health, ingestion rates, and scraper efficiency metrics.</p>
+            <a href="/analytics/scraper-metrics" class="inline-flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors">
+                View Metrics
+                <svg class="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                </svg>
+            </a>
+        </div>
+
+        <!-- Hunt Scoring Metrics -->
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 hover:shadow-xl transition-shadow">
+            <div class="flex items-center mb-4">
+                <div class="bg-purple-100 dark:bg-purple-900 p-3 rounded-lg mr-4">
+                    <svg class="w-6 h-6 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"></path>
+                    </svg>
+                </div>
+                <div>
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Hunt Scoring Metrics</h3>
+                    <p class="text-sm text-gray-500 dark:text-gray-400">Threat Intelligence Quality</p>
+                </div>
+            </div>
+            <p class="text-gray-600 dark:text-gray-300 mb-4">Analyze threat hunting content quality, keyword performance, and scoring distribution across collected articles.</p>
+            <a href="/analytics/hunt-metrics" class="inline-flex items-center px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors">
+                View Metrics
+                <svg class="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                </svg>
+            </a>
+        </div>
+
+        <!-- Content Filtering Analytics -->
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 hover:shadow-xl transition-shadow">
+            <div class="flex items-center mb-4">
+                <div class="bg-orange-100 dark:bg-orange-900 p-3 rounded-lg mr-4">
+                    <svg class="w-6 h-6 text-orange-600 dark:text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"></path>
+                    </svg>
+                </div>
+                <div>
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Content Filtering</h3>
+                    <p class="text-sm text-gray-500 dark:text-gray-400">Filter Performance</p>
+                </div>
+            </div>
+            <p class="text-gray-600 dark:text-gray-300 mb-4">Monitor content filtering efficiency, cost savings, and chunk classification accuracy for LLM processing optimization.</p>
+            <a href="/analytics/content-filtering" class="inline-flex items-center px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors">
+                View Analytics
+                <svg class="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                </svg>
+            </a>
+        </div>
+
+        <!-- Source Health Analytics -->
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 hover:shadow-xl transition-shadow">
+            <div class="flex items-center mb-4">
+                <div class="bg-red-100 dark:bg-red-900 p-3 rounded-lg mr-4">
+                    <svg class="w-6 h-6 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                </div>
+                <div>
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Source Health</h3>
+                    <p class="text-sm text-gray-500 dark:text-gray-400">Feed Monitoring</p>
+                </div>
+            </div>
+            <p class="text-gray-600 dark:text-gray-300 mb-4">Track RSS feed health, collection success rates, error patterns, and source reliability metrics.</p>
+            <a href="/analytics/source-health" class="inline-flex items-center px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors">
+                View Health
+                <svg class="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                </svg>
+            </a>
+        </div>
+
+        <!-- System Performance -->
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 hover:shadow-xl transition-shadow">
+            <div class="flex items-center mb-4">
+                <div class="bg-indigo-100 dark:bg-indigo-900 p-3 rounded-lg mr-4">
+                    <svg class="w-6 h-6 text-indigo-600 dark:text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path>
+                    </svg>
+                </div>
+                <div>
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white">System Performance</h3>
+                    <p class="text-sm text-gray-500 dark:text-gray-400">Infrastructure Metrics</p>
+                </div>
+            </div>
+            <p class="text-gray-600 dark:text-gray-300 mb-4">Monitor database performance, Celery worker status, API response times, and overall system health metrics.</p>
+            <a href="/analytics/system-performance" class="inline-flex items-center px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors">
+                View Performance
+                <svg class="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                </svg>
+            </a>
+        </div>
+
+    </div>
+
+    <!-- Quick Stats Section -->
+    <div class="mt-12 bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+        <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-6">📈 Quick Overview</h2>
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+            <div class="text-center">
+                <div class="text-2xl font-bold text-blue-600 dark:text-blue-400" id="totalArticles">-</div>
+                <div class="text-sm text-gray-500 dark:text-gray-400">Total Articles</div>
+            </div>
+            <div class="text-center">
+                <div class="text-2xl font-bold text-green-600 dark:text-green-400" id="activeSources">-</div>
+                <div class="text-sm text-gray-500 dark:text-gray-400">Active Sources</div>
+            </div>
+            <div class="text-center">
+                <div class="text-2xl font-bold text-purple-600 dark:text-purple-400" id="avgHuntScore">-</div>
+                <div class="text-sm text-gray-500 dark:text-gray-400">Avg Hunt Score</div>
+            </div>
+            <div class="text-center">
+                <div class="text-2xl font-bold text-orange-600 dark:text-orange-400" id="filterEfficiency">-</div>
+                <div class="text-sm text-gray-500 dark:text-gray-400">Filter Efficiency</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Load quick stats
+async function loadQuickStats() {
+    try {
+        const response = await fetch('/api/dashboard/data');
+        const data = await response.json();
+        
+        document.getElementById('totalArticles').textContent = data.stats?.total_articles || '-';
+        document.getElementById('activeSources').textContent = data.stats?.active_sources || '-';
+        document.getElementById('avgHuntScore').textContent = data.stats?.avg_hunt_score ? 
+            Math.round(data.stats.avg_hunt_score) : '-';
+        document.getElementById('filterEfficiency').textContent = data.stats?.filter_efficiency ? 
+            Math.round(data.stats.filter_efficiency) + '%' : '-';
+    } catch (error) {
+        console.error('Failed to load quick stats:', error);
+    }
+}
+
+// Load stats on page load
+document.addEventListener('DOMContentLoaded', loadQuickStats);
+</script>
+{% endblock %}

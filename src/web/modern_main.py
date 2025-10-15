@@ -575,6 +575,23 @@ async def dashboard(request: Request):
             status_code=500
         )
 
+# Analytics page
+@app.get("/analytics", response_class=HTMLResponse)
+async def analytics_page(request: Request):
+    """Analytics dashboard page."""
+    try:
+        return templates.TemplateResponse(
+            "analytics.html",
+            {"request": request}
+        )
+    except Exception as e:
+        logger.error(f"Analytics page error: {e}")
+        return templates.TemplateResponse(
+            "error.html",
+            {"request": request, "error": str(e)},
+            status_code=500
+        )
+
 # Settings page
 @app.get("/settings", response_class=HTMLResponse)
 async def settings_page(request: Request):
