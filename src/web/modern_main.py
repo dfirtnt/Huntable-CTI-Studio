@@ -5995,6 +5995,184 @@ async def help_page(request: Request):
     )
 
 
+# ML vs Hunt Scoring Comparison Endpoints
+@app.get("/ml-hunt-comparison", response_class=HTMLResponse)
+async def ml_hunt_comparison_page(request: Request):
+    """ML vs Hunt scoring comparison page."""
+    try:
+        with open("src/web/templates/ml_hunt_comparison.html", "r") as f:
+            html_content = f.read()
+        return HTMLResponse(content=html_content)
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="ML Hunt comparison page not found")
+
+
+@app.get("/api/ml-hunt-comparison/stats")
+async def get_model_comparison_stats(
+    model_version: Optional[str] = None
+):
+    """Get comparison statistics for model versions."""
+    try:
+        from src.services.chunk_analysis_service import ChunkAnalysisService
+        
+        # Use database manager
+        from src.database.manager import DatabaseManager
+        db_manager = DatabaseManager()
+        sync_db = db_manager.get_session()
+        try:
+            service = ChunkAnalysisService(sync_db)
+            stats = service.get_model_comparison_stats(model_version)
+        finally:
+            sync_db.close()
+        return {"success": True, "stats": stats}
+    except Exception as e:
+        logger.error(f"Error getting model comparison stats: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/ml-hunt-comparison/results")
+async def get_chunk_analysis_results(
+    article_id: Optional[int] = None,
+    model_version: Optional[str] = None,
+    hunt_score_min: Optional[float] = None,
+    hunt_score_max: Optional[float] = None,
+    ml_prediction: Optional[bool] = None,
+    hunt_prediction: Optional[bool] = None,
+    agreement: Optional[bool] = None,
+    limit: int = 100,
+    offset: int = 0
+):
+    """Get chunk analysis results with filtering."""
+    try:
+        from src.services.chunk_analysis_service import ChunkAnalysisService
+        
+        from src.database.manager import DatabaseManager
+        db_manager = DatabaseManager()
+        sync_db = db_manager.get_session()
+        try:
+            service = ChunkAnalysisService(sync_db)
+            results = service.get_chunk_analysis_results(
+                article_id=article_id,
+                model_version=model_version,
+                hunt_score_min=hunt_score_min,
+                hunt_score_max=hunt_score_max,
+                ml_prediction=ml_prediction,
+                hunt_prediction=hunt_prediction,
+                agreement=agreement,
+                limit=limit,
+                offset=offset
+            )
+        finally:
+            sync_db.close()
+        return {"success": True, "results": results, "count": len(results)}
+    except Exception as e:
+        logger.error(f"Error getting chunk analysis results: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/ml-hunt-comparison/model-versions")
+async def get_available_model_versions():
+    """Get list of available model versions."""
+    try:
+        from src.services.chunk_analysis_service import ChunkAnalysisService
+        
+        from src.database.manager import DatabaseManager
+        db_manager = DatabaseManager()
+        sync_db = db_manager.get_session()
+        try:
+            service = ChunkAnalysisService(sync_db)
+            versions = service.get_available_model_versions()
+        finally:
+            sync_db.close()
+        return {"success": True, "model_versions": versions}
+    except Exception as e:
+        logger.error(f"Error getting model versions: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/ml-hunt-comparison/backfill")
+async def backfill_chunk_analysis(
+    min_hunt_score: float = 50.0,
+    min_confidence: float = 0.7,
+    limit: int = None
+):
+    """Backfill chunk analysis for articles with hunt_score > threshold."""
+    try:
+        from src.services.chunk_analysis_backfill import ChunkAnalysisBackfillService
+        from src.database.manager import DatabaseManager
+        
+        db_manager = DatabaseManager()
+        sync_db = db_manager.get_session()
+        try:
+            service = ChunkAnalysisBackfillService(sync_db)
+            results = service.backfill_all(min_hunt_score, min_confidence, limit)
+        finally:
+            sync_db.close()
+        
+        return {"success": True, "results": results}
+    except Exception as e:
+        logger.error(f"Error in backfill: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/ml-hunt-comparison/eligible-count")
+async def get_eligible_articles_count(min_hunt_score: float = 50.0):
+    """Get count of articles eligible for chunk analysis."""
+    try:
+        from src.services.chunk_analysis_backfill import ChunkAnalysisBackfillService
+        from src.database.manager import DatabaseManager
+        
+        db_manager = DatabaseManager()
+        sync_db = db_manager.get_session()
+        try:
+            service = ChunkAnalysisBackfillService(sync_db)
+            eligible = service.get_eligible_articles(min_hunt_score)
+            count = len(eligible)
+        finally:
+            sync_db.close()
+        
+        return {"success": True, "count": count, "min_hunt_score": min_hunt_score}
+    except Exception as e:
+        logger.error(f"Error getting eligible count: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/ml-hunt-comparison/summary")
+async def get_comparison_summary():
+    """Get summary statistics for the comparison."""
+    try:
+        from src.services.chunk_analysis_service import ChunkAnalysisService
+        
+        from src.database.manager import DatabaseManager
+        db_manager = DatabaseManager()
+        sync_db = db_manager.get_session()
+        try:
+            service = ChunkAnalysisService(sync_db)
+            
+            # Get overall stats
+            all_stats = service.get_model_comparison_stats()
+            model_versions = service.get_available_model_versions()
+            
+            # Get recent results count
+            recent_results = service.get_chunk_analysis_results(limit=1)
+            total_results = len(service.get_chunk_analysis_results(limit=10000))  # Get approximate count
+        finally:
+            sync_db.close()
+        
+        summary = {
+            "total_model_versions": len(model_versions),
+            "total_chunk_analyses": total_results,
+            "model_versions": model_versions,
+            "overall_stats": all_stats,
+            "last_updated": recent_results[0]["created_at"] if recent_results else None
+        }
+        
+        return {"success": True, "summary": summary}
+    except Exception as e:
+        logger.error(f"Error getting comparison summary: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(

@@ -2,7 +2,7 @@
 
 from datetime import datetime
 from typing import Dict, Any, List, Optional
-from sqlalchemy import Column, Integer, String, DateTime, Boolean, Float, Text, ForeignKey, JSON, Numeric
+from sqlalchemy import Column, Integer, String, DateTime, Boolean, Float, Text, ForeignKey, JSON, Numeric, ARRAY
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import UUID
@@ -89,6 +89,7 @@ class ArticleTable(Base):
     
     # Relationships
     source = relationship("SourceTable", back_populates="articles")
+    chunk_analysis_results = relationship("ChunkAnalysisResultTable", back_populates="article", cascade="all, delete-orphan")
     
     def __repr__(self):
         return f"<Article(id={self.id}, title='{self.title[:50]}...', source_id={self.source_id})>"
@@ -231,3 +232,33 @@ class MLModelVersionTable(Base):
     
     def __repr__(self):
         return f"<MLModelVersion(id={self.id}, version={self.version_number}, accuracy={self.accuracy:.3f})>"
+
+
+class ChunkAnalysisResultTable(Base):
+    """Database table for chunk analysis results (ML vs Hunt scoring comparison)."""
+    
+    __tablename__ = 'chunk_analysis_results'
+    
+    id = Column(Integer, primary_key=True, index=True)
+    article_id = Column(Integer, ForeignKey('articles.id', ondelete='CASCADE'), nullable=False, index=True)
+    chunk_start = Column(Integer, nullable=False)
+    chunk_end = Column(Integer, nullable=False)
+    chunk_text = Column(Text, nullable=False)
+    model_version = Column(String(50), nullable=False, index=True)
+    ml_prediction = Column(Boolean, nullable=False, index=True)
+    ml_confidence = Column(Float, nullable=False)
+    hunt_score = Column(Float, nullable=False, index=True)
+    hunt_prediction = Column(Boolean, nullable=False, index=True)
+    perfect_discriminators_found = Column(ARRAY(String), nullable=True)
+    good_discriminators_found = Column(ARRAY(String), nullable=True)
+    lolbas_matches_found = Column(ARRAY(String), nullable=True)
+    intelligence_matches_found = Column(ARRAY(String), nullable=True)
+    negative_matches_found = Column(ARRAY(String), nullable=True)
+    created_at = Column(DateTime, default=func.now(), index=True)
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+    
+    # Relationships
+    article = relationship("ArticleTable", back_populates="chunk_analysis_results")
+    
+    def __repr__(self):
+        return f"<ChunkAnalysisResult(id={self.id}, article_id={self.article_id}, model_version='{self.model_version}')>"
