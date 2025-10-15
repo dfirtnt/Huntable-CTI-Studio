@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **Keyword Highlighting Bug**: Fixed overlapping keyword highlights extending beyond intended keywords
+- **PDF Upload Improvements**: Enhanced error handling for duplicate files and database errors
+- **CSS Class Conflicts**: Resolved conflicts between keyword highlighting and user annotation systems
+
 ### Added
 - **Chunk Deduplication System**: Database unique constraint prevents duplicate chunk storage
 - **Chunk Analysis Tests**: Comprehensive test suite verifying deduplication and data integrity
