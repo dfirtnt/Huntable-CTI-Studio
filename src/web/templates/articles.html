@@ -5,7 +5,13 @@
 {% block content %}
 <div class="container mx-auto px-4 py-8">
     <div class="mb-8">
-        <h1 class="text-3xl font-bold text-gray-900 dark:text-white mb-2">📰 Threat Intelligence Articles</h1>
+        <div class="flex items-center justify-between mb-2">
+            <h1 class="text-3xl font-bold text-gray-900 dark:text-white">📰 Threat Intelligence Articles</h1>
+            <a href="/chat" class="px-6 py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors flex items-center space-x-2 font-medium shadow-lg" title="AI-powered semantic search across threat intelligence content">
+                <span>🔍</span>
+                <span>RAG Search</span>
+            </a>
+        </div>
         <p class="text-gray-600 dark:text-gray-400">Browse and search collected threat intelligence articles</p>
     </div>
 
