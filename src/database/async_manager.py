@@ -1171,14 +1171,14 @@ class AsyncDatabaseManager:
                 ]
                 analytics['daily_trends'] = daily_trends
                 
-                # Hourly distribution (today)
+                # Hourly distribution (today) - using local timezone
                 hourly_query = """
                 SELECT 
-                    EXTRACT(hour FROM discovered_at) as hour,
+                    EXTRACT(hour FROM discovered_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York') as hour,
                     COUNT(*) as articles_count
                 FROM articles 
-                WHERE DATE(discovered_at) = CURRENT_DATE
-                GROUP BY EXTRACT(hour FROM discovered_at)
+                WHERE DATE(discovered_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York') = (CURRENT_DATE AT TIME ZONE 'America/New_York')::date
+                GROUP BY EXTRACT(hour FROM discovered_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York')
                 ORDER BY hour
                 """
                 result = await session.execute(text(hourly_query))
