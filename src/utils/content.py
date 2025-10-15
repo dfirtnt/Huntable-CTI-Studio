@@ -516,7 +516,7 @@ def _is_garbage_content(content: str) -> bool:
     ]
     
     if any(indicator in content_lower for indicator in compression_indicators):
-        print(f"DEBUG: Compression indicators found")
+        logger.debug("Compression indicators found")
         return True
     
     return False

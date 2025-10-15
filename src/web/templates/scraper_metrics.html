@@ -1,0 +1,257 @@
+{% extends "base.html" %}
+
+{% block title %}Scraper Metrics - Analytics - CTIScraper{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+    <div class="mb-8">
+        <nav class="flex mb-4" aria-label="Breadcrumb">
+            <ol class="inline-flex items-center space-x-1 md:space-x-3">
+                <li class="inline-flex items-center">
+                    <a href="/analytics" class="text-gray-700 hover:text-blue-600 dark:text-gray-300 dark:hover:text-blue-400">Analytics</a>
+                </li>
+                <li>
+                    <div class="flex items-center">
+                        <svg class="w-6 h-6 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd"></path>
+                        </svg>
+                        <span class="ml-1 text-gray-500 md:ml-2 dark:text-gray-400">Scraper Metrics</span>
+                    </div>
+                </li>
+            </ol>
+        </nav>
+        
+        <h1 class="text-3xl font-bold text-gray-900 dark:text-white mb-2">⚡ Scraper Metrics</h1>
+        <p class="text-gray-600 dark:text-gray-400">Monitor article collection performance and source health</p>
+    </div>
+
+    <!-- Metrics Overview -->
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+            <div class="flex items-center">
+                <div class="p-2 bg-green-100 dark:bg-green-900 rounded-lg">
+                    <svg class="w-6 h-6 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                    </svg>
+                </div>
+                <div class="ml-4">
+                    <p class="text-sm font-medium text-gray-500 dark:text-gray-400">Articles Today</p>
+                    <p class="text-2xl font-semibold text-gray-900 dark:text-white" id="articlesToday">-</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+            <div class="flex items-center">
+                <div class="p-2 bg-blue-100 dark:bg-blue-900 rounded-lg">
+                    <svg class="w-6 h-6 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.367 2.684 3 3 0 00-5.367-2.684z"></path>
+                    </svg>
+                </div>
+                <div class="ml-4">
+                    <p class="text-sm font-medium text-gray-500 dark:text-gray-400">Active Sources</p>
+                    <p class="text-2xl font-semibold text-gray-900 dark:text-white" id="activeSources">-</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+            <div class="flex items-center">
+                <div class="p-2 bg-yellow-100 dark:bg-yellow-900 rounded-lg">
+                    <svg class="w-6 h-6 text-yellow-600 dark:text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                </div>
+                <div class="ml-4">
+                    <p class="text-sm font-medium text-gray-500 dark:text-gray-400">Avg Response Time</p>
+                    <p class="text-2xl font-semibold text-gray-900 dark:text-white" id="avgResponseTime">-</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+            <div class="flex items-center">
+                <div class="p-2 bg-red-100 dark:bg-red-900 rounded-lg">
+                    <svg class="w-6 h-6 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"></path>
+                    </svg>
+                </div>
+                <div class="ml-4">
+                    <p class="text-sm font-medium text-gray-500 dark:text-gray-400">Error Rate</p>
+                    <p class="text-2xl font-semibold text-gray-900 dark:text-white" id="errorRate">-</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Charts Section -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+        <!-- Collection Rate Chart -->
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+            <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">📈 Collection Rate (Last 7 Days)</h3>
+            <div class="h-64">
+                <canvas id="collectionRateChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Source Health Chart -->
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+            <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">🏥 Source Health Distribution</h3>
+            <div class="h-64">
+                <canvas id="sourceHealthChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Source Performance Table -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow">
+        <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+            <h3 class="text-lg font-semibold text-gray-900 dark:text-white">📊 Source Performance Details</h3>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                <thead class="bg-gray-50 dark:bg-gray-700">
+                    <tr>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Source</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Status</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Articles Today</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Last Success</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Error Rate</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Avg Response</th>
+                    </tr>
+                </thead>
+                <tbody id="sourcePerformanceTable" class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                    <!-- Table content will be loaded dynamically -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+// Load scraper metrics data
+async function loadScraperMetrics() {
+    try {
+        // Load overview metrics
+        const overviewResponse = await fetch('/api/analytics/scraper/overview');
+        const overviewData = await overviewResponse.json();
+        
+        document.getElementById('articlesToday').textContent = overviewData.articles_today || '-';
+        document.getElementById('activeSources').textContent = overviewData.active_sources || '-';
+        document.getElementById('avgResponseTime').textContent = overviewData.avg_response_time ? 
+            overviewData.avg_response_time + 'ms' : '-';
+        document.getElementById('errorRate').textContent = overviewData.error_rate ? 
+            overviewData.error_rate + '%' : '-';
+
+        // Load collection rate chart data
+        const collectionResponse = await fetch('/api/analytics/scraper/collection-rate');
+        const collectionData = await collectionResponse.json();
+        renderCollectionRateChart(collectionData);
+
+        // Load source health chart data
+        const healthResponse = await fetch('/api/analytics/scraper/source-health');
+        const healthData = await healthResponse.json();
+        renderSourceHealthChart(healthData);
+
+        // Load source performance table
+        const performanceResponse = await fetch('/api/analytics/scraper/source-performance');
+        const performanceData = await performanceResponse.json();
+        renderSourcePerformanceTable(performanceData);
+
+    } catch (error) {
+        console.error('Failed to load scraper metrics:', error);
+    }
+}
+
+// Render collection rate chart
+function renderCollectionRateChart(data) {
+    const ctx = document.getElementById('collectionRateChart').getContext('2d');
+    new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: data.labels || [],
+            datasets: [{
+                label: 'Articles Collected',
+                data: data.values || [],
+                borderColor: 'rgb(59, 130, 246)',
+                backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                tension: 0.1
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    beginAtZero: true
+                }
+            }
+        }
+    });
+}
+
+// Render source health chart
+function renderSourceHealthChart(data) {
+    const ctx = document.getElementById('sourceHealthChart').getContext('2d');
+    new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: data.labels || [],
+            datasets: [{
+                data: data.values || [],
+                backgroundColor: [
+                    'rgb(34, 197, 94)',  // Green for healthy
+                    'rgb(251, 191, 36)', // Yellow for warning
+                    'rgb(239, 68, 68)'   // Red for error
+                ]
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false
+        }
+    });
+}
+
+// Render source performance table
+function renderSourcePerformanceTable(data) {
+    const tbody = document.getElementById('sourcePerformanceTable');
+    tbody.innerHTML = '';
+
+    data.sources?.forEach(source => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
+                ${source.name}
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap">
+                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                    source.status === 'healthy' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' :
+                    source.status === 'warning' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' :
+                    'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
+                }">
+                    ${source.status}
+                </span>
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                ${source.articles_today || 0}
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                ${source.last_success || 'Never'}
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                ${source.error_rate ? source.error_rate + '%' : '0%'}
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                ${source.avg_response ? source.avg_response + 'ms' : '-'}
+            </td>
+        `;
+        tbody.appendChild(row);
+    });
+}
+
+// Load metrics on page load
+document.addEventListener('DOMContentLoaded', loadScraperMetrics);
+</script>
+{% endblock %}

@@ -1,0 +1,300 @@
+{% extends "base.html" %}
+
+{% block title %}Hunt Scoring Metrics - Analytics - CTIScraper{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+    <div class="mb-8">
+        <nav class="flex mb-4" aria-label="Breadcrumb">
+            <ol class="inline-flex items-center space-x-1 md:space-x-3">
+                <li class="inline-flex items-center">
+                    <a href="/analytics" class="text-gray-700 hover:text-blue-600 dark:text-gray-300 dark:hover:text-blue-400">Analytics</a>
+                </li>
+                <li>
+                    <div class="flex items-center">
+                        <svg class="w-6 h-6 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd"></path>
+                        </svg>
+                        <span class="ml-1 text-gray-500 md:ml-2 dark:text-gray-400">Hunt Scoring Metrics</span>
+                    </div>
+                </li>
+            </ol>
+        </nav>
+        
+        <h1 class="text-3xl font-bold text-gray-900 dark:text-white mb-2">🎯 Hunt Scoring Metrics</h1>
+        <p class="text-gray-600 dark:text-gray-400">Analyze threat hunting content quality and keyword performance</p>
+    </div>
+
+    <!-- Metrics Overview -->
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+            <div class="flex items-center">
+                <div class="p-2 bg-purple-100 dark:bg-purple-900 rounded-lg">
+                    <svg class="w-6 h-6 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"></path>
+                    </svg>
+                </div>
+                <div class="ml-4">
+                    <p class="text-sm font-medium text-gray-500 dark:text-gray-400">Avg Hunt Score</p>
+                    <p class="text-2xl font-semibold text-gray-900 dark:text-white" id="avgHuntScore">-</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+            <div class="flex items-center">
+                <div class="p-2 bg-green-100 dark:bg-green-900 rounded-lg">
+                    <svg class="w-6 h-6 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                </div>
+                <div class="ml-4">
+                    <p class="text-sm font-medium text-gray-500 dark:text-gray-400">High Quality Articles</p>
+                    <p class="text-2xl font-semibold text-gray-900 dark:text-white" id="highQualityArticles">-</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+            <div class="flex items-center">
+                <div class="p-2 bg-blue-100 dark:bg-blue-900 rounded-lg">
+                    <svg class="w-6 h-6 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"></path>
+                    </svg>
+                </div>
+                <div class="ml-4">
+                    <p class="text-sm font-medium text-gray-500 dark:text-gray-400">Perfect Matches</p>
+                    <p class="text-2xl font-semibold text-gray-900 dark:text-white" id="perfectMatches">-</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+            <div class="flex items-center">
+                <div class="p-2 bg-orange-100 dark:bg-orange-900 rounded-lg">
+                    <svg class="w-6 h-6 text-orange-600 dark:text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                    </svg>
+                </div>
+                <div class="ml-4">
+                    <p class="text-sm font-medium text-gray-500 dark:text-gray-400">LOLBAS Matches</p>
+                    <p class="text-2xl font-semibold text-gray-900 dark:text-white" id="lolbasMatches">-</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Charts Section -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+        <!-- Score Distribution Chart -->
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+            <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">📊 Hunt Score Distribution</h3>
+            <div class="h-64">
+                <canvas id="scoreDistributionChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Keyword Performance Chart -->
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+            <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">🔍 Top Performing Keywords</h3>
+            <div class="h-64">
+                <canvas id="keywordPerformanceChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Keyword Analysis Table -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow mb-8">
+        <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+            <h3 class="text-lg font-semibold text-gray-900 dark:text-white">🏷️ Keyword Performance Analysis</h3>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                <thead class="bg-gray-50 dark:bg-gray-700">
+                    <tr>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Category</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Keyword</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Match Count</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Avg Score Impact</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Success Rate</th>
+                    </tr>
+                </thead>
+                <tbody id="keywordAnalysisTable" class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                    <!-- Table content will be loaded dynamically -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Score Trends Chart -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+        <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">📈 Hunt Score Trends (Last 30 Days)</h3>
+        <div class="h-80">
+            <canvas id="scoreTrendsChart"></canvas>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+// Load hunt metrics data
+async function loadHuntMetrics() {
+    try {
+        // Load overview metrics
+        const overviewResponse = await fetch('/api/analytics/hunt/overview');
+        const overviewData = await overviewResponse.json();
+        
+        document.getElementById('avgHuntScore').textContent = overviewData.avg_hunt_score ? 
+            Math.round(overviewData.avg_hunt_score) : '-';
+        document.getElementById('highQualityArticles').textContent = overviewData.high_quality_articles || '-';
+        document.getElementById('perfectMatches').textContent = overviewData.perfect_matches || '-';
+        document.getElementById('lolbasMatches').textContent = overviewData.lolbas_matches || '-';
+
+        // Load score distribution chart
+        const distributionResponse = await fetch('/api/analytics/hunt/score-distribution');
+        const distributionData = await distributionResponse.json();
+        renderScoreDistributionChart(distributionData);
+
+        // Load keyword performance chart
+        const keywordResponse = await fetch('/api/analytics/hunt/keyword-performance');
+        const keywordData = await keywordResponse.json();
+        renderKeywordPerformanceChart(keywordData);
+
+        // Load keyword analysis table
+        const analysisResponse = await fetch('/api/analytics/hunt/keyword-analysis');
+        const analysisData = await analysisResponse.json();
+        renderKeywordAnalysisTable(analysisData);
+
+        // Load score trends chart
+        const trendsResponse = await fetch('/api/analytics/hunt/score-trends');
+        const trendsData = await trendsResponse.json();
+        renderScoreTrendsChart(trendsData);
+
+    } catch (error) {
+        console.error('Failed to load hunt metrics:', error);
+    }
+}
+
+// Render score distribution chart
+function renderScoreDistributionChart(data) {
+    const ctx = document.getElementById('scoreDistributionChart').getContext('2d');
+    new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: data.labels || [],
+            datasets: [{
+                label: 'Article Count',
+                data: data.values || [],
+                backgroundColor: 'rgba(147, 51, 234, 0.6)',
+                borderColor: 'rgb(147, 51, 234)',
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    beginAtZero: true
+                }
+            }
+        }
+    });
+}
+
+// Render keyword performance chart
+function renderKeywordPerformanceChart(data) {
+    const ctx = document.getElementById('keywordPerformanceChart').getContext('2d');
+    new Chart(ctx, {
+        type: 'horizontalBar',
+        data: {
+            labels: data.labels || [],
+            datasets: [{
+                label: 'Match Count',
+                data: data.values || [],
+                backgroundColor: 'rgba(59, 130, 246, 0.6)',
+                borderColor: 'rgb(59, 130, 246)',
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            indexAxis: 'y',
+            scales: {
+                x: {
+                    beginAtZero: true
+                }
+            }
+        }
+    });
+}
+
+// Render keyword analysis table
+function renderKeywordAnalysisTable(data) {
+    const tbody = document.getElementById('keywordAnalysisTable');
+    tbody.innerHTML = '';
+
+    data.keywords?.forEach(keyword => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
+                <span class="px-2 py-1 text-xs font-semibold rounded-full ${
+                    keyword.category === 'perfect' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' :
+                    keyword.category === 'good' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200' :
+                    keyword.category === 'lolbas' ? 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200' :
+                    'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200'
+                }">
+                    ${keyword.category}
+                </span>
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white font-mono">
+                ${keyword.keyword}
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                ${keyword.match_count || 0}
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                ${keyword.avg_score_impact ? '+' + keyword.avg_score_impact : '0'}
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                ${keyword.success_rate ? keyword.success_rate + '%' : '0%'}
+            </td>
+        `;
+        tbody.appendChild(row);
+    });
+}
+
+// Render score trends chart
+function renderScoreTrendsChart(data) {
+    const ctx = document.getElementById('scoreTrendsChart').getContext('2d');
+    new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: data.labels || [],
+            datasets: [{
+                label: 'Average Hunt Score',
+                data: data.values || [],
+                borderColor: 'rgb(147, 51, 234)',
+                backgroundColor: 'rgba(147, 51, 234, 0.1)',
+                tension: 0.1,
+                fill: true
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    max: 100
+                }
+            }
+        }
+    });
+}
+
+// Load metrics on page load
+document.addEventListener('DOMContentLoaded', loadHuntMetrics);
+</script>
+{% endblock %}
