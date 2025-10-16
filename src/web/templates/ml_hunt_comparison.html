@@ -198,6 +198,11 @@
         modelVersions: []
         };
 
+        // Chart instances for proper cleanup
+        let distributionChart = null;
+        let evalAccuracyChart = null;
+        let evalMetricsChart = null;
+
         // Load initial data
         async function loadInitialData() {
             try {
@@ -228,6 +233,16 @@
             const timelineData = await timelineResponse.json();
             if (timelineData.success) {
                 currentData.timeline = timelineData.timeline;
+            }
+            
+            // Check feedback count and disable retrain button if no feedback available
+            const feedbackResponse = await fetch('/api/model/feedback-count');
+            const feedbackData = await feedbackResponse.json();
+            if (feedbackData.success && feedbackData.count === 0) {
+                const retrainBtn = document.getElementById('retrainModelBtn');
+                retrainBtn.disabled = true;
+                retrainBtn.classList.add('opacity-50', 'cursor-not-allowed');
+                retrainBtn.title = 'No feedback available for retraining';
             }
             
                     updateCharts();
@@ -300,6 +315,12 @@
     function updateDistributionChart() {
         const ctx = document.getElementById('distributionChart').getContext('2d');
         
+        // Destroy existing chart if it exists
+        if (distributionChart) {
+            distributionChart.destroy();
+            distributionChart = null;
+        }
+        
         if (!currentData.timeline || currentData.timeline.length === 0) {
             ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
             ctx.fillText('No timeline data available', 10, 50);
@@ -313,7 +334,7 @@
         const huntOnlyData = currentData.timeline.map(item => item.hunt_only);
         const neitherData = currentData.timeline.map(item => item.neither);
             
-            new Chart(ctx, {
+            distributionChart = new Chart(ctx, {
             type: 'line',
                 data: {
                 labels: labels,
@@ -419,6 +440,12 @@
     function updateEvalAccuracyChart() {
         const ctx = document.getElementById('evalAccuracyChart').getContext('2d');
         
+        // Destroy existing chart if it exists
+        if (evalAccuracyChart) {
+            evalAccuracyChart.destroy();
+            evalAccuracyChart = null;
+        }
+        
         // Filter versions that have evaluation data
         const evaluatedVersions = currentData.modelVersions.filter(v => v.has_evaluation);
         
@@ -431,7 +458,7 @@
         // Sort by version number
         evaluatedVersions.sort((a, b) => a.version_number - b.version_number);
         
-            new Chart(ctx, {
+            evalAccuracyChart = new Chart(ctx, {
             type: 'line',
                 data: {
                 labels: evaluatedVersions.map(v => `v${v.version_number}`),
@@ -471,6 +498,12 @@
     function updateEvalMetricsChart() {
         const ctx = document.getElementById('evalMetricsChart').getContext('2d');
         
+        // Destroy existing chart if it exists
+        if (evalMetricsChart) {
+            evalMetricsChart.destroy();
+            evalMetricsChart = null;
+        }
+        
         // Get the latest evaluated version
         const latestEvaluated = currentData.modelVersions
             .filter(v => v.has_evaluation)
@@ -482,22 +515,17 @@
             return;
         }
             
-            new Chart(ctx, {
+            evalMetricsChart = new Chart(ctx, {
             type: 'radar',
                 data: {
-                labels: ['Accuracy', 'Precision (Huntable)', 'Precision (Not Huntable)', 
-                        'Recall (Huntable)', 'Recall (Not Huntable)', 
-                        'F1 (Huntable)', 'F1 (Not Huntable)'],
+                labels: ['Accuracy', 'Precision (Huntable)', 'Recall (Huntable)', 'F1 (Huntable)'],
                     datasets: [{
                     label: `Model v${latestEvaluated.version_number}`,
                     data: [
                         latestEvaluated.eval_accuracy * 100,
                         (latestEvaluated.eval_precision_huntable || 0) * 100,
-                        (latestEvaluated.eval_precision_not_huntable || 0) * 100,
                         (latestEvaluated.eval_recall_huntable || 0) * 100,
-                        (latestEvaluated.eval_recall_not_huntable || 0) * 100,
-                        (latestEvaluated.eval_f1_score_huntable || 0) * 100,
-                        (latestEvaluated.eval_f1_score_not_huntable || 0) * 100
+                        (latestEvaluated.eval_f1_score_huntable || 0) * 100
                     ],
                     borderColor: 'rgba(54, 162, 235, 1)',
                     backgroundColor: 'rgba(54, 162, 235, 0.2)',
@@ -906,8 +934,14 @@
     async function refreshRetrainingStatus() {
         const statusElement = document.getElementById('retrainingStatus');
         const feedbackElement = document.getElementById('feedbackCount');
+        const retrainBtn = document.getElementById('retrainModelBtn');
+        const refreshBtn = document.getElementById('refreshRetrainBtn');
         
         try {
+            // Show loading state on refresh button
+            refreshBtn.disabled = true;
+            refreshBtn.textContent = 'Refreshing...';
+            
             statusElement.textContent = 'Checking...';
             feedbackElement.textContent = 'Loading...';
             
@@ -929,15 +963,35 @@
             }
             
             if (feedbackData.success) {
-                feedbackElement.textContent = feedbackData.count.toLocaleString();
+                const feedbackCount = feedbackData.count;
+                feedbackElement.textContent = feedbackCount.toLocaleString();
+                
+                // Enable/disable retrain button based on feedback availability
+                if (feedbackCount === 0) {
+                    retrainBtn.disabled = true;
+                    retrainBtn.classList.add('opacity-50', 'cursor-not-allowed');
+                    retrainBtn.title = 'No feedback available for retraining';
+                } else {
+                    retrainBtn.disabled = false;
+                    retrainBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+                    retrainBtn.title = '';
+                }
             } else {
                 feedbackElement.textContent = 'Error';
+                retrainBtn.disabled = true;
+                retrainBtn.classList.add('opacity-50', 'cursor-not-allowed');
             }
             
         } catch (error) {
             console.error('Error refreshing retraining status:', error);
             statusElement.textContent = 'Error';
             feedbackElement.textContent = 'Error';
+            retrainBtn.disabled = true;
+            retrainBtn.classList.add('opacity-50', 'cursor-not-allowed');
+        } finally {
+            // Re-enable refresh button
+            refreshBtn.disabled = false;
+            refreshBtn.textContent = 'Refresh Status';
         }
     }
 
@@ -952,7 +1006,7 @@
         document.getElementById('processAllBtn').addEventListener('click', startBackfill);
         document.getElementById('refreshCountBtn').addEventListener('click', checkEligibleCount);
         document.getElementById('evaluateModelBtn').addEventListener('click', runEvaluation);
-        document.getElementById('refreshEvalBtn').addEventListener('click', checkEvaluationStatus);
+        document.getElementById('refreshEvalStatusBtn').addEventListener('click', checkEvaluationStatus);
         document.getElementById('retrainModelBtn').addEventListener('click', retrainModel);
         document.getElementById('refreshRetrainBtn').addEventListener('click', refreshRetrainingStatus);
         });
