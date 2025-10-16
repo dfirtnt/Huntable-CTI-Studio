@@ -558,7 +558,7 @@ WINDOWS_MALWARE_KEYWORDS = {
             'MemoryStream', 'New-Object', 'DownloadString', 'Defender query',
             'sptth',
             # Promoted from LOLBAS (100% avg scores in high-scoring articles)
-            'reg.exe', 'winlogon.exe', 'conhost.exe', 'msiexec.exe', 'wscript.exe', 'services.exe',
+            'reg.exe', 'winlogon.exe', 'conhost.exe', 'msiexec.exe', 'wscript.exe', 'services.exe', 'fodhelper',
             # Promoted from Good discriminators (100% avg scores)
             'EventCode', 'parent-child', 'KQL', '2>&1',
             # PowerShell attack techniques (100% chosen rate)

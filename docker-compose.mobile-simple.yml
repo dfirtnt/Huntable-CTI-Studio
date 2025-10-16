@@ -1,0 +1,46 @@
+services:
+  # Mobile Web Server - connects to existing services
+  web_mobile:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: cti_web_mobile
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://cti_user:${POSTGRES_PASSWORD}@cti_postgres:5432/cti_scraper
+      - REDIS_URL=redis://:${REDIS_PASSWORD}@cti_redis:6379/0
+      - ENVIRONMENT=development
+      - LOG_LEVEL=DEBUG
+      - LLM_API_URL=http://cti_ollama:11434
+      - LLM_MODEL=llama3.2:1b
+      - LLM_TEMPERATURE=0.3
+      - LLM_MAX_TOKENS=2048
+      - OLLAMA_CONTENT_LIMIT=1000000
+      - CHATGPT_CONTENT_LIMIT=1000000
+      - USE_LLM_RESPONSES=true
+      - ANTHROPIC_API_URL=https://api.anthropic.com/v1/messages
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - ANTHROPIC_CONTENT_LIMIT=1000000
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - CHATGPT_API_KEY=${CHATGPT_API_KEY}
+      - TZ=America/New_York
+    ports:
+      - "8002:8001"  # Mobile access port (different from main)
+    volumes:
+      - ./src:/app/src
+      - ./config:/app/config
+      - ./logs:/app/logs
+      - ./tests:/app/tests
+      - ./backups:/app/backups
+      - ./models:/app/models
+      - ./outputs:/app/outputs
+      - ./scripts:/app/scripts
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /var/db/timezone/zoneinfo/America/New_York:/etc/localtime:ro
+    networks:
+      - cti_network
+    restart: unless-stopped
+    command: uvicorn src.web.modern_main:app --host 0.0.0.0 --port 8001 --reload
+
+networks:
+  cti_network:
+    driver: bridge
