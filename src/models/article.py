@@ -64,7 +64,7 @@ class Article(BaseModel):
     discovered_at: datetime
     created_at: datetime
     updated_at: datetime
-    
+    archived: bool = False    
     class Config:
         from_attributes = True
 

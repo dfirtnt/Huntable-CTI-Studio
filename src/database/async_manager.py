@@ -118,23 +118,41 @@ class AsyncDatabaseManager:
                 
                 # Count articles
                 articles_result = await session.execute(
-                    select(func.count(ArticleTable.id))
+                    select(func.count(ArticleTable.id)).where(ArticleTable.archived == False).where(ArticleTable.archived == False)
                 )
                 total_articles = articles_result.scalar()
                 
-                # Articles in last 24h
-                yesterday = datetime.now() - timedelta(days=1)
+                # Articles in last 24h, week, and month
+                now = datetime.now()
+                yesterday = now - timedelta(days=1)
+                week_ago = now - timedelta(days=7)
+                month_ago = now - timedelta(days=30)
+                
                 recent_articles_result = await session.execute(
-                    select(func.count(ArticleTable.id)).where(
+                    select(func.count(ArticleTable.id)).where(ArticleTable.archived == False).where(
                         ArticleTable.discovered_at >= yesterday
                     )
                 )
                 articles_last_24h = recent_articles_result.scalar()
                 
+                week_articles_result = await session.execute(
+                    select(func.count(ArticleTable.id)).where(ArticleTable.archived == False).where(
+                        ArticleTable.discovered_at >= week_ago
+                    )
+                )
+                articles_last_week = week_articles_result.scalar()
+                
+                month_articles_result = await session.execute(
+                    select(func.count(ArticleTable.id)).where(ArticleTable.archived == False).where(
+                        ArticleTable.discovered_at >= month_ago
+                    )
+                )
+                articles_last_month = month_articles_result.scalar()
+                
                 # Database size (approximate)
                 # Calculate size based on content length
                 content_size_result = await session.execute(
-                    select(func.sum(func.length(ArticleTable.content)))
+                    select(func.sum(func.length(ArticleTable.content))).where(ArticleTable.archived == False)
                 )
                 total_content_bytes = content_size_result.scalar() or 0
                 
@@ -153,8 +171,8 @@ class AsyncDatabaseManager:
                 ]:
                     score_count_result = await session.execute(
                         text(f"""
-                            SELECT COUNT(*) FROM articles 
-                            WHERE CAST(article_metadata ->> 'threat_hunting_score' AS FLOAT) 
+                            SELECT COUNT(*) FROM articles WHERE archived = FALSE 
+                            AND CAST(article_metadata ->> 'threat_hunting_score' AS FLOAT) 
                             BETWEEN {min_score} AND {max_score}
                         """)
                     )
@@ -187,26 +205,32 @@ class AsyncDatabaseManager:
                 annotation_stats["articles_with_annotations"] = articles_with_annotations_result.scalar() or 0
                 
                 return {
-                    "total_sources": total_sources or 0,
-                    "active_sources": active_sources or 0,
-                    "total_articles": total_articles or 0,
-                    "articles_last_24h": articles_last_24h or 0,
-                    "database_size_mb": db_size_mb,
+                    "total_sources": total_sources,
+                    "active_sources": active_sources,
+                    "total_articles": total_articles,
+                    "articles_last_24h": articles_last_24h,
+                    "articles_last_week": articles_last_week,
+                    "articles_last_month": articles_last_month,
+                    "db_size_mb": db_size_mb,
                     "score_ranges": score_ranges,
                     "annotation_stats": annotation_stats
                 }
                 
         except Exception as e:
-            logger.error(f"Failed to get database stats: {e}")
-            return {
-                "total_sources": 0,
-                "active_sources": 0,
-                "total_articles": 0,
-                "articles_last_24h": 0,
-                "database_size_mb": 0.0,
-                "score_ranges": {"low": 0, "low_medium": 0, "medium": 0, "high": 0, "very_high": 0},
-                "annotation_stats": {"total_annotations": 0, "huntable_annotations": 0, "not_huntable_annotations": 0, "articles_with_annotations": 0}
-            }
+            logger.error(f"Error getting database stats: {e}")
+            raise
+
+    async def count_annotated_chunks(self) -> int:
+        """Count total annotated chunks available for training."""
+        async with self.get_session() as session:
+            try:
+                result = await session.execute(
+                    text("SELECT COUNT(*) FROM article_annotations")
+                )
+                return result.scalar() or 0
+            except Exception as e:
+                logger.error(f"Error counting annotated chunks: {e}")
+                return 0
     
     async def list_sources(self, filter_params: Optional[SourceFilter] = None) -> List[Source]:
         """List all sources with optional filtering."""
@@ -482,7 +506,7 @@ class AsyncDatabaseManager:
             async with self.get_session() as session:
                 # Count articles for this source
                 result = await session.execute(
-                    select(func.count(ArticleTable.id)).where(ArticleTable.source_id == source_id)
+                    select(func.count(ArticleTable.id)).where(ArticleTable.archived == False).where(ArticleTable.archived == False).where(ArticleTable.source_id == source_id)
                 )
                 article_count = result.scalar()
                 
@@ -505,7 +529,7 @@ class AsyncDatabaseManager:
         try:
             async with self.get_session() as session:
                 # Simple query without annotation counts to test for duplication
-                query = select(ArticleTable)
+                query = select(ArticleTable).where(ArticleTable.archived == False)
                 
                 # Apply filters if provided
                 if article_filter:
@@ -633,7 +657,7 @@ class AsyncDatabaseManager:
         """Get total count of articles with optional filtering."""
         try:
             async with self.get_session() as session:
-                query = select(func.count(ArticleTable.id))
+                query = select(func.count(ArticleTable.id)).where(ArticleTable.archived == False).where(ArticleTable.archived == False)
                 
                 # Apply same filters as list_articles
                 if source_id is not None:
@@ -687,7 +711,7 @@ class AsyncDatabaseManager:
         """Get all articles for a specific source."""
         try:
             async with self.get_session() as session:
-                query = select(ArticleTable).where(ArticleTable.source_id == source_id).order_by(desc(ArticleTable.discovered_at))
+                query = select(ArticleTable).where(ArticleTable.archived == False).where(ArticleTable.source_id == source_id).order_by(desc(ArticleTable.discovered_at))
                 result = await session.execute(query)
                 db_articles = result.scalars().all()
                 
@@ -826,7 +850,7 @@ class AsyncDatabaseManager:
         try:
             async with self.get_session() as session:
                 result = await session.execute(
-                    select(ArticleTable.content_hash).limit(limit)
+                    select(ArticleTable.content_hash).where(ArticleTable.archived == False).limit(limit)
                 )
                 hashes = result.scalars().all()
                 return set(hashes)
@@ -839,7 +863,7 @@ class AsyncDatabaseManager:
         """Get the actual total count of articles in the database."""
         try:
             async with self.get_session() as session:
-                result = await session.execute(text("SELECT COUNT(*) FROM articles"))
+                result = await session.execute(text("SELECT COUNT(*) FROM articles WHERE archived = FALSE"))
                 count = result.scalar()
                 return count or 0
         except Exception as e:
@@ -1057,12 +1081,12 @@ class AsyncDatabaseManager:
                 stats['near_duplicates'] = sum(row[1] for row in buckets if row[1] > 1)
                 
                 # Unique URLs
-                url_query = "SELECT COUNT(DISTINCT canonical_url) FROM articles"
+                url_query = "SELECT COUNT(DISTINCT canonical_url) FROM articles WHERE archived = FALSE"
                 result = await session.execute(text(url_query))
                 stats['unique_urls'] = result.scalar() or 0
                 
                 # Duplicate rate
-                total_articles = await session.scalar(select(func.count(ArticleTable.id)))
+                total_articles = await session.scalar(select(func.count(ArticleTable.id)).where(ArticleTable.archived == False).where(ArticleTable.archived == False))
                 if total_articles > 0:
                     stats['duplicate_rate'] = round((stats['content_hash_duplicates'] / total_articles) * 100, 1)
                 else:
@@ -1094,7 +1118,7 @@ class AsyncDatabaseManager:
                 
                 # Articles count query
                 start_time = time.time()
-                result = await session.scalar(select(func.count(ArticleTable.id)))
+                result = await session.scalar(select(func.count(ArticleTable.id)).where(ArticleTable.archived == False).where(ArticleTable.archived == False))
                 query_time = (time.time() - start_time) * 1000
                 metrics.append({
                     'test': 'Articles Count',
@@ -1139,14 +1163,14 @@ class AsyncDatabaseManager:
                 analytics = {}
                 
                 # Total stats
-                total_articles = await session.scalar(select(func.count(ArticleTable.id)))
+                total_articles = await session.scalar(select(func.count(ArticleTable.id)).where(ArticleTable.archived == False).where(ArticleTable.archived == False))
                 total_sources = await session.scalar(select(func.count(SourceTable.id)))
                 
                 logger.info(f"Ingestion analytics: {total_articles} articles, {total_sources} sources")
                 
                 # Date range queries
-                earliest_query = select(func.min(ArticleTable.discovered_at))
-                latest_query = select(func.max(ArticleTable.discovered_at))
+                earliest_query = select(func.min(ArticleTable.discovered_at)).where(ArticleTable.archived == False)
+                latest_query = select(func.max(ArticleTable.discovered_at)).where(ArticleTable.archived == False)
                 
                 earliest_article = await session.scalar(earliest_query)
                 latest_article = await session.scalar(latest_query)
@@ -1797,13 +1821,13 @@ class AsyncDatabaseManager:
             async with self.get_session() as session:
                 # Count total articles
                 total_result = await session.execute(
-                    select(func.count(ArticleTable.id))
+                    select(func.count(ArticleTable.id)).where(ArticleTable.archived == False).where(ArticleTable.archived == False)
                 )
                 total_articles = total_result.scalar() or 0
                 
                 # Count articles with embeddings
                 embedded_result = await session.execute(
-                    select(func.count(ArticleTable.id))
+                    select(func.count(ArticleTable.id)).where(ArticleTable.archived == False).where(ArticleTable.archived == False)
                     .where(ArticleTable.embedding.is_not(None))
                 )
                 embedded_count = embedded_result.scalar() or 0

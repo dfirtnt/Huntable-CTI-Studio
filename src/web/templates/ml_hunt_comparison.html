@@ -8,6 +8,7 @@
         <h1 class="text-3xl font-bold text-gray-900 dark:text-white mb-2">📊 ML vs Hunt Scoring Comparison</h1>
         <p class="text-gray-600 dark:text-gray-400">Compare ML model predictions with Hunt scoring system for articles with hunt_score > 50</p>
     </div>
+    
     <!-- Stats Grid -->
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
@@ -27,6 +28,45 @@
             <div class="text-3xl font-bold text-blue-600" id="lastUpdated">-</div>
         </div>
     </div>
+
+    <!-- Model Retraining Section -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-8">
+        <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">🔄 Model Retraining</h2>
+        <p class="text-gray-600 dark:text-gray-400 mb-4">Retrain the ML model with user feedback from chunk debugging to improve performance</p>
+        
+        <div class="flex justify-between items-center">
+            <div class="text-lg font-medium text-gray-900 dark:text-white">
+                <div>Current model: <span id="retrainingStatus">v24 (79.4% accuracy)</span></div>
+                <div class="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                    Available feedback: <span id="feedbackCount">-</span> user corrections
+                </div>
+            </div>
+            <div class="flex gap-3">
+                <button id="retrainModelBtn" 
+                        class="px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2">
+                    Retrain Model
+                </button>
+                <button id="refreshRetrainBtn" 
+                        class="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2">
+                    Refresh Status
+                </button>
+            </div>
+        </div>
+        
+        <!-- Retraining Progress Bar -->
+        <div id="retrainProgressSection" class="hidden mt-4">
+            <div class="w-full bg-gray-200 rounded-full h-2">
+                <div id="retrainProgressBar" class="bg-purple-600 h-2 rounded-full transition-all duration-300" style="width: 0%"></div>
+            </div>
+            <div id="retrainProgressText" class="text-sm text-gray-600 mt-2">Retraining...</div>
+        </div>
+        
+        <!-- Retraining Results -->
+        <div id="retrainResultsSection" class="hidden mt-4 p-4 bg-gray-50 dark:bg-gray-700 rounded-md">
+            <div id="retrainResultsContent"></div>
+        </div>
+    </div>
+
     <!-- Backfill Section -->
     <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-8">
         <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">🔄 Backfill Chunk Analysis</h2>
@@ -62,15 +102,64 @@
         </div>
     </div>
     
+    <!-- Model Evaluation Section -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-8">
+        <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">🧪 Model Evaluation on Test Set</h2>
+        <p class="text-gray-600 dark:text-gray-400 mb-4">Evaluate current model performance on 160 annotated chunks from article_annotations table</p>
+        
+        <div class="flex justify-between items-center">
+            <div class="text-lg font-medium text-gray-900 dark:text-white">
+                <span id="evalStatus">Ready to evaluate current model</span>
+            </div>
+            <div class="flex gap-3">
+                <button id="evaluateModelBtn" 
+                        class="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2">
+                    Evaluate Current Model
+                </button>
+                <button id="refreshEvalStatusBtn" 
+                        class="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2">
+                    Refresh Status
+                </button>
+            </div>
+        </div>
+        
+        <!-- Evaluation Progress -->
+        <div id="evalProgressSection" class="hidden mt-4">
+            <div class="w-full bg-gray-200 rounded-full h-2">
+                <div id="evalProgressBar" class="bg-green-600 h-2 rounded-full transition-all duration-300" style="width: 0%"></div>
+            </div>
+            <div id="evalProgressText" class="text-sm text-gray-600 mt-2">Evaluating model...</div>
+        </div>
+        
+        <!-- Evaluation Results -->
+        <div id="evalResultsSection" class="hidden mt-4 p-4 bg-gray-50 dark:bg-gray-700 rounded-md">
+            <div id="evalResultsContent"></div>
+        </div>
+    </div>
+    
     <!-- Charts Section -->
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
         <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-            <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">📊 Accuracy by Model Version</h3>
-            <canvas id="accuracyChart" width="400" height="200"></canvas>
+            <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">📊 Classification Breakdown</h3>
+            <canvas id="distributionChart" width="400" height="200"></canvas>
         </div>
         <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-            <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">📈 Chunk Analysis Distribution</h3>
-            <canvas id="distributionChart" width="400" height="200"></canvas>
+            <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">📊 Model Performance Summary</h3>
+            <div id="modelPerformanceSummary" class="text-center text-gray-500 dark:text-gray-400">
+                <p>Run model evaluation to see performance metrics</p>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Evaluation Metrics Charts -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+            <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">🧪 Evaluation Accuracy Over Time</h3>
+            <canvas id="evalAccuracyChart" width="400" height="200"></canvas>
+        </div>
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+            <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">📊 Evaluation Metrics Comparison</h3>
+            <canvas id="evalMetricsChart" width="400" height="200"></canvas>
         </div>
     </div>
     
@@ -100,504 +189,719 @@
 {% endblock %}
 
 {% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-            text-align: center;
-        }
-        .agreement {
-            color: #28a745;
-        }
-        .disagreement {
-            color: #ffc107;
-        }
-        .loading {
-            text-align: center;
-            padding: 40px;
-            color: #6c757d;
-        }
-        .error {
-            background: #f8d7da;
-            color: #721c24;
-            padding: 15px;
-            border-radius: 4px;
-            margin: 20px 0;
-        }
-        .backfill-section {
-            background: #f8f9fa;
-            border: 1px solid #e9ecef;
-            border-radius: 8px;
-            padding: 20px;
-            margin-bottom: 30px;
-        }
-        .backfill-section h3 {
-            margin: 0 0 10px 0;
-            color: #495057;
-        }
-        .backfill-section p {
-            margin: 0 0 15px 0;
-            color: #6c757d;
-        }
-        .backfill-controls {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            gap: 20px;
-        }
-        .backfill-info {
-            font-size: 1.1em;
-            font-weight: 500;
-            color: #495057;
-        }
-        .backfill-buttons {
-            display: flex;
-            gap: 10px;
-        }
-        .backfill-progress {
-            margin-top: 20px;
-        }
-        .progress-bar {
-            width: 100%;
-            height: 30px;
-            background: #e9ecef;
-            border-radius: 4px;
-            overflow: hidden;
-        }
-        .progress-fill {
-            height: 100%;
-            background: linear-gradient(90deg, #007bff, #0056b3);
-            transition: width 0.3s ease;
-            width: 0%;
-        }
-        .progress-text {
-            margin-top: 10px;
-            text-align: center;
-            color: #495057;
-            font-weight: 500;
-        }
-        .backfill-results {
-            margin-top: 20px;
-            padding: 15px;
-            background: white;
-            border: 1px solid #e9ecef;
-            border-radius: 4px;
-        }
-        .backfill-results.success {
-            border-color: #28a745;
-            background: #d4edda;
-            color: #155724;
-        }
-        .backfill-results.error {
-            border-color: #dc3545;
-            background: #f8d7da;
-            color: #721c24;
-        }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <div class="header">
-            <h1>ML vs Hunt Scoring Comparison</h1>
-            <p>Compare ML model predictions with Hunt scoring system for articles with hunt_score > 50</p>
-        </div>
+    let currentData = {
+        stats: [],
+        results: [],
+        summary: null,
+        modelVersions: []
+    };
 
-        <div class="stats-grid" id="summaryStats">
-            <div class="stat-card">
-                <h3>Total Model Versions</h3>
-                <div class="value" id="totalVersions">-</div>
-            </div>
-            <div class="stat-card">
-                <h3>Total Chunk Analyses</h3>
-                <div class="value" id="totalAnalyses">-</div>
-            </div>
-            <div class="stat-card">
-                <h3>Average Accuracy</h3>
-                <div class="value" id="avgAccuracy">-</div>
-            </div>
-            <div class="stat-card">
-                <h3>Last Updated</h3>
-                <div class="value" id="lastUpdated">-</div>
-            </div>
-        </div>
-
-        <div class="backfill-section">
-            <h3>Backfill Chunk Analysis</h3>
-            <p>Process articles with hunt_score > 50 to populate comparison data</p>
-            <div class="backfill-controls">
-                <div class="backfill-info">
-                    <span id="eligibleCount">Checking eligible articles...</span>
-                </div>
-                <div class="backfill-buttons">
-                    <button class="btn btn-primary" id="backfillBtn" onclick="startBackfill()">
-                        Process All Eligible Articles
-                    </button>
-                    <button class="btn btn-secondary" onclick="checkEligibleCount()">
-                        Refresh Count
-                    </button>
-                </div>
-            </div>
-            <div id="backfillProgress" class="backfill-progress" style="display: none;">
-                <div class="progress-bar">
-                    <div class="progress-fill" id="progressFill"></div>
-                </div>
-                <div class="progress-text" id="progressText">Processing...</div>
-            </div>
-            <div id="backfillResults" class="backfill-results" style="display: none;"></div>
-        </div>
-
-
-        <div class="charts-section">
-            <h3>Model Performance Comparison</h3>
-            <div class="charts-grid">
-            <div class="chart-container">
-                <h4>ML vs Hunt Agreement % by Model</h4>
-                <canvas id="accuracyChart"></canvas>
-            </div>
-                <div class="chart-container">
-                    <h4>F1 Score by Model Version</h4>
-                    <canvas id="f1Chart"></canvas>
-                </div>
-                <div class="chart-container">
-                    <h4>Prediction Distribution</h4>
-                    <canvas id="predictionChart"></canvas>
-                </div>
-                <div class="chart-container">
-                    <h4>Hunt Score Distribution</h4>
-                    <canvas id="huntScoreChart"></canvas>
-                </div>
-            </div>
-        </div>
-
-    </div>
-
-    <script>
-        let currentData = {
-            stats: [],
-            results: [],
-            summary: null
-        };
-
-        // Load initial data
-        async function loadInitialData() {
-            try {
-                // Load summary
-                const summaryResponse = await fetch('/api/ml-hunt-comparison/summary');
-                const summaryData = await summaryResponse.json();
-                if (summaryData.success) {
-                    currentData.summary = summaryData.summary;
-                    updateSummaryStats();
-                }
-
-                // Load stats
-                const statsResponse = await fetch('/api/ml-hunt-comparison/stats');
-                const statsData = await statsResponse.json();
-                if (statsData.success) {
-                    currentData.stats = statsData.stats;
-                    updateCharts();
-                }
-            } catch (error) {
-                console.error('Error loading initial data:', error);
-                showError('Failed to load initial data');
+    // Load initial data
+    async function loadInitialData() {
+        try {
+            // Load summary
+            const summaryResponse = await fetch('/api/ml-hunt-comparison/summary');
+            const summaryData = await summaryResponse.json();
+            if (summaryData.success) {
+                currentData.summary = summaryData.summary;
+                updateSummaryStats();
             }
-        }
 
-        function updateSummaryStats() {
-            const summary = currentData.summary;
-            document.getElementById('totalVersions').textContent = summary.total_model_versions;
-            document.getElementById('totalAnalyses').textContent = summary.total_chunk_analyses.toLocaleString();
-            
-            if (summary.overall_stats.length > 0) {
-                const avgAccuracy = summary.overall_stats.reduce((sum, stat) => sum + stat.accuracy, 0) / summary.overall_stats.length;
-                document.getElementById('avgAccuracy').textContent = (avgAccuracy * 100).toFixed(1) + '%';
+            // Load stats
+            const statsResponse = await fetch('/api/ml-hunt-comparison/stats');
+            const statsData = await statsResponse.json();
+            if (statsData.success) {
+                currentData.stats = statsData.stats;
             }
             
-            if (summary.last_updated) {
-                const date = new Date(summary.last_updated);
-                document.getElementById('lastUpdated').textContent = date.toLocaleDateString();
+            // Load model versions for evaluation metrics
+            const versionsResponse = await fetch('/api/model/versions');
+            const versionsData = await versionsResponse.json();
+            if (versionsData.success) {
+                currentData.modelVersions = versionsData.versions;
             }
-        }
-
-        function updateCharts() {
-            updateAccuracyChart();
-            updateF1Chart();
-            updatePredictionChart();
-            updateHuntScoreChart();
-        }
-
-        function updateAccuracyChart() {
-            const ctx = document.getElementById('accuracyChart').getContext('2d');
             
-            // Calculate agreement percentage for each model
-            const agreementData = currentData.stats.map(stat => {
-                return (stat.agreement_count / stat.total_chunks) * 100;
-            });
-            
-            new Chart(ctx, {
-                type: 'bar',
-                data: {
-                    labels: currentData.stats.map(stat => stat.model_version),
-                    datasets: [{
-                        label: 'ML vs Hunt Agreement %',
-                        data: agreementData,
-                        backgroundColor: 'rgba(75, 192, 192, 0.8)',
-                        borderColor: 'rgba(75, 192, 192, 1)',
-                        borderWidth: 1
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    scales: {
-                        y: {
-                            beginAtZero: true,
-                            max: 100,
-                            ticks: {
-                                callback: function(value) {
-                                    return value + '%';
-                                }
-                            }
-                        }
-                    },
-                    plugins: {
+            updateCharts();
+        } catch (error) {
+            console.error('Error loading initial data:', error);
+            showError('Failed to load initial data');
+        }
+    }
+
+    function updateSummaryStats() {
+        const summary = currentData.summary;
+        document.getElementById('totalModelVersions').textContent = summary.total_model_versions;
+        document.getElementById('totalChunkAnalyses').textContent = summary.total_chunk_analyses.toLocaleString();
+        
+        if (summary.overall_stats && summary.overall_stats.length > 0) {
+            const avgAccuracy = summary.overall_stats.reduce((sum, stat) => sum + stat.accuracy, 0) / summary.overall_stats.length;
+            document.getElementById('averageAccuracy').textContent = (avgAccuracy * 100).toFixed(1) + '%';
+        }
+        
+        if (summary.last_updated) {
+            const date = new Date(summary.last_updated);
+            document.getElementById('lastUpdated').textContent = date.toLocaleDateString();
+        }
+    }
+
+    function updateCharts() {
+        updateDistributionChart();
+        updateModelPerformanceSummary();
+        updateEvaluationCharts();
+    }
+
+    function updateModelPerformanceSummary() {
+        const summaryElement = document.getElementById('modelPerformanceSummary');
+        
+        // Get the latest evaluated version
+        const latestEvaluated = currentData.modelVersions
+            .filter(v => v.has_evaluation)
+            .sort((a, b) => b.version_number - a.version_number)[0];
+        
+        if (!latestEvaluated) {
+            summaryElement.innerHTML = '<p class="text-gray-500 dark:text-gray-400">Run model evaluation to see performance metrics</p>';
+            return;
+        }
+        
+        const evalDate = new Date(latestEvaluated.evaluated_at).toLocaleDateString();
+        summaryElement.innerHTML = `
+            <div class="space-y-2">
+                <div class="text-lg font-semibold text-gray-900 dark:text-white">
+                    Model v${latestEvaluated.version_number}
+                </div>
+                <div class="text-2xl font-bold text-blue-600">
+                    ${(latestEvaluated.eval_accuracy * 100).toFixed(1)}%
+                </div>
+                <div class="text-sm text-gray-600 dark:text-gray-400">
+                    Test Accuracy (160 chunks)
+                </div>
+                <div class="text-xs text-gray-500 dark:text-gray-500">
+                    Evaluated: ${evalDate}
+                </div>
+                <div class="grid grid-cols-2 gap-2 text-xs mt-2">
+                    <div>Precision (H): ${((latestEvaluated.eval_precision_huntable || 0) * 100).toFixed(1)}%</div>
+                    <div>Recall (H): ${((latestEvaluated.eval_recall_huntable || 0) * 100).toFixed(1)}%</div>
+                    <div>Precision (NH): ${((latestEvaluated.eval_precision_not_huntable || 0) * 100).toFixed(1)}%</div>
+                    <div>Recall (NH): ${((latestEvaluated.eval_recall_not_huntable || 0) * 100).toFixed(1)}%</div>
+                </div>
+            </div>
+        `;
+    }
+
+    function updateDistributionChart() {
+        const ctx = document.getElementById('distributionChart').getContext('2d');
+        
+        if (currentData.stats.length === 0) {
+            ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+            ctx.fillText('No data available', 10, 50);
+            return;
+        }
+        
+        // Calculate mutually exclusive categories
+        const total = currentData.stats.reduce((sum, stat) => sum + stat.total_chunks, 0);
+        const agreement = currentData.stats.reduce((sum, stat) => sum + stat.agreement_count, 0);
+        const mlOnly = currentData.stats.reduce((sum, stat) => sum + (stat.ml_huntable_count - stat.agreement_count), 0);
+        const huntOnly = currentData.stats.reduce((sum, stat) => sum + (stat.hunt_huntable_count - stat.agreement_count), 0);
+        const neither = total - agreement - mlOnly - huntOnly;
+        
+        new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: ['Agreement\n(Both Huntable)', 'ML Only\n(ML Huntable)', 'Hunt Only\n(Hunt Huntable)', 'Neither\n(Not Huntable)'],
+                datasets: [{
+                    label: 'Number of Chunks',
+                    data: [agreement, mlOnly, huntOnly, neither],
+                    backgroundColor: [
+                        'rgba(75, 192, 192, 0.8)',   // Teal for agreement
+                        'rgba(54, 162, 235, 0.8)',   // Blue for ML only
+                        'rgba(255, 205, 86, 0.8)',   // Yellow for Hunt only
+                        'rgba(255, 99, 132, 0.8)'    // Red for neither
+                    ],
+                    borderColor: [
+                        'rgba(75, 192, 192, 1)',
+                        'rgba(54, 162, 235, 1)',
+                        'rgba(255, 205, 86, 1)',
+                        'rgba(255, 99, 132, 1)'
+                    ],
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                scales: {
+                    y: {
+                        beginAtZero: true,
                         title: {
                             display: true,
-                            text: 'Agreement Between ML and Hunt Scoring by Model'
+                            text: 'Number of Chunks'
+                        }
+                    },
+                    x: {
+                        title: {
+                            display: true,
+                            text: 'Classification Category'
                         }
                     }
-                }
-            });
-        }
-
-        function updateF1Chart() {
-            const ctx = document.getElementById('f1Chart').getContext('2d');
-            new Chart(ctx, {
-                type: 'bar',
-                data: {
-                    labels: currentData.stats.map(stat => stat.model_version),
-                    datasets: [{
-                        label: 'F1 Score',
-                        data: currentData.stats.map(stat => stat.f1_score * 100),
-                        backgroundColor: 'rgba(255, 99, 132, 0.8)',
-                        borderColor: 'rgba(255, 99, 132, 1)',
-                        borderWidth: 1
-                    }]
                 },
-                options: {
-                    responsive: true,
-                    scales: {
-                        y: {
-                            beginAtZero: true,
-                            max: 100,
-                            ticks: {
-                                callback: function(value) {
-                                    return value + '%';
-                                }
+                plugins: {
+                    title: {
+                        display: true,
+                        text: 'ML vs Hunt Classification Breakdown'
+                    },
+                    legend: {
+                        display: false
+                    }
+                }
+            }
+        });
+    }
+
+    function updateEvaluationCharts() {
+        updateEvalAccuracyChart();
+        updateEvalMetricsChart();
+    }
+
+    function updateEvalAccuracyChart() {
+        const ctx = document.getElementById('evalAccuracyChart').getContext('2d');
+        
+        // Filter versions that have evaluation data
+        const evaluatedVersions = currentData.modelVersions.filter(v => v.has_evaluation);
+        
+        if (evaluatedVersions.length === 0) {
+            ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+            ctx.fillText('No evaluation data available', 10, 50);
+            return;
+        }
+        
+        // Sort by version number
+        evaluatedVersions.sort((a, b) => a.version_number - b.version_number);
+        
+        new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: evaluatedVersions.map(v => `v${v.version_number}`),
+                datasets: [{
+                    label: 'Evaluation Accuracy %',
+                    data: evaluatedVersions.map(v => (v.eval_accuracy * 100)),
+                    borderColor: 'rgba(75, 192, 192, 1)',
+                    backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                    borderWidth: 2,
+                    fill: true,
+                    tension: 0.1
+                }]
+            },
+            options: {
+                responsive: true,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        max: 100,
+                        ticks: {
+                            callback: function(value) {
+                                return value + '%';
                             }
                         }
                     }
-                }
-            });
-        }
-
-        function updatePredictionChart() {
-            const ctx = document.getElementById('predictionChart').getContext('2d');
-            
-            // Aggregate prediction data
-            const mlHuntable = currentData.stats.reduce((sum, stat) => sum + stat.ml_huntable_count, 0);
-            const huntHuntable = currentData.stats.reduce((sum, stat) => sum + stat.hunt_huntable_count, 0);
-            const agreement = currentData.stats.reduce((sum, stat) => sum + stat.agreement_count, 0);
-            const total = currentData.stats.reduce((sum, stat) => sum + stat.total_chunks, 0);
-            
-            new Chart(ctx, {
-                type: 'doughnut',
-                data: {
-                    labels: ['ML Huntable', 'Hunt Huntable', 'Agreement', 'Disagreement'],
-                    datasets: [{
-                        data: [mlHuntable, huntHuntable, agreement, total - agreement],
-                        backgroundColor: [
-                            'rgba(54, 162, 235, 0.8)',
-                            'rgba(255, 205, 86, 0.8)',
-                            'rgba(75, 192, 192, 0.8)',
-                            'rgba(255, 99, 132, 0.8)'
-                        ]
-                    }]
                 },
-                options: {
-                    responsive: true
-                }
-            });
-        }
-
-        function updateHuntScoreChart() {
-            const ctx = document.getElementById('huntScoreChart').getContext('2d');
-            
-            // Create hunt score bins
-            const bins = [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100];
-            const binCounts = new Array(bins.length - 1).fill(0);
-            
-            currentData.results.forEach(result => {
-                const score = result.hunt_score;
-                for (let i = 0; i < bins.length - 1; i++) {
-                    if (score >= bins[i] && score < bins[i + 1]) {
-                        binCounts[i]++;
-                        break;
+                plugins: {
+                    title: {
+                        display: true,
+                        text: 'Model Performance on Test Set (160 chunks)'
                     }
                 }
-            });
-            
-            const labels = bins.slice(0, -1).map((bin, i) => `${bin}-${bins[i + 1]}`);
-            
-            new Chart(ctx, {
-                type: 'bar',
-                data: {
-                    labels: labels,
-                    datasets: [{
-                        label: 'Chunk Count',
-                        data: binCounts,
-                        backgroundColor: 'rgba(153, 102, 255, 0.8)',
-                        borderColor: 'rgba(153, 102, 255, 1)',
-                        borderWidth: 1
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    scales: {
-                        y: {
-                            beginAtZero: true
+            }
+        });
+    }
+
+    function updateEvalMetricsChart() {
+        const ctx = document.getElementById('evalMetricsChart').getContext('2d');
+        
+        // Get the latest evaluated version
+        const latestEvaluated = currentData.modelVersions
+            .filter(v => v.has_evaluation)
+            .sort((a, b) => b.version_number - a.version_number)[0];
+        
+        if (!latestEvaluated) {
+            ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+            ctx.fillText('No evaluation data available', 10, 50);
+            return;
+        }
+        
+        new Chart(ctx, {
+            type: 'radar',
+            data: {
+                labels: ['Accuracy', 'Precision (Huntable)', 'Precision (Not Huntable)', 
+                        'Recall (Huntable)', 'Recall (Not Huntable)', 
+                        'F1 (Huntable)', 'F1 (Not Huntable)'],
+                datasets: [{
+                    label: `Model v${latestEvaluated.version_number}`,
+                    data: [
+                        latestEvaluated.eval_accuracy * 100,
+                        (latestEvaluated.eval_precision_huntable || 0) * 100,
+                        (latestEvaluated.eval_precision_not_huntable || 0) * 100,
+                        (latestEvaluated.eval_recall_huntable || 0) * 100,
+                        (latestEvaluated.eval_recall_not_huntable || 0) * 100,
+                        (latestEvaluated.eval_f1_score_huntable || 0) * 100,
+                        (latestEvaluated.eval_f1_score_not_huntable || 0) * 100
+                    ],
+                    borderColor: 'rgba(54, 162, 235, 1)',
+                    backgroundColor: 'rgba(54, 162, 235, 0.2)',
+                    borderWidth: 2
+                }]
+            },
+            options: {
+                responsive: true,
+                scales: {
+                    r: {
+                        beginAtZero: true,
+                        max: 100,
+                        grid: {
+                            color: 'rgba(156, 163, 175, 0.3)', // Lighter gray grid lines
+                        },
+                        angleLines: {
+                            color: 'rgba(156, 163, 175, 0.3)', // Lighter gray angle lines
+                        },
+                        pointLabels: {
+                            color: 'rgba(156, 163, 175, 0.8)', // Lighter gray labels
+                        },
+                        ticks: {
+                            color: 'rgba(156, 163, 175, 0.6)', // Lighter gray tick labels
+                            callback: function(value) {
+                                return value + '%';
+                            }
                         }
                     }
+                },
+                plugins: {
+                    title: {
+                        display: true,
+                        text: `Latest Model Performance (v${latestEvaluated.version_number})`
+                    }
                 }
-            });
-        }
-
-
-        // Backfill functions
-        async function checkEligibleCount() {
-            const countElement = document.getElementById('eligibleCount');
-            const originalText = countElement.textContent;
-            
-            try {
-                // Show loading state
-                countElement.textContent = 'Checking...';
-                countElement.style.opacity = '0.5';
-                
-                const response = await fetch('/api/ml-hunt-comparison/eligible-count');
-                const data = await response.json();
-                
-                if (data.success) {
-                    const countText = data.count === 0 
-                        ? 'No eligible articles found' 
-                        : `${data.count} article${data.count === 1 ? '' : 's'} eligible for processing`;
-                    countElement.textContent = countText;
-                    countElement.style.opacity = '1';
-                    
-                    // Flash green to show it updated
-                    countElement.style.transition = 'background-color 0.3s';
-                    countElement.style.backgroundColor = '#d4edda';
-                    setTimeout(() => {
-                        countElement.style.backgroundColor = 'transparent';
-                    }, 1000);
-                    
-                    // Disable button if no eligible articles
-                    const btn = document.getElementById('backfillBtn');
-                    btn.disabled = data.count === 0;
-                } else {
-                    countElement.textContent = 'Error checking eligible articles';
-                    countElement.style.opacity = '1';
-                }
-            } catch (error) {
-                console.error('Error checking eligible count:', error);
-                countElement.textContent = 'Error checking eligible articles';
-                countElement.style.opacity = '1';
             }
-        }
+        });
+    }
 
-        async function startBackfill() {
-            const btn = document.getElementById('backfillBtn');
-            const progressDiv = document.getElementById('backfillProgress');
-            const resultsDiv = document.getElementById('backfillResults');
-            const progressFill = document.getElementById('progressFill');
-            const progressText = document.getElementById('progressText');
+    function showError(message) {
+        console.error(message);
+        // Could add a toast notification here
+    }
+
+    // Backfill functions
+    async function checkEligibleCount() {
+        const countElement = document.getElementById('eligibleCount');
+        
+        try {
+            countElement.textContent = 'Checking...';
             
-            // Disable button and show progress
-            btn.disabled = true;
-            btn.textContent = 'Processing...';
-            progressDiv.style.display = 'block';
-            resultsDiv.style.display = 'none';
-            progressFill.style.width = '0%';
-            progressText.textContent = 'Starting backfill...';
+            const response = await fetch('/api/ml-hunt-comparison/eligible-count');
+            const data = await response.json();
             
-            try {
-                // Start backfill
-                const response = await fetch('/api/ml-hunt-comparison/backfill', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        min_hunt_score: 50.0,
-                        min_confidence: 0.7
-                    })
-                });
+            if (data.success) {
+                const countText = data.count === 0 
+                    ? 'No eligible articles found' 
+                    : `${data.count} article${data.count === 1 ? '' : 's'} eligible for processing`;
+                countElement.textContent = countText;
+            } else {
+                countElement.textContent = 'Error checking eligible articles';
+            }
+        } catch (error) {
+            console.error('Error checking eligible count:', error);
+            countElement.textContent = 'Error checking eligible articles';
+        }
+    }
+
+    async function startBackfill() {
+        const btn = document.getElementById('processAllBtn');
+        const progressSection = document.getElementById('progressSection');
+        const resultsSection = document.getElementById('resultsSection');
+        const progressBar = document.getElementById('progressBar');
+        const progressText = document.getElementById('progressText');
+        const resultsContent = document.getElementById('resultsContent');
+        
+        // Disable button and show progress
+        btn.disabled = true;
+        btn.textContent = 'Processing...';
+        progressSection.classList.remove('hidden');
+        resultsSection.classList.add('hidden');
+        progressBar.style.width = '0%';
+        progressText.textContent = 'Starting backfill...';
+        
+        try {
+            const response = await fetch('/api/ml-hunt-comparison/backfill', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    min_hunt_score: 50.0,
+                    min_confidence: 0.7
+                })
+            });
+            
+            const data = await response.json();
+            
+            if (data.success && data.results) {
+                const results = data.results;
                 
-                const data = await response.json();
+                // Update progress to 100%
+                progressBar.style.width = '100%';
+                progressText.textContent = 'Complete!';
                 
-                if (data.success && data.results) {
-                    const results = data.results;
-                    
-                    // Update progress to 100%
-                    progressFill.style.width = '100%';
-                    progressText.textContent = 'Complete!';
-                    
-                    // Show results
-                    resultsDiv.style.display = 'block';
-                    resultsDiv.className = 'backfill-results success';
-                    resultsDiv.innerHTML = `
-                        <h4>✅ Backfill Complete</h4>
+                // Show results
+                resultsSection.classList.remove('hidden');
+                resultsContent.innerHTML = `
+                    <div class="text-green-600 font-semibold">✅ Backfill Complete</div>
+                    <div class="mt-2">
                         <p><strong>Total Eligible:</strong> ${results.total_eligible}</p>
                         <p><strong>Processed:</strong> ${results.processed}</p>
                         <p><strong>Successful:</strong> ${results.successful}</p>
                         <p><strong>Failed:</strong> ${results.failed}</p>
-                        ${results.errors && results.errors.length > 0 ? `
-                            <details>
-                                <summary>View Errors (${results.errors.length})</summary>
-                                <ul>
-                                    ${results.errors.map(err => `<li>Article ${err.article_id}: ${err.error}</li>`).join('')}
-                                </ul>
-                            </details>
-                        ` : ''}
-                    `;
-                    
-                    // Reload data
-                    setTimeout(() => {
-                        loadInitialData();
-                        checkEligibleCount();
-                    }, 1000);
-                    
-                } else {
-                    throw new Error(data.error || 'Backfill failed');
-                }
-                
-            } catch (error) {
-                console.error('Error during backfill:', error);
-                resultsDiv.style.display = 'block';
-                resultsDiv.className = 'backfill-results error';
-                resultsDiv.innerHTML = `
-                    <h4>❌ Backfill Failed</h4>
-                    <p>${error.message}</p>
+                    </div>
                 `;
-            } finally {
-                // Re-enable button
-                btn.disabled = false;
-                btn.textContent = 'Process All Eligible Articles';
+                
+                // Reload data
                 setTimeout(() => {
-                    progressDiv.style.display = 'none';
-                }, 2000);
+                    loadInitialData();
+                    checkEligibleCount();
+                }, 1000);
+                
+            } else {
+                throw new Error(data.error || 'Backfill failed');
             }
+            
+        } catch (error) {
+            console.error('Error during backfill:', error);
+            resultsSection.classList.remove('hidden');
+            resultsContent.innerHTML = `
+                <div class="text-red-600 font-semibold">❌ Backfill Failed</div>
+                <div class="mt-2 text-red-600">${error.message}</div>
+            `;
+        } finally {
+            // Re-enable button
+            btn.disabled = false;
+            btn.textContent = 'Process All Eligible Articles';
+            setTimeout(() => {
+                progressSection.classList.add('hidden');
+            }, 3000);
         }
+    }
 
-        // Initialize page
-        document.addEventListener('DOMContentLoaded', () => {
-            loadInitialData();
-            checkEligibleCount();
-        });
-    </script>
-</body>
-</html>
+    // Evaluation functions
+    async function runEvaluation() {
+        const btn = document.getElementById('evaluateModelBtn');
+        const progressSection = document.getElementById('evalProgressSection');
+        const resultsSection = document.getElementById('evalResultsSection');
+        const progressBar = document.getElementById('evalProgressBar');
+        const progressText = document.getElementById('evalProgressText');
+        const resultsContent = document.getElementById('evalResultsContent');
+        const statusElement = document.getElementById('evalStatus');
+        
+        // Disable button and show progress
+        btn.disabled = true;
+        btn.textContent = 'Evaluating...';
+        progressSection.classList.remove('hidden');
+        resultsSection.classList.add('hidden');
+        progressBar.style.width = '0%';
+        progressText.textContent = 'Starting evaluation...';
+        statusElement.textContent = 'Evaluating model on test set...';
+        
+        try {
+            // Simulate progress
+            let progress = 0;
+            const progressInterval = setInterval(() => {
+                progress += Math.random() * 20;
+                if (progress > 90) progress = 90;
+                progressBar.style.width = progress + '%';
+            }, 200);
+            
+            const response = await fetch('/api/model/evaluate', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
+            
+            clearInterval(progressInterval);
+            progressBar.style.width = '100%';
+            progressText.textContent = 'Complete!';
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                // Show results
+                resultsSection.classList.remove('hidden');
+                resultsContent.innerHTML = generateEvaluationResults(data);
+                
+                statusElement.textContent = `Evaluation complete - Accuracy: ${(data.metrics.accuracy * 100).toFixed(1)}%`;
+                
+                // Reload data to update charts
+                setTimeout(() => {
+                    loadInitialData();
+                }, 1000);
+                
+            } else {
+                throw new Error(data.message || 'Evaluation failed');
+            }
+            
+        } catch (error) {
+            console.error('Error during evaluation:', error);
+            resultsSection.classList.remove('hidden');
+            resultsContent.innerHTML = `
+                <div class="text-red-600 font-semibold">❌ Evaluation Failed</div>
+                <div class="mt-2 text-red-600">${error.message}</div>
+            `;
+            statusElement.textContent = 'Evaluation failed';
+        } finally {
+            // Re-enable button
+            btn.disabled = false;
+            btn.textContent = 'Evaluate Current Model';
+            setTimeout(() => {
+                progressSection.classList.add('hidden');
+            }, 3000);
+        }
+    }
+
+    function generateEvaluationResults(data) {
+        const metrics = data.metrics;
+        const misclassified = data.misclassified_chunks || [];
+        const summary = data.eval_summary || {};
+        
+        return `
+            <div class="space-y-4">
+                <div class="text-green-600 font-semibold text-lg">✅ Evaluation Complete</div>
+                
+                <!-- Overall Metrics -->
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div class="bg-white dark:bg-gray-600 p-3 rounded">
+                        <div class="text-sm text-gray-600 dark:text-gray-300">Accuracy</div>
+                        <div class="text-2xl font-bold text-blue-600">${(metrics.accuracy * 100).toFixed(1)}%</div>
+                    </div>
+                    <div class="bg-white dark:bg-gray-600 p-3 rounded">
+                        <div class="text-sm text-gray-600 dark:text-gray-300">Avg Confidence</div>
+                        <div class="text-2xl font-bold text-green-600">${(metrics.avg_confidence * 100).toFixed(1)}%</div>
+                    </div>
+                    <div class="bg-white dark:bg-gray-600 p-3 rounded">
+                        <div class="text-sm text-gray-600 dark:text-gray-300">Total Chunks</div>
+                        <div class="text-2xl font-bold text-purple-600">${metrics.total_chunks}</div>
+                    </div>
+                    <div class="bg-white dark:bg-gray-600 p-3 rounded">
+                        <div class="text-sm text-gray-600 dark:text-gray-300">Misclassified</div>
+                        <div class="text-2xl font-bold text-red-600">${metrics.misclassified_count}</div>
+                    </div>
+                </div>
+                
+                <!-- Per-Class Metrics -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="bg-white dark:bg-gray-600 p-4 rounded">
+                        <h4 class="font-semibold text-gray-900 dark:text-white mb-2">Huntable Class</h4>
+                        <div class="space-y-1 text-sm">
+                            <div>Precision: <span class="font-mono">${(metrics.precision_huntable * 100).toFixed(1)}%</span></div>
+                            <div>Recall: <span class="font-mono">${(metrics.recall_huntable * 100).toFixed(1)}%</span></div>
+                            <div>F1 Score: <span class="font-mono">${(metrics.f1_score_huntable * 100).toFixed(1)}%</span></div>
+                        </div>
+                    </div>
+                    <div class="bg-white dark:bg-gray-600 p-4 rounded">
+                        <h4 class="font-semibold text-gray-900 dark:text-white mb-2">Not Huntable Class</h4>
+                        <div class="space-y-1 text-sm">
+                            <div>Precision: <span class="font-mono">${(metrics.precision_not_huntable * 100).toFixed(1)}%</span></div>
+                            <div>Recall: <span class="font-mono">${(metrics.recall_not_huntable * 100).toFixed(1)}%</span></div>
+                            <div>F1 Score: <span class="font-mono">${(metrics.f1_score_not_huntable * 100).toFixed(1)}%</span></div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Confusion Matrix -->
+                ${metrics.confusion_matrix ? `
+                <div class="bg-white dark:bg-gray-600 p-4 rounded">
+                    <h4 class="font-semibold text-gray-900 dark:text-white mb-2">Confusion Matrix</h4>
+                    <div class="grid grid-cols-3 gap-2 text-sm">
+                        <div></div>
+                        <div class="text-center font-semibold">Predicted Not Huntable</div>
+                        <div class="text-center font-semibold">Predicted Huntable</div>
+                        <div class="font-semibold">Actual Not Huntable</div>
+                        <div class="text-center bg-green-100 dark:bg-green-800 p-2 rounded">${metrics.confusion_matrix.true_negative}</div>
+                        <div class="text-center bg-red-100 dark:bg-red-800 p-2 rounded">${metrics.confusion_matrix.false_positive}</div>
+                        <div class="font-semibold">Actual Huntable</div>
+                        <div class="text-center bg-red-100 dark:bg-red-800 p-2 rounded">${metrics.confusion_matrix.false_negative}</div>
+                        <div class="text-center bg-green-100 dark:bg-green-800 p-2 rounded">${metrics.confusion_matrix.true_positive}</div>
+                    </div>
+                </div>
+                ` : ''}
+                
+                <!-- Misclassified Chunks -->
+                ${misclassified.length > 0 ? `
+                <div class="bg-white dark:bg-gray-600 p-4 rounded">
+                    <h4 class="font-semibold text-gray-900 dark:text-white mb-2">Sample Misclassified Chunks (${misclassified.length} shown)</h4>
+                    <div class="space-y-2 max-h-40 overflow-y-auto">
+                        ${misclassified.slice(0, 5).map(chunk => `
+                            <div class="text-xs bg-gray-100 dark:bg-gray-700 p-2 rounded">
+                                <div class="font-semibold">ID ${chunk.annotation_id}: ${chunk.true_label} → ${chunk.predicted_label} (${(chunk.confidence * 100).toFixed(1)}%)</div>
+                                <div class="text-gray-600 dark:text-gray-300 mt-1">${chunk.chunk_preview}</div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+                ` : ''}
+            </div>
+        `;
+    }
+
+    async function checkEvaluationStatus() {
+        const statusElement = document.getElementById('evalStatus');
+        
+        try {
+            statusElement.textContent = 'Checking evaluation status...';
+            
+            const response = await fetch('/api/model/versions');
+            const data = await response.json();
+            
+            if (data.success && data.versions.length > 0) {
+                const latestVersion = data.versions[0];
+                if (latestVersion.has_evaluation) {
+                    const evalDate = new Date(latestVersion.evaluated_at).toLocaleDateString();
+                    statusElement.textContent = `Last evaluated: ${evalDate} - Accuracy: ${(latestVersion.eval_accuracy * 100).toFixed(1)}%`;
+                } else {
+                    statusElement.textContent = 'Model not yet evaluated on test set';
+                }
+            } else {
+                statusElement.textContent = 'No model versions found';
+            }
+        } catch (error) {
+            console.error('Error checking evaluation status:', error);
+            statusElement.textContent = 'Error checking status';
+        }
+    }
+
+    // Model Retraining functions
+    async function retrainModel() {
+        const btn = document.getElementById('retrainModelBtn');
+        const progressSection = document.getElementById('retrainProgressSection');
+        const resultsSection = document.getElementById('retrainResultsSection');
+        const progressBar = document.getElementById('retrainProgressBar');
+        const progressText = document.getElementById('retrainProgressText');
+        const resultsContent = document.getElementById('retrainResultsContent');
+        
+        // Disable button and show progress
+        btn.disabled = true;
+        btn.textContent = 'Retraining...';
+        progressSection.classList.remove('hidden');
+        resultsSection.classList.add('hidden');
+        progressBar.style.width = '0%';
+        progressText.textContent = 'Starting retraining...';
+        
+        try {
+            const response = await fetch('/api/model/retrain', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                // Update progress to 100%
+                progressBar.style.width = '100%';
+                progressText.textContent = 'Complete!';
+                
+                // Show results
+                resultsSection.classList.remove('hidden');
+                resultsContent.innerHTML = `
+                    <div class="text-green-600 font-semibold">✅ Retraining Complete</div>
+                    <div class="mt-2">
+                        <p><strong>New Model Version:</strong> v${data.new_version}</p>
+                        <p><strong>Training Accuracy:</strong> ${(data.training_accuracy * 100).toFixed(1)}%</p>
+                        <p><strong>Validation Accuracy:</strong> ${(data.validation_accuracy * 100).toFixed(1)}%</p>
+                        <p><strong>Training Duration:</strong> ${data.training_duration}</p>
+                        <p><strong>Training Samples:</strong> ${data.training_samples}</p>
+                    </div>
+                `;
+                
+                // Update status
+                document.getElementById('retrainingStatus').textContent = 
+                    `Current model: v${data.new_version} (${(data.validation_accuracy * 100).toFixed(1)}% accuracy)`;
+                
+                // Reload data
+                setTimeout(() => {
+                    loadInitialData();
+                }, 1000);
+                
+            } else {
+                throw new Error(data.message || 'Retraining failed');
+            }
+            
+        } catch (error) {
+            console.error('Error during retraining:', error);
+            resultsSection.classList.remove('hidden');
+            resultsContent.innerHTML = `
+                <div class="text-red-600 font-semibold">❌ Retraining Failed</div>
+                <div class="mt-2 text-red-600">${error.message}</div>
+            `;
+        } finally {
+            // Re-enable button
+            btn.disabled = false;
+            btn.textContent = 'Retrain Model';
+            setTimeout(() => {
+                progressSection.classList.add('hidden');
+            }, 3000);
+        }
+    }
+
+    async function refreshRetrainingStatus() {
+        const statusElement = document.getElementById('retrainingStatus');
+        const feedbackElement = document.getElementById('feedbackCount');
+        
+        try {
+            statusElement.textContent = 'Checking...';
+            feedbackElement.textContent = 'Loading...';
+            
+            // Get latest model version and feedback count
+            const [versionsResponse, feedbackResponse] = await Promise.all([
+                fetch('/api/model/versions'),
+                fetch('/api/model/feedback-count')
+            ]);
+            
+            const versionsData = await versionsResponse.json();
+            const feedbackData = await feedbackResponse.json();
+            
+            if (versionsData.success && versionsData.versions.length > 0) {
+                const latest = versionsData.versions[0]; // Already sorted by version number
+                const accuracy = latest.eval_accuracy ? (latest.eval_accuracy * 100).toFixed(1) : 'N/A';
+                statusElement.textContent = `v${latest.version_number} (${accuracy}% accuracy)`;
+            } else {
+                statusElement.textContent = 'None';
+            }
+            
+            if (feedbackData.success) {
+                feedbackElement.textContent = feedbackData.count.toLocaleString();
+            } else {
+                feedbackElement.textContent = 'Error';
+            }
+            
+        } catch (error) {
+            console.error('Error refreshing retraining status:', error);
+            statusElement.textContent = 'Error';
+            feedbackElement.textContent = 'Error';
+        }
+    }
+
+    // Event listeners
+    document.addEventListener('DOMContentLoaded', () => {
+        loadInitialData();
+        checkEligibleCount();
+        checkEvaluationStatus();
+        refreshRetrainingStatus();
+        
+        // Add event listeners
+        document.getElementById('processAllBtn').addEventListener('click', startBackfill);
+        document.getElementById('refreshCountBtn').addEventListener('click', checkEligibleCount);
+        document.getElementById('evaluateModelBtn').addEventListener('click', runEvaluation);
+        document.getElementById('refreshEvalBtn').addEventListener('click', checkEvaluationStatus);
+        document.getElementById('retrainModelBtn').addEventListener('click', retrainModel);
+        document.getElementById('refreshRetrainBtn').addEventListener('click', refreshRetrainingStatus);
+    });
+</script>
+{% endblock %}

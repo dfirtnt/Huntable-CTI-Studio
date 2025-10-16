@@ -4766,7 +4766,7 @@ async def api_feedback_chunk_classification(request: Request):
             fieldnames = [
                 'timestamp', 'article_id', 'chunk_id', 'chunk_text', 
                 'model_classification', 'model_confidence', 'model_reason',
-                'is_correct', 'user_classification', 'comment'
+                'is_correct', 'user_classification', 'comment', 'used_for_training'
             ]
             
             writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
@@ -4786,7 +4786,8 @@ async def api_feedback_chunk_classification(request: Request):
                 'model_reason': feedback_data.get('model_reason', ''),
                 'is_correct': feedback_data['is_correct'],
                 'user_classification': feedback_data.get('user_classification', ''),
-                'comment': feedback_data.get('comment', '')
+                'comment': feedback_data.get('comment', ''),
+                'used_for_training': 'FALSE'  # New feedback is unused by default
             })
         
         return {"success": True, "message": "Feedback recorded successfully"}
@@ -4894,7 +4895,18 @@ async def api_get_model_versions():
                 'training_data_size': version.training_data_size,
                 'feedback_samples_count': version.feedback_samples_count,
                 'training_duration_seconds': version.training_duration_seconds,
-                'has_comparison': version.comparison_results is not None
+                'has_comparison': version.comparison_results is not None,
+                # Evaluation metrics
+                'eval_accuracy': version.eval_accuracy,
+                'eval_precision_huntable': version.eval_precision_huntable,
+                'eval_precision_not_huntable': version.eval_precision_not_huntable,
+                'eval_recall_huntable': version.eval_recall_huntable,
+                'eval_recall_not_huntable': version.eval_recall_not_huntable,
+                'eval_f1_score_huntable': version.eval_f1_score_huntable,
+                'eval_f1_score_not_huntable': version.eval_f1_score_not_huntable,
+                'eval_confusion_matrix': version.eval_confusion_matrix,
+                'evaluated_at': version.evaluated_at.isoformat() if version.evaluated_at else None,
+                'has_evaluation': version.evaluated_at is not None
             })
         
         return {
@@ -4906,6 +4918,203 @@ async def api_get_model_versions():
     except Exception as e:
         logger.error(f"Error getting model versions: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to get model versions: {str(e)}")
+
+
+@app.post("/api/model/evaluate")
+async def api_model_evaluate():
+    """Evaluate the current model on the 160 annotated test chunks."""
+    try:
+        from src.utils.content_filter import ContentFilter
+        from src.utils.model_evaluation import ModelEvaluator
+        from src.utils.model_versioning import MLModelVersionManager
+        
+        # Load current model
+        content_filter = ContentFilter()
+        if not content_filter.load_model():
+            return {"success": False, "message": "Failed to load current model"}
+        
+        # Initialize evaluator
+        evaluator = ModelEvaluator()
+        
+        # Run evaluation
+        logger.info("Starting model evaluation on test set...")
+        eval_metrics = evaluator.evaluate_model(content_filter)
+        
+        # Save metrics to latest model version
+        version_manager = MLModelVersionManager(async_db_manager)
+        latest_version = await version_manager.get_latest_version()
+        
+        if latest_version:
+            success = await version_manager.save_evaluation_metrics(latest_version.id, eval_metrics)
+            if not success:
+                logger.warning("Failed to save evaluation metrics to database")
+        else:
+            logger.warning("No model versions found to save evaluation metrics")
+        
+        # Prepare response
+        response_data = {
+            "success": True,
+            "message": "Model evaluation completed successfully",
+            "metrics": {
+                "accuracy": eval_metrics["accuracy"],
+                "precision_huntable": eval_metrics["precision_huntable"],
+                "precision_not_huntable": eval_metrics["precision_not_huntable"],
+                "recall_huntable": eval_metrics["recall_huntable"],
+                "recall_not_huntable": eval_metrics["recall_not_huntable"],
+                "f1_score_huntable": eval_metrics["f1_score_huntable"],
+                "f1_score_not_huntable": eval_metrics["f1_score_not_huntable"],
+                "confusion_matrix": eval_metrics["confusion_matrix"],
+                "avg_confidence": eval_metrics["avg_confidence"],
+                "total_chunks": eval_metrics["total_eval_chunks"],
+                "misclassified_count": eval_metrics["misclassified_count"]
+            },
+            "misclassified_chunks": eval_metrics["misclassified_chunks"][:10],  # Limit to first 10 for response
+            "eval_summary": evaluator.get_eval_data_summary()
+        }
+        
+        logger.info(f"Evaluation complete. Accuracy: {eval_metrics['accuracy']:.3f}")
+        return response_data
+        
+    except FileNotFoundError as e:
+        logger.error(f"Evaluation data not found: {e}")
+        return {"success": False, "message": "Evaluation dataset not found. Please run annotation export first."}
+    except Exception as e:
+        logger.error(f"Model evaluation failed: {e}")
+        return {"success": False, "message": f"Evaluation failed: {str(e)}"}
+
+
+@app.post("/api/model/retrain")
+async def api_model_retrain():
+    """Retrain the ML model with latest annotated data."""
+    try:
+        from src.utils.content_filter import ContentFilter
+        from src.utils.model_training import ModelTrainer
+        from src.utils.model_versioning import MLModelVersionManager
+        
+        # Initialize trainer
+        trainer = ModelTrainer()
+        
+        # Run retraining
+        logger.info("Starting model retraining...")
+        training_results = trainer.retrain_model()
+        
+        # Mark feedback as used for training
+        await mark_feedback_as_used()
+        
+        # Save new model version
+        version_manager = MLModelVersionManager(async_db_manager)
+        new_version = await version_manager.create_new_version(
+            model_path=training_results["model_path"],
+            training_accuracy=training_results["training_accuracy"],
+            validation_accuracy=training_results["validation_accuracy"],
+            training_samples=training_results["training_samples"],
+            validation_samples=training_results["validation_samples"],
+            training_duration=training_results["training_duration"]
+        )
+        
+        # Prepare response
+        response_data = {
+            "success": True,
+            "message": "Model retraining completed successfully",
+            "new_version": new_version.version_number,
+            "training_accuracy": training_results["training_accuracy"],
+            "validation_accuracy": training_results["validation_accuracy"],
+            "training_duration": f"{training_results['training_duration']:.1f}s",
+            "training_samples": training_results["training_samples"],
+            "validation_samples": training_results["validation_samples"]
+        }
+        
+        logger.info(f"Retraining complete. New version: v{new_version.version_number}, Validation accuracy: {training_results['validation_accuracy']:.3f}")
+        return response_data
+        
+    except FileNotFoundError as e:
+        logger.error(f"Training data not found: {e}")
+        return {"success": False, "message": "Training dataset not found. Please ensure annotated data is available."}
+    except Exception as e:
+        logger.error(f"Model retraining failed: {e}")
+        return {"success": False, "message": f"Retraining failed: {str(e)}"}
+
+
+async def mark_feedback_as_used():
+    """Mark all unused feedback as used for training."""
+    try:
+        import os
+        import pandas as pd
+        
+        feedback_file = "outputs/training_data/chunk_classification_feedback.csv"
+        
+        if not os.path.exists(feedback_file):
+            logger.warning("No feedback file found to mark as used")
+            return
+        
+        # Read feedback CSV
+        feedback_df = pd.read_csv(feedback_file)
+        
+        if feedback_df.empty:
+            logger.warning("No feedback data to mark as used")
+            return
+        
+        # Mark all unused feedback as used
+        feedback_df.loc[feedback_df['used_for_training'] == 'FALSE', 'used_for_training'] = 'TRUE'
+        
+        # Save updated CSV
+        feedback_df.to_csv(feedback_file, index=False)
+        
+        # Count how many were marked as used
+        used_count = len(feedback_df[feedback_df['used_for_training'] == 'TRUE'])
+        logger.info(f"Marked {used_count} feedback entries as used for training")
+        
+    except Exception as e:
+        logger.error(f"Error marking feedback as used: {e}")
+
+
+@app.get("/api/model/feedback-count")
+async def api_get_feedback_count():
+    """Get count of available user feedback samples for retraining."""
+    try:
+        import os
+        import pandas as pd
+        
+        # Count feedback from chunk debugging interface
+        feedback_file = "outputs/training_data/chunk_classification_feedback.csv"
+        
+        if not os.path.exists(feedback_file):
+            return {
+                "success": True,
+                "count": 0,
+                "message": "No feedback file found - no user corrections available for retraining"
+            }
+        
+        # Read feedback CSV and count unique chunks
+        feedback_df = pd.read_csv(feedback_file)
+        
+        if feedback_df.empty:
+            return {
+                "success": True,
+                "count": 0,
+                "message": "No feedback data available for retraining"
+            }
+        
+        # Count unique chunks that received user feedback
+        unique_feedback = feedback_df.drop_duplicates(subset=['article_id', 'chunk_id'], keep='last')
+        
+        # Filter out chunks with very low confidence (likely not actual feedback)
+        actual_feedback = unique_feedback[unique_feedback['model_confidence'] > 0.01]
+        
+        # Only count feedback that hasn't been used for training yet
+        unused_feedback = actual_feedback[actual_feedback['used_for_training'] == 'FALSE']
+        
+        feedback_count = len(unused_feedback)
+        
+        return {
+            "success": True,
+            "count": feedback_count,
+            "message": f"Found {feedback_count} user feedback samples available for retraining"
+        }
+        
+    except Exception as e:
+        logger.error(f"Error getting feedback count: {e}")
+        return {"success": False, "count": 0, "message": f"Failed to get feedback count: {str(e)}"}
 
 
 @app.get("/api/model/compare/{version_id}")
@@ -6436,12 +6645,10 @@ async def help_page(request: Request):
 @app.get("/ml-hunt-comparison", response_class=HTMLResponse)
 async def ml_hunt_comparison_page(request: Request):
     """ML vs Hunt scoring comparison page."""
-    try:
-        with open("src/web/templates/ml_hunt_comparison.html", "r") as f:
-            html_content = f.read()
-        return HTMLResponse(content=html_content)
-    except FileNotFoundError:
-        raise HTTPException(status_code=404, detail="ML Hunt comparison page not found")
+    return templates.TemplateResponse(
+        "ml_hunt_comparison.html",
+        {"request": request, "environment": ENVIRONMENT}
+    )
 
 
 @app.get("/api/ml-hunt-comparison/stats")
