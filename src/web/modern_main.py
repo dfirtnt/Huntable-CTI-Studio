@@ -5068,6 +5068,82 @@ async def mark_feedback_as_used():
         logger.error(f"Error marking feedback as used: {e}")
 
 
+@app.get("/api/model/classification-timeline")
+async def api_get_classification_timeline():
+    """Get classification breakdown data across model versions for time series chart."""
+    try:
+        from src.services.chunk_analysis_service import ChunkAnalysisService
+        from src.database.manager import DatabaseManager
+        
+        db_manager = DatabaseManager()
+        sync_db = db_manager.get_session()
+        try:
+            service = ChunkAnalysisService(sync_db)
+            
+            # Get all model versions with their classification data
+            timeline_data = []
+            
+            # Get all model versions from database
+            from src.utils.model_versioning import MLModelVersionManager
+            version_manager = MLModelVersionManager(async_db_manager)
+            model_versions = await version_manager.get_all_versions()
+            
+            # Get all available model versions from chunk analysis data
+            available_model_versions = service.get_available_model_versions()
+            
+            for model_version_str in available_model_versions:
+                # Find corresponding database version (if any)
+                db_version = None
+                for version in model_versions:
+                    # Try to match by version number or date
+                    if (f"v{version.version_number}" == model_version_str or 
+                        (version.trained_at and model_version_str.endswith(version.trained_at.strftime("%Y%m%d")))):
+                        db_version = version
+                        break
+                
+                # Get classification stats for this model version
+                stats = service.get_chunk_analysis_results(
+                    model_version=model_version_str,
+                    limit=10000  # Get all data for this version
+                )
+                
+                if stats:
+                    # Calculate breakdown for this version
+                    total_chunks = len(stats)
+                    agreement = sum(1 for s in stats if s.get('agreement', False))
+                    ml_only = sum(1 for s in stats if s.get('ml_prediction', False) and not s.get('hunt_prediction', False))
+                    hunt_only = sum(1 for s in stats if s.get('hunt_prediction', False) and not s.get('ml_prediction', False))
+                    neither = total_chunks - agreement - ml_only - hunt_only
+                    
+                    timeline_data.append({
+                        'model_version': model_version_str,
+                        'version_number': db_version.version_number if db_version else 0,
+                        'trained_at': db_version.trained_at.isoformat() if db_version and db_version.trained_at else None,
+                        'total_chunks': total_chunks,
+                        'agreement': agreement,
+                        'ml_only': ml_only,
+                        'hunt_only': hunt_only,
+                        'neither': neither,
+                        'accuracy': db_version.accuracy if db_version and db_version.accuracy else 0
+                    })
+            
+            # Sort by version number
+            timeline_data.sort(key=lambda x: x['version_number'])
+            
+            return {
+                "success": True,
+                "timeline": timeline_data,
+                "message": f"Retrieved classification timeline for {len(timeline_data)} model versions"
+            }
+            
+        finally:
+            sync_db.close()
+            
+    except Exception as e:
+        logger.error(f"Error getting classification timeline: {e}")
+        return {"success": False, "timeline": [], "message": f"Failed to get classification timeline: {str(e)}"}
+
+
 @app.get("/api/model/feedback-count")
 async def api_get_feedback_count():
     """Get count of available user feedback samples for retraining."""

@@ -140,7 +140,7 @@
     <!-- Charts Section -->
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
         <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-            <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">📊 Classification Breakdown</h3>
+            <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">📈 Classification Trends</h3>
             <canvas id="distributionChart" width="400" height="200"></canvas>
         </div>
         <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
@@ -190,30 +190,30 @@
 
 {% block scripts %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<script>
-    let currentData = {
-        stats: [],
-        results: [],
+    <script>
+        let currentData = {
+            stats: [],
+            results: [],
         summary: null,
         modelVersions: []
-    };
+        };
 
-    // Load initial data
-    async function loadInitialData() {
-        try {
-            // Load summary
-            const summaryResponse = await fetch('/api/ml-hunt-comparison/summary');
-            const summaryData = await summaryResponse.json();
-            if (summaryData.success) {
-                currentData.summary = summaryData.summary;
-                updateSummaryStats();
-            }
+        // Load initial data
+        async function loadInitialData() {
+            try {
+                // Load summary
+                const summaryResponse = await fetch('/api/ml-hunt-comparison/summary');
+                const summaryData = await summaryResponse.json();
+                if (summaryData.success) {
+                    currentData.summary = summaryData.summary;
+                    updateSummaryStats();
+                }
 
-            // Load stats
-            const statsResponse = await fetch('/api/ml-hunt-comparison/stats');
-            const statsData = await statsResponse.json();
-            if (statsData.success) {
-                currentData.stats = statsData.stats;
+                // Load stats
+                const statsResponse = await fetch('/api/ml-hunt-comparison/stats');
+                const statsData = await statsResponse.json();
+                if (statsData.success) {
+                    currentData.stats = statsData.stats;
             }
             
             // Load model versions for evaluation metrics
@@ -222,31 +222,38 @@
             if (versionsData.success) {
                 currentData.modelVersions = versionsData.versions;
             }
-            
-            updateCharts();
-        } catch (error) {
-            console.error('Error loading initial data:', error);
-            showError('Failed to load initial data');
-        }
-    }
 
-    function updateSummaryStats() {
-        const summary = currentData.summary;
+            // Load classification timeline
+            const timelineResponse = await fetch('/api/model/classification-timeline');
+            const timelineData = await timelineResponse.json();
+            if (timelineData.success) {
+                currentData.timeline = timelineData.timeline;
+            }
+            
+                    updateCharts();
+            } catch (error) {
+                console.error('Error loading initial data:', error);
+                showError('Failed to load initial data');
+            }
+        }
+
+        function updateSummaryStats() {
+            const summary = currentData.summary;
         document.getElementById('totalModelVersions').textContent = summary.total_model_versions;
         document.getElementById('totalChunkAnalyses').textContent = summary.total_chunk_analyses.toLocaleString();
-        
+            
         if (summary.overall_stats && summary.overall_stats.length > 0) {
-            const avgAccuracy = summary.overall_stats.reduce((sum, stat) => sum + stat.accuracy, 0) / summary.overall_stats.length;
+                const avgAccuracy = summary.overall_stats.reduce((sum, stat) => sum + stat.accuracy, 0) / summary.overall_stats.length;
             document.getElementById('averageAccuracy').textContent = (avgAccuracy * 100).toFixed(1) + '%';
+            }
+            
+            if (summary.last_updated) {
+                const date = new Date(summary.last_updated);
+                document.getElementById('lastUpdated').textContent = date.toLocaleDateString();
+            }
         }
-        
-        if (summary.last_updated) {
-            const date = new Date(summary.last_updated);
-            document.getElementById('lastUpdated').textContent = date.toLocaleDateString();
-        }
-    }
 
-    function updateCharts() {
+        function updateCharts() {
         updateDistributionChart();
         updateModelPerformanceSummary();
         updateEvaluationCharts();
@@ -293,69 +300,115 @@
     function updateDistributionChart() {
         const ctx = document.getElementById('distributionChart').getContext('2d');
         
-        if (currentData.stats.length === 0) {
+        if (!currentData.timeline || currentData.timeline.length === 0) {
             ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
-            ctx.fillText('No data available', 10, 50);
+            ctx.fillText('No timeline data available', 10, 50);
             return;
         }
         
-        // Calculate mutually exclusive categories
-        const total = currentData.stats.reduce((sum, stat) => sum + stat.total_chunks, 0);
-        const agreement = currentData.stats.reduce((sum, stat) => sum + stat.agreement_count, 0);
-        const mlOnly = currentData.stats.reduce((sum, stat) => sum + (stat.ml_huntable_count - stat.agreement_count), 0);
-        const huntOnly = currentData.stats.reduce((sum, stat) => sum + (stat.hunt_huntable_count - stat.agreement_count), 0);
-        const neither = total - agreement - mlOnly - huntOnly;
-        
-        new Chart(ctx, {
-            type: 'bar',
-            data: {
-                labels: ['Agreement\n(Both Huntable)', 'ML Only\n(ML Huntable)', 'Hunt Only\n(Hunt Huntable)', 'Neither\n(Not Huntable)'],
-                datasets: [{
-                    label: 'Number of Chunks',
-                    data: [agreement, mlOnly, huntOnly, neither],
-                    backgroundColor: [
-                        'rgba(75, 192, 192, 0.8)',   // Teal for agreement
-                        'rgba(54, 162, 235, 0.8)',   // Blue for ML only
-                        'rgba(255, 205, 86, 0.8)',   // Yellow for Hunt only
-                        'rgba(255, 99, 132, 0.8)'    // Red for neither
-                    ],
-                    borderColor: [
-                        'rgba(75, 192, 192, 1)',
-                        'rgba(54, 162, 235, 1)',
-                        'rgba(255, 205, 86, 1)',
-                        'rgba(255, 99, 132, 1)'
-                    ],
-                    borderWidth: 1
-                }]
-            },
-            options: {
-                responsive: true,
+        // Prepare data for time series chart
+        const labels = currentData.timeline.map(item => `v${item.version_number}`);
+        const agreementData = currentData.timeline.map(item => item.agreement);
+        const mlOnlyData = currentData.timeline.map(item => item.ml_only);
+        const huntOnlyData = currentData.timeline.map(item => item.hunt_only);
+        const neitherData = currentData.timeline.map(item => item.neither);
+            
+            new Chart(ctx, {
+            type: 'line',
+                data: {
+                labels: labels,
+                datasets: [
+                    {
+                        label: 'Agreement (Both Huntable)',
+                        data: agreementData,
+                        borderColor: 'rgba(75, 192, 192, 1)',
+                        backgroundColor: 'rgba(75, 192, 192, 0.1)',
+                        borderWidth: 3,
+                        fill: false,
+                        tension: 0.1
+                    },
+                    {
+                        label: 'ML Only (ML Huntable)',
+                        data: mlOnlyData,
+                        borderColor: 'rgba(54, 162, 235, 1)',
+                        backgroundColor: 'rgba(54, 162, 235, 0.1)',
+                        borderWidth: 2,
+                        fill: false,
+                        tension: 0.1
+                    },
+                    {
+                        label: 'Hunt Only (Hunt Huntable)',
+                        data: huntOnlyData,
+                        borderColor: 'rgba(255, 205, 86, 1)',
+                        backgroundColor: 'rgba(255, 205, 86, 0.1)',
+                        borderWidth: 2,
+                        fill: false,
+                        tension: 0.1
+                    },
+                    {
+                        label: 'Neither (Not Huntable)',
+                        data: neitherData,
+                        borderColor: 'rgba(255, 99, 132, 1)',
+                        backgroundColor: 'rgba(255, 99, 132, 0.1)',
+                        borderWidth: 2,
+                        fill: false,
+                        tension: 0.1
+                    }
+                ]
+                },
+                options: {
+                    responsive: true,
+                interaction: {
+                    mode: 'index',
+                    intersect: false,
+                },
                 scales: {
                     y: {
-                        beginAtZero: true,
+                        type: 'logarithmic',
+                        beginAtZero: false,
+                        min: 1,
                         title: {
                             display: true,
-                            text: 'Number of Chunks'
+                            text: 'Number of Chunks (Log Scale)'
+                        },
+                        ticks: {
+                            callback: function(value) {
+                                return value.toLocaleString();
+                            }
                         }
                     },
                     x: {
                         title: {
                             display: true,
-                            text: 'Classification Category'
+                            text: 'Model Version'
                         }
                     }
                 },
                 plugins: {
                     title: {
                         display: true,
-                        text: 'ML vs Hunt Classification Breakdown'
+                        text: 'Classification Trends Across Model Versions'
                     },
                     legend: {
-                        display: false
+                        display: true,
+                        position: 'top'
+                    },
+                    tooltip: {
+                        callbacks: {
+                            afterBody: function(context) {
+                                const dataIndex = context[0].dataIndex;
+                                const item = currentData.timeline[dataIndex];
+                                return [
+                                    `Total Chunks: ${item.total_chunks}`,
+                                    `Accuracy: ${(item.accuracy * 100).toFixed(1)}%`,
+                                    `Trained: ${new Date(item.trained_at).toLocaleDateString()}`
+                                ];
+                            }
+                        }
+                        }
                     }
                 }
-            }
-        });
+            });
     }
 
     function updateEvaluationCharts() {
@@ -378,11 +431,11 @@
         // Sort by version number
         evaluatedVersions.sort((a, b) => a.version_number - b.version_number);
         
-        new Chart(ctx, {
+            new Chart(ctx, {
             type: 'line',
-            data: {
+                data: {
                 labels: evaluatedVersions.map(v => `v${v.version_number}`),
-                datasets: [{
+                    datasets: [{
                     label: 'Evaluation Accuracy %',
                     data: evaluatedVersions.map(v => (v.eval_accuracy * 100)),
                     borderColor: 'rgba(75, 192, 192, 1)',
@@ -390,20 +443,20 @@
                     borderWidth: 2,
                     fill: true,
                     tension: 0.1
-                }]
-            },
-            options: {
-                responsive: true,
-                scales: {
-                    y: {
-                        beginAtZero: true,
-                        max: 100,
-                        ticks: {
-                            callback: function(value) {
-                                return value + '%';
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            max: 100,
+                            ticks: {
+                                callback: function(value) {
+                                    return value + '%';
+                                }
                             }
                         }
-                    }
                 },
                 plugins: {
                     title: {
@@ -411,9 +464,9 @@
                         text: 'Model Performance on Test Set (160 chunks)'
                     }
                 }
-            }
-        });
-    }
+                }
+            });
+        }
 
     function updateEvalMetricsChart() {
         const ctx = document.getElementById('evalMetricsChart').getContext('2d');
@@ -428,14 +481,14 @@
             ctx.fillText('No evaluation data available', 10, 50);
             return;
         }
-        
-        new Chart(ctx, {
+            
+            new Chart(ctx, {
             type: 'radar',
-            data: {
+                data: {
                 labels: ['Accuracy', 'Precision (Huntable)', 'Precision (Not Huntable)', 
                         'Recall (Huntable)', 'Recall (Not Huntable)', 
                         'F1 (Huntable)', 'F1 (Not Huntable)'],
-                datasets: [{
+                    datasets: [{
                     label: `Model v${latestEvaluated.version_number}`,
                     data: [
                         latestEvaluated.eval_accuracy * 100,
@@ -449,11 +502,11 @@
                     borderColor: 'rgba(54, 162, 235, 1)',
                     backgroundColor: 'rgba(54, 162, 235, 0.2)',
                     borderWidth: 2
-                }]
-            },
-            options: {
-                responsive: true,
-                scales: {
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
                     r: {
                         beginAtZero: true,
                         max: 100,
@@ -478,79 +531,79 @@
                     title: {
                         display: true,
                         text: `Latest Model Performance (v${latestEvaluated.version_number})`
+                        }
                     }
                 }
-            }
-        });
-    }
+            });
+        }
 
     function showError(message) {
         console.error(message);
         // Could add a toast notification here
     }
 
-    // Backfill functions
-    async function checkEligibleCount() {
-        const countElement = document.getElementById('eligibleCount');
-        
-        try {
-            countElement.textContent = 'Checking...';
+        // Backfill functions
+        async function checkEligibleCount() {
+            const countElement = document.getElementById('eligibleCount');
             
-            const response = await fetch('/api/ml-hunt-comparison/eligible-count');
-            const data = await response.json();
-            
-            if (data.success) {
-                const countText = data.count === 0 
-                    ? 'No eligible articles found' 
-                    : `${data.count} article${data.count === 1 ? '' : 's'} eligible for processing`;
-                countElement.textContent = countText;
-            } else {
+            try {
+                countElement.textContent = 'Checking...';
+                
+                const response = await fetch('/api/ml-hunt-comparison/eligible-count');
+                const data = await response.json();
+                
+                if (data.success) {
+                    const countText = data.count === 0 
+                        ? 'No eligible articles found' 
+                        : `${data.count} article${data.count === 1 ? '' : 's'} eligible for processing`;
+                    countElement.textContent = countText;
+                } else {
+                    countElement.textContent = 'Error checking eligible articles';
+                }
+            } catch (error) {
+                console.error('Error checking eligible count:', error);
                 countElement.textContent = 'Error checking eligible articles';
-            }
-        } catch (error) {
-            console.error('Error checking eligible count:', error);
-            countElement.textContent = 'Error checking eligible articles';
         }
-    }
+        }
 
-    async function startBackfill() {
+        async function startBackfill() {
         const btn = document.getElementById('processAllBtn');
         const progressSection = document.getElementById('progressSection');
         const resultsSection = document.getElementById('resultsSection');
         const progressBar = document.getElementById('progressBar');
-        const progressText = document.getElementById('progressText');
+            const progressText = document.getElementById('progressText');
         const resultsContent = document.getElementById('resultsContent');
-        
-        // Disable button and show progress
-        btn.disabled = true;
-        btn.textContent = 'Processing...';
+            
+            // Disable button and show progress
+            btn.disabled = true;
+            btn.textContent = 'Processing...';
         progressSection.classList.remove('hidden');
         resultsSection.classList.add('hidden');
         progressBar.style.width = '0%';
-        progressText.textContent = 'Starting backfill...';
-        
-        try {
-            const response = await fetch('/api/ml-hunt-comparison/backfill', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    min_hunt_score: 50.0,
-                    min_confidence: 0.7
-                })
-            });
+            progressText.textContent = 'Starting backfill...';
             
-            const data = await response.json();
-            
-            if (data.success && data.results) {
-                const results = data.results;
+            try {
+                const response = await fetch('/api/ml-hunt-comparison/backfill', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        min_hunt_score: 50.0,
+                        min_confidence: 0.7
+                    })
+                });
                 
-                // Update progress to 100%
+                const data = await response.json();
+                
+                if (data.success && data.results) {
+                    const results = data.results;
+                    
+                    // Update progress to 100%
                 progressBar.style.width = '100%';
-                progressText.textContent = 'Complete!';
-                
-                // Show results
+                    progressText.textContent = 'Complete!';
+                    
+                    // Show results
                 resultsSection.classList.remove('hidden');
                 resultsContent.innerHTML = `
                     <div class="text-green-600 font-semibold">✅ Backfill Complete</div>
@@ -560,30 +613,30 @@
                         <p><strong>Successful:</strong> ${results.successful}</p>
                         <p><strong>Failed:</strong> ${results.failed}</p>
                     </div>
-                `;
+                    `;
+                    
+                    // Reload data
+                    setTimeout(() => {
+                        loadInitialData();
+                        checkEligibleCount();
+                    }, 1000);
+                    
+                } else {
+                    throw new Error(data.error || 'Backfill failed');
+                }
                 
-                // Reload data
-                setTimeout(() => {
-                    loadInitialData();
-                    checkEligibleCount();
-                }, 1000);
-                
-            } else {
-                throw new Error(data.error || 'Backfill failed');
-            }
-            
-        } catch (error) {
-            console.error('Error during backfill:', error);
+            } catch (error) {
+                console.error('Error during backfill:', error);
             resultsSection.classList.remove('hidden');
             resultsContent.innerHTML = `
                 <div class="text-red-600 font-semibold">❌ Backfill Failed</div>
                 <div class="mt-2 text-red-600">${error.message}</div>
-            `;
-        } finally {
-            // Re-enable button
-            btn.disabled = false;
-            btn.textContent = 'Process All Eligible Articles';
-            setTimeout(() => {
+                `;
+            } finally {
+                // Re-enable button
+                btn.disabled = false;
+                btn.textContent = 'Process All Eligible Articles';
+                setTimeout(() => {
                 progressSection.classList.add('hidden');
             }, 3000);
         }
@@ -889,9 +942,9 @@
     }
 
     // Event listeners
-    document.addEventListener('DOMContentLoaded', () => {
-        loadInitialData();
-        checkEligibleCount();
+        document.addEventListener('DOMContentLoaded', () => {
+            loadInitialData();
+            checkEligibleCount();
         checkEvaluationStatus();
         refreshRetrainingStatus();
         
@@ -902,6 +955,6 @@
         document.getElementById('refreshEvalBtn').addEventListener('click', checkEvaluationStatus);
         document.getElementById('retrainModelBtn').addEventListener('click', retrainModel);
         document.getElementById('refreshRetrainBtn').addEventListener('click', refreshRetrainingStatus);
-    });
-</script>
+        });
+    </script>
 {% endblock %}
