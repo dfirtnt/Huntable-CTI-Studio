@@ -106,6 +106,53 @@ class MLModelVersionManager:
             logger.error(f"Error getting version {version_id}: {e}")
             return None
     
+    async def save_evaluation_metrics(self, version_id: int, eval_metrics: Dict[str, Any]) -> bool:
+        """
+        Save evaluation metrics to a model version.
+        
+        Args:
+            version_id: ID of the model version
+            eval_metrics: Dictionary containing evaluation metrics
+            
+        Returns:
+            bool: True if successful, False otherwise
+        """
+        try:
+            async with self.db_manager.get_session() as session:
+                result = await session.execute(
+                    select(MLModelVersionTable)
+                    .where(MLModelVersionTable.id == version_id)
+                )
+                model_version = result.scalar_one_or_none()
+                
+                if not model_version:
+                    logger.error(f"Model version {version_id} not found")
+                    return False
+                
+                # Update evaluation metrics
+                model_version.eval_accuracy = eval_metrics.get('accuracy')
+                model_version.eval_precision_huntable = eval_metrics.get('precision_huntable')
+                model_version.eval_precision_not_huntable = eval_metrics.get('precision_not_huntable')
+                model_version.eval_recall_huntable = eval_metrics.get('recall_huntable')
+                model_version.eval_recall_not_huntable = eval_metrics.get('recall_not_huntable')
+                model_version.eval_f1_score_huntable = eval_metrics.get('f1_score_huntable')
+                model_version.eval_f1_score_not_huntable = eval_metrics.get('f1_score_not_huntable')
+                model_version.eval_confusion_matrix = eval_metrics.get('confusion_matrix')
+                model_version.evaluated_at = datetime.now()
+                
+                await session.commit()
+                
+                logger.info(f"Saved evaluation metrics for model version {version_id}")
+                return True
+                
+        except Exception as e:
+            logger.error(f"Error saving evaluation metrics: {e}")
+            return False
+    
+    async def get_version_with_eval(self, version_id: int) -> Optional[MLModelVersionTable]:
+        """Get a model version with evaluation metrics included."""
+        return await self.get_version_by_id(version_id)
+    
     async def get_all_versions(self, limit: int = 50) -> List[MLModelVersionTable]:
         """Get all model versions, ordered by version number descending."""
         try:

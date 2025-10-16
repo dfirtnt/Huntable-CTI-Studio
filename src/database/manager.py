@@ -245,7 +245,7 @@ class DatabaseManager:
                 for article_data in articles:
                     try:
                         # Check for existing article by content hash
-                        existing = session.query(ArticleTable).filter(
+                        existing = session.query(ArticleTable).filter(ArticleTable.archived == False).filter(
                             ArticleTable.content_hash == article_data.content_hash
                         ).first()
                         
@@ -311,14 +311,14 @@ class DatabaseManager:
     def get_article(self, article_id: int) -> Optional[Article]:
         """Get article by ID."""
         with self.get_session() as session:
-            db_article = session.query(ArticleTable).filter(ArticleTable.id == article_id).first()
+            db_article = session.query(ArticleTable).filter(ArticleTable.archived == False).filter(ArticleTable.id == article_id).first()
             return self._db_article_to_model(db_article) if db_article else None
     
     def update_article(self, article_id: int, article: Article) -> Optional[Article]:
         """Update article by ID."""
         with self.get_session() as session:
             try:
-                db_article = session.query(ArticleTable).filter(ArticleTable.id == article_id).first()
+                db_article = session.query(ArticleTable).filter(ArticleTable.archived == False).filter(ArticleTable.id == article_id).first()
                 if not db_article:
                     return None
                 
@@ -344,7 +344,7 @@ class DatabaseManager:
     def list_articles(self, filter_params: Optional[ArticleFilter] = None) -> List[Article]:
         """List articles with optional filtering."""
         with self.get_session() as session:
-            query = session.query(ArticleTable)
+            query = session.query(ArticleTable).filter(ArticleTable.archived == False).filter(ArticleTable.archived == False)
             
             if filter_params:
                 if filter_params.source_id is not None:
@@ -453,7 +453,7 @@ class DatabaseManager:
                 stats['sources_by_tier'][f'tier_{tier}'] = count
             
             # Article statistics
-            stats['total_articles'] = session.query(ArticleTable).count()
+            stats['total_articles'] = session.query(ArticleTable).filter(ArticleTable.archived == False).filter(ArticleTable.archived == False).count()
             
             # Articles by date range
             now = datetime.utcnow()
@@ -461,15 +461,15 @@ class DatabaseManager:
             week_ago = now - timedelta(days=7)
             month_ago = now - timedelta(days=30)
             
-            stats['articles_last_day'] = session.query(ArticleTable).filter(
+            stats['articles_last_day'] = session.query(ArticleTable).filter(ArticleTable.archived == False).filter(
                 ArticleTable.discovered_at >= day_ago
             ).count()
             
-            stats['articles_last_week'] = session.query(ArticleTable).filter(
+            stats['articles_last_week'] = session.query(ArticleTable).filter(ArticleTable.archived == False).filter(
                 ArticleTable.discovered_at >= week_ago
             ).count()
             
-            stats['articles_last_month'] = session.query(ArticleTable).filter(
+            stats['articles_last_month'] = session.query(ArticleTable).filter(ArticleTable.archived == False).filter(
                 ArticleTable.discovered_at >= month_ago
             ).count()
             
@@ -551,7 +551,7 @@ class DatabaseManager:
     
     def _update_source_article_count(self, session: Session, source_id: int) -> None:
         """Update the total article count for a source."""
-        count = session.query(ArticleTable).filter(ArticleTable.source_id == source_id).count()
+        count = session.query(ArticleTable).filter(ArticleTable.archived == False).filter(ArticleTable.source_id == source_id).count()
         session.query(SourceTable).filter(SourceTable.id == source_id).update(
             {'total_articles': count}
         )

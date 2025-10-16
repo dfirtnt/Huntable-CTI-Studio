@@ -86,6 +86,7 @@ class ArticleTable(Base):
     # Timestamps
     created_at = Column(DateTime, nullable=False, default=func.now())
     updated_at = Column(DateTime, nullable=False, default=func.now(), onupdate=func.now())
+    archived = Column(Boolean, nullable=False, default=False, index=True)
     
     # Relationships
     source = relationship("SourceTable", back_populates="articles")
@@ -226,6 +227,17 @@ class MLModelVersionTable(Base):
     # Comparison metadata
     compared_with_version = Column(Integer, ForeignKey('ml_model_versions.id'), nullable=True)
     comparison_results = Column(JSON, nullable=True)
+    
+    # Evaluation metrics (on 160 annotated chunks)
+    eval_accuracy = Column(Float, nullable=True)
+    eval_precision_huntable = Column(Float, nullable=True)
+    eval_precision_not_huntable = Column(Float, nullable=True)
+    eval_recall_huntable = Column(Float, nullable=True)
+    eval_recall_not_huntable = Column(Float, nullable=True)
+    eval_f1_score_huntable = Column(Float, nullable=True)
+    eval_f1_score_not_huntable = Column(Float, nullable=True)
+    eval_confusion_matrix = Column(JSON, nullable=True)
+    evaluated_at = Column(DateTime, nullable=True)
     
     # Timestamps
     created_at = Column(DateTime, nullable=False, default=func.now())

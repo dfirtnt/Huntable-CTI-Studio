@@ -201,6 +201,54 @@ def retrain_model_with_feedback(original_file: str = "outputs/training_data/comb
         except Exception as e:
             print(f"⚠️  Could not save model version or run comparison: {e}")
         
+        # Run evaluation on test set
+        print("\n🧪 Running evaluation on test set...")
+        try:
+            from utils.model_evaluation import ModelEvaluator
+            
+            evaluator = ModelEvaluator()
+            eval_metrics = evaluator.evaluate_model(content_filter)
+            
+            print(f"✅ Evaluation complete!")
+            print(f"   - Test Accuracy: {eval_metrics['accuracy']:.3f}")
+            print(f"   - Precision (Huntable): {eval_metrics['precision_huntable']:.3f}")
+            print(f"   - Precision (Not Huntable): {eval_metrics['precision_not_huntable']:.3f}")
+            print(f"   - Recall (Huntable): {eval_metrics['recall_huntable']:.3f}")
+            print(f"   - Recall (Not Huntable): {eval_metrics['recall_not_huntable']:.3f}")
+            print(f"   - F1 Score (Huntable): {eval_metrics['f1_score_huntable']:.3f}")
+            print(f"   - F1 Score (Not Huntable): {eval_metrics['f1_score_not_huntable']:.3f}")
+            print(f"   - Misclassified: {eval_metrics['misclassified_count']}/{eval_metrics['total_eval_chunks']}")
+            
+            # Save evaluation metrics to model version
+            try:
+                from utils.model_versioning import MLModelVersionManager
+                from database.async_manager import AsyncDatabaseManager
+                import asyncio
+                
+                async def save_eval_metrics():
+                    db_manager = AsyncDatabaseManager()
+                    version_manager = MLModelVersionManager(db_manager)
+                    latest_version = await version_manager.get_latest_version()
+                    
+                    if latest_version:
+                        success = await version_manager.save_evaluation_metrics(latest_version.id, eval_metrics)
+                        if success:
+                            print(f"✅ Evaluation metrics saved to model version {latest_version.version_number}")
+                        else:
+                            print("⚠️  Failed to save evaluation metrics to database")
+                    else:
+                        print("⚠️  No model version found to save evaluation metrics")
+                    
+                    await db_manager.close()
+                
+                asyncio.run(save_eval_metrics())
+                
+            except Exception as e:
+                print(f"⚠️  Could not save evaluation metrics: {e}")
+                
+        except Exception as e:
+            print(f"⚠️  Could not run evaluation: {e}")
+        
         # Show statistics
         if not feedback_df.empty:
             total_feedback = len(feedback_df)
