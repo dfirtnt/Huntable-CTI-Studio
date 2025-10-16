@@ -5313,6 +5313,26 @@ async def create_annotation(article_id: int, annotation_data: dict):
         if not annotation:
             raise HTTPException(status_code=500, detail="Failed to create annotation")
         
+        # Update annotation count in article metadata
+        try:
+            # Get current annotation count for this article
+            annotations = await async_db_manager.get_article_annotations(article_id)
+            annotation_count = len(annotations)
+            
+            # Update article metadata with new annotation count
+            from src.models.article import ArticleUpdate
+            current_metadata = article.article_metadata.copy() if article.article_metadata else {}
+            current_metadata['annotation_count'] = annotation_count
+            
+            update_data = ArticleUpdate(article_metadata=current_metadata)
+            await async_db_manager.update_article(article_id, update_data)
+            
+            logger.info(f"Updated annotation count to {annotation_count} for article {article_id}")
+            
+        except Exception as e:
+            logger.error(f"Failed to update annotation count for article {article_id}: {e}")
+            # Don't fail the annotation creation if count update fails
+        
         logger.info(f"Created annotation {annotation.id} for article {article_id}")
         
         return {
@@ -5362,6 +5382,26 @@ async def delete_annotation(article_id: int, annotation_id: int):
         
         success = await async_db_manager.delete_annotation(annotation_id)
         if success:
+            # Update annotation count in article metadata
+            try:
+                # Get current annotation count for this article
+                annotations = await async_db_manager.get_article_annotations(article_id)
+                annotation_count = len(annotations)
+                
+                # Update article metadata with new annotation count
+                from src.models.article import ArticleUpdate
+                current_metadata = article.article_metadata.copy() if article.article_metadata else {}
+                current_metadata['annotation_count'] = annotation_count
+                
+                update_data = ArticleUpdate(article_metadata=current_metadata)
+                await async_db_manager.update_article(article_id, update_data)
+                
+                logger.info(f"Updated annotation count to {annotation_count} for article {article_id}")
+                
+            except Exception as e:
+                logger.error(f"Failed to update annotation count for article {article_id}: {e}")
+                # Don't fail the deletion if count update fails
+            
             return {"success": True, "message": f"Annotation {annotation_id} deleted"}
         else:
             raise HTTPException(status_code=404, detail="Annotation not found")
@@ -5450,9 +5490,38 @@ async def update_annotation(annotation_id: int, update_data: ArticleAnnotationUp
 async def delete_annotation(annotation_id: int):
     """Delete an annotation."""
     try:
+        # Get the annotation first to know which article it belongs to
+        annotation = await async_db_manager.get_annotation(annotation_id)
+        if not annotation:
+            raise HTTPException(status_code=404, detail="Annotation not found")
+        
+        article_id = annotation.article_id
         success = await async_db_manager.delete_annotation(annotation_id)
         if not success:
             raise HTTPException(status_code=404, detail="Annotation not found")
+        
+        # Update annotation count in article metadata
+        try:
+            # Get the article
+            article = await async_db_manager.get_article(article_id)
+            if article:
+                # Get current annotation count for this article
+                annotations = await async_db_manager.get_article_annotations(article_id)
+                annotation_count = len(annotations)
+                
+                # Update article metadata with new annotation count
+                from src.models.article import ArticleUpdate
+                current_metadata = article.article_metadata.copy() if article.article_metadata else {}
+                current_metadata['annotation_count'] = annotation_count
+                
+                update_data = ArticleUpdate(article_metadata=current_metadata)
+                await async_db_manager.update_article(article_id, update_data)
+                
+                logger.info(f"Updated annotation count to {annotation_count} for article {article_id}")
+                
+        except Exception as e:
+            logger.error(f"Failed to update annotation count for article {article_id}: {e}")
+            # Don't fail the deletion if count update fails
         
         logger.info(f"Deleted annotation {annotation_id}")
         

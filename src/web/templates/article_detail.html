@@ -582,97 +582,10 @@
             console.log(`Attempting to add ${classification} classification for: "${text.substring(0, 100)}..."`);
             console.log(`Text length: ${text.length}, Start: ${start}, End: ${end}`);
             
-            // For very long text selections, try to highlight more of it
-            if (text.length > 2000) {
-                console.log('Very long text selection detected, using position-based approach');
-                this.addLongTextClassification(start, end, classification, text);
-                return;
-            }
-            
-            // Get the current HTML content
-            const content = this.contentElement.innerHTML;
-            
-            // Create the highlight span
-            const cssClass = classification === 'huntable' 
-                ? 'bg-blue-100 dark:bg-blue-900 border-blue-300 dark:border-blue-700 text-blue-800 dark:text-blue-200' 
-                : 'bg-red-100 dark:bg-red-900 border-red-300 dark:border-red-700 text-red-800 dark:text-red-200';
-            
-            const highlightSpan = `<span class="px-1 py-0.5 rounded text-xs font-medium border ${cssClass}" title="${classification === 'huntable' ? 'Huntable' : 'Not Huntable'}: ${text.substring(0, 50)}...">${text}</span>`;
-            
-            // Debug: Log what we're looking for vs what's in the content
-            // console.log('=== TEXT REPLACEMENT DEBUG ===');
-            console.log('Looking for text:', JSON.stringify(text));
-            console.log('Text length:', text.length);
-            console.log('Content preview:', content.substring(0, 500));
-            
-            // Use a more reliable approach - replace only the first occurrence
-            let newContent = content;
-            let replaced = false;
-            
-            // Approach 1: Exact match using indexOf (most reliable)
-            const index = content.indexOf(text);
-            console.log('Exact match index:', index);
-            
-            if (index !== -1) {
-                // Verify this is actually the text we want to replace
-                const beforeText = content.substring(Math.max(0, index - 20), index);
-                const afterText = content.substring(index + text.length, index + text.length + 20);
-                console.log('Context before:', beforeText);
-                console.log('Context after:', afterText);
-                
-                newContent = content.substring(0, index) + highlightSpan + content.substring(index + text.length);
-                console.log('Found exact text match, replaced');
-                replaced = true;
-            } else {
-                console.log('Exact match failed, trying different approaches...');
-                
-                // Approach 2: Try with HTML entities decoded
-                const decodedText = text.replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'");
-                const decodedIndex = content.indexOf(decodedText);
-                console.log('Decoded text match index:', decodedIndex);
-                
-                if (decodedIndex !== -1) {
-                    newContent = content.substring(0, decodedIndex) + highlightSpan + content.substring(decodedIndex + decodedText.length);
-                    console.log('Found decoded text match, replaced');
-                    replaced = true;
-                } else {
-                    // Approach 3: Try with a longer substring (up to 500 chars)
-                    const longerText = text.substring(0, Math.min(500, text.length));
-                    const longerIndex = content.indexOf(longerText);
-                    console.log('Longer text match index:', longerIndex);
-                    
-                    if (longerIndex !== -1) {
-                        newContent = content.substring(0, longerIndex) + highlightSpan + content.substring(longerIndex + longerText.length);
-                        console.log('Found longer text match, replaced');
-                        replaced = true;
-                    } else {
-                        // Approach 4: Try with a shorter substring as last resort
-                        const shortText = text.substring(0, Math.min(100, text.length));
-                        const shortIndex = content.indexOf(shortText);
-                        console.log('Short text match index:', shortIndex);
-                        
-                        if (shortIndex !== -1) {
-                            newContent = content.substring(0, shortIndex) + highlightSpan + content.substring(shortIndex + shortText.length);
-                            console.log('Found short text match, replaced');
-                            replaced = true;
-                        } else {
-                            console.log('Could not find text to replace, trying position-based approach');
-                            // Try position-based highlighting as fallback
-                            this.highlightTextAtPosition(start, end, classification, text);
-                            return;
-                        }
-                    }
-                }
-            }
-            
-            // console.log('=== END DEBUG ===');
-            
-            // Save state before making changes
-            this.saveState();
-            
-            // Update the content
-            this.contentElement.innerHTML = newContent;
-            console.log(`Successfully added ${classification} classification`);
+            // Always use position-based highlighting to avoid text duplication issues
+            // The text-based replacement was causing duplication when the same text appeared multiple times
+            console.log('Using position-based highlighting to prevent text duplication');
+            this.highlightTextAtPosition(start, end, classification, text);
         }
         
         highlightTextAtPosition(start, end, classification, text) {
@@ -1154,48 +1067,48 @@
                     <div class="expand-controls mb-4 p-3 bg-gray-50 rounded-lg">
                         <div class="text-xs text-gray-600 mb-2">Adjust selection size:</div>
                         <div class="flex flex-wrap gap-2">
-                            <button onclick="event.stopPropagation(); simpleTextManager.expandSelection(${start}, ${end}, -200);" 
-                                    class="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded hover:bg-blue-200">
+                            <button id="expand-minus-200" 
+                                    class="text-sm px-3 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 min-h-[40px] touch-manipulation">
                                 -200 chars
                             </button>
-                            <button onclick="event.stopPropagation(); simpleTextManager.expandSelection(${start}, ${end}, -100);" 
-                                    class="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded hover:bg-blue-200">
+                            <button id="expand-minus-100" 
+                                    class="text-sm px-3 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 min-h-[40px] touch-manipulation">
                                 -100 chars
                             </button>
-                            <button onclick="event.stopPropagation(); simpleTextManager.expandSelection(${start}, ${end}, -50);" 
-                                    class="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded hover:bg-blue-200">
+                            <button id="expand-minus-50" 
+                                    class="text-sm px-3 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 min-h-[40px] touch-manipulation">
                                 -50 chars
                             </button>
-                            <button onclick="event.stopPropagation(); simpleTextManager.expandSelection(${start}, ${end}, 50);" 
-                                    class="text-xs px-2 py-1 bg-green-100 text-green-700 rounded hover:bg-green-200">
+                            <button id="expand-plus-50" 
+                                    class="text-sm px-3 py-2 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 min-h-[40px] touch-manipulation">
                                 +50 chars
                             </button>
-                            <button onclick="event.stopPropagation(); simpleTextManager.expandSelection(${start}, ${end}, 100);" 
-                                    class="text-xs px-2 py-1 bg-green-100 text-green-700 rounded hover:bg-green-200">
+                            <button id="expand-plus-100" 
+                                    class="text-sm px-3 py-2 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 min-h-[40px] touch-manipulation">
                                 +100 chars
                             </button>
-                            <button onclick="event.stopPropagation(); simpleTextManager.expandSelection(${start}, ${end}, 200);" 
-                                    class="text-xs px-2 py-1 bg-green-100 text-green-700 rounded hover:bg-green-200">
+                            <button id="expand-plus-200" 
+                                    class="text-sm px-3 py-2 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 min-h-[40px] touch-manipulation">
                                 +200 chars
                             </button>
-                            <button onclick="event.stopPropagation(); simpleTextManager.autoExpandTo1000(${start}, ${end});" 
-                                    class="text-xs px-2 py-1 bg-purple-100 text-purple-700 rounded hover:bg-purple-200 font-semibold">
+                            <button id="auto-expand-1000" 
+                                    class="text-sm px-3 py-2 bg-purple-100 text-purple-700 rounded-lg hover:bg-purple-200 font-semibold min-h-[40px] touch-manipulation">
                                 🎯 Auto 1000
                             </button>
                         </div>
                     </div>
                     
                     <div class="flex space-x-3">
-                        <button onclick="event.stopPropagation(); simpleTextManager.classifySelection(${start}, ${end}, 'huntable'); simpleTextManager.closeModal();" 
-                                class="flex-1 bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700">
+                        <button id="huntable-btn" 
+                                class="flex-1 bg-green-600 text-white px-4 py-3 rounded-lg text-lg font-semibold min-h-[48px] touch-manipulation">
                             🎯 Huntable
                         </button>
-                        <button onclick="event.stopPropagation(); simpleTextManager.classifySelection(${start}, ${end}, 'not_huntable'); simpleTextManager.closeModal();" 
-                                class="flex-1 bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700">
+                        <button id="not-huntable-btn" 
+                                class="flex-1 bg-red-600 text-white px-4 py-3 rounded-lg text-lg font-semibold min-h-[48px] touch-manipulation">
                             ❌ Not Huntable
                         </button>
-                        <button onclick="simpleTextManager.closeModal()" 
-                                class="px-4 py-2 border border-gray-300 rounded hover:bg-gray-50">
+                        <button id="cancel-btn" 
+                                class="px-4 py-3 border border-gray-300 rounded-lg text-lg font-semibold min-h-[48px] touch-manipulation">
                             Cancel
                         </button>
                     </div>
@@ -1203,6 +1116,9 @@
             `;
             
             document.body.appendChild(modal);
+            
+            // Add touch event handlers for mobile
+            addMobileModalHandlers(modal, start, end);
             
             // Add CSS styles if not already present
             if (!document.getElementById('annotation-enhancement-styles')) {
@@ -1794,7 +1710,339 @@
     let simpleTextManager;
     document.addEventListener('DOMContentLoaded', function() {
         simpleTextManager = new SimpleTextManager();
+        
+        // Add iPhone touch support
+        addiPhoneTouchSupport();
     });
+    
+    // iPhone Touch Support for Text Selection
+    function addiPhoneTouchSupport() {
+        const contentElement = document.getElementById('article-content');
+        if (!contentElement) return;
+        
+        let touchStartTime = 0;
+        let touchStartPos = null;
+        let isLongPress = false;
+        let longPressTimer = null;
+        
+        // Add touch event listeners
+        contentElement.addEventListener('touchstart', function(e) {
+            touchStartTime = Date.now();
+            touchStartPos = {
+                x: e.touches[0].clientX,
+                y: e.touches[0].clientY
+            };
+            
+            console.log('📱 Touch start at:', touchStartPos);
+            
+            // Start long press timer
+            longPressTimer = setTimeout(() => {
+                console.log('📱 Long press timer triggered');
+                isLongPress = true;
+                handleLongPress(e);
+            }, 800); // 800ms for long press (more reliable on iPhone)
+            
+            // Don't prevent default to allow text selection
+        }, { passive: true });
+        
+        contentElement.addEventListener('touchmove', function(e) {
+            // Cancel long press if finger moves too much
+            if (touchStartPos) {
+                const deltaX = Math.abs(e.touches[0].clientX - touchStartPos.x);
+                const deltaY = Math.abs(e.touches[0].clientY - touchStartPos.y);
+                
+                if (deltaX > 10 || deltaY > 10) {
+                    clearTimeout(longPressTimer);
+                    isLongPress = false;
+                }
+            }
+        });
+        
+        contentElement.addEventListener('touchend', function(e) {
+            clearTimeout(longPressTimer);
+            
+            if (!isLongPress) {
+                // Handle regular tap for text selection
+                handleTap(e);
+            }
+            
+            isLongPress = false;
+            touchStartPos = null;
+        });
+        
+        function handleLongPress(e) {
+            console.log('📱 iPhone long press detected');
+            
+            // Get text at touch point
+            const touch = e.touches[0];
+            const range = document.caretRangeFromPoint ? 
+                document.caretRangeFromPoint(touch.clientX, touch.clientY) :
+                document.createRange();
+            
+            if (range) {
+                // Select word at touch point
+                range.selectNodeContents(range.commonAncestorContainer);
+                if (range.commonAncestorContainer.nodeType === Node.TEXT_NODE) {
+                    const textNode = range.commonAncestorContainer;
+                    const text = textNode.textContent;
+                    const touchOffset = range.startOffset;
+                    
+                    // Find word boundaries
+                    let start = touchOffset;
+                    let end = touchOffset;
+                    
+                    while (start > 0 && /\S/.test(text[start - 1])) start--;
+                    while (end < text.length && /\S/.test(text[end])) end++;
+                    
+                    range.setStart(textNode, start);
+                    range.setEnd(textNode, end);
+                    
+                    const selection = window.getSelection();
+                    selection.removeAllRanges();
+                    selection.addRange(range);
+                    
+                    // Trigger annotation modal
+                    if (simpleTextManager && selection.toString().trim()) {
+                        const selectedText = selection.toString();
+                        const fullText = contentElement.textContent;
+                        const startPos = fullText.indexOf(selectedText);
+                        const endPos = startPos + selectedText.length;
+                        
+                        if (startPos !== -1) {
+                            console.log('📱 iPhone: Triggering annotation modal');
+                            simpleTextManager.showClassificationOptions(startPos, endPos);
+                        }
+                    }
+                }
+            }
+        }
+        
+        function handleTap(e) {
+            // Handle regular tap - let browser handle text selection
+            console.log('📱 iPhone tap detected');
+        }
+        
+        // Primary method: Double-tap to activate annotation modal
+        let tapCount = 0;
+        let tapTimer = null;
+        
+        contentElement.addEventListener('touchend', function(e) {
+            tapCount++;
+            
+            if (tapCount === 1) {
+                tapTimer = setTimeout(() => {
+                    tapCount = 0;
+                }, 300);
+            } else if (tapCount === 2) {
+                clearTimeout(tapTimer);
+                tapCount = 0;
+                
+                console.log('📱 Double tap detected - triggering annotation modal');
+                
+                // Get current selection
+                const selection = window.getSelection();
+                if (selection.toString().trim()) {
+                    const selectedText = selection.toString();
+                    const fullText = contentElement.textContent;
+                    const startPos = fullText.indexOf(selectedText);
+                    const endPos = startPos + selectedText.length;
+                    
+                    if (startPos !== -1 && simpleTextManager) {
+                        console.log('📱 Double tap: Triggering annotation modal');
+                        simpleTextManager.showClassificationOptions(startPos, endPos);
+                    }
+                } else {
+                    // If no text is selected, try to select word at tap location
+                    console.log('📱 Double tap: No selection, trying to select word');
+                    selectWordAtTapLocation(e);
+                }
+            }
+        });
+        
+        // Helper function to select word at tap location
+        function selectWordAtTapLocation(e) {
+            // Get touch coordinates
+            const touch = e.changedTouches[0];
+            const x = touch.clientX;
+            const y = touch.clientY;
+            
+            // Try to get text at touch point
+            if (document.caretRangeFromPoint) {
+                const range = document.caretRangeFromPoint(x, y);
+                if (range) {
+                    const textNode = range.commonAncestorContainer;
+                    if (textNode.nodeType === Node.TEXT_NODE) {
+                        const text = textNode.textContent;
+                        const offset = range.startOffset;
+                        
+                        // Find word boundaries
+                        let start = offset;
+                        let end = offset;
+                        
+                        while (start > 0 && /\S/.test(text[start - 1])) start--;
+                        while (end < text.length && /\S/.test(text[end])) end++;
+                        
+                        if (start < end) {
+                            // Create selection
+                            const newRange = document.createRange();
+                            newRange.setStart(textNode, start);
+                            newRange.setEnd(textNode, end);
+                            
+                            const selection = window.getSelection();
+                            selection.removeAllRanges();
+                            selection.addRange(newRange);
+                            
+                            // Trigger annotation modal
+                            const selectedText = selection.toString();
+                            const fullText = contentElement.textContent;
+                            const startPos = fullText.indexOf(selectedText);
+                            const endPos = startPos + selectedText.length;
+                            
+                            if (startPos !== -1 && simpleTextManager) {
+                                console.log('📱 Double tap: Word selected, triggering modal');
+                                simpleTextManager.showClassificationOptions(startPos, endPos);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        
+        console.log('📱 iPhone touch support added');
+        
+        // Add iPhone instructions
+        addiPhoneInstructions();
+    }
+    
+    // Add mobile-friendly touch handlers for modal buttons
+    function addMobileModalHandlers(modal, start, end) {
+        // Huntable button
+        const huntableBtn = modal.querySelector('#huntable-btn');
+        if (huntableBtn) {
+            huntableBtn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                console.log('📱 Huntable button clicked');
+                simpleTextManager.classifySelection(start, end, 'huntable');
+                simpleTextManager.closeModal();
+            });
+            
+            huntableBtn.addEventListener('touchend', function(e) {
+                e.stopPropagation();
+                console.log('📱 Huntable button touched');
+                simpleTextManager.classifySelection(start, end, 'huntable');
+                simpleTextManager.closeModal();
+            });
+        }
+        
+        // Not Huntable button
+        const notHuntableBtn = modal.querySelector('#not-huntable-btn');
+        if (notHuntableBtn) {
+            notHuntableBtn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                console.log('📱 Not Huntable button clicked');
+                simpleTextManager.classifySelection(start, end, 'not_huntable');
+                simpleTextManager.closeModal();
+            });
+            
+            notHuntableBtn.addEventListener('touchend', function(e) {
+                e.stopPropagation();
+                console.log('📱 Not Huntable button touched');
+                simpleTextManager.classifySelection(start, end, 'not_huntable');
+                simpleTextManager.closeModal();
+            });
+        }
+        
+        // Cancel button
+        const cancelBtn = modal.querySelector('#cancel-btn');
+        if (cancelBtn) {
+            cancelBtn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                console.log('📱 Cancel button clicked');
+                simpleTextManager.closeModal();
+            });
+            
+            cancelBtn.addEventListener('touchend', function(e) {
+                e.stopPropagation();
+                console.log('📱 Cancel button touched');
+                simpleTextManager.closeModal();
+            });
+        }
+        
+        // Auto 1000 button
+        const autoExpandBtn = modal.querySelector('#auto-expand-1000');
+        if (autoExpandBtn) {
+            autoExpandBtn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                console.log('📱 Auto 1000 button clicked');
+                simpleTextManager.autoExpandTo1000(start, end);
+            });
+            
+            autoExpandBtn.addEventListener('touchend', function(e) {
+                e.stopPropagation();
+                console.log('📱 Auto 1000 button touched');
+                simpleTextManager.autoExpandTo1000(start, end);
+            });
+        }
+        
+        // Expand buttons
+        const expandButtons = [
+            { id: 'expand-minus-200', amount: -200 },
+            { id: 'expand-minus-100', amount: -100 },
+            { id: 'expand-minus-50', amount: -50 },
+            { id: 'expand-plus-50', amount: 50 },
+            { id: 'expand-plus-100', amount: 100 },
+            { id: 'expand-plus-200', amount: 200 }
+        ];
+        
+        expandButtons.forEach(btn => {
+            const button = modal.querySelector(`#${btn.id}`);
+            if (button) {
+                button.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    console.log(`📱 Expand button clicked: ${btn.amount}`);
+                    simpleTextManager.expandSelection(start, end, btn.amount);
+                });
+                
+                button.addEventListener('touchend', function(e) {
+                    e.stopPropagation();
+                    console.log(`📱 Expand button touched: ${btn.amount}`);
+                    simpleTextManager.expandSelection(start, end, btn.amount);
+                });
+            }
+        });
+        
+        console.log('📱 Mobile modal handlers added');
+    }
+    
+    function addiPhoneInstructions() {
+        // Check if we're on mobile
+        const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+        if (!isMobile) return;
+        
+        // Add instructions banner
+        const instructions = document.createElement('div');
+        instructions.id = 'iphone-instructions';
+        instructions.className = 'bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4 text-sm text-blue-800';
+        instructions.innerHTML = `
+            <div class="flex items-center space-x-2">
+                <span class="text-lg">📱</span>
+                <div>
+                    <strong>iPhone Annotation:</strong> 
+                    <span class="block mt-1">
+                        • <strong>Double-tap any word</strong> to select and annotate<br>
+                        • <strong>Or select text normally</strong> then <strong>double-tap</strong> to annotate<br>
+                        • <strong>Use "🎯 Auto 1000"</strong> to expand to 1000 characters<br>
+                        • <strong>Perfect for ML training</strong>
+                    </span>
+                </div>
+            </div>
+        `;
+        
+        const contentElement = document.getElementById('article-content');
+        if (contentElement && !document.getElementById('iphone-instructions')) {
+            contentElement.parentNode.insertBefore(instructions, contentElement);
+        }
+    }
     
     // Classification functions
     async function classifyArticle(category) {

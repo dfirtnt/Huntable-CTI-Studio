@@ -595,7 +595,6 @@ class AsyncDatabaseManager:
                     try:
                         # Row is a SQLAlchemy Row object, access the ArticleTable object
                         db_article = row[0] if hasattr(row, '__getitem__') else row
-                        annotation_count = 0  # Default annotation count
                         
                         # Debug: Check what type of object we have
                         logger.info(f"Row type: {type(row)}, Article type: {type(db_article)}, has id: {hasattr(db_article, 'id')}")
@@ -605,6 +604,17 @@ class AsyncDatabaseManager:
                     
                     # Use the proper conversion method
                     article = self._db_article_to_model(db_article)
+                    
+                    # Get actual annotation count for this article
+                    try:
+                        annotation_count_query = select(func.count(ArticleAnnotationTable.id)).where(
+                            ArticleAnnotationTable.article_id == article.id
+                        )
+                        annotation_count_result = await session.execute(annotation_count_query)
+                        annotation_count = annotation_count_result.scalar() or 0
+                    except Exception as e:
+                        logger.error(f"Failed to get annotation count for article {article.id}: {e}")
+                        annotation_count = 0
                     
                     # Add annotation count to metadata
                     if article.article_metadata is None:
