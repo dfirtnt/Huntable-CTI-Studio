@@ -48,6 +48,24 @@ Analysis Results + Cost Savings
 
 The enhanced annotation system provides a sophisticated interface for creating high-quality evaluation data for ML model training. It ensures that evaluation excerpts match the production chunking parameters used by the ML model.
 
+## ML vs Hunt Comparison Dashboard
+
+The ML vs Hunt Comparison Dashboard provides comprehensive analytics for monitoring and improving ML model performance. It includes:
+
+### Key Features
+- **Time Series Analysis**: Track classification trends across model versions
+- **Model Retraining**: Retrain models with user feedback and track progress
+- **Model Evaluation**: Evaluate model performance on test set with detailed metrics
+- **Performance Visualization**: Radar charts and accuracy trends
+- **Backfill Processing**: Process articles with high hunt scores for analysis
+
+### Recent Improvements (October 2024)
+- **Fixed Agreement Calculation**: Corrected ml_prediction AND hunt_prediction logic
+- **Percentage-Based Metrics**: Converted from raw counts to percentages for better trend analysis
+- **Chart.js Canvas Management**: Proper chart instance destruction to prevent errors
+- **Data Accuracy**: Removed artificial 10,000 limit to show actual data counts (11,644)
+- **UI/UX Enhancements**: Button state management and visual feedback improvements
+
 ### Key Features
 
 #### 1. Real-Time Character Counting

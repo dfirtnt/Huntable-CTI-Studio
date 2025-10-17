@@ -34,8 +34,17 @@ The CTI Scraper provides 90+ API endpoints across multiple categories:
 - `GET /api/model/versions` - List all model versions with performance metrics
 - `GET /api/model/compare/{version_id}` - Compare model versions and get performance differences
 - `GET /api/model/feedback-comparison` - Get feedback impact analysis showing confidence changes
+- `GET /api/model/classification-timeline` - Get classification trends data across model versions
+- `GET /api/model/feedback-count` - Get count of available feedback samples for retraining
 - `POST /api/model/retrain` - Retrain model with user feedback data
+- `POST /api/model/evaluate` - Evaluate current model on test set with detailed metrics
 - `POST /api/feedback/chunk-classification` - Submit user feedback on chunk classifications
+
+### ML vs Hunt Comparison
+- `GET /api/ml-hunt-comparison/summary` - Get dashboard summary statistics
+- `GET /api/ml-hunt-comparison/stats` - Get detailed comparison statistics
+- `GET /api/ml-hunt-comparison/eligible-count` - Get count of articles eligible for processing
+- `POST /api/ml-hunt-comparison/backfill` - Process eligible articles for chunk analysis
 
 ## Backup Management Endpoints
 
