@@ -44,6 +44,7 @@ docs/
 ### 🤖 AI Features
 - **Hybrid IOC Extraction**: `development/HYBRID_IOC_EXTRACTION.md` - Advanced IOC extraction system
 - **Content Filtering System**: `CONTENT_FILTERING_SYSTEM.md` - ML-based content filtering with hunt score integration
+- **ML vs Hunt Comparison**: `ML_VS_HUNT_COMPARISON_GUIDE.md` - Comprehensive ML model analysis dashboard
 - **GPT-4o Optimization**: `GPT4O_CONTENT_FILTERING_SYSTEM.md` - Enhanced filtering system documentation
 
 ### 🏗️ Architecture & Quality
