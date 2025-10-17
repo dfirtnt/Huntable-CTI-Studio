@@ -4839,12 +4839,32 @@ async def api_get_chunk_feedback(article_id: int, chunk_id: int):
         raise HTTPException(status_code=500, detail=f"Failed to get chunk feedback: {str(e)}")
 
 
+@app.get("/api/model/retrain-status")
+async def api_model_retrain_status():
+    """Get current retraining status."""
+    try:
+        import os
+        status_file = "outputs/training_data/retrain_status.json"
+        
+        if os.path.exists(status_file):
+            import json
+            with open(status_file, 'r') as f:
+                return json.load(f)
+        else:
+            return {"status": "idle", "progress": 0, "message": "No retraining in progress"}
+            
+    except Exception as e:
+        logger.error(f"Error getting retrain status: {e}")
+        return {"status": "error", "progress": 0, "message": f"Error: {str(e)}"}
+
 @app.post("/api/model/retrain")
 async def api_model_retrain():
     """Trigger model retraining using collected user feedback."""
     try:
         import subprocess
         import os
+        import json
+        import threading
         
         # Check if feedback file exists
         feedback_file = "outputs/training_data/chunk_classification_feedback.csv"
@@ -4856,62 +4876,55 @@ async def api_model_retrain():
         if not os.path.exists(retrain_script):
             return {"success": False, "message": "Retraining script not found"}
         
-        # Execute retraining script
-        result = subprocess.run([
-            "python3", retrain_script, "--verbose"
-        ], capture_output=True, text=True, timeout=300)  # 5 minute timeout
+        # Create status file
+        status_file = "outputs/training_data/retrain_status.json"
+        os.makedirs(os.path.dirname(status_file), exist_ok=True)
         
-        if result.returncode == 0:
-            # Copy updated model to container if retraining was successful
-            if os.path.exists("models/content_filter.pkl"):
-                try:
-                    subprocess.run([
-                        "docker", "cp", "models/content_filter.pkl", "cti_web:/app/models/content_filter.pkl"
-                    ], check=True)
-                except subprocess.CalledProcessError:
-                    # Docker copy failed, but retraining succeeded
-                    pass
-            
-            # Parse the retraining result for comparison data
-            response_data = {
-                "success": True, 
-                "message": "Model retraining completed successfully",
-                "output": result.stdout
-            }
-            
-            # Mark feedback as used for training
-            await mark_feedback_as_used()
-            
-            # Check if we have multiple model versions for comparison
+        def update_status(status, progress, message):
+            with open(status_file, 'w') as f:
+                json.dump({"status": status, "progress": progress, "message": message}, f)
+        
+        # Start with initial status
+        update_status("starting", 10, "Starting retraining process...")
+        
+        def run_retrain():
             try:
-                from src.utils.model_versioning import MLModelVersionManager
-                version_manager = MLModelVersionManager(async_db_manager)
-                versions = await version_manager.get_all_versions(limit=2)
+                update_status("loading", 20, "Loading training data...")
                 
-                # If we have 2 or more versions, comparison is available
-                if len(versions) >= 2:
-                    response_data["has_comparison"] = True
-                    response_data["comparison_available"] = True
-                    response_data["latest_version_id"] = versions[0].id
+                # Execute retraining script
+                result = subprocess.run([
+                    "python3", retrain_script, "--verbose"
+                ], capture_output=True, text=True, timeout=300)
+                
+                if result.returncode == 0:
+                    update_status("complete", 100, "Retraining completed successfully")
                 else:
-                    response_data["has_comparison"] = False
+                    update_status("error", 0, f"Retraining failed: {result.stderr}")
+                    
             except Exception as e:
-                logger.warning(f"Could not check comparison availability: {e}")
-                response_data["has_comparison"] = False
-            
-            return response_data
-        else:
-            return {
-                "success": False, 
-                "message": f"Retraining failed: {result.stderr}",
-                "output": result.stdout
-            }
+                update_status("error", 0, f"Retraining error: {str(e)}")
+            finally:
+                # Clean up status file after 30 seconds
+                import time
+                time.sleep(30)
+                if os.path.exists(status_file):
+                    os.remove(status_file)
         
-    except subprocess.TimeoutExpired:
-        return {"success": False, "message": "Retraining timed out after 5 minutes"}
+        # Start retraining in background thread
+        retrain_thread = threading.Thread(target=run_retrain)
+        retrain_thread.daemon = True
+        retrain_thread.start()
+        
+        # Return immediately with status
+        return {
+            "success": True,
+            "message": "Retraining started",
+            "status": "started"
+        }
+        
     except Exception as e:
-        logger.error(f"Model retraining failed: {str(e)}")
-        return {"success": False, "message": f"Retraining failed: {str(e)}"}
+        logger.error(f"Error starting retraining: {e}")
+        return {"success": False, "message": f"Failed to start retraining: {str(e)}"}
 
 
 @app.get("/api/model/versions")
@@ -5028,56 +5041,6 @@ async def api_model_evaluate():
         return {"success": False, "message": f"Evaluation failed: {str(e)}"}
 
 
-@app.post("/api/model/retrain")
-async def api_model_retrain():
-    """Retrain the ML model with latest annotated data."""
-    try:
-        from src.utils.content_filter import ContentFilter
-        from src.utils.model_training import ModelTrainer
-        from src.utils.model_versioning import MLModelVersionManager
-        
-        # Initialize trainer
-        trainer = ModelTrainer()
-        
-        # Run retraining
-        logger.info("Starting model retraining...")
-        training_results = trainer.retrain_model()
-        
-        # Mark feedback as used for training
-        await mark_feedback_as_used()
-        
-        # Save new model version
-        version_manager = MLModelVersionManager(async_db_manager)
-        new_version = await version_manager.create_new_version(
-            model_path=training_results["model_path"],
-            training_accuracy=training_results["training_accuracy"],
-            validation_accuracy=training_results["validation_accuracy"],
-            training_samples=training_results["training_samples"],
-            validation_samples=training_results["validation_samples"],
-            training_duration=training_results["training_duration"]
-        )
-        
-        # Prepare response
-        response_data = {
-            "success": True,
-            "message": "Model retraining completed successfully",
-            "new_version": new_version.version_number,
-            "training_accuracy": training_results["training_accuracy"],
-            "validation_accuracy": training_results["validation_accuracy"],
-            "training_duration": f"{training_results['training_duration']:.1f}s",
-            "training_samples": training_results["training_samples"],
-            "validation_samples": training_results["validation_samples"]
-        }
-        
-        logger.info(f"Retraining complete. New version: v{new_version.version_number}, Validation accuracy: {training_results['validation_accuracy']:.3f}")
-        return response_data
-        
-    except FileNotFoundError as e:
-        logger.error(f"Training data not found: {e}")
-        return {"success": False, "message": "Training dataset not found. Please ensure annotated data is available."}
-    except Exception as e:
-        logger.error(f"Model retraining failed: {e}")
-        return {"success": False, "message": f"Retraining failed: {str(e)}"}
 
 
 async def mark_feedback_as_used():
@@ -6868,29 +6831,6 @@ async def get_available_model_versions():
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.post("/api/ml-hunt-comparison/backfill")
-async def backfill_chunk_analysis(
-    min_hunt_score: float = 50.0,
-    min_confidence: float = 0.7,
-    limit: int = None
-):
-    """Backfill chunk analysis for articles with hunt_score > threshold."""
-    try:
-        from src.services.chunk_analysis_backfill import ChunkAnalysisBackfillService
-        from src.database.manager import DatabaseManager
-        
-        db_manager = DatabaseManager()
-        sync_db = db_manager.get_session()
-        try:
-            service = ChunkAnalysisBackfillService(sync_db)
-            results = service.backfill_all(min_hunt_score, min_confidence, limit)
-        finally:
-            sync_db.close()
-        
-        return {"success": True, "results": results}
-    except Exception as e:
-        logger.error(f"Error in backfill: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.get("/api/ml-hunt-comparison/eligible-count")

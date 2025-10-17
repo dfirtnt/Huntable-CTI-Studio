@@ -67,40 +67,6 @@
         </div>
     </div>
 
-    <!-- Backfill Section -->
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-8">
-        <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">🔄 Backfill Chunk Analysis</h2>
-        <p class="text-gray-600 dark:text-gray-400 mb-4">Process articles with hunt_score > 50 to populate comparison data</p>
-        
-        <div class="flex justify-between items-center">
-            <div class="text-lg font-medium text-gray-900 dark:text-white">
-                <span id="eligibleCount">-</span> articles eligible for processing
-            </div>
-            <div class="flex gap-3">
-                <button id="processAllBtn" 
-                        class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
-                    Process All Eligible Articles
-                </button>
-                <button id="refreshCountBtn" 
-                        class="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2">
-                    Refresh Count
-                </button>
-            </div>
-        </div>
-        
-        <!-- Progress Bar -->
-        <div id="progressSection" class="hidden mt-4">
-            <div class="w-full bg-gray-200 rounded-full h-2">
-                <div id="progressBar" class="bg-blue-600 h-2 rounded-full transition-all duration-300" style="width: 0%"></div>
-            </div>
-            <div id="progressText" class="text-sm text-gray-600 mt-2">Processing...</div>
-        </div>
-        
-        <!-- Results -->
-        <div id="resultsSection" class="hidden mt-4 p-4 bg-gray-50 dark:bg-gray-700 rounded-md">
-            <div id="resultsContent"></div>
-        </div>
-    </div>
     
     <!-- Model Evaluation Section -->
     <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-8">
@@ -254,17 +220,32 @@
 
         function updateSummaryStats() {
             const summary = currentData.summary;
-        document.getElementById('totalModelVersions').textContent = summary.total_model_versions;
-        document.getElementById('totalChunkAnalyses').textContent = summary.total_chunk_analyses.toLocaleString();
             
-        if (summary.overall_stats && summary.overall_stats.length > 0) {
+            // Safely update elements if they exist
+            const totalModelVersionsEl = document.getElementById('totalModelVersions');
+            if (totalModelVersionsEl) {
+                totalModelVersionsEl.textContent = summary.total_model_versions;
+            }
+            
+            const totalChunkAnalysesEl = document.getElementById('totalChunkAnalyses');
+            if (totalChunkAnalysesEl) {
+                totalChunkAnalysesEl.textContent = summary.total_chunk_analyses.toLocaleString();
+            }
+            
+            if (summary.overall_stats && summary.overall_stats.length > 0) {
                 const avgAccuracy = summary.overall_stats.reduce((sum, stat) => sum + stat.accuracy, 0) / summary.overall_stats.length;
-            document.getElementById('averageAccuracy').textContent = (avgAccuracy * 100).toFixed(1) + '%';
+                const averageAccuracyEl = document.getElementById('averageAccuracy');
+                if (averageAccuracyEl) {
+                    averageAccuracyEl.textContent = (avgAccuracy * 100).toFixed(1) + '%';
+                }
             }
             
             if (summary.last_updated) {
                 const date = new Date(summary.last_updated);
-                document.getElementById('lastUpdated').textContent = date.toLocaleDateString();
+                const lastUpdatedEl = document.getElementById('lastUpdated');
+                if (lastUpdatedEl) {
+                    lastUpdatedEl.textContent = date.toLocaleDateString();
+                }
             }
         }
 
@@ -573,6 +554,12 @@
         async function checkEligibleCount() {
             const countElement = document.getElementById('eligibleCount');
             
+            // Check if element exists before trying to use it
+            if (!countElement) {
+                console.warn('eligibleCount element not found, skipping count check');
+                return;
+            }
+            
             try {
                 countElement.textContent = 'Checking...';
                 
@@ -589,85 +576,12 @@
                 }
             } catch (error) {
                 console.error('Error checking eligible count:', error);
-                countElement.textContent = 'Error checking eligible articles';
-        }
+                if (countElement) {
+                    countElement.textContent = 'Error checking eligible articles';
+                }
+            }
         }
 
-        async function startBackfill() {
-        const btn = document.getElementById('processAllBtn');
-        const progressSection = document.getElementById('progressSection');
-        const resultsSection = document.getElementById('resultsSection');
-        const progressBar = document.getElementById('progressBar');
-            const progressText = document.getElementById('progressText');
-        const resultsContent = document.getElementById('resultsContent');
-            
-            // Disable button and show progress
-            btn.disabled = true;
-            btn.textContent = 'Processing...';
-        progressSection.classList.remove('hidden');
-        resultsSection.classList.add('hidden');
-        progressBar.style.width = '0%';
-            progressText.textContent = 'Starting backfill...';
-            
-            try {
-                const response = await fetch('/api/ml-hunt-comparison/backfill', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        min_hunt_score: 50.0,
-                        min_confidence: 0.7
-                    })
-                });
-                
-                const data = await response.json();
-                
-                if (data.success && data.results) {
-                    const results = data.results;
-                    
-                    // Update progress to 100%
-                progressBar.style.width = '100%';
-                    progressText.textContent = 'Complete!';
-                    
-                    // Show results
-                resultsSection.classList.remove('hidden');
-                resultsContent.innerHTML = `
-                    <div class="text-green-600 font-semibold">✅ Backfill Complete</div>
-                    <div class="mt-2">
-                        <p><strong>Total Eligible:</strong> ${results.total_eligible}</p>
-                        <p><strong>Processed:</strong> ${results.processed}</p>
-                        <p><strong>Successful:</strong> ${results.successful}</p>
-                        <p><strong>Failed:</strong> ${results.failed}</p>
-                    </div>
-                    `;
-                    
-                    // Reload data
-                    setTimeout(() => {
-                        loadInitialData();
-                        checkEligibleCount();
-                    }, 1000);
-                    
-                } else {
-                    throw new Error(data.error || 'Backfill failed');
-                }
-                
-            } catch (error) {
-                console.error('Error during backfill:', error);
-            resultsSection.classList.remove('hidden');
-            resultsContent.innerHTML = `
-                <div class="text-red-600 font-semibold">❌ Backfill Failed</div>
-                <div class="mt-2 text-red-600">${error.message}</div>
-                `;
-            } finally {
-                // Re-enable button
-                btn.disabled = false;
-                btn.textContent = 'Process All Eligible Articles';
-                setTimeout(() => {
-                progressSection.classList.add('hidden');
-            }, 3000);
-        }
-    }
 
     // Evaluation functions
     async function runEvaluation() {
@@ -873,6 +787,11 @@
         progressText.textContent = 'Starting retraining...';
         
         try {
+            // Show initial progress
+            progressText.textContent = 'Starting retraining process...';
+            progressBar.style.width = '10%';
+            
+            // Start the retrain request
             const response = await fetch('/api/model/retrain', {
                 method: 'POST',
                 headers: {
@@ -882,6 +801,39 @@
             
             const data = await response.json();
             
+            if (data.success && data.status === 'started') {
+                // Poll for status updates
+                const pollStatus = async () => {
+                    try {
+                        const statusResponse = await fetch('/api/model/retrain-status');
+                        const statusData = await statusResponse.json();
+                        
+                        // Update progress bar and text
+                        progressBar.style.width = `${statusData.progress}%`;
+                        progressText.textContent = statusData.message;
+                        
+                        // Continue polling if not complete
+                        if (statusData.status === 'complete') {
+                            // Show final results
+                            showRetrainResults(statusData, btn, progressSection, resultsSection, progressBar, progressText, resultsContent);
+                        } else if (statusData.status === 'error') {
+                            throw new Error(statusData.message);
+                        } else {
+                            // Continue polling
+                            setTimeout(pollStatus, 2000);
+                        }
+                    } catch (error) {
+                        console.error('Error polling status:', error);
+                        progressText.textContent = 'Error checking status';
+                    }
+                };
+                
+                // Start polling
+                setTimeout(pollStatus, 1000);
+                return; // Exit early, polling will handle completion
+            }
+            
+            // Fallback for non-polling responses
             if (data.success) {
                 // Update progress to 100%
                 progressBar.style.width = '100%';
@@ -889,20 +841,69 @@
                 
                 // Show results
                 resultsSection.classList.remove('hidden');
+                let backfillInfo = '';
+                if (data.backfill_results && data.backfill_results.successful !== undefined) {
+                    backfillInfo = `
+                        <div class="mt-4 p-3 bg-blue-50 dark:bg-blue-900 rounded-md">
+                            <div class="text-blue-600 font-semibold">🔄 Automatic Backfill Complete</div>
+                            <div class="mt-1 text-sm">
+                                <p><strong>Articles Processed:</strong> ${data.backfill_results.processed || 0}</p>
+                                <p><strong>Successful:</strong> ${data.backfill_results.successful || 0}</p>
+                                <p><strong>Failed:</strong> ${data.backfill_results.failed || 0}</p>
+                            </div>
+                        </div>
+                    `;
+                }
+                
+                // Parse command output for detailed status
+                let outputDetails = '';
+                if (data.output) {
+                    const lines = data.output.split('\n');
+                    const importantLines = lines.filter(line => 
+                        line.includes('📊') || 
+                        line.includes('✅') || 
+                        line.includes('🔄') || 
+                        line.includes('🧪') ||
+                        line.includes('🎉') ||
+                        line.includes('Backfill completed:') ||
+                        line.includes('Loaded') ||
+                        line.includes('Training') ||
+                        line.includes('Evaluation') ||
+                        line.includes('Saved')
+                    );
+                    
+                    if (importantLines.length > 0) {
+                        outputDetails = `
+                            <div class="mt-4 p-3 bg-gray-50 dark:bg-gray-800 rounded-md">
+                                <div class="text-gray-700 dark:text-gray-300 font-semibold mb-2">📋 Process Details:</div>
+                                <div class="text-sm text-gray-600 dark:text-gray-400 font-mono space-y-1 max-h-40 overflow-y-auto">
+                                    ${importantLines.map(line => `<div class="py-1">${line}</div>`).join('')}
+                                </div>
+                            </div>
+                        `;
+                    }
+                }
+                
                 resultsContent.innerHTML = `
                     <div class="text-green-600 font-semibold">✅ Retraining Complete</div>
                     <div class="mt-2">
-                        <p><strong>New Model Version:</strong> v${data.new_version}</p>
-                        <p><strong>Training Accuracy:</strong> ${(data.training_accuracy * 100).toFixed(1)}%</p>
-                        <p><strong>Validation Accuracy:</strong> ${(data.validation_accuracy * 100).toFixed(1)}%</p>
-                        <p><strong>Training Duration:</strong> ${data.training_duration}</p>
-                        <p><strong>Training Samples:</strong> ${data.training_samples}</p>
+                        <p><strong>New Model Version:</strong> v${data.new_version || 'unknown'}</p>
+                        <p><strong>Training Accuracy:</strong> ${data.training_accuracy ? (data.training_accuracy * 100).toFixed(1) + '%' : 'N/A'}</p>
+                        <p><strong>Validation Accuracy:</strong> ${data.validation_accuracy ? (data.validation_accuracy * 100).toFixed(1) + '%' : 'N/A'}</p>
+                        <p><strong>Training Duration:</strong> ${data.training_duration || 'N/A'}</p>
+                        <p><strong>Training Samples:</strong> ${data.training_samples || 'N/A'}</p>
                     </div>
+                    ${backfillInfo}
+                    ${outputDetails}
                 `;
                 
                 // Update status
-                document.getElementById('retrainingStatus').textContent = 
-                    `Current model: v${data.new_version} (${(data.validation_accuracy * 100).toFixed(1)}% accuracy)`;
+                const version = data.new_version || 'unknown';
+                const accuracy = data.validation_accuracy ? (data.validation_accuracy * 100).toFixed(1) : 'N/A';
+                const statusElement = document.getElementById('retrainingStatus');
+                if (statusElement) {
+                    statusElement.textContent = `Current model: v${version} (${accuracy}% accuracy)`;
+                }
                 
                 // Reload data
                 setTimeout(() => {
@@ -994,6 +995,36 @@
         }
     }
 
+    function showRetrainResults(statusData, btn, progressSection, resultsSection, progressBar, progressText, resultsContent) {
+        // Update progress to 100%
+        progressBar.style.width = '100%';
+        progressText.textContent = 'Complete!';
+        
+        // Show results
+        resultsSection.classList.remove('hidden');
+        resultsContent.innerHTML = `
+            <div class="text-green-600 font-semibold">✅ Retraining Complete</div>
+            <div class="mt-2">
+                <p><strong>Status:</strong> ${statusData.message}</p>
+                <p><strong>Progress:</strong> ${statusData.progress}%</p>
+            </div>
+        `;
+        
+        // Re-enable button
+        btn.disabled = false;
+        btn.textContent = 'Retrain Model';
+        
+        // Hide progress after delay
+        setTimeout(() => {
+            progressSection.classList.add('hidden');
+        }, 3000);
+        
+        // Reload data
+        setTimeout(() => {
+            loadInitialData();
+        }, 1000);
+    }
+
     // Event listeners
         document.addEventListener('DOMContentLoaded', () => {
             loadInitialData();
@@ -1002,8 +1033,6 @@
         refreshRetrainingStatus();
         
         // Add event listeners
-        document.getElementById('processAllBtn').addEventListener('click', startBackfill);
-        document.getElementById('refreshCountBtn').addEventListener('click', checkEligibleCount);
         document.getElementById('evaluateModelBtn').addEventListener('click', runEvaluation);
         document.getElementById('refreshEvalStatusBtn').addEventListener('click', checkEvaluationStatus);
         document.getElementById('retrainModelBtn').addEventListener('click', retrainModel);
