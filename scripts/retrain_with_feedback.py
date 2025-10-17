@@ -85,6 +85,35 @@ def load_annotation_data():
         print(f"❌ Error loading annotation data: {e}")
         return pd.DataFrame()
 
+def mark_annotations_as_used():
+    """Mark all annotations as used for training by deleting them from database."""
+    try:
+        from database.manager import DatabaseManager
+        
+        db_manager = DatabaseManager()
+        session = db_manager.get_session()
+        
+        try:
+            from sqlalchemy import text
+            
+            # Delete annotations that were used for training
+            query = text("""
+            DELETE FROM article_annotations 
+            WHERE LENGTH(selected_text) >= 950
+            """)
+            
+            result = session.execute(query)
+            session.commit()
+            
+            deleted_count = result.rowcount
+            print(f"🗑️  Marked {deleted_count} annotations as used (deleted from database)")
+            
+        finally:
+            session.close()
+        
+    except Exception as e:
+        print(f"❌ Error marking annotations as used: {e}")
+
 def process_feedback_for_training(feedback_df: pd.DataFrame):
     """Process feedback data into training format."""
     if feedback_df.empty:
@@ -219,6 +248,9 @@ def retrain_model_with_feedback(original_file: str = "outputs/training_data/comb
     if training_result and training_result.get('success'):
         print("✅ Model retraining completed successfully!")
         
+        # Mark annotations as used after successful retraining
+        mark_annotations_as_used()
+        
         # Save new model version to database
         new_version_id = None
         try:
@@ -257,18 +289,30 @@ def retrain_model_with_feedback(original_file: str = "outputs/training_data/comb
                     
                     asyncio.run(update_comparison_reference())
                     print(f"📊 Set comparison reference: version {new_version_id} compares with version {old_version_id}")
-                    
-                    # Return comparison data for API response
-                    training_result['comparison'] = True
-                    training_result['new_version_id'] = new_version_id
-                    training_result['old_version_id'] = old_version_id
-                    
                 except Exception as e:
                     print(f"⚠️  Could not set comparison reference: {e}")
-                    # Still return the version IDs for the API to handle comparison
-                    training_result['comparison'] = True
-                    training_result['new_version_id'] = new_version_id
-                    training_result['old_version_id'] = old_version_id
+            
+            # Automatically run backfill with new model
+            print("\n🔄 Running automatic backfill with new model...")
+            try:
+                from src.services.chunk_analysis_backfill import ChunkAnalysisBackfillService
+                from src.database.manager import DatabaseManager
+                
+                db_manager = DatabaseManager()
+                sync_db = db_manager.get_session()
+                try:
+                    service = ChunkAnalysisBackfillService(sync_db)
+                    backfill_results = service.backfill_all(min_hunt_score=50.0, min_confidence=0.7)
+                    print(f"✅ Backfill completed: {backfill_results.get('successful', 0)} successful, {backfill_results.get('failed', 0)} failed")
+                finally:
+                    sync_db.close()
+            except Exception as e:
+                print(f"⚠️  Backfill failed: {e}")
+            
+            # Return comparison data for API response
+            training_result['comparison'] = True
+            training_result['new_version_id'] = new_version_id
+            training_result['old_version_id'] = old_version_id
             
         except Exception as e:
             print(f"⚠️  Could not save model version or run comparison: {e}")
@@ -279,7 +323,7 @@ def retrain_model_with_feedback(original_file: str = "outputs/training_data/comb
             from utils.model_evaluation import ModelEvaluator
             
             evaluator = ModelEvaluator()
-            eval_metrics = evaluator.evaluate_model(content_filter)
+            eval_metrics = evaluator.evaluate_model(filter_system)
             
             print(f"✅ Evaluation complete!")
             print(f"   - Test Accuracy: {eval_metrics['accuracy']:.3f}")

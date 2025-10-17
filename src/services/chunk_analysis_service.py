@@ -58,6 +58,18 @@ class ChunkAnalysisService:
                     continue
                 seen_chunks.add(chunk_key)
                 
+                # Check if chunk already exists in database
+                existing = self.db.query(ChunkAnalysisResultTable).filter(
+                    ChunkAnalysisResultTable.article_id == article_id,
+                    ChunkAnalysisResultTable.model_version == model_version,
+                    ChunkAnalysisResultTable.chunk_start == start,
+                    ChunkAnalysisResultTable.chunk_end == end
+                ).first()
+                
+                if existing:
+                    logger.debug(f"Chunk already exists in DB for article {article_id}: {start}-{end}")
+                    continue
+                
                 # Get hunt scoring for this chunk
                 hunt_result = self.hunt_scorer.score_threat_hunting_content("", chunk_text)
                 hunt_score = hunt_result.get('threat_hunting_score', 0)
