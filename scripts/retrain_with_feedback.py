@@ -29,6 +29,62 @@ def load_feedback_data(feedback_file: str = "outputs/training_data/chunk_classif
         print(f"❌ Error loading feedback data: {e}")
         return pd.DataFrame()
 
+def load_annotation_data():
+    """Load annotation data from database."""
+    try:
+        # Use the existing database manager
+        from database.manager import DatabaseManager
+        
+        db_manager = DatabaseManager()
+        session = db_manager.get_session()
+        
+        try:
+            from sqlalchemy import text
+            
+            # Query annotations
+            query = text("""
+            SELECT 
+                ROW_NUMBER() OVER (ORDER BY aa.created_at) as record_number,
+                aa.selected_text as highlighted_text,
+                CASE 
+                    WHEN aa.annotation_type = 'huntable' THEN 'Huntable'
+                    WHEN aa.annotation_type = 'not_huntable' THEN 'Not Huntable'
+                    ELSE aa.annotation_type
+                END as classification,
+                aa.created_at as classification_date
+            FROM article_annotations aa
+            WHERE LENGTH(aa.selected_text) >= 950
+            ORDER BY aa.created_at
+            """)
+            
+            result = session.execute(query)
+            results = result.fetchall()
+            
+            if not results:
+                print("⚠️  No annotation data found")
+                return pd.DataFrame()
+            
+            # Convert to DataFrame
+            annotations = []
+            for row in results:
+                annotations.append({
+                    'record_number': f"annotation_{row[0]}",
+                    'highlighted_text': row[1],
+                    'classification': row[2],
+                    'classification_date': str(row[3]) if row[3] else ''
+                })
+            
+            df = pd.DataFrame(annotations)
+            print(f"📊 Loaded {len(df)} annotation entries")
+            return df
+            
+        finally:
+            session.close()
+        
+    except Exception as e:
+        print(f"❌ Error loading annotation data: {e}")
+        return pd.DataFrame()
+
 def process_feedback_for_training(feedback_df: pd.DataFrame):
     """Process feedback data into training format."""
     if feedback_df.empty:
@@ -55,8 +111,8 @@ def process_feedback_for_training(feedback_df: pd.DataFrame):
     
     return pd.DataFrame(training_examples)
 
-def combine_training_data(original_file: str, feedback_df: pd.DataFrame):
-    """Combine original training data with feedback data."""
+def combine_training_data(original_file: str, feedback_df: pd.DataFrame, annotation_df: pd.DataFrame = None):
+    """Combine original training data with feedback and annotation data."""
     # Load original training data
     if not os.path.exists(original_file):
         print(f"❌ Original training file not found: {original_file}")
@@ -68,38 +124,54 @@ def combine_training_data(original_file: str, feedback_df: pd.DataFrame):
     # Process feedback data
     feedback_training = process_feedback_for_training(feedback_df)
     
-    if feedback_training.empty:
-        print("ℹ️  No feedback data to add, using original training data only")
-        return original_df
+    # Process annotation data (treat as gold standard - all annotations are used)
+    annotation_training = pd.DataFrame()
+    if annotation_df is not None and not annotation_df.empty:
+        annotation_training = annotation_df[['record_number', 'highlighted_text', 'classification']].copy()
+        print(f"📊 Loaded {len(annotation_training)} annotation examples")
     
     # Combine datasets
-    combined_df = pd.concat([original_df, feedback_training], ignore_index=True)
+    datasets_to_combine = [original_df]
+    
+    if not feedback_training.empty:
+        datasets_to_combine.append(feedback_training)
+    
+    if not annotation_training.empty:
+        datasets_to_combine.append(annotation_training)
+    
+    combined_df = pd.concat(datasets_to_combine, ignore_index=True)
     
     # Update record numbers to be sequential
     combined_df['record_number'] = range(1, len(combined_df) + 1)
     
     print(f"🔄 Combined dataset: {len(combined_df)} total examples")
     print(f"   - Original: {len(original_df)}")
-    print(f"   - Feedback: {len(feedback_training)}")
+    if not feedback_training.empty:
+        print(f"   - Feedback: {len(feedback_training)}")
+    if not annotation_training.empty:
+        print(f"   - Annotations: {len(annotation_training)}")
     
     return combined_df
 
 def retrain_model_with_feedback(original_file: str = "outputs/training_data/combined_training_data.csv", 
                                feedback_file: str = "outputs/training_data/chunk_classification_feedback.csv",
                                output_file: str = "outputs/training_data/retrained_training_data.csv"):
-    """Retrain the model using original data plus user feedback."""
+    """Retrain the model using original data plus user feedback and annotations."""
     import shutil
     import asyncio
     from datetime import datetime
     
-    print("🚀 Starting model retraining with user feedback...")
+    print("🚀 Starting model retraining with user feedback and annotations...")
     print("=" * 60)
     
     # Load feedback data
     feedback_df = load_feedback_data(feedback_file)
     
+    # Load annotation data
+    annotation_df = load_annotation_data()
+    
     # Combine training data
-    combined_df = combine_training_data(original_file, feedback_df)
+    combined_df = combine_training_data(original_file, feedback_df, annotation_df)
     
     if combined_df is None:
         print("❌ Failed to prepare training data")

@@ -4797,6 +4797,48 @@ async def api_feedback_chunk_classification(request: Request):
         raise HTTPException(status_code=500, detail=f"Feedback collection failed: {str(e)}")
 
 
+@app.get("/api/feedback/chunk-classification/{article_id}/{chunk_id}")
+async def api_get_chunk_feedback(article_id: int, chunk_id: int):
+    """Get existing feedback for a specific chunk."""
+    try:
+        feedback_file = "outputs/training_data/chunk_classification_feedback.csv"
+        
+        if not os.path.exists(feedback_file):
+            return {"success": True, "feedback": None}
+        
+        import pandas as pd
+        
+        feedback_df = pd.read_csv(feedback_file)
+        
+        # Find feedback for this specific chunk
+        chunk_feedback = feedback_df[
+            (feedback_df['article_id'] == article_id) & 
+            (feedback_df['chunk_id'] == chunk_id)
+        ]
+        
+        if chunk_feedback.empty:
+            return {"success": True, "feedback": None}
+        
+        # Get the most recent feedback (in case of multiple entries)
+        latest_feedback = chunk_feedback.sort_values('timestamp').iloc[-1]
+        
+        return {
+            "success": True,
+            "feedback": {
+                "timestamp": str(latest_feedback['timestamp']),
+                "is_correct": bool(latest_feedback['is_correct']),
+                "user_classification": str(latest_feedback['user_classification']),
+                "comment": str(latest_feedback['comment']),
+                "model_classification": str(latest_feedback['model_classification']),
+                "model_confidence": float(latest_feedback['model_confidence'])
+            }
+        }
+        
+    except Exception as e:
+        logger.error(f"Failed to get chunk feedback: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to get chunk feedback: {str(e)}")
+
+
 @app.post("/api/model/retrain")
 async def api_model_retrain():
     """Trigger model retraining using collected user feedback."""
@@ -4836,6 +4878,9 @@ async def api_model_retrain():
                 "message": "Model retraining completed successfully",
                 "output": result.stdout
             }
+            
+            # Mark feedback as used for training
+            await mark_feedback_as_used()
             
             # Check if we have multiple model versions for comparison
             try:
@@ -5055,7 +5100,7 @@ async def mark_feedback_as_used():
             return
         
         # Mark all unused feedback as used
-        feedback_df.loc[feedback_df['used_for_training'] == 'FALSE', 'used_for_training'] = 'TRUE'
+        feedback_df.loc[feedback_df['used_for_training'] == False, 'used_for_training'] = True
         
         # Save updated CSV
         feedback_df.to_csv(feedback_file, index=False)
@@ -5152,46 +5197,53 @@ async def api_get_classification_timeline():
 
 @app.get("/api/model/feedback-count")
 async def api_get_feedback_count():
-    """Get count of available user feedback samples for retraining."""
+    """Get count of available user feedback samples and annotations for retraining."""
     try:
         import os
         import pandas as pd
         
+        feedback_count = 0
+        annotation_count = 0
+        
         # Count feedback from chunk debugging interface
         feedback_file = "outputs/training_data/chunk_classification_feedback.csv"
         
-        if not os.path.exists(feedback_file):
-            return {
-                "success": True,
-                "count": 0,
-                "message": "No feedback file found - no user corrections available for retraining"
-            }
+        if os.path.exists(feedback_file):
+            feedback_df = pd.read_csv(feedback_file)
+            
+            if not feedback_df.empty:
+                # Count unique chunks that received user feedback
+                unique_feedback = feedback_df.drop_duplicates(subset=['article_id', 'chunk_id'], keep='last')
+                
+                # Filter out chunks with very low confidence (likely not actual feedback)
+                actual_feedback = unique_feedback[unique_feedback['model_confidence'] > 0.01]
+                
+                # Only count feedback that hasn't been used for training yet
+                unused_feedback = actual_feedback[actual_feedback['used_for_training'] == False]
+                
+                feedback_count = len(unused_feedback)
         
-        # Read feedback CSV and count unique chunks
-        feedback_df = pd.read_csv(feedback_file)
+        # Count annotations from database
+        async with async_db_manager.get_session() as session:
+            from sqlalchemy import text
+            
+            query = text("""
+            SELECT COUNT(*) as annotation_count
+            FROM article_annotations
+            WHERE LENGTH(selected_text) >= 950
+            """)
+            
+            result = await session.execute(query)
+            annotation_count = result.scalar() or 0
         
-        if feedback_df.empty:
-            return {
-                "success": True,
-                "count": 0,
-                "message": "No feedback data available for retraining"
-            }
-        
-        # Count unique chunks that received user feedback
-        unique_feedback = feedback_df.drop_duplicates(subset=['article_id', 'chunk_id'], keep='last')
-        
-        # Filter out chunks with very low confidence (likely not actual feedback)
-        actual_feedback = unique_feedback[unique_feedback['model_confidence'] > 0.01]
-        
-        # Only count feedback that hasn't been used for training yet
-        unused_feedback = actual_feedback[actual_feedback['used_for_training'] == 'FALSE']
-        
-        feedback_count = len(unused_feedback)
+        total_count = feedback_count + annotation_count
         
         return {
             "success": True,
-            "count": feedback_count,
-            "message": f"Found {feedback_count} user feedback samples available for retraining"
+            "count": total_count,
+            "feedback_count": feedback_count,
+            "annotation_count": annotation_count,
+            "message": f"Found {total_count} training samples available ({feedback_count} feedback + {annotation_count} annotations)"
         }
         
     except Exception as e:

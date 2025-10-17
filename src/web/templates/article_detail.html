@@ -4805,11 +4805,7 @@
                     </div>
                 </div>
                 
-                <div class="flex justify-between">
-                    <button onclick="triggerModelRetraining()" 
-                            class="px-6 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors">
-                        🤖 Retrain Model with Feedback
-                    </button>
+                <div class="flex justify-end">
                     <button onclick="closeChunkDebugModal()" 
                             class="px-6 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-500 transition-colors">
                         Close
@@ -4827,6 +4823,11 @@
         const thresholdSlider = document.getElementById('thresholdSlider');
         if (thresholdSlider) {
             thresholdSlider.value = getSliderFromThreshold(data.min_confidence);
+        }
+        
+        // Load existing feedback for all chunks
+        for (let i = 0; i < data.chunk_analysis.length; i++) {
+            loadExistingFeedback(i);
         }
     }
     
@@ -4971,6 +4972,9 @@
                     </div>
                     <div id="feedbackSubmitted${index}" class="hidden text-xs text-green-600">
                         ✅ Feedback submitted - Thank you!
+                    </div>
+                    <div id="existingFeedback${index}" class="hidden mt-2">
+                        <!-- Previous feedback will be loaded here -->
                     </div>
                 </div>
                 ` : ''}
@@ -5181,6 +5185,32 @@
         });
     }
     
+    async function loadExistingFeedback(chunkIndex) {
+        try {
+            const response = await fetch(`/api/feedback/chunk-classification/${window.chunkDebugData.article_id}/${chunkIndex}`);
+            const result = await response.json();
+            
+            if (result.success && result.feedback) {
+                const feedbackDiv = document.getElementById(`existingFeedback${chunkIndex}`);
+                if (feedbackDiv) {
+                    const feedback = result.feedback;
+                    const timestamp = new Date(feedback.timestamp).toLocaleString();
+                    const statusIcon = feedback.is_correct ? '✅' : '❌';
+                    const statusText = feedback.is_correct ? 'Correct' : 'Incorrect';
+                    
+                    feedbackDiv.innerHTML = `
+                        <div class="text-xs text-blue-600 bg-blue-50 p-2 rounded border-l-2 border-blue-400">
+                            <div class="font-medium">${statusIcon} Feedback provided (${timestamp})</div>
+                        </div>
+                    `;
+                    feedbackDiv.classList.remove('hidden');
+                }
+            }
+        } catch (error) {
+            console.error('Failed to load existing feedback:', error);
+        }
+    }
+    
     async function submitFeedback(chunkIndex, feedbackData) {
         try {
             const chunkData = window.chunkDebugData.chunk_analysis[chunkIndex];
@@ -5222,6 +5252,9 @@
                 if (feedbackSubmitted) {
                     feedbackSubmitted.classList.remove('hidden');
                 }
+                
+                // Reload existing feedback to show updated status
+                await loadExistingFeedback(chunkIndex);
                 
                 showNotification('Feedback submitted successfully!', 'success');
             } else {
