@@ -5104,26 +5104,32 @@ async def api_get_classification_timeline():
                 # Get classification stats for this model version
                 stats = service.get_chunk_analysis_results(
                     model_version=model_version_str,
-                    limit=10000  # Get all data for this version
+                    limit=50000  # High limit to get all data for this version
                 )
                 
                 if stats:
                     # Calculate breakdown for this version
                     total_chunks = len(stats)
-                    agreement = sum(1 for s in stats if s.get('agreement', False))
+                    agreement = sum(1 for s in stats if s.get('ml_prediction', False) and s.get('hunt_prediction', False))
                     ml_only = sum(1 for s in stats if s.get('ml_prediction', False) and not s.get('hunt_prediction', False))
                     hunt_only = sum(1 for s in stats if s.get('hunt_prediction', False) and not s.get('ml_prediction', False))
                     neither = total_chunks - agreement - ml_only - hunt_only
+                    
+                    # Convert to percentages for better trend analysis
+                    agreement_pct = (agreement / total_chunks * 100) if total_chunks > 0 else 0
+                    ml_only_pct = (ml_only / total_chunks * 100) if total_chunks > 0 else 0
+                    hunt_only_pct = (hunt_only / total_chunks * 100) if total_chunks > 0 else 0
+                    neither_pct = (neither / total_chunks * 100) if total_chunks > 0 else 0
                     
                     timeline_data.append({
                         'model_version': model_version_str,
                         'version_number': db_version.version_number if db_version else 0,
                         'trained_at': db_version.trained_at.isoformat() if db_version and db_version.trained_at else None,
                         'total_chunks': total_chunks,
-                        'agreement': agreement,
-                        'ml_only': ml_only,
-                        'hunt_only': hunt_only,
-                        'neither': neither,
+                        'agreement': agreement_pct,
+                        'ml_only': ml_only_pct,
+                        'hunt_only': hunt_only_pct,
+                        'neither': neither_pct,
                         'accuracy': db_version.accuracy if db_version and db_version.accuracy else 0
                     })
             
@@ -6875,7 +6881,7 @@ async def get_comparison_summary():
             
             # Get recent results count
             recent_results = service.get_chunk_analysis_results(limit=1)
-            total_results = len(service.get_chunk_analysis_results(limit=10000))  # Get approximate count
+            total_results = len(service.get_chunk_analysis_results(limit=50000))  # Get actual count with high limit
         finally:
             sync_db.close()
         

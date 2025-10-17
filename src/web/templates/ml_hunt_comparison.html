@@ -385,16 +385,15 @@
                 },
                 scales: {
                     y: {
-                        type: 'logarithmic',
-                        beginAtZero: false,
-                        min: 1,
+                        beginAtZero: true,
+                        max: 100,
                         title: {
                             display: true,
-                            text: 'Number of Chunks (Log Scale)'
+                            text: 'Percentage of Chunks'
                         },
                         ticks: {
                             callback: function(value) {
-                                return value.toLocaleString();
+                                return value.toFixed(1) + '%';
                             }
                         }
                     },
@@ -420,7 +419,7 @@
                                 const dataIndex = context[0].dataIndex;
                                 const item = currentData.timeline[dataIndex];
                                 return [
-                                    `Total Chunks: ${item.total_chunks}`,
+                                    `Total Chunks: ${item.total_chunks.toLocaleString()}`,
                                     `Accuracy: ${(item.accuracy * 100).toFixed(1)}%`,
                                     `Trained: ${new Date(item.trained_at).toLocaleDateString()}`
                                 ];
