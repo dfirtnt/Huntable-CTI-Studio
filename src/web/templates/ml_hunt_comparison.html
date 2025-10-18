@@ -106,52 +106,30 @@
         </div>
     </div>
     
-    <!-- Charts Section -->
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-            <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">📈 Classification Trends</h3>
-            <canvas id="distributionChart" width="400" height="200"></canvas>
-        </div>
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-            <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">📊 Model Performance Summary</h3>
-            <div id="modelPerformanceSummary" class="text-center text-gray-500 dark:text-gray-400">
-                <p>Run model evaluation to see performance metrics</p>
-            </div>
-        </div>
-    </div>
-    
     <!-- Evaluation Metrics Charts -->
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+    <div class="mb-8">
         <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-            <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">🧪 Evaluation Accuracy Over Time</h3>
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-white">🧪 Evaluation Metrics Over Time</h3>
+                <div class="relative group">
+                    <button class="text-gray-400 hover:text-gray-600 focus:outline-none" onclick="showMetricsHelp()">
+                        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"></path>
+                        </svg>
+                    </button>
+                    <div id="metricsHelpTooltip" class="absolute right-0 top-8 w-80 p-4 bg-gray-800 text-white text-sm rounded-lg shadow-lg opacity-0 invisible transition-all duration-200 z-50">
+                        <div class="absolute -top-1 right-4 w-2 h-2 bg-gray-800 transform rotate-45"></div>
+                        <div class="space-y-2">
+                            <div><strong>F1</strong> – Most balanced and widely used for classification benchmarks.</div>
+                            <div><strong>Recall</strong> – Prioritized when missing positives is costly (e.g., fraud, cancer detection).</div>
+                            <div><strong>Precision</strong> – Prioritized when false alarms are costly (e.g., spam filters, alerts).</div>
+                            <div><strong>Accuracy</strong> – Lowest priority; often misleading with imbalanced data.</div>
+                            <div class="pt-2 border-t border-gray-600"><strong>Priority:</strong> F1 > Recall ≈ Precision > Accuracy</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
             <canvas id="evalAccuracyChart" width="400" height="200"></canvas>
-        </div>
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-            <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">📊 Evaluation Metrics Comparison</h3>
-            <canvas id="evalMetricsChart" width="400" height="200"></canvas>
-        </div>
-    </div>
-    
-    <!-- Detailed Results Table -->
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow">
-        <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-            <h3 class="text-lg font-semibold text-gray-900 dark:text-white">📋 Detailed Comparison Results</h3>
-        </div>
-        <div class="overflow-x-auto">
-            <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                <thead class="bg-gray-50 dark:bg-gray-700">
-                    <tr>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Article</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Hunt Score</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">ML Prediction</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Match</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Confidence</th>
-                    </tr>
-                </thead>
-                <tbody id="resultsTableBody" class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                    <!-- Results will be populated by JavaScript -->
-                </tbody>
-            </table>
         </div>
     </div>
 </div>
@@ -227,13 +205,6 @@
                 document.getElementById('evalChunkCount').textContent = 'Unknown';
             }
             
-            // Load detailed comparison results
-            const resultsResponse = await fetch('/api/ml-hunt-comparison/results?limit=50');
-            const resultsData = await resultsResponse.json();
-            if (resultsData.success) {
-                currentData.results = resultsData.results;
-                populateResultsTable();
-            }
             
             // Check feedback count and disable retrain button if no feedback available
             const feedbackResponse = await fetch('/api/model/feedback-count');
@@ -269,240 +240,13 @@
         }
 
         function updateCharts() {
-        updateDistributionChart();
-        updateModelPerformanceSummary();
         updateEvaluationCharts();
     }
 
-    function populateResultsTable() {
-        const tbody = document.getElementById('resultsTableBody');
-        if (!currentData.results || currentData.results.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="5" class="px-6 py-4 text-center text-gray-500">No comparison data available</td></tr>';
-            return;
-        }
 
-        tbody.innerHTML = currentData.results.map(result => {
-            const matchIcon = result.agreement ? '✅' : '❌';
-            const matchClass = result.agreement ? 'text-green-600' : 'text-red-600';
-            const mlPrediction = result.ml_prediction ? 'Huntable' : 'Not Huntable';
-            const huntPrediction = result.hunt_prediction ? 'Huntable' : 'Not Huntable';
-            
-            return `
-                <tr class="hover:bg-gray-50 dark:hover:bg-gray-700">
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
-                        <div class="max-w-xs truncate" title="${result.article_title || 'Untitled'}">
-                            ${result.article_title || 'Untitled'}
-                        </div>
-                        <div class="text-xs text-gray-500">ID: ${result.article_id}</div>
-                    </td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
-                        <div class="font-medium">${result.hunt_score.toFixed(1)}</div>
-                        <div class="text-xs text-gray-500">${huntPrediction}</div>
-                    </td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
-                        <div class="font-medium">${(result.ml_confidence * 100).toFixed(1)}%</div>
-                        <div class="text-xs text-gray-500">${mlPrediction}</div>
-                    </td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm ${matchClass}">
-                        <span class="font-medium">${matchIcon}</span>
-                    </td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
-                        ${(result.ml_confidence * 100).toFixed(1)}%
-                    </td>
-                </tr>
-            `;
-        }).join('');
-    }
-
-    function updateModelPerformanceSummary() {
-        const summaryElement = document.getElementById('modelPerformanceSummary');
-        
-        const versionNumbers = getAlignedVersionNumbers();
-
-        // Get the latest aligned evaluated version
-        const evaluatedVersionMap = new Map(
-            currentData.modelVersions
-                .filter(v => v.has_evaluation)
-                .map(v => [v.version_number, v])
-        );
-
-        const latestVersionNumber = versionNumbers[versionNumbers.length - 1];
-        const latestEvaluated = evaluatedVersionMap.get(latestVersionNumber);
-        
-        if (!latestEvaluated) {
-            summaryElement.innerHTML = '<p class="text-gray-500 dark:text-gray-400">Run model evaluation to see performance metrics</p>';
-            return;
-        }
-        
-        const evalDate = new Date(latestEvaluated.evaluated_at).toLocaleDateString();
-        summaryElement.innerHTML = `
-            <div class="space-y-2">
-                <div class="text-lg font-semibold text-gray-900 dark:text-white">
-                    Model v${latestEvaluated.version_number}
-                </div>
-                <div class="text-2xl font-bold text-blue-600">
-                    ${(latestEvaluated.eval_accuracy * 100).toFixed(1)}%
-                </div>
-                <div class="text-sm text-gray-600 dark:text-gray-400">
-                    Test Accuracy (160 chunks)
-                </div>
-                <div class="text-xs text-gray-500 dark:text-gray-500">
-                    Evaluated: ${evalDate}
-                </div>
-                <div class="grid grid-cols-2 gap-2 text-xs mt-2">
-                    <div>Precision (H): ${((latestEvaluated.eval_precision_huntable || 0) * 100).toFixed(1)}%</div>
-                    <div>Recall (H): ${((latestEvaluated.eval_recall_huntable || 0) * 100).toFixed(1)}%</div>
-                    <div>Precision (NH): ${((latestEvaluated.eval_precision_not_huntable || 0) * 100).toFixed(1)}%</div>
-                    <div>Recall (NH): ${((latestEvaluated.eval_recall_not_huntable || 0) * 100).toFixed(1)}%</div>
-                </div>
-            </div>
-        `;
-    }
-
-    function updateDistributionChart() {
-        const ctx = document.getElementById('distributionChart').getContext('2d');
-        
-        // Destroy existing chart if it exists
-        if (distributionChart) {
-            distributionChart.destroy();
-            distributionChart = null;
-        }
-        
-        const selectedVersions = getAlignedVersionNumbers();
-
-        if (selectedVersions.length === 0) {
-            ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
-            ctx.fillText('No evaluation data available', 10, 50);
-            return;
-        }
-
-        const timelineMap = new Map();
-        (currentData.timeline || []).forEach(item => {
-            timelineMap.set(item.version_number, item);
-        });
-        const labels = selectedVersions.map(v => `v${v}`);
-
-        const missingClassification = new Set();
-
-        const getPercentage = (versionNumber, key) => {
-            const timelineEntry = timelineMap.get(versionNumber);
-            if (!timelineEntry) {
-                missingClassification.add(versionNumber);
-                return 0;
-            }
-            const value = timelineEntry[key];
-            return value != null ? value : 0;
-        };
-
-        const agreementData = selectedVersions.map(v => getPercentage(v, 'agreement'));
-        const mlOnlyData = selectedVersions.map(v => getPercentage(v, 'ml_only'));
-        const huntOnlyData = selectedVersions.map(v => getPercentage(v, 'hunt_only'));
-        const neitherData = selectedVersions.map(v => getPercentage(v, 'neither'));
-            
-            distributionChart = new Chart(ctx, {
-            type: 'line',
-                data: {
-                labels: labels,
-                datasets: [
-                    {
-                        label: 'Agreement (Both Huntable)',
-                        data: agreementData,
-                        borderColor: 'rgba(75, 192, 192, 1)',
-                        backgroundColor: 'rgba(75, 192, 192, 0.1)',
-                        borderWidth: 3,
-                        fill: false,
-                        tension: 0.1
-                    },
-                    {
-                        label: 'ML Only (ML Huntable)',
-                        data: mlOnlyData,
-                        borderColor: 'rgba(54, 162, 235, 1)',
-                        backgroundColor: 'rgba(54, 162, 235, 0.1)',
-                        borderWidth: 2,
-                        fill: false,
-                        tension: 0.1
-                    },
-                    {
-                        label: 'Hunt Only (Hunt Huntable)',
-                        data: huntOnlyData,
-                        borderColor: 'rgba(255, 205, 86, 1)',
-                        backgroundColor: 'rgba(255, 205, 86, 0.1)',
-                        borderWidth: 2,
-                        fill: false,
-                        tension: 0.1
-                    },
-                    {
-                        label: 'Neither (Not Huntable)',
-                        data: neitherData,
-                        borderColor: 'rgba(255, 99, 132, 1)',
-                        backgroundColor: 'rgba(255, 99, 132, 0.1)',
-                        borderWidth: 2,
-                        fill: false,
-                        tension: 0.1
-                    }
-                ]
-                },
-                options: {
-                    responsive: true,
-                interaction: {
-                    mode: 'index',
-                    intersect: false,
-                },
-                scales: {
-                    y: {
-                        beginAtZero: true,
-                        max: 100,
-                        title: {
-                            display: true,
-                            text: 'Percentage of Chunks'
-                        },
-                        ticks: {
-                            callback: function(value) {
-                                return value.toFixed(1) + '%';
-                            }
-                        }
-                    },
-                    x: {
-                        title: {
-                            display: true,
-                            text: 'Model Version'
-                        }
-                }
-                },
-                plugins: {
-                    title: {
-                        display: true,
-                        text: 'Classification Trends Across Model Versions'
-                    },
-                    legend: {
-                        display: true,
-                        position: 'top'
-                    },
-                    tooltip: {
-                        callbacks: {
-                            afterBody: function(context) {
-                                const dataIndex = context[0].dataIndex;
-                                const versionNumber = selectedVersions[dataIndex];
-                                const item = timelineMap.get(versionNumber);
-                                if (!item || missingClassification.has(versionNumber)) {
-                                    return [`v${versionNumber}: No classification data`];
-                                }
-                                return [
-                                    `Total Chunks: ${item.total_chunks.toLocaleString()}`,
-                                    `Accuracy: ${(item.accuracy * 100).toFixed(1)}%`,
-                                    `Trained: ${new Date(item.trained_at).toLocaleDateString()}`
-                                ];
-                            }
-                        }
-                        }
-                    }
-                }
-            });
-    }
 
     function updateEvaluationCharts() {
         updateEvalAccuracyChart();
-        updateEvalMetricsChart();
     }
 
     function updateEvalAccuracyChart() {
@@ -534,6 +278,27 @@
                 : null;
         });
 
+        const precisionPoints = timelineVersions.map(versionNumber => {
+            const version = evaluatedVersionMap.get(versionNumber);
+            return version && version.eval_precision_huntable != null
+                ? (version.eval_precision_huntable * 100)
+                : null;
+        });
+
+        const recallPoints = timelineVersions.map(versionNumber => {
+            const version = evaluatedVersionMap.get(versionNumber);
+            return version && version.eval_recall_huntable != null
+                ? (version.eval_recall_huntable * 100)
+                : null;
+        });
+
+        const f1Points = timelineVersions.map(versionNumber => {
+            const version = evaluatedVersionMap.get(versionNumber);
+            return version && version.eval_f1_score_huntable != null
+                ? (version.eval_f1_score_huntable * 100)
+                : null;
+        });
+
         const evaluatedCount = accuracyPoints.filter(value => value !== null).length;
 
         if (evaluatedCount === 0) {
@@ -547,12 +312,39 @@
                 data: {
                 labels: timelineVersions.map(v => `v${v}`),
                     datasets: [{
-                    label: 'Evaluation Accuracy %',
+                    label: 'Accuracy %',
                     data: accuracyPoints,
                     borderColor: 'rgba(75, 192, 192, 1)',
                     backgroundColor: 'rgba(75, 192, 192, 0.2)',
                     borderWidth: 2,
-                    fill: true,
+                    fill: false,
+                    tension: 0.1,
+                    spanGaps: true
+                    }, {
+                    label: 'Precision %',
+                    data: precisionPoints,
+                    borderColor: 'rgba(255, 99, 132, 1)',
+                    backgroundColor: 'rgba(255, 99, 132, 0.2)',
+                    borderWidth: 2,
+                    fill: false,
+                    tension: 0.1,
+                    spanGaps: true
+                    }, {
+                    label: 'Recall %',
+                    data: recallPoints,
+                    borderColor: 'rgba(54, 162, 235, 1)',
+                    backgroundColor: 'rgba(54, 162, 235, 0.2)',
+                    borderWidth: 2,
+                    fill: false,
+                    tension: 0.1,
+                    spanGaps: true
+                    }, {
+                    label: 'F1 Score %',
+                    data: f1Points,
+                    borderColor: 'rgba(255, 206, 86, 1)',
+                    backgroundColor: 'rgba(255, 206, 86, 0.2)',
+                    borderWidth: 2,
+                    fill: false,
                     tension: 0.1,
                     spanGaps: true
                     }]
@@ -593,75 +385,6 @@
             });
         }
 
-    function updateEvalMetricsChart() {
-        const ctx = document.getElementById('evalMetricsChart').getContext('2d');
-        
-        // Destroy existing chart if it exists
-        if (evalMetricsChart) {
-            evalMetricsChart.destroy();
-            evalMetricsChart = null;
-        }
-        
-        // Get the latest evaluated version
-        const latestEvaluated = currentData.modelVersions
-            .filter(v => v.has_evaluation)
-            .sort((a, b) => b.version_number - a.version_number)[0];
-        
-        if (!latestEvaluated) {
-            ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
-            ctx.fillText('No evaluation data available', 10, 50);
-            return;
-        }
-            
-            evalMetricsChart = new Chart(ctx, {
-            type: 'radar',
-                data: {
-                labels: ['Accuracy', 'Precision (Huntable)', 'Recall (Huntable)', 'F1 (Huntable)'],
-                    datasets: [{
-                    label: `Model v${latestEvaluated.version_number}`,
-                    data: [
-                        latestEvaluated.eval_accuracy * 100,
-                        (latestEvaluated.eval_precision_huntable || 0) * 100,
-                        (latestEvaluated.eval_recall_huntable || 0) * 100,
-                        (latestEvaluated.eval_f1_score_huntable || 0) * 100
-                    ],
-                    borderColor: 'rgba(54, 162, 235, 1)',
-                    backgroundColor: 'rgba(54, 162, 235, 0.2)',
-                    borderWidth: 2
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    scales: {
-                    r: {
-                        beginAtZero: true,
-                        max: 100,
-                        grid: {
-                            color: 'rgba(156, 163, 175, 0.3)', // Lighter gray grid lines
-                        },
-                        angleLines: {
-                            color: 'rgba(156, 163, 175, 0.3)', // Lighter gray angle lines
-                        },
-                        pointLabels: {
-                            color: 'rgba(156, 163, 175, 0.8)', // Lighter gray labels
-                        },
-                        ticks: {
-                            color: 'rgba(156, 163, 175, 0.6)', // Lighter gray tick labels
-                            callback: function(value) {
-                                return value + '%';
-                            }
-                        }
-                    }
-                },
-                plugins: {
-                    title: {
-                        display: true,
-                        text: `Latest Model Performance (v${latestEvaluated.version_number})`
-                        }
-                    }
-                }
-            });
-        }
 
     function showError(message) {
         console.error(message);
@@ -739,7 +462,7 @@
                 resultsSection.classList.remove('hidden');
                 resultsContent.innerHTML = generateEvaluationResults(data);
                 
-                statusElement.textContent = `Evaluation complete - Accuracy: ${(data.metrics.accuracy * 100).toFixed(1)}%`;
+                statusElement.textContent = `Evaluation complete - F1 Score: ${(data.metrics.f1_score_huntable * 100).toFixed(1)}%`;
                 
                 // Reload data to update charts
                 setTimeout(() => {
@@ -770,7 +493,6 @@
 
     function generateEvaluationResults(data) {
         const metrics = data.metrics;
-        const misclassified = data.misclassified_chunks || [];
         const summary = data.eval_summary || {};
         
         return `
@@ -835,22 +557,18 @@
                 </div>
                 ` : ''}
                 
-                <!-- Misclassified Chunks -->
-                ${misclassified.length > 0 ? `
-                <div class="bg-white dark:bg-gray-600 p-4 rounded">
-                    <h4 class="font-semibold text-gray-900 dark:text-white mb-2">Sample Misclassified Chunks (${misclassified.length} shown)</h4>
-                    <div class="space-y-2 max-h-40 overflow-y-auto">
-                        ${misclassified.slice(0, 5).map(chunk => `
-                            <div class="text-xs bg-gray-100 dark:bg-gray-700 p-2 rounded">
-                                <div class="font-semibold">ID ${chunk.annotation_id}: ${chunk.true_label} → ${chunk.predicted_label} (${(chunk.confidence * 100).toFixed(1)}%)</div>
-                                <div class="text-gray-600 dark:text-gray-300 mt-1">${chunk.chunk_preview}</div>
-                            </div>
-                        `).join('')}
-                    </div>
-                </div>
-                ` : ''}
             </div>
         `;
+    }
+
+    function showMetricsHelp() {
+        const tooltip = document.getElementById('metricsHelpTooltip');
+        if (tooltip) {
+            tooltip.classList.toggle('opacity-0');
+            tooltip.classList.toggle('invisible');
+            tooltip.classList.toggle('opacity-100');
+            tooltip.classList.toggle('visible');
+        }
     }
 
     async function checkEvaluationStatus() {

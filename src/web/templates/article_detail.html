@@ -4753,8 +4753,8 @@
                 <div class="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
                     <div class="flex items-center justify-between">
                         <div>
-                            <h4 class="text-lg font-semibold text-blue-900 mb-2">🎯 Confidence Threshold</h4>
-                            <p class="text-sm text-blue-700">Adjust the minimum confidence required to keep chunks</p>
+                            <h4 class="text-lg font-semibold text-blue-900 mb-2">🎯 ML Confidence Threshold</h4>
+                            <p class="text-sm text-blue-700">Adjust the minimum ML model confidence required to keep chunks for the LLM</p>
                         </div>
                         <div class="flex items-center space-x-4">
                             <label for="thresholdSlider" class="text-sm font-medium text-blue-900">Threshold:</label>
@@ -4825,14 +4825,27 @@
                 
                 <!-- Cost Analysis -->
                 <div class="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-6">
-                    <h4 class="text-lg font-semibold text-gray-900 mb-3">💰 Cost Analysis</h4>
+                    <div class="flex items-center justify-between mb-3">
+                        <h4 class="text-lg font-semibold text-gray-900">💰 Cost Analysis</h4>
+                        <div class="relative group">
+                            <button class="text-gray-400 hover:text-gray-600 focus:outline-none" onclick="showCostAnalysisHelp()">
+                                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"></path>
+                                </svg>
+                            </button>
+                            <div id="costAnalysisTooltip" class="absolute right-0 top-8 w-64 p-3 bg-gray-800 text-white text-sm rounded-lg shadow-lg opacity-0 invisible transition-all duration-200 z-50">
+                                <div class="absolute -top-1 right-4 w-2 h-2 bg-gray-800 transform rotate-45"></div>
+                                These estimates are based on OpenAI API call costs and are not literal when using Local LLM. They represent potential savings if using OpenAI's GPT-4o service.
+                            </div>
+                        </div>
+                    </div>
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div>
                             <div class="text-sm text-gray-600">Original Content</div>
                             <div id="originalContentLength" class="text-lg font-semibold">${data.content_length.toLocaleString()} chars</div>
                         </div>
                         <div>
-                            <div class="text-sm text-gray-600">Estimated Cost Savings</div>
+                            <div class="text-sm text-gray-600">Estimated Cost Savings per Article</div>
                             <div id="costSavings" class="text-lg font-semibold text-green-600">$${data.filtering_stats.cost_savings.toFixed(4)}</div>
                         </div>
                         <div>
@@ -5215,6 +5228,16 @@
         }
     }
     
+    function showCostAnalysisHelp() {
+        const tooltip = document.getElementById('costAnalysisTooltip');
+        if (tooltip) {
+            tooltip.classList.toggle('opacity-0');
+            tooltip.classList.toggle('invisible');
+            tooltip.classList.toggle('opacity-100');
+            tooltip.classList.toggle('visible');
+        }
+    }
+
     function updateChunkDebugResults(data) {
         // Update statistics cards using IDs
         const totalChunksEl = document.getElementById('totalChunksCount');
