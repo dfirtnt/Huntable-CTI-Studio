@@ -4749,46 +4749,19 @@ async def api_feedback_chunk_classification(request: Request):
             if field not in feedback_data:
                 raise HTTPException(status_code=400, detail=f"Missing required field: {field}")
         
-        # Store feedback in CSV file
-        feedback_file = "outputs/training_data/chunk_classification_feedback.csv"
-        
-        # Create CSV if it doesn't exist
-        import os
-        import csv
-        from datetime import datetime
-        
-        # Ensure outputs/training_data directory exists
-        os.makedirs(os.path.dirname(feedback_file), exist_ok=True)
-        
-        file_exists = os.path.exists(feedback_file)
-        
-        with open(feedback_file, 'a', newline='', encoding='utf-8') as csvfile:
-            fieldnames = [
-                'timestamp', 'article_id', 'chunk_id', 'chunk_text', 
-                'model_classification', 'model_confidence', 'model_reason',
-                'is_correct', 'user_classification', 'comment', 'used_for_training'
-            ]
-            
-            writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
-            
-            # Write header if file is new
-            if not file_exists:
-                writer.writeheader()
-            
-            # Write feedback data
-            writer.writerow({
-                'timestamp': feedback_data.get('timestamp', datetime.now().isoformat()),
-                'article_id': feedback_data['article_id'],
-                'chunk_id': feedback_data['chunk_id'],
-                'chunk_text': feedback_data['chunk_text'],
-                'model_classification': feedback_data['model_classification'],
-                'model_confidence': feedback_data.get('model_confidence', 0),
-                'model_reason': feedback_data.get('model_reason', ''),
-                'is_correct': feedback_data['is_correct'],
-                'user_classification': feedback_data.get('user_classification', ''),
-                'comment': feedback_data.get('comment', ''),
-                'used_for_training': 'FALSE'  # New feedback is unused by default
-            })
+        # Store feedback in database
+        await async_db_manager.create_chunk_feedback({
+            'article_id': feedback_data['article_id'],
+            'chunk_id': feedback_data['chunk_id'],
+            'chunk_text': feedback_data['chunk_text'],
+            'model_classification': feedback_data['model_classification'],
+            'model_confidence': feedback_data.get('model_confidence', 0),
+            'model_reason': feedback_data.get('model_reason', ''),
+            'is_correct': feedback_data['is_correct'],
+            'user_classification': feedback_data.get('user_classification', ''),
+            'comment': feedback_data.get('comment', ''),
+            'used_for_training': False
+        })
         
         return {"success": True, "message": "Feedback recorded successfully"}
         
@@ -4801,38 +4774,35 @@ async def api_feedback_chunk_classification(request: Request):
 async def api_get_chunk_feedback(article_id: int, chunk_id: int):
     """Get existing feedback for a specific chunk."""
     try:
-        feedback_file = "outputs/training_data/chunk_classification_feedback.csv"
+        from src.database.models import ChunkClassificationFeedbackTable
+        from sqlalchemy import select, desc
         
-        if not os.path.exists(feedback_file):
-            return {"success": True, "feedback": None}
-        
-        import pandas as pd
-        
-        feedback_df = pd.read_csv(feedback_file)
-        
-        # Find feedback for this specific chunk
-        chunk_feedback = feedback_df[
-            (feedback_df['article_id'] == article_id) & 
-            (feedback_df['chunk_id'] == chunk_id)
-        ]
-        
-        if chunk_feedback.empty:
-            return {"success": True, "feedback": None}
-        
-        # Get the most recent feedback (in case of multiple entries)
-        latest_feedback = chunk_feedback.sort_values('timestamp').iloc[-1]
-        
-        return {
-            "success": True,
-            "feedback": {
-                "timestamp": str(latest_feedback['timestamp']),
-                "is_correct": bool(latest_feedback['is_correct']),
-                "user_classification": str(latest_feedback['user_classification']),
-                "comment": str(latest_feedback['comment']),
-                "model_classification": str(latest_feedback['model_classification']),
-                "model_confidence": float(latest_feedback['model_confidence'])
+        async with async_db_manager.get_session() as session:
+            result = await session.execute(
+                select(ChunkClassificationFeedbackTable)
+                .where(
+                    ChunkClassificationFeedbackTable.article_id == article_id,
+                    ChunkClassificationFeedbackTable.chunk_id == chunk_id
+                )
+                .order_by(desc(ChunkClassificationFeedbackTable.created_at))
+                .limit(1)
+            )
+            feedback_record = result.scalar_one_or_none()
+            
+            if not feedback_record:
+                return {"success": True, "feedback": None}
+            
+            return {
+                "success": True,
+                "feedback": {
+                    "timestamp": str(feedback_record.created_at),
+                    "is_correct": bool(feedback_record.is_correct),
+                    "user_classification": str(feedback_record.user_classification),
+                    "comment": str(feedback_record.comment),
+                    "model_classification": str(feedback_record.model_classification),
+                    "model_confidence": float(feedback_record.model_confidence)
+                }
             }
-        }
         
     except Exception as e:
         logger.error(f"Failed to get chunk feedback: {str(e)}")
@@ -5079,32 +5049,8 @@ async def api_model_evaluate():
 async def mark_feedback_as_used():
     """Mark all unused feedback as used for training."""
     try:
-        import os
-        import pandas as pd
-        
-        feedback_file = "outputs/training_data/chunk_classification_feedback.csv"
-        
-        if not os.path.exists(feedback_file):
-            logger.warning("No feedback file found to mark as used")
-            return
-        
-        # Read feedback CSV
-        feedback_df = pd.read_csv(feedback_file)
-        
-        if feedback_df.empty:
-            logger.warning("No feedback data to mark as used")
-            return
-        
-        # Mark all unused feedback as used
-        feedback_df.loc[feedback_df['used_for_training'] == False, 'used_for_training'] = True
-        
-        # Save updated CSV
-        feedback_df.to_csv(feedback_file, index=False)
-        
-        # Count how many were marked as used
-        used_count = len(feedback_df[feedback_df['used_for_training'] == 'TRUE'])
-        logger.info(f"Marked {used_count} feedback entries as used for training")
-        
+        count = await async_db_manager.mark_chunk_feedback_as_used()
+        logger.info(f"Marked {count} feedback entries as used for training")
     except Exception as e:
         logger.error(f"Error marking feedback as used: {e}")
 
@@ -5656,6 +5602,14 @@ async def api_gpt4o_rank_optimized(article_id: int, request: Request):
 async def create_annotation(article_id: int, annotation_data: dict):
     """Create a new text annotation for an article."""
     try:
+        # Validate text length for training purposes
+        text_length = len(annotation_data.get("selected_text", ""))
+        if text_length < 950 or text_length > 1050:
+            raise HTTPException(
+                status_code=400, 
+                detail=f"Annotation text must be approximately 1000 characters for training purposes (current: {text_length})"
+            )
+        
         # Verify article exists
         article = await async_db_manager.get_article(article_id)
         if not article:

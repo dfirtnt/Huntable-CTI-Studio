@@ -210,6 +210,16 @@
     // Create annotation via API
     async function createMobileAnnotation(text, startPos, endPos, type) {
         try {
+            // Validate length (must be ~1000 chars)
+            const textLength = text.length;
+            if (textLength < 950 || textLength > 1050) {
+                showNotification(
+                    `Selection must be approximately 1000 characters (current: ${textLength})`,
+                    'error'
+                );
+                return;
+            }
+            
             const articleId = window.location.pathname.match(/\/articles\/(\d+)/)?.[1];
             if (!articleId) {
                 console.error('❌ Could not find article ID');

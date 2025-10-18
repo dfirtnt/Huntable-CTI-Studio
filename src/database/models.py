@@ -277,3 +277,29 @@ class ChunkAnalysisResultTable(Base):
     
     def __repr__(self):
         return f"<ChunkAnalysisResult(id={self.id}, article_id={self.article_id}, model_version='{self.model_version}')>"
+
+
+class ChunkClassificationFeedbackTable(Base):
+    """Database table for chunk classification feedback."""
+    
+    __tablename__ = 'chunk_classification_feedback'
+    
+    id = Column(Integer, primary_key=True, index=True)
+    article_id = Column(Integer, ForeignKey('articles.id', ondelete='CASCADE'), nullable=False, index=True)
+    chunk_id = Column(Integer, nullable=False)
+    chunk_text = Column(Text, nullable=False)
+    model_classification = Column(String(20), nullable=False)
+    model_confidence = Column(Float, nullable=False)
+    model_reason = Column(Text, nullable=True)
+    is_correct = Column(Boolean, nullable=False)
+    user_classification = Column(String(20), nullable=True)
+    comment = Column(Text, nullable=True)
+    used_for_training = Column(Boolean, nullable=False, default=False, index=True)
+    created_at = Column(DateTime, nullable=False, default=func.now(), index=True)
+    updated_at = Column(DateTime, nullable=False, default=func.now(), onupdate=func.now())
+    
+    # Relationships
+    article = relationship("ArticleTable")
+    
+    def __repr__(self):
+        return f"<ChunkClassificationFeedback(id={self.id}, article_id={self.article_id}, chunk_id={self.chunk_id})>"

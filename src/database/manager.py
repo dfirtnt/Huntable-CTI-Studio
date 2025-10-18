@@ -580,3 +580,59 @@ class DatabaseManager:
                 session.rollback()
                 logger.error(f"Failed to cleanup old data: {e}")
                 raise
+
+    def create_chunk_feedback(self, feedback_data: dict):
+        """Create chunk classification feedback entry."""
+        from src.database.models import ChunkClassificationFeedbackTable
+        
+        with self.get_session() as session:
+            try:
+                feedback = ChunkClassificationFeedbackTable(
+                    article_id=feedback_data['article_id'],
+                    chunk_id=feedback_data['chunk_id'],
+                    chunk_text=feedback_data['chunk_text'],
+                    model_classification=feedback_data['model_classification'],
+                    model_confidence=feedback_data['model_confidence'],
+                    model_reason=feedback_data.get('model_reason', ''),
+                    is_correct=feedback_data['is_correct'],
+                    user_classification=feedback_data.get('user_classification', ''),
+                    comment=feedback_data.get('comment', ''),
+                    used_for_training=feedback_data.get('used_for_training', False)
+                )
+                session.add(feedback)
+                session.commit()
+                return feedback
+            except Exception as e:
+                session.rollback()
+                logger.error(f"Failed to create chunk feedback: {e}")
+                raise
+
+    def get_unused_chunk_feedback(self):
+        """Get all unused chunk feedback for training."""
+        from src.database.models import ChunkClassificationFeedbackTable
+        
+        with self.get_session() as session:
+            try:
+                feedback_records = session.query(ChunkClassificationFeedbackTable).filter(
+                    ChunkClassificationFeedbackTable.used_for_training == False
+                ).all()
+                return feedback_records
+            except Exception as e:
+                logger.error(f"Failed to get unused chunk feedback: {e}")
+                raise
+
+    def mark_chunk_feedback_as_used(self) -> int:
+        """Mark all unused chunk feedback as used. Returns count."""
+        from src.database.models import ChunkClassificationFeedbackTable
+        
+        with self.get_session() as session:
+            try:
+                result = session.query(ChunkClassificationFeedbackTable).filter(
+                    ChunkClassificationFeedbackTable.used_for_training == False
+                ).update({'used_for_training': True})
+                session.commit()
+                return result
+            except Exception as e:
+                session.rollback()
+                logger.error(f"Failed to mark chunk feedback as used: {e}")
+                raise
