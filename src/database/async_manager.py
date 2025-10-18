@@ -1319,6 +1319,7 @@ class AsyncDatabaseManager:
                     context_before=annotation_data.context_before,
                     context_after=annotation_data.context_after,
                     confidence_score=annotation_data.confidence_score,
+                    used_for_training=annotation_data.used_for_training,
                     created_at=datetime.now(),
                     updated_at=datetime.now()
                 )
@@ -1496,6 +1497,7 @@ class AsyncDatabaseManager:
             context_before=db_annotation.context_before,
             context_after=db_annotation.context_after,
             confidence_score=db_annotation.confidence_score,
+            used_for_training=db_annotation.used_for_training,
             created_at=db_annotation.created_at,
             updated_at=db_annotation.updated_at
         )

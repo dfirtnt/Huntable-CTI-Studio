@@ -41,7 +41,7 @@ def load_annotation_data():
         try:
             from sqlalchemy import text
             
-            # Query annotations
+            # Query annotations (only unused ones)
             query = text("""
             SELECT 
                 ROW_NUMBER() OVER (ORDER BY aa.created_at) as record_number,
@@ -54,6 +54,7 @@ def load_annotation_data():
                 aa.created_at as classification_date
             FROM article_annotations aa
             WHERE LENGTH(aa.selected_text) >= 950
+            AND aa.used_for_training = FALSE
             ORDER BY aa.created_at
             """)
             
@@ -86,7 +87,7 @@ def load_annotation_data():
         return pd.DataFrame()
 
 def mark_annotations_as_used():
-    """Mark all annotations as used for training by deleting them from database."""
+    """Mark all annotations as used for training by setting used_for_training flag."""
     try:
         from database.manager import DatabaseManager
         
@@ -96,17 +97,19 @@ def mark_annotations_as_used():
         try:
             from sqlalchemy import text
             
-            # Delete annotations that were used for training
+            # Mark annotations as used for training
             query = text("""
-            DELETE FROM article_annotations 
-            WHERE LENGTH(selected_text) >= 950
+            UPDATE article_annotations 
+            SET used_for_training = TRUE
+            WHERE LENGTH(selected_text) >= 950 
+            AND used_for_training = FALSE
             """)
             
             result = session.execute(query)
             session.commit()
             
-            deleted_count = result.rowcount
-            print(f"🗑️  Marked {deleted_count} annotations as used (deleted from database)")
+            updated_count = result.rowcount
+            print(f"🏷️  Marked {updated_count} annotations as used for training")
             
         finally:
             session.close()

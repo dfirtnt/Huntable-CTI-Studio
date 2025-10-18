@@ -164,6 +164,20 @@
         modelVersions: []
         };
 
+        function getAlignedVersionNumbers() {
+            const classificationVersions = (currentData.timeline || [])
+                .map(item => item.version_number);
+            const evaluatedVersions = currentData.modelVersions
+                .filter(v => v.has_evaluation)
+                .map(v => v.version_number);
+            const combinedSet = new Set([...classificationVersions, ...evaluatedVersions]);
+            const combined = Array.from(combinedSet).sort((a, b) => a - b);
+            if (combined.length <= 9) {
+                return combined;
+            }
+            return combined.slice(-9);
+        }
+
         // Chart instances for proper cleanup
         let distributionChart = null;
         let evalAccuracyChart = null;
@@ -220,32 +234,17 @@
 
         function updateSummaryStats() {
             const summary = currentData.summary;
+        document.getElementById('totalModelVersions').textContent = summary.total_model_versions;
+        document.getElementById('totalChunkAnalyses').textContent = summary.total_chunk_analyses.toLocaleString();
             
-            // Safely update elements if they exist
-            const totalModelVersionsEl = document.getElementById('totalModelVersions');
-            if (totalModelVersionsEl) {
-                totalModelVersionsEl.textContent = summary.total_model_versions;
-            }
-            
-            const totalChunkAnalysesEl = document.getElementById('totalChunkAnalyses');
-            if (totalChunkAnalysesEl) {
-                totalChunkAnalysesEl.textContent = summary.total_chunk_analyses.toLocaleString();
-            }
-            
-            if (summary.overall_stats && summary.overall_stats.length > 0) {
+        if (summary.overall_stats && summary.overall_stats.length > 0) {
                 const avgAccuracy = summary.overall_stats.reduce((sum, stat) => sum + stat.accuracy, 0) / summary.overall_stats.length;
-                const averageAccuracyEl = document.getElementById('averageAccuracy');
-                if (averageAccuracyEl) {
-                    averageAccuracyEl.textContent = (avgAccuracy * 100).toFixed(1) + '%';
-                }
+            document.getElementById('averageAccuracy').textContent = (avgAccuracy * 100).toFixed(1) + '%';
             }
             
             if (summary.last_updated) {
                 const date = new Date(summary.last_updated);
-                const lastUpdatedEl = document.getElementById('lastUpdated');
-                if (lastUpdatedEl) {
-                    lastUpdatedEl.textContent = date.toLocaleDateString();
-                }
+                document.getElementById('lastUpdated').textContent = date.toLocaleDateString();
             }
         }
 
@@ -258,10 +257,17 @@
     function updateModelPerformanceSummary() {
         const summaryElement = document.getElementById('modelPerformanceSummary');
         
-        // Get the latest evaluated version
-        const latestEvaluated = currentData.modelVersions
-            .filter(v => v.has_evaluation)
-            .sort((a, b) => b.version_number - a.version_number)[0];
+        const versionNumbers = getAlignedVersionNumbers();
+
+        // Get the latest aligned evaluated version
+        const evaluatedVersionMap = new Map(
+            currentData.modelVersions
+                .filter(v => v.has_evaluation)
+                .map(v => [v.version_number, v])
+        );
+
+        const latestVersionNumber = versionNumbers[versionNumbers.length - 1];
+        const latestEvaluated = evaluatedVersionMap.get(latestVersionNumber);
         
         if (!latestEvaluated) {
             summaryElement.innerHTML = '<p class="text-gray-500 dark:text-gray-400">Run model evaluation to see performance metrics</p>';
@@ -302,18 +308,36 @@
             distributionChart = null;
         }
         
-        if (!currentData.timeline || currentData.timeline.length === 0) {
+        const selectedVersions = getAlignedVersionNumbers();
+
+        if (selectedVersions.length === 0) {
             ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
-            ctx.fillText('No timeline data available', 10, 50);
+            ctx.fillText('No evaluation data available', 10, 50);
             return;
         }
-        
-        // Prepare data for time series chart
-        const labels = currentData.timeline.map(item => `v${item.version_number}`);
-        const agreementData = currentData.timeline.map(item => item.agreement);
-        const mlOnlyData = currentData.timeline.map(item => item.ml_only);
-        const huntOnlyData = currentData.timeline.map(item => item.hunt_only);
-        const neitherData = currentData.timeline.map(item => item.neither);
+
+        const timelineMap = new Map();
+        (currentData.timeline || []).forEach(item => {
+            timelineMap.set(item.version_number, item);
+        });
+        const labels = selectedVersions.map(v => `v${v}`);
+
+        const missingClassification = new Set();
+
+        const getPercentage = (versionNumber, key) => {
+            const timelineEntry = timelineMap.get(versionNumber);
+            if (!timelineEntry) {
+                missingClassification.add(versionNumber);
+                return 0;
+            }
+            const value = timelineEntry[key];
+            return value != null ? value : 0;
+        };
+
+        const agreementData = selectedVersions.map(v => getPercentage(v, 'agreement'));
+        const mlOnlyData = selectedVersions.map(v => getPercentage(v, 'ml_only'));
+        const huntOnlyData = selectedVersions.map(v => getPercentage(v, 'hunt_only'));
+        const neitherData = selectedVersions.map(v => getPercentage(v, 'neither'));
             
             distributionChart = new Chart(ctx, {
             type: 'line',
@@ -383,7 +407,7 @@
                             display: true,
                             text: 'Model Version'
                         }
-                    }
+                }
                 },
                 plugins: {
                     title: {
@@ -398,7 +422,11 @@
                         callbacks: {
                             afterBody: function(context) {
                                 const dataIndex = context[0].dataIndex;
-                                const item = currentData.timeline[dataIndex];
+                                const versionNumber = selectedVersions[dataIndex];
+                                const item = timelineMap.get(versionNumber);
+                                if (!item || missingClassification.has(versionNumber)) {
+                                    return [`v${versionNumber}: No classification data`];
+                                }
                                 return [
                                     `Total Chunks: ${item.total_chunks.toLocaleString()}`,
                                     `Accuracy: ${(item.accuracy * 100).toFixed(1)}%`,
@@ -426,30 +454,47 @@
             evalAccuracyChart = null;
         }
         
-        // Filter versions that have evaluation data
-        const evaluatedVersions = currentData.modelVersions.filter(v => v.has_evaluation);
+        const timelineVersions = getAlignedVersionNumbers();
+        const evaluatedVersionMap = new Map(
+            currentData.modelVersions
+                .filter(v => v.has_evaluation)
+                .map(v => [v.version_number, v])
+        );
+
+        if (timelineVersions.length === 0) {
+            ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+            ctx.fillText('No timeline data available', 10, 50);
+            return;
+        }
         
-        if (evaluatedVersions.length === 0) {
+        const accuracyPoints = timelineVersions.map(versionNumber => {
+            const version = evaluatedVersionMap.get(versionNumber);
+            return version && version.eval_accuracy != null
+                ? (version.eval_accuracy * 100)
+                : null;
+        });
+
+        const evaluatedCount = accuracyPoints.filter(value => value !== null).length;
+
+        if (evaluatedCount === 0) {
             ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
             ctx.fillText('No evaluation data available', 10, 50);
             return;
         }
         
-        // Sort by version number
-        evaluatedVersions.sort((a, b) => a.version_number - b.version_number);
-        
             evalAccuracyChart = new Chart(ctx, {
             type: 'line',
                 data: {
-                labels: evaluatedVersions.map(v => `v${v.version_number}`),
+                labels: timelineVersions.map(v => `v${v}`),
                     datasets: [{
                     label: 'Evaluation Accuracy %',
-                    data: evaluatedVersions.map(v => (v.eval_accuracy * 100)),
+                    data: accuracyPoints,
                     borderColor: 'rgba(75, 192, 192, 1)',
                     backgroundColor: 'rgba(75, 192, 192, 0.2)',
                     borderWidth: 2,
                     fill: true,
-                    tension: 0.1
+                    tension: 0.1,
+                    spanGaps: true
                     }]
                 },
                 options: {
@@ -469,6 +514,19 @@
                     title: {
                         display: true,
                         text: 'Model Performance on Test Set (160 chunks)'
+                    }
+                },
+                plugins: {
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                const labelVersion = timelineVersions[context.dataIndex];
+                                if (context.parsed.y === null) {
+                                    return `v${labelVersion}: No evaluation data`;
+                                }
+                                return `v${labelVersion}: ${context.parsed.y.toFixed(1)}%`;
+                            }
+                        }
                     }
                 }
                 }
@@ -554,12 +612,6 @@
         async function checkEligibleCount() {
             const countElement = document.getElementById('eligibleCount');
             
-            // Check if element exists before trying to use it
-            if (!countElement) {
-                console.warn('eligibleCount element not found, skipping count check');
-                return;
-            }
-            
             try {
                 countElement.textContent = 'Checking...';
                 
@@ -576,10 +628,8 @@
                 }
             } catch (error) {
                 console.error('Error checking eligible count:', error);
-                if (countElement) {
-                    countElement.textContent = 'Error checking eligible articles';
-                }
-            }
+                countElement.textContent = 'Error checking eligible articles';
+        }
         }
 
 
@@ -787,11 +837,6 @@
         progressText.textContent = 'Starting retraining...';
         
         try {
-            // Show initial progress
-            progressText.textContent = 'Starting retraining process...';
-            progressBar.style.width = '10%';
-            
-            // Start the retrain request
             const response = await fetch('/api/model/retrain', {
                 method: 'POST',
                 headers: {
@@ -801,39 +846,6 @@
             
             const data = await response.json();
             
-            if (data.success && data.status === 'started') {
-                // Poll for status updates
-                const pollStatus = async () => {
-                    try {
-                        const statusResponse = await fetch('/api/model/retrain-status');
-                        const statusData = await statusResponse.json();
-                        
-                        // Update progress bar and text
-                        progressBar.style.width = `${statusData.progress}%`;
-                        progressText.textContent = statusData.message;
-                        
-                        // Continue polling if not complete
-                        if (statusData.status === 'complete') {
-                            // Show final results
-                            showRetrainResults(statusData, btn, progressSection, resultsSection, progressBar, progressText, resultsContent);
-                        } else if (statusData.status === 'error') {
-                            throw new Error(statusData.message);
-                        } else {
-                            // Continue polling
-                            setTimeout(pollStatus, 2000);
-                        }
-                    } catch (error) {
-                        console.error('Error polling status:', error);
-                        progressText.textContent = 'Error checking status';
-                    }
-                };
-                
-                // Start polling
-                setTimeout(pollStatus, 1000);
-                return; // Exit early, polling will handle completion
-            }
-            
-            // Fallback for non-polling responses
             if (data.success) {
                 // Update progress to 100%
                 progressBar.style.width = '100%';
@@ -855,55 +867,24 @@
                     `;
                 }
                 
-                // Parse command output for detailed status
-                let outputDetails = '';
-                if (data.output) {
-                    const lines = data.output.split('\n');
-                    const importantLines = lines.filter(line => 
-                        line.includes('📊') || 
-                        line.includes('✅') || 
-                        line.includes('🔄') || 
-                        line.includes('🧪') ||
-                        line.includes('🎉') ||
-                        line.includes('Backfill completed:') ||
-                        line.includes('Loaded') ||
-                        line.includes('Training') ||
-                        line.includes('Evaluation') ||
-                        line.includes('Saved')
-                    );
-                    
-                    if (importantLines.length > 0) {
-                        outputDetails = `
-                            <div class="mt-4 p-3 bg-gray-50 dark:bg-gray-800 rounded-md">
-                                <div class="text-gray-700 dark:text-gray-300 font-semibold mb-2">📋 Process Details:</div>
-                                <div class="text-sm text-gray-600 dark:text-gray-400 font-mono space-y-1 max-h-40 overflow-y-auto">
-                                    ${importantLines.map(line => `<div class="py-1">${line}</div>`).join('')}
-                                </div>
-                            </div>
-                        `;
-                    }
-                }
-                
                 resultsContent.innerHTML = `
                     <div class="text-green-600 font-semibold">✅ Retraining Complete</div>
                     <div class="mt-2">
-                        <p><strong>New Model Version:</strong> v${data.new_version || 'unknown'}</p>
-                        <p><strong>Training Accuracy:</strong> ${data.training_accuracy ? (data.training_accuracy * 100).toFixed(1) + '%' : 'N/A'}</p>
-                        <p><strong>Validation Accuracy:</strong> ${data.validation_accuracy ? (data.validation_accuracy * 100).toFixed(1) + '%' : 'N/A'}</p>
-                        <p><strong>Training Duration:</strong> ${data.training_duration || 'N/A'}</p>
-                        <p><strong>Training Samples:</strong> ${data.training_samples || 'N/A'}</p>
+                        <p><strong>New Model Version:</strong> v${data.new_version || 'Unknown'}</p>
+                        <p><strong>Training Accuracy:</strong> ${data.training_accuracy ? (data.training_accuracy * 100).toFixed(1) : 'N/A'}%</p>
+                        <p><strong>Validation Accuracy:</strong> ${data.validation_accuracy ? (data.validation_accuracy * 100).toFixed(1) : 'N/A'}%</p>
+                        <p><strong>Training Duration:</strong> ${data.training_duration || 'Unknown'}</p>
+                        <p><strong>Training Samples:</strong> ${data.training_samples || 'Unknown'}</p>
                     </div>
                     ${backfillInfo}
-                    ${outputDetails}
                 `;
                 
                 // Update status
-                const version = data.new_version || 'unknown';
-                const accuracy = data.validation_accuracy ? (data.validation_accuracy * 100).toFixed(1) : 'N/A';
                 const statusElement = document.getElementById('retrainingStatus');
-                if (statusElement) {
-                    statusElement.textContent = `Current model: v${version} (${accuracy}% accuracy)`;
-                }
+                const accuracy = data.validation_accuracy ? (data.validation_accuracy * 100).toFixed(1) : 'N/A';
+                statusElement.textContent = `v${data.new_version || 'Unknown'} (${accuracy}% accuracy)`;
+                statusElement.classList.remove('cursor-help');
+                statusElement.removeAttribute('title');
                 
                 // Reload data
                 setTimeout(() => {
@@ -956,10 +937,20 @@
             
             if (versionsData.success && versionsData.versions.length > 0) {
                 const latest = versionsData.versions[0]; // Already sorted by version number
-                const accuracy = latest.eval_accuracy ? (latest.eval_accuracy * 100).toFixed(1) : 'N/A';
-                statusElement.textContent = `v${latest.version_number} (${accuracy}% accuracy)`;
+                if (latest.eval_accuracy) {
+                    const accuracyPercent = (latest.eval_accuracy * 100).toFixed(1);
+                    statusElement.textContent = `v${latest.version_number} (${accuracyPercent}% accuracy)`;
+                    statusElement.classList.remove('cursor-help');
+                    statusElement.removeAttribute('title');
+                } else {
+                    statusElement.textContent = `v${latest.version_number}`;
+                    statusElement.classList.remove('cursor-help');
+                    statusElement.removeAttribute('title');
+                }
             } else {
                 statusElement.textContent = 'None';
+                statusElement.classList.remove('cursor-help');
+                statusElement.removeAttribute('title');
             }
             
             if (feedbackData.success) {
@@ -993,36 +984,6 @@
             refreshBtn.disabled = false;
             refreshBtn.textContent = 'Refresh Status';
         }
-    }
-
-    function showRetrainResults(statusData, btn, progressSection, resultsSection, progressBar, progressText, resultsContent) {
-        // Update progress to 100%
-        progressBar.style.width = '100%';
-        progressText.textContent = 'Complete!';
-        
-        // Show results
-        resultsSection.classList.remove('hidden');
-        resultsContent.innerHTML = `
-            <div class="text-green-600 font-semibold">✅ Retraining Complete</div>
-            <div class="mt-2">
-                <p><strong>Status:</strong> ${statusData.message}</p>
-                <p><strong>Progress:</strong> ${statusData.progress}%</p>
-            </div>
-        `;
-        
-        // Re-enable button
-        btn.disabled = false;
-        btn.textContent = 'Retrain Model';
-        
-        // Hide progress after delay
-        setTimeout(() => {
-            progressSection.classList.add('hidden');
-        }, 3000);
-        
-        // Reload data
-        setTimeout(() => {
-            loadInitialData();
-        }, 1000);
     }
 
     // Event listeners

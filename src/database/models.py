@@ -140,6 +140,9 @@ class ArticleAnnotationTable(Base):
     embedding_model = Column(String(100), nullable=True, default='all-mpnet-base-v2')
     embedded_at = Column(DateTime, nullable=True)
     
+    # Training tracking
+    used_for_training = Column(Boolean, nullable=False, default=False)
+    
     # Timestamps
     created_at = Column(DateTime, nullable=False, default=func.now())
     updated_at = Column(DateTime, nullable=False, default=func.now(), onupdate=func.now())

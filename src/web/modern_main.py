@@ -4880,9 +4880,12 @@ async def api_model_retrain():
         status_file = "outputs/training_data/retrain_status.json"
         os.makedirs(os.path.dirname(status_file), exist_ok=True)
         
-        def update_status(status, progress, message):
+        def update_status(status, progress, message, data=None):
+            status_data = {"status": status, "progress": progress, "message": message}
+            if data:
+                status_data.update(data)
             with open(status_file, 'w') as f:
-                json.dump({"status": status, "progress": progress, "message": message}, f)
+                json.dump(status_data, f)
         
         # Start with initial status
         update_status("starting", 10, "Starting retraining process...")
@@ -4897,7 +4900,37 @@ async def api_model_retrain():
                 ], capture_output=True, text=True, timeout=300)
                 
                 if result.returncode == 0:
-                    update_status("complete", 100, "Retraining completed successfully")
+                    # Get the latest model version after successful retraining
+                    try:
+                        from src.utils.model_versioning import MLModelVersionManager
+                        from src.database.async_manager import AsyncDatabaseManager
+                        import asyncio
+                        
+                        async def get_latest_version():
+                            db_manager = AsyncDatabaseManager()
+                            version_manager = MLModelVersionManager(db_manager)
+                            latest_version = await version_manager.get_latest_version()
+                            await db_manager.close()
+                            return latest_version
+                        
+                        latest_version = asyncio.run(get_latest_version())
+                        
+                        if latest_version:
+                            # Return detailed metrics for the frontend
+                            retrain_data = {
+                                "new_version": latest_version.version_number,
+                                "training_accuracy": latest_version.accuracy or 0.0,
+                                "validation_accuracy": latest_version.accuracy or 0.0,  # Using accuracy as validation
+                                "training_duration": f"{latest_version.training_duration_seconds:.1f}s" if latest_version.training_duration_seconds else "Unknown",
+                                "training_samples": latest_version.training_data_size or 0,
+                                "feedback_samples": latest_version.feedback_samples_count or 0
+                            }
+                            update_status("complete", 100, "Retraining completed successfully", retrain_data)
+                        else:
+                            update_status("complete", 100, "Retraining completed successfully")
+                    except Exception as e:
+                        logger.warning(f"Could not get latest model version: {e}")
+                        update_status("complete", 100, "Retraining completed successfully")
                 else:
                     update_status("error", 0, f"Retraining failed: {result.stderr}")
                     
@@ -5194,6 +5227,7 @@ async def api_get_feedback_count():
             SELECT COUNT(*) as annotation_count
             FROM article_annotations
             WHERE LENGTH(selected_text) >= 950
+            AND used_for_training = FALSE
             """)
             
             result = await session.execute(query)
@@ -6860,6 +6894,7 @@ async def get_comparison_summary():
     """Get summary statistics for the comparison."""
     try:
         from src.services.chunk_analysis_service import ChunkAnalysisService
+        from src.database.models import MLModelVersionTable
         
         from src.database.manager import DatabaseManager
         db_manager = DatabaseManager()
@@ -6871,6 +6906,9 @@ async def get_comparison_summary():
             all_stats = service.get_model_comparison_stats()
             model_versions = service.get_available_model_versions()
             
+            # Get total count of all model versions from the database
+            total_model_versions = sync_db.query(MLModelVersionTable).count()
+            
             # Get recent results count
             recent_results = service.get_chunk_analysis_results(limit=1)
             total_results = len(service.get_chunk_analysis_results(limit=50000))  # Get actual count with high limit
@@ -6878,7 +6916,7 @@ async def get_comparison_summary():
             sync_db.close()
         
         summary = {
-            "total_model_versions": len(model_versions),
+            "total_model_versions": total_model_versions,
             "total_chunk_analyses": total_results,
             "model_versions": model_versions,
             "overall_stats": all_stats,
