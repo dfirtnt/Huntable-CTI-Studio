@@ -4836,10 +4836,36 @@ async def api_model_retrain():
         import json
         import threading
         
-        # Check if feedback file exists
-        feedback_file = "outputs/training_data/chunk_classification_feedback.csv"
-        if not os.path.exists(feedback_file):
-            return {"success": False, "message": "No feedback data found to retrain with"}
+        # Check if we have feedback or annotations available for retraining
+        async with async_db_manager.get_session() as session:
+            from sqlalchemy import text
+            
+            # Check for unused feedback
+            feedback_query = text("""
+            SELECT COUNT(*) as feedback_count
+            FROM chunk_classification_feedback
+            WHERE used_for_training = FALSE
+            """)
+            
+            result = await session.execute(feedback_query)
+            feedback_count = result.scalar() or 0
+            
+            # Check for unused annotations
+            annotation_query = text("""
+            SELECT COUNT(*) as annotation_count
+            FROM article_annotations
+            WHERE LENGTH(selected_text) >= 950
+            AND LENGTH(selected_text) <= 1050
+            AND used_for_training = FALSE
+            """)
+            
+            result = await session.execute(annotation_query)
+            annotation_count = result.scalar() or 0
+        
+        total_available = feedback_count + annotation_count
+        
+        if total_available == 0:
+            return {"success": False, "message": "No feedback or annotations available for retraining"}
         
         # Run the retraining script
         retrain_script = "scripts/retrain_with_feedback.py"
@@ -4858,7 +4884,11 @@ async def api_model_retrain():
                 json.dump(status_data, f)
         
         # Start with initial status
-        update_status("starting", 10, "Starting retraining process...")
+        update_status("starting", 10, f"Starting retraining process with {total_available} training samples...", {
+            "training_samples": total_available,
+            "feedback_count": feedback_count,
+            "annotation_count": annotation_count
+        })
         
         def run_retrain():
             try:
@@ -4892,10 +4922,11 @@ async def api_model_retrain():
                                 "training_accuracy": latest_version.accuracy or 0.0,
                                 "validation_accuracy": latest_version.accuracy or 0.0,  # Using accuracy as validation
                                 "training_duration": f"{latest_version.training_duration_seconds:.1f}s" if latest_version.training_duration_seconds else "Unknown",
-                                "training_samples": latest_version.training_data_size or 0,
-                                "feedback_samples": latest_version.feedback_samples_count or 0
+                                "training_samples": total_available,  # Use the count we calculated earlier
+                                "feedback_samples": feedback_count,
+                                "annotation_samples": annotation_count
                             }
-                            update_status("complete", 100, "Retraining completed successfully", retrain_data)
+                            update_status("complete", 100, f"Retraining completed successfully! New model: v{latest_version.version_number}", retrain_data)
                         else:
                             update_status("complete", 100, "Retraining completed successfully")
                     except Exception as e:
@@ -4913,17 +4944,35 @@ async def api_model_retrain():
                 if os.path.exists(status_file):
                     os.remove(status_file)
         
-        # Start retraining in background thread
-        retrain_thread = threading.Thread(target=run_retrain)
-        retrain_thread.daemon = True
-        retrain_thread.start()
+        # Run retraining synchronously to return results
+        run_retrain()
         
-        # Return immediately with status
-        return {
-            "success": True,
-            "message": "Retraining started",
-            "status": "started"
-        }
+        # Read the final status to return results
+        if os.path.exists(status_file):
+            with open(status_file, 'r') as f:
+                final_status = json.load(f)
+            
+            if final_status.get("status") == "complete":
+                return {
+                    "success": True,
+                    "message": final_status.get("message", "Retraining completed"),
+                    "new_version": final_status.get("new_version"),
+                    "training_accuracy": final_status.get("training_accuracy"),
+                    "training_samples": final_status.get("training_samples"),
+                    "feedback_samples": final_status.get("feedback_samples"),
+                    "annotation_samples": final_status.get("annotation_samples"),
+                    "training_duration": final_status.get("training_duration")
+                }
+            else:
+                return {
+                    "success": False,
+                    "message": final_status.get("message", "Retraining failed")
+                }
+        else:
+            return {
+                "success": False,
+                "message": "Retraining failed - no status file created"
+            }
         
     except Exception as e:
         logger.error(f"Error starting retraining: {e}")
@@ -5167,42 +5216,33 @@ async def api_get_eval_chunk_count():
 async def api_get_feedback_count():
     """Get count of available user feedback samples and annotations for retraining."""
     try:
-        import os
-        import pandas as pd
-        
         feedback_count = 0
         annotation_count = 0
         
-        # Count feedback from chunk debugging interface
-        feedback_file = "outputs/training_data/chunk_classification_feedback.csv"
-        
-        if os.path.exists(feedback_file):
-            feedback_df = pd.read_csv(feedback_file)
-            
-            if not feedback_df.empty:
-                # Count unique chunks that received user feedback
-                unique_feedback = feedback_df.drop_duplicates(subset=['article_id', 'chunk_id'], keep='last')
-                
-                # Filter out chunks with very low confidence (likely not actual feedback)
-                actual_feedback = unique_feedback[unique_feedback['model_confidence'] > 0.01]
-                
-                # Only count feedback that hasn't been used for training yet
-                unused_feedback = actual_feedback[actual_feedback['used_for_training'] == False]
-                
-                feedback_count = len(unused_feedback)
-        
-        # Count annotations from database
+        # Count feedback from database
         async with async_db_manager.get_session() as session:
             from sqlalchemy import text
             
-            query = text("""
+            # Count unused feedback from database
+            feedback_query = text("""
+            SELECT COUNT(*) as feedback_count
+            FROM chunk_classification_feedback
+            WHERE used_for_training = FALSE
+            """)
+            
+            result = await session.execute(feedback_query)
+            feedback_count = result.scalar() or 0
+            
+            # Count annotations from database
+            annotation_query = text("""
             SELECT COUNT(*) as annotation_count
             FROM article_annotations
             WHERE LENGTH(selected_text) >= 950
+            AND LENGTH(selected_text) <= 1050
             AND used_for_training = FALSE
             """)
             
-            result = await session.execute(query)
+            result = await session.execute(annotation_query)
             annotation_count = result.scalar() or 0
         
         total_count = feedback_count + annotation_count

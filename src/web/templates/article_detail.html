@@ -1049,7 +1049,7 @@
             
             // Color coding for length guidance (production-aligned)
             let lengthStatus = 'good'; // green
-            let lengthMessage = '✅ Excellent length for evaluation';
+            let lengthMessage = '';
             if (charCount < 800) {
                 lengthStatus = 'short'; // yellow
                 lengthMessage = '⚠️ Too short - add more context to match production chunks';
@@ -1069,9 +1069,7 @@
                             ${charCount}/${targetLength} chars
                         </div>
                     </div>
-                    <div class="length-guidance ${lengthStatus} mb-4">
-                        ${lengthMessage}
-                    </div>
+                    ${lengthMessage ? `<div class="length-guidance ${lengthStatus} mb-4">${lengthMessage}</div>` : ''}
                     <p class="text-sm text-gray-600 mb-4">"${expandedText.substring(0, 100)}${expandedText.length > 100 ? '...' : ''}"</p>
                     
                     <div class="flex space-x-3">
@@ -1354,7 +1352,7 @@
             
             // Color coding for length guidance (production-aligned)
             let lengthStatus = 'good'; // green
-            let lengthMessage = '✅ Excellent length for evaluation';
+            let lengthMessage = '';
             if (charCount < 800) {
                 lengthStatus = 'short'; // yellow
                 lengthMessage = '⚠️ Too short - add more context to match production chunks';
@@ -1374,9 +1372,7 @@
                             ${charCount}/${targetLength} chars
                         </div>
                     </div>
-                    <div class="length-guidance ${lengthStatus} mb-4">
-                        ${lengthMessage}
-                    </div>
+                    ${lengthMessage ? `<div class="length-guidance ${lengthStatus} mb-4">${lengthMessage}</div>` : ''}
                     <p class="text-sm text-gray-600 mb-4">"${text.substring(0, 100)}${text.length > 100 ? '...' : ''}"</p>
                     
                     <div class="flex space-x-3">

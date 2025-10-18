@@ -8,20 +8,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- **Enhanced Annotation System**: Advanced text selection and classification interface with character counting and length guidance
-- **Auto-Expand Selection**: One-click expansion to 1000 characters for ML training data alignment
-- **Smart Boundary Detection**: Intelligent text expansion that respects sentence, paragraph, and word boundaries
-- **Real-Time Character Counter**: Live character count display with color-coded length guidance (green/yellow/red)
-- **Production-Aligned Evaluation Data**: Automatic trimming to ensure evaluation excerpts match ML model's 1000-character chunking
-- **Live Selection Highlighting**: Visual feedback showing expanded text selection in real-time
-- **ML Training Compliance**: Ensures evaluation data stays within 950-1000 character range for optimal model performance
+- **Database-Based Training System**: Refactored ML training from CSV to PostgreSQL database storage
+- **Chunk Classification Feedback Table**: New database table for storing user feedback on ML predictions
+- **Auto-Expand Annotation UI**: Automatic 1000-character text selection for optimal training data
+- **Length Validation**: Frontend and backend validation for 950-1050 character annotations
+- **Training Data Migration**: Script to migrate existing CSV feedback to database
+- **Enhanced API Endpoints**: Updated retraining API with database integration and proper version tracking
+- **Usage Tracking**: `used_for_training` flag to prevent duplicate data usage
+- **Real-Time Feedback Count**: API endpoint showing available training samples from database
+
+### Changed
+- **Training Data Source**: Now uses database tables instead of CSV files
+- **Annotation Requirements**: Enforces 950-1050 character length for training data quality
+- **Retraining Workflow**: Synchronous execution with complete results returned
+- **Model Version Display**: Shows proper version numbers and training sample counts
+- **Error Handling**: Improved error messages for missing training data
 
 ### Fixed
-- **Keyword Highlighting Bug**: Fixed overlapping keyword highlights extending beyond intended keywords
-- **PDF Upload Improvements**: Enhanced error handling for duplicate files and database errors
-- **CSS Class Conflicts**: Resolved conflicts between keyword highlighting and user annotation systems
-- **Annotation UI Display Bug**: Fixed character counter not updating after auto-expand operations
-- **Modal Update Conflicts**: Resolved event handler conflicts preventing UI updates during text expansion
+- **JavaScript Infinite Loops**: Fixed auto-expand functionality causing repeated errors
+- **Modal Recreation Issues**: Prevented infinite loops in annotation modal updates
+- **API Response Format**: Consistent response structure for retraining endpoints
+- **Training Sample Counting**: Accurate count of available feedback and annotations
+- **Version Information Display**: Proper model version and accuracy reporting
+
+### Technical Details
+- **Database Schema**: Added `chunk_classification_feedback` table with proper indexes
+- **API Updates**: Modified `/api/model/retrain` and `/api/model/feedback-count` endpoints
+- **UI Improvements**: Streamlined annotation modal without manual adjustment controls
+- **Test Updates**: Updated unit tests for database-based training system
+- **Documentation**: Added comprehensive database training system documentation
 
 ### Added
 - **Chunk Deduplication System**: Database unique constraint prevents duplicate chunk storage

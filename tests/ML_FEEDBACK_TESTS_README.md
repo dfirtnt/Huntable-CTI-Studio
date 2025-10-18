@@ -2,7 +2,13 @@
 
 ## Overview
 
-These tests provide **essential regression prevention** for the new ML feedback features. They focus on the most critical functionality that could break with future development.
+These tests provide **essential regression prevention** for the ML feedback features. Updated for database-based training system (2025-10-18).
+
+**Key Changes:**
+- Feedback now stored in `chunk_classification_feedback` table
+- Annotations used for training from `article_annotations` table (950-1050 chars)
+- CSV file dependencies removed
+- Auto-expand UI for 1000-character annotations
 
 ## Test Philosophy
 
@@ -36,7 +42,8 @@ These tests provide **essential regression prevention** for the new ML feedback 
 **Tests**:
 - `test_feedback_comparison_api_contract()` - API response structure
 - `test_model_versions_endpoint()` - Model versioning API
-- `test_model_retrain_endpoint()` - Retraining API
+- `test_model_retrain_endpoint()` - Retraining API (updated for database)
+- `test_feedback_count_endpoint()` - NEW: Database feedback count API
 
 ### 3. Model Retraining Integration Test
 **File**: `tests/integration/test_retraining_integration.py`
@@ -44,10 +51,10 @@ These tests provide **essential regression prevention** for the new ML feedback 
 **Why Critical**: Retraining is the main user workflow
 
 **Tests**:
-- `test_retraining_creates_new_version()` - Core workflow
+- `test_retraining_creates_new_version()` - Core workflow (updated for database)
 - `test_model_version_data_integrity()` - Data integrity
 - `test_model_comparison_endpoint()` - Comparison functionality
-- `test_retraining_without_feedback()` - Error handling
+- `test_retraining_without_feedback()` - Error handling (updated for database)
 
 ## Running the Tests
 
@@ -83,6 +90,9 @@ docker exec cti_web python -m pytest tests/integration/test_retraining_integrati
 - Model versioning system breakage
 - Database schema changes
 - Feedback data format changes
+- **NEW**: Database-based training system changes
+- **NEW**: Annotation length validation (950-1050 chars)
+- **NEW**: Auto-expand UI functionality
 
 ### ✅ **Integration Issues**
 - Frontend-backend API mismatches

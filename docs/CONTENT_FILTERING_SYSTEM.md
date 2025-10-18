@@ -1,5 +1,51 @@
 # GPT-4o Content Filtering System
 
+## Database-Based Training System (NEW - 2025-10-18)
+
+### Overview
+The training system has been refactored to use database storage instead of CSV files for improved data management and consistency.
+
+### Key Changes
+- **Database Storage**: Feedback stored in `chunk_classification_feedback` table
+- **Annotation Integration**: Training data from `article_annotations` table (950-1050 chars)
+- **Auto-Expand UI**: Automatic 1000-character text selection for optimal training
+- **Migration Support**: CSV-to-database migration script available
+
+### Database Schema
+```sql
+-- Feedback storage
+CREATE TABLE chunk_classification_feedback (
+    id SERIAL PRIMARY KEY,
+    article_id INTEGER NOT NULL REFERENCES articles(id),
+    chunk_id INTEGER NOT NULL,
+    chunk_text TEXT NOT NULL,
+    model_classification VARCHAR(20) NOT NULL,
+    model_confidence FLOAT NOT NULL,
+    is_correct BOOLEAN NOT NULL,
+    user_classification VARCHAR(20),
+    used_for_training BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Annotations used for training (950-1050 chars)
+SELECT COUNT(*) FROM article_annotations 
+WHERE LENGTH(selected_text) >= 950 
+AND LENGTH(selected_text) <= 1050 
+AND used_for_training = FALSE;
+```
+
+### Training Workflow
+1. **User Feedback**: Stored in database via `/api/feedback/chunk-classification`
+2. **Annotations**: Created via UI with auto-expand to 1000 characters
+3. **Retraining**: `/api/model/retrain` queries database for unused data
+4. **Marking Used**: Data marked as `used_for_training = TRUE` after training
+
+### API Endpoints
+- `GET /api/model/feedback-count` - Count available training samples
+- `POST /api/model/retrain` - Retrain model with database data
+- `POST /api/feedback/chunk-classification` - Store user feedback
+- `POST /api/articles/{id}/annotations` - Create annotations (with length validation)
+
 ## Overview
 
 I've successfully designed and implemented a machine learning-based content filtering system to reduce GPT-4o costs by identifying and removing "not huntable" content before sending it to the API.
