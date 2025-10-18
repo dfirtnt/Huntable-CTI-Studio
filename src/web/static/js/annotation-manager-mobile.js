@@ -133,16 +133,14 @@ class MobileTextAnnotationManager {
             const selectedText = selection.toString().trim();
             
             if (selectedText && selectedText.length > 0 && !this.isLongPress) {
-                // Auto-expand to 1000 characters for mobile
-                const expandedSelection = this.autoExpandTo1000(selectedText);
-                
+                // Don't auto-expand here - let the main system handle it
                 this.currentSelection = {
-                    text: expandedSelection.text,
-                    range: expandedSelection.range,
-                    startContainer: expandedSelection.range.startContainer,
-                    startOffset: expandedSelection.range.startOffset,
-                    endContainer: expandedSelection.range.endContainer,
-                    endOffset: expandedSelection.range.endOffset
+                    text: selectedText,
+                    range: selection.getRangeAt(0).cloneRange(),
+                    startContainer: selection.getRangeAt(0).startContainer,
+                    startOffset: selection.getRangeAt(0).startOffset,
+                    endContainer: selection.getRangeAt(0).endContainer,
+                    endOffset: selection.getRangeAt(0).endOffset
                 };
                 
                 this.showMobileAnnotationMenu();
@@ -290,16 +288,14 @@ class MobileTextAnnotationManager {
             const selectedText = selection.toString().trim();
             
             if (selectedText && selectedText.length > 0 && !this.isLongPress) {
-                // Auto-expand to 1000 characters for mobile
-                const expandedSelection = this.autoExpandTo1000(selectedText);
-                
+                // Don't auto-expand here - let the main system handle it
                 this.currentSelection = {
-                    text: expandedSelection.text,
-                    range: expandedSelection.range,
-                    startContainer: expandedSelection.range.startContainer,
-                    startOffset: expandedSelection.range.startOffset,
-                    endContainer: expandedSelection.range.endContainer,
-                    endOffset: expandedSelection.range.endOffset
+                    text: selectedText,
+                    range: selection.getRangeAt(0).cloneRange(),
+                    startContainer: selection.getRangeAt(0).startContainer,
+                    startOffset: selection.getRangeAt(0).startOffset,
+                    endContainer: selection.getRangeAt(0).endContainer,
+                    endOffset: selection.getRangeAt(0).endOffset
                 };
                 
                 this.showAnnotationMenu(event);
@@ -446,6 +442,16 @@ class MobileTextAnnotationManager {
     
     async createAnnotation(type) {
         if (!this.currentSelection) return;
+        
+        // Validate length (must be ~1000 chars)
+        const textLength = this.currentSelection.text.length;
+        if (textLength < 950 || textLength > 1050) {
+            this.showNotification(
+                `Selection must be approximately 1000 characters (current: ${textLength})`,
+                'error'
+            );
+            return;
+        }
         
         try {
             // Show loading state

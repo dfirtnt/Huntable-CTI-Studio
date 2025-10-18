@@ -1012,6 +1012,17 @@
         }
         
         showClassificationModal(text, start, end) {
+            // Prevent infinite loops when updating existing modal
+            if (this.isUpdatingModal) {
+                return;
+            }
+            
+            // Auto-expand to 1000 characters before showing modal
+            const expandedSelection = this.autoExpandTo1000(start, end);
+            const expandedText = expandedSelection.text;
+            const expandedStart = expandedSelection.start;
+            const expandedEnd = expandedSelection.end;
+            
             // Create modal for classification
             const modal = document.createElement('div');
             modal.className = 'fixed inset-0 bg-gray-600 bg-opacity-50 z-50 flex items-center justify-center';
@@ -1033,7 +1044,7 @@
             document.addEventListener('keydown', handleEsc);
             
             // Calculate character count and length guidance
-            const charCount = text.length;
+            const charCount = expandedText.length;
             const targetLength = 1000;
             
             // Color coding for length guidance (production-aligned)
@@ -1061,42 +1072,7 @@
                     <div class="length-guidance ${lengthStatus} mb-4">
                         ${lengthMessage}
                     </div>
-                    <p class="text-sm text-gray-600 mb-4">"${text.substring(0, 100)}${text.length > 100 ? '...' : ''}"</p>
-                    
-                    <!-- Expand/Contract Selection Controls -->
-                    <div class="expand-controls mb-4 p-3 bg-gray-50 rounded-lg">
-                        <div class="text-xs text-gray-600 mb-2">Adjust selection size:</div>
-                        <div class="flex flex-wrap gap-2">
-                            <button id="expand-minus-200" 
-                                    class="text-sm px-3 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 min-h-[40px] touch-manipulation">
-                                -200 chars
-                            </button>
-                            <button id="expand-minus-100" 
-                                    class="text-sm px-3 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 min-h-[40px] touch-manipulation">
-                                -100 chars
-                            </button>
-                            <button id="expand-minus-50" 
-                                    class="text-sm px-3 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 min-h-[40px] touch-manipulation">
-                                -50 chars
-                            </button>
-                            <button id="expand-plus-50" 
-                                    class="text-sm px-3 py-2 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 min-h-[40px] touch-manipulation">
-                                +50 chars
-                            </button>
-                            <button id="expand-plus-100" 
-                                    class="text-sm px-3 py-2 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 min-h-[40px] touch-manipulation">
-                                +100 chars
-                            </button>
-                            <button id="expand-plus-200" 
-                                    class="text-sm px-3 py-2 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 min-h-[40px] touch-manipulation">
-                                +200 chars
-                            </button>
-                            <button id="auto-expand-1000" 
-                                    class="text-sm px-3 py-2 bg-purple-100 text-purple-700 rounded-lg hover:bg-purple-200 font-semibold min-h-[40px] touch-manipulation">
-                                🎯 Auto 1000
-                            </button>
-                        </div>
-                    </div>
+                    <p class="text-sm text-gray-600 mb-4">"${expandedText.substring(0, 100)}${expandedText.length > 100 ? '...' : ''}"</p>
                     
                     <div class="flex space-x-3">
                         <button id="huntable-btn" 
@@ -1118,7 +1094,7 @@
             document.body.appendChild(modal);
             
             // Add touch event handlers for mobile
-            addMobileModalHandlers(modal, start, end);
+            addMobileModalHandlers(modal, expandedStart, expandedEnd);
             
             // Add CSS styles if not already present
             if (!document.getElementById('annotation-enhancement-styles')) {
@@ -1333,14 +1309,168 @@
             // NUCLEAR OPTION: Completely recreate the modal to force UI update
             console.log('Recreating modal to force UI update');
             
+            // Set flag to prevent infinite loops
+            this.isUpdatingModal = true;
+            
             // Close the current modal
             this.closeModal();
             
             // Wait a frame to ensure DOM cleanup
             setTimeout(() => {
-                // Recreate the modal with new selection data
-                this.showClassificationModal(newText, newStart, newEnd);
+                // Create modal directly without auto-expanding (we already have the right text)
+                this.createModalDirectly(newText, newStart, newEnd);
+                
+                // Clear the flag after modal is recreated
+                setTimeout(() => {
+                    this.isUpdatingModal = false;
+                }, 100);
             }, 10);
+        }
+        
+        createModalDirectly(text, start, end) {
+            // Create modal for classification without auto-expanding
+            const modal = document.createElement('div');
+            modal.className = 'fixed inset-0 bg-gray-600 bg-opacity-50 z-50 flex items-center justify-center';
+            
+            // Add click outside to close
+            modal.addEventListener('click', function(e) {
+                if (e.target === modal) {
+                    this.closeModal();
+                }
+            }.bind(this));
+            
+            // Add ESC key to close
+            const handleEsc = function(e) {
+                if (e.key === 'Escape') {
+                    this.closeModal();
+                    document.removeEventListener('keydown', handleEsc);
+                }
+            }.bind(this);
+            document.addEventListener('keydown', handleEsc);
+            
+            // Calculate character count and length guidance
+            const charCount = text.length;
+            const targetLength = 1000;
+            
+            // Color coding for length guidance (production-aligned)
+            let lengthStatus = 'good'; // green
+            let lengthMessage = '✅ Excellent length for evaluation';
+            if (charCount < 800) {
+                lengthStatus = 'short'; // yellow
+                lengthMessage = '⚠️ Too short - add more context to match production chunks';
+            } else if (charCount < 950) {
+                lengthStatus = 'acceptable'; // blue
+                lengthMessage = '⚠️ Acceptable but not optimal - aim for 950-1000 chars';
+            } else if (charCount > 1000) {
+                lengthStatus = 'long'; // red
+                lengthMessage = '⚠️ Too long - will be chunked differently in production';
+            }
+            
+            modal.innerHTML = `
+                <div class="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="text-lg font-semibold">Classify Selected Text</h3>
+                        <div class="char-counter ${lengthStatus}">
+                            ${charCount}/${targetLength} chars
+                        </div>
+                    </div>
+                    <div class="length-guidance ${lengthStatus} mb-4">
+                        ${lengthMessage}
+                    </div>
+                    <p class="text-sm text-gray-600 mb-4">"${text.substring(0, 100)}${text.length > 100 ? '...' : ''}"</p>
+                    
+                    <div class="flex space-x-3">
+                        <button id="huntable-btn" 
+                                class="flex-1 bg-green-600 text-white px-4 py-3 rounded-lg text-lg font-semibold min-h-[48px] touch-manipulation">
+                            🎯 Huntable
+                        </button>
+                        <button id="not-huntable-btn" 
+                                class="flex-1 bg-red-600 text-white px-4 py-3 rounded-lg text-lg font-semibold min-h-[48px] touch-manipulation">
+                            ❌ Not Huntable
+                        </button>
+                        <button id="cancel-btn" 
+                                class="px-4 py-3 border border-gray-300 rounded-lg text-lg font-semibold min-h-[48px] touch-manipulation">
+                            Cancel
+                        </button>
+                    </div>
+                </div>
+            `;
+            
+            document.body.appendChild(modal);
+            
+            // Add touch event handlers for mobile
+            addMobileModalHandlers(modal, start, end);
+            
+            // Add CSS styles if not already present
+            if (!document.getElementById('annotation-enhancement-styles')) {
+                const styles = document.createElement('style');
+                styles.id = 'annotation-enhancement-styles';
+                styles.textContent = `
+                    .char-counter {
+                        font-size: 11px;
+                        font-weight: 600;
+                        padding: 2px 6px;
+                        border-radius: 4px;
+                        margin-left: 8px;
+                    }
+                    
+                    .char-counter.good {
+                        background: #dcfce7;
+                        color: #15803d;
+                        border: 1px solid #16a34a;
+                    }
+                    
+                    .char-counter.short {
+                        background: #fef3c7;
+                        color: #92400e;
+                        border: 1px solid #f59e0b;
+                    }
+                    
+                    .char-counter.acceptable {
+                        background: #dbeafe;
+                        color: #1e40af;
+                        border: 1px solid #3b82f6;
+                    }
+                    
+                    .char-counter.long {
+                        background: #fee2e2;
+                        color: #dc2626;
+                        border: 1px solid #ef4444;
+                    }
+                    
+                    .length-guidance {
+                        font-size: 12px;
+                        padding: 8px 12px;
+                        border-radius: 6px;
+                        border-left: 4px solid;
+                    }
+                    
+                    .length-guidance.good {
+                        background: #dcfce7;
+                        color: #15803d;
+                        border-left-color: #16a34a;
+                    }
+                    
+                    .length-guidance.short {
+                        background: #fef3c7;
+                        color: #92400e;
+                        border-left-color: #f59e0b;
+                    }
+                    
+                    .length-guidance.acceptable {
+                        background: #dbeafe;
+                        color: #1e40af;
+                        border-left-color: #3b82f6;
+                    }
+                    
+                    .length-guidance.long {
+                        background: #fee2e2;
+                        color: #dc2626;
+                        border-left-color: #ef4444;
+                    }
+                `;
+                document.head.appendChild(styles);
+            }
         }
         
         findSmartBoundaries(text, start, end) {
@@ -1967,49 +2097,6 @@
                 simpleTextManager.closeModal();
             });
         }
-        
-        // Auto 1000 button
-        const autoExpandBtn = modal.querySelector('#auto-expand-1000');
-        if (autoExpandBtn) {
-            autoExpandBtn.addEventListener('click', function(e) {
-                e.stopPropagation();
-                console.log('📱 Auto 1000 button clicked');
-                simpleTextManager.autoExpandTo1000(start, end);
-            });
-            
-            autoExpandBtn.addEventListener('touchend', function(e) {
-                e.stopPropagation();
-                console.log('📱 Auto 1000 button touched');
-                simpleTextManager.autoExpandTo1000(start, end);
-            });
-        }
-        
-        // Expand buttons
-        const expandButtons = [
-            { id: 'expand-minus-200', amount: -200 },
-            { id: 'expand-minus-100', amount: -100 },
-            { id: 'expand-minus-50', amount: -50 },
-            { id: 'expand-plus-50', amount: 50 },
-            { id: 'expand-plus-100', amount: 100 },
-            { id: 'expand-plus-200', amount: 200 }
-        ];
-        
-        expandButtons.forEach(btn => {
-            const button = modal.querySelector(`#${btn.id}`);
-            if (button) {
-                button.addEventListener('click', function(e) {
-                    e.stopPropagation();
-                    console.log(`📱 Expand button clicked: ${btn.amount}`);
-                    simpleTextManager.expandSelection(start, end, btn.amount);
-                });
-                
-                button.addEventListener('touchend', function(e) {
-                    e.stopPropagation();
-                    console.log(`📱 Expand button touched: ${btn.amount}`);
-                    simpleTextManager.expandSelection(start, end, btn.amount);
-                });
-            }
-        });
         
         console.log('📱 Mobile modal handlers added');
     }

@@ -15,16 +15,43 @@ sys.path.append(str(Path(__file__).parent.parent / 'src'))
 
 from utils.content_filter import ContentFilter
 
-def load_feedback_data(feedback_file: str = "outputs/training_data/chunk_classification_feedback.csv"):
-    """Load user feedback data from CSV file."""
-    if not os.path.exists(feedback_file):
-        print(f"⚠️  No feedback file found at {feedback_file}")
-        return pd.DataFrame()
-    
+def load_feedback_data():
+    """Load user feedback data from database."""
     try:
-        df = pd.read_csv(feedback_file)
-        print(f"📊 Loaded {len(df)} feedback entries")
-        return df
+        from database.manager import DatabaseManager
+        from database.models import ChunkClassificationFeedbackTable
+        
+        db_manager = DatabaseManager()
+        session = db_manager.get_session()
+        
+        try:
+            feedback_records = session.query(ChunkClassificationFeedbackTable).filter(
+                ChunkClassificationFeedbackTable.used_for_training == False
+            ).all()
+            
+            if not feedback_records:
+                print("⚠️  No unused feedback found in database")
+                return pd.DataFrame()
+            
+            # Convert to DataFrame
+            feedback_data = []
+            for record in feedback_records:
+                feedback_data.append({
+                    'chunk_id': record.chunk_id,
+                    'chunk_text': record.chunk_text,
+                    'is_correct': record.is_correct,
+                    'user_classification': record.user_classification,
+                    'model_classification': record.model_classification,
+                    'model_confidence': record.model_confidence
+                })
+            
+            df = pd.DataFrame(feedback_data)
+            print(f"📊 Loaded {len(df)} feedback entries from database")
+            return df
+            
+        finally:
+            session.close()
+        
     except Exception as e:
         print(f"❌ Error loading feedback data: {e}")
         return pd.DataFrame()
@@ -41,7 +68,7 @@ def load_annotation_data():
         try:
             from sqlalchemy import text
             
-            # Query annotations (only unused ones)
+            # Query annotations (only unused ones with ~1000 chars)
             query = text("""
             SELECT 
                 ROW_NUMBER() OVER (ORDER BY aa.created_at) as record_number,
@@ -54,6 +81,7 @@ def load_annotation_data():
                 aa.created_at as classification_date
             FROM article_annotations aa
             WHERE LENGTH(aa.selected_text) >= 950
+            AND LENGTH(aa.selected_text) <= 1050
             AND aa.used_for_training = FALSE
             ORDER BY aa.created_at
             """)
@@ -144,31 +172,14 @@ def process_feedback_for_training(feedback_df: pd.DataFrame):
     return pd.DataFrame(training_examples)
 
 def mark_feedback_as_used():
-    """Mark all feedback as used for training by updating the CSV file."""
+    """Mark all feedback as used for training in database."""
     try:
-        import pandas as pd
+        from database.manager import DatabaseManager
         
-        feedback_file = "outputs/training_data/chunk_classification_feedback.csv"
-        if not os.path.exists(feedback_file):
-            print("⚠️  No feedback file found")
-            return
+        db_manager = DatabaseManager()
+        updated_count = db_manager.mark_chunk_feedback_as_used()
+        print(f"🏷️  Marked {updated_count} feedback entries as used for training")
         
-        # Load feedback data
-        df = pd.read_csv(feedback_file)
-        
-        # Mark all unused feedback as used
-        unused_mask = df['used_for_training'] == False
-        unused_count = unused_mask.sum()
-        
-        if unused_count > 0:
-            df.loc[unused_mask, 'used_for_training'] = True
-            
-            # Save updated feedback data
-            df.to_csv(feedback_file, index=False)
-            print(f"🏷️  Marked {unused_count} feedback entries as used for training")
-        else:
-            print("✅ All feedback already marked as used")
-            
     except Exception as e:
         print(f"❌ Error marking feedback as used: {e}")
 
@@ -215,7 +226,6 @@ def combine_training_data(original_file: str, feedback_df: pd.DataFrame, annotat
     return combined_df
 
 def retrain_model_with_feedback(original_file: str = "outputs/training_data/combined_training_data.csv", 
-                               feedback_file: str = "outputs/training_data/chunk_classification_feedback.csv",
                                output_file: str = "outputs/training_data/retrained_training_data.csv"):
     """Retrain the model using original data plus user feedback and annotations."""
     import shutil
@@ -226,7 +236,7 @@ def retrain_model_with_feedback(original_file: str = "outputs/training_data/comb
     print("=" * 60)
     
     # Load feedback data
-    feedback_df = load_feedback_data(feedback_file)
+    feedback_df = load_feedback_data()
     
     # Load annotation data
     annotation_df = load_annotation_data()
@@ -300,7 +310,7 @@ def retrain_model_with_feedback(original_file: str = "outputs/training_data/comb
             
             new_version_id = asyncio.run(version_manager.save_model_version(
                 metrics=training_result,
-                training_config={'original_file': original_file, 'feedback_file': feedback_file},
+                training_config={'original_file': original_file},
                 feedback_count=feedback_count,
                 model_file_path=current_model_path
             ))
@@ -425,8 +435,6 @@ def main():
     parser = argparse.ArgumentParser(description='Retrain ML model with user feedback')
     parser.add_argument('--original', default='outputs/training_data/combined_training_data.csv',
                        help='Original training data file')
-    parser.add_argument('--feedback', default='outputs/training_data/chunk_classification_feedback.csv',
-                       help='User feedback data file')
     parser.add_argument('--output', default='outputs/training_data/retrained_training_data.csv',
                        help='Output file for combined training data')
     parser.add_argument('--verbose', action='store_true',
@@ -436,7 +444,6 @@ def main():
     
     success = retrain_model_with_feedback(
         original_file=args.original,
-        feedback_file=args.feedback,
         output_file=args.output
     )
     

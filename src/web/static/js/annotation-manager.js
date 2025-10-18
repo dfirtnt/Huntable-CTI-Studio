@@ -199,6 +199,16 @@ class TextAnnotationManager {
     async createAnnotation(type) {
         if (!this.currentSelection) return;
         
+        // Validate length (must be ~1000 chars)
+        const textLength = this.currentSelection.text.length;
+        if (textLength < 950 || textLength > 1050) {
+            this.showNotification(
+                `Selection must be approximately 1000 characters (current: ${textLength})`,
+                'error'
+            );
+            return;
+        }
+        
         try {
             // Show loading state
             this.showLoadingState();
