@@ -141,17 +141,32 @@ graph TD
     F --> G
 ```
 
-### 2. Model Retraining
+### 2. Model Retraining (Cumulative Learning)
 ```mermaid
 graph TD
     A[Trigger Retraining] --> B[Query Database for Unused Data]
-    B --> C[Load Feedback + Annotations]
-    C --> D[Combine with Original Training Data]
-    D --> E[Train New Model]
-    E --> F[Save Model Version]
-    F --> G[Mark Data as Used]
-    G --> H[Return Results]
+    B --> C[Load ALL Previous Feedback]
+    C --> D[Load ALL Previous Annotations]
+    D --> E[Load Original Training Data]
+    E --> F[Combine ALL Data Sets]
+    F --> G[Train New Model on Combined Data]
+    G --> H[Save Model Version]
+    H --> I[Mark New Data as Used]
+    I --> J[Return Results]
 ```
+
+**Key Point: Cumulative Learning Process**
+- Each retraining session uses **ALL previous data** (original + all previous feedback + all previous annotations)
+- New feedback/annotations are **added to** the existing dataset, not replacing it
+- This ensures **progressive improvement** and **no data loss**
+- The model builds upon all previous learning, making it more robust over time
+
+**Why This Matters:**
+- **No Catastrophic Forgetting**: Previous model knowledge is preserved
+- **Stable Learning**: Each retrain builds on solid foundation rather than starting fresh
+- **Efficient Use of Data**: All user feedback contributes to model improvement
+- **Progressive Accuracy**: Model accuracy improves with each retraining session
+- **Small Batch Friendly**: Even small amounts of new feedback improve the model
 
 ### 3. Data Usage Tracking
 ```sql

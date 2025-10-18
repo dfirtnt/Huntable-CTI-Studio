@@ -77,7 +77,15 @@ The Classification Trends chart shows how the relationship between ML prediction
 - **Decreasing ML Only**: Model is becoming more conservative
 - **Stable Neither**: Consistent filtering of non-huntable content
 
-## Model Retraining
+## Model Retraining (Cumulative Learning)
+
+### How Retraining Works
+**Important**: The retraining system uses **cumulative learning** - each retraining session builds upon ALL previous data:
+
+1. **Original Training Data** (baseline model)
+2. **ALL Previous Feedback** (from all previous retraining sessions)
+3. **ALL Previous Annotations** (from all previous retraining sessions)
+4. **New Feedback/Annotations** (since last retraining)
 
 ### Prerequisites
 - **User feedback required**: Must have feedback from chunk debugging corrections
@@ -90,8 +98,17 @@ The Classification Trends chart shows how the relationship between ML prediction
 3. **Monitor Progress**: Progress bar shows retraining status
 4. **Review Results**: New model version and performance metrics displayed
 
+### Cumulative Learning Benefits
+- **No Data Loss**: All previous feedback is preserved and reused
+- **Progressive Improvement**: Model accuracy improves with each retraining
+- **Stable Learning**: No catastrophic forgetting of previous knowledge
+- **Small Batch Friendly**: Even small amounts of new feedback improve the model
+- **Efficient Training**: All user corrections contribute to model improvement
+
 ### Feedback Tracking
-- **Automatic marking**: Feedback is marked as "used" after retraining
+- **Automatic marking**: New feedback is marked as "used" after retraining
+- **Preservation**: Previously used feedback remains in the training dataset
+- **Cumulative dataset**: Each retraining uses original + all previous + new data
 - **Duplicate prevention**: Same feedback cannot be used twice
 - **Source tracking**: Feedback comes from chunk debugging corrections
 - **Count accuracy**: Real-time feedback count updates

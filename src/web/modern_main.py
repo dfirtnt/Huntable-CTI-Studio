@@ -688,6 +688,25 @@ async def hunt_metrics_page(request: Request):
             status_code=500
         )
 
+@app.get("/analytics/hunt-metrics-demo", response_class=HTMLResponse)
+async def hunt_metrics_demo_page(request: Request):
+    """Advanced hunt scoring metrics demo page with multidimensional visualizations."""
+    try:
+        return templates.TemplateResponse(
+            "hunt_metrics_demo.html",
+            {
+                "request": request,
+                "environment": ENVIRONMENT
+            }
+        )
+    except Exception as e:
+        logger.error(f"Hunt metrics demo page error: {e}")
+        return templates.TemplateResponse(
+            "error.html",
+            {"request": request, "error": str(e)},
+            status_code=500
+        )
+
 # Analytics API endpoints
 @app.get("/api/analytics/scraper/overview")
 async def api_scraper_overview():
@@ -7179,11 +7198,12 @@ async def api_hunt_quality_distribution():
                 SELECT 
                     CASE 
                         WHEN article_metadata->>'threat_hunting_score' IS NULL THEN 'Unscored'
-                        WHEN (article_metadata->>'threat_hunting_score')::float = 0 THEN 'No Threats'
-                        WHEN (article_metadata->>'threat_hunting_score')::float BETWEEN 0.1 AND 25 THEN 'Low Quality'
-                        WHEN (article_metadata->>'threat_hunting_score')::float BETWEEN 25.1 AND 75 THEN 'Medium Quality'
-                        WHEN (article_metadata->>'threat_hunting_score')::float BETWEEN 75.1 AND 99 THEN 'High Quality'
-                        WHEN (article_metadata->>'threat_hunting_score')::float BETWEEN 99.1 AND 100 THEN 'Perfect'
+                        WHEN (article_metadata->>'threat_hunting_score')::float = 0 THEN 'Score 0'
+                        WHEN (article_metadata->>'threat_hunting_score')::float BETWEEN 0.1 AND 25 THEN 'Score 1-25'
+                        WHEN (article_metadata->>'threat_hunting_score')::float BETWEEN 25.1 AND 50 THEN 'Score 26-50'
+                        WHEN (article_metadata->>'threat_hunting_score')::float BETWEEN 50.1 AND 75 THEN 'Score 51-75'
+                        WHEN (article_metadata->>'threat_hunting_score')::float BETWEEN 75.1 AND 99 THEN 'Score 76-99'
+                        WHEN (article_metadata->>'threat_hunting_score')::float BETWEEN 99.1 AND 100 THEN 'Score 99-100'
                         ELSE 'Unknown'
                     END as quality_level,
                     COUNT(*) as count
@@ -7191,11 +7211,12 @@ async def api_hunt_quality_distribution():
                 GROUP BY 
                     CASE 
                         WHEN article_metadata->>'threat_hunting_score' IS NULL THEN 'Unscored'
-                        WHEN (article_metadata->>'threat_hunting_score')::float = 0 THEN 'No Threats'
-                        WHEN (article_metadata->>'threat_hunting_score')::float BETWEEN 0.1 AND 25 THEN 'Low Quality'
-                        WHEN (article_metadata->>'threat_hunting_score')::float BETWEEN 25.1 AND 75 THEN 'Medium Quality'
-                        WHEN (article_metadata->>'threat_hunting_score')::float BETWEEN 75.1 AND 99 THEN 'High Quality'
-                        WHEN (article_metadata->>'threat_hunting_score')::float BETWEEN 99.1 AND 100 THEN 'Perfect'
+                        WHEN (article_metadata->>'threat_hunting_score')::float = 0 THEN 'Score 0'
+                        WHEN (article_metadata->>'threat_hunting_score')::float BETWEEN 0.1 AND 25 THEN 'Score 1-25'
+                        WHEN (article_metadata->>'threat_hunting_score')::float BETWEEN 25.1 AND 50 THEN 'Score 26-50'
+                        WHEN (article_metadata->>'threat_hunting_score')::float BETWEEN 50.1 AND 75 THEN 'Score 51-75'
+                        WHEN (article_metadata->>'threat_hunting_score')::float BETWEEN 75.1 AND 99 THEN 'Score 76-99'
+                        WHEN (article_metadata->>'threat_hunting_score')::float BETWEEN 99.1 AND 100 THEN 'Score 99-100'
                         ELSE 'Unknown'
                     END
                 ORDER BY quality_level
@@ -7371,6 +7392,229 @@ async def api_hunt_performance_insights():
         }
 
 
+
+# Hunt Metrics Demo API endpoints
+@app.get("/api/analytics/hunt-demo/articles")
+async def api_hunt_demo_articles():
+    """Get articles data for demo visualizations."""
+    try:
+        from sqlalchemy import text
+        async with async_db_manager.get_session() as session:
+            # Get articles with all metadata for demo
+            articles_query = text("""
+                SELECT 
+                    a.id,
+                    a.title,
+                    a.published_at,
+                    a.word_count,
+                    a.article_metadata,
+                    a.source_id,
+                    s.name as source_name
+                FROM articles a
+                JOIN sources s ON a.source_id = s.id
+                WHERE a.article_metadata->>'threat_hunting_score' IS NOT NULL
+                ORDER BY a.published_at DESC
+                LIMIT 1000
+            """)
+            
+            result = await session.execute(articles_query)
+            articles = []
+            
+            for row in result.fetchall():
+                articles.append({
+                    "id": row.id,
+                    "title": row.title,
+                    "published_at": row.published_at.isoformat() if row.published_at else None,
+                    "word_count": row.word_count,
+                    "article_metadata": row.article_metadata or {},
+                    "source_id": row.source_id,
+                    "source_name": row.source_name
+                })
+            
+            return {"articles": articles}
+            
+    except Exception as e:
+        logger.error(f"Failed to get demo articles: {e}")
+        return {"articles": []}
+
+@app.get("/api/analytics/hunt-demo/sources")
+async def api_hunt_demo_sources():
+    """Get sources data for demo visualizations."""
+    try:
+        from sqlalchemy import text
+        async with async_db_manager.get_session() as session:
+            # Get sources with performance metrics
+            sources_query = text("""
+                SELECT 
+                    s.id,
+                    s.name,
+                    s.identifier,
+                    COUNT(a.id) as article_count,
+                    AVG((a.article_metadata->>'threat_hunting_score')::float) as avg_hunt_score,
+                    COUNT(CASE WHEN a.article_metadata->>'training_category' IS NOT NULL THEN 1 END) as classified_count
+                FROM sources s
+                LEFT JOIN articles a ON s.id = a.source_id
+                WHERE s.active = true
+                GROUP BY s.id, s.name, s.identifier
+                ORDER BY article_count DESC
+            """)
+            
+            result = await session.execute(sources_query)
+            sources = []
+            
+            for row in result.fetchall():
+                sources.append({
+                    "id": row.id,
+                    "name": row.name,
+                    "identifier": row.identifier,
+                    "article_count": row.article_count or 0,
+                    "avg_hunt_score": float(row.avg_hunt_score) if row.avg_hunt_score else 0.0,
+                    "classified_count": row.classified_count or 0
+                })
+            
+            return {"sources": sources}
+            
+    except Exception as e:
+        logger.error(f"Failed to get demo sources: {e}")
+        return {"sources": []}
+
+@app.get("/api/analytics/hunt-demo/keywords")
+async def api_hunt_demo_keywords():
+    """Get keyword analysis data for demo visualizations."""
+    try:
+        from sqlalchemy import text
+        async with async_db_manager.get_session() as session:
+            # Get keyword frequency and impact data
+            keywords_query = text("""
+                WITH keyword_stats AS (
+                    SELECT 
+                        keyword,
+                        category,
+                        COUNT(*) as frequency,
+                        AVG((article_metadata->>'threat_hunting_score')::float) as avg_impact
+                    FROM (
+                        SELECT 
+                            unnest(article_metadata->'perfect_keyword_matches') as keyword,
+                            'perfect' as category,
+                            article_metadata
+                        FROM articles 
+                        WHERE article_metadata->'perfect_keyword_matches' IS NOT NULL
+                        
+                        UNION ALL
+                        
+                        SELECT 
+                            unnest(article_metadata->'good_keyword_matches') as keyword,
+                            'good' as category,
+                            article_metadata
+                        FROM articles 
+                        WHERE article_metadata->'good_keyword_matches' IS NOT NULL
+                        
+                        UNION ALL
+                        
+                        SELECT 
+                            unnest(article_metadata->'lolbas_matches') as keyword,
+                            'lolbas' as category,
+                            article_metadata
+                        FROM articles 
+                        WHERE article_metadata->'lolbas_matches' IS NOT NULL
+                        
+                        UNION ALL
+                        
+                        SELECT 
+                            unnest(article_metadata->'intelligence_matches') as keyword,
+                            'intelligence' as category,
+                            article_metadata
+                        FROM articles 
+                        WHERE article_metadata->'intelligence_matches' IS NOT NULL
+                    ) keyword_data
+                    GROUP BY keyword, category
+                )
+                SELECT 
+                    keyword,
+                    category,
+                    frequency,
+                    avg_impact
+                FROM keyword_stats
+                WHERE frequency > 1
+                ORDER BY frequency DESC, avg_impact DESC
+                LIMIT 100
+            """)
+            
+            result = await session.execute(keywords_query)
+            keywords = []
+            
+            for row in result.fetchall():
+                keywords.append({
+                    "keyword": row.keyword,
+                    "category": row.category,
+                    "frequency": row.frequency,
+                    "avg_impact": float(row.avg_impact) if row.avg_impact else 0.0
+                })
+            
+            return {"keywords": keywords}
+            
+    except Exception as e:
+        logger.error(f"Failed to get demo keywords: {e}")
+        return {"keywords": []}
+
+@app.get("/api/analytics/hunt-demo/ml-models")
+async def api_hunt_demo_ml_models():
+    """Get ML model performance data for demo visualizations."""
+    try:
+        from sqlalchemy import text
+        async with async_db_manager.get_session() as session:
+            # Get ML model versions with performance metrics
+            models_query = text("""
+                SELECT 
+                    version_number,
+                    accuracy,
+                    precision_huntable,
+                    precision_not_huntable,
+                    recall_huntable,
+                    recall_not_huntable,
+                    f1_score_huntable,
+                    f1_score_not_huntable,
+                    eval_accuracy,
+                    eval_precision_huntable,
+                    eval_precision_not_huntable,
+                    eval_recall_huntable,
+                    eval_recall_not_huntable,
+                    eval_f1_score_huntable,
+                    eval_f1_score_not_huntable,
+                    trained_at
+                FROM ml_model_versions
+                ORDER BY version_number DESC
+                LIMIT 10
+            """)
+            
+            result = await session.execute(models_query)
+            models = []
+            
+            for row in result.fetchall():
+                models.append({
+                    "version_number": row.version_number,
+                    "accuracy": float(row.accuracy) if row.accuracy else 0.0,
+                    "precision_huntable": float(row.precision_huntable) if row.precision_huntable else 0.0,
+                    "precision_not_huntable": float(row.precision_not_huntable) if row.precision_not_huntable else 0.0,
+                    "recall_huntable": float(row.recall_huntable) if row.recall_huntable else 0.0,
+                    "recall_not_huntable": float(row.recall_not_huntable) if row.recall_not_huntable else 0.0,
+                    "f1_score_huntable": float(row.f1_score_huntable) if row.f1_score_huntable else 0.0,
+                    "f1_score_not_huntable": float(row.f1_score_not_huntable) if row.f1_score_not_huntable else 0.0,
+                    "eval_accuracy": float(row.eval_accuracy) if row.eval_accuracy else 0.0,
+                    "eval_precision_huntable": float(row.eval_precision_huntable) if row.eval_precision_huntable else 0.0,
+                    "eval_precision_not_huntable": float(row.eval_precision_not_huntable) if row.eval_precision_not_huntable else 0.0,
+                    "eval_recall_huntable": float(row.eval_recall_huntable) if row.eval_recall_huntable else 0.0,
+                    "eval_recall_not_huntable": float(row.eval_recall_not_huntable) if row.eval_recall_not_huntable else 0.0,
+                    "eval_f1_score_huntable": float(row.eval_f1_score_huntable) if row.eval_f1_score_huntable else 0.0,
+                    "eval_f1_score_not_huntable": float(row.eval_f1_score_not_huntable) if row.eval_f1_score_not_huntable else 0.0,
+                    "trained_at": row.trained_at.isoformat() if row.trained_at else None
+                })
+            
+            return {"models": models}
+            
+    except Exception as e:
+        logger.error(f"Failed to get demo ML models: {e}")
+        return {"models": []}
 
 
 @app.get("/api/ml-hunt-comparison/eligible-count")

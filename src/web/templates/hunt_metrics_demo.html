@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Hunt Scoring Metrics - Analytics - Huntable CTI Scraper{% endblock %}
+{% block title %}Advanced Hunt Metrics Demo - Analytics - Huntable CTI Scraper{% endblock %}
 
 {% block content %}
 <div class="container mx-auto px-4 py-8">
@@ -15,85 +15,104 @@
                         <svg class="w-6 h-6 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
                             <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd"></path>
                         </svg>
-                        <span class="ml-1 text-gray-500 md:ml-2 dark:text-gray-400">Hunt Scoring Metrics</span>
+                        <span class="ml-1 text-gray-500 md:ml-2 dark:text-gray-400">Advanced Hunt Metrics Demo</span>
                     </div>
                 </li>
             </ol>
         </nav>
         
-        <h1 class="text-3xl font-bold text-gray-900 dark:text-white mb-2">🎯 Hunt Scoring Metrics</h1>
-        <p class="text-gray-600 dark:text-gray-400">Analyze threat hunting content quality and keyword performance</p>
+        <h1 class="text-3xl font-bold text-gray-900 dark:text-white mb-2">🎯 Advanced Hunt Metrics Demo</h1>
+        <p class="text-gray-600 dark:text-gray-400">Multidimensional visualizations for threat hunting content analysis</p>
+        <div class="mt-2">
+            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200">
+                🔬 Experimental Features
+            </span>
+        </div>
     </div>
 
     <!-- Metrics Overview -->
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
-            <div class="flex items-center justify-between">
-                <div class="flex items-center">
-                    <div class="p-2 bg-purple-100 dark:bg-purple-900 rounded-lg">
-                        <svg class="w-5 h-5 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"></path>
-                        </svg>
-                    </div>
-                    <div class="ml-3">
-                        <p class="text-xs font-medium text-gray-500 dark:text-gray-400">Avg Hunt Score</p>
-                        <p class="text-xl font-semibold text-gray-900 dark:text-white" id="avgHuntScore">-</p>
-                    </div>
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+            <div class="flex items-center">
+                <div class="p-2 bg-purple-100 dark:bg-purple-900 rounded-lg">
+                    <svg class="w-6 h-6 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"></path>
+                    </svg>
+                </div>
+                <div class="ml-4">
+                    <p class="text-sm font-medium text-gray-500 dark:text-gray-400">Avg Hunt Score</p>
+                    <p class="text-2xl font-semibold text-gray-900 dark:text-white" id="avgHuntScore">-</p>
                 </div>
             </div>
         </div>
 
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
-            <div class="flex items-center justify-between">
-                <div class="flex items-center">
-                    <div class="p-2 bg-green-100 dark:bg-green-900 rounded-lg">
-                        <svg class="w-5 h-5 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                        </svg>
-                    </div>
-                    <div class="ml-3">
-                        <p class="text-xs font-medium text-gray-500 dark:text-gray-400">High Quality Articles</p>
-                        <p class="text-xl font-semibold text-gray-900 dark:text-white" id="highQualityArticles">-</p>
-                    </div>
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+            <div class="flex items-center">
+                <div class="p-2 bg-green-100 dark:bg-green-900 rounded-lg">
+                    <svg class="w-6 h-6 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                </div>
+                <div class="ml-4">
+                    <p class="text-sm font-medium text-gray-500 dark:text-gray-400">High Quality Articles</p>
+                    <p class="text-2xl font-semibold text-gray-900 dark:text-white" id="highQualityArticles">-</p>
                 </div>
             </div>
         </div>
 
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
-            <div class="flex items-center justify-between">
-                <div class="flex items-center">
-                    <div class="p-2 bg-blue-100 dark:bg-blue-900 rounded-lg">
-                        <svg class="w-5 h-5 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"></path>
-                        </svg>
-                    </div>
-                    <div class="ml-3">
-                        <p class="text-xs font-medium text-gray-500 dark:text-gray-400">Perfect Matches</p>
-                        <p class="text-xl font-semibold text-gray-900 dark:text-white" id="perfectMatches">-</p>
-                    </div>
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+            <div class="flex items-center">
+                <div class="p-2 bg-blue-100 dark:bg-blue-900 rounded-lg">
+                    <svg class="w-6 h-6 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"></path>
+                    </svg>
+                </div>
+                <div class="ml-4">
+                    <p class="text-sm font-medium text-gray-500 dark:text-gray-400">Perfect Matches</p>
+                    <p class="text-2xl font-semibold text-gray-900 dark:text-white" id="perfectMatches">-</p>
                 </div>
             </div>
         </div>
 
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
-            <div class="flex items-center justify-between">
-                <div class="flex items-center">
-                    <div class="p-2 bg-orange-100 dark:bg-orange-900 rounded-lg">
-                        <svg class="w-5 h-5 text-orange-600 dark:text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
-                        </svg>
-                    </div>
-                    <div class="ml-3">
-                        <p class="text-xs font-medium text-gray-500 dark:text-gray-400">LOLBAS Matches</p>
-                        <p class="text-xl font-semibold text-gray-900 dark:text-white" id="lolbasMatches">-</p>
-                    </div>
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+            <div class="flex items-center">
+                <div class="p-2 bg-orange-100 dark:bg-orange-900 rounded-lg">
+                    <svg class="w-6 h-6 text-orange-600 dark:text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                    </svg>
+                </div>
+                <div class="ml-4">
+                    <p class="text-sm font-medium text-gray-500 dark:text-gray-400">LOLBAS Matches</p>
+                    <p class="text-2xl font-semibold text-gray-900 dark:text-white" id="lolbasMatches">-</p>
                 </div>
             </div>
+        </div>
+    </div>
+
+    <!-- Demo Visualizations -->
+    <div class="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900 dark:to-purple-900 rounded-lg shadow p-6 mb-8">
+        <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">🚀 Advanced Demo Visualizations</h3>
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div class="bg-white dark:bg-gray-800 rounded-lg p-4">
+                <h4 class="text-md font-medium text-gray-900 dark:text-white mb-3">🎯 Hunt Score vs ML Confidence</h4>
+                <div class="h-64 bg-gray-100 dark:bg-gray-700 rounded flex items-center justify-center">
+                    <p class="text-gray-500">Interactive scatter plot coming soon...</p>
+                </div>
+            </div>
+            <div class="bg-white dark:bg-gray-800 rounded-lg p-4">
+                <h4 class="text-md font-medium text-gray-900 dark:text-white mb-3">📊 Source Performance Matrix</h4>
+                <div class="h-64 bg-gray-100 dark:bg-gray-700 rounded flex items-center justify-center">
+                    <p class="text-gray-500">Bubble chart visualization coming soon...</p>
+                </div>
+            </div>
+        </div>
+        <div class="mt-4 text-sm text-gray-600 dark:text-gray-400">
+            <p><strong>Demo Features:</strong> This page demonstrates advanced multidimensional visualizations including scatter plots, bubble charts, network graphs, and temporal analysis.</p>
         </div>
     </div>
 
     <!-- Charts Section -->
-    <div class="grid grid-cols-1 xl:grid-cols-2 gap-4 mb-8">
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
         <!-- Score Distribution Chart -->
         <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
             <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">📊 Hunt Score Distribution</h3>
@@ -175,7 +194,7 @@
     </div>
 
     <!-- Additional Analytics Sections -->
-    <div class="grid grid-cols-1 xl:grid-cols-2 gap-4 mb-8">
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
         <!-- Source Performance by Hunt Score -->
         <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
             <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">🎯 Top Sources by Hunt Score</h3>
@@ -221,7 +240,7 @@
     <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-8">
         <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">🔬 Advanced Hunt Analytics</h3>
         
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
             <!-- Scoring Efficiency -->
             <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
                 <div class="flex items-center mb-2">
@@ -283,7 +302,7 @@
     <!-- Performance Insights -->
     <div class="bg-gradient-to-r from-purple-50 to-blue-50 dark:from-purple-900 dark:to-blue-900 rounded-lg shadow p-6">
         <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">💡 Performance Insights</h3>
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
                 <h4 class="font-medium text-gray-900 dark:text-white mb-2">Top Performing Categories</h4>
                 <div class="space-y-2" id="topCategories">
