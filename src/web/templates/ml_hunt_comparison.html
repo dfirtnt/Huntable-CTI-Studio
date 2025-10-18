@@ -897,6 +897,7 @@
         progressText.textContent = 'Starting retraining...';
         
         try {
+            // Start retraining
             const response = await fetch('/api/model/retrain', {
                 method: 'POST',
                 headers: {
@@ -907,47 +908,8 @@
             const data = await response.json();
             
             if (data.success) {
-                // Update progress to 100%
-                progressBar.style.width = '100%';
-                progressText.textContent = 'Complete!';
-                
-                // Show results
-                resultsSection.classList.remove('hidden');
-                let backfillInfo = '';
-                if (data.backfill_results && data.backfill_results.successful !== undefined) {
-                    backfillInfo = `
-                        <div class="mt-4 p-3 bg-blue-50 dark:bg-blue-900 rounded-md">
-                            <div class="text-blue-600 font-semibold">🔄 Automatic Backfill Complete</div>
-                            <div class="mt-1 text-sm">
-                                <p><strong>Articles Processed:</strong> ${data.backfill_results.processed || 0}</p>
-                                <p><strong>Successful:</strong> ${data.backfill_results.successful || 0}</p>
-                                <p><strong>Failed:</strong> ${data.backfill_results.failed || 0}</p>
-                            </div>
-                        </div>
-                    `;
-                }
-                
-                resultsContent.innerHTML = `
-                    <div class="text-green-600 font-semibold">✅ Retraining Complete</div>
-                    <div class="mt-2">
-                        <p><strong>New Model Version:</strong> v${data.new_version || 'Unknown'}</p>
-                        <p><strong>Training Samples:</strong> ${data.training_samples || 'Unknown'}</p>
-                    </div>
-                    ${backfillInfo}
-                `;
-                
-                // Update status
-                const statusElement = document.getElementById('retrainingStatus');
-                const accuracy = data.training_accuracy ? (data.training_accuracy * 100).toFixed(1) : 'N/A';
-                statusElement.textContent = `v${data.new_version || 'Unknown'} (${accuracy}% accuracy)`;
-                statusElement.classList.remove('cursor-help');
-                statusElement.removeAttribute('title');
-                
-                // Reload data
-                setTimeout(() => {
-                    loadInitialData();
-                }, 1000);
-                
+                // Start polling for status updates
+                pollRetrainingStatus();
             } else {
                 throw new Error(data.message || 'Retraining failed');
             }
@@ -968,7 +930,91 @@
             }, 3000);
         }
     }
-
+    
+    async function pollRetrainingStatus() {
+        const progressBar = document.getElementById('retrainProgressBar');
+        const progressText = document.getElementById('retrainProgressText');
+        const resultsSection = document.getElementById('retrainResultsSection');
+        const resultsContent = document.getElementById('retrainResultsContent');
+        const btn = document.getElementById('retrainModelBtn');
+        
+        const pollInterval = setInterval(async () => {
+            try {
+                const response = await fetch('/api/model/retrain-status');
+                const status = await response.json();
+                
+                // Update progress
+                progressBar.style.width = `${status.progress || 0}%`;
+                progressText.textContent = status.message || 'Retraining...';
+                
+                if (status.status === 'complete') {
+                    clearInterval(pollInterval);
+                    
+                    // Show results
+                    resultsSection.classList.remove('hidden');
+                    resultsContent.innerHTML = `
+                        <div class="text-green-600 font-semibold">✅ Retraining Complete</div>
+                        <div class="mt-2">
+                            <p><strong>New Model Version:</strong> v${status.new_version || 'Unknown'}</p>
+                            <p><strong>Training Samples:</strong> ${status.training_samples || 'Unknown'}</p>
+                            <p><strong>Training Accuracy:</strong> ${status.training_accuracy ? (status.training_accuracy * 100).toFixed(1) + '%' : 'N/A'}</p>
+                            <p><strong>Duration:</strong> ${status.training_duration || 'Unknown'}</p>
+                        </div>
+                    `;
+                    
+                    // Update status
+                    const statusElement = document.getElementById('retrainingStatus');
+                    const accuracy = status.training_accuracy ? (status.training_accuracy * 100).toFixed(1) : 'N/A';
+                    statusElement.textContent = `v${status.new_version || 'Unknown'} (${accuracy}% accuracy)`;
+                    statusElement.classList.remove('cursor-help');
+                    statusElement.removeAttribute('title');
+                    
+                    // Re-enable button
+                    btn.disabled = false;
+                    btn.textContent = 'Retrain Model';
+                    
+                    // Reload data
+                    setTimeout(() => {
+                        loadInitialData();
+                    }, 1000);
+                    
+                } else if (status.status === 'error') {
+                    clearInterval(pollInterval);
+                    
+                    // Show error
+                    resultsSection.classList.remove('hidden');
+                    resultsContent.innerHTML = `
+                        <div class="text-red-600 font-semibold">❌ Retraining Failed</div>
+                        <div class="mt-2">
+                            <p>${status.message || 'Unknown error occurred'}</p>
+                        </div>
+                    `;
+                    
+                    // Re-enable button
+                    btn.disabled = false;
+                    btn.textContent = 'Retrain Model';
+                }
+                
+            } catch (error) {
+                console.error('Error polling retraining status:', error);
+                clearInterval(pollInterval);
+                
+                // Show error
+                resultsSection.classList.remove('hidden');
+                resultsContent.innerHTML = `
+                    <div class="text-red-600 font-semibold">❌ Error Checking Status</div>
+                    <div class="mt-2">
+                        <p>Failed to check retraining status: ${error.message}</p>
+                    </div>
+                `;
+                
+                // Re-enable button
+                btn.disabled = false;
+                btn.textContent = 'Retrain Model';
+            }
+        }, 2000); // Poll every 2 seconds
+    }
+    
     async function refreshRetrainingStatus() {
         const statusElement = document.getElementById('retrainingStatus');
         const feedbackElement = document.getElementById('feedbackCount');

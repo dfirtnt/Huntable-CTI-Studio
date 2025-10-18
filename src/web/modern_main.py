@@ -4819,7 +4819,33 @@ async def api_model_retrain_status():
         if os.path.exists(status_file):
             import json
             with open(status_file, 'r') as f:
-                return json.load(f)
+                status_data = json.load(f)
+                
+            # If retraining is complete, include model version info
+            if status_data.get("status") == "complete":
+                try:
+                    from src.utils.model_versioning import MLModelVersionManager
+                    from src.database.async_manager import AsyncDatabaseManager
+                    import asyncio
+                    
+                    async def get_latest_version():
+                        db_manager = AsyncDatabaseManager()
+                        version_manager = MLModelVersionManager(db_manager)
+                        latest_version = await version_manager.get_latest_version()
+                        await db_manager.close()
+                        return latest_version
+                    
+                    latest_version = asyncio.run(get_latest_version())
+                    if latest_version:
+                        status_data.update({
+                            "new_version": latest_version.version_number,
+                            "training_accuracy": latest_version.accuracy,
+                            "training_duration": f"{latest_version.training_duration_seconds:.1f}s" if latest_version.training_duration_seconds else "Unknown"
+                        })
+                except Exception as e:
+                    logger.warning(f"Could not get latest model version: {e}")
+                
+            return status_data
         else:
             return {"status": "idle", "progress": 0, "message": "No retraining in progress"}
             
@@ -4944,35 +4970,20 @@ async def api_model_retrain():
                 if os.path.exists(status_file):
                     os.remove(status_file)
         
-        # Run retraining synchronously to return results
-        run_retrain()
+        # Start retraining in background thread to avoid blocking the web server
+        retrain_thread = threading.Thread(target=run_retrain)
+        retrain_thread.daemon = True
+        retrain_thread.start()
         
-        # Read the final status to return results
-        if os.path.exists(status_file):
-            with open(status_file, 'r') as f:
-                final_status = json.load(f)
-            
-            if final_status.get("status") == "complete":
-                return {
-                    "success": True,
-                    "message": final_status.get("message", "Retraining completed"),
-                    "new_version": final_status.get("new_version"),
-                    "training_accuracy": final_status.get("training_accuracy"),
-                    "training_samples": final_status.get("training_samples"),
-                    "feedback_samples": final_status.get("feedback_samples"),
-                    "annotation_samples": final_status.get("annotation_samples"),
-                    "training_duration": final_status.get("training_duration")
-                }
-            else:
-                return {
-                    "success": False,
-                    "message": final_status.get("message", "Retraining failed")
-                }
-        else:
-            return {
-                "success": False,
-                "message": "Retraining failed - no status file created"
-            }
+        # Return immediately with status
+        return {
+            "success": True,
+            "message": f"Retraining started with {total_available} training samples",
+            "status": "started",
+            "training_samples": total_available,
+            "feedback_samples": feedback_count,
+            "annotation_samples": annotation_count
+        }
         
     except Exception as e:
         logger.error(f"Error starting retraining: {e}")

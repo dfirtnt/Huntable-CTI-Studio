@@ -163,22 +163,47 @@ document.addEventListener('DOMContentLoaded', function() {
             '.post-text',
             '.entry',
             '.post',
-            '.story'
+            '.story',
+            // CISA-specific selectors
+            '.usa-prose',
+            '.field--name-body',
+            '.node__content',
+            '.field--type-text-with-summary',
+            '.field--name-field-body',
+            // General content areas
+            '#main-content',
+            '#content',
+            '.main-content',
+            '.page-content',
+            '.body-content'
         ];
 
         let contentElement = null;
+        let bestContentElement = null;
+        let maxContentLength = 0;
+
         for (const selector of contentSelectors) {
-            contentElement = document.querySelector(selector);
-            if (contentElement) {
-                // Check if it has substantial content
-                const text = contentElement.textContent.trim();
-                if (text.length > 200) {
+            const element = document.querySelector(selector);
+            if (element) {
+                const text = element.textContent.trim();
+                if (text.length > maxContentLength) {
+                    maxContentLength = text.length;
+                    bestContentElement = element;
+                }
+                // If we find substantial content, use it immediately
+                if (text.length > 500) {
+                    contentElement = element;
                     break;
                 }
             }
         }
 
-        // If no content element found, use body but exclude navigation and footer
+        // If no substantial content found, use the best available
+        if (!contentElement && bestContentElement) {
+            contentElement = bestContentElement;
+        }
+
+        // If still no content element found, use body but exclude navigation and footer
         if (!contentElement) {
             contentElement = document.body;
         }
@@ -187,14 +212,18 @@ document.addEventListener('DOMContentLoaded', function() {
             // Clean up the content by removing unwanted elements
             const clone = contentElement.cloneNode(true);
             
-            // Remove unwanted elements
+            // Remove unwanted elements (less aggressive for government sites)
             const unwantedSelectors = [
                 'nav', 'header', 'footer', '.nav', '.navigation', '.menu',
                 '.sidebar', '.advertisement', '.ad', '.ads', '.social',
                 '.comments', '.comment', '.related', '.recommended',
                 '.newsletter', '.subscribe', '.cookie', '.cookie-banner',
                 'script', 'style', 'noscript', '.header', '.footer',
-                '.breadcrumb', '.breadcrumbs', '.pagination', '.pager'
+                '.breadcrumb', '.breadcrumbs', '.pagination', '.pager',
+                // Government site specific
+                '.site-header', '.site-footer', '.site-navigation',
+                '.skip-link', '.usa-skipnav', '.usa-banner',
+                '.usa-header', '.usa-footer', '.usa-nav'
             ];
 
             unwantedSelectors.forEach(selector => {
@@ -209,6 +238,14 @@ document.addEventListener('DOMContentLoaded', function() {
         if (data.content) {
             data.wordCount = data.content.split(/\s+/).filter(word => word.length > 0).length;
         }
+
+        // Debug logging
+        console.log('CTIScraper Debug:', {
+            title: data.title,
+            contentLength: data.content ? data.content.length : 0,
+            wordCount: data.wordCount,
+            contentPreview: data.content ? data.content.substring(0, 200) + '...' : 'No content'
+        });
 
         return data;
     }
