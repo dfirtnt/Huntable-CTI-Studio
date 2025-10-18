@@ -20,19 +20,26 @@
         <div class="flex items-center justify-between">
             <div>
                 <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">📊 Article Statistics</h2>
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div class="text-center">
-                        <div class="text-2xl font-bold text-blue-600 dark:text-blue-400">{{ pagination.total_articles }}</div>
-                        <div class="text-sm text-gray-500 dark:text-gray-400">Total Articles</div>
-                    </div>
-                    <div class="text-center">
-                        <div class="text-2xl font-bold text-green-600 dark:text-green-400">{{ stats.chosen_count }}</div>
-                        <div class="text-sm text-gray-500 dark:text-gray-400">Chosen</div>
-                    </div>
-                    <div class="text-center">
-                        <div class="text-2xl font-bold text-red-600 dark:text-red-400">{{ stats.rejected_count }}</div>
-                        <div class="text-sm text-gray-500 dark:text-gray-400">Rejected</div>
-                    </div>
+            </div>
+            <button id="articleStatsToggle" class="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors duration-200">
+                <svg class="w-5 h-5 transform transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                </svg>
+            </button>
+        </div>
+        <div id="articleStatsContent" class="hidden">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div class="text-center">
+                    <div class="text-2xl font-bold text-blue-600 dark:text-blue-400">{{ pagination.total_articles }}</div>
+                    <div class="text-sm text-gray-500 dark:text-gray-400">Total Articles</div>
+                </div>
+                <div class="text-center">
+                    <div class="text-2xl font-bold text-green-600 dark:text-green-400">{{ stats.chosen_count }}</div>
+                    <div class="text-sm text-gray-500 dark:text-gray-400">Chosen</div>
+                </div>
+                <div class="text-center">
+                    <div class="text-2xl font-bold text-red-600 dark:text-red-400">{{ stats.rejected_count }}</div>
+                    <div class="text-sm text-gray-500 dark:text-gray-400">Rejected</div>
                 </div>
             </div>
         </div>
@@ -1238,5 +1245,26 @@
             notification.remove();
         }, 3000);
     }
+    
+    // Toggle functionality for Article Statistics panel
+    document.addEventListener('DOMContentLoaded', function() {
+        const articleStatsToggle = document.getElementById('articleStatsToggle');
+        const articleStatsContent = document.getElementById('articleStatsContent');
+        const articleStatsIcon = articleStatsToggle?.querySelector('svg');
+        
+        if (articleStatsToggle && articleStatsContent && articleStatsIcon) {
+            articleStatsToggle.addEventListener('click', function() {
+                const isHidden = articleStatsContent.classList.contains('hidden');
+                
+                if (isHidden) {
+                    articleStatsContent.classList.remove('hidden');
+                    articleStatsIcon.style.transform = 'rotate(180deg)';
+                } else {
+                    articleStatsContent.classList.add('hidden');
+                    articleStatsIcon.style.transform = 'rotate(0deg)';
+                }
+            });
+        }
+    });
 </script>
 {% endblock %}

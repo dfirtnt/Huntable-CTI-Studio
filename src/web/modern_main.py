@@ -669,6 +669,25 @@ async def scraper_metrics_page(request: Request):
             status_code=500
         )
 
+@app.get("/analytics/hunt-metrics", response_class=HTMLResponse)
+async def hunt_metrics_page(request: Request):
+    """Hunt scoring metrics analytics page."""
+    try:
+        return templates.TemplateResponse(
+            "hunt_metrics.html",
+            {
+                "request": request,
+                "environment": ENVIRONMENT
+            }
+        )
+    except Exception as e:
+        logger.error(f"Hunt metrics page error: {e}")
+        return templates.TemplateResponse(
+            "error.html",
+            {"request": request, "error": str(e)},
+            status_code=500
+        )
+
 # Analytics API endpoints
 @app.get("/api/analytics/scraper/overview")
 async def api_scraper_overview():
@@ -6894,6 +6913,462 @@ async def get_available_model_versions():
     except Exception as e:
         logger.error(f"Error getting model versions: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# Hunt Metrics API endpoints
+@app.get("/api/analytics/hunt/overview")
+async def api_hunt_overview():
+    """Get hunt scoring overview metrics."""
+    try:
+        from sqlalchemy import text
+        async with async_db_manager.get_session() as session:
+            # Get total articles count
+            total_articles_query = text("SELECT COUNT(*) as count FROM articles")
+            total_result = await session.execute(total_articles_query)
+            total_articles = total_result.scalar()
+
+            # Get average hunt score
+            avg_score_query = text("""
+                SELECT AVG((article_metadata->>'threat_hunting_score')::float) as avg_score
+                FROM articles 
+                WHERE (article_metadata->>'threat_hunting_score')::float > 0
+            """)
+            avg_result = await session.execute(avg_score_query)
+            avg_hunt_score = avg_result.scalar() or 0
+
+            # Get high quality articles (score > 50)
+            high_quality_query = text("""
+                SELECT COUNT(*) as count
+                FROM articles 
+                WHERE (article_metadata->>'threat_hunting_score')::float > 50
+            """)
+            high_quality_result = await session.execute(high_quality_query)
+            high_quality_articles = high_quality_result.scalar() or 0
+
+            # Get perfect matches (score = 100)
+            perfect_query = text("""
+                SELECT COUNT(*) as count
+                FROM articles 
+                WHERE (article_metadata->>'threat_hunting_score')::float = 100
+            """)
+            perfect_result = await session.execute(perfect_query)
+            perfect_matches = perfect_result.scalar() or 0
+
+            # Get LOLBAS matches
+            lolbas_query = text("""
+                SELECT COUNT(*) as count
+                FROM articles 
+                WHERE article_metadata::jsonb->'lolbas_matches' IS NOT NULL
+                   AND jsonb_array_length(article_metadata::jsonb->'lolbas_matches') > 0
+            """)
+            lolbas_result = await session.execute(lolbas_query)
+            lolbas_matches = lolbas_result.scalar() or 0
+
+            return {
+                "total_articles": total_articles,
+                "avg_hunt_score": round(float(avg_hunt_score), 2),
+                "high_quality_articles": high_quality_articles,
+                "perfect_matches": perfect_matches,
+                "lolbas_matches": lolbas_matches
+            }
+    except Exception as e:
+        logger.error(f"Failed to get hunt overview: {e}")
+        return {
+            "total_articles": 0,
+            "avg_hunt_score": 0,
+            "high_quality_articles": 0,
+            "perfect_matches": 0,
+            "lolbas_matches": 0
+        }
+
+@app.get("/api/analytics/hunt/score-distribution")
+async def api_hunt_score_distribution():
+    """Get hunt score distribution data."""
+    try:
+        from sqlalchemy import text
+        async with async_db_manager.get_session() as session:
+            # Get score distribution in buckets
+            distribution_query = text("""
+                SELECT 
+                    CASE 
+                        WHEN article_metadata->>'threat_hunting_score' IS NULL THEN 'Null'
+                        WHEN (article_metadata->>'threat_hunting_score')::float = 0 THEN '0'
+                        WHEN (article_metadata->>'threat_hunting_score')::float BETWEEN 0.1 AND 10 THEN '1-10'
+                        WHEN (article_metadata->>'threat_hunting_score')::float BETWEEN 10.1 AND 25 THEN '11-25'
+                        WHEN (article_metadata->>'threat_hunting_score')::float BETWEEN 25.1 AND 50 THEN '26-50'
+                        WHEN (article_metadata->>'threat_hunting_score')::float BETWEEN 50.1 AND 75 THEN '51-75'
+                        WHEN (article_metadata->>'threat_hunting_score')::float BETWEEN 75.1 AND 90 THEN '76-90'
+                        WHEN (article_metadata->>'threat_hunting_score')::float BETWEEN 90.1 AND 99 THEN '91-99'
+                        WHEN (article_metadata->>'threat_hunting_score')::float BETWEEN 99.1 AND 100 THEN '99-100'
+                        WHEN (article_metadata->>'threat_hunting_score')::float = 100 THEN '100'
+                        ELSE 'Unknown'
+                    END as score_bucket,
+                    COUNT(*) as count
+                FROM articles 
+                GROUP BY 
+                    CASE 
+                        WHEN article_metadata->>'threat_hunting_score' IS NULL THEN 'Null'
+                        WHEN (article_metadata->>'threat_hunting_score')::float = 0 THEN '0'
+                        WHEN (article_metadata->>'threat_hunting_score')::float BETWEEN 0.1 AND 10 THEN '1-10'
+                        WHEN (article_metadata->>'threat_hunting_score')::float BETWEEN 10.1 AND 25 THEN '11-25'
+                        WHEN (article_metadata->>'threat_hunting_score')::float BETWEEN 25.1 AND 50 THEN '26-50'
+                        WHEN (article_metadata->>'threat_hunting_score')::float BETWEEN 50.1 AND 75 THEN '51-75'
+                        WHEN (article_metadata->>'threat_hunting_score')::float BETWEEN 75.1 AND 90 THEN '76-90'
+                        WHEN (article_metadata->>'threat_hunting_score')::float BETWEEN 90.1 AND 99 THEN '91-99'
+                        WHEN (article_metadata->>'threat_hunting_score')::float BETWEEN 99.1 AND 100 THEN '99-100'
+                        WHEN (article_metadata->>'threat_hunting_score')::float = 100 THEN '100'
+                        ELSE 'Unknown'
+                    END
+                ORDER BY score_bucket
+            """)
+            
+            result = await session.execute(distribution_query)
+            rows = result.fetchall()
+            
+            labels = [row.score_bucket for row in rows]
+            values = [row.count for row in rows]
+            
+            return {"labels": labels, "values": values}
+    except Exception as e:
+        logger.error(f"Failed to get score distribution: {e}")
+        return {"labels": [], "values": []}
+
+@app.get("/api/analytics/hunt/keyword-performance")
+async def api_hunt_keyword_performance():
+    """Get top performing keywords by match count."""
+    try:
+        from sqlalchemy import text
+        async with async_db_manager.get_session() as session:
+            # Get top keywords from perfect discriminators
+            perfect_query = text("""
+                SELECT 
+                    keyword,
+                    COUNT(*) as match_count
+                FROM articles,
+                     jsonb_array_elements(article_metadata::jsonb->'perfect_keyword_matches') as keyword
+                WHERE article_metadata->'perfect_keyword_matches' IS NOT NULL
+                GROUP BY keyword
+                ORDER BY match_count DESC
+                LIMIT 10
+            """)
+            
+            result = await session.execute(perfect_query)
+            rows = result.fetchall()
+            
+            labels = [row.keyword for row in rows]
+            values = [row.match_count for row in rows]
+            
+            return {"labels": labels, "values": values}
+    except Exception as e:
+        logger.error(f"Failed to get keyword performance: {e}")
+        return {"labels": [], "values": []}
+
+@app.get("/api/analytics/hunt/keyword-analysis")
+async def api_hunt_keyword_analysis():
+    """Get detailed keyword analysis data."""
+    try:
+        from sqlalchemy import text
+        async with async_db_manager.get_session() as session:
+            # Get keyword analysis from all categories
+            analysis_query = text("""
+                SELECT 
+                    'perfect' as category,
+                    keyword::text,
+                    COUNT(*) as match_count,
+                    ROUND(AVG((article_metadata->>'threat_hunting_score')::float)::numeric, 1) as avg_score_impact,
+                    CASE 
+                        WHEN COUNT(*) > 10 THEN 95
+                        WHEN COUNT(*) > 5 THEN 85
+                        WHEN COUNT(*) > 2 THEN 75
+                        ELSE 65
+                    END as success_rate
+                FROM articles,
+                     jsonb_array_elements(article_metadata::jsonb->'perfect_keyword_matches') as keyword
+                WHERE article_metadata::jsonb->'perfect_keyword_matches' IS NOT NULL
+                GROUP BY keyword::text
+                ORDER BY match_count DESC
+                LIMIT 20
+            """)
+            
+            result = await session.execute(analysis_query)
+            rows = result.fetchall()
+            
+            keywords = [
+                {
+                    "category": row.category,
+                    "keyword": row.keyword,
+                    "match_count": row.match_count,
+                    "avg_score_impact": row.avg_score_impact,
+                    "success_rate": row.success_rate
+                }
+                for row in rows
+            ]
+            
+            return {"keywords": keywords}
+    except Exception as e:
+        logger.error(f"Failed to get keyword analysis: {e}")
+        return {"keywords": []}
+
+@app.get("/api/analytics/hunt/score-trends")
+async def api_hunt_score_trends():
+    """Get hunt score trends over the last 30 days."""
+    try:
+        from sqlalchemy import text
+        async with async_db_manager.get_session() as session:
+            # Get daily average scores for last 30 days
+            trends_query = text("""
+                SELECT 
+                    DATE(created_at) as date,
+                    AVG((article_metadata->>'threat_hunting_score')::float) as avg_score
+                FROM articles 
+                WHERE created_at >= CURRENT_DATE - INTERVAL '30 days'
+                  AND (article_metadata->>'threat_hunting_score')::float > 0
+                GROUP BY DATE(created_at)
+                ORDER BY date ASC
+            """)
+            
+            result = await session.execute(trends_query)
+            rows = result.fetchall()
+            
+            labels = [row.date.strftime('%Y-%m-%d') for row in rows]
+            values = [round(float(row.avg_score), 1) for row in rows]
+            
+            return {"labels": labels, "values": values}
+    except Exception as e:
+        logger.error(f"Failed to get score trends: {e}")
+        return {"labels": [], "values": []}
+
+@app.get("/api/analytics/hunt/source-performance")
+async def api_hunt_source_performance():
+    """Get source performance by hunt score."""
+    try:
+        from sqlalchemy import text
+        async with async_db_manager.get_session() as session:
+            # Get top sources by average hunt score
+            source_query = text("""
+                SELECT 
+                    s.name as source_name,
+                    ROUND(AVG((a.article_metadata->>'threat_hunting_score')::float)::numeric, 1) as avg_score
+                FROM sources s
+                JOIN articles a ON s.id = a.source_id
+                WHERE (a.article_metadata->>'threat_hunting_score')::float > 0
+                GROUP BY s.id, s.name
+                ORDER BY avg_score DESC
+                LIMIT 8
+            """)
+            
+            result = await session.execute(source_query)
+            rows = result.fetchall()
+            
+            labels = [row.source_name for row in rows]
+            values = [float(row.avg_score) for row in rows]
+            
+            return {"labels": labels, "values": values}
+    except Exception as e:
+        logger.error(f"Failed to get source performance: {e}")
+        return {"labels": [], "values": []}
+
+@app.get("/api/analytics/hunt/quality-distribution")
+async def api_hunt_quality_distribution():
+    """Get content quality distribution."""
+    try:
+        from sqlalchemy import text
+        async with async_db_manager.get_session() as session:
+            # Get quality distribution
+            quality_query = text("""
+                SELECT 
+                    CASE 
+                        WHEN article_metadata->>'threat_hunting_score' IS NULL THEN 'Unscored'
+                        WHEN (article_metadata->>'threat_hunting_score')::float = 0 THEN 'No Threats'
+                        WHEN (article_metadata->>'threat_hunting_score')::float BETWEEN 0.1 AND 25 THEN 'Low Quality'
+                        WHEN (article_metadata->>'threat_hunting_score')::float BETWEEN 25.1 AND 75 THEN 'Medium Quality'
+                        WHEN (article_metadata->>'threat_hunting_score')::float BETWEEN 75.1 AND 99 THEN 'High Quality'
+                        WHEN (article_metadata->>'threat_hunting_score')::float BETWEEN 99.1 AND 100 THEN 'Perfect'
+                        ELSE 'Unknown'
+                    END as quality_level,
+                    COUNT(*) as count
+                FROM articles 
+                GROUP BY 
+                    CASE 
+                        WHEN article_metadata->>'threat_hunting_score' IS NULL THEN 'Unscored'
+                        WHEN (article_metadata->>'threat_hunting_score')::float = 0 THEN 'No Threats'
+                        WHEN (article_metadata->>'threat_hunting_score')::float BETWEEN 0.1 AND 25 THEN 'Low Quality'
+                        WHEN (article_metadata->>'threat_hunting_score')::float BETWEEN 25.1 AND 75 THEN 'Medium Quality'
+                        WHEN (article_metadata->>'threat_hunting_score')::float BETWEEN 75.1 AND 99 THEN 'High Quality'
+                        WHEN (article_metadata->>'threat_hunting_score')::float BETWEEN 99.1 AND 100 THEN 'Perfect'
+                        ELSE 'Unknown'
+                    END
+                ORDER BY quality_level
+            """)
+            
+            result = await session.execute(quality_query)
+            rows = result.fetchall()
+            
+            labels = [row.quality_level for row in rows]
+            values = [row.count for row in rows]
+            
+            return {"labels": labels, "values": values}
+    except Exception as e:
+        logger.error(f"Failed to get quality distribution: {e}")
+        return {"labels": [], "values": []}
+
+@app.get("/api/analytics/hunt/advanced-metrics")
+async def api_hunt_advanced_metrics():
+    """Get advanced hunt metrics."""
+    try:
+        from sqlalchemy import text
+        async with async_db_manager.get_session() as session:
+            # Get scoring efficiency
+            efficiency_query = text("""
+                SELECT 
+                    COUNT(CASE WHEN (article_metadata->>'threat_hunting_score')::float > 0 THEN 1 END) as scored_articles,
+                    COUNT(*) as total_articles
+                FROM articles
+            """)
+            
+            efficiency_result = await session.execute(efficiency_query)
+            efficiency_row = efficiency_result.fetchone()
+            scoring_efficiency = round((efficiency_row.scored_articles / efficiency_row.total_articles * 100), 1) if efficiency_row.total_articles > 0 else 0
+
+            # Get average keywords per article
+            keywords_query = text("""
+                SELECT 
+                    AVG(
+                        COALESCE(jsonb_array_length(article_metadata::jsonb->'perfect_keyword_matches'), 0) +
+                        COALESCE(jsonb_array_length(article_metadata::jsonb->'good_keyword_matches'), 0) +
+                        COALESCE(jsonb_array_length(article_metadata::jsonb->'lolbas_matches'), 0)
+                    ) as avg_keywords
+                FROM articles 
+                WHERE (article_metadata->>'threat_hunting_score')::float > 0
+            """)
+            
+            keywords_result = await session.execute(keywords_query)
+            avg_keywords = keywords_result.scalar() or 0
+
+            # Get perfect match rate
+            perfect_query = text("""
+                SELECT 
+                    COUNT(CASE WHEN (article_metadata->>'threat_hunting_score')::float = 100 THEN 1 END) as perfect_matches,
+                    COUNT(CASE WHEN (article_metadata->>'threat_hunting_score')::float > 0 THEN 1 END) as scored_articles
+                FROM articles
+            """)
+            
+            perfect_result = await session.execute(perfect_query)
+            perfect_row = perfect_result.fetchone()
+            perfect_match_rate = round((perfect_row.perfect_matches / perfect_row.scored_articles * 100), 1) if perfect_row.scored_articles > 0 else 0
+
+            return {
+                "scoring_efficiency": scoring_efficiency,
+                "avg_keywords_per_article": round(float(avg_keywords), 1),
+                "perfect_match_rate": perfect_match_rate
+            }
+    except Exception as e:
+        logger.error(f"Failed to get advanced metrics: {e}")
+        return {
+            "scoring_efficiency": 0,
+            "avg_keywords_per_article": 0,
+            "perfect_match_rate": 0
+        }
+
+@app.get("/api/analytics/hunt/recent-high-scores")
+async def api_hunt_recent_high_scores():
+    """Get recent high-score articles."""
+    try:
+        from sqlalchemy import text
+        async with async_db_manager.get_session() as session:
+            # Get recent high-score articles
+            recent_query = text("""
+                SELECT 
+                    a.id,
+                    a.title,
+                    s.name as source_name,
+                    (a.article_metadata->>'threat_hunting_score')::float as hunt_score,
+                    a.created_at
+                FROM articles a
+                JOIN sources s ON a.source_id = s.id
+                WHERE (a.article_metadata->>'threat_hunting_score')::float >= 75
+                ORDER BY a.created_at DESC
+                LIMIT 5
+            """)
+            
+            result = await session.execute(recent_query)
+            rows = result.fetchall()
+            
+            articles = [
+                {
+                    "id": row.id,
+                    "title": row.title[:60] + "..." if len(row.title) > 60 else row.title,
+                    "source_name": row.source_name,
+                    "hunt_score": int(row.hunt_score),
+                    "created_at": row.created_at.strftime('%Y-%m-%d') if row.created_at else 'Unknown'
+                }
+                for row in rows
+            ]
+            
+            return {"articles": articles}
+    except Exception as e:
+        logger.error(f"Failed to get recent high scores: {e}")
+        return {"articles": []}
+
+@app.get("/api/analytics/hunt/performance-insights")
+async def api_hunt_performance_insights():
+    """Get performance insights and recommendations."""
+    try:
+        from sqlalchemy import text
+        async with async_db_manager.get_session() as session:
+            # Get top categories
+            categories_query = text("""
+                WITH category_counts AS (
+                    SELECT 'Perfect Keywords' as category, COUNT(*) as count
+                    FROM articles 
+                    WHERE article_metadata->'perfect_keyword_matches' IS NOT NULL
+                      AND jsonb_array_length(article_metadata::jsonb->'perfect_keyword_matches') > 0
+                    
+                    UNION ALL
+                    
+                    SELECT 'LOLBAS Matches' as category, COUNT(*) as count
+                    FROM articles 
+                    WHERE article_metadata->'lolbas_matches' IS NOT NULL
+                      AND jsonb_array_length(article_metadata::jsonb->'lolbas_matches') > 0
+                    
+                    UNION ALL
+                    
+                    SELECT 'Good Keywords' as category, COUNT(*) as count
+                    FROM articles 
+                    WHERE article_metadata->'good_keyword_matches' IS NOT NULL
+                      AND jsonb_array_length(article_metadata::jsonb->'good_keyword_matches') > 0
+                )
+                SELECT category, count
+                FROM category_counts
+                ORDER BY count DESC
+            """)
+            
+            categories_result = await session.execute(categories_query)
+            categories_rows = categories_result.fetchall()
+            
+            top_categories = [
+                {"name": row.category, "count": row.count}
+                for row in categories_rows
+            ]
+
+            # Generate recommendations based on data
+            recommendations = [
+                "Focus on sources with consistently high hunt scores for better threat intelligence quality",
+                "Monitor keyword performance trends to identify emerging threat patterns",
+                "Consider expanding LOLBAS keyword coverage for better attack technique detection",
+                "Review low-scoring articles to improve content filtering accuracy"
+            ]
+
+            return {
+                "top_categories": top_categories,
+                "recommendations": recommendations
+            }
+    except Exception as e:
+        logger.error(f"Failed to get performance insights: {e}")
+        return {
+            "top_categories": [],
+            "recommendations": []
+        }
 
 
 
