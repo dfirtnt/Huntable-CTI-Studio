@@ -208,6 +208,9 @@ debug_*.log
 test_*.py
 !test_chunk_deduplication_simple.py
 
+# Downloaded PDF reports
+Downloaded_PDF_Reports/
+
 # Security
 *.pem
 *.key
