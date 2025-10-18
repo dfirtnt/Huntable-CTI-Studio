@@ -1,23 +1,25 @@
 """
-Article annotation models for Pydantic schemas.
+Annotation models for CTI Scraper.
+
+This module defines the data models for article annotations.
 """
 
 from typing import Optional, List
-from pydantic import BaseModel, Field
 from datetime import datetime
+from pydantic import BaseModel, Field
 
 
 class ArticleAnnotationBase(BaseModel):
     """Base annotation model."""
     article_id: int
-    user_id: Optional[int] = None
     annotation_type: str = Field(..., description="Type of annotation: 'huntable' or 'not_huntable'")
-    selected_text: str = Field(..., description="The selected text content")
-    start_position: int = Field(..., description="Start position in the article text")
-    end_position: int = Field(..., description="End position in the article text")
-    context_before: Optional[str] = Field(None, description="Text before the selection")
-    context_after: Optional[str] = Field(None, description="Text after the selection")
-    confidence_score: float = Field(0.0, description="Confidence score for the annotation")
+    selected_text: str
+    start_position: int
+    end_position: int
+    context_before: Optional[str] = None
+    context_after: Optional[str] = None
+    confidence_score: float = Field(default=0.0, ge=0.0, le=1.0)
+    used_for_training: bool = Field(default=False)
 
 
 class ArticleAnnotationCreate(ArticleAnnotationBase):
@@ -33,28 +35,30 @@ class ArticleAnnotationUpdate(BaseModel):
     end_position: Optional[int] = None
     context_before: Optional[str] = None
     context_after: Optional[str] = None
-    confidence_score: Optional[float] = None
+    confidence_score: Optional[float] = Field(None, ge=0.0, le=1.0)
+    used_for_training: Optional[bool] = None
 
 
 class ArticleAnnotation(ArticleAnnotationBase):
-    """Full annotation model with database fields."""
+    """Complete annotation model."""
     id: int
+    user_id: Optional[int] = None
     created_at: datetime
     updated_at: datetime
-
+    
     class Config:
         from_attributes = True
 
 
 class ArticleAnnotationFilter(BaseModel):
-    """Model for filtering annotations."""
+    """Filter for querying annotations."""
     article_id: Optional[int] = None
-    user_id: Optional[int] = None
     annotation_type: Optional[str] = None
-    confidence_score_min: Optional[float] = None
-    confidence_score_max: Optional[float] = None
+    used_for_training: Optional[bool] = None
     created_after: Optional[datetime] = None
     created_before: Optional[datetime] = None
+    limit: int = Field(default=100, ge=1, le=1000)
+    offset: int = Field(default=0, ge=0)
 
 
 class AnnotationStats(BaseModel):
@@ -62,6 +66,7 @@ class AnnotationStats(BaseModel):
     total_annotations: int
     huntable_count: int
     not_huntable_count: int
-    avg_confidence_score: float
+    used_for_training_count: int
+    unused_for_training_count: int
+    average_confidence: float
     articles_with_annotations: int
-    most_common_annotation_type: str
