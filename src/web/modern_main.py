@@ -165,7 +165,7 @@ def highlight_keywords(content: str, metadata: Dict[str, Any]) -> str:
 templates.env.filters["highlight_keywords"] = highlight_keywords
 
 # Register strftime filter for datetime formatting
-def strftime_filter(value, format='%Y-%m-%d %H:%M:%S'):
+def strftime_filter(value: Optional[datetime], format: str = '%Y-%m-%d %H:%M:%S') -> str:
     """Format a datetime object using strftime."""
     if value is None:
         return 'N/A'
