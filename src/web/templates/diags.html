@@ -118,21 +118,20 @@
 
     <!-- Job History -->
     <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-8">
-        <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">📋 Recent Job History</h2>
-        <div id="jobHistory" class="space-y-3">
+        <div class="flex items-center justify-between mb-4">
+            <h2 class="text-xl font-semibold text-gray-900 dark:text-white">📋 Recent Job History</h2>
+            <button id="jobHistoryToggle" class="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors duration-200">
+                <svg class="w-5 h-5 transform transition-transform duration-200 rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                </svg>
+            </button>
+        </div>
+        <div id="jobHistoryContent" class="space-y-3 hidden">
             <div class="animate-pulse">
                 <div class="h-4 bg-gray-200 dark:bg-gray-700 rounded w-full"></div>
                 <div class="h-4 bg-gray-200 dark:bg-gray-700 rounded w-3/4 mt-2"></div>
                 <div class="h-4 bg-gray-200 dark:bg-gray-700 rounded w-1/2 mt-2"></div>
             </div>
-        </div>
-    </div>
-
-    <!-- Ingestion Analytics -->
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-        <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">📊 Article Ingestion Analytics</h2>
-        <div id="ingestionAnalyticsContent" class="text-gray-600 dark:text-gray-400">
-            Click "Run All Health Checks" to view article collection trends
         </div>
     </div>
 </div>
@@ -169,19 +168,20 @@ document.addEventListener('DOMContentLoaded', function() {
     const workerStatus = document.getElementById('workerStatus');
     const queueStatus = document.getElementById('queueStatus');
     const activeTasks = document.getElementById('activeTasks');
-    const jobHistory = document.getElementById('jobHistory');
+    const jobHistoryContent = document.getElementById('jobHistoryContent');
     
     console.log('Elements found:', {
         workerStatus: !!workerStatus,
         queueStatus: !!queueStatus,
         activeTasks: !!activeTasks,
-        jobHistory: !!jobHistory
+        jobHistoryContent: !!jobHistoryContent
     });
     
-    if (workerStatus && queueStatus && activeTasks && jobHistory) {
+    if (workerStatus && queueStatus && activeTasks && jobHistoryContent) {
         loadJobData();
         setupAutoRefresh();
         setupEventListeners();
+        setupJobHistoryToggle();
     } else {
         console.error('Required DOM elements not found');
         showError('Failed to initialize diagnostics - missing DOM elements');
@@ -217,7 +217,26 @@ function setupEventListeners() {
             await updateDeduplicationHealth();
             await updateServicesHealth();
             await updateCeleryHealth();
-            await updateIngestionAnalytics();
+        });
+    }
+}
+
+function setupJobHistoryToggle() {
+    const toggleButton = document.getElementById('jobHistoryToggle');
+    const content = document.getElementById('jobHistoryContent');
+    const icon = toggleButton?.querySelector('svg');
+    
+    if (toggleButton && content && icon) {
+        toggleButton.addEventListener('click', function() {
+            const isHidden = content.classList.contains('hidden');
+            
+            if (isHidden) {
+                content.classList.remove('hidden');
+                icon.style.transform = 'rotate(0deg)';
+            } else {
+                content.classList.add('hidden');
+                icon.style.transform = 'rotate(180deg)';
+            }
         });
     }
 }
@@ -414,7 +433,7 @@ function updateActiveTasks(data) {
 }
 
 function updateJobHistory(data) {
-    const container = document.getElementById('jobHistory');
+    const container = document.getElementById('jobHistoryContent');
     console.log('Updating job history with data:', data);
     
     if (data.status === 'error') {
@@ -763,88 +782,6 @@ async function updateCeleryHealth() {
                     <span class="text-2xl mr-2">❌</span>
                     <div>
                         <h3 class="font-medium text-red-900">Celery Health Check Failed</h3>
-                        <p class="text-sm text-red-700">${data.error || 'Unknown error'}</p>
-                    </div>
-                </div>
-            </div>
-        `;
-    }
-}
-
-// Ingestion Analytics
-async function updateIngestionAnalytics() {
-    const data = await runHealthCheck('/ingestion', 'Analyzing article ingestion trends...');
-    
-    const content = document.getElementById('ingestionAnalyticsContent');
-    if (data.status === 'healthy' && data.ingestion) {
-        const ingestion = data.ingestion;
-        
-        content.innerHTML = `
-            <div class="space-y-6">
-                <!-- Summary Statistics -->
-                <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-                    <div class="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                        <h3 class="font-medium text-blue-900">Total Articles</h3>
-                        <p class="text-2xl font-bold text-blue-600">${ingestion.total_stats.total_articles.toLocaleString()}</p>
-                    </div>
-                    <div class="p-4 bg-green-50 border border-green-200 rounded-lg">
-                        <h3 class="font-medium text-green-900">Active Sources</h3>
-                        <p class="text-2xl font-bold text-green-600">${ingestion.total_stats.total_sources}</p>
-                    </div>
-                    <div class="p-4 bg-purple-50 border border-purple-200 rounded-lg">
-                        <h3 class="font-medium text-purple-900">Earliest Article</h3>
-                        <p class="text-sm font-bold text-purple-600">${ingestion.total_stats.earliest_article ? new Date(ingestion.total_stats.earliest_article).toLocaleDateString() : 'N/A'}</p>
-                    </div>
-                    <div class="p-4 bg-orange-50 border border-orange-200 rounded-lg">
-                        <h3 class="font-medium text-orange-900">Latest Article</h3>
-                        <p class="text-sm font-bold text-orange-600">${ingestion.total_stats.latest_article ? new Date(ingestion.total_stats.latest_article).toLocaleDateString() : 'N/A'}</p>
-                    </div>
-                </div>
-
-                <!-- Source Breakdown -->
-                <div class="p-4 bg-slate-50 border border-slate-200 rounded-lg">
-                    <h3 class="font-medium text-slate-900 mb-4">📰 Top Sources (Last 7 Days)</h3>
-                    <div class="space-y-3">
-                        ${ingestion.source_breakdown.map(source => `
-                            <div class="p-3 bg-white rounded border border-slate-200">
-                                <div class="flex justify-between items-start mb-2">
-                                    <span class="font-medium text-slate-900">${source.source_name}</span>
-                                    <span class="text-sm font-bold text-blue-600">${source.articles_count} articles</span>
-                                </div>
-                                <div class="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
-                                    <div class="text-center p-2 bg-blue-50 rounded">
-                                        <div class="font-medium text-blue-900">Average Hunt Score</div>
-                                        <div class="text-lg font-bold ${source.avg_hunt_score >= 60 ? 'text-green-600' : source.avg_hunt_score >= 40 ? 'text-yellow-600' : 'text-red-600'}">${source.avg_hunt_score.toFixed(1)}</div>
-                                    </div>
-                                    <div class="text-center p-2 bg-green-50 rounded">
-                                        <div class="font-medium text-green-900">Chosen</div>
-                                        <div class="text-sm font-bold text-green-600">${source.chosen_ratio}</div>
-                                        <div class="text-xs text-gray-600">${source.chosen_count}</div>
-                                    </div>
-                                    <div class="text-center p-2 bg-red-50 rounded">
-                                        <div class="font-medium text-red-900">Rejected</div>
-                                        <div class="text-sm font-bold text-red-600">${source.rejected_ratio}</div>
-                                        <div class="text-xs text-gray-600">${source.rejected_count}</div>
-                                    </div>
-                                    <div class="text-center p-2 bg-gray-50 rounded">
-                                        <div class="font-medium text-gray-900">Unclassified</div>
-                                        <div class="text-sm font-bold text-gray-600">${source.unclassified_ratio}</div>
-                                        <div class="text-xs text-gray-600">${source.unclassified_count}</div>
-                                    </div>
-                                </div>
-                            </div>
-                        `).join('')}
-                    </div>
-                </div>
-            </div>
-        `;
-    } else {
-        content.innerHTML = `
-            <div class="p-4 bg-red-50 border border-red-200 rounded-lg">
-                <div class="flex items-center">
-                    <span class="text-2xl mr-2">❌</span>
-                    <div>
-                        <h3 class="font-medium text-red-900">Ingestion Analytics Failed</h3>
                         <p class="text-sm text-red-700">${data.error || 'Unknown error'}</p>
                     </div>
                 </div>

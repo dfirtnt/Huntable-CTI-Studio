@@ -129,9 +129,17 @@
             <div id="evalProgressText" class="text-sm text-gray-600 mt-2">Evaluating model...</div>
         </div>
         
-        <!-- Evaluation Results -->
-        <div id="evalResultsSection" class="hidden mt-4 p-4 bg-gray-50 dark:bg-gray-700 rounded-md">
-            <div id="evalResultsContent"></div>
+        <!-- Collapsible Evaluation Results -->
+        <div id="evalResultsSection" class="hidden mt-4">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-white">📊 Evaluation Results</h3>
+                <button id="toggleEvaluationResults" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors" aria-label="Toggle evaluation results">
+                    <svg class="w-5 h-5 transform transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                    </svg>
+                </button>
+            </div>
+            <div id="evalResultsContent" class="p-4 bg-gray-50 dark:bg-gray-700 rounded-md"></div>
         </div>
     </div>
     
@@ -496,6 +504,9 @@
                 resultsSection.classList.remove('hidden');
                 resultsContent.innerHTML = generateEvaluationResults(data);
                 
+                // Make results content collapsible by default (expanded)
+                resultsContent.classList.remove('hidden');
+                
                 statusElement.textContent = `Evaluation complete - F1 Score: ${(data.metrics.f1_score_huntable * 100).toFixed(1)}%`;
                 
                 // Reload data to update charts
@@ -841,6 +852,21 @@
         }
     }
 
+    // Toggle evaluation results content
+    function toggleEvaluationResults() {
+        const content = document.getElementById('evalResultsContent');
+        const toggleBtn = document.getElementById('toggleEvaluationResults');
+        const icon = toggleBtn.querySelector('svg');
+        
+        if (content.classList.contains('hidden')) {
+            content.classList.remove('hidden');
+            icon.classList.add('rotate-180');
+        } else {
+            content.classList.add('hidden');
+            icon.classList.remove('rotate-180');
+        }
+    }
+
     // Event listeners
         document.addEventListener('DOMContentLoaded', () => {
             loadInitialData();
@@ -853,6 +879,13 @@
         document.getElementById('refreshEvalStatusBtn').addEventListener('click', checkEvaluationStatus);
         document.getElementById('retrainModelBtn').addEventListener('click', retrainModel);
         document.getElementById('refreshRetrainBtn').addEventListener('click', refreshRetrainingStatus);
+        document.getElementById('toggleEvaluationResults').addEventListener('click', toggleEvaluationResults);
         });
     </script>
 {% endblock %}
+
+<style>
+.rotate-180 {
+    transform: rotate(180deg);
+}
+</style>
