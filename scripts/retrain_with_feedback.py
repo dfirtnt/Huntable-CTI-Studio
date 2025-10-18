@@ -143,6 +143,35 @@ def process_feedback_for_training(feedback_df: pd.DataFrame):
     
     return pd.DataFrame(training_examples)
 
+def mark_feedback_as_used():
+    """Mark all feedback as used for training by updating the CSV file."""
+    try:
+        import pandas as pd
+        
+        feedback_file = "outputs/training_data/chunk_classification_feedback.csv"
+        if not os.path.exists(feedback_file):
+            print("⚠️  No feedback file found")
+            return
+        
+        # Load feedback data
+        df = pd.read_csv(feedback_file)
+        
+        # Mark all unused feedback as used
+        unused_mask = df['used_for_training'] == False
+        unused_count = unused_mask.sum()
+        
+        if unused_count > 0:
+            df.loc[unused_mask, 'used_for_training'] = True
+            
+            # Save updated feedback data
+            df.to_csv(feedback_file, index=False)
+            print(f"🏷️  Marked {unused_count} feedback entries as used for training")
+        else:
+            print("✅ All feedback already marked as used")
+            
+    except Exception as e:
+        print(f"❌ Error marking feedback as used: {e}")
+
 def combine_training_data(original_file: str, feedback_df: pd.DataFrame, annotation_df: pd.DataFrame = None):
     """Combine original training data with feedback and annotation data."""
     # Load original training data
@@ -253,6 +282,9 @@ def retrain_model_with_feedback(original_file: str = "outputs/training_data/comb
         
         # Mark annotations as used after successful retraining
         mark_annotations_as_used()
+        
+        # Mark feedback as used after successful retraining
+        mark_feedback_as_used()
         
         # Save new model version to database
         new_version_id = None

@@ -106,6 +106,9 @@ services:
       - ./config:/app/config
       - ./logs:/app/logs
       - ./tests:/app/tests
+      - ./outputs:/app/outputs
+      - ./models:/app/models
+      - ./scripts:/app/scripts
     depends_on:
       postgres:
         condition: service_healthy
