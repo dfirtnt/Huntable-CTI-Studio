@@ -227,6 +227,14 @@
                 document.getElementById('evalChunkCount').textContent = 'Unknown';
             }
             
+            // Load detailed comparison results
+            const resultsResponse = await fetch('/api/ml-hunt-comparison/results?limit=50');
+            const resultsData = await resultsResponse.json();
+            if (resultsData.success) {
+                currentData.results = resultsData.results;
+                populateResultsTable();
+            }
+            
             // Check feedback count and disable retrain button if no feedback available
             const feedbackResponse = await fetch('/api/model/feedback-count');
             const feedbackData = await feedbackResponse.json();
@@ -264,6 +272,46 @@
         updateDistributionChart();
         updateModelPerformanceSummary();
         updateEvaluationCharts();
+    }
+
+    function populateResultsTable() {
+        const tbody = document.getElementById('resultsTableBody');
+        if (!currentData.results || currentData.results.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="5" class="px-6 py-4 text-center text-gray-500">No comparison data available</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = currentData.results.map(result => {
+            const matchIcon = result.agreement ? '✅' : '❌';
+            const matchClass = result.agreement ? 'text-green-600' : 'text-red-600';
+            const mlPrediction = result.ml_prediction ? 'Huntable' : 'Not Huntable';
+            const huntPrediction = result.hunt_prediction ? 'Huntable' : 'Not Huntable';
+            
+            return `
+                <tr class="hover:bg-gray-50 dark:hover:bg-gray-700">
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
+                        <div class="max-w-xs truncate" title="${result.article_title || 'Untitled'}">
+                            ${result.article_title || 'Untitled'}
+                        </div>
+                        <div class="text-xs text-gray-500">ID: ${result.article_id}</div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
+                        <div class="font-medium">${result.hunt_score.toFixed(1)}</div>
+                        <div class="text-xs text-gray-500">${huntPrediction}</div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
+                        <div class="font-medium">${(result.ml_confidence * 100).toFixed(1)}%</div>
+                        <div class="text-xs text-gray-500">${mlPrediction}</div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm ${matchClass}">
+                        <span class="font-medium">${matchIcon}</span>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
+                        ${(result.ml_confidence * 100).toFixed(1)}%
+                    </td>
+                </tr>
+            `;
+        }).join('');
     }
 
     function updateModelPerformanceSummary() {
