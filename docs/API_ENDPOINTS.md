@@ -4,17 +4,20 @@ This document provides a comprehensive list of all API endpoints available in th
 
 ## Overview
 
-The CTI Scraper provides 90+ API endpoints across multiple categories:
+The CTI Scraper provides **127 API endpoints** across multiple categories:
 - **Health & Monitoring**: 8 endpoints
-- **Sources Management**: 12 endpoints  
-- **Articles Management**: 25 endpoints
+- **Web Pages**: 15 endpoints
+- **Sources Management**: 10 endpoints  
+- **Articles Management**: 12 endpoints
 - **AI & Analysis**: 15 endpoints
-- **ML Feedback & Model Management**: 5 endpoints
+- **ML Feedback & Model Management**: 10 endpoints
 - **Annotations**: 8 endpoints
-- **Jobs & Tasks**: 6 endpoints
-- **Metrics & Dashboard**: 7 endpoints
+- **Jobs & Tasks**: 7 endpoints
+- **Metrics & Dashboard**: 20 endpoints
 - **Backup Management**: 3 endpoints
-- **Web Pages**: 10 endpoints
+- **ML vs Hunt Comparison**: 5 endpoints
+- **Embeddings & ML**: 3 endpoints
+- **File Upload**: 1 endpoint
 
 ## Health & Monitoring Endpoints
 
@@ -36,15 +39,21 @@ The CTI Scraper provides 90+ API endpoints across multiple categories:
 - `GET /api/model/feedback-comparison` - Get feedback impact analysis showing confidence changes
 - `GET /api/model/classification-timeline` - Get classification trends data across model versions
 - `GET /api/model/feedback-count` - Get count of available feedback samples for retraining
+- `GET /api/model/eval-chunk-count` - Get evaluation chunk count
+- `GET /api/model/retrain-status` - Get model retraining status
 - `POST /api/model/retrain` - Retrain model with user feedback data
 - `POST /api/model/evaluate` - Evaluate current model on test set with detailed metrics
 - `POST /api/feedback/chunk-classification` - Submit user feedback on chunk classifications
+- `GET /api/feedback/chunk-classification/{article_id}/{chunk_id}` - Get specific feedback
 
-### ML vs Hunt Comparison
+## ML vs Hunt Comparison Endpoints
+
+### Comparison Operations
 - `GET /api/ml-hunt-comparison/summary` - Get dashboard summary statistics
 - `GET /api/ml-hunt-comparison/stats` - Get detailed comparison statistics
 - `GET /api/ml-hunt-comparison/eligible-count` - Get count of articles eligible for processing
-- `POST /api/ml-hunt-comparison/backfill` - Process eligible articles for chunk analysis
+- `GET /api/ml-hunt-comparison/results` - Get comparison results
+- `GET /api/ml-hunt-comparison/model-versions` - Get model versions for comparison
 
 ## Backup Management Endpoints
 
@@ -82,6 +91,7 @@ The CTI Scraper provides 90+ API endpoints across multiple categories:
 - `POST /api/articles/{article_id}/classify` - Classify article (chosen/rejected)
 - `POST /api/articles/bulk-action` - Perform bulk actions on multiple articles
 - `DELETE /api/articles/{article_id}` - Delete specific article
+- `GET /api/search/help` - Get search syntax help
 
 ### Article Analysis
 - `POST /api/articles/{article_id}/chatgpt-summary` - Generate ChatGPT summary
@@ -102,12 +112,15 @@ The CTI Scraper provides 90+ API endpoints across multiple categories:
 - `POST /api/test-openai-key` - Test OpenAI API key validity
 - `POST /api/test-anthropic-key` - Test Anthropic API key validity
 - `POST /api/test-claude-summary` - Test Claude summary functionality
-
-### Embeddings & ML
-- `GET /api/embeddings/stats` - Get embedding statistics
-- `POST /api/embeddings/update` - Update embeddings for articles/annotations
-- `POST /api/feedback/chunk-classification` - Provide feedback on chunk classifications
-- `POST /api/model/retrain` - Trigger model retraining using user feedback
+- `POST /api/articles/{article_id}/chatgpt-summary` - Generate ChatGPT summary
+- `POST /api/articles/{article_id}/custom-prompt` - Custom AI prompt analysis
+- `POST /api/articles/{article_id}/generate-sigma` - Generate SIGMA detection rules
+- `POST /api/articles/{article_id}/extract-iocs` - Extract IOCs using hybrid approach
+- `POST /api/articles/{article_id}/rank-with-gpt4o` - GPT4o huntability ranking
+- `POST /api/articles/{article_id}/gpt4o-rank-optimized` - Optimized GPT4o ranking
+- `POST /api/articles/{article_id}/embed` - Generate article embedding
+- `GET /api/articles/{article_id}/chunk-debug` - Debug chunk classification
+- `GET /api/test-route` - Test route for verification
 
 ## Annotations Endpoints
 
@@ -121,6 +134,12 @@ The CTI Scraper provides 90+ API endpoints across multiple categories:
 - `GET /api/annotations/stats` - Get annotation statistics
 - `GET /api/export/annotations` - Export annotations to CSV
 
+## Embeddings & ML Endpoints
+
+### Embedding Operations
+- `GET /api/embeddings/stats` - Get embedding statistics
+- `POST /api/embeddings/update` - Update embeddings for articles/annotations
+
 ## Jobs & Tasks Endpoints
 
 ### Task Management
@@ -132,6 +151,7 @@ The CTI Scraper provides 90+ API endpoints across multiple categories:
 ### Actions
 - `POST /api/actions/rescore-all` - Rescore all articles
 - `POST /api/actions/generate-report` - Generate system report
+- `POST /api/actions/health-check` - Trigger health check
 
 ## Metrics & Dashboard Endpoints
 
@@ -139,6 +159,26 @@ The CTI Scraper provides 90+ API endpoints across multiple categories:
 - `GET /api/dashboard/data` - Get dashboard data and statistics
 - `GET /api/metrics/volume` - Get volume metrics
 - `GET /api/search/help` - Get search syntax help
+
+### Analytics Endpoints
+- `GET /api/analytics/scraper/overview` - Scraper analytics overview
+- `GET /api/analytics/scraper/collection-rate` - Collection rate metrics
+- `GET /api/analytics/scraper/source-health` - Source health metrics
+- `GET /api/analytics/scraper/source-performance` - Source performance metrics
+- `GET /api/analytics/hunt/overview` - Hunt analytics overview
+- `GET /api/analytics/hunt/score-distribution` - Score distribution metrics
+- `GET /api/analytics/hunt/keyword-performance` - Keyword performance metrics
+- `GET /api/analytics/hunt/keyword-analysis` - Keyword analysis metrics
+- `GET /api/analytics/hunt/score-trends` - Score trends metrics
+- `GET /api/analytics/hunt/source-performance` - Hunt source performance
+- `GET /api/analytics/hunt/quality-distribution` - Quality distribution metrics
+- `GET /api/analytics/hunt/advanced-metrics` - Advanced hunt metrics
+- `GET /api/analytics/hunt/recent-high-scores` - Recent high scores
+- `GET /api/analytics/hunt/performance-insights` - Performance insights
+- `GET /api/analytics/hunt-demo/articles` - Hunt demo articles
+- `GET /api/analytics/hunt-demo/sources` - Hunt demo sources
+- `GET /api/analytics/hunt-demo/keywords` - Hunt demo keywords
+- `GET /api/analytics/hunt-demo/ml-models` - Hunt demo ML models
 
 ## Web Pages
 
@@ -154,6 +194,12 @@ The CTI Scraper provides 90+ API endpoints across multiple categories:
 - `GET /jobs` - Jobs monitoring page
 - `GET /help` - Help page
 - `GET /pdf-upload` - PDF upload page
+- `GET /analytics` - Analytics page
+- `GET /analytics/scraper-metrics` - Scraper metrics page
+- `GET /analytics/hunt-metrics` - Hunt metrics page
+- `GET /analytics/hunt-metrics-demo` - Hunt metrics demo page
+- `GET /ml-hunt-comparison` - ML vs Hunt comparison page
+- `GET /diags` - Diagnostics page
 
 ## File Upload Endpoints
 
