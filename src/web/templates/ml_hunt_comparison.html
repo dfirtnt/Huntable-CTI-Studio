@@ -71,11 +71,14 @@
     <!-- Model Evaluation Section -->
     <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-8">
         <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">🧪 Model Evaluation on Test Set</h2>
-        <p class="text-gray-600 dark:text-gray-400 mb-4">Evaluate current model performance on 160 annotated chunks from article_annotations table</p>
+        <p class="text-gray-600 dark:text-gray-400 mb-4">Evaluate current model performance on annotated chunks from article_annotations table</p>
         
         <div class="flex justify-between items-center">
             <div class="text-lg font-medium text-gray-900 dark:text-white">
-                <span id="evalStatus">Ready to evaluate current model</span>
+                <div><span id="evalStatus">Ready to evaluate current model</span></div>
+                <div class="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                    Test set: <span id="evalChunkCount">Loading...</span> annotated chunks
+                </div>
             </div>
             <div class="flex gap-3">
                 <button id="evaluateModelBtn" 
@@ -213,6 +216,15 @@
             const timelineData = await timelineResponse.json();
             if (timelineData.success) {
                 currentData.timeline = timelineData.timeline;
+            }
+            
+            // Load evaluation chunk count
+            const evalCountResponse = await fetch('/api/model/eval-chunk-count');
+            const evalCountData = await evalCountResponse.json();
+            if (evalCountData.success) {
+                document.getElementById('evalChunkCount').textContent = evalCountData.count.toLocaleString();
+            } else {
+                document.getElementById('evalChunkCount').textContent = 'Unknown';
             }
             
             // Check feedback count and disable retrain button if no feedback available
@@ -871,9 +883,6 @@
                     <div class="text-green-600 font-semibold">✅ Retraining Complete</div>
                     <div class="mt-2">
                         <p><strong>New Model Version:</strong> v${data.new_version || 'Unknown'}</p>
-                        <p><strong>Training Accuracy:</strong> ${data.training_accuracy ? (data.training_accuracy * 100).toFixed(1) : 'N/A'}%</p>
-                        <p><strong>Validation Accuracy:</strong> ${data.validation_accuracy ? (data.validation_accuracy * 100).toFixed(1) : 'N/A'}%</p>
-                        <p><strong>Training Duration:</strong> ${data.training_duration || 'Unknown'}</p>
                         <p><strong>Training Samples:</strong> ${data.training_samples || 'Unknown'}</p>
                     </div>
                     ${backfillInfo}
@@ -881,7 +890,7 @@
                 
                 // Update status
                 const statusElement = document.getElementById('retrainingStatus');
-                const accuracy = data.validation_accuracy ? (data.validation_accuracy * 100).toFixed(1) : 'N/A';
+                const accuracy = data.training_accuracy ? (data.training_accuracy * 100).toFixed(1) : 'N/A';
                 statusElement.textContent = `v${data.new_version || 'Unknown'} (${accuracy}% accuracy)`;
                 statusElement.classList.remove('cursor-help');
                 statusElement.removeAttribute('title');
@@ -937,8 +946,8 @@
             
             if (versionsData.success && versionsData.versions.length > 0) {
                 const latest = versionsData.versions[0]; // Already sorted by version number
-                if (latest.eval_accuracy) {
-                    const accuracyPercent = (latest.eval_accuracy * 100).toFixed(1);
+                if (latest.accuracy) {
+                    const accuracyPercent = (latest.accuracy * 100).toFixed(1);
                     statusElement.textContent = `v${latest.version_number} (${accuracyPercent}% accuracy)`;
                     statusElement.classList.remove('cursor-help');
                     statusElement.removeAttribute('title');

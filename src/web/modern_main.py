@@ -5013,7 +5013,7 @@ async def api_get_model_versions():
 
 @app.post("/api/model/evaluate")
 async def api_model_evaluate():
-    """Evaluate the current model on the 160 annotated test chunks."""
+    """Evaluate the current model on annotated test chunks."""
     try:
         from src.utils.content_filter import ContentFilter
         from src.utils.model_evaluation import ModelEvaluator
@@ -5189,6 +5189,32 @@ async def api_get_classification_timeline():
     except Exception as e:
         logger.error(f"Error getting classification timeline: {e}")
         return {"success": False, "timeline": [], "message": f"Failed to get classification timeline: {str(e)}"}
+
+
+@app.get("/api/model/eval-chunk-count")
+async def api_get_eval_chunk_count():
+    """Get count of chunks in evaluation dataset."""
+    try:
+        import os
+        import pandas as pd
+        
+        eval_data_path = "outputs/evaluation_data/eval_set.csv"
+        
+        if os.path.exists(eval_data_path):
+            df = pd.read_csv(eval_data_path)
+            count = len(df)
+        else:
+            count = 0
+        
+        return {
+            "success": True,
+            "count": count,
+            "message": f"Evaluation dataset contains {count} chunks"
+        }
+        
+    except Exception as e:
+        logger.error(f"Error getting evaluation chunk count: {e}")
+        return {"success": False, "count": 0, "message": f"Error: {str(e)}"}
 
 
 @app.get("/api/model/feedback-count")

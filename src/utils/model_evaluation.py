@@ -2,7 +2,7 @@
 Model Evaluation System for ML Content Filter.
 
 This module provides functionality to evaluate ML models on a standardized
-test set of 160 annotated chunks from the article_annotations table.
+test set of annotated chunks from the article_annotations table.
 """
 
 import os
@@ -24,7 +24,7 @@ class ModelEvaluator:
     """
     Evaluates ML models on standardized test set of annotated chunks.
     
-    Uses 160 annotated chunks from article_annotations table to provide
+    Uses annotated chunks from article_annotations table to provide
     consistent evaluation metrics across different model versions.
     """
     
