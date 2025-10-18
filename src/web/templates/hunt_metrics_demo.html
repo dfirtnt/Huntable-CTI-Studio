@@ -21,7 +21,7 @@
             </ol>
         </nav>
         
-        <h1 class="text-3xl font-bold text-gray-900 dark:text-white mb-2">🎯 Advanced Hunt Metrics Demo</h1>
+        <h1 class="text-3xl font-bold text-gray-900 dark:text-white mb-2">🚀 Advanced Hunt Metrics Demo</h1>
         <p class="text-gray-600 dark:text-gray-400">Multidimensional visualizations for threat hunting content analysis</p>
         <div class="mt-2">
             <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200">
@@ -30,282 +30,175 @@
         </div>
     </div>
 
-    <!-- Metrics Overview -->
-    <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+    <!-- Control Panel -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-8">
+        <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">🎛️ Visualization Controls</h3>
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Time Range</label>
+                <select id="timeRange" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+                    <option value="7">Last 7 days</option>
+                    <option value="30" selected>Last 30 days</option>
+                    <option value="90">Last 90 days</option>
+                    <option value="all">All time</option>
+                </select>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Min Hunt Score</label>
+                <input type="range" id="minScore" min="0" max="100" value="0" class="w-full">
+                <div class="flex justify-between text-xs text-gray-500">
+                    <span>0</span>
+                    <span id="minScoreValue">0</span>
+                    <span>100</span>
+                </div>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Sources</label>
+                <select id="sourceFilter" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+                    <option value="all">All Sources</option>
+                </select>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Classification</label>
+                <select id="classificationFilter" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+                    <option value="all">All Classifications</option>
+                    <option value="chosen">Chosen</option>
+                    <option value="rejected">Rejected</option>
+                    <option value="unclassified">Unclassified</option>
+                </select>
+            </div>
+        </div>
+        <div class="mt-4">
+            <button id="refreshData" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                </svg>
+                Refresh Data
+            </button>
+        </div>
+    </div>
+
+    <!-- Visualization Grid -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+        <!-- Hunt Score vs ML Confidence Scatter Plot -->
         <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-            <div class="flex items-center">
-                <div class="p-2 bg-purple-100 dark:bg-purple-900 rounded-lg">
-                    <svg class="w-6 h-6 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"></path>
-                    </svg>
-                </div>
-                <div class="ml-4">
-                    <p class="text-sm font-medium text-gray-500 dark:text-gray-400">Avg Hunt Score</p>
-                    <p class="text-2xl font-semibold text-gray-900 dark:text-white" id="avgHuntScore">-</p>
-                </div>
+            <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">🎯 Hunt Score vs ML Confidence</h3>
+            <div class="h-96">
+                <div id="scatterPlot" class="w-full h-full"></div>
+            </div>
+            <div class="mt-4 text-sm text-gray-600 dark:text-gray-400">
+                <p><strong>Insight:</strong> Points above the diagonal indicate ML overconfidence, below indicate underconfidence.</p>
             </div>
         </div>
 
+        <!-- Source Performance Bubble Chart -->
         <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-            <div class="flex items-center">
-                <div class="p-2 bg-green-100 dark:bg-green-900 rounded-lg">
-                    <svg class="w-6 h-6 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                    </svg>
-                </div>
-                <div class="ml-4">
-                    <p class="text-sm font-medium text-gray-500 dark:text-gray-400">High Quality Articles</p>
-                    <p class="text-2xl font-semibold text-gray-900 dark:text-white" id="highQualityArticles">-</p>
-                </div>
+            <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">📊 Source Performance Matrix</h3>
+            <div class="h-96">
+                <div id="bubbleChart" class="w-full h-full"></div>
             </div>
-        </div>
-
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-            <div class="flex items-center">
-                <div class="p-2 bg-blue-100 dark:bg-blue-900 rounded-lg">
-                    <svg class="w-6 h-6 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"></path>
-                    </svg>
-                </div>
-                <div class="ml-4">
-                    <p class="text-sm font-medium text-gray-500 dark:text-gray-400">Perfect Matches</p>
-                    <p class="text-2xl font-semibold text-gray-900 dark:text-white" id="perfectMatches">-</p>
-                </div>
-            </div>
-        </div>
-
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-            <div class="flex items-center">
-                <div class="p-2 bg-orange-100 dark:bg-orange-900 rounded-lg">
-                    <svg class="w-6 h-6 text-orange-600 dark:text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
-                    </svg>
-                </div>
-                <div class="ml-4">
-                    <p class="text-sm font-medium text-gray-500 dark:text-gray-400">LOLBAS Matches</p>
-                    <p class="text-2xl font-semibold text-gray-900 dark:text-white" id="lolbasMatches">-</p>
-                </div>
+            <div class="mt-4 text-sm text-gray-600 dark:text-gray-400">
+                <p><strong>Insight:</strong> Larger bubbles = more articles. Color intensity = average hunt score.</p>
             </div>
         </div>
     </div>
 
-    <!-- Demo Visualizations -->
-    <div class="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900 dark:to-purple-900 rounded-lg shadow p-6 mb-8">
-        <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">🚀 Advanced Demo Visualizations</h3>
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div class="bg-white dark:bg-gray-800 rounded-lg p-4">
-                <h4 class="text-md font-medium text-gray-900 dark:text-white mb-3">🎯 Hunt Score vs ML Confidence</h4>
-                <div class="h-64 bg-gray-100 dark:bg-gray-700 rounded flex items-center justify-center">
-                    <p class="text-gray-500">Interactive scatter plot coming soon...</p>
-                </div>
+    <!-- Keyword Co-occurrence Network -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-8">
+        <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">🕸️ Keyword Co-occurrence Network</h3>
+        <div class="flex justify-between items-center mb-4">
+            <div class="flex space-x-4">
+                <button id="networkLayout" class="px-3 py-1 text-sm bg-blue-100 text-blue-800 rounded-md hover:bg-blue-200">Force Layout</button>
+                <button id="networkFilter" class="px-3 py-1 text-sm bg-gray-100 text-gray-800 rounded-md hover:bg-gray-200">Filter by Category</button>
             </div>
-            <div class="bg-white dark:bg-gray-800 rounded-lg p-4">
-                <h4 class="text-md font-medium text-gray-900 dark:text-white mb-3">📊 Source Performance Matrix</h4>
-                <div class="h-64 bg-gray-100 dark:bg-gray-700 rounded flex items-center justify-center">
-                    <p class="text-gray-500">Bubble chart visualization coming soon...</p>
-                </div>
+            <div class="text-sm text-gray-600 dark:text-gray-400">
+                <span id="networkStats">Loading...</span>
             </div>
+        </div>
+        <div class="h-96 border border-gray-200 dark:border-gray-600 rounded-lg">
+            <svg id="networkChart" class="w-full h-full"></svg>
         </div>
         <div class="mt-4 text-sm text-gray-600 dark:text-gray-400">
-            <p><strong>Demo Features:</strong> This page demonstrates advanced multidimensional visualizations including scatter plots, bubble charts, network graphs, and temporal analysis.</p>
+            <p><strong>Insight:</strong> Node size = frequency, edge thickness = co-occurrence strength, color = category.</p>
         </div>
     </div>
 
-    <!-- Charts Section -->
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-        <!-- Score Distribution Chart -->
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-            <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">📊 Hunt Score Distribution</h3>
-            <div class="h-64">
-                <canvas id="scoreDistributionChart"></canvas>
-            </div>
-        </div>
-
-        <!-- Keyword Performance Chart -->
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-            <div class="flex items-center justify-between mb-4">
-                <h3 class="text-lg font-semibold text-gray-900 dark:text-white">🔍 Top Performing Keywords - Perfect Discriminators</h3>
-                <div class="relative group">
-                    <button class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors" aria-label="Help">
-                        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"></path>
-                        </svg>
-                    </button>
-                    <div class="absolute right-0 top-8 w-80 bg-white dark:bg-gray-700 rounded-lg shadow-lg border border-gray-200 dark:border-gray-600 p-4 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-10">
-                        <div class="text-sm text-gray-700 dark:text-gray-300">
-                            <h4 class="font-semibold text-gray-900 dark:text-white mb-2">Chart Scope</h4>
-                            <p class="mb-3">Shows the most frequently matched keywords from <strong>Perfect Discriminators</strong> - keywords that appear exclusively in high-quality threat hunting content.</p>
-                            
-                            <h4 class="font-semibold text-gray-900 dark:text-white mb-2">Keyword Lists Included</h4>
-                            <ul class="list-disc list-inside space-y-1 mb-3">
-                                <li><strong>Perfect Discriminators</strong> (103 patterns)</li>
-                                <li>Process names: <code class="bg-gray-100 dark:bg-gray-600 px-1 rounded">rundll32</code>, <code class="bg-gray-100 dark:bg-gray-600 px-1 rounded">msiexec</code></li>
-                                <li>Registry paths: <code class="bg-gray-100 dark:bg-gray-600 px-1 rounded">hklm</code>, <code class="bg-gray-100 dark:bg-gray-600 px-1 rounded">appdata</code></li>
-                                <li>Command execution: <code class="bg-gray-100 dark:bg-gray-600 px-1 rounded">wmic</code>, <code class="bg-gray-100 dark:bg-gray-600 px-1 rounded">powershell.exe</code></li>
-                                <li>File types: <code class="bg-gray-100 dark:bg-gray-600 px-1 rounded">.lnk</code>, <code class="bg-gray-100 dark:bg-gray-600 px-1 rounded">.iso</code></li>
-                            </ul>
-                            
-                            <p class="text-xs text-gray-500 dark:text-gray-400">Note: Only shows top 10 keywords by match count. Other keyword categories (Good Discriminators, LOLBAS, Intelligence) are shown in the detailed analysis table below.</p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="h-64">
-                <canvas id="keywordPerformanceChart"></canvas>
-            </div>
-        </div>
-    </div>
-
-    <!-- Keyword Analysis Table -->
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow mb-8">
-        <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-            <div class="flex items-center justify-between">
-                <h3 class="text-lg font-semibold text-gray-900 dark:text-white">🏷️ Keyword Performance Analysis</h3>
-                <button id="keywordAnalysisToggle" class="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors duration-200">
-                    <svg class="w-5 h-5 transform transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
-                    </svg>
-                </button>
-            </div>
-        </div>
-        <div id="keywordAnalysisContent" class="overflow-x-auto hidden">
-            <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                <thead class="bg-gray-50 dark:bg-gray-700">
-                    <tr>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Category</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Keyword</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Match Count</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Avg Score Impact</th>
-                    </tr>
-                </thead>
-                <tbody id="keywordAnalysisTable" class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                    <!-- Table content will be loaded dynamically -->
-                </tbody>
-            </table>
-        </div>
-    </div>
-
-    <!-- Score Trends Chart -->
+    <!-- Temporal Performance Dashboard -->
     <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-8">
-        <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">📈 Hunt Score Trends (Last 30 Days)</h3>
-        <div class="h-80">
-            <canvas id="scoreTrendsChart"></canvas>
-        </div>
-    </div>
-
-    <!-- Additional Analytics Sections -->
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-        <!-- Source Performance by Hunt Score -->
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-            <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">🎯 Top Sources by Hunt Score</h3>
-            <div class="h-64">
-                <canvas id="sourcePerformanceChart"></canvas>
-            </div>
-        </div>
-
-        <!-- Score Quality Distribution -->
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-            <div class="flex items-center justify-between mb-4">
-                <h3 class="text-lg font-semibold text-gray-900 dark:text-white">⭐ Content Quality Breakdown</h3>
-                <div class="relative group">
-                    <button class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
-                        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"></path>
-                        </svg>
-                    </button>
-                    <div class="absolute right-0 top-6 w-80 p-3 bg-gray-900 dark:bg-gray-700 text-white text-sm rounded-lg shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10">
-                        <div class="font-semibold mb-2">Content Quality Breakdown</div>
-                        <div class="space-y-1 text-xs">
-                            <div><strong>Unscored:</strong> Articles not yet processed</div>
-                            <div><strong>Score 0:</strong> Articles with hunt score = 0</div>
-                            <div><strong>Score 1-25:</strong> Articles with hunt scores 0.1-25</div>
-                            <div><strong>Score 26-50:</strong> Articles with hunt scores 25.1-50</div>
-                            <div><strong>Score 51-75:</strong> Articles with hunt scores 50.1-75</div>
-                            <div><strong>Score 76-99:</strong> Articles with hunt scores 75.1-99</div>
-                            <div><strong>Score 99-100:</strong> Articles with hunt scores 99.1-100</div>
-                        </div>
-                        <div class="mt-2 pt-2 border-t border-gray-600 text-xs">
-                            <em>Note: Categories are based purely on hunt score ranges. Higher scores indicate more threat indicators found in the article.</em>
-                        </div>
-                    </div>
+        <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">📈 Temporal Performance Dashboard</h3>
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div>
+                <h4 class="text-md font-medium text-gray-900 dark:text-white mb-3">Hunt Score Trends by Source</h4>
+                <div class="h-64">
+                    <div id="temporalChart" class="w-full h-full"></div>
                 </div>
             </div>
-            <div class="h-64">
-                <canvas id="qualityDistributionChart"></canvas>
+            <div>
+                <h4 class="text-md font-medium text-gray-900 dark:text-white mb-3">Classification Accuracy Over Time</h4>
+                <div class="h-64">
+                    <div id="accuracyChart" class="w-full h-full"></div>
+                </div>
             </div>
         </div>
     </div>
 
-    <!-- Advanced Analytics -->
+    <!-- Content Quality Matrix -->
     <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-8">
-        <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">🔬 Advanced Hunt Analytics</h3>
-        
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-            <!-- Scoring Efficiency -->
-            <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
-                <div class="flex items-center mb-2">
-                    <div class="p-2 bg-green-100 dark:bg-green-900 rounded-lg mr-3">
-                        <svg class="w-5 h-5 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path>
-                        </svg>
-                    </div>
-                    <div>
-                        <p class="text-sm font-medium text-gray-500 dark:text-gray-400">Scoring Efficiency</p>
-                        <p class="text-xl font-semibold text-gray-900 dark:text-white" id="scoringEfficiency">-</p>
-                    </div>
-                </div>
-                <p class="text-xs text-gray-500 dark:text-gray-400">Articles with meaningful scores</p>
-            </div>
-
-            <!-- Keyword Density -->
-            <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
-                <div class="flex items-center mb-2">
-                    <div class="p-2 bg-blue-100 dark:bg-blue-900 rounded-lg mr-3">
-                        <svg class="w-5 h-5 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"></path>
-                        </svg>
-                    </div>
-                    <div>
-                        <p class="text-sm font-medium text-gray-500 dark:text-gray-400">Avg Keywords/Article</p>
-                        <p class="text-xl font-semibold text-gray-900 dark:text-white" id="avgKeywordsPerArticle">-</p>
-                    </div>
-                </div>
-                <p class="text-xs text-gray-500 dark:text-gray-400">Average keyword matches per article</p>
-            </div>
-
-            <!-- Perfect Match Rate -->
-            <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
-                <div class="flex items-center mb-2">
-                    <div class="p-2 bg-purple-100 dark:bg-purple-900 rounded-lg mr-3">
-                        <svg class="w-5 h-5 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                        </svg>
-                    </div>
-                    <div>
-                        <p class="text-sm font-medium text-gray-500 dark:text-gray-400">Perfect Match Rate</p>
-                        <p class="text-xl font-semibold text-gray-900 dark:text-white" id="perfectMatchRate">-</p>
-                    </div>
-                </div>
-                <p class="text-xs text-gray-500 dark:text-gray-400">Percentage of perfect scores</p>
-            </div>
+        <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">🎨 Content Quality Matrix</h3>
+        <div class="h-96">
+            <div id="qualityMatrix" class="w-full h-full"></div>
         </div>
+        <div class="mt-4 text-sm text-gray-600 dark:text-gray-400">
+            <p><strong>Insight:</strong> X-axis = Technical Depth (Perfect + Good discriminators), Y-axis = Threat Relevance (Intelligence indicators).</p>
+        </div>
+    </div>
 
-        <!-- Recent High-Score Articles -->
-        <div class="mt-6">
-            <h4 class="text-md font-semibold text-gray-900 dark:text-white mb-3">🔥 Recent High-Score Articles</h4>
-            <div class="space-y-2" id="recentHighScoreArticles">
-                <!-- Content will be loaded dynamically -->
+    <!-- ML Model Performance Radar Chart -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-8">
+        <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">🎯 ML Model Performance Radar</h3>
+        <div class="h-96">
+            <div id="radarChart" class="w-full h-full"></div>
+        </div>
+        <div class="mt-4 text-sm text-gray-600 dark:text-gray-400">
+            <p><strong>Insight:</strong> Compare model versions across multiple performance metrics.</p>
+        </div>
+    </div>
+
+    <!-- Interactive Keyword Explorer -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-8">
+        <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">🔍 Interactive Keyword Explorer</h3>
+        <div class="mb-4">
+            <input type="text" id="keywordSearch" placeholder="Search keywords..." class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+        </div>
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div>
+                <h4 class="text-md font-medium text-gray-900 dark:text-white mb-3">Keyword Frequency</h4>
+                <div class="h-64 overflow-y-auto">
+                    <div id="keywordFrequency" class="space-y-2"></div>
+                </div>
+            </div>
+            <div>
+                <h4 class="text-md font-medium text-gray-900 dark:text-white mb-3">Impact Analysis</h4>
+                <div class="h-64">
+                    <div id="impactChart" class="w-full h-full"></div>
+                </div>
+            </div>
+            <div>
+                <h4 class="text-md font-medium text-gray-900 dark:text-white mb-3">Source Performance</h4>
+                <div class="h-64">
+                    <div id="sourcePerformance" class="w-full h-full"></div>
+                </div>
             </div>
         </div>
     </div>
 
     <!-- Performance Insights -->
     <div class="bg-gradient-to-r from-purple-50 to-blue-50 dark:from-purple-900 dark:to-blue-900 rounded-lg shadow p-6">
-        <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">💡 Performance Insights</h3>
+        <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">💡 Advanced Analytics Insights</h3>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
-                <h4 class="font-medium text-gray-900 dark:text-white mb-2">Top Performing Categories</h4>
-                <div class="space-y-2" id="topCategories">
+                <h4 class="font-medium text-gray-900 dark:text-white mb-2">Key Findings</h4>
+                <div class="space-y-2" id="keyFindings">
                     <!-- Content will be loaded dynamically -->
                 </div>
             </div>
@@ -319,359 +212,821 @@
     </div>
 </div>
 
+<!-- External Libraries -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+<script src="https://d3js.org/d3.v7.min.js"></script>
+
 <script>
-// Load hunt metrics data
-async function loadHuntMetrics() {
+// Global data storage
+let globalData = {
+    articles: [],
+    sources: [],
+    keywords: [],
+    mlModels: [],
+    timeRange: 30
+};
+
+// Initialize the demo
+document.addEventListener('DOMContentLoaded', function() {
+    initializeControls();
+    loadInitialData();
+});
+
+// Initialize control handlers
+function initializeControls() {
+    // Time range selector
+    document.getElementById('timeRange').addEventListener('change', function() {
+        globalData.timeRange = this.value;
+        refreshAllVisualizations();
+    });
+
+    // Min score slider
+    const minScoreSlider = document.getElementById('minScore');
+    const minScoreValue = document.getElementById('minScoreValue');
+    minScoreSlider.addEventListener('input', function() {
+        minScoreValue.textContent = this.value;
+        refreshAllVisualizations();
+    });
+
+    // Source filter
+    document.getElementById('sourceFilter').addEventListener('change', function() {
+        refreshAllVisualizations();
+    });
+
+    // Classification filter
+    document.getElementById('classificationFilter').addEventListener('change', function() {
+        refreshAllVisualizations();
+    });
+
+    // Refresh button
+    document.getElementById('refreshData').addEventListener('click', function() {
+        loadInitialData();
+    });
+
+    // Network controls
+    document.getElementById('networkLayout').addEventListener('click', function() {
+        toggleNetworkLayout();
+    });
+
+    document.getElementById('networkFilter').addEventListener('click', function() {
+        toggleNetworkFilter();
+    });
+
+    // Keyword search
+    document.getElementById('keywordSearch').addEventListener('input', function() {
+        filterKeywords(this.value);
+    });
+}
+
+// Load initial data
+async function loadInitialData() {
     try {
-        // Load overview metrics
-        const overviewResponse = await fetch('/api/analytics/hunt/overview');
-        const overviewData = await overviewResponse.json();
+        showLoadingState();
         
-        document.getElementById('avgHuntScore').textContent = overviewData.avg_hunt_score ? 
-            Math.round(overviewData.avg_hunt_score) : '-';
-        document.getElementById('highQualityArticles').textContent = overviewData.high_quality_articles || '-';
-        document.getElementById('perfectMatches').textContent = overviewData.perfect_matches || '-';
-        document.getElementById('lolbasMatches').textContent = overviewData.lolbas_matches || '-';
+        // Load all required data in parallel
+        const [articlesData, sourcesData, keywordsData, mlModelsData] = await Promise.all([
+            fetch('/api/analytics/hunt-demo/articles').then(r => r.json()),
+            fetch('/api/analytics/hunt-demo/sources').then(r => r.json()),
+            fetch('/api/analytics/hunt-demo/keywords').then(r => r.json()),
+            fetch('/api/analytics/hunt-demo/ml-models').then(r => r.json())
+        ]);
 
-        // Load score distribution chart
-        const distributionResponse = await fetch('/api/analytics/hunt/score-distribution');
-        const distributionData = await distributionResponse.json();
-        renderScoreDistributionChart(distributionData);
+        globalData.articles = articlesData.articles || [];
+        globalData.sources = sourcesData.sources || [];
+        globalData.keywords = keywordsData.keywords || [];
+        globalData.mlModels = mlModelsData.models || [];
 
-        // Load keyword performance chart
-        const keywordResponse = await fetch('/api/analytics/hunt/keyword-performance');
-        const keywordData = await keywordResponse.json();
-        renderKeywordPerformanceChart(keywordData);
-
-        // Load keyword analysis table
-        const analysisResponse = await fetch('/api/analytics/hunt/keyword-analysis');
-        const analysisData = await analysisResponse.json();
-        renderKeywordAnalysisTable(analysisData);
-
-        // Load score trends chart
-        const trendsResponse = await fetch('/api/analytics/hunt/score-trends');
-        const trendsData = await trendsResponse.json();
-        renderScoreTrendsChart(trendsData);
-
-        // Load additional analytics
-        await loadAdditionalAnalytics();
-
+        // Populate source filter
+        populateSourceFilter();
+        
+        // Render all visualizations
+        renderAllVisualizations();
+        
+        hideLoadingState();
+        
     } catch (error) {
-        console.error('Failed to load hunt metrics:', error);
+        console.error('Failed to load demo data:', error);
+        showErrorState('Failed to load data. Please try again.');
     }
 }
 
-// Load additional analytics data
-async function loadAdditionalAnalytics() {
-    try {
-        // Load source performance data
-        const sourceResponse = await fetch('/api/analytics/hunt/source-performance');
-        const sourceData = await sourceResponse.json();
-        renderSourcePerformanceChart(sourceData);
+// Populate source filter dropdown
+function populateSourceFilter() {
+    const sourceFilter = document.getElementById('sourceFilter');
+    sourceFilter.innerHTML = '<option value="all">All Sources</option>';
+    
+    globalData.sources.forEach(source => {
+        const option = document.createElement('option');
+        option.value = source.id;
+        option.textContent = source.name;
+        sourceFilter.appendChild(option);
+    });
+}
 
-        // Load quality distribution data
-        const qualityResponse = await fetch('/api/analytics/hunt/quality-distribution');
-        const qualityData = await qualityResponse.json();
-        renderQualityDistributionChart(qualityData);
+// Render all visualizations
+function renderAllVisualizations() {
+    renderScatterPlot();
+    renderBubbleChart();
+    renderNetworkChart();
+    renderTemporalCharts();
+    renderQualityMatrix();
+    renderRadarChart();
+    renderKeywordExplorer();
+    updateInsights();
+}
 
-        // Load advanced metrics
-        const advancedResponse = await fetch('/api/analytics/hunt/advanced-metrics');
-        const advancedData = await advancedResponse.json();
-        updateAdvancedMetrics(advancedData);
+// Refresh all visualizations with current filters
+function refreshAllVisualizations() {
+    renderAllVisualizations();
+}
 
-        // Load recent high-score articles
-        const recentResponse = await fetch('/api/analytics/hunt/recent-high-scores');
-        const recentData = await recentResponse.json();
-        renderRecentHighScoreArticles(recentData);
+// Show loading state
+function showLoadingState() {
+    const charts = document.querySelectorAll('[id$="Chart"], [id$="Plot"], [id$="Matrix"]');
+    charts.forEach(chart => {
+        chart.innerHTML = '<div class="flex items-center justify-center h-full text-gray-500">Loading...</div>';
+    });
+}
 
-        // Load performance insights
-        const insightsResponse = await fetch('/api/analytics/hunt/performance-insights');
-        const insightsData = await insightsResponse.json();
-        renderPerformanceInsights(insightsData);
+// Hide loading state
+function hideLoadingState() {
+    // Loading state will be replaced by actual charts
+}
 
-    } catch (error) {
-        console.error('Failed to load additional analytics:', error);
+// Show error state
+function showErrorState(message) {
+    const charts = document.querySelectorAll('[id$="Chart"], [id$="Plot"], [id$="Matrix"]');
+    charts.forEach(chart => {
+        chart.innerHTML = `<div class="flex items-center justify-center h-full text-red-500">${message}</div>`;
+    });
+}
+
+// Filter data based on current controls
+function getFilteredData() {
+    const timeRange = globalData.timeRange;
+    const minScore = parseInt(document.getElementById('minScore').value);
+    const sourceFilter = document.getElementById('sourceFilter').value;
+    const classificationFilter = document.getElementById('classificationFilter').value;
+
+    let filteredArticles = globalData.articles.filter(article => {
+        // Time range filter
+        if (timeRange !== 'all') {
+            const articleDate = new Date(article.published_at);
+            const cutoffDate = new Date();
+            cutoffDate.setDate(cutoffDate.getDate() - parseInt(timeRange));
+            if (articleDate < cutoffDate) return false;
+        }
+
+        // Hunt score filter
+        const huntScore = parseFloat(article.article_metadata?.threat_hunting_score || 0);
+        if (huntScore < minScore) return false;
+
+        // Source filter
+        if (sourceFilter !== 'all' && article.source_id !== parseInt(sourceFilter)) return false;
+
+        // Classification filter
+        if (classificationFilter !== 'all') {
+            const classification = article.article_metadata?.training_category;
+            if (classification !== classificationFilter) return false;
+        }
+
+        return true;
+    });
+
+    return filteredArticles;
+}
+
+// Render Hunt Score vs ML Confidence Scatter Plot
+function renderScatterPlot() {
+    const filteredData = getFilteredData();
+    
+    const scatterData = filteredData.map(article => ({
+        x: parseFloat(article.article_metadata?.threat_hunting_score || 0),
+        y: parseFloat(article.article_metadata?.ml_confidence || 0),
+        text: article.title,
+        classification: article.article_metadata?.training_category || 'unclassified',
+        source: article.source_name,
+        wordCount: article.word_count || 0
+    }));
+
+    const traces = {
+        'chosen': scatterData.filter(d => d.classification === 'chosen'),
+        'rejected': scatterData.filter(d => d.classification === 'rejected'),
+        'unclassified': scatterData.filter(d => d.classification === 'unclassified')
+    };
+
+    const plotData = Object.keys(traces).map(key => ({
+        x: traces[key].map(d => d.x),
+        y: traces[key].map(d => d.y),
+        text: traces[key].map(d => d.text),
+        mode: 'markers',
+        type: 'scatter',
+        name: key.charAt(0).toUpperCase() + key.slice(1),
+        marker: {
+            size: traces[key].map(d => Math.max(5, Math.min(20, d.wordCount / 100))),
+            color: key === 'chosen' ? '#10B981' : key === 'rejected' ? '#EF4444' : '#6B7280',
+            opacity: 0.7
+        }
+    }));
+
+    const layout = {
+        title: '',
+        xaxis: { title: 'Hunt Score' },
+        yaxis: { title: 'ML Confidence' },
+        showlegend: true,
+        height: 350
+    };
+
+    Plotly.newPlot('scatterPlot', plotData, layout, {responsive: true});
+}
+
+// Render Source Performance Bubble Chart
+function renderBubbleChart() {
+    const filteredData = getFilteredData();
+    
+    // Group by source
+    const sourceGroups = {};
+    filteredData.forEach(article => {
+        const sourceName = article.source_name;
+        if (!sourceGroups[sourceName]) {
+            sourceGroups[sourceName] = {
+                articles: [],
+                totalArticles: 0,
+                avgScore: 0,
+                classificationRate: 0
+            };
+        }
+        sourceGroups[sourceName].articles.push(article);
+        sourceGroups[sourceName].totalArticles++;
+    });
+
+    // Calculate metrics for each source
+    const bubbleData = Object.keys(sourceGroups).map(sourceName => {
+        const group = sourceGroups[sourceName];
+        const avgScore = group.articles.reduce((sum, article) => 
+            sum + parseFloat(article.article_metadata?.threat_hunting_score || 0), 0) / group.totalArticles;
+        
+        const classifiedCount = group.articles.filter(article => 
+            article.article_metadata?.training_category).length;
+        const classificationRate = classifiedCount / group.totalArticles;
+
+        return {
+            x: group.totalArticles,
+            y: avgScore,
+            text: sourceName,
+            size: group.totalArticles,
+            classificationRate: classificationRate
+        };
+    });
+
+    const plotData = [{
+        x: bubbleData.map(d => d.x),
+        y: bubbleData.map(d => d.y),
+        text: bubbleData.map(d => d.text),
+        mode: 'markers',
+        type: 'scatter',
+        marker: {
+            size: bubbleData.map(d => Math.max(10, Math.min(50, d.size / 10))),
+            color: bubbleData.map(d => d.classificationRate),
+            colorscale: 'Viridis',
+            opacity: 0.7,
+            line: { width: 1, color: 'white' }
+        }
+    }];
+
+    const layout = {
+        title: '',
+        xaxis: { title: 'Articles per Day' },
+        yaxis: { title: 'Average Hunt Score' },
+        height: 350
+    };
+
+    Plotly.newPlot('bubbleChart', plotData, layout, {responsive: true});
+}
+
+// Render Keyword Co-occurrence Network
+function renderNetworkChart() {
+    const filteredData = getFilteredData();
+    
+    // Extract keyword co-occurrences
+    const keywordPairs = {};
+    const keywordFreq = {};
+    
+    filteredData.forEach(article => {
+        const perfectKeywords = article.article_metadata?.perfect_keyword_matches || [];
+        const goodKeywords = article.article_metadata?.good_keyword_matches || [];
+        const lolbasKeywords = article.article_metadata?.lolbas_matches || [];
+        const intelligenceKeywords = article.article_metadata?.intelligence_matches || [];
+        
+        const allKeywords = [...perfectKeywords, ...goodKeywords, ...lolbasKeywords, ...intelligenceKeywords];
+        
+        // Count individual keyword frequency
+        allKeywords.forEach(keyword => {
+            keywordFreq[keyword] = (keywordFreq[keyword] || 0) + 1;
+        });
+        
+        // Count co-occurrences
+        for (let i = 0; i < allKeywords.length; i++) {
+            for (let j = i + 1; j < allKeywords.length; j++) {
+                const pair = [allKeywords[i], allKeywords[j]].sort().join('|');
+                keywordPairs[pair] = (keywordPairs[pair] || 0) + 1;
+            }
+        }
+    });
+
+    // Filter keywords by frequency (top 20)
+    const topKeywords = Object.entries(keywordFreq)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 20)
+        .map(([keyword, freq]) => ({ keyword, freq }));
+
+    // Create nodes and links
+    const nodes = topKeywords.map((item, index) => ({
+        id: item.keyword,
+        group: getKeywordCategory(item.keyword),
+        frequency: item.freq
+    }));
+
+    const links = Object.entries(keywordPairs)
+        .filter(([pair, count]) => count > 1)
+        .map(([pair, count]) => {
+            const [source, target] = pair.split('|');
+            return { source, target, value: count };
+        })
+        .filter(link => 
+            nodes.some(n => n.id === link.source) && 
+            nodes.some(n => n.id === link.target)
+        );
+
+    // Render with D3
+    const svg = d3.select('#networkChart');
+    svg.selectAll('*').remove();
+
+    const width = 800;
+    const height = 350;
+    svg.attr('width', width).attr('height', height);
+
+    const simulation = d3.forceSimulation(nodes)
+        .force('link', d3.forceLink(links).id(d => d.id).distance(50))
+        .force('charge', d3.forceManyBody().strength(-300))
+        .force('center', d3.forceCenter(width / 2, height / 2));
+
+    const link = svg.append('g')
+        .selectAll('line')
+        .data(links)
+        .enter().append('line')
+        .attr('stroke', '#999')
+        .attr('stroke-opacity', 0.6)
+        .attr('stroke-width', d => Math.sqrt(d.value));
+
+    const node = svg.append('g')
+        .selectAll('circle')
+        .data(nodes)
+        .enter().append('circle')
+        .attr('r', d => Math.max(5, Math.min(20, d.frequency / 5)))
+        .attr('fill', d => getCategoryColor(d.group))
+        .attr('stroke', '#fff')
+        .attr('stroke-width', 2)
+        .call(d3.drag()
+            .on('start', dragstarted)
+            .on('drag', dragged)
+            .on('end', dragended));
+
+    const label = svg.append('g')
+        .selectAll('text')
+        .data(nodes)
+        .enter().append('text')
+        .text(d => d.id)
+        .attr('font-size', '10px')
+        .attr('text-anchor', 'middle')
+        .attr('dy', '0.35em');
+
+    simulation.on('tick', () => {
+        link
+            .attr('x1', d => d.source.x)
+            .attr('y1', d => d.source.y)
+            .attr('x2', d => d.target.x)
+            .attr('y2', d => d.target.y);
+
+        node
+            .attr('cx', d => d.x)
+            .attr('cy', d => d.y);
+
+        label
+            .attr('x', d => d.x)
+            .attr('y', d => d.y);
+    });
+
+    function dragstarted(event, d) {
+        if (!event.active) simulation.alphaTarget(0.3).restart();
+        d.fx = d.x;
+        d.fy = d.y;
     }
+
+    function dragged(event, d) {
+        d.fx = event.x;
+        d.fy = event.y;
+    }
+
+    function dragended(event, d) {
+        if (!event.active) simulation.alphaTarget(0);
+        d.fx = null;
+        d.fy = null;
+    }
+
+    // Update network stats
+    document.getElementById('networkStats').textContent = 
+        `${nodes.length} keywords, ${links.length} connections`;
 }
 
-// Render score distribution chart
-function renderScoreDistributionChart(data) {
-    const ctx = document.getElementById('scoreDistributionChart').getContext('2d');
-    new Chart(ctx, {
-        type: 'bar',
-        data: {
-            labels: data.labels || [],
-            datasets: [{
-                label: 'Article Count',
-                data: data.values || [],
-                backgroundColor: 'rgba(147, 51, 234, 0.6)',
-                borderColor: 'rgb(147, 51, 234)',
-                borderWidth: 1
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            scales: {
-                y: {
-                    beginAtZero: true
-                }
-            }
-        }
-    });
+// Helper function to get keyword category
+function getKeywordCategory(keyword) {
+    // This would need to be implemented based on your keyword categorization
+    // For now, return a default category
+    return 'perfect';
 }
 
-// Render keyword performance chart
-function renderKeywordPerformanceChart(data) {
-    const ctx = document.getElementById('keywordPerformanceChart').getContext('2d');
-    new Chart(ctx, {
-        type: 'bar',
-        data: {
-            labels: data.labels || [],
-            datasets: [{
-                label: 'Match Count',
-                data: data.values || [],
-                backgroundColor: 'rgba(59, 130, 246, 0.6)',
-                borderColor: 'rgb(59, 130, 246)',
-                borderWidth: 1
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            indexAxis: 'y',
-            scales: {
-                x: {
-                    beginAtZero: true
-                }
-            }
-        }
-    });
+// Helper function to get category color
+function getCategoryColor(category) {
+    const colors = {
+        'perfect': '#10B981',
+        'good': '#3B82F6',
+        'lolbas': '#F59E0B',
+        'intelligence': '#8B5CF6',
+        'negative': '#EF4444'
+    };
+    return colors[category] || '#6B7280';
 }
 
-// Render keyword analysis table
-function renderKeywordAnalysisTable(data) {
-    const tbody = document.getElementById('keywordAnalysisTable');
-    tbody.innerHTML = '';
-
-    data.keywords?.forEach(keyword => {
-        const row = document.createElement('tr');
-        row.innerHTML = `
-            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
-                <span class="px-2 py-1 text-xs font-semibold rounded-full ${
-                    keyword.category === 'perfect' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' :
-                    keyword.category === 'good' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200' :
-                    keyword.category === 'lolbas' ? 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200' :
-                    'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200'
-                }">
-                    ${keyword.category}
-                </span>
-            </td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white font-mono">
-                ${keyword.keyword}
-            </td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                ${keyword.match_count || 0}
-            </td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                ${keyword.avg_score_impact ? '+' + keyword.avg_score_impact : '0'}
-            </td>
-        `;
-        tbody.appendChild(row);
-    });
-}
-
-// Render score trends chart
-function renderScoreTrendsChart(data) {
-    const ctx = document.getElementById('scoreTrendsChart').getContext('2d');
-    new Chart(ctx, {
-        type: 'line',
-        data: {
-            labels: data.labels || [],
-            datasets: [{
-                label: 'Average Hunt Score',
-                data: data.values || [],
-                borderColor: 'rgb(147, 51, 234)',
-                backgroundColor: 'rgba(147, 51, 234, 0.1)',
-                tension: 0.1,
-                fill: true
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            scales: {
-                y: {
-                    beginAtZero: true,
-                    max: 100
-                }
-            }
-        }
-    });
-}
-
-// Load metrics on page load
-document.addEventListener('DOMContentLoaded', loadHuntMetrics);
-
-// Additional chart rendering functions
-function renderSourcePerformanceChart(data) {
-    const ctx = document.getElementById('sourcePerformanceChart').getContext('2d');
-    new Chart(ctx, {
-        type: 'bar',
-        data: {
-            labels: data.labels || [],
-            datasets: [{
-                label: 'Avg Hunt Score',
-                data: data.values || [],
-                backgroundColor: 'rgba(59, 130, 246, 0.6)',
-                borderColor: 'rgb(59, 130, 246)',
-                borderWidth: 1
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            scales: {
-                y: {
-                    beginAtZero: true,
-                    max: 100
-                }
-            }
-        }
-    });
-}
-
-function renderQualityDistributionChart(data) {
-    const ctx = document.getElementById('qualityDistributionChart').getContext('2d');
-    new Chart(ctx, {
-        type: 'bar',
-        data: {
-            labels: data.labels || [],
-            datasets: [{
-                label: 'Article Count',
-                data: data.values || [],
-                backgroundColor: [
-                    'rgba(156, 163, 175, 0.6)',  // Gray for unscored
-                    'rgba(239, 68, 68, 0.6)',     // Red for no threats
-                    'rgba(245, 158, 11, 0.6)',   // Yellow for low quality
-                    'rgba(34, 197, 94, 0.6)',    // Green for medium quality
-                    'rgba(59, 130, 246, 0.6)',   // Blue for high quality
-                    'rgba(147, 51, 234, 0.6)'    // Purple for perfect
-                ],
-                borderColor: [
-                    'rgb(156, 163, 175)',
-                    'rgb(239, 68, 68)',
-                    'rgb(245, 158, 11)',
-                    'rgb(34, 197, 94)',
-                    'rgb(59, 130, 246)',
-                    'rgb(147, 51, 234)'
-                ],
-                borderWidth: 1
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            indexAxis: 'y',
-            scales: {
-                x: {
-                    beginAtZero: true,
-                    title: {
-                        display: true,
-                        text: 'Number of Articles'
-                    }
-                }
-            },
-            plugins: {
-                legend: {
-                    display: false
-                }
-            }
-        }
-    });
-}
-
-function updateAdvancedMetrics(data) {
-    document.getElementById('scoringEfficiency').textContent = data.scoring_efficiency ? data.scoring_efficiency + '%' : '-';
-    document.getElementById('avgKeywordsPerArticle').textContent = data.avg_keywords_per_article ? data.avg_keywords_per_article.toFixed(1) : '-';
-    document.getElementById('perfectMatchRate').textContent = data.perfect_match_rate ? data.perfect_match_rate + '%' : '-';
-}
-
-function renderRecentHighScoreArticles(data) {
-    const container = document.getElementById('recentHighScoreArticles');
-    container.innerHTML = '';
-
-    data.articles?.forEach(article => {
-        const articleDiv = document.createElement('div');
-        articleDiv.className = 'flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors cursor-pointer';
-        articleDiv.onclick = () => window.location.href = `/articles/${article.id}`;
-        articleDiv.innerHTML = `
-            <div class="flex-1">
-                <h5 class="font-medium text-gray-900 dark:text-white text-sm truncate">${article.title}</h5>
-                <p class="text-xs text-gray-500 dark:text-gray-400">${article.source_name} • ${article.created_at}</p>
-            </div>
-            <div class="ml-4">
-                <span class="px-2 py-1 text-xs font-semibold rounded-full bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200">
-                    ${article.hunt_score}
-                </span>
-            </div>
-        `;
-        container.appendChild(articleDiv);
-    });
-}
-
-function renderPerformanceInsights(data) {
-    // Top categories
-    const categoriesContainer = document.getElementById('topCategories');
-    categoriesContainer.innerHTML = '';
+// Render Temporal Charts
+function renderTemporalCharts() {
+    const filteredData = getFilteredData();
     
-    data.top_categories?.forEach(category => {
-        const categoryDiv = document.createElement('div');
-        categoryDiv.className = 'flex items-center justify-between text-sm';
-        categoryDiv.innerHTML = `
-            <span class="text-gray-700 dark:text-gray-300">${category.name}</span>
-            <span class="font-medium text-gray-900 dark:text-white">${category.count}</span>
-        `;
-        categoriesContainer.appendChild(categoryDiv);
+    // Group by date and source
+    const dailyData = {};
+    filteredData.forEach(article => {
+        const date = new Date(article.published_at).toISOString().split('T')[0];
+        const source = article.source_name;
+        
+        if (!dailyData[date]) {
+            dailyData[date] = {};
+        }
+        if (!dailyData[date][source]) {
+            dailyData[date][source] = { count: 0, totalScore: 0, scores: [] };
+        }
+        
+        dailyData[date][source].count++;
+        const score = parseFloat(article.article_metadata?.threat_hunting_score || 0);
+        dailyData[date][source].totalScore += score;
+        dailyData[date][source].scores.push(score);
     });
 
-    // Recommendations
-    const recommendationsContainer = document.getElementById('recommendations');
-    recommendationsContainer.innerHTML = '';
+    // Calculate daily averages
+    const dates = Object.keys(dailyData).sort();
+    const sources = [...new Set(filteredData.map(a => a.source_name))];
     
-    data.recommendations?.forEach(recommendation => {
-        const recDiv = document.createElement('div');
-        recDiv.className = 'flex items-start';
-        recDiv.innerHTML = `
+    const traces = sources.map(source => ({
+        x: dates,
+        y: dates.map(date => {
+            const data = dailyData[date][source];
+            return data ? data.totalScore / data.count : 0;
+        }),
+        type: 'scatter',
+        mode: 'lines+markers',
+        name: source
+    }));
+
+    const layout = {
+        title: '',
+        xaxis: { title: 'Date' },
+        yaxis: { title: 'Average Hunt Score' },
+        height: 250
+    };
+
+    Plotly.newPlot('temporalChart', traces, layout, {responsive: true});
+
+    // Classification accuracy over time
+    const accuracyData = dates.map(date => {
+        const dayArticles = filteredData.filter(article => 
+            new Date(article.published_at).toISOString().split('T')[0] === date
+        );
+        
+        const classified = dayArticles.filter(article => 
+            article.article_metadata?.training_category
+        ).length;
+        
+        return {
+            x: date,
+            y: dayArticles.length > 0 ? classified / dayArticles.length : 0
+        };
+    });
+
+    const accuracyTrace = [{
+        x: accuracyData.map(d => d.x),
+        y: accuracyData.map(d => d.y),
+        type: 'scatter',
+        mode: 'lines+markers',
+        name: 'Classification Rate',
+        line: { color: '#8B5CF6' }
+    }];
+
+    const accuracyLayout = {
+        title: '',
+        xaxis: { title: 'Date' },
+        yaxis: { title: 'Classification Rate' },
+        height: 250
+    };
+
+    Plotly.newPlot('accuracyChart', accuracyTrace, accuracyLayout, {responsive: true});
+}
+
+// Render Content Quality Matrix
+function renderQualityMatrix() {
+    const filteredData = getFilteredData();
+    
+    const matrixData = filteredData.map(article => {
+        const perfectKeywords = article.article_metadata?.perfect_keyword_matches || [];
+        const goodKeywords = article.article_metadata?.good_keyword_matches || [];
+        const intelligenceKeywords = article.article_metadata?.intelligence_matches || [];
+        
+        return {
+            x: perfectKeywords.length + goodKeywords.length,
+            y: intelligenceKeywords.length,
+            huntScore: parseFloat(article.article_metadata?.threat_hunting_score || 0),
+            title: article.title,
+            source: article.source_name,
+            wordCount: article.word_count || 0
+        };
+    });
+
+    const plotData = [{
+        x: matrixData.map(d => d.x),
+        y: matrixData.map(d => d.y),
+        text: matrixData.map(d => d.title),
+        mode: 'markers',
+        type: 'scatter',
+        marker: {
+            size: matrixData.map(d => Math.max(5, Math.min(20, d.wordCount / 200))),
+            color: matrixData.map(d => d.huntScore),
+            colorscale: 'Viridis',
+            opacity: 0.7,
+            line: { width: 1, color: 'white' }
+        }
+    }];
+
+    const layout = {
+        title: '',
+        xaxis: { title: 'Technical Depth (Perfect + Good Keywords)' },
+        yaxis: { title: 'Threat Relevance (Intelligence Keywords)' },
+        height: 350
+    };
+
+    Plotly.newPlot('qualityMatrix', plotData, layout, {responsive: true});
+}
+
+// Render ML Model Performance Radar Chart
+function renderRadarChart() {
+    const models = globalData.mlModels;
+    
+    if (models.length === 0) {
+        document.getElementById('radarChart').innerHTML = 
+            '<div class="flex items-center justify-center h-full text-gray-500">No ML model data available</div>';
+        return;
+    }
+
+    const metrics = ['accuracy', 'precision_huntable', 'recall_huntable', 'f1_score_huntable', 'precision_not_huntable', 'recall_not_huntable', 'f1_score_not_huntable'];
+    
+    const traces = models.map(model => ({
+        r: metrics.map(metric => model[metric] || 0),
+        theta: metrics.map(metric => metric.replace('_', ' ').toUpperCase()),
+        fill: 'toself',
+        name: `Model v${model.version_number}`,
+        line: { color: getModelColor(model.version_number) }
+    }));
+
+    const layout = {
+        polar: {
+            radialaxis: {
+                visible: true,
+                range: [0, 1]
+            }
+        },
+        showlegend: true,
+        height: 350
+    };
+
+    Plotly.newPlot('radarChart', traces, layout, {responsive: true});
+}
+
+// Helper function to get model color
+function getModelColor(version) {
+    const colors = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6'];
+    return colors[(version - 1) % colors.length];
+}
+
+// Render Keyword Explorer
+function renderKeywordExplorer() {
+    const filteredData = getFilteredData();
+    
+    // Extract all keywords with their frequencies and impacts
+    const keywordStats = {};
+    
+    filteredData.forEach(article => {
+        const perfectKeywords = article.article_metadata?.perfect_keyword_matches || [];
+        const goodKeywords = article.article_metadata?.good_keyword_matches || [];
+        const lolbasKeywords = article.article_metadata?.lolbas_matches || [];
+        const intelligenceKeywords = article.article_metadata?.intelligence_matches || [];
+        
+        const huntScore = parseFloat(article.article_metadata?.threat_hunting_score || 0);
+        
+        [...perfectKeywords, ...goodKeywords, ...lolbasKeywords, ...intelligenceKeywords].forEach(keyword => {
+            if (!keywordStats[keyword]) {
+                keywordStats[keyword] = {
+                    frequency: 0,
+                    totalImpact: 0,
+                    articles: [],
+                    category: getKeywordCategory(keyword)
+                };
+            }
+            keywordStats[keyword].frequency++;
+            keywordStats[keyword].totalImpact += huntScore;
+            keywordStats[keyword].articles.push(article);
+        });
+    });
+
+    // Sort by frequency and display top keywords
+    const topKeywords = Object.entries(keywordStats)
+        .sort((a, b) => b[1].frequency - a[1].frequency)
+        .slice(0, 20);
+
+    const keywordFrequencyDiv = document.getElementById('keywordFrequency');
+    keywordFrequencyDiv.innerHTML = '';
+    
+    topKeywords.forEach(([keyword, stats]) => {
+        const avgImpact = stats.totalImpact / stats.frequency;
+        const div = document.createElement('div');
+        div.className = 'flex justify-between items-center p-2 bg-gray-50 dark:bg-gray-700 rounded';
+        div.innerHTML = `
+            <span class="text-sm font-mono">${keyword}</span>
+            <div class="flex items-center space-x-2">
+                <span class="text-xs text-gray-500">${stats.frequency}</span>
+                <span class="text-xs px-1 py-0.5 rounded ${getCategoryBadgeClass(stats.category)}">${stats.category}</span>
+            </div>
+        `;
+        keywordFrequencyDiv.appendChild(div);
+    });
+
+    // Impact analysis chart
+    const impactData = topKeywords.map(([keyword, stats]) => ({
+        keyword: keyword,
+        avgImpact: stats.totalImpact / stats.frequency,
+        frequency: stats.frequency
+    }));
+
+    const impactTrace = [{
+        x: impactData.map(d => d.keyword),
+        y: impactData.map(d => d.avgImpact),
+        type: 'bar',
+        marker: { color: '#3B82F6' }
+    }];
+
+    const impactLayout = {
+        title: '',
+        xaxis: { title: 'Keywords' },
+        yaxis: { title: 'Average Impact' },
+        height: 250
+    };
+
+    Plotly.newPlot('impactChart', impactTrace, impactLayout, {responsive: true});
+
+    // Source performance for keywords
+    const sourceKeywordData = {};
+    topKeywords.forEach(([keyword, stats]) => {
+        stats.articles.forEach(article => {
+            const source = article.source_name;
+            if (!sourceKeywordData[source]) {
+                sourceKeywordData[source] = {};
+            }
+            if (!sourceKeywordData[source][keyword]) {
+                sourceKeywordData[source][keyword] = 0;
+            }
+            sourceKeywordData[source][keyword]++;
+        });
+    });
+
+    const sourceTraces = Object.keys(sourceKeywordData).map(source => ({
+        x: topKeywords.map(([keyword]) => keyword),
+        y: topKeywords.map(([keyword]) => sourceKeywordData[source][keyword] || 0),
+        type: 'bar',
+        name: source
+    }));
+
+    const sourceLayout = {
+        title: '',
+        xaxis: { title: 'Keywords' },
+        yaxis: { title: 'Frequency' },
+        barmode: 'stack',
+        height: 250
+    };
+
+    Plotly.newPlot('sourcePerformance', sourceTraces, sourceLayout, {responsive: true});
+}
+
+// Helper function to get category badge class
+function getCategoryBadgeClass(category) {
+    const classes = {
+        'perfect': 'bg-green-100 text-green-800',
+        'good': 'bg-blue-100 text-blue-800',
+        'lolbas': 'bg-orange-100 text-orange-800',
+        'intelligence': 'bg-purple-100 text-purple-800',
+        'negative': 'bg-red-100 text-red-800'
+    };
+    return classes[category] || 'bg-gray-100 text-gray-800';
+}
+
+// Update insights
+function updateInsights() {
+    const filteredData = getFilteredData();
+    
+    // Calculate key findings
+    const totalArticles = filteredData.length;
+    const avgHuntScore = filteredData.reduce((sum, article) => 
+        sum + parseFloat(article.article_metadata?.threat_hunting_score || 0), 0) / totalArticles;
+    
+    const highQualityArticles = filteredData.filter(article => 
+        parseFloat(article.article_metadata?.threat_hunting_score || 0) > 50).length;
+    
+    const classifiedArticles = filteredData.filter(article => 
+        article.article_metadata?.training_category).length;
+    
+    const keyFindings = [
+        `${totalArticles} articles analyzed`,
+        `Average hunt score: ${avgHuntScore.toFixed(1)}`,
+        `${highQualityArticles} high-quality articles (${(highQualityArticles/totalArticles*100).toFixed(1)}%)`,
+        `${classifiedArticles} classified articles (${(classifiedArticles/totalArticles*100).toFixed(1)}%)`
+    ];
+
+    const keyFindingsDiv = document.getElementById('keyFindings');
+    keyFindingsDiv.innerHTML = '';
+    keyFindings.forEach(finding => {
+        const div = document.createElement('div');
+        div.className = 'flex items-start';
+        div.innerHTML = `
             <div class="flex-shrink-0 mr-2 mt-1">
                 <div class="w-2 h-2 bg-blue-500 rounded-full"></div>
             </div>
+            <p class="text-sm">${finding}</p>
+        `;
+        keyFindingsDiv.appendChild(div);
+    });
+
+    // Generate recommendations
+    const recommendations = [
+        avgHuntScore < 30 ? 'Consider reviewing keyword weights - average hunt score is low' : 'Hunt scoring system is performing well',
+        highQualityArticles / totalArticles < 0.2 ? 'Focus on improving content quality - low percentage of high-quality articles' : 'Good content quality distribution',
+        classifiedArticles / totalArticles < 0.5 ? 'Increase classification efforts to improve ML model training' : 'Classification rate is adequate',
+        'Monitor source performance trends for optimization opportunities'
+    ];
+
+    const recommendationsDiv = document.getElementById('recommendations');
+    recommendationsDiv.innerHTML = '';
+    recommendations.forEach(recommendation => {
+        const div = document.createElement('div');
+        div.className = 'flex items-start';
+        div.innerHTML = `
+            <div class="flex-shrink-0 mr-2 mt-1">
+                <div class="w-2 h-2 bg-green-500 rounded-full"></div>
+            </div>
             <p class="text-sm">${recommendation}</p>
         `;
-        recommendationsContainer.appendChild(recDiv);
+        recommendationsDiv.appendChild(div);
     });
 }
 
-// Toggle functionality for Keyword Performance Analysis panel
-document.addEventListener('DOMContentLoaded', function() {
-    const toggleButton = document.getElementById('keywordAnalysisToggle');
-    const content = document.getElementById('keywordAnalysisContent');
-    const icon = toggleButton.querySelector('svg');
-    
-    if (toggleButton && content && icon) {
-        toggleButton.addEventListener('click', function() {
-            const isHidden = content.classList.contains('hidden');
-            
-            if (isHidden) {
-                content.classList.remove('hidden');
-                icon.style.transform = 'rotate(180deg)';
-            } else {
-                content.classList.add('hidden');
-                icon.style.transform = 'rotate(0deg)';
-            }
-        });
-    }
-});
+// Network layout toggle
+function toggleNetworkLayout() {
+    // This would switch between force layout and hierarchical layout
+    console.log('Toggle network layout');
+}
+
+// Network filter toggle
+function toggleNetworkFilter() {
+    // This would show/hide keyword categories
+    console.log('Toggle network filter');
+}
+
+// Filter keywords
+function filterKeywords(searchTerm) {
+    const keywordDivs = document.querySelectorAll('#keywordFrequency > div');
+    keywordDivs.forEach(div => {
+        const keyword = div.querySelector('span').textContent;
+        if (keyword.toLowerCase().includes(searchTerm.toLowerCase())) {
+            div.style.display = 'flex';
+        } else {
+            div.style.display = 'none';
+        }
+    });
+}
 </script>
 {% endblock %}
