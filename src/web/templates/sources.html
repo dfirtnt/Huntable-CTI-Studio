@@ -5,27 +5,43 @@
 {% block content %}
 <div class="container mx-auto px-4 py-8">
     <div class="mb-8">
+        <nav class="flex mb-4" aria-label="Breadcrumb">
+            <ol class="inline-flex items-center space-x-1 md:space-x-3">
+                <li class="inline-flex items-center">
+                    <a href="/" class="text-gray-700 hover:text-blue-600 dark:text-gray-300 dark:hover:text-blue-400">Home</a>
+                </li>
+                <li>
+                    <div class="flex items-center">
+                        <svg class="w-6 h-6 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd"></path>
+                        </svg>
+                        <span class="ml-1 text-gray-500 md:ml-2 dark:text-gray-400">Sources</span>
+                    </div>
+                </li>
+            </ol>
+        </nav>
+        
         <h1 class="text-3xl font-bold text-gray-900 dark:text-white mb-2">🔗 Threat Intelligence Sources</h1>
-        <p class="text-gray-600 dark:text-gray-400" style="color: #a3b7d0;">Manage and monitor your threat intelligence collection sources</p>
+        <p class="text-gray-600 dark:text-gray-400">Manage and monitor your threat intelligence collection sources</p>
     </div>
 
     <!-- Header Stats -->
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-8" style="background-color: #1c2230;">
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-8">
         <div class="flex items-center justify-between">
             <div>
                 <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">📊 Source Statistics</h2>
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div class="text-center">
-                        <div class="text-2xl font-bold text-blue-600 dark:text-blue-400" style="color: #6366f1;">{{ sources|length }}</div>
-                        <div class="text-sm text-gray-500 dark:text-gray-400" style="color: #a3b7d0;">Total Sources</div>
+                        <div class="text-2xl font-bold text-blue-600 dark:text-blue-400">{{ sources|length }}</div>
+                        <div class="text-sm text-gray-500 dark:text-gray-400">Total Sources</div>
                     </div>
                     <div class="text-center">
-                        <div class="text-2xl font-bold text-green-600 dark:text-green-400" style="color: #10b981;">{{ sources|selectattr('active')|list|length }}</div>
-                        <div class="text-sm text-gray-500 dark:text-gray-400" style="color: #a3b7d0;">Active</div>
+                        <div class="text-2xl font-bold text-green-600 dark:text-green-400">{{ sources|selectattr('active')|list|length }}</div>
+                        <div class="text-sm text-gray-500 dark:text-gray-400">Active</div>
                     </div>
                     <div class="text-center">
-                        <div class="text-2xl font-bold text-purple-600 dark:text-purple-400" style="color: #3b82f6;">{{ sources|selectattr('rss_url')|list|length }}</div>
-                        <div class="text-sm text-gray-500 dark:text-gray-400" style="color: #a3b7d0;">RSS Sources</div>
+                        <div class="text-2xl font-bold text-purple-600 dark:text-purple-400">{{ sources|selectattr('rss_url')|list|length }}</div>
+                        <div class="text-sm text-gray-500 dark:text-gray-400">RSS Sources</div>
                     </div>
                 </div>
             </div>
@@ -33,29 +49,28 @@
     </div>
 
     <!-- Quality Summary -->
-    <!-- Debug: quality_stats count: {{ quality_stats|length }} -->
     {% if quality_stats %}
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-8" style="background-color: #1c2230;">
-        <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">📊 Overall Quality Summary</h2>
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-8">
+        <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">📈 Quality Overview</h2>
         <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
             <div class="text-center">
                 <p class="text-2xl font-bold text-gray-900 dark:text-white">{{ total_articles }}</p>
                 <p class="text-sm text-gray-500 dark:text-gray-400">Total Articles</p>
             </div>
             <div class="text-center">
-                <p class="text-2xl font-bold text-red-600">{{ quality_stats.values()|sum(attribute='rejected_count') }}</p>
+                <p class="text-2xl font-bold text-red-600 dark:text-red-400">{{ quality_stats.values()|sum(attribute='rejected_count') }}</p>
                 <p class="text-sm text-gray-500 dark:text-gray-400">Total Rejected</p>
             </div>
             <div class="text-center">
-                <p class="text-2xl font-bold text-green-600">{{ quality_stats.values()|sum(attribute='chosen_count') }}</p>
+                <p class="text-2xl font-bold text-green-600 dark:text-green-400">{{ quality_stats.values()|sum(attribute='chosen_count') }}</p>
                 <p class="text-sm text-gray-500 dark:text-gray-400">Total Chosen</p>
             </div>
             <div class="text-center">
                 {% set total_rejected = quality_stats.values()|sum(attribute='rejected_count') %}
                 {% if total_articles > 0 %}
-                    <p class="text-2xl font-bold text-blue-600">{{ (total_rejected / total_articles * 100)|round(1) }}%</p>
+                    <p class="text-2xl font-bold text-blue-600 dark:text-blue-400">{{ (total_rejected / total_articles * 100)|round(1) }}%</p>
                 {% else %}
-                    <p class="text-2xl font-bold text-blue-600">0%</p>
+                    <p class="text-2xl font-bold text-blue-600 dark:text-blue-400">0%</p>
                 {% endif %}
                 <p class="text-sm text-gray-500 dark:text-gray-400">Overall Rejection Rate</p>
             </div>
@@ -131,7 +146,7 @@
     </div>
 
     <!-- Sources List -->
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6" style="background-color: #1c2230;">
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
         <div class="mb-6">
             <div class="flex items-center justify-between">
                 <div>
@@ -149,21 +164,25 @@
         <div class="space-y-4">
             {% for source in sources %}
             {% if source.name.lower() != 'manual' %}
-            <div class="p-6 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg hover:shadow-md transition-all duration-200" style="background-color: #1c2230; border-color: #2e3a4b;">
+            <div class="p-6 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg hover:shadow-md transition-all duration-200">
                 <div class="flex items-start justify-between">
                     <div class="flex-1 min-w-0">
                         <div class="flex items-center space-x-2 mb-2">
-                            <!-- Rank indicator -->
-                            <div class="flex items-center justify-center w-6 h-6 bg-green-100 text-green-800 text-xs font-bold rounded-full">
+                            <!-- Article count indicator -->
+                            <div class="flex items-center justify-center w-6 h-6 bg-green-100 text-green-800 text-xs font-bold rounded-full" 
+                                 aria-label="{{ source.total_articles or 0 }} articles collected">
                                 {{ source.total_articles or 0 }}
                             </div>
                             <h4 class="text-lg font-medium text-gray-900 dark:text-white">
-                                <a href="/articles?source_id={{ source.id }}" class="text-blue-600 hover:text-blue-800 hover:underline transition-colors">
+                                <a href="/articles?source_id={{ source.id }}" 
+                                   class="text-blue-600 hover:text-blue-800 hover:underline transition-colors"
+                                   aria-label="View articles from {{ source.name }}">
                                     {{ source.name }}
                                 </a>
                             </h4>
                             <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium 
-                                         {% if source.active %}bg-green-100 text-green-800{% else %}bg-red-100 text-red-800{% endif %}">
+                                         {% if source.active %}bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200{% else %}bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200{% endif %}"
+                                  aria-label="Source status: {% if source.active %}Active{% else %}Inactive{% endif %}">
                                 {% if source.active %}Active{% else %}Inactive{% endif %}
                             </span>
                         </div>
@@ -171,12 +190,12 @@
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-3">
                             <div>
                                 <p class="text-sm text-gray-500 dark:text-gray-400">URL</p>
-                                <p class="text-sm font-medium text-gray-900 dark:text-gray-100 break-all">{{ source.url }}</p>
+                                <p class="text-sm font-medium text-gray-900 dark:text-white break-all">{{ source.url }}</p>
                             </div>
                             {% if source.rss_url %}
                             <div>
                                 <p class="text-sm text-gray-500 dark:text-gray-400">RSS Feed</p>
-                                <p class="text-sm font-medium text-gray-900 dark:text-gray-100 break-all">{{ source.rss_url }}</p>
+                                <p class="text-sm font-medium text-gray-900 dark:text-white break-all">{{ source.rss_url }}</p>
                             </div>
                             {% endif %}
                         </div>
@@ -184,19 +203,19 @@
                         <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-3">
                             <div>
                                 <p class="text-sm text-gray-500 dark:text-gray-400">Collection Method</p>
-                                <p class="text-sm font-medium text-gray-900 dark:text-gray-100">
+                                <p class="text-sm font-medium text-gray-900 dark:text-white">
                                     {% if source.rss_url %}RSS Feed{% else %}Web Scraping{% endif %}
                                 </p>
                             </div>
                             <div>
                                 <p class="text-sm text-gray-500 dark:text-gray-400">Last Check</p>
-                                <p class="text-sm font-medium text-gray-900 dark:text-gray-100">
+                                <p class="text-sm font-medium text-gray-900 dark:text-white">
                                     {% if source.last_check %}{{ source.last_check.strftime('%Y-%m-%d %H:%M') }}{% else %}Never{% endif %}
                                 </p>
                             </div>
                             <div>
                                 <p class="text-sm text-gray-500 dark:text-gray-400">Articles Collected</p>
-                                <p class="text-sm font-medium text-gray-900 dark:text-gray-100">{{ source.total_articles or 0 }}</p>
+                                <p class="text-sm font-medium text-gray-900 dark:text-white">{{ source.total_articles or 0 }}</p>
                             </div>
                         </div>
 
@@ -224,32 +243,32 @@
                         <!-- Quality Metrics -->
                         {% if source.id in quality_stats and quality_stats[source.id].total_articles > 0 %}
                         {% set stat = quality_stats[source.id] %}
-                        <div class="bg-gray-100 dark:bg-gray-700 rounded-lg p-3 mb-3" style="background-color: #f1f3f4;">
-                            <h5 class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">📊 Quality Metrics</h5>
-                            <div class="grid grid-cols-2 md:grid-cols-5 gap-3">
+                        <div class="bg-gray-100 dark:bg-gray-700 rounded-lg p-3 mb-3" role="region" aria-labelledby="quality-metrics-{{ source.id }}">
+                            <h5 id="quality-metrics-{{ source.id }}" class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">📊 Quality Metrics</h5>
+                            <div class="grid grid-cols-2 md:grid-cols-5 gap-3" role="group" aria-label="Quality metrics for {{ source.name }}">
                                 <div>
                                     <p class="text-xs text-gray-500 dark:text-gray-400">Total Articles</p>
-                                    <p class="text-sm font-medium text-gray-900 dark:text-gray-100">{{ stat.total_articles }}</p>
+                                    <p class="text-sm font-medium text-gray-900 dark:text-white" aria-label="{{ stat.total_articles }} total articles">{{ stat.total_articles }}</p>
                                 </div>
                                 <div>
                                     <p class="text-xs text-gray-500 dark:text-gray-400">Rejected</p>
-                                    <p class="text-sm font-medium text-red-600" style="color: #ef4444;">{{ stat.rejected_count }} ({{ stat.rejection_rate }}%)</p>
+                                    <p class="text-sm font-medium text-red-600 dark:text-red-400" aria-label="{{ stat.rejected_count }} rejected articles ({{ stat.rejection_rate }}%)">{{ stat.rejected_count }} ({{ stat.rejection_rate }}%)</p>
                                 </div>
                                 <div>
                                     <p class="text-xs text-gray-500 dark:text-gray-400">Chosen</p>
-                                    <p class="text-sm font-medium text-green-600" style="color: #10b981;">{{ stat.chosen_count }} ({{ stat.acceptance_rate }}%)</p>
+                                    <p class="text-sm font-medium text-green-600 dark:text-green-400" aria-label="{{ stat.chosen_count }} chosen articles ({{ stat.acceptance_rate }}%)">{{ stat.chosen_count }} ({{ stat.acceptance_rate }}%)</p>
                                 </div>
                                 <div>
                                     <p class="text-xs text-gray-500 dark:text-gray-400">Unclassified</p>
-                                    <p class="text-sm font-medium text-gray-600">{{ stat.unclassified_count }}</p>
+                                    <p class="text-sm font-medium text-gray-600 dark:text-gray-400" aria-label="{{ stat.unclassified_count }} unclassified articles">{{ stat.unclassified_count }}</p>
                                 </div>
                                 <div>
                                     <p class="text-xs text-gray-500 dark:text-gray-400">Avg Hunt Score</p>
                                     {% if source.id in hunt_score_lookup %}
                                         {% set hunt_score = hunt_score_lookup[source.id] %}
-                                        <p class="text-sm font-medium text-purple-600" style="color: #fbbf24;">{{ hunt_score.avg_hunt_score }}/100</p>
+                                        <p class="text-sm font-medium text-purple-600 dark:text-purple-400" aria-label="Average hunt score: {{ hunt_score.avg_hunt_score }} out of 100">{{ hunt_score.avg_hunt_score }}/100</p>
                                     {% else %}
-                                        <p class="text-sm font-medium text-gray-400">No scores</p>
+                                        <p class="text-sm font-medium text-gray-400 dark:text-gray-500">No scores</p>
                                     {% endif %}
                                 </div>
                             </div>
@@ -264,23 +283,35 @@
                         {% endif %}
 
                         <div class="flex items-center space-x-2">
-                            <button onclick="collectFromSource({{ source.id }})" class="inline-flex items-center px-3 py-1.5 border border-blue-300 rounded text-xs font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 transition-colors" style="background: linear-gradient(135deg, #6366f1, #8b5cf6); color: white; border: none;">
-                                <span class="mr-2">🚀</span>
+                            <button onclick="collectFromSource({{ source.id }})" 
+                                    class="inline-flex items-center px-3 py-1.5 bg-blue-600 text-white rounded text-xs font-medium hover:bg-blue-700 transition-colors"
+                                    aria-label="Collect articles from {{ source.name }}"
+                                    title="Collect articles from {{ source.name }}">
+                                <span class="mr-2" aria-hidden="true">🚀</span>
                                 Collect Now
                             </button>
 
-                            <button onclick="openSourceConfig({{ source.id }}, {{ source.lookback_days }}, {{ source.check_frequency // 60 }}, {{ source.config.min_content_length if source.config and source.config.min_content_length else 200 }})" class="inline-flex items-center px-3 py-1.5 border border-gray-300 rounded text-xs font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors" style="background-color: #374151; color: #f1f5f9; border-color: #4b5563;">
-                                <span class="mr-2">⚙️</span>
+                            <button onclick="openSourceConfig({{ source.id }}, {{ source.lookback_days }}, {{ source.check_frequency // 60 }}, {{ source.config.min_content_length if source.config and source.config.min_content_length else 200 }})" 
+                                    class="inline-flex items-center px-3 py-1.5 border border-gray-300 rounded text-xs font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
+                                    aria-label="Configure {{ source.name }} settings"
+                                    title="Configure {{ source.name }} settings">
+                                <span class="mr-2" aria-hidden="true">⚙️</span>
                                 Configure
                             </button>
 
-                            <button onclick="toggleSourceStatus({{ source.id }})" class="inline-flex items-center px-3 py-1.5 border border-gray-300 rounded text-xs font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors" style="background-color: #374151; color: #f1f5f9; border-color: #4b5563;">
-                                <span class="mr-2">🔄</span>
+                            <button onclick="toggleSourceStatus({{ source.id }})" 
+                                    class="inline-flex items-center px-3 py-1.5 border border-gray-300 rounded text-xs font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
+                                    aria-label="Toggle {{ source.name }} active status"
+                                    title="Toggle {{ source.name }} active status">
+                                <span class="mr-2" aria-hidden="true">🔄</span>
                                 Toggle Status
                             </button>
 
-                            <button onclick="showSourceStats({{ source.id }})" class="inline-flex items-center px-3 py-1.5 border border-gray-300 rounded text-xs font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors" style="background-color: #374151; color: #f1f5f9; border-color: #4b5563;">
-                                <span class="mr-2">📊</span>
+                            <button onclick="showSourceStats({{ source.id }})" 
+                                    class="inline-flex items-center px-3 py-1.5 border border-gray-300 rounded text-xs font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
+                                    aria-label="View {{ source.name }} statistics"
+                                    title="View {{ source.name }} statistics">
+                                <span class="mr-2" aria-hidden="true">📊</span>
                                 Stats
                             </button>
                         </div>
@@ -302,10 +333,10 @@
     <!-- Manual Source Panel -->
     {% for source in sources %}
     {% if source.name.lower() == 'manual' %}
-    <div class="bg-blue-50 border border-blue-200 rounded-lg shadow-sm" style="background-color: #1c2230; border-color: #2e3a4b;">
-        <div class="px-6 py-4 border-b border-blue-200" style="border-color: #2e3a4b;">
-            <h3 class="text-lg font-medium text-blue-900" style="color: #f1f5f9;">📝 Manual Source</h3>
-            <p class="text-sm text-blue-600" style="color: #a3b7d0;">For manually added articles and content</p>
+    <div class="bg-blue-50 dark:bg-blue-900 border border-blue-200 dark:border-blue-700 rounded-lg shadow-sm">
+        <div class="px-6 py-4 border-b border-blue-200 dark:border-blue-700">
+            <h3 class="text-lg font-medium text-blue-900 dark:text-blue-100">📝 Manual Source</h3>
+            <p class="text-sm text-blue-600 dark:text-blue-300">For manually added articles and content</p>
         </div>
         
         <div class="px-6 py-4">
@@ -318,7 +349,7 @@
                             </a>
                         </h4>
                         <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium 
-                                     {% if source.active %}bg-green-100 text-green-800{% else %}bg-red-100 text-red-800{% endif %}">
+                                     {% if source.active %}bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200{% else %}bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200{% endif %}">
                             {% if source.active %}Active{% else %}Inactive{% endif %}
                         </span>
                     </div>
@@ -326,11 +357,11 @@
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-3">
                         <div>
                             <p class="text-sm text-gray-500 dark:text-gray-400">URL</p>
-                            <p class="text-sm font-medium text-gray-900 dark:text-gray-100 break-all">{{ source.url or 'N/A' }}</p>
+                            <p class="text-sm font-medium text-gray-900 dark:text-white break-all">{{ source.url or 'N/A' }}</p>
                         </div>
                         <div>
                             <p class="text-sm text-gray-500 dark:text-gray-400">Collection Method</p>
-                            <p class="text-sm font-medium text-gray-900 dark:text-gray-100">Manual Entry</p>
+                            <p class="text-sm font-medium text-gray-900 dark:text-white">Manual Entry</p>
                         </div>
                     </div>
 
