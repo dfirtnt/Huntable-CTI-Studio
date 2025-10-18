@@ -119,9 +119,26 @@
     <!-- Keyword Matches Display -->
     {% if article.article_metadata %}
     <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-8">
-        <h2 class="text-xl font-bold text-gray-900 dark:text-white mb-6">🎯 Keyword Matches</h2>
+        <button 
+            onclick="toggleKeywordMatches()" 
+            class="flex items-center justify-between w-full text-left focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-lg"
+            aria-expanded="false"
+            aria-controls="keyword-matches-content"
+        >
+            <h2 class="text-xl font-bold text-gray-900 dark:text-white">🎯 Keyword Matches</h2>
+            <svg 
+                id="keyword-matches-chevron" 
+                class="w-6 h-6 text-gray-500 dark:text-gray-400 transform transition-transform duration-200" 
+                fill="none" 
+                stroke="currentColor" 
+                viewBox="0 0 24 24"
+            >
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+            </svg>
+        </button>
         
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+        <div id="keyword-matches-content" class="hidden mt-6">
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
             <!-- Perfect Discriminators -->
             <div class="card bg-green-100 dark:bg-green-800 border border-green-300 dark:border-green-600 rounded-lg p-4">
                 <div class="flex items-center justify-between mb-3">
@@ -237,6 +254,7 @@
                 </div>
             </div>
             
+            </div>
         </div>
         
     </div>
@@ -2158,13 +2176,6 @@
                 
                 // Update the current status display
                 updateClassificationStatus(category);
-                
-                // Auto-advance to next unclassified only if marked as rejected
-                if (category === 'rejected') {
-                    setTimeout(() => {
-                        navigateToNextUnclassified();
-                    }, 2000); // Increased delay to ensure database is updated
-                }
             } else {
                 const error = await response.json();
                 showNotification(`Error: ${error.detail}`, 'error');
@@ -2175,7 +2186,24 @@
     }
     
     function updateClassificationStatus(category) {
-        const statusElement = document.querySelector('.inline-flex.items-center.px-3.py-1.rounded-full');
+        console.log('updateClassificationStatus called with category:', category);
+        
+        // Find all spans with the status badge classes and filter by context
+        const statusSpans = document.querySelectorAll('span.inline-flex.items-center.px-3.py-1.rounded-full');
+        console.log('Found', statusSpans.length, 'status spans');
+        
+        // Look for the span that's in a div containing "Current Status:"
+        let statusElement = null;
+        for (const span of statusSpans) {
+            const parentDiv = span.closest('div');
+            console.log('Checking span:', span.textContent, 'parent text:', parentDiv ? parentDiv.textContent.substring(0, 50) : 'no parent');
+            if (parentDiv && parentDiv.textContent.includes('Current Status:')) {
+                statusElement = span;
+                console.log('Found status element:', span);
+                break;
+            }
+        }
+        
         if (statusElement) {
             statusElement.className = 'inline-flex items-center px-3 py-1 rounded-full text-sm font-medium';
             
@@ -2189,6 +2217,11 @@
                 statusElement.className += ' bg-gray-100 text-gray-800';
                 statusElement.textContent = '⏳ Unclassified';
             }
+            
+            console.log('Status updated to:', category);
+        } else {
+            console.error('Could not find status element to update');
+            console.log('Available spans:', Array.from(statusSpans).map(s => ({text: s.textContent, classes: s.className})));
         }
         
         // Store the current classification in localStorage for the AI Assistant modal
@@ -5860,6 +5893,23 @@
                 }
             }
         });
+    }
+
+    // Toggle Keyword Matches panel
+    function toggleKeywordMatches() {
+        const content = document.getElementById('keyword-matches-content');
+        const chevron = document.getElementById('keyword-matches-chevron');
+        const button = chevron.closest('button');
+        
+        if (content.classList.contains('hidden')) {
+            content.classList.remove('hidden');
+            chevron.style.transform = 'rotate(180deg)';
+            button.setAttribute('aria-expanded', 'true');
+        } else {
+            content.classList.add('hidden');
+            chevron.style.transform = 'rotate(0deg)';
+            button.setAttribute('aria-expanded', 'false');
+        }
     }
 </script>
 {% endblock %}
