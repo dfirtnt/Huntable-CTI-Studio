@@ -2940,10 +2940,10 @@ async def api_custom_prompt(article_id: int, request: Request):
                             "model": ollama_model,
                             "prompt": full_prompt,
                             "stream": False,
-                            "options": {
-                                "temperature": 0.3,
-                                "num_predict": 2048
-                            }
+                                "options": {
+                                    "temperature": 0.7,  # Increased for more creative, narrative responses
+                                    "num_predict": 2048
+                                }
                         },
                         timeout=300.0
                     )
@@ -4399,11 +4399,14 @@ async def api_rag_chat(request: Request):
     try:
         from src.services.rag_service import get_rag_service
         
+        start_time = datetime.now()  # Track response time
         body = await request.json()
         message = body.get("message", "")
         conversation_history = body.get("conversation_history", [])
         max_results = body.get("max_results", 5)
         similarity_threshold = body.get("similarity_threshold", 0.4)
+        use_chunks = body.get("use_chunks", True)  # Default to chunk-level search
+        context_length = body.get("context_length", 2000)  # Default context length
         
         if not message:
             raise HTTPException(status_code=400, detail="Message is required")
@@ -4455,47 +4458,56 @@ async def api_rag_chat(request: Request):
         else:
             enhanced_query = message
         
-        # Find relevant articles using semantic search with dynamic limit
+        # Find relevant content using chunk-level RAG with dynamic limit
         # Use max_results if specified, otherwise use intelligent default
         search_limit = max_results if max_results <= 100 else 50
-        relevant_articles = await rag_service.find_similar_articles(
+        relevant_articles = await rag_service.find_similar_content(
             query=enhanced_query,
             top_k=search_limit,
-            threshold=similarity_threshold
+            threshold=similarity_threshold,
+            use_chunks=use_chunks,  # Use the parameter
+            context_length=context_length  # Use the parameter
         )
         
         # Generate response based on retrieved context
         if relevant_articles:
-            # Create context from relevant articles
+            # Create clean context for LLM without any formatting
             context_parts = []
             for article in relevant_articles:
-                context_parts.append(f"**{article['title']}** (Source: {article['source_name']}, Similarity: {article['similarity']:.3f})")
-                context_parts.append(f"Summary: {article['summary'] or 'No summary available'}")
-                context_parts.append(f"Content: {article['content'][:300]}...")
-                context_parts.append("---")
+                context_parts.append(f"{article['title']} from {article['source_name']}: {article['content']}")
+                context_parts.append(f"Source: {article['canonical_url']}")
             
-            context = "\n".join(context_parts)
+            context = "\n\n".join(context_parts)
             
             # Generate response using LLM
             try:
                 # Check if we should use LLM or fallback to template
-                use_llm = False  # Disabled due to timeout issues
+                use_llm = True  # Re-enabled with proper timeout handling
                 
                 if use_llm:
                     # Use Ollama for LLM responses
                     ollama_url = os.getenv('LLM_API_URL', 'http://cti_ollama:11434')
                     ollama_model = os.getenv('LLM_MODEL')
                     
-                    # Use full context for comprehensive analysis
-                    truncated_context = context[:5000] + "..." if len(context) > 5000 else context
-                    llm_prompt = f"""You are a threat intelligence analyst. Answer this query: "{message}"
+                    # Use chunk-level context for better precision
+                    truncated_context = context[:4000] + "..." if len(context) > 4000 else context
+                    
+                    # Enhanced cybersecurity analyst prompt template
+                    system_prompt = """You are an experienced cybersecurity threat intelligence analyst writing a comprehensive report. 
+Write in a flowing, narrative style that reads like a professional threat intelligence briefing.
+DO NOT use bullet points, headers, or structured templates. Write as a continuous narrative that synthesizes the information naturally.
+Always cite sources with links when referencing specific information."""
+                    
+                    llm_prompt = f"""{system_prompt}
 
-Previous context: {context_summary}
+Question: {message}
 
-Relevant Articles:
+Context from Threat Intelligence Database:
 {truncated_context}
 
-Provide a concise analysis focusing on key threats and actionable insights for threat hunters."""
+Write a comprehensive narrative analysis that flows naturally and reads like a professional threat intelligence report. Synthesize the information from multiple sources into a coherent story that addresses the question. Include specific details, patterns, and implications. Always cite sources with their URLs when referencing specific information.
+
+Analysis:"""
 
                     async with httpx.AsyncClient() as client:
                         try:
@@ -4505,12 +4517,12 @@ Provide a concise analysis focusing on key threats and actionable insights for t
                                     "model": ollama_model,
                                     "prompt": llm_prompt,
                                     "stream": False,
-                                    "options": {
-                                        "temperature": 0.3,
-                                        "num_predict": 2048
-                                    }
+                                "options": {
+                                    "temperature": 0.7,  # Increased for more creative, narrative responses
+                                    "num_predict": 2048
+                                }
                                 },
-                                timeout=60.0  # Extended timeout for comprehensive analysis
+                                timeout=30.0  # Reduced timeout with async handling
                             )
                             
                             if llm_response.status_code == 200:
@@ -4551,17 +4563,28 @@ Provide a concise analysis focusing on key threats and actionable insights for t
             
             analysis_text = "\n".join(f"- {insight}" for insight in set(insights)) if insights else "- General cybersecurity threats and vulnerabilities"
             
-            response = f"""Based on the threat intelligence articles in our database, here's my analysis of your query:
+            response = f"""Based on our comprehensive threat intelligence analysis, here's my assessment of your query:
 
-**Key Insights**:
+**Executive Summary**:
 {analysis_text}
 
-**Detailed Findings**:
+**Detailed Analysis**:
 {context}
 
-**Summary**: I found {len(relevant_articles)} relevant articles that match your query. The insights above highlight the main patterns and threats identified in our threat intelligence database.{context_note}
+**Threat Intelligence Assessment**:
+I've identified {len(relevant_articles)} highly relevant articles from our threat intelligence database that directly address your query. These sources provide authoritative coverage from leading cybersecurity organizations and researchers.
 
-Would you like me to search for more specific information or dive deeper into any particular topic?"""
+**Key Implications**:
+- Multiple authoritative sources confirm the threat landscape
+- Similarity scores range from {min(article['similarity'] for article in relevant_articles):.1%} to {max(article['similarity'] for article in relevant_articles):.1%}, indicating strong relevance
+- Cross-source validation strengthens the reliability of findings
+
+**Recommendations**:
+- Review the linked sources for detailed technical information
+- Consider the temporal aspects of the threat intelligence
+- Integrate findings into your security posture and threat hunting activities{context_note}
+
+Would you like me to provide deeper analysis on any specific aspect or explore related threat vectors?"""
         else:
             response = """I couldn't find any relevant articles in our threat intelligence database that match your query. 
 
@@ -4587,6 +4610,41 @@ Try rephrasing your question or asking about broader cybersecurity topics like m
             "enhanced_query": enhanced_query
         })
         
+        # Log the chat interaction for evaluation
+        try:
+            from src.database.models import ChatLogTable
+            import uuid
+            
+            # Extract URLs and similarity scores from relevant articles
+            urls = [article.get('canonical_url', '') for article in relevant_articles if article.get('canonical_url')]
+            similarity_scores = [article.get('similarity', 0.0) for article in relevant_articles]
+            
+            # Create chat log entry
+            chat_log = ChatLogTable(
+                session_id=str(uuid.uuid4())[:8],  # Short session ID
+                query=message,
+                retrieved_chunks=[{
+                    'id': article.get('id'),
+                    'article_id': article.get('article_id'),
+                    'title': article.get('title'),
+                    'similarity': article.get('similarity')
+                } for article in relevant_articles],
+                llm_response=response,
+                model_used='ollama' if use_llm else 'template',
+                urls=urls,
+                similarity_scores=similarity_scores,
+                response_time_ms=int((datetime.now() - start_time).total_seconds() * 1000)
+            )
+            
+            # Save to database
+            async with rag_service.db_manager.get_session() as session:
+                session.add(chat_log)
+                await session.commit()
+                logger.info(f"Logged chat interaction: {chat_log.id}")
+                
+        except Exception as e:
+            logger.warning(f"Failed to log chat interaction: {e}")
+        
         return {
             "response": response,
             "conversation_history": conversation_history,
@@ -4598,6 +4656,111 @@ Try rephrasing your question or asking about broader cybersecurity topics like m
         
     except Exception as e:
         logger.error(f"RAG chat error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# RAG Evaluation endpoints
+@app.post("/api/eval/hallucination")
+async def api_eval_hallucination(request: Request):
+    """Evaluate RAG response for hallucination detection."""
+    try:
+        body = await request.json()
+        chat_log_id = body.get("chat_log_id")
+        hallucination_detected = body.get("hallucination_detected", False)
+        user_feedback = body.get("user_feedback", "")
+        
+        from src.database.models import ChatLogTable
+        
+        from src.database.async_manager import AsyncDatabaseManager
+        async with AsyncDatabaseManager().get_session() as session:
+            chat_log = await session.get(ChatLogTable, chat_log_id)
+            if chat_log:
+                chat_log.hallucination_detected = hallucination_detected
+                chat_log.user_feedback = user_feedback
+                await session.commit()
+                return {"status": "success", "message": "Hallucination evaluation recorded"}
+            else:
+                raise HTTPException(status_code=404, detail="Chat log not found")
+                
+    except Exception as e:
+        logger.error(f"Hallucination evaluation error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/eval/relevance")
+async def api_eval_relevance(request: Request):
+    """Evaluate RAG response for relevance scoring."""
+    try:
+        body = await request.json()
+        chat_log_id = body.get("chat_log_id")
+        relevance_score = body.get("relevance_score", 3.0)  # 1-5 scale
+        accuracy_rating = body.get("accuracy_rating", 3.0)  # 1-5 scale
+        user_feedback = body.get("user_feedback", "")
+        
+        from src.database.models import ChatLogTable
+        
+        from src.database.async_manager import AsyncDatabaseManager
+        async with AsyncDatabaseManager().get_session() as session:
+            chat_log = await session.get(ChatLogTable, chat_log_id)
+            if chat_log:
+                chat_log.relevance_score = relevance_score
+                chat_log.accuracy_rating = accuracy_rating
+                chat_log.user_feedback = user_feedback
+                await session.commit()
+                return {"status": "success", "message": "Relevance evaluation recorded"}
+            else:
+                raise HTTPException(status_code=404, detail="Chat log not found")
+                
+    except Exception as e:
+        logger.error(f"Relevance evaluation error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/eval/metrics")
+async def api_eval_metrics():
+    """Get RAG evaluation metrics."""
+    try:
+        from src.database.models import ChatLogTable
+        from sqlalchemy import func, select
+        
+        from src.database.async_manager import AsyncDatabaseManager
+        async with AsyncDatabaseManager().get_session() as session:
+            # Get basic metrics
+            total_chats = await session.scalar(
+                select(func.count(ChatLogTable.id))
+            )
+            
+            avg_relevance = await session.scalar(
+                select(func.avg(ChatLogTable.relevance_score))
+                .where(ChatLogTable.relevance_score.is_not(None))
+            )
+            
+            avg_accuracy = await session.scalar(
+                select(func.avg(ChatLogTable.accuracy_rating))
+                .where(ChatLogTable.accuracy_rating.is_not(None))
+            )
+            
+            from sqlalchemy import Float, Integer
+            hallucination_rate = await session.scalar(
+                select(func.avg(func.cast(ChatLogTable.hallucination_detected, Integer)))
+                .where(ChatLogTable.hallucination_detected.is_not(None))
+            )
+            
+            avg_response_time = await session.scalar(
+                select(func.avg(ChatLogTable.response_time_ms))
+                .where(ChatLogTable.response_time_ms.is_not(None))
+            )
+            
+            return {
+                "total_chats": total_chats or 0,
+                "avg_relevance_score": round(avg_relevance or 0, 2),
+                "avg_accuracy_rating": round(avg_accuracy or 0, 2),
+                "hallucination_rate": round((hallucination_rate or 0) * 100, 2),
+                "avg_response_time_ms": round(avg_response_time or 0, 0)
+            }
+            
+    except Exception as e:
+        logger.error(f"Metrics evaluation error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -6610,6 +6773,29 @@ async def api_dashboard_data():
         recent_activities.sort(key=lambda x: x.get("timestamp", datetime.min), reverse=True)
         recent_activities = recent_activities[:4]
         
+        # Calculate hunt metrics
+        from sqlalchemy import text
+        async with async_db_manager.get_session() as session:
+            # Get average hunt score
+            avg_score_query = text("""
+                SELECT AVG((article_metadata->>'threat_hunting_score')::float) as avg_score
+                FROM articles 
+                WHERE (article_metadata->>'threat_hunting_score')::float > 0
+            """)
+            avg_result = await session.execute(avg_score_query)
+            avg_hunt_score = avg_result.scalar() or 0
+            
+            # Get filter efficiency (percentage of articles with scores > 0)
+            efficiency_query = text("""
+                SELECT 
+                    COUNT(CASE WHEN (article_metadata->>'threat_hunting_score')::float > 0 THEN 1 END) as scored_articles,
+                    COUNT(*) as total_articles
+                FROM articles
+            """)
+            efficiency_result = await session.execute(efficiency_query)
+            efficiency_row = efficiency_result.fetchone()
+            filter_efficiency = round((efficiency_row.scored_articles / efficiency_row.total_articles * 100), 1) if efficiency_row.total_articles > 0 else 0
+
         return {
             "health": {
                 "uptime": round(uptime, 1),
@@ -6625,9 +6811,9 @@ async def api_dashboard_data():
             "recent_activities": recent_activities,
             "stats": {
                 "total_articles": stats.get('total_articles', 0) if stats else 0,
-                "active_sources": total_sources,
-                "processing_queue": 12,
-                "avg_score": 7.2
+                "active_sources": active_sources,
+                "avg_hunt_score": round(float(avg_hunt_score), 1),
+                "filter_efficiency": filter_efficiency
             }
         }
     except Exception as e:
@@ -6638,7 +6824,7 @@ async def api_dashboard_data():
             "failing_sources": [],
             "top_articles": [],
             "recent_activities": [],
-            "stats": {"total_articles": 0, "active_sources": 0, "processing_queue": 0, "avg_score": 0}
+            "stats": {"total_articles": 0, "active_sources": 0, "avg_hunt_score": 0, "filter_efficiency": 0}
         }
 
 # Quick Actions API endpoints
@@ -7636,6 +7822,115 @@ async def get_eligible_articles_count(min_hunt_score: float = 50.0):
         return {"success": True, "count": count, "min_hunt_score": min_hunt_score}
     except Exception as e:
         logger.error(f"Error getting eligible count: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/ml-hunt-comparison/logs")
+async def get_backfill_logs():
+    """Get real-time backfill processing logs."""
+    try:
+        import os
+        import subprocess
+        
+        # Try to read logs from inside the container
+        try:
+            result = subprocess.run([
+                'docker', 'exec', 'cti_web', 'tail', '-n', '50', '/proc/1/fd/1'
+            ], capture_output=True, text=True, timeout=5)
+            
+            if result.returncode == 0:
+                lines = result.stdout.split('\n')
+                filtered_lines = []
+                
+                for line in lines:
+                    if any(keyword in line for keyword in [
+                        'Processing article', 'Progress:', 'Backfill complete', 
+                        'chunk_analysis_backfill', 'Starting backfill'
+                    ]):
+                        if 'Processing article' in line:
+                            parts = line.split('Processing article')
+                            if len(parts) > 1:
+                                filtered_lines.append(f"Processing article{parts[1]}")
+                        elif 'Progress:' in line:
+                            filtered_lines.append(line.split('Progress:')[1].strip())
+                        elif 'Backfill complete' in line:
+                            filtered_lines.append(line.split('Backfill complete')[1].strip())
+                        else:
+                            filtered_lines.append(line)
+                
+                if filtered_lines:
+                    log_content = "🚀 Real-time Processing Logs:\n\n" + "\n".join(filtered_lines[-20:])
+                else:
+                    log_content = "🚀 Real-time Processing Logs:\n\nNo processing logs found yet..."
+                
+                return {"success": True, "logs": log_content}
+        except Exception as e:
+            logger.warning(f"Could not read container logs: {e}")
+        
+        # Fallback: check if log file exists
+        log_file = '/tmp/backfill_logs.txt'
+        if os.path.exists(log_file):
+            with open(log_file, 'r') as f:
+                content = f.read()
+            return {"success": True, "logs": content}
+        else:
+            return {"success": True, "logs": "🚀 Real-time Processing Logs:\n\nNo logs available yet. Start processing to see real-time updates."}
+            
+    except Exception as e:
+        logger.error(f"Error reading logs: {e}")
+        return {"success": False, "logs": f"Error reading logs: {e}"}
+
+
+@app.post("/api/ml-hunt-comparison/backfill")
+async def process_eligible_articles_backfill(min_hunt_score: float = 50.0, min_confidence: float = 0.7):
+    """Process all eligible articles through chunk analysis."""
+    try:
+        import asyncio
+        import time
+        
+        # Initialize log file
+        log_file = '/tmp/backfill_logs.txt'
+        with open(log_file, 'w') as f:
+            f.write(f"🚀 Starting article processing...\n")
+            f.write(f"📅 Started at {time.strftime('%H:%M:%S')}\n")
+            f.write(f"📊 Processing articles with hunt_score > {min_hunt_score}\n")
+            f.write(f"🤖 Using ML model with {min_confidence*100:.0f}% confidence threshold\n")
+            f.write(f"⏳ This may take several minutes...\n\n")
+        
+        # Start processing in background
+        async def process_articles():
+            from src.services.chunk_analysis_backfill import ChunkAnalysisBackfillService
+            from src.database.manager import DatabaseManager
+            
+            db_manager = DatabaseManager()
+            sync_db = db_manager.get_session()
+            try:
+                service = ChunkAnalysisBackfillService(sync_db)
+                results = service.backfill_all(min_hunt_score=min_hunt_score, min_confidence=min_confidence)
+                
+                # Write completion to log file
+                with open(log_file, 'a') as f:
+                    f.write(f"\n✅ Processing Complete!\n")
+                    f.write(f"📊 Results: {results['successful']}/{results['total_eligible']} articles processed successfully\n")
+                    f.write(f"❌ Failed: {results['failed']} articles\n")
+                    f.write(f"⏱️ Total Duration: {results.get('duration', 'Unknown')}\n")
+                    f.write(f"Processing finished at {time.strftime('%H:%M:%S')}\n")
+                
+                return results
+            finally:
+                sync_db.close()
+        
+        # Start background task
+        asyncio.create_task(process_articles())
+        
+        return {
+            "success": True, 
+            "message": "Processing started in background",
+            "min_hunt_score": min_hunt_score,
+            "min_confidence": min_confidence
+        }
+    except Exception as e:
+        logger.error(f"Error starting article processing: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 

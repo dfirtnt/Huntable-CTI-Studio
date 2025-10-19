@@ -279,6 +279,35 @@ class ChunkAnalysisResultTable(Base):
         return f"<ChunkAnalysisResult(id={self.id}, article_id={self.article_id}, model_version='{self.model_version}')>"
 
 
+class ChatLogTable(Base):
+    """Database table for RAG chat logs and evaluation."""
+    
+    __tablename__ = 'chat_logs'
+    
+    id = Column(Integer, primary_key=True, index=True)
+    session_id = Column(String(255), nullable=True, index=True)
+    query = Column(Text, nullable=False)
+    retrieved_chunks = Column(JSON, nullable=True)  # List of chunk IDs and metadata
+    llm_response = Column(Text, nullable=True)
+    model_used = Column(String(100), nullable=True)
+    urls = Column(JSON, nullable=True)  # List of source URLs
+    similarity_scores = Column(JSON, nullable=True)  # List of similarity scores
+    response_time_ms = Column(Integer, nullable=True)
+    
+    # Evaluation fields
+    relevance_score = Column(Float, nullable=True)  # User rating 1-5
+    hallucination_detected = Column(Boolean, nullable=True)
+    accuracy_rating = Column(Float, nullable=True)  # User rating 1-5
+    user_feedback = Column(Text, nullable=True)
+    
+    # Timestamps
+    created_at = Column(DateTime, nullable=False, default=func.now(), index=True)
+    updated_at = Column(DateTime, nullable=False, default=func.now(), onupdate=func.now())
+    
+    def __repr__(self):
+        return f"<ChatLog(id={self.id}, session_id='{self.session_id}', query='{self.query[:50]}...')>"
+
+
 class ChunkClassificationFeedbackTable(Base):
     """Database table for chunk classification feedback."""
     

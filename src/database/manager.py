@@ -377,6 +377,50 @@ class DatabaseManager:
             db_articles = query.all()
             return [self._db_article_to_model(db_article) for db_article in db_articles]
     
+    def get_articles_without_embeddings(self) -> List[Dict[str, Any]]:
+        """Get all articles that don't have embeddings yet."""
+        try:
+            with self.get_session() as session:
+                result = session.query(ArticleTable).filter(
+                    ArticleTable.embedding.is_(None)
+                ).order_by(ArticleTable.created_at).all()
+                
+                # Convert to dictionary format for the worker
+                articles = []
+                for article in result:
+                    articles.append({
+                        'id': article.id,
+                        'title': article.title,
+                        'content': article.content,
+                        'summary': article.summary,
+                        'tags': article.tags or [],
+                        'source_name': article.source.name if article.source else 'Unknown'
+                    })
+                
+                return articles
+                
+        except Exception as e:
+            logger.error(f"Failed to get articles without embeddings: {e}")
+            return []
+    
+    def update_article_embedding(self, article_id: int, embedding: List[float], 
+                               model_name: str = "all-mpnet-base-v2") -> bool:
+        """Update article with embedding."""
+        try:
+            with self.get_session() as session:
+                article = session.query(ArticleTable).filter(ArticleTable.id == article_id).first()
+                if article:
+                    article.embedding = embedding
+                    article.embedding_model = model_name
+                    article.embedded_at = func.now()
+                    session.commit()
+                    return True
+                return False
+                
+        except Exception as e:
+            logger.error(f"Failed to update article embedding: {e}")
+            return False
+    
     def get_existing_content_hashes(self, limit: int = 10000) -> Set[str]:
         """Get set of existing content hashes for deduplication."""
         with self.get_session() as session:

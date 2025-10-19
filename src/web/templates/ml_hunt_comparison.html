@@ -20,7 +20,7 @@
             <div class="text-2xl font-bold text-blue-600" id="totalChunkAnalyses">-</div>
         </div>
         <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
-            <h3 class="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">Average Accuracy</h3>
+            <h3 class="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">F1 Quality Metric</h3>
             <div class="text-2xl font-bold text-blue-600" id="averageAccuracy">-</div>
         </div>
         <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
@@ -28,8 +28,46 @@
             <div class="text-2xl font-bold text-blue-600" id="lastUpdated">-</div>
         </div>
         <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
-            <h3 class="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">Eligible Articles</h3>
+            <div class="flex items-center justify-between mb-2">
+                <h3 class="text-sm font-medium text-gray-500 dark:text-gray-400">Eligible Articles</h3>
+                <div class="relative group">
+                    <button class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors" aria-label="Help">
+                        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"></path>
+                        </svg>
+                    </button>
+                    <div class="absolute right-0 top-6 w-96 bg-white dark:bg-gray-700 rounded-lg shadow-lg border border-gray-200 dark:border-gray-600 p-4 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-10">
+                        <div class="text-sm text-gray-700 dark:text-gray-300">
+                            <h4 class="font-semibold text-gray-900 dark:text-white mb-2">Article Processing for ML Training</h4>
+                            <p class="mb-3">This processes high-scoring threat intelligence articles (hunt_score > 50) through chunk analysis to generate ML training data.</p>
+                            
+                            <h4 class="font-semibold text-gray-900 dark:text-white mb-2">Why This Matters</h4>
+                            <ul class="list-disc list-inside space-y-1 mb-3">
+                                <li><strong>Training Data Generation:</strong> Creates chunk-level classifications for ML model training</li>
+                                <li><strong>Model Validation:</strong> Provides data to compare ML predictions vs hunt scoring</li>
+                                <li><strong>Performance Metrics:</strong> Enables accuracy measurement and model improvement</li>
+                                <li><strong>Quality Assurance:</strong> Validates that ML model aligns with threat hunting expertise</li>
+                            </ul>
+                            
+                            <h4 class="font-semibold text-gray-900 dark:text-white mb-2">Process Details</h4>
+                            <ul class="list-disc list-inside space-y-1 mb-3">
+                                <li>Articles are chunked into 1000-character segments</li>
+                                <li>Each chunk gets ML classification (huntable/not huntable)</li>
+                                <li>All chunks are stored for analysis regardless of confidence</li>
+                                <li>Only chunks with ≥70% confidence are sent to LLM for processing</li>
+                                <li>Results feed into ML vs Hunt comparison analysis</li>
+                            </ul>
+                            
+                            <p class="text-xs text-gray-500 dark:text-gray-400">Note: This is essential for ML model retraining and performance evaluation.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
             <div class="text-sm font-bold text-green-600" id="eligibleCount">Loading...</div>
+            <button id="processEligibleBtn" 
+                    class="mt-2 px-3 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
+                Process All Eligible Articles
+            </button>
         </div>
     </div>
 
@@ -61,13 +99,16 @@
                 </div>
             </div>
         </div>
-        <p class="text-gray-600 dark:text-gray-400 mb-4">Retrain the ML model with user feedback from chunk debugging to improve performance</p>
+        <p class="text-gray-600 dark:text-gray-400 mb-4">Retrain the ML model with user feedback from annotations and chunk debugging to improve model performance</p>
         
         <div class="flex justify-between items-center">
             <div class="text-lg font-medium text-gray-900 dark:text-white">
                 <div>Current model: <span id="retrainingStatus">v24 (79.4% accuracy)</span></div>
                 <div class="text-sm text-gray-500 dark:text-gray-400 mt-1">
                     Available feedback: <span id="feedbackCount">-</span> user classifications and/or corrections
+                </div>
+                <div id="retrainWarning" class="text-sm text-amber-600 dark:text-amber-400 mt-1 hidden">
+                    ⚠️ Warning: 229 articles are unprocessed. Consider processing them first for complete workflow.
                 </div>
             </div>
             <div class="flex gap-3">
@@ -448,12 +489,291 @@
                         ? 'No eligible articles found' 
                         : `${data.count} article${data.count === 1 ? '' : 's'} eligible for processing`;
                     countElement.textContent = countText;
+                    
+                    // Show/hide retrain warning based on eligible count
+                    updateRetrainWarning(data.count);
                 } else {
                     countElement.textContent = 'Error checking eligible articles';
                 }
             } catch (error) {
                 console.error('Error checking eligible count:', error);
                 countElement.textContent = 'Error checking eligible articles';
+            }
+        }
+
+        function resetButtonState() {
+            const btn = document.getElementById('processEligibleBtn');
+            if (btn) {
+                btn.disabled = false;
+                btn.textContent = 'Process All Eligible Articles';
+                btn.classList.remove('bg-gray-600', 'hover:bg-gray-700', 'bg-green-600', 'hover:bg-green-700');
+                btn.classList.add('bg-blue-600', 'hover:bg-blue-700');
+            }
+        }
+
+        function updateRetrainWarning(eligibleCount) {
+            const warningElement = document.getElementById('retrainWarning');
+            const retrainBtn = document.getElementById('retrainModelBtn');
+            
+            if (!warningElement || !retrainBtn) return;
+            
+            if (eligibleCount > 0) {
+                // Show warning
+                warningElement.classList.remove('hidden');
+                warningElement.innerHTML = `⚠️ Warning: ${eligibleCount} articles are unprocessed. Consider processing them first for complete workflow.`;
+                
+                // Add hover warning to retrain button
+                retrainBtn.addEventListener('mouseenter', showRetrainHoverWarning);
+                retrainBtn.addEventListener('mouseleave', hideRetrainHoverWarning);
+                
+                // Add click confirmation
+                retrainBtn.addEventListener('click', confirmRetrainWithUnprocessed);
+            } else {
+                // Hide warning
+                warningElement.classList.add('hidden');
+                
+                // Remove event listeners
+                retrainBtn.removeEventListener('mouseenter', showRetrainHoverWarning);
+                retrainBtn.removeEventListener('mouseleave', hideRetrainHoverWarning);
+                retrainBtn.removeEventListener('click', confirmRetrainWithUnprocessed);
+            }
+        }
+
+        function showRetrainHoverWarning() {
+            const tooltip = document.createElement('div');
+            tooltip.id = 'retrainTooltip';
+            tooltip.className = 'absolute z-50 px-3 py-2 bg-amber-100 dark:bg-amber-900 text-amber-800 dark:text-amber-200 text-sm rounded-lg shadow-lg border border-amber-300 dark:border-amber-700';
+            tooltip.innerHTML = '⚠️ You have unprocessed articles. Consider processing them first for complete ML vs Hunt comparison workflow.';
+            
+            const btn = document.getElementById('retrainModelBtn');
+            const rect = btn.getBoundingClientRect();
+            tooltip.style.position = 'fixed';
+            tooltip.style.top = (rect.top - 50) + 'px';
+            tooltip.style.left = rect.left + 'px';
+            
+            document.body.appendChild(tooltip);
+        }
+
+        function hideRetrainHoverWarning() {
+            const tooltip = document.getElementById('retrainTooltip');
+            if (tooltip) {
+                tooltip.remove();
+            }
+        }
+
+        function confirmRetrainWithUnprocessed(event) {
+            const eligibleCount = document.getElementById('eligibleCount').textContent.match(/(\d+)/);
+            if (eligibleCount && parseInt(eligibleCount[1]) > 0) {
+                const confirmed = confirm(
+                    `⚠️ You have ${eligibleCount[1]} unprocessed articles.\n\n` +
+                    `Recommended workflow:\n` +
+                    `1. Process articles first (for baseline comparison)\n` +
+                    `2. Retrain model\n` +
+                    `3. Reprocess articles (with new model)\n\n` +
+                    `Do you want to proceed with retraining anyway?`
+                );
+                
+                if (!confirmed) {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    return false;
+                }
+            }
+        }
+
+        async function processEligibleArticles() {
+            const btn = document.getElementById('processEligibleBtn');
+            const countElement = document.getElementById('eligibleCount');
+            
+            if (!btn || !countElement) {
+                console.error('Required elements not found');
+                return;
+            }
+            
+            try {
+                // Disable button and show progress
+                btn.disabled = true;
+                btn.textContent = 'Processing...';
+                countElement.textContent = 'Processing articles...';
+                
+                // Show terminal output area
+                showTerminalOutput();
+                
+                // Start polling for real logs
+                const logInterval = setInterval(pollLogs, 1000);
+                
+                const response = await fetch('/api/ml-hunt-comparison/backfill', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                const data = await response.json();
+                
+                    if (data.success) {
+                        // Check if processing was successful (even if 0 articles processed)
+                        if (data.results && data.results.total_eligible === 0) {
+                            countElement.textContent = `✅ No eligible articles to process`;
+                            btn.textContent = 'No Articles to Process';
+                            btn.classList.remove('bg-blue-600', 'hover:bg-blue-700');
+                            btn.classList.add('bg-gray-600', 'hover:bg-gray-700');
+                        } else if (data.results) {
+                            countElement.textContent = `✅ Processed ${data.results.successful}/${data.results.total_eligible} articles`;
+                            btn.textContent = 'Processing Complete';
+                            btn.classList.remove('bg-blue-600', 'hover:bg-blue-700');
+                            btn.classList.add('bg-green-600', 'hover:bg-green-700');
+                        } else {
+                            // Background processing started
+                            countElement.textContent = `🔄 Processing started in background...`;
+                            btn.textContent = 'Processing...';
+                        }
+                        
+                        // Stop polling and show final results
+                        clearInterval(logInterval);
+                        setTimeout(() => {
+                            pollLogs(); // Get final logs
+                        }, 500);
+                        
+                        // Refresh eligible count and update warnings
+                        setTimeout(() => {
+                            checkEligibleCount();
+                        }, 1000);
+                    } else {
+                        throw new Error(data.message || 'Processing failed');
+                    }
+                
+            } catch (error) {
+                console.error('Error processing articles:', error);
+                countElement.textContent = '❌ Processing failed';
+                btn.textContent = 'Retry Processing';
+                btn.disabled = false;
+                
+                // Update terminal with error
+                updateTerminalOutput(`❌ Processing Failed!\n` +
+                    `Error: ${error.message}\n` +
+                    `Failed at ${new Date().toLocaleTimeString()}`);
+            }
+        }
+
+            async function pollLogs() {
+                try {
+                    // Add cache-busting parameter to force fresh data
+                    const timestamp = new Date().getTime();
+                    console.log('Polling logs at:', new Date().toISOString());
+                    
+                    const response = await fetch(`/api/ml-hunt-comparison/logs?t=${timestamp}`);
+                    console.log('Fetch response status:', response.status, response.statusText);
+                    
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                    }
+                    
+                    const data = await response.json();
+                    console.log('Logs API response:', {
+                        success: data.success,
+                        logsLength: data.logs ? data.logs.length : 0,
+                        logsPreview: data.logs ? data.logs.substring(0, 100) : 'No logs'
+                    });
+                    
+                    if (data.success && data.logs) {
+                        const terminalContent = document.getElementById('terminalContent');
+                        if (terminalContent) {
+                            console.log('Updating terminal content, length:', data.logs.length);
+                            terminalContent.textContent = data.logs;
+                            terminalContent.scrollTop = terminalContent.scrollHeight;
+                        } else {
+                            console.error('Terminal content element not found');
+                        }
+                    } else {
+                        console.log('Logs response failed:', data);
+                    }
+                } catch (error) {
+                    console.error('Error polling logs:', error);
+                }
+            }
+
+            function showTerminalOutput() {
+                // Create terminal output area if it doesn't exist
+                let terminalDiv = document.getElementById('terminalOutput');
+                if (!terminalDiv) {
+                    terminalDiv = document.createElement('div');
+                    terminalDiv.id = 'terminalOutput';
+                    terminalDiv.className = 'fixed z-50 bg-black text-green-400 font-mono text-sm rounded-lg border border-gray-600 max-h-64 overflow-hidden shadow-2xl';
+                    terminalDiv.innerHTML = `
+                        <div class="flex justify-between items-center p-2 bg-gray-800 text-gray-300 text-xs border-b border-gray-600">
+                            <span>📟 Real-Time Processing Logs</span>
+                            <button id="closeTerminal" class="text-gray-400 hover:text-white">✕</button>
+                        </div>
+                        <div class="p-4 max-h-56 overflow-y-auto">
+                            <div id="terminalContent">🔄 Fetching logs...</div>
+                        </div>
+                    `;
+                
+                    // Position terminal near the process button
+                    const processBtn = document.getElementById('processEligibleBtn');
+                    if (processBtn) {
+                        const rect = processBtn.getBoundingClientRect();
+                        terminalDiv.style.position = 'fixed';
+                        terminalDiv.style.top = (rect.top - 250) + 'px';
+                        terminalDiv.style.left = (rect.left - 150) + 'px';  // Moved further left
+                        terminalDiv.style.width = '350px';
+                        terminalDiv.style.maxWidth = '80vw';
+                    }
+                
+                document.body.appendChild(terminalDiv);
+                
+                    // Add close button functionality
+                    document.getElementById('closeTerminal').addEventListener('click', () => {
+                        terminalDiv.remove();
+                        // Reset the button and count when the terminal is closed
+                        resetButtonState();
+                        checkEligibleCount();
+                    });
+                    
+                    // Make terminal draggable
+                    makeTerminalDraggable(terminalDiv);
+                    
+                    // Immediately fetch logs
+                    pollLogs();
+                }
+            }
+
+        function makeTerminalDraggable(terminalDiv) {
+            let isDragging = false;
+            let startX, startY, initialX, initialY;
+            
+            const header = terminalDiv.querySelector('.flex.justify-between');
+            
+            header.addEventListener('mousedown', (e) => {
+                isDragging = true;
+                startX = e.clientX;
+                startY = e.clientY;
+                initialX = parseInt(terminalDiv.style.left) || 0;
+                initialY = parseInt(terminalDiv.style.top) || 0;
+                terminalDiv.style.cursor = 'grabbing';
+            });
+            
+            document.addEventListener('mousemove', (e) => {
+                if (isDragging) {
+                    const deltaX = e.clientX - startX;
+                    const deltaY = e.clientY - startY;
+                    terminalDiv.style.left = (initialX + deltaX) + 'px';
+                    terminalDiv.style.top = (initialY + deltaY) + 'px';
+                }
+            });
+            
+            document.addEventListener('mouseup', () => {
+                isDragging = false;
+                terminalDiv.style.cursor = 'default';
+            });
+        }
+
+        function updateTerminalOutput(message) {
+            const terminalContent = document.getElementById('terminalContent');
+            if (terminalContent) {
+                terminalContent.innerHTML += message;
+                terminalContent.scrollTop = terminalContent.scrollHeight;
             }
         }
 
@@ -880,6 +1200,7 @@
         document.getElementById('retrainModelBtn').addEventListener('click', retrainModel);
         document.getElementById('refreshRetrainBtn').addEventListener('click', refreshRetrainingStatus);
         document.getElementById('toggleEvaluationResults').addEventListener('click', toggleEvaluationResults);
+        document.getElementById('processEligibleBtn').addEventListener('click', processEligibleArticles);
         });
     </script>
 {% endblock %}

@@ -1737,6 +1737,34 @@ class AsyncDatabaseManager:
             logger.error(f"Failed to get articles without embeddings: {e}")
             return []
     
+    async def get_article_by_id(self, article_id: int) -> Optional[Dict[str, Any]]:
+        """Get article by ID with source information."""
+        try:
+            async with self.get_session() as session:
+                result = await session.execute(
+                    select(ArticleTable, SourceTable.name.label('source_name'))
+                    .join(SourceTable, ArticleTable.source_id == SourceTable.id)
+                    .where(ArticleTable.id == article_id)
+                )
+                
+                row = result.first()
+                if row:
+                    article, source_name = row
+                    return {
+                        'id': article.id,
+                        'title': article.title,
+                        'canonical_url': article.canonical_url,
+                        'source_name': source_name,
+                        'published_at': article.published_at,
+                        'content': article.content,
+                        'summary': article.summary
+                    }
+                return None
+                
+        except Exception as e:
+            logger.error(f"Failed to get article by ID: {e}")
+            return None
+    
     async def update_article_embedding(self, article_id: int, embedding: List[float], 
                                      model_name: str = "all-mpnet-base-v2") -> bool:
         """Update article with its embedding vector."""
@@ -1770,6 +1798,7 @@ class AsyncDatabaseManager:
                     ArticleTable.title,
                     ArticleTable.summary,
                     ArticleTable.content,
+                    ArticleTable.canonical_url,
                     ArticleTable.published_at,
                     ArticleTable.source_id,
                     SourceTable.name.label('source_name'),
@@ -1797,13 +1826,14 @@ class AsyncDatabaseManager:
                 # Filter by similarity threshold and format results
                 similar_articles = []
                 for row in result:
-                    similarity = float(row[7])  # similarity is the 8th column (index 7)
+                    similarity = float(row[8])  # similarity is the 9th column (index 8)
                     if similarity >= threshold:
                         similar_articles.append({
                             'id': row.id,
                             'title': row.title,
                             'summary': row.summary,
                             'content': row.content[:500] + '...' if len(row.content) > 500 else row.content,
+                            'canonical_url': row.canonical_url,
                             'published_at': row.published_at.isoformat() if row.published_at else None,
                             'source_id': row.source_id,
                             'source_name': row.source_name,

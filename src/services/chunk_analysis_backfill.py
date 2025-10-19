@@ -19,12 +19,22 @@ class ChunkAnalysisBackfillService:
         self.content_filter = ContentFilter()
     
     def get_eligible_articles(self, min_hunt_score: float = 50.0) -> List[Dict[str, Any]]:
-        """Get articles eligible for chunk analysis (hunt_score > threshold)."""
+        """Get articles eligible for chunk analysis (hunt_score > threshold and not yet processed)."""
         try:
-            # Get all articles and filter in Python (JSON query syntax varies by SQLAlchemy version)
-            all_articles = self.db.query(ArticleTable).all()
+            from src.database.models import ChunkAnalysisResultTable
+            
+            # Get articles with hunt_score > threshold that don't have chunk analysis results yet
+            articles_with_chunks = self.db.query(ChunkAnalysisResultTable.article_id).distinct().subquery()
+            
+            eligible_articles = self.db.query(ArticleTable).filter(
+                ArticleTable.id.notin_(
+                    self.db.query(articles_with_chunks.c.article_id)
+                )
+            ).all()
+            
+            # Filter by hunt score in Python (JSON query syntax varies by SQLAlchemy version)
             articles = [
-                article for article in all_articles
+                article for article in eligible_articles
                 if article.article_metadata.get('threat_hunting_score', 0) > min_hunt_score
             ]
             
@@ -99,6 +109,9 @@ class ChunkAnalysisBackfillService:
         limit: int = None
     ) -> Dict[str, Any]:
         """Backfill chunk analysis for all eligible articles."""
+        import time
+        start_time = time.time()
+        
         try:
             # Get eligible articles
             eligible_articles = self.get_eligible_articles(min_hunt_score)
@@ -112,7 +125,8 @@ class ChunkAnalysisBackfillService:
                 'processed': 0,
                 'successful': 0,
                 'failed': 0,
-                'errors': []
+                'errors': [],
+                'duration': 0
             }
             
             logger.info(f"Starting backfill for {total} articles with hunt_score > {min_hunt_score}")
@@ -121,6 +135,9 @@ class ChunkAnalysisBackfillService:
             for i, article_info in enumerate(eligible_articles, 1):
                 article_id = article_info['id']
                 logger.info(f"Processing article {i}/{total}: {article_id} - {article_info['title'][:50]}")
+                
+                # Write progress to log file
+                self._write_progress_log(f"Processing article {i}/{total}: {article_info['title'][:50]}")
                 
                 result = self.backfill_article(article_id, min_confidence)
                 results['processed'] += 1
@@ -137,6 +154,11 @@ class ChunkAnalysisBackfillService:
                 # Log progress every 10 articles
                 if i % 10 == 0:
                     logger.info(f"Progress: {i}/{total} articles processed")
+                    self._write_progress_log(f"Progress: {i}/{total} articles processed")
+            
+            # Calculate duration
+            end_time = time.time()
+            results['duration'] = f"{end_time - start_time:.1f}s"
             
             logger.info(f"Backfill complete: {results['successful']} successful, {results['failed']} failed")
             return results
@@ -145,5 +167,17 @@ class ChunkAnalysisBackfillService:
             logger.error(f"Error in backfill_all: {e}")
             return {
                 'success': False,
-                'error': str(e)
+                'error': str(e),
+                'duration': f"{time.time() - start_time:.1f}s"
             }
+    
+    def _write_progress_log(self, message: str):
+        """Write progress message to log file."""
+        try:
+            import os
+            log_file = '/tmp/backfill_logs.txt'
+            if os.path.exists(log_file):
+                with open(log_file, 'a') as f:
+                    f.write(f"{message}\n")
+        except Exception as e:
+            logger.warning(f"Could not write to progress log: {e}")
