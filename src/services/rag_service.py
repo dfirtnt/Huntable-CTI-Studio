@@ -40,6 +40,122 @@ class RAGService:
             logger.error(f"Failed to embed query: {e}")
             raise
     
+    async def find_similar_chunks(self, query: str, top_k: int = 10, 
+                                 threshold: float = 0.7, source_id: Optional[int] = None,
+                                 context_length: int = 2000) -> List[Dict[str, Any]]:
+        """
+        Find similar chunks using semantic search on annotations.
+        
+        Args:
+            query: Search query text
+            top_k: Number of results to return
+            threshold: Minimum similarity threshold (0.0-1.0)
+            source_id: Filter by source ID
+            context_length: Maximum context length per chunk
+            
+        Returns:
+            List of similar chunks with metadata
+        """
+        try:
+            # Generate query embedding
+            query_embedding = await self.embed_query(query)
+            
+            # Search for similar annotations/chunks
+            similar_chunks = await self.db_manager.search_similar_annotations(
+                query_embedding=query_embedding,
+                limit=top_k,
+                threshold=threshold,
+                annotation_type=None  # Get all annotation types
+            )
+            
+            # Enhance chunks with article metadata
+            enhanced_chunks = []
+            for chunk in similar_chunks:
+                # Get full article context
+                article = await self.db_manager.get_article_by_id(chunk['article_id'])
+                if article:
+                    chunk['article_title'] = article.get('title', 'Unknown')
+                    chunk['article_url'] = article.get('canonical_url', '')
+                    chunk['source_name'] = article.get('source_name', 'Unknown')
+                    chunk['published_at'] = article.get('published_at')
+                    
+                    # Truncate context if needed
+                    if len(chunk['selected_text']) > context_length:
+                        chunk['selected_text'] = chunk['selected_text'][:context_length] + "..."
+                    
+                    enhanced_chunks.append(chunk)
+            
+            logger.info(f"Found {len(enhanced_chunks)} similar chunks for query: '{query[:50]}...'")
+            return enhanced_chunks
+            
+        except Exception as e:
+            logger.error(f"Failed to find similar chunks: {e}")
+            return []
+    
+    async def find_similar_content(self, query: str, top_k: int = 10, 
+                                 threshold: float = 0.7, source_id: Optional[int] = None,
+                                 use_chunks: bool = True, context_length: int = 2000) -> List[Dict[str, Any]]:
+        """
+        Find similar content using both article-level and chunk-level search.
+        
+        Args:
+            query: Search query text
+            top_k: Number of results to return
+            threshold: Minimum similarity threshold (0.0-1.0)
+            source_id: Filter by source ID
+            use_chunks: Whether to use chunk-level search
+            context_length: Maximum context length per result
+            
+        Returns:
+            List of similar content with metadata
+        """
+        try:
+            if use_chunks:
+                # Use chunk-level search for better precision
+                chunks = await self.find_similar_chunks(
+                    query=query,
+                    top_k=top_k,
+                    threshold=threshold,
+                    source_id=source_id,
+                    context_length=context_length
+                )
+                
+                # Deduplicate by article_id and merge results
+                seen_articles = set()
+                deduplicated_results = []
+                
+                for chunk in chunks:
+                    article_id = chunk['article_id']
+                    if article_id not in seen_articles:
+                        seen_articles.add(article_id)
+                        deduplicated_results.append({
+                            'id': chunk['id'],
+                            'article_id': article_id,
+                            'title': chunk['article_title'],
+                            'url': chunk['article_url'],
+                            'source_name': chunk['source_name'],
+                            'published_at': chunk['published_at'],
+                            'content': chunk['selected_text'],
+                            'similarity': chunk['similarity'],
+                            'annotation_type': chunk['annotation_type'],
+                            'confidence_score': chunk['confidence_score']
+                        })
+                
+                logger.info(f"Found {len(deduplicated_results)} unique articles from chunk search")
+                return deduplicated_results[:top_k]
+            else:
+                # Fallback to article-level search
+                return await self.find_similar_articles(
+                    query=query,
+                    top_k=top_k,
+                    threshold=threshold,
+                    source_id=source_id
+                )
+                
+        except Exception as e:
+            logger.error(f"Failed to find similar content: {e}")
+            return []
+    
     async def find_similar_articles(self, query: str, top_k: int = 10, 
                                   threshold: float = 0.7, source_id: Optional[int] = None) -> List[Dict[str, Any]]:
         """

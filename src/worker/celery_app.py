@@ -52,6 +52,13 @@ def setup_periodic_tasks(sender, **kwargs):
         generate_daily_report.s(),
         name='generate-daily-report'
     )
+    
+    # Embed new articles weekly on Sundays at 3 AM
+    sender.add_periodic_task(
+        crontab(hour=3, minute=0, day_of_week=0),  # Weekly on Sunday at 3 AM
+        embed_new_articles.s(),
+        name='embed-new-articles-weekly'
+    )
 
 
 @celery_app.task(bind=True, max_retries=3)
@@ -213,6 +220,76 @@ def generate_daily_report(self):
         
     except Exception as exc:
         raise self.retry(exc=exc, countdown=600 * (2 ** self.request.retries))
+
+
+@celery_app.task(bind=True, max_retries=3)
+def embed_new_articles(self):
+    """Generate embeddings for new articles that don't have them yet."""
+    try:
+        from src.database.manager import DatabaseManager
+        from src.services.embedding_service import get_embedding_service
+        
+        logger.info("Starting weekly embedding generation for new articles")
+        
+        db_manager = DatabaseManager()
+        embedding_service = get_embedding_service()
+        
+        # Get articles without embeddings
+        articles_to_embed = db_manager.get_articles_without_embeddings()
+        
+        if not articles_to_embed:
+            logger.info("No new articles found that need embeddings")
+            return {"status": "success", "message": "No new articles to embed"}
+        
+        logger.info(f"Found {len(articles_to_embed)} articles that need embeddings")
+        
+        # Process articles in batches
+        batch_size = 10
+        embedded_count = 0
+        
+        for i in range(0, len(articles_to_embed), batch_size):
+            batch = articles_to_embed[i:i + batch_size]
+            
+            for article in batch:
+                try:
+                    # Generate embedding for the article
+                    embedding = embedding_service.generate_embedding(
+                        embedding_service.create_enriched_text(
+                            article_title=article['title'],
+                            source_name=article['source_name'],
+                            article_content=article['content'],
+                            summary=article.get('summary'),
+                            tags=article.get('tags', [])
+                        )
+                    )
+                    
+                    # Update the article with the embedding
+                    db_manager.update_article_embedding(
+                        article_id=article['id'],
+                        embedding=embedding,
+                        model_name='all-mpnet-base-v2'
+                    )
+                    
+                    embedded_count += 1
+                    logger.debug(f"Generated embedding for article {article['id']}: {article['title'][:50]}...")
+                    
+                except Exception as e:
+                    logger.error(f"Failed to embed article {article['id']}: {e}")
+                    continue
+            
+            # Small delay between batches to avoid overwhelming the system
+            time.sleep(1)
+        
+        logger.info(f"Successfully generated embeddings for {embedded_count} articles")
+        return {
+            "status": "success", 
+            "message": f"Generated embeddings for {embedded_count} articles",
+            "total_processed": embedded_count
+        }
+        
+    except Exception as e:
+        logger.error(f"Failed to embed new articles: {e}")
+        raise self.retry(exc=e, countdown=60 * (2 ** self.request.retries))
 
 
 @celery_app.task(bind=True, max_retries=3)
