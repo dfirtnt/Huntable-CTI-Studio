@@ -8,8 +8,12 @@
 
 ## Precedence Rules
 1. **User safety** overrides autonomy (file deletion, secrets).
-2. **Verification** before reporting success.
+2. **Verification** before reporting success. ALWAYS use Playwright to verify UI fixes and changes before saying it is working. 
 3. **Max retries**: 3 attempts, then report 🚧.
+
+#Style Rules
+1. NEVER say things like "Your new xyz system is production ready"
+2. NEVER say things like "You're absolutely right!"
 
 ## Doctrine
 - **Workflow**: Recon → Plan → Execute → Verify → Report.
@@ -39,9 +43,7 @@
 
 ## Scoring
 - **Regenerate scores** after LOLBAS/keyword updates.
-- **Use** `./run_cli.sh rescore` after keyword changes.
-- **Sync** `src/utils/content_filter.py` when keywords change.
-- **Shortcut**: `rs` = rescore all articles (via CLI).
+- **Use** `./run_cli.sh rescore --force` after keyword changes.
 
 ## Sources
 - **Config**: `config/sources.yaml`.
@@ -63,18 +65,9 @@
 - **No file deletion** without confirmation.
 - **Docs always** in Markdown.
 
-## Command Execution
-- **Default**: `command | cat` to avoid paging.
-- **Long output**: `> /tmp/out.txt`; clean with `rm`.
-- **Add timeout wrapper**: `timeout 30s command`.
-- **Always check exit codes**: `$?` after each command.
-- **Examples**:
-  - `docker exec -it cti_postgres psql -U cti_user -d cti_scraper -c "SELECT * FROM articles;" | cat`
-  - `git log --oneline | cat`
-
-## Classification
+## User Classification
 - **Articles**: chosen / rejected / unclassified.
-- **Chunks**: huntable / not huntable.
+- **Annotations**: huntable / not huntable.
 - **Never mix**.
 
 ### Clarification Protocol
