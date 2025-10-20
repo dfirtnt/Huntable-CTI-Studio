@@ -218,15 +218,11 @@ class TestQuickActionsFlows:
         # Click the button
         rescore_button.click()
         
-        # Wait for API call to complete
-        page.wait_for_timeout(2000)
-        
-        # Check for success notification
-        notification = page.locator(".fixed.top-4.right-4")
-        if notification.count() > 0:
-            expect(notification).to_be_visible()
-            # Notification should contain success message
-            expect(notification).to_contain_text("Rescoring completed")
+        # Wait for API call to complete and check for success notification
+        # Wait for the completion notification specifically
+        completion_notification = page.locator("div.fixed.top-4.right-4:has-text('Rescoring completed')")
+        expect(completion_notification).to_be_visible(timeout=10000)
+        expect(completion_notification).to_contain_text("Rescoring completed")
     
     @pytest.mark.ui
     @pytest.mark.slow
