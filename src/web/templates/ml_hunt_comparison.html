@@ -138,51 +138,6 @@
     </div>
 
     
-    <!-- Model Evaluation Section -->
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-8">
-        <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">🧪 Model Evaluation on Test Set</h2>
-        <p class="text-gray-600 dark:text-gray-400 mb-4">Evaluate current model performance on annotated chunks from article_annotations table</p>
-        
-        <div class="flex justify-between items-center">
-            <div class="text-lg font-medium text-gray-900 dark:text-white">
-                <div><span id="evalStatus">Ready to evaluate current model</span></div>
-                <div class="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                    Test set: <span id="evalChunkCount">Loading...</span> annotated chunks
-                </div>
-            </div>
-            <div class="flex gap-3">
-                <button id="evaluateModelBtn" 
-                        class="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2">
-                    Evaluate Current Model
-                </button>
-                <button id="refreshEvalStatusBtn" 
-                        class="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2">
-                    Refresh Status
-                </button>
-            </div>
-        </div>
-        
-        <!-- Evaluation Progress -->
-        <div id="evalProgressSection" class="hidden mt-4">
-            <div class="w-full bg-gray-200 rounded-full h-2">
-                <div id="evalProgressBar" class="bg-green-600 h-2 rounded-full transition-all duration-300" style="width: 0%"></div>
-            </div>
-            <div id="evalProgressText" class="text-sm text-gray-600 mt-2">Evaluating model...</div>
-        </div>
-        
-        <!-- Collapsible Evaluation Results -->
-        <div id="evalResultsSection" class="hidden mt-4">
-            <div class="flex items-center justify-between mb-4">
-                <h3 class="text-lg font-semibold text-gray-900 dark:text-white">📊 Evaluation Results</h3>
-                <button id="toggleEvaluationResults" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors" aria-label="Toggle evaluation results">
-                    <svg class="w-5 h-5 transform transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
-                    </svg>
-                </button>
-            </div>
-            <div id="evalResultsContent" class="p-4 bg-gray-50 dark:bg-gray-700 rounded-md"></div>
-        </div>
-    </div>
     
     <!-- Evaluation Metrics Charts -->
     <div class="mb-8">
@@ -274,14 +229,6 @@
                 currentData.timeline = timelineData.timeline;
             }
             
-            // Load evaluation chunk count
-            const evalCountResponse = await fetch('/api/model/eval-chunk-count');
-            const evalCountData = await evalCountResponse.json();
-            if (evalCountData.success) {
-                document.getElementById('evalChunkCount').textContent = evalCountData.count.toLocaleString();
-            } else {
-                document.getElementById('evalChunkCount').textContent = 'Unknown';
-            }
             
             
             // Check feedback count and disable retrain button if no feedback available
@@ -806,150 +753,97 @@
         }
 
 
-    // Evaluation functions
-    async function runEvaluation() {
-        const btn = document.getElementById('evaluateModelBtn');
-        const progressSection = document.getElementById('evalProgressSection');
-        const resultsSection = document.getElementById('evalResultsSection');
-        const progressBar = document.getElementById('evalProgressBar');
-        const progressText = document.getElementById('evalProgressText');
-        const resultsContent = document.getElementById('evalResultsContent');
-        const statusElement = document.getElementById('evalStatus');
-        
-        // Disable button and show progress
-        btn.disabled = true;
-        btn.textContent = 'Evaluating...';
-        progressSection.classList.remove('hidden');
-        resultsSection.classList.add('hidden');
-        progressBar.style.width = '0%';
-        progressText.textContent = 'Starting evaluation...';
-        statusElement.textContent = 'Evaluating model on test set...';
-        
-        try {
-            // Simulate progress
-            let progress = 0;
-            const progressInterval = setInterval(() => {
-                progress += Math.random() * 20;
-                if (progress > 90) progress = 90;
-                progressBar.style.width = progress + '%';
-            }, 200);
-            
-            const response = await fetch('/api/model/evaluate', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                }
-            });
-            
-            clearInterval(progressInterval);
-            progressBar.style.width = '100%';
-            progressText.textContent = 'Complete!';
-            
-            const data = await response.json();
-            
-            if (data.success) {
-                // Show results
-                resultsSection.classList.remove('hidden');
-                resultsContent.innerHTML = generateEvaluationResults(data);
-                
-                // Make results content collapsible by default (expanded)
-                resultsContent.classList.remove('hidden');
-                
-                statusElement.textContent = `Evaluation complete - F1 Score: ${(data.metrics.f1_score_huntable * 100).toFixed(1)}%`;
-                
-                // Reload data to update charts
-                setTimeout(() => {
-                    loadInitialData();
-                }, 1000);
-                
-            } else {
-                throw new Error(data.message || 'Evaluation failed');
-            }
-            
-        } catch (error) {
-            console.error('Error during evaluation:', error);
-            resultsSection.classList.remove('hidden');
-            resultsContent.innerHTML = `
-                <div class="text-red-600 font-semibold">❌ Evaluation Failed</div>
-                <div class="mt-2 text-red-600">${error.message}</div>
-            `;
-            statusElement.textContent = 'Evaluation failed';
-        } finally {
-            // Re-enable button
-            btn.disabled = false;
-            btn.textContent = 'Evaluate Current Model';
-            setTimeout(() => {
-                progressSection.classList.add('hidden');
-            }, 3000);
-        }
-    }
 
-    function generateEvaluationResults(data) {
-        const metrics = data.metrics;
-        const summary = data.eval_summary || {};
+    function generateRetrainResults(status) {
+        const evalMetrics = status.evaluation_metrics || {};
         
         return `
-            <div class="space-y-4">
-                <div class="text-green-600 font-semibold text-lg">✅ Evaluation Complete</div>
-                
-                <!-- Overall Metrics -->
+            <div class="space-y-6">
+                <!-- Retraining Summary -->
+                <div class="text-green-600 font-semibold text-lg">✅ Retraining Complete</div>
                 <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
                     <div class="bg-white dark:bg-gray-600 p-3 rounded">
-                        <div class="text-sm text-gray-600 dark:text-gray-300">Accuracy</div>
-                        <div class="text-2xl font-bold text-blue-600">${(metrics.accuracy * 100).toFixed(1)}%</div>
+                        <div class="text-sm text-gray-600 dark:text-gray-300">New Version</div>
+                        <div class="text-xl font-bold text-blue-600">v${status.new_version || 'Unknown'}</div>
                     </div>
                     <div class="bg-white dark:bg-gray-600 p-3 rounded">
-                        <div class="text-sm text-gray-600 dark:text-gray-300">Avg Confidence</div>
-                        <div class="text-2xl font-bold text-green-600">${(metrics.avg_confidence * 100).toFixed(1)}%</div>
+                        <div class="text-sm text-gray-600 dark:text-gray-300">Training Samples</div>
+                        <div class="text-xl font-bold text-green-600">${status.training_samples || 'Unknown'}</div>
                     </div>
                     <div class="bg-white dark:bg-gray-600 p-3 rounded">
-                        <div class="text-sm text-gray-600 dark:text-gray-300">Total Chunks</div>
-                        <div class="text-2xl font-bold text-purple-600">${metrics.total_chunks}</div>
+                        <div class="text-sm text-gray-600 dark:text-gray-300">Training Accuracy</div>
+                        <div class="text-xl font-bold text-purple-600">${status.training_accuracy ? (status.training_accuracy * 100).toFixed(1) + '%' : 'N/A'}</div>
                     </div>
                     <div class="bg-white dark:bg-gray-600 p-3 rounded">
-                        <div class="text-sm text-gray-600 dark:text-gray-300">Misclassified</div>
-                        <div class="text-2xl font-bold text-red-600">${metrics.misclassified_count}</div>
+                        <div class="text-sm text-gray-600 dark:text-gray-300">Duration</div>
+                        <div class="text-xl font-bold text-orange-600">${status.training_duration || 'Unknown'}</div>
                     </div>
                 </div>
                 
-                <!-- Per-Class Metrics -->
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div class="bg-white dark:bg-gray-600 p-4 rounded">
-                        <h4 class="font-semibold text-gray-900 dark:text-white mb-2">Huntable Class</h4>
-                        <div class="space-y-1 text-sm">
-                            <div>Precision: <span class="font-mono">${(metrics.precision_huntable * 100).toFixed(1)}%</span></div>
-                            <div>Recall: <span class="font-mono">${(metrics.recall_huntable * 100).toFixed(1)}%</span></div>
-                            <div>F1 Score: <span class="font-mono">${(metrics.f1_score_huntable * 100).toFixed(1)}%</span></div>
+                ${evalMetrics.accuracy ? `
+                <!-- Evaluation Results -->
+                <div class="border-t pt-4">
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">📊 Evaluation Results</h3>
+                    
+                    <!-- Overall Metrics -->
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+                        <div class="bg-white dark:bg-gray-600 p-3 rounded">
+                            <div class="text-sm text-gray-600 dark:text-gray-300">Test Accuracy</div>
+                            <div class="text-2xl font-bold text-blue-600">${(evalMetrics.accuracy * 100).toFixed(1)}%</div>
+                        </div>
+                        <div class="bg-white dark:bg-gray-600 p-3 rounded">
+                            <div class="text-sm text-gray-600 dark:text-gray-300">Avg Confidence</div>
+                            <div class="text-2xl font-bold text-green-600">${evalMetrics.avg_confidence ? (evalMetrics.avg_confidence * 100).toFixed(1) + '%' : 'N/A'}</div>
+                        </div>
+                        <div class="bg-white dark:bg-gray-600 p-3 rounded">
+                            <div class="text-sm text-gray-600 dark:text-gray-300">Total Chunks</div>
+                            <div class="text-2xl font-bold text-purple-600">${evalMetrics.total_chunks || evalMetrics.total_eval_chunks || 'N/A'}</div>
+                        </div>
+                        <div class="bg-white dark:bg-gray-600 p-3 rounded">
+                            <div class="text-sm text-gray-600 dark:text-gray-300">Misclassified</div>
+                            <div class="text-2xl font-bold text-red-600">${evalMetrics.misclassified_count || 'N/A'}</div>
                         </div>
                     </div>
-                    <div class="bg-white dark:bg-gray-600 p-4 rounded">
-                        <h4 class="font-semibold text-gray-900 dark:text-white mb-2">Not Huntable Class</h4>
-                        <div class="space-y-1 text-sm">
-                            <div>Precision: <span class="font-mono">${(metrics.precision_not_huntable * 100).toFixed(1)}%</span></div>
-                            <div>Recall: <span class="font-mono">${(metrics.recall_not_huntable * 100).toFixed(1)}%</span></div>
-                            <div>F1 Score: <span class="font-mono">${(metrics.f1_score_not_huntable * 100).toFixed(1)}%</span></div>
+                    
+                    <!-- Per-Class Metrics -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                        <div class="bg-white dark:bg-gray-600 p-4 rounded">
+                            <h4 class="font-semibold text-gray-900 dark:text-white mb-2">Huntable Class</h4>
+                            <div class="space-y-1 text-sm">
+                                <div>Precision: <span class="font-mono">${evalMetrics.precision_huntable ? (evalMetrics.precision_huntable * 100).toFixed(1) + '%' : 'N/A'}</span></div>
+                                <div>Recall: <span class="font-mono">${evalMetrics.recall_huntable ? (evalMetrics.recall_huntable * 100).toFixed(1) + '%' : 'N/A'}</span></div>
+                                <div>F1 Score: <span class="font-mono">${evalMetrics.f1_score_huntable ? (evalMetrics.f1_score_huntable * 100).toFixed(1) + '%' : 'N/A'}</span></div>
+                            </div>
+                        </div>
+                        <div class="bg-white dark:bg-gray-600 p-4 rounded">
+                            <h4 class="font-semibold text-gray-900 dark:text-white mb-2">Not Huntable Class</h4>
+                            <div class="space-y-1 text-sm">
+                                <div>Precision: <span class="font-mono">${evalMetrics.precision_not_huntable ? (evalMetrics.precision_not_huntable * 100).toFixed(1) + '%' : 'N/A'}</span></div>
+                                <div>Recall: <span class="font-mono">${evalMetrics.recall_not_huntable ? (evalMetrics.recall_not_huntable * 100).toFixed(1) + '%' : 'N/A'}</span></div>
+                                <div>F1 Score: <span class="font-mono">${evalMetrics.f1_score_not_huntable ? (evalMetrics.f1_score_not_huntable * 100).toFixed(1) + '%' : 'N/A'}</span></div>
+                            </div>
                         </div>
                     </div>
-                </div>
-                
-                <!-- Confusion Matrix -->
-                ${metrics.confusion_matrix ? `
-                <div class="bg-white dark:bg-gray-600 p-4 rounded">
-                    <h4 class="font-semibold text-gray-900 dark:text-white mb-2">Confusion Matrix</h4>
-                    <div class="grid grid-cols-3 gap-2 text-sm">
-                        <div></div>
-                        <div class="text-center font-semibold">Predicted Not Huntable</div>
-                        <div class="text-center font-semibold">Predicted Huntable</div>
-                        <div class="font-semibold">Actual Not Huntable</div>
-                        <div class="text-center bg-green-100 dark:bg-green-800 p-2 rounded">${metrics.confusion_matrix.true_negative}</div>
-                        <div class="text-center bg-red-100 dark:bg-red-800 p-2 rounded">${metrics.confusion_matrix.false_positive}</div>
-                        <div class="font-semibold">Actual Huntable</div>
-                        <div class="text-center bg-red-100 dark:bg-red-800 p-2 rounded">${metrics.confusion_matrix.false_negative}</div>
-                        <div class="text-center bg-green-100 dark:bg-green-800 p-2 rounded">${metrics.confusion_matrix.true_positive}</div>
+                    
+                    <!-- Confusion Matrix -->
+                    ${evalMetrics.confusion_matrix ? `
+                    <div class="bg-white dark:bg-gray-600 p-4 rounded">
+                        <h4 class="font-semibold text-gray-900 dark:text-white mb-2">Confusion Matrix</h4>
+                        <div class="grid grid-cols-3 gap-2 text-sm">
+                            <div></div>
+                            <div class="text-center font-semibold">Predicted Not Huntable</div>
+                            <div class="text-center font-semibold">Predicted Huntable</div>
+                            <div class="font-semibold">Actual Not Huntable</div>
+                            <div class="text-center bg-green-100 dark:bg-green-800 p-2 rounded">${evalMetrics.confusion_matrix.true_negative}</div>
+                            <div class="text-center bg-red-100 dark:bg-red-800 p-2 rounded">${evalMetrics.confusion_matrix.false_positive}</div>
+                            <div class="font-semibold">Actual Huntable</div>
+                            <div class="text-center bg-red-100 dark:bg-red-800 p-2 rounded">${evalMetrics.confusion_matrix.false_negative}</div>
+                            <div class="text-center bg-green-100 dark:bg-green-800 p-2 rounded">${evalMetrics.confusion_matrix.true_positive}</div>
+                        </div>
                     </div>
+                    ` : ''}
                 </div>
                 ` : ''}
-                
             </div>
         `;
     }
@@ -964,31 +858,6 @@
         }
     }
 
-    async function checkEvaluationStatus() {
-        const statusElement = document.getElementById('evalStatus');
-        
-        try {
-            statusElement.textContent = 'Checking evaluation status...';
-            
-            const response = await fetch('/api/model/versions');
-            const data = await response.json();
-            
-            if (data.success && data.versions.length > 0) {
-                const latestVersion = data.versions[0];
-                if (latestVersion.has_evaluation) {
-                    const evalDate = new Date(latestVersion.evaluated_at).toLocaleDateString();
-                    statusElement.textContent = `Last evaluated: ${evalDate} - Accuracy: ${(latestVersion.eval_accuracy * 100).toFixed(1)}%`;
-                } else {
-                    statusElement.textContent = 'Model not yet evaluated on test set';
-                }
-            } else {
-                statusElement.textContent = 'No model versions found';
-            }
-        } catch (error) {
-            console.error('Error checking evaluation status:', error);
-            statusElement.textContent = 'Error checking status';
-        }
-    }
 
     // Model Retraining functions
     async function retrainModel() {
@@ -1061,17 +930,9 @@
                 if (status.status === 'complete') {
                     clearInterval(pollInterval);
                     
-                    // Show results
+                    // Show results with evaluation metrics
                     resultsSection.classList.remove('hidden');
-                    resultsContent.innerHTML = `
-                        <div class="text-green-600 font-semibold">✅ Retraining Complete</div>
-                        <div class="mt-2">
-                            <p><strong>New Model Version:</strong> v${status.new_version || 'Unknown'}</p>
-                            <p><strong>Training Samples:</strong> ${status.training_samples || 'Unknown'}</p>
-                            <p><strong>Training Accuracy:</strong> ${status.training_accuracy ? (status.training_accuracy * 100).toFixed(1) + '%' : 'N/A'}</p>
-                            <p><strong>Duration:</strong> ${status.training_duration || 'Unknown'}</p>
-                        </div>
-                    `;
+                    resultsContent.innerHTML = generateRetrainResults(status);
                     
                     // Update status
                     const statusElement = document.getElementById('retrainingStatus');
@@ -1200,35 +1061,16 @@
         }
     }
 
-    // Toggle evaluation results content
-    function toggleEvaluationResults() {
-        const content = document.getElementById('evalResultsContent');
-        const toggleBtn = document.getElementById('toggleEvaluationResults');
-        const icon = toggleBtn.querySelector('svg');
-        
-        if (content.classList.contains('hidden')) {
-            content.classList.remove('hidden');
-            icon.classList.add('rotate-180');
-        } else {
-            content.classList.add('hidden');
-            icon.classList.remove('rotate-180');
-        }
-    }
 
-    // Event listeners
         document.addEventListener('DOMContentLoaded', () => {
             loadInitialData();
             checkEligibleCount();
-        checkEvaluationStatus();
-        refreshRetrainingStatus();
-        
-        // Add event listeners
-        document.getElementById('evaluateModelBtn').addEventListener('click', runEvaluation);
-        document.getElementById('refreshEvalStatusBtn').addEventListener('click', checkEvaluationStatus);
-        document.getElementById('retrainModelBtn').addEventListener('click', retrainModel);
-        document.getElementById('refreshRetrainBtn').addEventListener('click', refreshRetrainingStatus);
-        document.getElementById('toggleEvaluationResults').addEventListener('click', toggleEvaluationResults);
-        document.getElementById('processEligibleBtn').addEventListener('click', processEligibleArticles);
+            refreshRetrainingStatus();
+            
+            // Add event listeners
+            document.getElementById('retrainModelBtn').addEventListener('click', retrainModel);
+            document.getElementById('refreshRetrainBtn').addEventListener('click', refreshRetrainingStatus);
+            document.getElementById('processEligibleBtn').addEventListener('click', processEligibleArticles);
         });
     </script>
 {% endblock %}

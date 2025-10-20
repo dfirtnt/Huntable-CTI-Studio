@@ -5250,7 +5250,7 @@ async def api_model_retrain_status():
             with open(status_file, 'r') as f:
                 status_data = json.load(f)
                 
-            # If retraining is complete, include model version info
+            # If retraining is complete, include model version info and evaluation metrics
             if status_data.get("status") == "complete":
                 try:
                     from src.utils.model_versioning import MLModelVersionManager
@@ -5269,8 +5269,29 @@ async def api_model_retrain_status():
                         status_data.update({
                             "new_version": latest_version.version_number,
                             "training_accuracy": latest_version.accuracy,
-                            "training_duration": f"{latest_version.training_duration_seconds:.1f}s" if latest_version.training_duration_seconds else "Unknown"
+                            "training_duration": f"{latest_version.training_duration_seconds:.1f}s" if latest_version.training_duration_seconds else "Unknown",
+                            "training_samples": latest_version.training_samples
                         })
+                        
+                        # Include evaluation metrics if available
+                        if latest_version.has_evaluation:
+                            status_data["evaluation_metrics"] = {
+                                "accuracy": latest_version.eval_accuracy,
+                                "precision_huntable": latest_version.eval_precision_huntable,
+                                "precision_not_huntable": latest_version.eval_precision_not_huntable,
+                                "recall_huntable": latest_version.eval_recall_huntable,
+                                "recall_not_huntable": latest_version.eval_recall_not_huntable,
+                                "f1_score_huntable": latest_version.eval_f1_score_huntable,
+                                "f1_score_not_huntable": latest_version.eval_f1_score_not_huntable,
+                                "total_eval_chunks": latest_version.eval_total_chunks,
+                                "misclassified_count": latest_version.eval_misclassified_count,
+                                "confusion_matrix": {
+                                    "true_positive": latest_version.eval_true_positive,
+                                    "true_negative": latest_version.eval_true_negative,
+                                    "false_positive": latest_version.eval_false_positive,
+                                    "false_negative": latest_version.eval_false_negative
+                                } if latest_version.eval_true_positive is not None else None
+                            }
                 except Exception as e:
                     logger.warning(f"Could not get latest model version: {e}")
                 
