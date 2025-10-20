@@ -127,38 +127,44 @@ class ContentFilter:
         from .content import WINDOWS_MALWARE_KEYWORDS
         import re
         
-        # Use Hunt Scoring patterns as the source of truth
-        huntable_patterns = []
+        # Separate perfect discriminators from other huntable patterns
+        perfect_patterns = []
+        other_huntable_patterns = []
         
         # Add perfect discriminators (escape regex special characters)
         for pattern in WINDOWS_MALWARE_KEYWORDS['perfect_discriminators']:
             if pattern.startswith('r'):
                 # Already a regex pattern
-                huntable_patterns.append(pattern)
+                perfect_patterns.append(pattern)
             else:
-                # Escape literal patterns
-                huntable_patterns.append(re.escape(pattern))
+                # Escape literal patterns and make case-insensitive
+                escaped_pattern = re.escape(pattern)
+                perfect_patterns.append(escaped_pattern)
         
         # Add good discriminators
         for pattern in WINDOWS_MALWARE_KEYWORDS['good_discriminators']:
             if pattern.startswith('r'):
-                huntable_patterns.append(pattern)
+                other_huntable_patterns.append(pattern)
             else:
-                huntable_patterns.append(re.escape(pattern))
+                other_huntable_patterns.append(re.escape(pattern))
         
-        # Add LOLBAS executables
+        # Add LOLBAS executables (excluding those already in perfect discriminators)
+        perfect_patterns_set = set(perfect_patterns)
         for pattern in WINDOWS_MALWARE_KEYWORDS['lolbas_executables']:
-            if pattern.startswith('r'):
-                huntable_patterns.append(pattern)
-            else:
-                huntable_patterns.append(re.escape(pattern))
+            escaped_pattern = re.escape(pattern) if not pattern.startswith('r') else pattern
+            # Only add if not already in perfect patterns
+            if escaped_pattern not in perfect_patterns_set:
+                other_huntable_patterns.append(escaped_pattern)
         
         # Add intelligence indicators
         for pattern in WINDOWS_MALWARE_KEYWORDS['intelligence_indicators']:
             if pattern.startswith('r'):
-                huntable_patterns.append(pattern)
+                other_huntable_patterns.append(pattern)
             else:
-                huntable_patterns.append(re.escape(pattern))
+                other_huntable_patterns.append(re.escape(pattern))
+        
+        # Combine all huntable patterns for backward compatibility
+        all_huntable_patterns = perfect_patterns + other_huntable_patterns
         
         # Add negative indicators
         not_huntable_patterns = []
@@ -169,20 +175,22 @@ class ContentFilter:
                 not_huntable_patterns.append(re.escape(pattern))
         
         return {
-            "huntable_patterns": huntable_patterns,
+            "perfect_patterns": perfect_patterns,
+            "other_huntable_patterns": other_huntable_patterns,
+            "huntable_patterns": all_huntable_patterns,  # Backward compatibility
             "not_huntable_patterns": not_huntable_patterns
         }
     
-    def extract_features(self, text: str, hunt_score: Optional[float] = None) -> Dict[str, float]:
+    def extract_features(self, text: str, hunt_score: Optional[float] = None, include_new_features: bool = False) -> Dict[str, float]:
         """Extract features from text for ML classification with hunt score integration."""
         text_lower = text.lower()
         
         features = {
-            # Pattern-based features
+            # Pattern-based features (enhanced with perfect discriminator separation)
             "huntable_pattern_count": sum(1 for pattern in self.pattern_rules["huntable_patterns"] 
-                                        if re.search(pattern, text_lower)),
+                                        if re.search(pattern, text_lower, re.IGNORECASE)),  # Backward compatibility
             "not_huntable_pattern_count": sum(1 for pattern in self.pattern_rules["not_huntable_patterns"] 
-                                            if re.search(pattern, text_lower)),
+                                            if re.search(pattern, text_lower, re.IGNORECASE)),
             
             # Text characteristics
             "char_count": len(text),
@@ -210,13 +218,26 @@ class ContentFilter:
             "has_file_paths": bool(re.search(r'[A-Za-z]:\\\\|/[^\s]+', text)),
         }
         
+        # Add new features only if requested
+        if include_new_features:
+            features["perfect_pattern_count"] = sum(1 for pattern in self.pattern_rules["perfect_patterns"] 
+                                                   if re.search(pattern, text_lower, re.IGNORECASE))
+            features["other_huntable_pattern_count"] = sum(1 for pattern in self.pattern_rules["other_huntable_patterns"] 
+                                                          if re.search(pattern, text_lower, re.IGNORECASE))
+        
         # Calculate ratios
         if features["word_count"] > 0:
-            features["huntable_pattern_ratio"] = features["huntable_pattern_count"] / features["word_count"]
+            if include_new_features:
+                features["perfect_pattern_ratio"] = features["perfect_pattern_count"] / features["word_count"]
+                features["other_huntable_pattern_ratio"] = features["other_huntable_pattern_count"] / features["word_count"]
+            features["huntable_pattern_ratio"] = features["huntable_pattern_count"] / features["word_count"]  # Backward compatibility
             features["not_huntable_pattern_ratio"] = features["not_huntable_pattern_count"] / features["word_count"]
             features["technical_term_ratio"] = features["technical_term_count"] / features["word_count"]
             features["marketing_term_ratio"] = features["marketing_term_count"] / features["word_count"]
         else:
+            if include_new_features:
+                features["perfect_pattern_ratio"] = 0
+                features["other_huntable_pattern_ratio"] = 0
             features["huntable_pattern_ratio"] = 0
             features["not_huntable_pattern_ratio"] = 0
             features["technical_term_ratio"] = 0
@@ -396,7 +417,8 @@ class ContentFilter:
             return self._pattern_based_classification(text, hunt_score)
         
         try:
-            features = self.extract_features(text, hunt_score)
+            # Use backward compatibility by default (27 features)
+            features = self.extract_features(text, hunt_score, include_new_features=False)
             feature_vector = np.array(list(features.values())).reshape(1, -1)
             
             # Get prediction and probability
