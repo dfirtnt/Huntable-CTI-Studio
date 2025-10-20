@@ -243,6 +243,13 @@ class ContentFilter:
         Returns:
             List of (start_offset, end_offset, chunk_text) tuples
         """
+        if chunk_size <= 0:
+            chunk_size = max(1, len(content))
+        
+        step = chunk_size - overlap
+        if step <= 0:
+            step = max(1, chunk_size)
+        
         chunks = []
         start = 0
         
@@ -260,7 +267,7 @@ class ContentFilter:
             if chunk_text:
                 chunks.append((start, end, chunk_text))
             
-            start = start + chunk_size - overlap
+            start = start + step
         
         return chunks
     

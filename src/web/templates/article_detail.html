@@ -4721,28 +4721,180 @@
         `;
         document.body.appendChild(loadingModal);
         
-        try {
-            // Get chunk debug data with current threshold
-            const currentThreshold = window.chunkDebugThreshold || 0.7;
-            const response = await fetch(`/api/articles/{{ article.id }}/chunk-debug?chunk_size=1000&overlap=200&min_confidence=${currentThreshold}`);
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
+        // Add ESC key handler to close loading modal
+        const handleEsc = function(e) {
+            if (e.key === 'Escape') {
+                const modal = document.getElementById('chunkDebugLoadingModal');
+                if (modal && modal.parentNode) {
+                    modal.remove();
+                }
+                document.removeEventListener('keydown', handleEsc);
+                showNotification('Chunk debug analysis cancelled', 'info');
             }
+        };
+        document.addEventListener('keydown', handleEsc);
+        
+        try {
+            // Create a timeout promise - shorter for faster response
+            const chunkDebugTimeoutMs = 180000;
+            const timeoutPromise = new Promise((_, reject) => {
+                setTimeout(() => reject(new Error('Request timed out after 180 seconds')), chunkDebugTimeoutMs);
+            });
             
-            const debugData = await response.json();
+            // Create the fetch promise
+            const fetchPromise = (async () => {
+                const currentThreshold = window.chunkDebugThreshold || 0.7;
+                const response = await fetch(`/api/articles/{{ article.id }}/chunk-debug?chunk_size=1000&overlap=200&min_confidence=${currentThreshold}`);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return await response.json();
+            })();
+            
+            // Race between fetch and timeout
+            const debugData = await Promise.race([fetchPromise, timeoutPromise]);
             
             // Remove loading modal
             if (loadingModal && loadingModal.parentNode) {
                 loadingModal.remove();
             }
             
+            // Clean up ESC handler
+            document.removeEventListener('keydown', handleEsc);
+            
             // Show chunk debug modal
             showChunkDebugResults(debugData);
             
         } catch (error) {
             console.error('Chunk debug error:', error);
-            loadingModal.remove();
-            showNotification('Failed to load chunk debug data: ' + error.message, 'error');
+            if (loadingModal && loadingModal.parentNode) {
+                loadingModal.remove();
+            }
+            document.removeEventListener('keydown', handleEsc);
+            
+            if (error.message.includes('timed out')) {
+                showNotification('Chunk debug analysis timed out after 180 seconds. Showing partial results.', 'warning');
+            } else {
+                showNotification('Failed to load chunk debug data: ' + error.message, 'error');
+            }
+        }
+    }
+    
+    function generateProcessingSummary(summary) {
+        if (!summary) {
+            return '';
+        }
+        
+        const {
+            processed_chunks = 0,
+            total_chunks = 0,
+            chunk_limit_applied = false,
+            concurrency_limit = 1,
+            per_chunk_timeout_seconds = 0,
+            full_analysis = false,
+            remaining_chunks = null
+        } = summary;
+        const timeoutSeconds = Number(per_chunk_timeout_seconds || 0);
+        const remaining = remaining_chunks !== null ? remaining_chunks : Math.max(total_chunks - processed_chunks, 0);
+        const showFinishButton = chunk_limit_applied && !full_analysis;
+        
+        const statusClass = chunk_limit_applied 
+            ? 'bg-yellow-100 border-yellow-200 text-yellow-800' 
+            : 'bg-green-100 border-green-200 text-green-800';
+        const statusLabel = chunk_limit_applied ? '⚠️ Partial Analysis' : '✅ Full Analysis';
+        const details = chunk_limit_applied
+            ? `Processed ${processed_chunks} of ${total_chunks} chunks (${remaining} remaining).`
+            : `Processed all ${processed_chunks} chunks.`;
+        
+        const buttonHtml = showFinishButton ? `
+            <div class="mt-3">
+                <button id="chunkFinishAnalysisButton"
+                        onclick="runFullChunkAnalysis()"
+                        class="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-xs font-semibold rounded hover:bg-blue-700 transition-colors">
+                    <span class="finish-text">Finish Full Analysis</span>
+                    <svg class="finish-spinner hidden animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                </button>
+            </div>
+        ` : '';
+        
+        return `
+            <div class="mb-6 p-4 ${statusClass} rounded-lg border">
+                <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
+                    <div>
+                        <div class="text-sm font-semibold">${statusLabel}</div>
+                        <div class="text-xs mt-1">${details}</div>
+                        ${buttonHtml}
+                    </div>
+                    <div class="text-xs text-gray-700 md:text-right">
+                        <div>Concurrency: ${concurrency_limit}</div>
+                        <div>Chunk timeout: ${timeoutSeconds.toFixed(1)}s</div>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+    
+    async function runFullChunkAnalysis() {
+        if (!window.chunkDebugData || window.chunkDebugFullAnalysisInProgress) {
+            return;
+        }
+        
+        window.chunkDebugFullAnalysisInProgress = true;
+        
+        const button = document.getElementById('chunkFinishAnalysisButton');
+        const spinner = button ? button.querySelector('.finish-spinner') : null;
+        const text = button ? button.querySelector('.finish-text') : null;
+        if (button) {
+            button.disabled = true;
+            if (spinner) {
+                spinner.classList.remove('hidden');
+            }
+            if (text) {
+                text.textContent = 'Analyzing...';
+            }
+        }
+        
+        try {
+            const articleId = window.chunkDebugData.article_id;
+            const chunkSize = window.chunkDebugData.chunk_size || 1000;
+            const overlap = window.chunkDebugData.overlap || 200;
+            const currentThreshold = window.chunkDebugThreshold || window.chunkDebugData.min_confidence || 0.7;
+            
+            showNotification('Completing full chunk analysis...', 'info');
+            
+            const params = new URLSearchParams({
+                chunk_size: String(chunkSize),
+                overlap: String(overlap),
+                min_confidence: String(currentThreshold),
+                full_analysis: 'true'
+            });
+            
+            const response = await fetch(`/api/articles/${articleId}/chunk-debug?${params.toString()}`);
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
+            const debugData = await response.json();
+            updateChunkDebugResults(debugData);
+            
+            showNotification('Full chunk analysis completed successfully.', 'success');
+        } catch (error) {
+            console.error('Full chunk analysis error:', error);
+            showNotification('Failed to complete full analysis: ' + error.message, 'error');
+        } finally {
+            if (button) {
+                button.disabled = false;
+                if (spinner) {
+                    spinner.classList.add('hidden');
+                }
+                if (text) {
+                    text.textContent = 'Finish Full Analysis';
+                }
+            }
+            window.chunkDebugFullAnalysisInProgress = false;
         }
     }
     
@@ -4831,6 +4983,10 @@
                         <div id="contentReductionPercent" class="text-2xl font-bold text-purple-600">${data.filtering_stats.reduction_percent.toFixed(1)}%</div>
                         <div class="text-sm text-purple-800">Content Reduction</div>
                     </div>
+                </div>
+                
+                <div id="chunkProcessingSummary">
+                    ${generateProcessingSummary(data.processing_summary)}
                 </div>
                 
                 <!-- ML Accuracy Statistics -->
@@ -4947,6 +5103,14 @@
         
         // Store debug data globally for filtering
         window.chunkDebugData = data;
+        window.chunkDebugFullAnalysisInProgress = false;
+        
+        if (data.processing_summary?.chunk_limit_applied) {
+            showNotification(
+                `Processed ${data.processing_summary.processed_chunks} of ${data.processing_summary.total_chunks} chunks (analysis limit applied).`,
+                'warning'
+            );
+        }
         
         // Initialize slider position based on current threshold
         const thresholdSlider = document.getElementById('thresholdSlider');
@@ -5239,7 +5403,18 @@
             window.chunkDebugThreshold = parseFloat(newThreshold);
             
             // Reload chunk debug data with new threshold
-            const response = await fetch(`/api/articles/{{ article.id }}/chunk-debug?chunk_size=1000&overlap=200&min_confidence=${newThreshold}`);
+            const chunkSize = window.chunkDebugData?.chunk_size || 1000;
+            const overlap = window.chunkDebugData?.overlap || 200;
+            const fullAnalysis = window.chunkDebugData?.processing_summary?.full_analysis ? 'true' : 'false';
+            
+            const params = new URLSearchParams({
+                chunk_size: String(chunkSize),
+                overlap: String(overlap),
+                min_confidence: String(newThreshold),
+                full_analysis: fullAnalysis
+            });
+            
+            const response = await fetch(`/api/articles/{{ article.id }}/chunk-debug?${params.toString()}`);
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
@@ -5304,11 +5479,24 @@
             chunkVisualizationContainer.innerHTML = generateChunkVisualization(data);
         }
         
+        // Update processing summary
+        const summaryContainer = document.getElementById('chunkProcessingSummary');
+        if (summaryContainer) {
+            summaryContainer.innerHTML = generateProcessingSummary(data.processing_summary);
+        }
+        
         // Update global data
         window.chunkDebugData = data;
+        window.chunkDebugFullAnalysisInProgress = false;
         
         // Show notification
         showNotification(`Threshold updated to ${window.chunkDebugThreshold}. ${data.kept_chunks} chunks kept, ${data.removed_chunks} removed.`, 'success');
+        if (data.processing_summary?.chunk_limit_applied) {
+            showNotification(
+                `Processed ${data.processing_summary.processed_chunks} of ${data.processing_summary.total_chunks} chunks after threshold update (limit applied).`,
+                'warning'
+            );
+        }
     }
     
     // Feedback Functions

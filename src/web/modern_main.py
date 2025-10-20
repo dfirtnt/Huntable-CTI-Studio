@@ -10,6 +10,8 @@ import json
 import asyncio
 import logging
 import httpx
+import numpy as np
+from functools import lru_cache
 from pathlib import Path
 from typing import List, Optional, Dict, Any, AsyncGenerator
 from contextlib import asynccontextmanager
@@ -28,6 +30,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.services.sigma_validator import validate_sigma_rule
 from src.utils.prompt_loader import format_prompt
+from src.utils.content_filter import ContentFilter
+from src.utils.gpt4o_optimizer import estimate_gpt4o_cost
 
 from src.database.async_manager import async_db_manager
 from src.services.source_sync import SourceSyncService
@@ -48,6 +52,15 @@ DEFAULT_SOURCE_USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:138.0)
 
 # Templates
 templates = Jinja2Templates(directory="src/web/templates")
+
+
+@lru_cache(maxsize=1)
+def get_content_filter() -> ContentFilter:
+    """Return a lazily loaded singleton ContentFilter instance."""
+    content_filter = ContentFilter()
+    if not content_filter.model:
+        content_filter.load_model()
+    return content_filter
 
 # Custom Jinja2 filters
 def highlight_keywords(content: str, metadata: Dict[str, Any]) -> str:
@@ -4766,7 +4779,13 @@ async def api_eval_metrics():
 
 # Chunk debug endpoint
 @app.get("/api/articles/{article_id}/chunk-debug")
-async def api_chunk_debug(article_id: int, chunk_size: int = 1000, overlap: int = 200, min_confidence: float = 0.7):
+async def api_chunk_debug(
+    article_id: int,
+    chunk_size: int = 1000,
+    overlap: int = 200,
+    min_confidence: float = 0.7,
+    full_analysis: bool = False
+):
     """
     Debug endpoint to analyze chunking and filtering for an article.
     
@@ -4781,124 +4800,220 @@ async def api_chunk_debug(article_id: int, chunk_size: int = 1000, overlap: int 
         if not article:
             raise HTTPException(status_code=404, detail="Article not found")
         
-        from src.utils.content_filter import ContentFilter
-        from src.utils.gpt4o_optimizer import estimate_gpt4o_cost
-        import numpy as np
+        content_filter = get_content_filter()
         
-        # Initialize content filter
-        content_filter = ContentFilter()
-        if not content_filter.model:
-            content_filter.load_model()
+        # Concurrent safeguards configurable via env vars
+        max_chunks_setting = int(os.getenv("CHUNK_DEBUG_MAX_CHUNKS", "150"))
+        concurrency_limit = max(1, int(os.getenv("CHUNK_DEBUG_CONCURRENCY", "4")))
+        per_chunk_timeout = float(os.getenv("CHUNK_DEBUG_CHUNK_TIMEOUT", "12.0"))
         
-        # Get original chunks
-        original_chunks = content_filter.chunk_content(article.content, chunk_size, overlap)
+        if full_analysis:
+            concurrency_limit = max(
+                1,
+                int(os.getenv("CHUNK_DEBUG_FULL_CONCURRENCY", str(concurrency_limit)))
+            )
+            per_chunk_timeout = float(
+                os.getenv("CHUNK_DEBUG_FULL_TIMEOUT", str(per_chunk_timeout))
+            )
         
-        # Apply filtering
-        filter_result = content_filter.filter_content(article.content, min_confidence, chunk_size)
+        # Run heavy chunking and filtering work off the event loop
+        original_chunks = await asyncio.to_thread(
+            content_filter.chunk_content,
+            article.content,
+            chunk_size,
+            overlap
+        )
         
-        # Analyze chunks by testing each one individually
-        chunk_analysis = []
-        for i, (start, end, chunk_text) in enumerate(original_chunks):
-            # Test this chunk individually
-            chunk_result = content_filter.filter_content(chunk_text, min_confidence, len(chunk_text))
-            
-            # Extract features for this chunk
-            features = content_filter.extract_features(chunk_text)
-            # Convert numpy types to native Python types for JSON serialization
-            features = {k: float(v) if hasattr(v, 'item') else v for k, v in features.items()}
-            
-            # Get detailed ML prediction info if model is available
-            ml_details = None
-            if content_filter.model:
-                try:
-                    feature_vector = np.array(list(features.values())).reshape(1, -1)
-                    prediction = content_filter.model.predict(feature_vector)[0]
-                    probabilities = content_filter.model.predict_proba(feature_vector)[0]
+        filter_result = await asyncio.to_thread(
+            content_filter.filter_content,
+            article.content,
+            min_confidence,
+            chunk_size
+        )
+        
+        total_chunks = len(original_chunks)
+        removed_chunks = len(filter_result.removed_chunks or [])
+        kept_chunks = max(total_chunks - removed_chunks, 0)
+        
+        if full_analysis:
+            chunk_limit = total_chunks
+        else:
+            chunk_limit = min(total_chunks, max_chunks_setting)
+        
+        semaphore = asyncio.Semaphore(concurrency_limit)
+        chunk_analysis_results = []
+        
+        async def analyze_chunk(chunk_id: int, start: int, end: int, chunk_text: str):
+            async with semaphore:
+                def _process_chunk():
+                    chunk_result = content_filter.filter_content(
+                        chunk_text,
+                        min_confidence,
+                        max(len(chunk_text), 1)
+                    )
                     
-                    # Calculate per-chunk feature contributions
-                    feature_contribution = None
-                    if hasattr(content_filter.model, 'feature_importances_'):
-                        feature_names = list(features.keys())
-                        feature_values = np.array(list(features.values()))
-                        global_importance = content_filter.model.feature_importances_
-                        
-                        # Calculate contribution as feature_value * global_importance
-                        contributions = feature_values * global_importance
-                        
-                        # Create feature contribution dictionary with raw scores
-                        feature_contribution = dict(zip(feature_names, contributions))
-                        # Sort by contribution
-                        feature_contribution = dict(sorted(feature_contribution.items(), key=lambda x: x[1], reverse=True))
+                    features = content_filter.extract_features(chunk_text)
+                    sanitized_features = {}
+                    for key, value in features.items():
+                        if hasattr(value, "item"):
+                            sanitized_features[key] = float(value.item())
+                        elif isinstance(value, (np.floating, np.integer)):
+                            sanitized_features[key] = float(value)
+                        else:
+                            sanitized_features[key] = value
                     
-                    ml_details = {
-                        'prediction': int(prediction),
-                        'prediction_label': 'Huntable' if prediction == 1 else 'Not Huntable',
-                        'probabilities': {
-                            'not_huntable': float(probabilities[0]),
-                            'huntable': float(probabilities[1])
-                        },
-                        'confidence': float(max(probabilities)),
-                        'feature_contribution': feature_contribution,
-                        'top_features': dict(list(feature_contribution.items())[:10]) if feature_contribution else None
+                    ml_details = None
+                    if content_filter.model:
+                        try:
+                            feature_vector = np.array(list(sanitized_features.values()), dtype=float).reshape(1, -1)
+                            prediction = content_filter.model.predict(feature_vector)[0]
+                            probabilities = content_filter.model.predict_proba(feature_vector)[0]
+                            
+                            feature_contribution = None
+                            if hasattr(content_filter.model, "feature_importances_"):
+                                feature_names = list(sanitized_features.keys())
+                                importances = content_filter.model.feature_importances_
+                                
+                                if len(importances) == len(feature_vector[0]):
+                                    contributions = feature_vector[0] * importances
+                                    feature_contribution = dict(zip(feature_names, contributions))
+                                    feature_contribution = dict(
+                                        sorted(feature_contribution.items(), key=lambda item: item[1], reverse=True)
+                                    )
+                            
+                            ml_details = {
+                                "prediction": int(prediction),
+                                "prediction_label": "Huntable" if prediction == 1 else "Not Huntable",
+                                "probabilities": {
+                                    "not_huntable": float(probabilities[0]),
+                                    "huntable": float(probabilities[1])
+                                },
+                                "confidence": float(max(probabilities)),
+                                "feature_contribution": feature_contribution,
+                                "top_features": dict(list(feature_contribution.items())[:10]) if feature_contribution else None,
+                                "model_version": getattr(content_filter, "model_version", "unknown")
+                            }
+                        except Exception as ml_error:
+                            logger.warning(f"Error getting ML details for chunk {chunk_id}: {ml_error}")
+                            ml_details = {"error": str(ml_error)}
+                    else:
+                        ml_details = {"error": "ML model unavailable"}
+                    
+                    ml_mismatch = False
+                    ml_prediction_correct = None
+                    if ml_details and not ml_details.get("error"):
+                        ml_prediction = ml_details.get("prediction", 0)
+                        actual_decision = chunk_result.passed
+                        ml_mismatch = (
+                            (ml_prediction == 1 and not actual_decision) or
+                            (ml_prediction == 0 and actual_decision)
+                        )
+                        ml_prediction_correct = not ml_mismatch
+                    
+                    return {
+                        "chunk_id": chunk_id,
+                        "start": start,
+                        "end": end,
+                        "length": len(chunk_text),
+                        "text": chunk_text,
+                        "is_kept": chunk_result.passed,
+                        "confidence": chunk_result.confidence,
+                        "reason": chunk_result.reason,
+                        "features": sanitized_features,
+                        "ml_details": ml_details,
+                        "has_threat_keywords": any(
+                            sanitized_features.get(k, 0) > 0
+                            for k in sanitized_features
+                            if "threat" in k.lower() or "hunt" in k.lower()
+                        ),
+                        "has_command_patterns": any(
+                            sanitized_features.get(k, 0) > 0
+                            for k in sanitized_features
+                            if "command" in k.lower() or "pattern" in k.lower()
+                        ),
+                        "has_perfect_discriminators": content_filter._has_perfect_keywords(chunk_text),
+                        "ml_mismatch": ml_mismatch,
+                        "ml_prediction_correct": ml_prediction_correct
                     }
-                except Exception as e:
-                    logger.warning(f"Error getting ML details for chunk {i}: {e}")
-                    ml_details = {'error': str(e)}
-            
-            # Calculate ML mismatch
-            ml_mismatch = False
-            ml_prediction_correct = None
-            if ml_details and not ml_details.get('error'):
-                # ML prediction: 1 = Huntable, 0 = Not Huntable
-                ml_prediction = ml_details.get('prediction', 0)
-                actual_decision = chunk_result.passed  # True = Kept, False = Removed
                 
-                # Mismatch occurs when ML says "Not Huntable" but chunk was kept,
-                # or ML says "Huntable" but chunk was removed
-                ml_mismatch = (ml_prediction == 1 and not actual_decision) or (ml_prediction == 0 and actual_decision)
-                ml_prediction_correct = not ml_mismatch
-            
-            chunk_analysis.append({
-                'chunk_id': i,
-                'start': start,
-                'end': end,
-                'length': len(chunk_text),
-                'text': chunk_text,
-                'is_kept': chunk_result.passed,
-                'confidence': chunk_result.confidence,
-                'reason': chunk_result.reason,
-                'features': features,
-                'ml_details': ml_details,
-                'has_threat_keywords': any(features.get(k, 0) > 0 for k in features.keys() if 'threat' in k.lower() or 'hunt' in k.lower()),
-                'has_command_patterns': any(features.get(k, 0) > 0 for k in features.keys() if 'command' in k.lower() or 'pattern' in k.lower()),
-                'has_perfect_discriminators': content_filter._has_perfect_keywords(chunk_text),
-                'ml_mismatch': ml_mismatch,
-                'ml_prediction_correct': ml_prediction_correct
-            })
+                try:
+                    return await asyncio.wait_for(
+                        asyncio.to_thread(_process_chunk),
+                        timeout=per_chunk_timeout
+                    )
+                except asyncio.TimeoutError:
+                    logger.warning(f"Chunk debug timed out for chunk {chunk_id}")
+                    return {
+                        "chunk_id": chunk_id,
+                        "start": start,
+                        "end": end,
+                        "length": len(chunk_text),
+                        "text": chunk_text,
+                        "is_kept": False,
+                        "confidence": 0.0,
+                        "reason": f"Timeout after {per_chunk_timeout:.1f}s",
+                        "features": {},
+                        "ml_details": {"error": "Processing timed out"},
+                        "has_threat_keywords": False,
+                        "has_command_patterns": False,
+                        "has_perfect_discriminators": False,
+                        "ml_mismatch": False,
+                        "ml_prediction_correct": None
+                    }
+                except Exception as processing_error:
+                    logger.error(f"Error processing chunk {chunk_id}: {processing_error}")
+                    return {
+                        "chunk_id": chunk_id,
+                        "start": start,
+                        "end": end,
+                        "length": len(chunk_text),
+                        "text": chunk_text,
+                        "is_kept": False,
+                        "confidence": 0.0,
+                        "reason": f"Error: {processing_error}",
+                        "features": {},
+                        "ml_details": {"error": str(processing_error)},
+                        "has_threat_keywords": False,
+                        "has_command_patterns": False,
+                        "has_perfect_discriminators": False,
+                        "ml_mismatch": False,
+                        "ml_prediction_correct": None
+                    }
         
-        # Get cost estimates with current threshold
-        cost_estimate = estimate_gpt4o_cost(article.content, use_filtering=True)
+        for i, (start, end, chunk_text) in enumerate(original_chunks[:chunk_limit]):
+            chunk_analysis_results.append(
+                analyze_chunk(i, start, end, chunk_text)
+            )
+        
+        chunk_analysis = await asyncio.gather(*chunk_analysis_results)
+        chunk_analysis = [chunk for chunk in chunk_analysis if chunk is not None]
+        chunk_analysis.sort(key=lambda chunk: chunk["chunk_id"])
+        
+        # Cost and token stats
+        cost_estimate = await asyncio.to_thread(
+            estimate_gpt4o_cost,
+            article.content,
+            use_filtering=True
+        )
         
         # Calculate cost savings based on actual filtering results
         original_tokens = len(article.content) // 4
-        filtered_tokens = len(filter_result.filtered_content) // 4
-        tokens_saved = original_tokens - filtered_tokens
+        filtered_tokens = len(filter_result.filtered_content or "") // 4
+        tokens_saved = max(original_tokens - filtered_tokens, 0)
         
         # Calculate cost savings (GPT-4o input cost: $5 per 1M tokens)
         input_cost_per_token = 5.0 / 1000000
         actual_cost_savings = tokens_saved * input_cost_per_token
         
         # Calculate statistics
-        total_chunks = len(original_chunks)
-        kept_chunks = len([c for c in chunk_analysis if c['is_kept']])
-        removed_chunks = total_chunks - kept_chunks
-        
-        # Calculate ML accuracy statistics
-        ml_predictions = [c for c in chunk_analysis if c['ml_prediction_correct'] is not None]
-        ml_correct = len([c for c in ml_predictions if c['ml_prediction_correct']])
-        ml_total = len(ml_predictions)
+        processed_predictions = [
+            chunk for chunk in chunk_analysis
+            if chunk.get("ml_prediction_correct") is not None
+        ]
+        ml_correct = len([chunk for chunk in processed_predictions if chunk["ml_prediction_correct"]])
+        ml_total = len(processed_predictions)
         ml_accuracy = (ml_correct / ml_total * 100) if ml_total > 0 else 0
-        ml_mismatches = len([c for c in chunk_analysis if c['ml_mismatch']])
+        ml_mismatches = len([chunk for chunk in processed_predictions if chunk.get("ml_mismatch")])
         
         return {
             'article_id': article_id,
@@ -4911,6 +5026,16 @@ async def api_chunk_debug(article_id: int, chunk_size: int = 1000, overlap: int 
             'kept_chunks': kept_chunks,
             'removed_chunks': removed_chunks,
             'chunk_analysis': chunk_analysis,
+            'processing_summary': {
+                'processed_chunks': len(chunk_analysis),
+                'total_chunks': total_chunks,
+                'chunk_limit_applied': chunk_limit < total_chunks,
+                'concurrency_limit': concurrency_limit,
+                'per_chunk_timeout_seconds': per_chunk_timeout,
+                'full_analysis': full_analysis,
+                'max_chunks_setting': max_chunks_setting,
+                'remaining_chunks': max(total_chunks - len(chunk_analysis), 0)
+            },
             'filter_result': {
                 'is_huntable': filter_result.is_huntable,
                 'confidence': filter_result.confidence,
