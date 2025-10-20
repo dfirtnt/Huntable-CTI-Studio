@@ -255,6 +255,7 @@ GET /api/articles/{article_id}/chunk-debug
 - Show Threat Keywords
 - Show Perfect Discriminators
 - Show ML Predictions
+- **Show 40-60% Confidence** (NEW) — isolates borderline chunks where the confidence band is between 40% and 60%
 - **Show ML Mismatches** (NEW)
 
 ### Operational Safeguards

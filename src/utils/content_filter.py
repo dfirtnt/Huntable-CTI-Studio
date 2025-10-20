@@ -497,8 +497,8 @@ class ContentFilter:
             # Apply filtering logic with perfect keyword override
             has_perfect = self._has_perfect_keywords(chunk_text)
             if has_perfect:
-                # Perfect keywords override ML prediction for filtering
-                huntable_chunks.append((start_offset, end_offset, chunk_text, 1.0))
+                # Perfect keywords override ML prediction for filtering (keep chunk)
+                huntable_chunks.append((start_offset, end_offset, chunk_text, confidence))
             elif is_huntable and confidence >= min_confidence:
                 huntable_chunks.append((start_offset, end_offset, chunk_text, confidence))
             else:

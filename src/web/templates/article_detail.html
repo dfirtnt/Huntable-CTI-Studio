@@ -5076,6 +5076,9 @@
                         <button onclick="filterChunks('ml')" class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors">
                             Show ML Predictions
                         </button>
+                        <button onclick="filterChunks('confidenceBand')" class="px-4 py-2 bg-teal-600 text-white rounded-md hover:bg-teal-700 transition-colors" title="Show chunks with confidence between 40% and 60%">
+                            Show 40-60% Confidence
+                        </button>
                         <button onclick="filterChunks('mismatch')" class="px-4 py-2 bg-yellow-600 text-white rounded-md hover:bg-yellow-700 transition-colors" title="Show chunks where ML prediction differs from actual decision">
                             Show ML Mismatches
                         </button>
@@ -5307,6 +5310,35 @@
         `).join('');
     }
     
+    function getNormalizedConfidence(chunkData) {
+        if (!chunkData) {
+            return null;
+        }
+        
+        let confidence = null;
+        
+        if (chunkData.ml_details && typeof chunkData.ml_details.confidence !== 'undefined' && chunkData.ml_details.confidence !== null) {
+            confidence = parseFloat(chunkData.ml_details.confidence);
+        }
+        
+        if ((confidence === null || Number.isNaN(confidence)) && typeof chunkData.confidence !== 'undefined' && chunkData.confidence !== null) {
+            confidence = parseFloat(chunkData.confidence);
+        }
+        
+        if (confidence === null || Number.isNaN(confidence)) {
+            return null;
+        }
+        
+        // Normalize percentage values into 0-1 range
+        if (confidence > 1) {
+            confidence = confidence / 100;
+        }
+        
+        // Clamp to [0,1]
+        confidence = Math.min(Math.max(confidence, 0), 1);
+        return confidence;
+    }
+    
     function filterChunks(filter) {
         const chunkDetails = document.getElementById('chunkDetails');
         const chunks = chunkDetails.querySelectorAll('.chunk-detail');
@@ -5336,6 +5368,13 @@
                 case 'ml':
                     show = chunkData.ml_details && !chunkData.ml_details.error;
                     break;
+                case 'confidenceBand': {
+                    const confidence = getNormalizedConfidence(chunkData);
+                    if (confidence !== null && confidence >= 0.4 && confidence <= 0.6) {
+                        show = true;
+                    }
+                    break;
+                }
                 case 'mismatch':
                     show = chunkData.ml_mismatch === true;
                     break;
