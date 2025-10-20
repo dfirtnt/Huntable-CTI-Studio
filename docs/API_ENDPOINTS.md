@@ -101,7 +101,7 @@ The CTI Scraper provides **127 API endpoints** across multiple categories:
 - `POST /api/articles/{article_id}/rank-with-gpt4o` - GPT4o huntability ranking
 - `POST /api/articles/{article_id}/gpt4o-rank-optimized` - Optimized GPT4o ranking
 - `POST /api/articles/{article_id}/embed` - Generate article embedding
-- `GET /api/articles/{article_id}/chunk-debug` - Debug chunk classification
+- `GET /api/articles/{article_id}/chunk-debug` - Debug chunk classification (see detailed description below)
 
 ## AI & Analysis Endpoints
 
@@ -119,8 +119,29 @@ The CTI Scraper provides **127 API endpoints** across multiple categories:
 - `POST /api/articles/{article_id}/rank-with-gpt4o` - GPT4o huntability ranking
 - `POST /api/articles/{article_id}/gpt4o-rank-optimized` - Optimized GPT4o ranking
 - `POST /api/articles/{article_id}/embed` - Generate article embedding
-- `GET /api/articles/{article_id}/chunk-debug` - Debug chunk classification
+- `GET /api/articles/{article_id}/chunk-debug` - Debug chunk classification (see detailed description below)
 - `GET /api/test-route` - Test route for verification
+
+#### `GET /api/articles/{article_id}/chunk-debug`
+
+Debug endpoint returning the ML model’s per-chunk decisions and supporting metadata.
+
+**Query Parameters**
+
+| Name | Default | Description |
+| --- | --- | --- |
+| `chunk_size` | `1000` | Maximum characters per chunk (trimmed to sentence boundaries) |
+| `overlap` | `200` | Characters overlapped between adjacent chunks |
+| `min_confidence` | `0.7` | Minimum ML confidence required to keep a chunk |
+| `full_analysis` | `false` | When `true`, bypasses the safety cap and processes every chunk |
+
+**Response Highlights**
+- `processing_summary` – counts processed vs total chunks, indicates whether the cap was hit, reports concurrency, timeout, and remaining chunks.
+- `chunk_analysis[]` – per-chunk metadata including ML predictions, feature breakdowns, timeout errors, and booleans for threat keywords/perfect discriminators.
+- `ml_stats` – aggregate model accuracy metrics over the processed chunks.
+- `filter_result` + `cost_estimate` – overall filtering and cost-savings information.
+
+Use `full_analysis=true` when analysts click **Finish Full Analysis** in the UI; this may take longer but guarantees full coverage. The initial pass respects environment caps (`CHUNK_DEBUG_MAX_CHUNKS`, `CHUNK_DEBUG_CONCURRENCY`, `CHUNK_DEBUG_CHUNK_TIMEOUT`) to keep the interface responsive.
 
 ## Annotations Endpoints
 

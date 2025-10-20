@@ -239,6 +239,25 @@ Chunk 4: 1103-1246 chars (Lateral movement details)
 | 600 chars  | 3 chunks       | 100.0%           |
 | 1000 chars | 1 chunk        | 80.3%            |
 
+### Chunk Debugger Safeguards & Controls
+
+Large articles can generate hundreds of chunks, so the debugger balances responsiveness with completeness:
+
+- **Initial Analysis Pass**: Processes up to `CHUNK_DEBUG_MAX_CHUNKS` (default **150**) using `CHUNK_DEBUG_CONCURRENCY` workers (default **4**) and a per-chunk timeout defined by `CHUNK_DEBUG_CHUNK_TIMEOUT` (default **12s**). When the cap is reached, the UI surfaces a ⚠️ Partial Analysis banner.
+- **Finish Full Analysis**: Analysts can click the inline button to re-run the endpoint with `full_analysis=true`, optionally using `CHUNK_DEBUG_FULL_CONCURRENCY` and `CHUNK_DEBUG_FULL_TIMEOUT` overrides (falling back to the initial values if unset).
+- **Processing Summary**: Every response now includes `processing_summary` (processed count, total count, remaining chunks, concurrency, timeout, and whether full analysis ran) so operators can audit coverage.
+- **Timeout Visibility**: Chunks that exceed the timeout render with explicit warnings in both the API and UI, making slow regions easy to spot.
+
+| Environment Variable | Default | Description |
+| --- | --- | --- |
+| `CHUNK_DEBUG_MAX_CHUNKS` | `150` | Safety cap before the finish button appears |
+| `CHUNK_DEBUG_CONCURRENCY` | `4` | Worker count for the initial analysis pass |
+| `CHUNK_DEBUG_CHUNK_TIMEOUT` | `12.0` | Per-chunk timeout (seconds) for the initial pass |
+| `CHUNK_DEBUG_FULL_CONCURRENCY` | *(optional)* | Worker override when finishing the analysis |
+| `CHUNK_DEBUG_FULL_TIMEOUT` | *(optional)* | Timeout override when finishing the analysis |
+
+Tune these values with production telemetry (CPU load, latency, timeout frequency) to match your deployment’s capacity.
+
 ## Pattern Filters
 
 The pattern-based classification uses the comprehensive Hunt Scoring keyword system from `src/utils/content.py`, providing 314 total patterns for content classification.

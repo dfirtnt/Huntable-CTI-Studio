@@ -225,6 +225,11 @@ jobs:
 - **Article Processing**: Test article collection and processing
 - **AI Features**: Test SIGMA generation and IOC extraction
 - **Export Functions**: Test data export capabilities
+- **Chunk Debugger**:
+  1. Open a long article (≥150 chunks) and trigger *Chunk Debug*.
+  2. Confirm the ⚠️ Partial Analysis banner lists processed vs total chunks and that the *Finish Full Analysis* button appears.
+  3. Click *Finish Full Analysis* and wait for the banner to switch to ✅ Full Analysis with all chunks rendered.
+  4. Spot-check a chunk that previously timed out to ensure the warning message is present.
 
 #### 3. Performance Testing
 - **Page Load Times**: Measure page load performance
