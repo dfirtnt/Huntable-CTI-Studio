@@ -589,6 +589,9 @@ WINDOWS_MALWARE_KEYWORDS = {
             # High-performing keywords from analysis (80%+ chosen rate)
             'tcp://', 'CN=', '-ComObject', 'Chcp', 'tostring', 'HKCU', 'System32',
             'Hxxp', 'Cmd', '8080', 'XOR', 'User-Agent', 'sshd', 'Base64',
+            # Perfect threat hunting discriminators (>75% in 90+ hunt score range)
+            'icacls', 'InteropServices.Marshal', 'selection1:', 'dclist', 'invoke-',
+            'tasklist', 'adfind', '-EncodedCommand', 'selection_1:', 'attrib',
             # Low-rejection keywords from analysis (0-2 rejected)
             'System.IO', 'New-Object', 'StreamReader', 'ByteArray', '127.0.0.1', '>1', 'admin$',
             'MpPreference', 'Whoami', 'C$', 'MSBuild', '7z',
@@ -621,7 +624,10 @@ WINDOWS_MALWARE_KEYWORDS = {
                 'linux', 'macos', 'cloud', 'aws', 'azure', 'network', 'ssl',
                 # Moved from Perfect (didn't meet 90% threshold)
                 'codesign', 'cloudtrail', 'guardduty', 's3', 'ec2', 'gcp',
-                'suricata', 'netflow', 'beaconing', 'user-agent'
+                'suricata', 'netflow', 'beaconing', 'user-agent',
+                # Good threat hunting discriminators (≤75% in 90+ hunt score range)
+                'process_creation', 'reg add', 'logsource:', 'get-', 'selection:',
+                'DeviceProcessEvents', 'hxxps', 'taskkill.exe', 'detection:', 'DeviceFileEvents'
             ],
     'intelligence_indicators': [
         # Real threat activity - specific indicators
