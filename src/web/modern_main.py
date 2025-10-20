@@ -4953,7 +4953,7 @@ async def api_chunk_debug(
                         max(len(chunk_text), 1)
                     )
                     
-                    features = content_filter.extract_features(chunk_text)
+                    features = content_filter.extract_features(chunk_text, include_new_features=True)
                     sanitized_features = {}
                     for key, value in features.items():
                         if hasattr(value, "item"):
@@ -4966,13 +4966,15 @@ async def api_chunk_debug(
                     ml_details = None
                     if content_filter.model:
                         try:
-                            feature_vector = np.array(list(sanitized_features.values()), dtype=float).reshape(1, -1)
+                            # Use backward-compatible features for ML prediction (27 features)
+                            ml_features = content_filter.extract_features(chunk_text, include_new_features=False)
+                            feature_vector = np.array(list(ml_features.values()), dtype=float).reshape(1, -1)
                             prediction = content_filter.model.predict(feature_vector)[0]
                             probabilities = content_filter.model.predict_proba(feature_vector)[0]
                             
                             feature_contribution = None
                             if hasattr(content_filter.model, "feature_importances_"):
-                                feature_names = list(sanitized_features.keys())
+                                feature_names = list(ml_features.keys())
                                 importances = content_filter.model.feature_importances_
                                 
                                 if len(importances) == len(feature_vector[0]):
@@ -5871,7 +5873,7 @@ async def api_get_feedback_comparison():
             
             # Extract huntable probability from model for new prediction
             import numpy as np
-            features = content_filter.extract_features(chunk_text)
+            features = content_filter.extract_features(chunk_text, include_new_features=False)
             feature_vector = np.array(list(features.values())).reshape(1, -1)
             probabilities = content_filter.model.predict_proba(feature_vector)[0]
             new_huntable_probability = float(probabilities[1])  # Index 1 is "Huntable"

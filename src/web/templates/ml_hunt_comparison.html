@@ -699,26 +699,54 @@
                 if (!terminalDiv) {
                     terminalDiv = document.createElement('div');
                     terminalDiv.id = 'terminalOutput';
-                    terminalDiv.className = 'fixed z-50 bg-black text-green-400 font-mono text-sm rounded-lg border border-gray-600 max-h-64 overflow-hidden shadow-2xl';
+                    terminalDiv.className = 'fixed z-50 bg-black text-green-400 font-mono text-sm rounded-lg border border-gray-600 overflow-hidden shadow-2xl';
                     terminalDiv.innerHTML = `
                         <div class="flex justify-between items-center p-2 bg-gray-800 text-gray-300 text-xs border-b border-gray-600">
                             <span>📟 Real-Time Processing Logs</span>
                             <button id="closeTerminal" class="text-gray-400 hover:text-white">✕</button>
                         </div>
-                        <div class="p-4 max-h-56 overflow-y-auto">
+                        <div class="p-4 overflow-y-auto" style="height: 250px;">
                             <div id="terminalContent">🔄 Fetching logs...</div>
                         </div>
                     `;
                 
-                    // Position terminal near the process button
+                    // Position terminal with smart viewport detection
                     const processBtn = document.getElementById('processEligibleBtn');
                     if (processBtn) {
                         const rect = processBtn.getBoundingClientRect();
+                        const terminalWidth = 400;
+                        const terminalHeight = 300;
+                        
+                        // Calculate optimal position
+                        let left = rect.left - terminalWidth + 50; // Offset from button
+                        let top = rect.top - terminalHeight - 20; // Above button
+                        
+                        // Ensure terminal stays within viewport bounds
+                        const viewportWidth = window.innerWidth;
+                        const viewportHeight = window.innerHeight;
+                        
+                        // Adjust horizontal position if it goes off screen
+                        if (left < 20) left = 20;
+                        if (left + terminalWidth > viewportWidth - 20) {
+                            left = viewportWidth - terminalWidth - 20;
+                        }
+                        
+                        // Adjust vertical position if it goes off screen
+                        if (top < 20) {
+                            // If can't fit above, position below button
+                            top = rect.bottom + 20;
+                            if (top + terminalHeight > viewportHeight - 20) {
+                                // If still doesn't fit, center vertically
+                                top = Math.max(20, (viewportHeight - terminalHeight) / 2);
+                            }
+                        }
+                        
                         terminalDiv.style.position = 'fixed';
-                        terminalDiv.style.top = (rect.top - 250) + 'px';
-                        terminalDiv.style.left = (rect.left - 150) + 'px';  // Moved further left
-                        terminalDiv.style.width = '350px';
-                        terminalDiv.style.maxWidth = '80vw';
+                        terminalDiv.style.top = top + 'px';
+                        terminalDiv.style.left = left + 'px';
+                        terminalDiv.style.width = terminalWidth + 'px';
+                        terminalDiv.style.maxWidth = '90vw';
+                        terminalDiv.style.maxHeight = '80vh';
                     }
                 
                 document.body.appendChild(terminalDiv);
