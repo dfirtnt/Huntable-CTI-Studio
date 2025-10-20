@@ -13,7 +13,7 @@ import httpx
 import numpy as np
 from functools import lru_cache
 from pathlib import Path
-from typing import List, Optional, Dict, Any, AsyncGenerator
+from typing import List, Optional, Dict, Any, AsyncGenerator, Tuple
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta
 from collections import defaultdict
@@ -52,6 +52,91 @@ DEFAULT_SOURCE_USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:138.0)
 
 # Templates
 templates = Jinja2Templates(directory="src/web/templates")
+
+
+def _is_responses_api(url: str) -> bool:
+    """Return True if the provided OpenAI URL targets the Responses API."""
+    if not url:
+        return False
+    normalized = url.rstrip('/')
+    return normalized.endswith('/responses') or '/responses' in normalized
+
+
+def _build_openai_payload(
+    prompt: str,
+    system_prompt: str,
+    temperature: float,
+    token_limit: int,
+    model: str,
+    use_responses_api: bool
+) -> Dict[str, Any]:
+    """Construct the request payload for OpenAI chat or responses endpoints."""
+    if use_responses_api:
+        return {
+            "model": model,
+            "input": [
+                {
+                    "role": "system",
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": system_prompt
+                        }
+                    ]
+                },
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": prompt
+                        }
+                    ]
+                }
+            ],
+            "temperature": temperature,
+            "max_output_tokens": token_limit
+        }
+    
+    return {
+        "model": model,
+        "messages": [
+            {
+                "role": "system",
+                "content": system_prompt
+            },
+            {
+                "role": "user",
+                "content": prompt
+            }
+        ],
+        "max_tokens": token_limit,
+        "temperature": temperature
+    }
+
+
+def _extract_openai_summary(
+    response_data: Dict[str, Any],
+    use_responses_api: bool
+) -> Tuple[str, Optional[str]]:
+    """Extract summary text and model name from an OpenAI response."""
+    if use_responses_api:
+        for item in response_data.get('output', []):
+            if item.get('role') != 'assistant':
+                continue
+            for content_item in item.get('content', []):
+                if content_item.get('type') == 'text':
+                    return content_item.get('text', ''), response_data.get('model')
+        raise ValueError("ChatGPT response did not include text output.")
+    
+    choices = response_data.get('choices', [])
+    if not choices:
+        raise ValueError("ChatGPT response did not include choices.")
+    message = choices[0].get('message', {})
+    content = message.get('content')
+    if not content:
+        raise ValueError("ChatGPT response message did not include content.")
+    return content, response_data.get('model')
 
 
 @lru_cache(maxsize=1)
@@ -2613,8 +2698,22 @@ async def api_chatgpt_summary(article_id: int, request: Request):
         
         # Generate summary based on AI model
         if ai_model == 'chatgpt':
-            # Use ChatGPT API
+            # Use ChatGPT/Responses API
             chatgpt_api_url = os.getenv('CHATGPT_API_URL', 'https://api.openai.com/v1/chat/completions')
+            use_responses_api = _is_responses_api(chatgpt_api_url)
+            chatgpt_model = os.getenv('CHATGPT_MODEL')
+            if not chatgpt_model:
+                chatgpt_model = 'gpt-4o-mini' if use_responses_api else 'gpt-4'
+            
+            system_prompt = "You are a cybersecurity expert specializing in threat intelligence analysis. Provide clear, concise summaries of threat intelligence articles."
+            request_payload = _build_openai_payload(
+                prompt=prompt,
+                system_prompt=system_prompt,
+                temperature=temperature,
+                token_limit=2048,
+                model=chatgpt_model,
+                use_responses_api=use_responses_api
+            )
             
             async with httpx.AsyncClient() as client:
                 response = await client.post(
@@ -2623,36 +2722,35 @@ async def api_chatgpt_summary(article_id: int, request: Request):
                         "Authorization": f"Bearer {api_key}",
                         "Content-Type": "application/json"
                     },
-                    json={
-                        "model": "gpt-4",  # or your specific ChatGPT model
-                        "messages": [
-                            {
-                                "role": "system",
-                                "content": "You are a cybersecurity expert specializing in threat intelligence analysis. Provide clear, concise summaries of threat intelligence articles."
-                            },
-                            {
-                                "role": "user",
-                                "content": prompt
-                            }
-                        ],
-                        "max_tokens": 2048,
-                        "temperature": temperature
-                    },
+                    json=request_payload,
                     timeout=180.0  # Increased timeout for large articles
                 )
                 
                 if response.status_code != 200:
                     error_detail = f"Failed to get summary from ChatGPT: {response.status_code}"
+                    try:
+                        error_json = response.json()
+                        error_message = (
+                            error_json.get('error', {}).get('message')
+                            or error_json.get('message')
+                        )
+                    except json.JSONDecodeError:
+                        error_message = response.text
                     if response.status_code == 401:
                         error_detail = "Invalid API key. Please check your OpenAI API key in Settings."
                     elif response.status_code == 429:
                         error_detail = "Rate limit exceeded. Please try again later."
+                    elif error_message:
+                        error_detail = f"{error_detail} ({error_message})"
                     raise HTTPException(status_code=500, detail=error_detail)
                 
                 result = response.json()
-                summary = result['choices'][0]['message']['content']
+                try:
+                    summary, model_from_response = _extract_openai_summary(result, use_responses_api)
+                except ValueError as exc:
+                    raise HTTPException(status_code=500, detail=str(exc)) from exc
                 model_used = 'chatgpt'
-                model_name = 'gpt-4'
+                model_name = model_from_response or chatgpt_model
         elif ai_model == 'anthropic':
             # Use Anthropic API
             anthropic_api_url = os.getenv('ANTHROPIC_API_URL', 'https://api.anthropic.com/v1/messages')
@@ -3019,6 +3117,19 @@ async def test_chatgpt_summary(request: Request):
         
         # Use ChatGPT API with provided key
         chatgpt_api_url = os.getenv('CHATGPT_API_URL', 'https://api.openai.com/v1/chat/completions')
+        use_responses_api = _is_responses_api(chatgpt_api_url)
+        chatgpt_model = os.getenv('CHATGPT_MODEL')
+        if not chatgpt_model:
+            chatgpt_model = 'gpt-4o-mini' if use_responses_api else 'gpt-4'
+        
+        payload = _build_openai_payload(
+            prompt=test_prompt,
+            system_prompt="You are a cybersecurity expert. Provide brief, helpful responses.",
+            temperature=0.3,
+            token_limit=100,
+            model=chatgpt_model,
+            use_responses_api=use_responses_api
+        )
         
         async with httpx.AsyncClient() as client:
             response = await client.post(
@@ -3027,31 +3138,21 @@ async def test_chatgpt_summary(request: Request):
                     "Authorization": f"Bearer {api_key}",
                     "Content-Type": "application/json"
                 },
-                json={
-                    "model": "gpt-4",
-                    "messages": [
-                        {
-                            "role": "system",
-                            "content": "You are a cybersecurity expert. Provide brief, helpful responses."
-                        },
-                        {
-                            "role": "user",
-                            "content": test_prompt
-                        }
-                    ],
-                    "max_tokens": 100,
-                    "temperature": 0.3
-                },
+                json=payload,
                 timeout=30.0
             )
             
             if response.status_code == 200:
                 result = response.json()
-                summary = result['choices'][0]['message']['content']
+                try:
+                    summary, model_name = _extract_openai_summary(result, use_responses_api)
+                except ValueError as exc:
+                    raise HTTPException(status_code=500, detail=str(exc)) from exc
+                model_name = model_name or chatgpt_model
                 return {
                     "success": True, 
                     "message": "ChatGPT Summary is working",
-                    "model_name": "gpt-4",
+                    "model_name": model_name,
                     "test_summary": summary
                 }
             elif response.status_code == 401:

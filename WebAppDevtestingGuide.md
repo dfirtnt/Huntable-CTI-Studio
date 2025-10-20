@@ -230,6 +230,7 @@ jobs:
   2. Confirm the ⚠️ Partial Analysis banner lists processed vs total chunks and that the *Finish Full Analysis* button appears.
   3. Click *Finish Full Analysis* and wait for the banner to switch to ✅ Full Analysis with all chunks rendered.
   4. Spot-check a chunk that previously timed out to ensure the warning message is present.
+  5. Use **Show 40-60% Confidence** to surface (or confirm absence of) borderline chunks.
 
 #### 3. Performance Testing
 - **Page Load Times**: Measure page load performance

@@ -247,6 +247,7 @@ Large articles can generate hundreds of chunks, so the debugger balances respons
 - **Finish Full Analysis**: Analysts can click the inline button to re-run the endpoint with `full_analysis=true`, optionally using `CHUNK_DEBUG_FULL_CONCURRENCY` and `CHUNK_DEBUG_FULL_TIMEOUT` overrides (falling back to the initial values if unset).
 - **Processing Summary**: Every response now includes `processing_summary` (processed count, total count, remaining chunks, concurrency, timeout, and whether full analysis ran) so operators can audit coverage.
 - **Timeout Visibility**: Chunks that exceed the timeout render with explicit warnings in both the API and UI, making slow regions easy to spot.
+- **Confidence Band Filter**: UI control to isolate chunks with confidence between 40% and 60% for quicker review of borderline decisions.
 
 | Environment Variable | Default | Description |
 | --- | --- | --- |
