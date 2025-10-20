@@ -201,6 +201,16 @@ GET /api/articles/{article_id}/chunk-debug
 
 # Response includes:
 {
+    "processing_summary": {
+        "processed_chunks": 48,
+        "total_chunks": 781,
+        "chunk_limit_applied": true,
+        "concurrency_limit": 4,
+        "per_chunk_timeout_seconds": 12.0,
+        "full_analysis": false,
+        "max_chunks_setting": 150,
+        "remaining_chunks": 733
+    },
     "ml_stats": {
         "total_predictions": 18,
         "correct_predictions": 13,
@@ -234,6 +244,9 @@ GET /api/articles/{article_id}/chunk-debug
 - **Real-time Filtering**: Multiple filter buttons for different chunk types
 - **Detailed Analysis**: Feature breakdown and ML prediction details
 - **Feedback System**: User feedback collection for model improvement
+- **Processing Summary Banner**: Shows processed vs total chunks, concurrency, and per-chunk timeout
+- **Finish Full Analysis Button**: Appears when the initial pass stops at the safety cap and allows completing the remaining chunks on demand
+- **Timeout Awareness**: Chunks that exceed the per-chunk timeout render with explicit warnings so analysts can decide whether to retry
 
 ### Filter Options
 - Show All Chunks
@@ -243,6 +256,17 @@ GET /api/articles/{article_id}/chunk-debug
 - Show Perfect Discriminators
 - Show ML Predictions
 - **Show ML Mismatches** (NEW)
+
+### Operational Safeguards
+- **Chunk Caps**: The initial pass processes up to `CHUNK_DEBUG_MAX_CHUNKS` chunks (default 150) to keep the UI responsive on very long articles.
+- **Controlled Concurrency**: Concurrency is limited via `CHUNK_DEBUG_CONCURRENCY` (default 4) and `CHUNK_DEBUG_CHUNK_TIMEOUT` (default 12s) to prevent CPU starvation.
+- **Full Analysis Mode**: Clicking *Finish Full Analysis* re-runs the endpoint with `full_analysis=true`, optionally using `CHUNK_DEBUG_FULL_CONCURRENCY` and `CHUNK_DEBUG_FULL_TIMEOUT` overrides.
+- **Environment Toggles**:
+  - `CHUNK_DEBUG_MAX_CHUNKS` – safety cap before showing the finish button
+  - `CHUNK_DEBUG_CONCURRENCY` – worker count for the initial pass
+  - `CHUNK_DEBUG_CHUNK_TIMEOUT` – per-chunk timeout in seconds
+  - `CHUNK_DEBUG_FULL_CONCURRENCY` – worker count during full-analysis mode (falls back to `CHUNK_DEBUG_CONCURRENCY`)
+  - `CHUNK_DEBUG_FULL_TIMEOUT` – per-chunk timeout during full-analysis mode (falls back to `CHUNK_DEBUG_CHUNK_TIMEOUT`)
 
 ## Future Enhancements
 
