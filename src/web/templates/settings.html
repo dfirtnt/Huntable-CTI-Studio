@@ -632,7 +632,7 @@
         
         try {
             // Test with a simple prompt
-            const endpoint = aiModel === 'anthropic' ? '/api/test-claude-summary' : '/api/test-chatgpt-summary';
+            const endpoint = '/api/test-claude-summary';
             const response = await fetch(endpoint, {
                 method: 'POST',
                 headers: {

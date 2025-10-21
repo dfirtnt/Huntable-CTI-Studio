@@ -320,6 +320,15 @@
                     <span class="mr-2">🤖</span>
                     AI Assistant
                 </button>
+                
+                <!-- Debug Mode Checkbox -->
+                <div class="mt-2 flex items-center">
+                    <input type="checkbox" id="debugModeCheckbox" class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
+                    <label for="debugModeCheckbox" class="ml-2 text-sm text-gray-700">
+                        🐛 Debug Mode (Show LLM Conversation)
+                    </label>
+                </div>
+                
                 <!-- Popover explanation -->
                 <div id="aiAssistantPopover" class="absolute z-10 top-full left-0 mt-2 hidden w-64">
                     <div class="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-md p-3 shadow-lg">
@@ -484,7 +493,6 @@
     </div>
 </div>
 {% endblock %}
-
 {% block scripts %}
 <script>
 
@@ -530,7 +538,6 @@
             // Enable clicking on annotations to remove them
             this.enableAnnotationClicking();
         }
-        
         
         async loadExistingClassifications() {
             try {
@@ -1028,7 +1035,6 @@
             // Show classification modal with enhanced features
             this.showClassificationModal(selectedText, min, max);
         }
-        
         showClassificationModal(text, start, end) {
             // Prevent infinite loops when updating existing modal
             if (this.isUpdatingModal) {
@@ -1287,7 +1293,6 @@
             // Update the current modal with new selection data
             this.updateModalWithNewSelection(newText, newStart, newEnd);
         }
-        
         updateLiveSelection(newStart, newEnd) {
             // Update the browser's text selection to show the expanded selection
             try {
@@ -1675,7 +1680,6 @@
                 }, 500);
             }
         }
-        
         showRemoveAnnotationModal(spanElement, annotationType, annotationText) {
             // Store reference to the span element for removal
             this.pendingRemovalSpan = spanElement;
@@ -2057,7 +2061,6 @@
         // Add iPhone instructions
         addiPhoneInstructions();
     }
-    
     // Add mobile-friendly touch handlers for modal buttons
     function addMobileModalHandlers(modal, start, end) {
         // Huntable button
@@ -2293,7 +2296,9 @@
         banner.id = 'completionBanner';
         banner.className = 'fixed top-4 right-4 z-50 p-4 rounded-md shadow-lg max-w-sm bg-green-500 text-white';
         
-        const bannerArticleTitle = articleTitle || '{{ article.title }}';
+        const bannerArticleTitle = articleTitle ? 
+            articleTitle.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') : 
+            {{ article.title | tojson }};
         const bannerArticleId = articleId || {{ article.id }};
         
         banner.innerHTML = `
@@ -2325,7 +2330,6 @@
             }
         }, 10000);
     }
-    
     // Navigation functions
     async function navigateToNextUnclassified(retryCount = 0) {
         try {
@@ -2405,11 +2409,10 @@
         const isChosen = currentClassification === 'chosen';
         
         // Get threat hunting score for SIGMA warning
-        const threatHuntingScore = {{ article.article_metadata.get('threat_hunting_score', 0) if article.article_metadata and article.article_metadata.get('threat_hunting_score') is not none else 0 }};
+        const threatHuntingScore = {{ article.article_metadata.get('threat_hunting_score', 0) if article.article_metadata and article.article_metadata.get('threat_hunting_score') else 0 }};
         const showSigmaWarning = isChosen && threatHuntingScore < 65;
         
         // Fetch fresh data from API to get current state
-        let hasSummary = {{ 'true' if article.article_metadata and article.article_metadata.get('chatgpt_summary') else 'false' }};
         let hasSigmaRules = {{ 'true' if article.article_metadata and article.article_metadata.get('sigma_rules') else 'false' }};
         let hasIOCs = {{ 'true' if article.article_metadata and article.article_metadata.get('extracted_iocs') else 'false' }};
         let hasRanking = {{ 'true' if article.article_metadata and article.article_metadata.get('gpt4o_ranking') else 'false' }};
@@ -2419,7 +2422,6 @@
             if (response.ok) {
                 const data = await response.json();
                 if (data.article_metadata) {
-                    hasSummary = data.article_metadata.chatgpt_summary ? true : false;
                     hasSigmaRules = data.article_metadata.sigma_rules ? true : false;
                     hasIOCs = data.article_metadata.extracted_iocs ? true : false;
                     hasRanking = data.article_metadata.gpt4o_ranking ? true : false;
@@ -2449,7 +2451,8 @@
         };
         document.addEventListener('keydown', handleEsc);
         
-        // Get AI model from settings to determine button text
+        // Determine if there is existing generated content to display/regenerate
+        const hasExisting = hasSigmaRules || hasIOCs || hasRanking;
         const rankingButtonText = hasRanking ? 
             (aiModel === 'chatgpt' ? 'Display GPT4o Rank' : 
              aiModel === 'anthropic' ? 'Display Claude Rank' : 'Display LLM Rank') :
@@ -2460,15 +2463,9 @@
             <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
                 <div class="mt-3 text-center">
                     <h3 class="text-lg font-medium text-gray-900 mb-4">🤖 AI Assistant</h3>
-                    <p class="text-sm text-gray-500 mb-6">Choose what you'd like to ${hasSummary || hasSigmaRules || hasIOCs || hasRanking ? 'view or regenerate' : 'generate'}:</p>
+                    <p class="text-sm text-gray-500 mb-6">Choose what you'd like to ${hasExisting ? 'view or regenerate' : 'generate'}:</p>
                     
                     <div class="space-y-3">
-                        <button onclick="generateAIAnalysis('summary')" 
-                                class="w-full inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
-                            <span class="mr-2">📝</span>
-                            ${hasSummary ? 'Display Summary' : 'Generate Summary'}
-                        </button>
-                        
                         <button onclick="generateAIAnalysis('sigma')" 
                                 class="w-full inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md transition-colors ${isChosen ? 'text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500' : 'text-gray-400 bg-gray-300 cursor-not-allowed'}"
                                 ${!isChosen ? 'disabled' : ''}
@@ -2532,12 +2529,6 @@
         
         // Check for existing content first (unless force regenerate)
         if (!forceRegenerate) {
-            if (type === 'summary' && {{ 'true' if article.article_metadata and article.article_metadata.get('chatgpt_summary') else 'false' }}) {
-                const summaryData = {{ article.article_metadata.get('chatgpt_summary') | tojson if article.article_metadata and article.article_metadata.get('chatgpt_summary') else 'null' }};
-                showChatGPTSummaryModal(summaryData.summary, summaryData);
-                return;
-            }
-            
             if (type === 'sigma' && {{ 'true' if article.article_metadata and article.article_metadata.get('sigma_rules') else 'false' }}) {
                 const sigmaData = {{ article.article_metadata.get('sigma_rules') | tojson if article.article_metadata and article.article_metadata.get('sigma_rules') else 'null' }};
                 showSigmaRulesModal(sigmaData.rules, sigmaData);
@@ -2567,7 +2558,7 @@
             }
             
             // Check threat hunting score for SIGMA rules
-            const threatHuntingScore = {{ article.article_metadata.get('threat_hunting_score', 0) if article.article_metadata and article.article_metadata.get('threat_hunting_score') is not none else 0 }};
+            const threatHuntingScore = {{ article.article_metadata.get('threat_hunting_score', 0) if article.article_metadata and article.article_metadata.get('threat_hunting_score') else 0 }};
             if (threatHuntingScore < 65) {
                 const confirmed = confirm(`⚠️ Warning: This article has a low threat hunting score (${threatHuntingScore}/100).\n\nSIGMA rules are not recommended for articles with scores below 65 as they may lack sufficient technical depth for effective detection rules.\n\nDo you want to proceed anyway?`);
                 if (!confirmed) {
@@ -2593,10 +2584,10 @@
         const operationData = {
             id: operationId,
             type: type,
-            typeText: type === 'summary' ? 'Summary' : type === 'sigma' ? 'SIGMA Rules' : type === 'ranking' ? (aiModel === 'chatgpt' ? 'GPT4o Ranking' : 'Local AI Ranking') : 'IOCs',
-            typeIcon: type === 'summary' ? '📝' : type === 'sigma' ? '🔍' : type === 'ranking' ? '📊' : '🔍',
+            typeText: type === 'sigma' ? 'SIGMA Rules' : type === 'ranking' ? (aiModel === 'chatgpt' ? 'GPT4o Ranking' : 'Local AI Ranking') : 'IOCs',
+            typeIcon: type === 'sigma' ? '🔍' : type === 'ranking' ? '📊' : '🔍',
             articleId: articleId,
-            articleTitle: '{{ article.title }}',
+            articleTitle: {{ article.title | tojson }},
             startedAt: Date.now(),
             status: 'running'
         };
@@ -2648,8 +2639,8 @@
                             <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                         </svg>
                     </div>
-                    <h3 class="text-lg font-medium text-gray-900 mt-4">${typeIcon} ${type === 'summary' ? 'Generating' : type === 'sigma' ? 'Generating' : type === 'ranking' ? 'Generating' : 'Extracting'} ${typeText}...</h3>
-                    <p class="text-sm text-gray-500 mt-2">${type === 'summary' ? 'Creating a comprehensive summary' : type === 'sigma' ? 'Creating detection rules' : type === 'ranking' ? (aiModel === 'chatgpt' ? 'Analyzing content with GPT-4o' : 'Analyzing content with local AI') : 'Extracting indicators of compromise'} - this may take a few moments.</p>
+                    <h3 class="text-lg font-medium text-gray-900 mt-4">${typeIcon} ${type === 'sigma' ? 'Generating' : type === 'ranking' ? 'Generating' : 'Extracting'} ${typeText}...</h3>
+                    <p class="text-sm text-gray-500 mt-2">${type === 'sigma' ? 'Creating detection rules' : type === 'ranking' ? (aiModel === 'chatgpt' ? 'Analyzing content with GPT-4o' : 'Analyzing content with local AI') : 'Extracting indicators of compromise'} - this may take a few moments.</p>
                     <p class="text-xs text-gray-400 mt-3">💡 Press <kbd class="px-1 py-0.5 bg-gray-200 rounded text-xs">ESC</kbd> to leave while generation continues</p>
                 </div>
             </div>
@@ -2664,7 +2655,7 @@
             });
             
             // Create the fetch promise
-            const endpoint = type === 'summary' ? 'chatgpt-summary' : type === 'sigma' ? 'generate-sigma' : type === 'ranking' ? 'rank-with-gpt4o' : 'extract-iocs';
+            const endpoint = type === 'sigma' ? 'generate-sigma' : type === 'ranking' ? 'rank-with-gpt4o' : 'extract-iocs';
             
             // Prepare request body
             const requestBody = {
@@ -2672,7 +2663,8 @@
                 api_key: apiKey,
                 force_regenerate: forceRegenerate,
                 ai_model: aiModel,
-                temperature: parseFloat(settings.aiTemperature || '0.3')
+                temperature: parseFloat(settings.aiTemperature || '0.3'),
+                debug_mode: document.getElementById('debugModeCheckbox').checked
             };
             
             // Add LLM validation setting for IOC extraction
@@ -2692,8 +2684,8 @@
                 requestBody.author_name = sigmaAuthor;
             }
             
-            // Add optimization options for ranking, summary, sigma, and IOC extraction with LLM validation
-            if (type === 'ranking' || type === 'summary' || type === 'sigma' || (type === 'iocs' && useLLMValidation)) {
+            // Add optimization options for ranking, sigma, and IOC extraction with LLM validation
+            if (type === 'ranking' || type === 'sigma' || (type === 'iocs' && useLLMValidation)) {
                 const optimizationOptions = await showOptimizationDialog();
                 if (!optimizationOptions) {
                     // User cancelled - clean up and return
@@ -2737,14 +2729,14 @@
                 const error = await response.json();
                 console.log('API Error:', error);
                 markOperationComplete(operationId, 'failed');
-                showNotification(`${typeText} ${type === 'summary' ? 'generation' : type === 'sigma' ? 'generation' : type === 'ranking' ? 'generation' : 'extraction'} failed: ${error.detail}`, 'error');
+                showNotification(`${typeText} ${type === 'sigma' ? 'generation' : type === 'ranking' ? 'generation' : 'extraction'} failed: ${error.detail}`, 'error');
             }
         } catch (error) {
             console.log('Caught error:', error);
             markOperationComplete(operationId, 'failed');
             if (error.message.includes('timed out')) {
                 const timeoutMsg = aiModel === 'chatgpt' ? '60 seconds' : '200 seconds';
-                showNotification(`${typeText} ${type === 'summary' ? 'generation' : type === 'sigma' ? 'generation' : type === 'ranking' ? 'generation' : 'extraction'} timed out after ${timeoutMsg}. Try using a different model or check your settings.`, 'error');
+                showNotification(`${typeText} ${type === 'sigma' ? 'generation' : type === 'ranking' ? 'generation' : 'extraction'} timed out after ${timeoutMsg}. Try using a different model or check your settings.`, 'error');
             } else {
                 showNotification(`Error: ${error.message}`, 'error');
             }
@@ -2781,7 +2773,7 @@
         }
         
         // Estimate cost before proceeding
-        const articleContent = `{{ article.content[:1000] }}`; // Get first 1000 chars for estimation
+        const articleContent = {{ article.content[:1000] | tojson }}; // Get first 1000 chars for estimation
         const estimatedTokens = Math.ceil(articleContent.length / 4); // Rough estimate: 1 token ≈ 4 chars
         const promptTokens = 1508; // Updated prompt length (6,033 chars ≈ 1,508 tokens)
         const totalTokens = estimatedTokens + promptTokens;
@@ -2869,8 +2861,6 @@
             button.classList.remove('opacity-75', 'cursor-not-allowed');
         }
     }
-    
-
     // Show optimization options dialog
     async function showOptimizationDialog() {
         return new Promise((resolve) => {
@@ -2975,7 +2965,6 @@
             document.addEventListener('keydown', handleEscape);
         });
     }
-
     // Show removed chunks dialog for debugging
     function showRemovedChunksDialog(debugInfo) {
         const modal = document.createElement('div');
@@ -3466,232 +3455,6 @@
         });
     }
     
-    
-    // ChatGPT Summary Functions
-    async function generateChatGPTSummary() {
-        console.log('ChatGPT Summary button clicked!'); // Debug log
-        
-        // Check if we already have a summary
-        const existingSummary = {{ article.article_metadata.get('chatgpt_summary', {}).get('summary', 'null') | tojson }};
-        const existingModelName = {{ article.article_metadata.get('chatgpt_summary', {}).get('model_name', 'null') | tojson }};
-        const existingSummarizedAt = {{ article.article_metadata.get('chatgpt_summary', {}).get('summarized_at', 'null') | tojson }};
-        
-        if (existingSummary && existingSummary !== 'null') {
-            // Show existing summary
-            console.log('Found existing summary, showing it...'); // Debug log
-            showChatGPTSummaryModal(existingSummary, {
-                model_name: existingModelName !== 'null' ? existingModelName : 'llama3.2:1b',
-                model_used: 'ollama',
-                summarized_at: existingSummarizedAt !== 'null' ? existingSummarizedAt : null,
-                content_type: 'full content'
-            });
-            return;
-        }
-        
-        // Get API key from settings
-        const settings = JSON.parse(localStorage.getItem('ctiScraperSettings') || '{}');
-        const aiModel = settings.aiModel || 'chatgpt';
-        const apiKey = aiModel === 'anthropic' ? settings.anthropicApiKey : settings.openaiApiKey;
-        
-        if ((aiModel === 'chatgpt' || aiModel === 'anthropic') && !apiKey) {
-            const keyType = aiModel === 'anthropic' ? 'Anthropic' : 'OpenAI';
-            showNotification(`Please configure your ${keyType} API key in Settings first`, 'error');
-            return;
-        }
-        
-        // Show loading modal
-        const loadingModal = document.createElement('div');
-        loadingModal.id = 'loadingModal';
-        loadingModal.className = 'fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50';
-        loadingModal.innerHTML = `
-            <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
-                <div class="mt-3 text-center">
-                    <div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-blue-100">
-                        <svg class="h-6 w-6 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                        </svg>
-                    </div>
-                    <h3 class="text-lg font-medium text-gray-900 mt-4">Generating ChatGPT Summary</h3>
-                    <p class="text-sm text-gray-500 mt-2">This may take a few moments.</p>
-                </div>
-            </div>
-        `;
-        document.body.appendChild(loadingModal);
-        
-        try {
-            console.log('Making API request to ChatGPT summary endpoint...'); // Debug log
-            
-            // Create a timeout promise - longer for LLM operations
-            const timeoutPromise = new Promise((_, reject) => {
-                const timeoutMs = aiModel === 'chatgpt' ? 180000 : 600000; // 180s for ChatGPT, 600s for LLM
-                setTimeout(() => reject(new Error(`Request timed out after ${timeoutMs/1000} seconds`)), timeoutMs);
-            });
-            
-            // Create the fetch promise
-            const fetchPromise = fetch(`/api/articles/{{ article.id }}/chatgpt-summary`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    include_content: true,  // Set to false to send only URL
-                    api_key: apiKey,  // Send API key from settings
-                    ai_model: aiModel  // Send AI model setting
-                })
-            });
-            
-            // Race between fetch and timeout
-            const response = await Promise.race([fetchPromise, timeoutPromise]);
-            
-            console.log('Response status:', response.status); // Debug log
-            
-            if (response.ok) {
-                const data = await response.json();
-                console.log('Success! Showing summary modal...'); // Debug log
-                showChatGPTSummaryModal(data.summary, data);
-            } else {
-                const error = await response.json();
-                console.error('API error:', error); // Debug log
-                showNotification(`ChatGPT Summary failed: ${error.detail}`, 'error');
-            }
-        } catch (error) {
-            console.error('JavaScript error:', error); // Debug log
-            if (error.message.includes('timed out')) {
-                const timeoutMsg = aiModel === 'chatgpt' ? '60 seconds' : '200 seconds';
-                showNotification(`Summary timed out after ${timeoutMsg}. Try using metadata-only analysis or configure OpenAI API key for faster results.`, 'error');
-            } else {
-                showNotification(`Error: ${error.message}`, 'error');
-            }
-        } finally {
-            // Remove loading modal
-            const loadingModal = document.getElementById('loadingModal');
-            if (loadingModal && loadingModal.parentNode) {
-                loadingModal.remove();
-            }
-        }
-    }
-    
-    function showChatGPTSummaryModal(summary, data = null) {
-        console.log('showChatGPTSummaryModal called with:', summary, data);
-        
-        const modal = document.createElement('div');
-        modal.id = 'chatGPTSummaryModal';
-        modal.className = 'fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50';
-        
-        // Add click outside to close
-        modal.addEventListener('click', function(e) {
-            if (e.target === modal) {
-                closeChatGPTSummaryModal();
-            }
-        });
-        
-        // Add ESC key to close
-        const handleEsc = function(e) {
-            if (e.key === 'Escape') {
-                closeChatGPTSummaryModal();
-                document.removeEventListener('keydown', handleEsc);
-            }
-        };
-        document.addEventListener('keydown', handleEsc);
-        
-        const modelUsed = data?.model_name || 'gpt-4';
-        const summarizedAt = data?.summarized_at ? new Date(data.summarized_at).toLocaleString() : 'Unknown';
-        const contentType = data?.content_type || 'full content';
-        
-        // Determine modal title based on model used
-        const isChatGPT = modelUsed.includes('gpt') || modelUsed.includes('chatgpt');
-        const modalTitle = isChatGPT ? '📝 ChatGPT Summary' : '📝 AI Summary';
-        
-        modal.innerHTML = `
-            <div class="relative top-10 mx-auto p-5 border w-11/12 max-w-4xl shadow-lg rounded-md bg-white">
-                <div class="flex justify-between items-center mb-4">
-                    <h3 class="text-xl font-bold text-gray-900">${modalTitle}</h3>
-                    <button onclick="closeChatGPTSummaryModal()" class="text-gray-400 hover:text-gray-600">
-                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                        </svg>
-                    </button>
-                </div>
-                
-                <div class="mb-4 p-3 bg-gray-50 rounded-md">
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                        <div>
-                            <span class="font-medium text-gray-700">Model Used:</span>
-                            <span class="text-gray-900">${modelUsed}</span>
-                        </div>
-                        <div>
-                            <span class="font-medium text-gray-700">Summarized At:</span>
-                            <span class="text-gray-900">${summarizedAt}</span>
-                        </div>
-                        <div>
-                            <span class="font-medium text-gray-700">Content Type:</span>
-                            <span class="text-gray-900">${contentType}</span>
-                        </div>
-                        <div>
-                            <span class="font-medium text-gray-700">Status:</span>
-                            <span class="text-gray-900">${data?.cached ? '<span class="text-blue-600 font-medium">(Cached)</span>' : '<span class="text-green-600 font-medium">(Fresh)</span>'}</span>
-                        </div>
-                        <div>
-                            <span class="font-medium text-gray-700">Temperature:</span>
-                            <span class="text-gray-900">${data?.temperature || '0.3'}</span>
-                        </div>
-                    </div>
-                    
-                    ${data?.optimization ? `
-                    <div class="mt-3 p-3 bg-green-50 border border-green-200 rounded-md">
-                        <div class="flex items-center mb-2">
-                            <span class="text-green-600 font-medium">🚀 Content Optimization Applied</span>
-                        </div>
-                        <div class="grid grid-cols-1 md:grid-cols-3 gap-2 text-xs">
-                            ${isChatGPT ? `
-                            <div>
-                                <span class="font-medium text-gray-700">Cost Savings:</span>
-                                <span class="text-green-600 font-medium">$${data.optimization.cost_savings.toFixed(4)}</span>
-                            </div>
-                            ` : ''}
-                            <div>
-                                <span class="font-medium text-gray-700">Tokens Saved:</span>
-                                <span class="text-green-600 font-medium">${data.optimization.tokens_saved.toLocaleString()}</span>
-                            </div>
-                            <div>
-                                <span class="font-medium text-gray-700">Chunks Removed:</span>
-                                <span class="text-green-600 font-medium">${data.optimization.chunks_removed}</span>
-                            </div>
-                        </div>
-                    </div>
-                    ` : ''}
-                </div>
-                
-                <div class="bg-gray-50 rounded-lg p-4 max-h-96 overflow-y-auto">
-                    <div class="prose max-w-none">
-                        <pre class="whitespace-pre-wrap text-sm text-gray-800 font-mono">${summary}</pre>
-                    </div>
-                </div>
-                
-                <div class="mt-4 flex justify-end space-x-3">
-                    <button onclick="regenerateChatGPTSummary()" 
-                            class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
-                        <span class="mr-2">🔄</span>
-                        ${data?.cached ? 'Regenerate Summary' : 'Generate New Summary'}
-                    </button>
-                    <button onclick="closeChatGPTSummaryModal()" 
-                            class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-colors">
-                        Close
-                    </button>
-                </div>
-            </div>
-        `;
-        document.body.appendChild(modal);
-        console.log('ChatGPT Summary modal added to DOM:', modal);
-    }
-    
-    function closeChatGPTSummaryModal() {
-        const modal = document.getElementById('chatGPTSummaryModal');
-        if (modal) {
-            modal.remove();
-        }
-    }
-    
     function showSigmaRulesModal(sigmaRules, data) {
         // Remove any existing modal
         closeSigmaRulesModal();
@@ -4171,7 +3934,6 @@
             modal.remove();
         }
     }
-    
     function showGPT4oRankingModal(analysis, data) {
         // Remove any existing modal
         closeGPT4oRankingModal();
@@ -4261,14 +4023,6 @@
         generateAIAnalysis('sigma', true);
     }
     
-    function regenerateChatGPTSummary() {
-        // Close current modal
-        closeChatGPTSummaryModal();
-        
-        // Call generateAIAnalysis with force regeneration
-        generateAIAnalysis('summary', true);
-    }
-    
     function regenerateIOCs() {
         // Get LLM validation setting from checkbox
         const llmValidationToggle = document.getElementById('llmValidationToggle');
@@ -4329,7 +4083,6 @@
         // Clear pending completions after showing them
         localStorage.removeItem('pendingCompletions');
     }
-    
     // Handle URL fragments to auto-open results
     console.log('Setting up URL fragment handler...');
     
@@ -4339,25 +4092,7 @@
         const hash = window.location.hash.substring(1); // Remove the #
         console.log('URL hash:', hash);
         
-        if (hash === 'summary') {
-            console.log('Processing summary hash...');
-            // Check if summary exists and show it
-            const hasSummary = {{ 'true' if article.article_metadata and article.article_metadata.get('chatgpt_summary') else 'false' }};
-            console.log('Has summary:', hasSummary);
-            if (hasSummary) {
-                const summaryData = {{ article.article_metadata.get('chatgpt_summary') | tojson if article.article_metadata and article.article_metadata.get('chatgpt_summary') else 'null' }};
-                console.log('Summary data:', summaryData);
-                if (summaryData) {
-                    console.log('Auto-opening summary modal from URL fragment');
-                    setTimeout(() => {
-                        console.log('About to call showChatGPTSummaryModal');
-                        showChatGPTSummaryModal(summaryData.summary, summaryData);
-                    }, 500);
-                }
-            } else {
-                console.log('No summary found for this article');
-            }
-        } else if (hash === 'sigma') {
+        if (hash === 'sigma') {
             console.log('Processing sigma hash...');
             
             // Get current article ID from URL
@@ -4518,50 +4253,7 @@
         const hash = window.location.hash.substring(1); // Remove the #
         console.log('URL hash:', hash);
         
-        if (hash === 'summary') {
-            console.log('Processing summary hash...');
-            
-            // Get current article ID from URL
-            const currentArticleId = window.location.pathname.split('/').pop();
-            console.log('Current article ID:', currentArticleId);
-            
-            // Check if this is the same article as the template context
-            const templateArticleId = {{ article.id }};
-            console.log('Template article ID:', templateArticleId);
-            
-            if (currentArticleId == templateArticleId) {
-                // Same article - use template data
-                const hasSummary = {{ 'true' if article.article_metadata and article.article_metadata.get('chatgpt_summary') else 'false' }};
-                console.log('Has summary (template):', hasSummary);
-                
-                if (hasSummary) {
-                    const summaryData = {{ article.article_metadata.get('chatgpt_summary') | tojson if article.article_metadata and article.article_metadata.get('chatgpt_summary') else 'null' }};
-                    console.log('Summary data (template):', summaryData);
-                    
-                    if (summaryData) {
-                        console.log('Auto-opening summary modal from URL fragment (template)');
-                        setTimeout(() => showChatGPTSummaryModal(summaryData.summary, summaryData), 500);
-                    }
-                }
-            } else {
-                // Different article - fetch data via API
-                console.log('Different article, fetching summary data via API...');
-                fetch(`/api/articles/${currentArticleId}`)
-                    .then(response => response.json())
-                    .then(data => {
-                        console.log('Fetched article data:', data);
-                        if (data.metadata && data.metadata.chatgpt_summary) {
-                            console.log('Auto-opening summary modal from URL fragment (API)');
-                            setTimeout(() => showChatGPTSummaryModal(data.metadata.chatgpt_summary.summary, data.metadata.chatgpt_summary), 500);
-                        } else {
-                            console.log('No summary data found for this article');
-                        }
-                    })
-                    .catch(error => {
-                        console.error('Error fetching article data:', error);
-                    });
-            }
-        } else if (hash === 'sigma') {
+        if (hash === 'sigma') {
             console.log('Processing sigma hash...');
             
             // Get current article ID from URL
@@ -4779,7 +4471,6 @@
             }
         }
     }
-    
     function generateProcessingSummary(summary) {
         if (!summary) {
             return '';
@@ -5174,7 +4865,6 @@
         
         return html;
     }
-    
     function generateChunkDetails(chunks) {
         return chunks.map((chunk, index) => `
             <div class="chunk-detail border rounded-lg p-4 ${chunk.is_kept ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}" data-chunk-id="${index}">
@@ -5421,7 +5111,6 @@
         const threshold = getThresholdFromSlider(sliderValue);
         await updateThreshold(threshold);
     }
-    
     // Threshold update function
     async function updateThreshold(newThreshold) {
         try {
@@ -5964,7 +5653,6 @@
             showNotification('Failed to load feedback comparison: ' + error.message, 'error');
         }
     }
-    
     function displayFeedbackComparisonModal(data) {
         // Close the current modal
         closeComparisonModal();

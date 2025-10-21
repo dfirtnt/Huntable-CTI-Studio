@@ -133,7 +133,6 @@ environment:
 ```
 
 **Supported AI Endpoints:**
-- Article summaries (`/api/articles/{id}/chatgpt-summary`)
 - Custom prompts (`/api/articles/{id}/custom-prompt`)
 - SIGMA rule generation (`/api/articles/{id}/generate-sigma`)
 - Content ranking (`/api/articles/{id}/rank-with-gpt4o`)

@@ -75,3 +75,9 @@ def page(context):
     page = context.new_page()
     yield page
     page.close()
+
+
+def pytest_configure(config):
+    """Register custom markers to satisfy strict marker checks."""
+    config.addinivalue_line("markers", "ui: UI tests")
+    config.addinivalue_line("markers", "ai: AI assistant and summarization tests")

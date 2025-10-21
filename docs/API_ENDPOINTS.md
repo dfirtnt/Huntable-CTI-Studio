@@ -94,7 +94,6 @@ The CTI Scraper provides **127 API endpoints** across multiple categories:
 - `GET /api/search/help` - Get search syntax help
 
 ### Article Analysis
-- `POST /api/articles/{article_id}/chatgpt-summary` - Generate ChatGPT summary
 - `POST /api/articles/{article_id}/custom-prompt` - Custom AI prompt analysis
 - `POST /api/articles/{article_id}/generate-sigma` - Generate SIGMA detection rules
 - `POST /api/articles/{article_id}/extract-iocs` - Extract IOCs using hybrid approach
@@ -108,11 +107,9 @@ The CTI Scraper provides **127 API endpoints** across multiple categories:
 ### AI Services
 - `POST /api/chat/rag` - RAG chat interface
 - `POST /api/search/semantic` - Semantic search using embeddings
-- `POST /api/test-chatgpt-summary` - Test ChatGPT summary functionality
 - `POST /api/test-openai-key` - Test OpenAI API key validity
 - `POST /api/test-anthropic-key` - Test Anthropic API key validity
 - `POST /api/test-claude-summary` - Test Claude summary functionality
-- `POST /api/articles/{article_id}/chatgpt-summary` - Generate ChatGPT summary
 - `POST /api/articles/{article_id}/custom-prompt` - Custom AI prompt analysis
 - `POST /api/articles/{article_id}/generate-sigma` - Generate SIGMA detection rules
 - `POST /api/articles/{article_id}/extract-iocs` - Extract IOCs using hybrid approach
