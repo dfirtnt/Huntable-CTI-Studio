@@ -318,7 +318,7 @@
                 <button id="aiAssistantBtn" onclick="showAIAssistant()" 
                         class="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-colors">
                     <span class="mr-2">🤖</span>
-                    AI Assistant
+                    AL/ML Assistant
                 </button>
                 
                 <!-- Debug Mode Checkbox -->
@@ -2227,7 +2227,7 @@
             console.log('Available spans:', Array.from(statusSpans).map(s => ({text: s.textContent, classes: s.className})));
         }
         
-        // Store the current classification in localStorage for the AI Assistant modal
+        // Store the current classification in localStorage for the AL/ML Assistant modal
         localStorage.setItem('currentArticleClassification', category);
     }
     
@@ -2386,7 +2386,7 @@
         }
     }
     
-    // AI Assistant Functions
+    // AL/ML Assistant Functions
     async function showAIAssistant() {
         // Get AI model from settings
         const settings = JSON.parse(localStorage.getItem('ctiScraperSettings') || '{}');
@@ -2462,7 +2462,7 @@
         modal.innerHTML = `
             <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
                 <div class="mt-3 text-center">
-                    <h3 class="text-lg font-medium text-gray-900 mb-4">🤖 AI Assistant</h3>
+                    <h3 class="text-lg font-medium text-gray-900 mb-4">🤖 AL/ML Assistant</h3>
                     <p class="text-sm text-gray-500 mb-6">Choose what you'd like to ${hasExisting ? 'view or regenerate' : 'generate'}:</p>
                     
                     <div class="space-y-3">
@@ -2498,7 +2498,7 @@
                         <button onclick="showChunkDebugModal()" 
                                 class="w-full inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-gray-600 hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-colors">
                             <span class="mr-2">🔍</span>
-                            Chunk Debug Mode
+                            Chunk ML Feedback
                         </button>
                         
                         <button onclick="closeAIAssistantModal()" 
@@ -4617,7 +4617,7 @@
         modal.innerHTML = `
             <div class="relative top-4 mx-auto p-6 border w-11/12 max-w-7xl shadow-lg rounded-md bg-white max-h-[90vh] overflow-y-auto">
                 <div class="flex justify-between items-center mb-6">
-                    <h3 class="text-2xl font-bold text-gray-900">🔍 Chunk Debug Analysis</h3>
+                    <h3 class="text-2xl font-bold text-gray-900">🔍 Chunk ML Feedback</h3>
                     <button onclick="closeChunkDebugModal()" class="text-gray-400 hover:text-gray-600">
                         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
@@ -5413,7 +5413,7 @@
         }
     }
 
-    // Check AI Assistant button state on page load
+    // Check AL/ML Assistant button state on page load
     document.addEventListener('DOMContentLoaded', function() {
         checkAIAssistantButtonState();
     });
