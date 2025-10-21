@@ -26,7 +26,7 @@ class TestDeduplicationResult:
         assert result.stats == stats
 
 
-@pytest.mark.skip(reason="Async mock configuration needed for ContentProcessor tests")
+@pytest.mark.asyncio
 class TestContentProcessor:
     """Test ContentProcessor functionality."""
 

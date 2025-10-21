@@ -15,7 +15,7 @@ from src.models.source import Source
 from src.utils.http import HTTPClient
 
 
-@pytest.mark.skip(reason="Async mock configuration needed for URLDiscovery tests")
+@pytest.mark.asyncio
 class TestURLDiscovery:
     """Test URLDiscovery functionality."""
 

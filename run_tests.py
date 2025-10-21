@@ -212,11 +212,12 @@ def generate_test_report() -> None:
     # Check if test results exist
     test_results_dir = Path("test-results")
     if test_results_dir.exists():
-        # Allure results
-        allure_results = Path("allure-results")
-        if allure_results.exists():
-            print(f"📊 Allure Results: {allure_results.absolute()}")
-            print(f"💡 Run 'allure serve allure-results' to view interactive reports")
+                # Allure results
+                allure_results = Path("allure-results")
+                if allure_results.exists():
+                    print(f"📊 Allure Results: {allure_results.absolute()}")
+                    print(f"💡 Run './manage_allure.sh start' for containerized reports (recommended)")
+                    print(f"💡 Run 'allure serve allure-results' for host-based reports")
         
         # Report log for analysis
         report_log = test_results_dir / "reportlog.jsonl"
@@ -241,11 +242,12 @@ def generate_test_report() -> None:
     print("  • All Tests: tests/")
     print("  • Coverage: tests/ --cov=src")
     
-    print("\n🔍 Visual Tracking Features:")
-    print("  • Allure Reports: Rich visual analytics with pie charts, bar charts, and trends")
-    print("  • Enhanced HTML Reports: Rich reporting with better debugging info")
-    print("  • Performance Analytics: Track test execution trends over time")
-    print("  • ML/AI Debugging: Detailed visualization for AI inference tests")
+            print("\n🔍 Visual Tracking Features:")
+            print("  • Allure Reports: Rich visual analytics with pie charts, bar charts, and trends")
+            print("  • Containerized Reports: Dedicated Docker container for reliable access")
+            print("  • Enhanced HTML Reports: Rich reporting with better debugging info")
+            print("  • Performance Analytics: Track test execution trends over time")
+            print("  • ML/AI Debugging: Detailed visualization for AI inference tests")
 
 def main():
     """Main test runner."""

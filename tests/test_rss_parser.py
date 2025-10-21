@@ -12,7 +12,7 @@ from src.models.source import Source
 from src.utils.http import HTTPClient
 
 
-@pytest.mark.skip(reason="Async mock configuration needed for RSS parser tests")
+@pytest.mark.asyncio
 class TestRSSParser:
     """Test RSS parser functionality."""
 

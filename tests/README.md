@@ -85,7 +85,10 @@ CTIScraper includes advanced visual test tracking capabilities:
 # Generate Allure results
 python run_tests.py --all
 
-# Serve interactive reports
+# Start dedicated container (recommended)
+./manage_allure.sh start
+
+# Serve interactive reports (host)
 allure serve allure-results
 
 # Generate static reports
