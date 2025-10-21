@@ -1,0 +1,25 @@
+version: '3.8'
+
+services:
+  allure-reports:
+    build:
+      context: .
+      dockerfile: Dockerfile.allure
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./allure-results:/app/allure-results:ro
+    restart: unless-stopped
+    container_name: cti_allure_reports
+    networks:
+      - cti_network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+networks:
+  cti_network:
+    external: true

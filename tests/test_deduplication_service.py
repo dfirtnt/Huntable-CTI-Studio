@@ -12,7 +12,6 @@ from src.models.article import ArticleCreate
 from src.database.models import ArticleTable
 
 
-@pytest.mark.skip(reason="SimHash algorithm tests need refinement")
 class TestSimHash:
     """Test SimHash functionality."""
 
@@ -396,7 +395,7 @@ class TestDeduplicationService:
         mock_session.add.assert_called_once()
 
 
-@pytest.mark.skip(reason="Async mock configuration needed for AsyncDeduplicationService tests")
+@pytest.mark.asyncio
 class TestAsyncDeduplicationService:
     """Test AsyncDeduplicationService functionality."""
 

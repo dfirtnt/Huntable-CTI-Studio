@@ -65,7 +65,24 @@ python -m pytest tests/test_utils.py -v --alluredir=allure-results
 python run_tests.py --all
 ```
 
-#### 2. Serve Interactive Reports
+#### 2. Containerized Reports (Recommended)
+```bash
+# Start dedicated Allure container
+./manage_allure.sh start
+
+# Stop container
+./manage_allure.sh stop
+
+# View logs
+./manage_allure.sh logs
+
+# Check status
+./manage_allure.sh status
+```
+
+Access reports at: `http://localhost:8080`
+
+#### 3. Serve Interactive Reports (Host)
 ```bash
 # Install Allure commandline tool (one-time setup)
 # macOS: brew install allure
@@ -80,7 +97,7 @@ This will:
 - Start a local web server
 - Open the report in your browser (typically `http://localhost:random-port`)
 
-#### 3. Generate Static Reports
+#### 4. Generate Static Reports
 ```bash
 # Generate static HTML report
 allure generate allure-results --clean -o allure-report

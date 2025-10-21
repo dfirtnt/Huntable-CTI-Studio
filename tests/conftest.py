@@ -7,6 +7,7 @@ import pytest_asyncio
 import httpx
 from typing import AsyncGenerator
 from playwright.sync_api import sync_playwright
+from unittest.mock import AsyncMock, MagicMock
 
 
 @pytest_asyncio.fixture
@@ -25,6 +26,63 @@ def api_headers():
         "Content-Type": "application/json",
         "Accept": "application/json"
     }
+
+
+# Async Mock Fixtures for Database and Service Testing
+@pytest.fixture
+def mock_async_session():
+    """Create a properly configured async database session mock."""
+    session = AsyncMock()
+    session.__aenter__ = AsyncMock(return_value=session)
+    session.__aexit__ = AsyncMock(return_value=None)
+    session.execute = AsyncMock()
+    session.commit = AsyncMock()
+    session.rollback = AsyncMock()
+    session.close = AsyncMock()
+    session.add = MagicMock()
+    session.delete = MagicMock()
+    session.merge = MagicMock()
+    session.refresh = AsyncMock()
+    session.scalar = AsyncMock()
+    session.scalars = AsyncMock()
+    session.get = AsyncMock()
+    return session
+
+
+@pytest.fixture
+def mock_async_engine():
+    """Create a properly configured async database engine mock."""
+    engine = AsyncMock()
+    engine.begin = AsyncMock()
+    engine.__aenter__ = AsyncMock(return_value=engine)
+    engine.__aexit__ = AsyncMock(return_value=None)
+    engine.connect = AsyncMock()
+    engine.dispose = AsyncMock()
+    return engine
+
+
+@pytest.fixture
+def mock_async_http_client():
+    """Create a properly configured async HTTP client mock."""
+    client = AsyncMock()
+    client.get = AsyncMock()
+    client.post = AsyncMock()
+    client.put = AsyncMock()
+    client.delete = AsyncMock()
+    client.__aenter__ = AsyncMock(return_value=client)
+    client.__aexit__ = AsyncMock(return_value=None)
+    return client
+
+
+@pytest.fixture
+def mock_async_deduplication_service():
+    """Create a properly configured async deduplication service mock."""
+    service = AsyncMock()
+    service.check_duplicate = AsyncMock()
+    service.add_content_hash = AsyncMock()
+    service.get_similar_content = AsyncMock()
+    service.cleanup_old_hashes = AsyncMock()
+    return service
 
 
 # Playwright fixtures for UI testing
