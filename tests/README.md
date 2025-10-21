@@ -24,6 +24,9 @@ python3 -m pytest tests/ -v
 
 # Run with coverage
 python3 -m pytest tests/ --cov=src --cov-report=html
+
+# Run with visual tracking (recommended)
+python run_tests.py --all
 ```
 
 ### Run ML Feedback Tests (Essential Regression Prevention)
@@ -72,6 +75,31 @@ python3 tests/run_lightweight_tests.py light
 # Full integration tests (requires Docker)
 python3 tests/run_lightweight_tests.py full
 ```
+
+## 🔍 Visual Test Tracking
+
+CTIScraper includes advanced visual test tracking capabilities:
+
+### Allure Reports
+```bash
+# Generate Allure results
+python run_tests.py --all
+
+# Serve interactive reports
+allure serve allure-results
+
+# Generate static reports
+allure generate allure-results --clean -o allure-report
+```
+
+### Features
+- **Rich Visual Analytics**: Pie charts, bar charts, and trend graphs
+- **Interactive Dashboard**: Web-based visualization of test execution
+- **Step-by-Step Debugging**: Detailed test execution visualization
+- **ML/AI Monitoring**: Special focus on AI inference performance
+- **Historical Tracking**: Monitor performance trends over time
+
+For detailed usage, see [Allure Reports Guide](../docs/development/ALLURE_REPORTS.md).
 
 ## 📁 Test Structure
 

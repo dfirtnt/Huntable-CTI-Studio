@@ -1,0 +1,1 @@
+WARNING  src.web.modern_main:modern_main.py:247 ChatGPT response missing message payload; attempting to recover from choice-level text.

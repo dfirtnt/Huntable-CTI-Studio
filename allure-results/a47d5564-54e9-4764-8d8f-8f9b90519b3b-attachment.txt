@@ -1,0 +1,1 @@
+ERROR    src.services.embedding_service:embedding_service.py:54 Failed to load embedding model 'all-mpnet-base-v2': Model loading failed

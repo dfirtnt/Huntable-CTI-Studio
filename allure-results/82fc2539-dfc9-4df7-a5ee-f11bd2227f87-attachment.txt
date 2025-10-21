@@ -1,0 +1,18 @@
+🔍 Analyzing threat intelligence...🔍 Analyzing threat intelligence...
+📝 Input: 
+        This is a threat intelligence report about APT29 campaigns.
+        The attackers use Power...
+📝 Input: 
+        This is a threat intelligence report about APT29 campaigns.
+        The attackers use Power...
+✅ SIGMA rules generated in 0.00 seconds
+
+📊 Performance: 4956904.7x faster than original
+🔍 Analyzing threat intelligence...✅ SIGMA rules generated in 0.00 seconds
+
+📝 Input: 
+        This is a threat intelligence report about APT29 campaigns.
+        The attackers use Power...📊 Performance: 7174467.4x faster than original
+
+✅ SIGMA rules generated in 0.00 seconds
+📊 Performance: 8261507.9x faster than original

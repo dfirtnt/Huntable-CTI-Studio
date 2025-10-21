@@ -131,15 +131,15 @@ def run_smoke_tests(docker_mode: bool = False) -> bool:
     )
 
 def run_all_tests(docker_mode: bool = False) -> bool:
-    """Run all tests."""
+    """Run all tests with enhanced visual reporting."""
     if docker_mode:
         return run_command(
-            "docker exec cti_web python -m pytest tests/ -v --tb=short --html=test-results/report.html --self-contained-html",
-            "Running all tests in Docker with HTML report"
+            "docker exec cti_web python -m pytest tests/ -v --tb=short --report-log=test-results/reportlog.jsonl --alluredir=allure-results",
+            "Running all tests in Docker with enhanced visual reporting"
         )
     return run_command(
-        "python3 -m pytest tests/ -v --tb=short --html=test-results/report.html --self-contained-html",
-        "Running all tests with HTML report"
+        "python3 -m pytest tests/ -v --tb=short --report-log=test-results/reportlog.jsonl --alluredir=allure-results",
+        "Running all tests with enhanced visual reporting"
     )
 
 def run_coverage_tests(docker_mode: bool = False) -> bool:
@@ -205,16 +205,24 @@ def run_ai_integration_tests(docker_mode: bool = False, skip_real_api: bool = Fa
     return run_command(cmd, "Running AI integration tests")
 
 def generate_test_report() -> None:
-    """Generate a test summary report."""
+    """Generate a test summary report with visual tracking information."""
     print("\n📊 Test Summary Report")
     print("=" * 50)
     
     # Check if test results exist
     test_results_dir = Path("test-results")
     if test_results_dir.exists():
-        html_report = test_results_dir / "report.html"
-        if html_report.exists():
-            print(f"📄 HTML Report: {html_report.absolute()}")
+        # Allure results
+        allure_results = Path("allure-results")
+        if allure_results.exists():
+            print(f"📊 Allure Results: {allure_results.absolute()}")
+            print(f"💡 Run 'allure serve allure-results' to view interactive reports")
+        
+        # Report log for analysis
+        report_log = test_results_dir / "reportlog.jsonl"
+        if report_log.exists():
+            print(f"📊 Report Log: {report_log.absolute()}")
+            print(f"💡 Use Allure Reports for comprehensive visual analysis")
     
     coverage_dir = Path("htmlcov")
     if coverage_dir.exists():
@@ -232,6 +240,12 @@ def generate_test_report() -> None:
     print("  • AI Assistant Tests: tests/ui/test_ai_assistant_ui.py + tests/integration/test_ai_*.py")
     print("  • All Tests: tests/")
     print("  • Coverage: tests/ --cov=src")
+    
+    print("\n🔍 Visual Tracking Features:")
+    print("  • Allure Reports: Rich visual analytics with pie charts, bar charts, and trends")
+    print("  • Enhanced HTML Reports: Rich reporting with better debugging info")
+    print("  • Performance Analytics: Track test execution trends over time")
+    print("  • ML/AI Debugging: Detailed visualization for AI inference tests")
 
 def main():
     """Main test runner."""
