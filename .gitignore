@@ -125,6 +125,8 @@ test-results/
 coverage/
 .coverage
 .pytest_cache/
+allure-results/
+allure-report/
 
 # Backup files
 *.bak

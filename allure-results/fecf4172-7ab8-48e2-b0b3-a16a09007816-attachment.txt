@@ -1,0 +1,1 @@
+ERROR    src.web.modern_main:modern_main.py:219 DEBUG: Responses API - No assistant output found

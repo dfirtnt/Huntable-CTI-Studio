@@ -8,6 +8,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Allure Reports Integration**: Rich visual test analytics with pie charts, bar charts, and trend graphs
+- **Interactive Test Dashboard**: Step-by-step test visualization for debugging and analysis
+- **Enhanced Test Reporting**: Comprehensive test execution reports with ML/AI debugging capabilities
+- **Visual Test Tracking**: Professional test reporting system for development and CI/CD pipelines
 - **Database-Based Training System**: Refactored ML training from CSV to PostgreSQL database storage
 - **Chunk Classification Feedback Table**: New database table for storing user feedback on ML predictions
 - **Auto-Expand Annotation UI**: Automatic 1000-character text selection for optimal training data
