@@ -2472,12 +2472,13 @@ async def api_articles_list(
     processing_status: Optional[str] = None
 ):
     """API endpoint for listing articles with sorting and filtering."""
-    print("=" * 50)
-    print("API ARTICLES ENDPOINT CALLED!")
-    print("=" * 50)
-    print(f"Function parameters: sort_by={sort_by}, sort_order={sort_order}")
+    # Debug logging for API articles endpoint
+    logger.debug("=" * 50)
+    logger.debug("API ARTICLES ENDPOINT CALLED!")
+    logger.debug("=" * 50)
+    logger.debug(f"Function parameters: sort_by={sort_by}, sort_order={sort_order}")
     try:
-        print(f"DEBUG: API called with sort_by={sort_by}, sort_order={sort_order}")
+        logger.debug(f"DEBUG: API called with sort_by={sort_by}, sort_order={sort_order}")
         logger.info(f"DEBUG: API called with sort_by={sort_by}, sort_order={sort_order}")
         try:
             article_filter = SimpleFilter(
