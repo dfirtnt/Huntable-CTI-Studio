@@ -1,0 +1,158 @@
+services:
+  # Test PostgreSQL Database with pgvector extension
+  test_postgres:
+    image: pgvector/pgvector:pg15
+    container_name: cti_test_postgres
+    environment:
+      POSTGRES_DB: test_cti_scraper
+      POSTGRES_USER: test_user
+      POSTGRES_PASSWORD: test_password
+      POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --lc-collate=C --lc-ctype=C"
+    volumes:
+      - test_postgres_data:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    ports:
+      - "5433:5432"  # Different port to avoid conflicts
+    networks:
+      - cti_test_network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U test_user -d test_cti_scraper"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Test Redis for caching and background tasks
+  test_redis:
+    image: redis:7-alpine
+    container_name: cti_test_redis
+    ports:
+      - "6380:6379"  # Different port to avoid conflicts
+    volumes:
+      - test_redis_data:/data
+    networks:
+      - cti_test_network
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Test Web Application
+  test_web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: cti_test_web
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://test_user:test_password@test_postgres:5432/test_cti_scraper
+      - REDIS_URL=redis://test_redis:6379/1
+      - ENVIRONMENT=test
+      - TESTING=true
+      - LOG_LEVEL=DEBUG
+      - TEST_PORT=8002
+      - MOCK_EXTERNAL_SERVICES=true
+      - MOCK_LLM_RESPONSES=true
+      - TEST_ISOLATION=true
+      - PERFORMANCE_TEST_ENABLED=false
+      - INTEGRATION_TEST_ENABLED=true
+      - TZ=America/New_York
+    ports:
+      - "8002:8002"
+    volumes:
+      - ./src:/app/src
+      - ./config:/app/config
+      - ./logs:/app/logs
+      - ./tests:/app/tests
+      - ./test-results:/app/test-results
+      - ./env.test.template:/app/.env.test
+    depends_on:
+      test_postgres:
+        condition: service_healthy
+      test_redis:
+        condition: service_healthy
+    networks:
+      - cti_test_network
+    restart: unless-stopped
+    command: uvicorn src.web.modern_main:app --host 0.0.0.0 --port 8002 --reload
+    profiles:
+      - test
+
+  # Test Worker for Background Tasks
+  test_worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: cti_test_worker
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://test_user:test_password@test_postgres:5432/test_cti_scraper
+      - REDIS_URL=redis://test_redis:6379/1
+      - ENVIRONMENT=test
+      - TESTING=true
+      - LOG_LEVEL=DEBUG
+      - MOCK_EXTERNAL_SERVICES=true
+      - MOCK_LLM_RESPONSES=true
+      - TEST_ISOLATION=true
+    volumes:
+      - ./src:/app/src
+      - ./config:/app/config
+      - ./logs:/app/logs
+      - ./tests:/app/tests
+      - ./test-results:/app/test-results
+    depends_on:
+      test_postgres:
+        condition: service_healthy
+      test_redis:
+        condition: service_healthy
+    networks:
+      - cti_test_network
+    restart: unless-stopped
+    command: celery -A src.worker.celery_app worker --loglevel=debug
+    profiles:
+      - test
+
+  # Test CLI Tool Service
+  test_cli:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: cti_test_cli
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://test_user:test_password@test_postgres:5432/test_cti_scraper
+      - REDIS_URL=redis://test_redis:6379/1
+      - ENVIRONMENT=test
+      - TESTING=true
+      - LOG_LEVEL=DEBUG
+      - SOURCES_CONFIG=/app/config/sources.yaml
+      - MOCK_EXTERNAL_SERVICES=true
+      - MOCK_LLM_RESPONSES=true
+      - TEST_ISOLATION=true
+    volumes:
+      - ./src:/app/src
+      - ./config:/app/config
+      - ./logs:/app/logs
+      - ./tests:/app/tests
+      - ./test-results:/app/test-results
+    depends_on:
+      test_postgres:
+        condition: service_healthy
+      test_redis:
+        condition: service_healthy
+    networks:
+      - cti_test_network
+    restart: unless-stopped
+    profiles:
+      - test
+    command: ["python", "-m", "src.cli.main"]
+
+volumes:
+  test_postgres_data:
+    driver: local
+  test_redis_data:
+    driver: local
+
+networks:
+  cti_test_network:
+    driver: bridge

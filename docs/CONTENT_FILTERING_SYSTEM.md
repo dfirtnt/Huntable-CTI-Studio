@@ -90,7 +90,7 @@ I've successfully designed and implemented a machine learning-based content filt
 
 **Enhanced Alignment (2024):**
 - **Expanded Patterns**: Integrated all 97 perfect discriminators from hunt scoring system
-- **LOLBAS Coverage**: Added 40+ LOLBAS executables to huntable patterns
+- **LOLBAS Coverage**: Added 30+ LOLBAS executables to huntable patterns
 - **Intelligence Indicators**: Included APT groups, campaigns, and threat intelligence terms
 - **Cross-Platform**: Added macOS and Linux patterns for comprehensive coverage
 - **Confidence Scoring**: Enhanced ML classification with hunt score integration

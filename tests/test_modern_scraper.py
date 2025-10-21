@@ -212,7 +212,6 @@ class TestURLDiscovery:
         assert "https://example.com/other" not in urls
 
 
-@pytest.mark.skip(reason="Mock configuration needed for StructuredDataExtractor tests")
 class TestStructuredDataExtractor:
     """Test StructuredDataExtractor functionality."""
 
@@ -358,7 +357,6 @@ class TestStructuredDataExtractor:
         assert extracted['canonical_url'] == ''
 
 
-@pytest.mark.skip(reason="Async mock configuration needed for ModernScraper tests")
 class TestModernScraper:
     """Test ModernScraper functionality."""
 
@@ -607,7 +605,6 @@ class TestModernScraper:
         assert result is None
 
 
-@pytest.mark.skip(reason="Async mock configuration needed for LegacyScraper tests")
 class TestLegacyScraper:
     """Test LegacyScraper functionality."""
 

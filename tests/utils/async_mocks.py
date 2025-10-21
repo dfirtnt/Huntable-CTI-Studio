@@ -68,8 +68,8 @@ class AsyncMockHTTPClient:
         mock_response.text = "<html>Test content</html>"
         mock_response.status_code = 200
         mock_response.headers = {"content-type": "text/html"}
-        mock_response.raise_for_status = Mock()
-        mock_response.json = Mock(return_value={})
+        mock_response.raise_for_status = AsyncMock()
+        mock_response.json = AsyncMock(return_value={})
         
         # Set as default return value for all HTTP methods
         self.get.return_value = mock_response

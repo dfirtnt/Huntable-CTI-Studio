@@ -44,14 +44,22 @@ class TestAsyncDatabaseManager:
     @pytest.fixture
     def sample_article_data(self):
         """Sample article data for testing."""
+        now = datetime.now()
         return {
             "title": "Test Article",
             "content": "Test article content",
-            "url": "https://example.com/article",
-            "published_date": datetime.now(),
-            "source_id": 1,
             "canonical_url": "https://example.com/article",
-            "identifier": "test-article-123"
+            "published_at": now,
+            "source_id": 1,
+            "content_hash": "test-hash-1234567890abcdef",
+            "authors": ["Test Author"],
+            "tags": ["test", "article"],
+            "summary": "Test article summary",
+            "article_metadata": {"test": "metadata"},
+            "collected_at": now,
+            "discovered_at": now,
+            "created_at": now,
+            "updated_at": now
         }
 
     @pytest.fixture
@@ -59,10 +67,17 @@ class TestAsyncDatabaseManager:
         """Sample annotation data for testing."""
         return {
             "article_id": 1,
-            "label": "huntable",
-            "confidence": 0.95,
-            "reasoning": "Contains IOCs and threat intelligence",
-            "created_by": "test_user"
+            "annotation_type": "huntable",
+            "selected_text": "Contains IOCs and threat intelligence",
+            "start_position": 100,
+            "end_position": 150,
+            "context_before": "Previous context text",
+            "context_after": "Following context text",
+            "confidence_score": 0.95,
+            "used_for_training": False,
+            "user_id": 1,
+            "created_at": datetime.now(),
+            "updated_at": datetime.now()
         }
 
     @pytest.mark.asyncio
@@ -117,19 +132,19 @@ class TestAsyncDatabaseManager:
     async def test_update_source(self, mock_session, sample_source_data):
         """Test updating a source."""
         source_id = 1
-        update_data = {"name": "Updated Source Name", "is_active": False}
+        update_data = {"name": "Updated Source Name", "active": False}
         
         # Mock the database manager
         with patch('src.database.async_manager.AsyncDatabaseManager') as mock_manager:
             mock_instance = mock_manager.return_value
-            updated_source = Source(id=source_id, **{**sample_source_data, **update_data})
-            mock_instance.update_source.return_value = updated_source
+            updated_source = Source(**{**sample_source_data, **update_data, "id": source_id})
+            mock_instance.update_source = AsyncMock(return_value=updated_source)
             
             source_update = SourceUpdate(**update_data)
             result = await mock_instance.update_source(source_id, source_update)
             
             assert result.name == update_data["name"]
-            assert result.is_active == update_data["is_active"]
+            assert result.active == update_data["active"]
 
     @pytest.mark.asyncio
     async def test_delete_source(self, mock_session):
@@ -139,7 +154,7 @@ class TestAsyncDatabaseManager:
         # Mock the database manager
         with patch('src.database.async_manager.AsyncDatabaseManager') as mock_manager:
             mock_instance = mock_manager.return_value
-            mock_instance.delete_source.return_value = True
+            mock_instance.delete_source = AsyncMock(return_value=True)
             
             result = await mock_instance.delete_source(source_id)
             
@@ -157,7 +172,8 @@ class TestAsyncDatabaseManager:
                 is_active=True,
                 last_scraped=datetime.now(),
                 scrape_frequency=3600,
-                source_type="rss"
+                source_type="rss",
+                identifier="source-1"
             ),
             Source(
                 id=2,
@@ -167,14 +183,15 @@ class TestAsyncDatabaseManager:
                 is_active=False,
                 last_scraped=datetime.now(),
                 scrape_frequency=7200,
-                source_type="scraping"
+                source_type="scraping",
+                identifier="source-2"
             )
         ]
         
         # Mock the database manager
         with patch('src.database.async_manager.AsyncDatabaseManager') as mock_manager:
             mock_instance = mock_manager.return_value
-            mock_instance.list_sources.return_value = expected_sources
+            mock_instance.list_sources = AsyncMock(return_value=expected_sources)
             
             source_filter = SourceFilter(is_active=True)
             result = await mock_instance.list_sources(source_filter)
@@ -190,7 +207,7 @@ class TestAsyncDatabaseManager:
             mock_instance = mock_manager.return_value
             article_create = ArticleCreate(**sample_article_data)
             created_article = Article(id=1, **sample_article_data)
-            mock_instance.create_article.return_value = created_article
+            mock_instance.create_article = AsyncMock(return_value=created_article)
             
             result = await mock_instance.create_article(article_create)
             
@@ -206,17 +223,20 @@ class TestAsyncDatabaseManager:
             id=article_id,
             title="Test Article",
             content="Test content",
-            url="https://example.com/article",
-            published_date=datetime.now(),
-            source_id=1,
             canonical_url="https://example.com/article",
-            identifier="test-123"
+            published_at=datetime.now(),
+            source_id=1,
+            content_hash="test-hash-123",
+            collected_at=datetime.now(),
+            discovered_at=datetime.now(),
+            created_at=datetime.now(),
+            updated_at=datetime.now()
         )
         
         # Mock the database manager
         with patch('src.database.async_manager.AsyncDatabaseManager') as mock_manager:
             mock_instance = mock_manager.return_value
-            mock_instance.get_article_by_id.return_value = expected_article
+            mock_instance.get_article_by_id = AsyncMock(return_value=expected_article)
             
             result = await mock_instance.get_article_by_id(article_id)
             
@@ -233,7 +253,7 @@ class TestAsyncDatabaseManager:
         with patch('src.database.async_manager.AsyncDatabaseManager') as mock_manager:
             mock_instance = mock_manager.return_value
             updated_article = Article(id=article_id, **{**sample_article_data, **update_data})
-            mock_instance.update_article.return_value = updated_article
+            mock_instance.update_article = AsyncMock(return_value=updated_article)
             
             article_update = ArticleUpdate(**update_data)
             result = await mock_instance.update_article(article_id, article_update)
@@ -249,7 +269,7 @@ class TestAsyncDatabaseManager:
         # Mock the database manager
         with patch('src.database.async_manager.AsyncDatabaseManager') as mock_manager:
             mock_instance = mock_manager.return_value
-            mock_instance.delete_article.return_value = True
+            mock_instance.delete_article = AsyncMock(return_value=True)
             
             result = await mock_instance.delete_article(article_id)
             
@@ -263,28 +283,34 @@ class TestAsyncDatabaseManager:
                 id=1,
                 title="Article 1",
                 content="Content 1",
-                url="https://example.com/article1",
-                published_date=datetime.now(),
-                source_id=1,
                 canonical_url="https://example.com/article1",
-                identifier="article-1"
+                published_at=datetime.now(),
+                source_id=1,
+                content_hash="test-hash-1",
+                collected_at=datetime.now(),
+                discovered_at=datetime.now(),
+                created_at=datetime.now(),
+                updated_at=datetime.now()
             ),
             Article(
                 id=2,
                 title="Article 2",
                 content="Content 2",
-                url="https://example.com/article2",
-                published_date=datetime.now(),
-                source_id=2,
                 canonical_url="https://example.com/article2",
-                identifier="article-2"
+                published_at=datetime.now(),
+                source_id=2,
+                content_hash="test-hash-2",
+                collected_at=datetime.now(),
+                discovered_at=datetime.now(),
+                created_at=datetime.now(),
+                updated_at=datetime.now()
             )
         ]
         
         # Mock the database manager
         with patch('src.database.async_manager.AsyncDatabaseManager') as mock_manager:
             mock_instance = mock_manager.return_value
-            mock_instance.list_articles.return_value = expected_articles
+            mock_instance.list_articles = AsyncMock(return_value=expected_articles)
             
             article_filter = ArticleListFilter(source_id=1)
             result = await mock_instance.list_articles(article_filter)
@@ -300,13 +326,13 @@ class TestAsyncDatabaseManager:
             mock_instance = mock_manager.return_value
             annotation_create = ArticleAnnotationCreate(**sample_annotation_data)
             created_annotation = ArticleAnnotation(id=1, **sample_annotation_data)
-            mock_instance.create_annotation.return_value = created_annotation
+            mock_instance.create_annotation = AsyncMock(return_value=created_annotation)
             
             result = await mock_instance.create_annotation(annotation_create)
             
             assert result.article_id == sample_annotation_data["article_id"]
-            assert result.label == sample_annotation_data["label"]
-            assert result.confidence == sample_annotation_data["confidence"]
+            assert result.annotation_type == sample_annotation_data["annotation_type"]
+            assert result.confidence_score == sample_annotation_data["confidence_score"]
 
     @pytest.mark.asyncio
     async def test_get_annotation_by_id(self, mock_session):
@@ -315,39 +341,46 @@ class TestAsyncDatabaseManager:
         expected_annotation = ArticleAnnotation(
             id=annotation_id,
             article_id=1,
-            label="huntable",
-            confidence=0.95,
-            reasoning="Contains IOCs",
-            created_by="test_user"
+            annotation_type="huntable",
+            selected_text="Contains IOCs",
+            start_position=100,
+            end_position=150,
+            context_before="Previous context",
+            context_after="Following context",
+            confidence_score=0.95,
+            used_for_training=False,
+            user_id=1,
+            created_at=datetime.now(),
+            updated_at=datetime.now()
         )
         
         # Mock the database manager
         with patch('src.database.async_manager.AsyncDatabaseManager') as mock_manager:
             mock_instance = mock_manager.return_value
-            mock_instance.get_annotation_by_id.return_value = expected_annotation
+            mock_instance.get_annotation_by_id = AsyncMock(return_value=expected_annotation)
             
             result = await mock_instance.get_annotation_by_id(annotation_id)
             
             assert result.id == annotation_id
-            assert result.label == "huntable"
+            assert result.annotation_type == "huntable"
 
     @pytest.mark.asyncio
     async def test_update_annotation(self, mock_session, sample_annotation_data):
         """Test updating an annotation."""
         annotation_id = 1
-        update_data = {"label": "not_huntable", "confidence": 0.85}
+        update_data = {"annotation_type": "not_huntable", "confidence_score": 0.85}
         
         # Mock the database manager
         with patch('src.database.async_manager.AsyncDatabaseManager') as mock_manager:
             mock_instance = mock_manager.return_value
             updated_annotation = ArticleAnnotation(id=annotation_id, **{**sample_annotation_data, **update_data})
-            mock_instance.update_annotation.return_value = updated_annotation
+            mock_instance.update_annotation = AsyncMock(return_value=updated_annotation)
             
             annotation_update = ArticleAnnotationUpdate(**update_data)
             result = await mock_instance.update_annotation(annotation_id, annotation_update)
             
-            assert result.label == update_data["label"]
-            assert result.confidence == update_data["confidence"]
+            assert result.annotation_type == update_data["annotation_type"]
+            assert result.confidence_score == update_data["confidence_score"]
 
     @pytest.mark.asyncio
     async def test_delete_annotation(self, mock_session):
@@ -357,7 +390,7 @@ class TestAsyncDatabaseManager:
         # Mock the database manager
         with patch('src.database.async_manager.AsyncDatabaseManager') as mock_manager:
             mock_instance = mock_manager.return_value
-            mock_instance.delete_annotation.return_value = True
+            mock_instance.delete_annotation = AsyncMock(return_value=True)
             
             result = await mock_instance.delete_annotation(annotation_id)
             
@@ -370,27 +403,41 @@ class TestAsyncDatabaseManager:
             ArticleAnnotation(
                 id=1,
                 article_id=1,
-                label="huntable",
-                confidence=0.95,
-                reasoning="Contains IOCs",
-                created_by="test_user"
+                annotation_type="huntable",
+                selected_text="Contains IOCs",
+                start_position=100,
+                end_position=150,
+                context_before="Previous context",
+                context_after="Following context",
+                confidence_score=0.95,
+                used_for_training=False,
+                user_id=1,
+                created_at=datetime.now(),
+                updated_at=datetime.now()
             ),
             ArticleAnnotation(
                 id=2,
                 article_id=2,
-                label="not_huntable",
-                confidence=0.80,
-                reasoning="No threat intelligence",
-                created_by="test_user"
+                annotation_type="not_huntable",
+                selected_text="No threat intelligence",
+                start_position=200,
+                end_position=250,
+                context_before="Previous context",
+                context_after="Following context",
+                confidence_score=0.80,
+                used_for_training=False,
+                user_id=1,
+                created_at=datetime.now(),
+                updated_at=datetime.now()
             )
         ]
         
         # Mock the database manager
         with patch('src.database.async_manager.AsyncDatabaseManager') as mock_manager:
             mock_instance = mock_manager.return_value
-            mock_instance.list_annotations.return_value = expected_annotations
+            mock_instance.list_annotations = AsyncMock(return_value=expected_annotations)
             
-            annotation_filter = ArticleAnnotationFilter(label="huntable")
+            annotation_filter = ArticleAnnotationFilter(annotation_type="huntable")
             result = await mock_instance.list_annotations(annotation_filter)
             
             assert len(result) == 2
@@ -405,28 +452,34 @@ class TestAsyncDatabaseManager:
                 id=1,
                 title="Article 1",
                 content="Content 1",
-                url="https://example.com/article1",
-                published_date=datetime.now(),
-                source_id=source_id,
                 canonical_url="https://example.com/article1",
-                identifier="article-1"
+                published_at=datetime.now(),
+                source_id=source_id,
+                content_hash="test-hash-1",
+                collected_at=datetime.now(),
+                discovered_at=datetime.now(),
+                created_at=datetime.now(),
+                updated_at=datetime.now()
             ),
             Article(
                 id=2,
                 title="Article 2",
                 content="Content 2",
-                url="https://example.com/article2",
-                published_date=datetime.now(),
-                source_id=source_id,
                 canonical_url="https://example.com/article2",
-                identifier="article-2"
+                published_at=datetime.now(),
+                source_id=source_id,
+                content_hash="test-hash-2",
+                collected_at=datetime.now(),
+                discovered_at=datetime.now(),
+                created_at=datetime.now(),
+                updated_at=datetime.now()
             )
         ]
         
         # Mock the database manager
         with patch('src.database.async_manager.AsyncDatabaseManager') as mock_manager:
             mock_instance = mock_manager.return_value
-            mock_instance.get_articles_by_source.return_value = expected_articles
+            mock_instance.get_articles_by_source = AsyncMock(return_value=expected_articles)
             
             result = await mock_instance.get_articles_by_source(source_id)
             
@@ -441,25 +494,39 @@ class TestAsyncDatabaseManager:
             ArticleAnnotation(
                 id=1,
                 article_id=article_id,
-                label="huntable",
-                confidence=0.95,
-                reasoning="Contains IOCs",
-                created_by="test_user"
+                annotation_type="huntable",
+                selected_text="Contains IOCs",
+                start_position=100,
+                end_position=150,
+                context_before="Previous context",
+                context_after="Following context",
+                confidence_score=0.95,
+                used_for_training=False,
+                user_id=1,
+                created_at=datetime.now(),
+                updated_at=datetime.now()
             ),
             ArticleAnnotation(
                 id=2,
                 article_id=article_id,
-                label="not_huntable",
-                confidence=0.80,
-                reasoning="No threat intelligence",
-                created_by="test_user"
+                annotation_type="not_huntable",
+                selected_text="No threat intelligence",
+                start_position=200,
+                end_position=250,
+                context_before="Previous context",
+                context_after="Following context",
+                confidence_score=0.80,
+                used_for_training=False,
+                user_id=1,
+                created_at=datetime.now(),
+                updated_at=datetime.now()
             )
         ]
         
         # Mock the database manager
         with patch('src.database.async_manager.AsyncDatabaseManager') as mock_manager:
             mock_instance = mock_manager.return_value
-            mock_instance.get_annotations_by_article.return_value = expected_annotations
+            mock_instance.get_annotations_by_article = AsyncMock(return_value=expected_annotations)
             
             result = await mock_instance.get_annotations_by_article(article_id)
             
@@ -475,18 +542,21 @@ class TestAsyncDatabaseManager:
                 id=1,
                 title="Threat Intelligence Report",
                 content="This article contains threat intelligence information",
-                url="https://example.com/article1",
-                published_date=datetime.now(),
-                source_id=1,
                 canonical_url="https://example.com/article1",
-                identifier="article-1"
+                published_at=datetime.now(),
+                source_id=1,
+                content_hash="test-hash-1",
+                collected_at=datetime.now(),
+                discovered_at=datetime.now(),
+                created_at=datetime.now(),
+                updated_at=datetime.now()
             )
         ]
         
         # Mock the database manager
         with patch('src.database.async_manager.AsyncDatabaseManager') as mock_manager:
             mock_instance = mock_manager.return_value
-            mock_instance.search_articles.return_value = expected_articles
+            mock_instance.search_articles = AsyncMock(return_value=expected_articles)
             
             result = await mock_instance.search_articles(search_query)
             
@@ -506,7 +576,7 @@ class TestAsyncDatabaseManager:
         # Mock the database manager
         with patch('src.database.async_manager.AsyncDatabaseManager') as mock_manager:
             mock_instance = mock_manager.return_value
-            mock_instance.get_article_statistics.return_value = expected_stats
+            mock_instance.get_article_statistics = AsyncMock(return_value=expected_stats)
             
             result = await mock_instance.get_article_statistics()
             
@@ -521,20 +591,26 @@ class TestAsyncDatabaseManager:
             {
                 "title": "Article 1",
                 "content": "Content 1",
-                "url": "https://example.com/article1",
-                "published_date": datetime.now(),
-                "source_id": 1,
                 "canonical_url": "https://example.com/article1",
-                "identifier": "article-1"
+                "published_at": datetime.now(),
+                "source_id": 1,
+                "content_hash": "test-hash-1",
+                "collected_at": datetime.now(),
+                "discovered_at": datetime.now(),
+                "created_at": datetime.now(),
+                "updated_at": datetime.now()
             },
             {
                 "title": "Article 2",
                 "content": "Content 2",
-                "url": "https://example.com/article2",
-                "published_date": datetime.now(),
-                "source_id": 1,
                 "canonical_url": "https://example.com/article2",
-                "identifier": "article-2"
+                "published_at": datetime.now(),
+                "source_id": 1,
+                "content_hash": "test-hash-2",
+                "collected_at": datetime.now(),
+                "discovered_at": datetime.now(),
+                "created_at": datetime.now(),
+                "updated_at": datetime.now()
             }
         ]
         
@@ -542,7 +618,7 @@ class TestAsyncDatabaseManager:
         with patch('src.database.async_manager.AsyncDatabaseManager') as mock_manager:
             mock_instance = mock_manager.return_value
             created_articles = [Article(id=i+1, **data) for i, data in enumerate(articles_data)]
-            mock_instance.bulk_create_articles.return_value = created_articles
+            mock_instance.bulk_create_articles = AsyncMock(return_value=created_articles)
             
             article_creates = [ArticleCreate(**data) for data in articles_data]
             result = await mock_instance.bulk_create_articles(article_creates)
@@ -561,8 +637,36 @@ class TestAsyncDatabaseManager:
         # Mock the database manager
         with patch('src.database.async_manager.AsyncDatabaseManager') as mock_manager:
             mock_instance = mock_manager.return_value
-            updated_articles = [Article(id=update["id"], title=update["title"]) for update in updates]
-            mock_instance.bulk_update_articles.return_value = updated_articles
+            now = datetime.now()
+            updated_articles = [
+                Article(
+                    id=1, 
+                    title="Updated Article 1",
+                    source_id=1,
+                    canonical_url="https://example.com/article1",
+                    published_at=now,
+                    content="Content 1",
+                    content_hash="test-hash-1",
+                    collected_at=now,
+                    discovered_at=now,
+                    created_at=now,
+                    updated_at=now
+                ),
+                Article(
+                    id=2, 
+                    title="Updated Article 2",
+                    source_id=1,
+                    canonical_url="https://example.com/article2",
+                    published_at=now,
+                    content="Content 2",
+                    content_hash="test-hash-2",
+                    collected_at=now,
+                    discovered_at=now,
+                    created_at=now,
+                    updated_at=now
+                )
+            ]
+            mock_instance.bulk_update_articles = AsyncMock(return_value=updated_articles)
             
             result = await mock_instance.bulk_update_articles(updates)
             
@@ -578,7 +682,7 @@ class TestAsyncDatabaseManager:
         # Mock the database manager
         with patch('src.database.async_manager.AsyncDatabaseManager') as mock_manager:
             mock_instance = mock_manager.return_value
-            mock_instance.cleanup_old_articles.return_value = 25
+            mock_instance.cleanup_old_articles = AsyncMock(return_value=25)
             
             result = await mock_instance.cleanup_old_articles(cutoff_date)
             
@@ -597,7 +701,7 @@ class TestAsyncDatabaseManager:
         # Mock the database manager
         with patch('src.database.async_manager.AsyncDatabaseManager') as mock_manager:
             mock_instance = mock_manager.return_value
-            mock_instance.get_database_health.return_value = expected_health
+            mock_instance.get_database_health = AsyncMock(return_value=expected_health)
             
             result = await mock_instance.get_database_health()
             

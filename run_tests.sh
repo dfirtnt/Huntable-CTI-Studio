@@ -1,6 +1,13 @@
 #!/bin/bash
-# Unified test runner script for CTI Scraper
-# This script provides a simple interface to the Python test runner
+# CTI Scraper Test Runner (DEPRECATED)
+# 
+# ⚠️  DEPRECATION NOTICE ⚠️
+# This script is deprecated and will be removed in a future version.
+# Please use the Python test runner instead:
+#   python run_tests.py [options] [test_type]
+#
+# This script is maintained for backward compatibility only.
+# All new development should use the Python interface.
 
 set -e
 
@@ -9,6 +16,7 @@ RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
+CYAN='\033[0;36m'
 NC='\033[0m' # No Color
 
 # Function to print colored output
@@ -28,9 +36,15 @@ print_error() {
     echo -e "${RED}[ERROR]${NC} $1"
 }
 
+print_deprecation() {
+    echo -e "${CYAN}[DEPRECATED]${NC} $1"
+}
+
 # Function to show usage
 show_usage() {
-    echo "CTI Scraper Unified Test Runner"
+    echo "CTI Scraper Test Runner (DEPRECATED)"
+    echo ""
+    print_deprecation "This script is deprecated. Use 'python run_tests.py' instead."
     echo ""
     echo "Usage: $0 [OPTIONS] [TEST_TYPE]"
     echo ""
@@ -53,6 +67,13 @@ show_usage() {
     echo "  $0 all --coverage           # Full suite with coverage"
     echo "  $0 integration --docker     # Docker-based integration tests"
     echo "  $0 --install                # Install test dependencies"
+    echo ""
+    echo "Recommended Python interface:"
+    echo "  python run_tests.py smoke                    # Quick health check"
+    echo "  python run_tests.py all --coverage          # Full suite with coverage"
+    echo "  python run_tests.py --docker integration    # Docker-based integration tests"
+    echo "  python run_tests.py --install               # Install test dependencies"
+    echo "  python run_tests.py --help                  # Show all options"
 }
 
 # Default values
@@ -101,25 +122,25 @@ fi
 # Build the command
 CMD="python run_tests.py"
 
-# Add test type
+# Add test type (positional argument)
 case "$TEST_TYPE" in
     "smoke")
-        CMD="$CMD --smoke"
+        CMD="$CMD smoke"
         ;;
     "unit")
-        CMD="$CMD --unit"
+        CMD="$CMD unit"
         ;;
     "api")
-        CMD="$CMD --api"
+        CMD="$CMD api"
         ;;
     "integration")
-        CMD="$CMD --integration"
+        CMD="$CMD integration"
         ;;
     "ui")
-        CMD="$CMD --ui"
+        CMD="$CMD ui"
         ;;
     "all")
-        CMD="$CMD --all"
+        CMD="$CMD all"
         ;;
 esac
 
@@ -136,6 +157,11 @@ if [[ "$INSTALL" == true ]]; then
     CMD="$CMD --install"
 fi
 
+# Show deprecation warning
+print_deprecation "This script is deprecated. Please use 'python run_tests.py' instead."
+print_warning "The shell interface will be removed in a future version."
+echo ""
+
 # Run the tests
 print_status "Running $TEST_TYPE tests..."
 print_status "Command: $CMD"
@@ -146,7 +172,20 @@ if eval $CMD; then
     if [[ "$COVERAGE" == true ]]; then
         print_status "Coverage report generated in htmlcov/"
     fi
+    
+    echo ""
+    print_deprecation "Consider migrating to the Python interface for better features:"
+    echo "  python run_tests.py $TEST_TYPE"
+    if [[ "$DOCKER_MODE" == true ]]; then
+        echo "  python run_tests.py --docker $TEST_TYPE"
+    fi
+    if [[ "$COVERAGE" == true ]]; then
+        echo "  python run_tests.py --coverage $TEST_TYPE"
+    fi
 else
     print_error "Tests failed!"
+    echo ""
+    print_deprecation "Consider using the Python interface for better error reporting:"
+    echo "  python run_tests.py --debug $TEST_TYPE"
     exit 1
 fi
