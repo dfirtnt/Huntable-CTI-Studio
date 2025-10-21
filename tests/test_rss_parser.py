@@ -68,7 +68,6 @@ class TestRSSParser:
         entry.get = Mock(return_value=None)
         return entry
 
-    @pytest.mark.skip(reason="Async mock configuration needed for RSS parser")
     @pytest.mark.asyncio
     async def test_parse_feed_success(self, mock_http_client, sample_source, sample_feed_entry):
         """Test successful RSS feed parsing."""
@@ -609,7 +608,6 @@ class TestRSSParser:
         assert "data analysis" in cleaned
 
 
-@pytest.mark.skip(reason="Async mock configuration needed for FeedValidator tests")
 class TestFeedValidator:
     """Test feed validator functionality."""
 
