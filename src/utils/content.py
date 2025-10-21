@@ -671,7 +671,8 @@ WINDOWS_MALWARE_KEYWORDS = {
         'datasvcutil', 'desktopimgdownldr', 'devicecredentialdeployment', 'dfsvc',
         'diantz', 'diskshadow', 'dnscmd', 'esentutl', 'eventvwr', 'expand.exe',
         'extexport', 'extrac32', 'findstr', 'finger.exe', 'fltmc', 'gpscript',
-        'replace.exe', 'sc', 'print.exe', 'ssh', 'teams.exe', 'rdrleakdiag.exe'
+        'replace.exe', 'sc', 'print.exe', 'ssh', 'teams.exe', 'rdrleakdiag.exe',
+        'ipconfig', 'systeminfo'
     ],
 }
 
