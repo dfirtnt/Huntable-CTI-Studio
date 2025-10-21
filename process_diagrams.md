@@ -14,7 +14,8 @@ ASCII diagrams of the main workflows in the CTI Scraper system, designed to fit 
 │                 │    │                 │    │     Tasks       │    │                 │
 │ • RSS Feeds     │───▶│ • FastAPI App   │    │ • Celery Worker │    │ • PostgreSQL    │
 │ • Web Scraping  │    │ • Dashboard     │    │ • Scheduler     │    │ • Redis Cache   │
-│ • 40+ Sources   │    │ • Search/Filter │    │ • Collection    │    │ • Async Manager │
+│ • 34 Sources    │    │ • Search/Filter │    │ • Collection    │    │ • pgvector      │
+│ • Browser Ext.  │    │ • RAG Chat      │    │ • AI Analysis   │    │ • Async Manager │
 └─────────────────┘    └─────────────────┘    └─────────────────┘    └─────────────────┘
          │                       │                       │                       │
          ▼                       ▼                       ▼                       ▼
@@ -27,10 +28,11 @@ ASCII diagrams of the main workflows in the CTI Scraper system, designed to fit 
 │  │   Port 8001 │  │             │  │             │  │  Port 11434 │          │
 │  └─────────────┘  └─────────────┘  └─────────────┘  └─────────────┘          │
 │                                                                                 │
-│  ┌─────────────┐  ┌─────────────┐                                              │
-│  │ PostgreSQL  │  │    Redis    │                                              │
-│  │   Port 5432 │  │  Port 6379  │                                              │
-│  └─────────────┘  └─────────────┘                                              │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐          │
+│  │ PostgreSQL  │  │    Redis    │  │     CLI     │  │   Backup    │          │
+│  │   Port 5432 │  │  Port 6379  │  │   Service   │  │   System    │          │
+│  │  + pgvector │  │             │  │             │  │             │          │
+│  └─────────────┘  └─────────────┘  └─────────────┘  └─────────────┘          │
 └─────────────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -56,7 +58,7 @@ ASCII diagrams of the main workflows in the CTI Scraper system, designed to fit 
           ▼
 ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
 │   Source List   │───▶│  RSS Parser     │───▶│ Modern Scraper  │
-│   (40+ sources) │    │                 │    │                 │
+│   (34 sources)  │    │                 │    │                 │
 └─────────────────┘    └─────────┬───────┘    └─────────┬───────┘
                                  │                      │
                                  ▼                      ▼
@@ -341,6 +343,7 @@ API Endpoints:
 │ • published_at  │
 │ • metadata (JSON)│
 │ • word_count    │
+│ • hunt_score    │
 └─────────┬───────┘
           │
           │ 1:N
@@ -354,20 +357,292 @@ API Endpoints:
 │ • selected_text │
 │ • start_position│
 │ • end_position  │
+│ • embedding     │
+│ • used_for_training│
 └─────────────────┘
 
-┌─────────────────┐    ┌─────────────────┐
-│  source_checks  │    │  content_hashes │
-│                 │    │                 │
-│ • id (PK)       │    │ • id (PK)       │
-│ • source_id (FK)│    │ • content_hash  │
-│ • check_time    │    │ • article_id    │
-│ • success       │    │ • first_seen    │
-│ • articles_found│    └─────────────────┘
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│  source_checks  │    │  content_hashes │    │chunk_classification│
+│                 │    │                 │    │    _feedback     │
+│ • id (PK)       │    │ • id (PK)       │    │                 │
+│ • source_id (FK)│    │ • content_hash  │    │ • id (PK)       │
+│ • check_time    │    │ • article_id    │    │ • article_id (FK)│
+│ • success       │    │ • first_seen    │    │ • chunk_text    │
+│ • articles_found│    └─────────────────┘    │ • model_classification│
+└─────────────────┘                          │ • is_correct     │
+                                             │ • used_for_training│
+                                             └─────────────────┘
+```
+
+## 8. AI-Powered Analysis Workflow
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                          AI-Powered Analysis Workflow                           │
+└─────────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────┐
+│ Article Content │
+│ (Title + Body)  │
+└─────────┬───────┘
+          │
+          ▼
+┌─────────────────┐
+│ Content Filter  │
+│                 │
+│ • ML Pre-filter │
+│ • Cost Reduction│
+│ • Quality Check │
+└─────────┬───────┘
+          │
+          ▼
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│   LLM Services  │    │   RAG Chat      │    │ SIGMA Generation│
+│                 │    │                 │    │                 │
+│ • Ollama (Local)│    │ • Vector Search │    │ • AI Analysis   │
+│ • OpenAI GPT-4  │    │ • Context Build │    │ • pySIGMA Valid │
+│ • Claude 3      │    │ • Semantic Q&A  │    │ • Rule Creation │
+└─────────┬───────┘    └─────────┬───────┘    └─────────┬───────┘
+          │                      │                      │
+          ▼                      ▼                      ▼
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│ Analysis Types  │    │ Vector Database │    │ Rule Validation │
+│                 │    │                 │    │                 │
+│ • Summaries     │    │ • Embeddings    │    │ • Syntax Check  │
+│ • Classifications│   │ • Similarity   │    │ • Error Fix     │
+│ • IOC Extraction│    │ • Context      │    │ • Retry Logic   │
+│ • Custom Prompts│    │ • pgvector     │    │ • Audit Trail   │
+└─────────┬───────┘    └─────────┬───────┘    └─────────┬───────┘
+          │                      │                      │
+          └──────────┬───────────┼──────────────────────┘
+                     │           │
+                     ▼           ▼
+            ┌─────────────────┐    ┌─────────────────┐
+            │   Database      │    │   User Interface│
+            │   Storage       │    │                 │
+            │                 │    │ • Chat Interface│
+            │ • Metadata      │    │ • Rule Display  │
+            │ • Results       │    │ • Analysis View │
+            │ • Embeddings    │    │ • Export Options│
+            └─────────────────┘    └─────────────────┘
+```
+
+## 9. ML Training Data Annotation System
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                        ML Training Data Annotation System                       │
+└─────────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────┐
+│ Article Detail  │
+│     Page        │
+└─────────┬───────┘
+          │
+          ▼
+┌─────────────────┐
+│ Text Selection  │
+│                 │
+│ • User Clicks   │
+│ • Drag to Select│
+│ • Auto-Expand   │
+└─────────┬───────┘
+          │
+          ▼
+┌─────────────────┐
+│ Length Validation│
+│                 │
+│ • Min: 950 chars│
+│ • Max: 1050 chars│
+│ • Auto 1000     │
+└─────────┬───────┘
+          │
+          ▼
+┌─────────────────┐
+│ Annotation Modal│
+│                 │
+│ • Huntable      │
+│ • Not Huntable  │
+│ • Confidence    │
+└─────────┬───────┘
+          │
+          ▼
+┌─────────────────┐
+│ Database Storage│
+│                 │
+│ • article_annotations│
+│ • Vector Embeddings│
+│ • Training Flag │
+└─────────┬───────┘
+          │
+          ▼
+┌─────────────────┐
+│ Model Training  │
+│                 │
+│ • Batch Process │
+│ • Retrain Model │
+│ • Mark as Used  │
 └─────────────────┘
 ```
 
-## 8. HTTP Client & Rate Limiting
+## 10. Automated Backup System
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                            Automated Backup System                              │
+└─────────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────┐
+│ Cron Scheduler  │
+│                 │
+│ • Daily 2:00 AM │
+│ • Weekly 3:00 AM│
+│ • Requires Docker│
+│ • Manual Setup  │
+└─────────┬───────┘
+          │
+          ▼
+┌─────────────────┐
+│ Backup Script   │
+│                 │
+│ • backup_restore.sh│
+│ • Full System   │
+│ • Database Only │
+│ • Files Only    │
+└─────────┬───────┘
+          │
+          ▼
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│ Database Backup │    │ Volume Backup   │    │ File Backup     │
+│                 │    │                 │    │                 │
+│ • PostgreSQL    │    │ • Docker Volumes│    │ • Config Files  │
+│ • pg_dump       │    │ • Stop Containers│   │ • Models        │
+│ • Compression   │    │ • Tar Archive   │    │ • Outputs       │
+└─────────┬───────┘    └─────────┬───────┘    └─────────┬───────┘
+          │                      │                      │
+          └──────────┬───────────┼──────────────────────┘
+                     │           │
+                     ▼           ▼
+            ┌─────────────────┐    ┌─────────────────┐
+            │ Backup Archive  │    │ Retention Policy│
+            │                 │    │                 │
+            │ • Timestamped   │    │ • 7 Daily       │
+            │ • Compressed    │    │ • 4 Weekly      │
+            │ • Verified      │    │ • 3 Monthly     │
+            │ • Checksums     │    │ • 50GB Max      │
+            └─────────────────┘    └─────────────────┘
+
+Note: Cron jobs are configured but require Docker to be running.
+Manual backups via CLI: ./scripts/backup_restore.sh create
+```
+
+## 11. CLI Tool Service Workflow
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                              CLI Tool Service Workflow                         │
+└─────────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────┐
+│   User Command  │
+│                 │
+│ • ./run_cli.sh  │
+│ • init/collect  │
+│ • backup/export │
+└─────────┬───────┘
+          │
+          ▼
+┌─────────────────┐
+│ Docker Container│
+│                 │
+│ • CLI Service   │
+│ • Same Database │
+│ • Shared Config │
+└─────────┬───────┘
+          │
+          ▼
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│ Command Router   │    │ Database Access │    │ File Operations │
+│                 │    │                 │    │                 │
+│ • init          │    │ • PostgreSQL    │    │ • Config Files  │
+│ • collect       │    │ • Async Manager │    │ • Export Data   │
+│ • backup        │    │ • Same as Web   │    │ • Log Files     │
+│ • rescore       │    │ • Consistency   │    │ • Model Files   │
+└─────────┬───────┘    └─────────┬───────┘    └─────────┬───────┘
+          │                      │                      │
+          ▼                      ▼                      ▼
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│ Command Execution│    │ Data Operations │    │ Output Handling│
+│                 │    │                 │    │                 │
+│ • Source Mgmt   │    │ • CRUD Ops      │    │ • JSON/CSV     │
+│ • Article Proc  │    │ • Queries       │    │ • Logs          │
+│ • AI Analysis   │    │ • Transactions  │    │ • Status        │
+│ • Embeddings    │    │ • Consistency   │    │ • Errors        │
+└─────────────────┘    └─────────────────┘    └─────────────────┘
+```
+
+## 12. Browser Extension Workflow
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                              Browser Extension Workflow                        │
+└─────────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────┐
+│   User Browser  │
+│                 │
+│ • Article Page  │
+│ • Extension Icon│
+│ • Click to Send │
+└─────────┬───────┘
+          │
+          ▼
+┌─────────────────┐
+│ Content Script  │
+│                 │
+│ • Extract Title │
+│ • Extract Body  │
+│ • Get URL       │
+└─────────┬───────┘
+          │
+          ▼
+┌─────────────────┐
+│ Extension Popup │
+│                 │
+│ • Review Content│
+│ • Configure API │
+│ • Force Scrape  │
+└─────────┬───────┘
+          │
+          ▼
+┌─────────────────┐
+│ Background Script│
+│                 │
+│ • API Call      │
+│ • Error Handling│
+│ • Response      │
+└─────────┬───────┘
+          │
+          ▼
+┌─────────────────┐
+│ CTIScraper API  │
+│                 │
+│ • /api/scrape-url│
+│ • Process Article│
+│ • Threat Scoring│
+└─────────┬───────┘
+          │
+          ▼
+┌─────────────────┐
+│ Result Handling  │
+│                 │
+│ • Open Article  │
+│ • Show Status   │
+│ • Error Display │
+└─────────────────┘
+```
+
+## 13. HTTP Client & Rate Limiting
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────────┐
@@ -432,13 +707,18 @@ API Endpoints:
 
 These diagrams are designed to fit on single pages for easy screenshot capture into PowerPoint slides. Each diagram shows a specific workflow or component of the CTI Scraper system:
 
-1. **System Architecture** - Overall system components and Docker environment
+1. **System Architecture** - Overall system components and Docker environment with all services
 2. **Article Collection** - How articles are collected from RSS feeds and web scraping
 3. **Content Processing** - Deduplication, quality filtering, and scoring pipeline
 4. **Threat Hunting Scoring** - Keyword-based scoring system for threat intelligence relevance
 5. **Web Interface** - FastAPI application and database interaction
 6. **Background Tasks** - Celery-based task scheduling and execution
-7. **Database Schema** - PostgreSQL table relationships and structure
-8. **HTTP Client** - Rate limiting, robots.txt compliance, and request handling
+7. **Database Schema** - PostgreSQL table relationships and structure with new tables
+8. **AI-Powered Analysis** - LLM integration, RAG chat, and SIGMA rule generation workflows
+9. **ML Training Data Annotation** - Annotation system with auto-expand functionality for ML training
+10. **Automated Backup System** - Backup scheduling, retention policies, and verification
+11. **CLI Tool Service** - Command-line interface workflow and database consistency
+12. **Browser Extension** - Browser extension workflow for direct article ingestion
+13. **HTTP Client** - Rate limiting, robots.txt compliance, and request handling
 
 Each diagram uses consistent ASCII art styling and is optimized for readability when captured as screenshots.
