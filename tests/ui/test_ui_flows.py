@@ -18,7 +18,7 @@ class TestDashboardFlows:
         page.goto(f"{base_url}/")
         
         # Verify dashboard loads
-        expect(page).to_have_title("CTI Scraper Dashboard")
+        expect(page).to_have_title("Dashboard - CTI Scraper")
         expect(page.locator("h1").first).to_contain_text("CTI Scraper")
         
         # Test navigation to articles
