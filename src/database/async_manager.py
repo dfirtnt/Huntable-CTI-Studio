@@ -532,6 +532,7 @@ class AsyncDatabaseManager:
                 query = select(ArticleTable).where(ArticleTable.archived == False)
                 
                 # Apply filters if provided
+                logger.info(f"Article filter received: {article_filter}")
                 if article_filter:
                     if article_filter.source_id is not None:
                         query = query.where(ArticleTable.source_id == article_filter.source_id)
@@ -549,6 +550,7 @@ class AsyncDatabaseManager:
                         query = query.where(ArticleTable.content.contains(article_filter.content_contains))
                     
                     # Apply sorting
+                    logger.info(f"Sorting by: {article_filter.sort_by}, order: {article_filter.sort_order}")
                     if article_filter.sort_by == 'threat_hunting_score':
                         # Special handling for threat_hunting_score which is stored in metadata
                         # Handle null values by using COALESCE to provide a default value
@@ -565,17 +567,43 @@ class AsyncDatabaseManager:
                             query = query.order_by(threat_score_expr)
                     elif article_filter.sort_by == 'annotation_count':
                         # Sort by annotation count (simplified - no annotation count available)
-                        # Default to discovered_at sorting
+                        # Default to threat_hunting_score sorting
+                        threat_score_expr = func.cast(
+                            func.coalesce(
+                                func.cast(ArticleTable.article_metadata['threat_hunting_score'], String), 
+                                '0'
+                            ), 
+                            Numeric
+                        )
                         if article_filter.sort_order == 'desc':
-                            query = query.order_by(desc(ArticleTable.discovered_at))
+                            query = query.order_by(desc(threat_score_expr))
                         else:
-                            query = query.order_by(ArticleTable.discovered_at)
+                            query = query.order_by(threat_score_expr)
                     else:
-                        sort_field = getattr(ArticleTable, article_filter.sort_by, ArticleTable.discovered_at)
-                        if article_filter.sort_order == 'desc':
-                            query = query.order_by(desc(sort_field))
+                        sort_field = getattr(ArticleTable, article_filter.sort_by, None)
+                        if sort_field is not None:
+                            # Primary sort by custom field, secondary by threat_hunting_score
+                            threat_score_expr = func.cast(
+                                func.coalesce(
+                                    func.cast(ArticleTable.article_metadata['threat_hunting_score'], String), 
+                                    '0'
+                                ), 
+                                Numeric
+                            )
+                            if article_filter.sort_order == 'desc':
+                                query = query.order_by(desc(sort_field), desc(threat_score_expr))
+                            else:
+                                query = query.order_by(sort_field, desc(threat_score_expr))
                         else:
-                            query = query.order_by(sort_field)
+                            # Fallback to threat_hunting_score only
+                            threat_score_expr = func.cast(
+                                func.coalesce(
+                                    func.cast(ArticleTable.article_metadata['threat_hunting_score'], String), 
+                                    '0'
+                                ), 
+                                Numeric
+                            )
+                            query = query.order_by(desc(threat_score_expr))
                     
                     # Apply pagination
                     if article_filter.offset is not None and article_filter.offset > 0:
@@ -591,6 +619,7 @@ class AsyncDatabaseManager:
                         query = query.limit(limit)
                 
                 logger.info("Executing query...")
+                logger.info(f"SQL Query: {query}")
                 try:
                     result = await session.execute(query)
                     rows = result.all()

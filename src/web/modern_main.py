@@ -53,6 +53,20 @@ DEFAULT_SOURCE_USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:138.0)
 # Templates
 templates = Jinja2Templates(directory="src/web/templates")
 
+# Simple filter class for API endpoints
+class SimpleFilter:
+    def __init__(self, limit=None, sort_by="threat_hunting_score", sort_order="desc", 
+                source_id=None, processing_status=None):
+        self.limit = limit
+        self.sort_by = sort_by
+        self.sort_order = sort_order
+        self.source_id = source_id
+        self.processing_status = processing_status
+        self.offset = 0
+        self.published_after = None
+        self.published_before = None
+        self.content_contains = None
+
 
 def _is_responses_api(url: str) -> bool:
     """Return True if the provided OpenAI URL targets the Responses API."""
@@ -115,28 +129,148 @@ def _build_openai_payload(
     }
 
 
+def _estimate_tokens(text: str) -> int:
+    """Rough estimate of token count (4 chars per token average)."""
+    return len(text) // 4
+
+def _truncate_content_for_tokens(content: str, max_tokens: int = 5000) -> str:
+    """Truncate content to fit within token limits.
+    
+    Uses conservative limits to account for:
+    - System prompt (~200 tokens)
+    - Completion tokens (2048)
+    - Buffer for safety (~500 tokens)
+    """
+    estimated_tokens = _estimate_tokens(content)
+    if estimated_tokens <= max_tokens:
+        return content
+    
+    # Truncate to fit within token limit
+    max_chars = max_tokens * 4
+    truncated = content[:max_chars]
+    
+    # Try to end at a sentence boundary
+    last_period = truncated.rfind('.')
+    last_newline = truncated.rfind('\n')
+    last_boundary = max(last_period, last_newline)
+    
+    if last_boundary > max_chars * 0.8:  # If we can find a good boundary
+        truncated = truncated[:last_boundary + 1]
+    
+    return truncated + "\n\n[Content truncated due to size limits]"
+
+def _flatten_text_segments(payload: Any) -> List[str]:
+    """Recursively collect text segments from OpenAI response payloads."""
+    if payload is None:
+        return []
+    if isinstance(payload, str):
+        text = payload.strip()
+        return [text] if text else []
+    if isinstance(payload, (list, tuple)):
+        segments: List[str] = []
+        for item in payload:
+            segments.extend(_flatten_text_segments(item))
+        return segments
+    if isinstance(payload, dict):
+        segments: List[str] = []
+        # Common OpenAI shapes: {"type": "text", "text": "..."} or {"text": {"value": "..."}}
+        if "text" in payload:
+            segments.extend(_flatten_text_segments(payload["text"]))
+        if "value" in payload:
+            segments.extend(_flatten_text_segments(payload["value"]))
+        if "content" in payload:
+            segments.extend(_flatten_text_segments(payload["content"]))
+        if "output_text" in payload:
+            segments.extend(_flatten_text_segments(payload["output_text"]))
+        # Responses API sometimes nests assistant messages under "message"
+        if "message" in payload:
+            segments.extend(_flatten_text_segments(payload["message"]))
+        return segments
+    return _flatten_text_segments(str(payload))
+
+
 def _extract_openai_summary(
     response_data: Dict[str, Any],
     use_responses_api: bool
-) -> Tuple[str, Optional[str]]:
-    """Extract summary text and model name from an OpenAI response."""
-    if use_responses_api:
-        for item in response_data.get('output', []):
-            if item.get('role') != 'assistant':
-                continue
-            for content_item in item.get('content', []):
-                if content_item.get('type') == 'text':
-                    return content_item.get('text', ''), response_data.get('model')
-        raise ValueError("ChatGPT response did not include text output.")
+) -> Tuple[str, Optional[str], List[str]]:
+    """Extract summary text, model name, and assistant text segments from an OpenAI response."""
+    logger.info(f"DEBUG: Extracting summary from response with use_responses_api={use_responses_api}")
+    logger.info(f"DEBUG: Response data keys: {list(response_data.keys())}")
     
-    choices = response_data.get('choices', [])
-    if not choices:
-        raise ValueError("ChatGPT response did not include choices.")
-    message = choices[0].get('message', {})
-    content = message.get('content')
-    if not content:
-        raise ValueError("ChatGPT response message did not include content.")
-    return content, response_data.get('model')
+    model_name = response_data.get('model')
+    text_segments: List[str] = []
+    
+    if use_responses_api:
+        logger.info("DEBUG: Using Responses API extraction path")
+        # New Responses API aggregates assistant output under "output_text"
+        if "output_text" in response_data:
+            logger.info("DEBUG: Found output_text in response")
+            text_segments.extend(_flatten_text_segments(response_data.get("output_text")))
+        
+        if not text_segments:
+            logger.info("DEBUG: No output_text, checking output array")
+            for item in response_data.get('output', []):
+                if item.get('role') != 'assistant':
+                    continue
+                logger.info(f"DEBUG: Found assistant item: {item}")
+                text_segments.extend(_flatten_text_segments(item.get('content')))
+        
+        if not text_segments:
+            logger.error("DEBUG: Responses API - No assistant output found")
+            raise ValueError("ChatGPT response did not include assistant output.")
+    else:
+        logger.info("DEBUG: Using Chat Completions API extraction path")
+        choices = response_data.get('choices', [])
+        logger.info(f"DEBUG: Found {len(choices)} choices")
+        
+        if not choices:
+            logger.error("DEBUG: No choices found in response")
+            raise ValueError("ChatGPT response did not include choices.")
+        
+        first_choice = choices[0] or {}
+        logger.info(f"DEBUG: First choice keys: {list(first_choice.keys())}")
+        
+        message = first_choice.get('message') or {}
+        logger.info(f"DEBUG: Message keys: {list(message.keys())}")
+        
+        if message:
+            logger.info("DEBUG: Processing message content")
+            # Handle both legacy string responses and new structured content arrays
+            content = message.get('content')
+            logger.info(f"DEBUG: Message content type: {type(content)}, value: {content}")
+            text_segments.extend(_flatten_text_segments(content))
+            
+            if not text_segments and 'text' in message:
+                logger.info("DEBUG: Trying message.text fallback")
+                text_segments.extend(_flatten_text_segments(message.get('text')))
+        else:
+            logger.warning("ChatGPT response missing message payload; attempting to recover from choice-level text.")
+        
+        # Some newer responses place text at the choice level (e.g., {"text": {"value": "..."}})
+        if not text_segments and 'text' in first_choice:
+            logger.info("DEBUG: Trying choice-level text")
+            text_segments.extend(_flatten_text_segments(first_choice['text']))
+        if not text_segments and 'content' in first_choice:
+            logger.info("DEBUG: Trying choice-level content")
+            text_segments.extend(_flatten_text_segments(first_choice['content']))
+        
+        logger.info(f"DEBUG: Extracted {len(text_segments)} text segments")
+        for i, segment in enumerate(text_segments):
+            logger.info(f"DEBUG: Segment {i}: {segment[:100]}...")
+        
+        if not text_segments:
+            logger.error("DEBUG: No text segments extracted from message")
+            raise ValueError("ChatGPT response message did not include assistant content.")
+    
+    summary_text = "\n\n".join(segment for segment in text_segments if segment).strip()
+    logger.info(f"DEBUG: Final summary length: {len(summary_text)}")
+    logger.info(f"DEBUG: Final summary preview: {summary_text[:200]}...")
+    
+    if not summary_text:
+        logger.error("DEBUG: Summary text is empty after processing")
+        raise ValueError("ChatGPT response assistant content was empty.")
+    
+    return summary_text, model_name, text_segments
 
 
 @lru_cache(maxsize=1)
@@ -2195,9 +2329,29 @@ async def articles_list(
             # Get the attribute dynamically
             sort_attr = getattr(filtered_articles[0], sort_by, None) if filtered_articles else None
             if sort_attr is not None:
+                # Primary sort by custom field, secondary by threat_hunting_score
+                # For descending order, we need to reverse the secondary sort too
+                if sort_order == 'desc':
+                    filtered_articles.sort(
+                        key=lambda x: (
+                            getattr(x, sort_by, ''),
+                            -float(x.article_metadata.get('threat_hunting_score', 0)) if x.article_metadata and x.article_metadata.get('threat_hunting_score') else 0
+                        ),
+                        reverse=False
+                    )
+                else:
+                    filtered_articles.sort(
+                        key=lambda x: (
+                            getattr(x, sort_by, ''),
+                            float(x.article_metadata.get('threat_hunting_score', 0)) if x.article_metadata and x.article_metadata.get('threat_hunting_score') else 0
+                        ),
+                        reverse=False
+                    )
+            else:
+                # Fallback to threat_hunting_score only
                 filtered_articles.sort(
-                    key=lambda x: getattr(x, sort_by, ''),
-                    reverse=(sort_order == 'desc')
+                    key=lambda x: float(x.article_metadata.get('threat_hunting_score', 0)) if x.article_metadata and x.article_metadata.get('threat_hunting_score') else 0,
+                    reverse=True
                 )
         
         # Apply pagination
@@ -2318,19 +2472,28 @@ async def api_articles_list(
     processing_status: Optional[str] = None
 ):
     """API endpoint for listing articles with sorting and filtering."""
+    print("=" * 50)
+    print("API ARTICLES ENDPOINT CALLED!")
+    print("=" * 50)
+    print(f"Function parameters: sort_by={sort_by}, sort_order={sort_order}")
     try:
-        from src.models.article import ArticleListFilter
-        
-        # Create filter object
-        article_filter = ArticleListFilter(
-            limit=limit,
-            sort_by=sort_by,
-            sort_order=sort_order,
-            source_id=source_id,
-            processing_status=processing_status
-        )
+        print(f"DEBUG: API called with sort_by={sort_by}, sort_order={sort_order}")
+        logger.info(f"DEBUG: API called with sort_by={sort_by}, sort_order={sort_order}")
+        try:
+            article_filter = SimpleFilter(
+                limit=limit,
+                sort_by=sort_by,
+                sort_order=sort_order,
+                source_id=source_id,
+                processing_status=processing_status
+            )
+            logger.info(f"DEBUG: Created filter with sort_by={article_filter.sort_by}, sort_order={article_filter.sort_order}")
+        except Exception as e:
+            logger.error(f"DEBUG: Error creating filter: {e}")
+            article_filter = None
         
         articles = await async_db_manager.list_articles(article_filter=article_filter)
+        logger.info(f"DEBUG: Retrieved {len(articles)} articles")
         
         # Get total count without limit for accurate pagination
         total_count = await async_db_manager.get_articles_count(
@@ -2588,1346 +2751,6 @@ async def api_bulk_action(request: Request):
         logger.error(f"API bulk action error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.post("/api/articles/{article_id}/chatgpt-summary")
-async def api_chatgpt_summary(article_id: int, request: Request):
-    """API endpoint for generating a summary of an article using ChatGPT or local LLM."""
-    try:
-        # Get the article
-        article = await async_db_manager.get_article(article_id)
-        if not article:
-            raise HTTPException(status_code=404, detail="Article not found")
-        
-        # Get request body to determine what to summarize and AI model
-        body = await request.json()
-        include_content = body.get('include_content', True)  # Default to full content
-        api_key = body.get('api_key')  # Get API key from request
-        ai_model = body.get('ai_model', 'chatgpt')  # Get AI model from request
-        force_regenerate = body.get('force_regenerate', False)  # Force regeneration
-        optimization_options = body.get('optimization_options', {})  # Get optimization options
-        temperature = float(body.get('temperature', 0.3))  # Get temperature from request
-        
-        logger.info(f"Summary request for article {article_id}, ai_model: {ai_model}, api_key provided: {bool(api_key)}, force_regenerate: {force_regenerate}")
-        
-        # Initialize metadata for caching
-        current_metadata = article.article_metadata.copy() if article.article_metadata else {}
-        
-        # If force regeneration is requested, skip cache check
-        if not force_regenerate:
-            # Check if summary already exists and return cached version
-            existing_summary = article.article_metadata.get('chatgpt_summary', {}) if article.article_metadata else {}
-            if existing_summary and existing_summary.get('summary'):
-                logger.info(f"Returning cached summary for article {article_id}")
-                return {
-                    "success": True,
-                    "article_id": article_id,
-                    "summary": existing_summary['summary'],
-                    "summarized_at": existing_summary['summarized_at'],
-                    "content_type": existing_summary['content_type'],
-                    "model_used": existing_summary['model_used'],
-                    "model_name": existing_summary['model_name'],
-                    "cached": True
-                }
-        
-        # Check if API key is provided (required for ChatGPT and Anthropic)
-        if ai_model == 'chatgpt' and not api_key:
-            raise HTTPException(status_code=400, detail="OpenAI API key is required for ChatGPT. Please configure it in Settings.")
-        elif ai_model == 'anthropic' and not api_key:
-            raise HTTPException(status_code=400, detail="Anthropic API key is required for Claude. Please configure it in Settings.")
-        
-        # Prepare the summary prompt
-        if include_content:
-            # Use content filtering for high-value chunks if enabled
-            content_filtering_enabled = os.getenv('CONTENT_FILTERING_ENABLED', 'true').lower() == 'true'
-            
-            if content_filtering_enabled:
-                from src.utils.gpt4o_optimizer import optimize_article_content
-                
-                try:
-                    # Use optimization options if provided, otherwise use environment defaults
-                    use_filtering = optimization_options.get('useFiltering', True)
-                    min_confidence = optimization_options.get('minConfidence', float(os.getenv('CONTENT_FILTERING_CONFIDENCE', '0.6')))
-                    
-                    if use_filtering:
-                        # Add timeout to content filtering to prevent delays
-                        optimization_result = await asyncio.wait_for(
-                            optimize_article_content(
-                                article.content, 
-                                min_confidence=min_confidence,
-                                article_metadata=article.article_metadata,
-                                content_hash=article.content_hash
-                            ),
-                            timeout=30.0  # 30 second timeout for content filtering
-                        )
-                        if optimization_result['success']:
-                            content = optimization_result['filtered_content']
-                            logger.info(f"Content filtered for summary: {optimization_result['tokens_saved']:,} tokens saved, "
-                                      f"{optimization_result['cost_reduction_percent']:.1f}% cost reduction")
-                        else:
-                            # Fallback to original content if filtering fails
-                            content = article.content
-                            logger.warning("Content filtering failed for summary, using original content")
-                    else:
-                        content = article.content
-                        logger.info("Content filtering disabled for summary")
-                except asyncio.TimeoutError:
-                    logger.warning("Content filtering timed out for summary, using original content")
-                    content = article.content
-                except Exception as e:
-                    logger.error(f"Content filtering error for summary: {e}, using original content")
-                    content = article.content
-            else:
-                # Use original content if filtering is disabled
-                content = article.content
-            
-            # Summarize both URL and content
-            prompt = format_prompt("article_summary", 
-                title=article.title,
-                source=article.canonical_url or 'N/A',
-                url=article.canonical_url or 'N/A',
-                content=content
-            )
-        else:
-            # Summarize URL and metadata only
-            prompt = format_prompt("metadata_summary", 
-                title=article.title,
-                source=article.canonical_url or 'N/A',
-                url=article.canonical_url or 'N/A',
-                published_date=article.published_at or 'N/A',
-                content_length=len(article.content)
-            )
-        
-        # Generate summary based on AI model
-        if ai_model == 'chatgpt':
-            # Use ChatGPT/Responses API
-            chatgpt_api_url = os.getenv('CHATGPT_API_URL', 'https://api.openai.com/v1/chat/completions')
-            use_responses_api = _is_responses_api(chatgpt_api_url)
-            chatgpt_model = os.getenv('CHATGPT_MODEL')
-            if not chatgpt_model:
-                chatgpt_model = 'gpt-4o-mini' if use_responses_api else 'gpt-4'
-            
-            system_prompt = "You are a cybersecurity expert specializing in threat intelligence analysis. Provide clear, concise summaries of threat intelligence articles."
-            request_payload = _build_openai_payload(
-                prompt=prompt,
-                system_prompt=system_prompt,
-                temperature=temperature,
-                token_limit=2048,
-                model=chatgpt_model,
-                use_responses_api=use_responses_api
-            )
-            
-            async with httpx.AsyncClient() as client:
-                response = await client.post(
-                    chatgpt_api_url,
-                    headers={
-                        "Authorization": f"Bearer {api_key}",
-                        "Content-Type": "application/json"
-                    },
-                    json=request_payload,
-                    timeout=180.0  # Increased timeout for large articles
-                )
-                
-                if response.status_code != 200:
-                    error_detail = f"Failed to get summary from ChatGPT: {response.status_code}"
-                    try:
-                        error_json = response.json()
-                        error_message = (
-                            error_json.get('error', {}).get('message')
-                            or error_json.get('message')
-                        )
-                    except json.JSONDecodeError:
-                        error_message = response.text
-                    if response.status_code == 401:
-                        error_detail = "Invalid API key. Please check your OpenAI API key in Settings."
-                    elif response.status_code == 429:
-                        error_detail = "Rate limit exceeded. Please try again later."
-                    elif error_message:
-                        error_detail = f"{error_detail} ({error_message})"
-                    raise HTTPException(status_code=500, detail=error_detail)
-                
-                result = response.json()
-                try:
-                    summary, model_from_response = _extract_openai_summary(result, use_responses_api)
-                except ValueError as exc:
-                    raise HTTPException(status_code=500, detail=str(exc)) from exc
-                model_used = 'chatgpt'
-                model_name = model_from_response or chatgpt_model
-        elif ai_model == 'anthropic':
-            # Use Anthropic API
-            anthropic_api_url = os.getenv('ANTHROPIC_API_URL', 'https://api.anthropic.com/v1/messages')
-            
-            async with httpx.AsyncClient() as client:
-                response = await client.post(
-                    anthropic_api_url,
-                    headers={
-                        "x-api-key": api_key,
-                        "Content-Type": "application/json",
-                        "anthropic-version": "2023-06-01"
-                    },
-                    json={
-                        "model": "claude-3-haiku-20240307",
-                        "max_tokens": 2048,
-                        "temperature": temperature,
-                        "messages": [
-                            {
-                                "role": "user",
-                                "content": f"You are a cybersecurity expert specializing in threat intelligence analysis. Provide clear, concise summaries of threat intelligence articles.\n\n{prompt}"
-                            }
-                        ]
-                    },
-                    timeout=180.0  # Increased timeout for large articles
-                )
-                
-                if response.status_code != 200:
-                    error_detail = f"Failed to get summary from Anthropic: {response.status_code}"
-                    if response.status_code == 401:
-                        error_detail = "Invalid API key. Please check your Anthropic API key in Settings."
-                    elif response.status_code == 429:
-                        error_detail = "Rate limit exceeded. Please try again later."
-                    raise HTTPException(status_code=500, detail=error_detail)
-                
-                result = response.json()
-                summary = result['content'][0]['text']
-                model_used = 'anthropic'
-                model_name = 'claude-3-haiku-20240307'
-        else:
-            # Use Ollama API
-            ollama_url = os.getenv('LLM_API_URL', 'http://cti_ollama:11434')
-            ollama_model = os.getenv('LLM_MODEL')
-            
-            logger.info(f"Using Ollama at {ollama_url} with model {ollama_model}")
-            
-            async with httpx.AsyncClient() as client:
-                try:
-                    response = await client.post(
-                        f"{ollama_url}/api/generate",
-                        json={
-                            "model": ollama_model,
-                            "prompt": prompt,
-                            "stream": False,
-                            "options": {
-                                "temperature": temperature,
-                                "num_predict": 2048
-                            }
-                        },
-                        timeout=600.0  # Increased timeout for large articles
-                    )
-                    
-                    if response.status_code != 200:
-                        logger.error(f"Ollama API error: {response.status_code} - {response.text}")
-                        raise HTTPException(status_code=500, detail=f"Failed to get summary from Ollama: {response.status_code}")
-                    
-                    result = response.json()
-                    summary = result.get('response', 'No summary available')
-                    model_used = 'ollama'
-                    model_name = ollama_model
-                    logger.info(f"Successfully got summary from Ollama: {len(summary)} characters")
-                    
-                except Exception as e:
-                    logger.error(f"Ollama API request failed: {e}")
-                    logger.error(f"Exception type: {type(e)}")
-                    logger.error(f"Exception args: {e.args}")
-                    import traceback
-                    logger.error(f"Traceback: {traceback.format_exc()}")
-                    raise HTTPException(status_code=500, detail=f"Failed to get summary from Ollama: {str(e)}")
-        
-        # Store the summary in article metadata
-        summary_metadata = {
-            'summary': summary,
-            'summarized_at': datetime.now().isoformat(),
-            'content_type': 'full content' if include_content else 'metadata only',
-            'model_used': model_used,
-            'model_name': model_name,
-            'temperature': temperature
-        }
-        
-        # Add optimization details if filtering was used
-        if include_content and content_filtering_enabled and optimization_options.get('useFiltering', True):
-            try:
-                # Get optimization stats from the last optimization result
-                optimization_result = await optimize_article_content(
-                    article.content, 
-                    min_confidence=optimization_options.get('minConfidence', float(os.getenv('CONTENT_FILTERING_CONFIDENCE', '0.6'))),
-                    article_metadata=article.article_metadata,
-                    content_hash=article.content_hash
-                )
-                if optimization_result['success']:
-                    summary_metadata['optimization'] = {
-                        'enabled': True,
-                        'cost_savings': optimization_result['cost_savings'],
-                        'tokens_saved': optimization_result['tokens_saved'],
-                        'chunks_removed': optimization_result['chunks_removed'],
-                        'min_confidence': optimization_options.get('minConfidence', float(os.getenv('CONTENT_FILTERING_CONFIDENCE', '0.6')))
-                    }
-            except Exception as e:
-                logger.warning(f"Could not add optimization details to summary metadata: {e}")
-        
-        current_metadata['chatgpt_summary'] = summary_metadata
-        
-        # Update the article
-        update_data = ArticleUpdate(article_metadata=current_metadata)
-        await async_db_manager.update_article(article_id, update_data)
-        
-        response_data = {
-            "success": True,
-            "article_id": article_id,
-            "summary": summary,
-            "summarized_at": current_metadata['chatgpt_summary']['summarized_at'],
-            "content_type": current_metadata['chatgpt_summary']['content_type'],
-            "model_used": current_metadata['chatgpt_summary']['model_used'],
-            "model_name": current_metadata['chatgpt_summary']['model_name'],
-            "temperature": current_metadata['chatgpt_summary']['temperature']
-        }
-        
-        # Add optimization details to response if available
-        if 'optimization' in current_metadata['chatgpt_summary']:
-            response_data['optimization'] = current_metadata['chatgpt_summary']['optimization']
-        
-        return response_data
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"API ChatGPT summary error: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.post("/api/articles/{article_id}/custom-prompt")
-async def api_custom_prompt(article_id: int, request: Request):
-    """API endpoint for custom AI prompts about an article."""
-    try:
-        # Get the article
-        article = await async_db_manager.get_article(article_id)
-        if not article:
-            raise HTTPException(status_code=404, detail="Article not found")
-        
-        # Get request body
-        body = await request.json()
-        custom_prompt = body.get('prompt')
-        api_key = body.get('api_key')
-        ai_model = body.get('ai_model', 'chatgpt')  # Get AI model from request
-        
-        if not custom_prompt:
-            raise HTTPException(status_code=400, detail="Custom prompt is required")
-        
-        # Check if API key is provided (required for ChatGPT and Anthropic)
-        if ai_model == 'chatgpt' and not api_key:
-            raise HTTPException(status_code=400, detail="OpenAI API key is required for ChatGPT. Please configure it in Settings.")
-        elif ai_model == 'anthropic' and not api_key:
-            raise HTTPException(status_code=400, detail="Anthropic API key is required for Claude. Please configure it in Settings.")
-        
-        # Initialize metadata for caching
-        current_metadata = article.article_metadata.copy() if article.article_metadata else {}
-        
-        # Use content filtering for high-value chunks if enabled
-        content_filtering_enabled = os.getenv('CONTENT_FILTERING_ENABLED', 'true').lower() == 'true'
-        
-        if content_filtering_enabled:
-            from src.utils.gpt4o_optimizer import optimize_article_content
-            
-            try:
-                min_confidence = float(os.getenv('CONTENT_FILTERING_CONFIDENCE', '0.7'))
-                optimization_result = await optimize_article_content(
-                    article.content, 
-                    min_confidence=min_confidence,
-                    article_metadata=article.article_metadata,
-                    content_hash=article.content_hash
-                )
-                if optimization_result['success']:
-                    content = optimization_result['filtered_content']
-                    logger.info(f"Content filtered for ranking: {optimization_result['tokens_saved']:,} tokens saved, "
-                              f"{optimization_result['cost_reduction_percent']:.1f}% cost reduction")
-                else:
-                    # Fallback to original content if filtering fails
-                    content = article.content
-                    logger.warning("Content filtering failed for ranking, using original content")
-            except Exception as e:
-                logger.error(f"Content filtering error for ranking: {e}, using original content")
-                content = article.content
-        else:
-            # Use original content if filtering is disabled
-            content = article.content
-        
-        # Prepare the custom prompt
-        full_prompt = format_prompt("database_chat", 
-            title=article.title,
-            source=article.canonical_url or 'N/A',
-            url=article.canonical_url or 'N/A',
-            published_date=article.published_at or 'N/A',
-            question=custom_prompt,
-            content=content
-        )
-        
-        # Generate response based on AI model
-        if ai_model == 'chatgpt':
-            # Use ChatGPT API
-            chatgpt_api_url = os.getenv('CHATGPT_API_URL', 'https://api.openai.com/v1/chat/completions')
-            
-            async with httpx.AsyncClient() as client:
-                response = await client.post(
-                    chatgpt_api_url,
-                    headers={
-                        "Authorization": f"Bearer {api_key}",
-                        "Content-Type": "application/json"
-                    },
-                    json={
-                        "model": "gpt-4",
-                        "messages": [
-                            {
-                                "role": "system",
-                                "content": "You are a cybersecurity expert specializing in threat intelligence analysis. Provide clear, helpful responses to questions about threat intelligence articles."
-                            },
-                            {
-                                "role": "user",
-                                "content": full_prompt
-                            }
-                        ],
-                        "max_tokens": 2048,
-                        "temperature": 0.3
-                    },
-                    timeout=60.0
-                )
-            
-            if response.status_code != 200:
-                error_detail = f"Failed to get response from ChatGPT: {response.status_code}"
-                if response.status_code == 401:
-                    error_detail = "Invalid API key. Please check your OpenAI API key in Settings."
-                elif response.status_code == 429:
-                    error_detail = "Rate limit exceeded. Please try again later."
-                raise HTTPException(status_code=500, detail=error_detail)
-            
-            result = response.json()
-            ai_response = result['choices'][0]['message']['content']
-            model_used = 'chatgpt'
-            model_name = 'gpt-4'
-        elif ai_model == 'anthropic':
-            # Use Anthropic API
-            anthropic_api_url = os.getenv('ANTHROPIC_API_URL', 'https://api.anthropic.com/v1/messages')
-            
-            async with httpx.AsyncClient() as client:
-                response = await client.post(
-                    anthropic_api_url,
-                    headers={
-                        "x-api-key": api_key,
-                        "Content-Type": "application/json",
-                        "anthropic-version": "2023-06-01"
-                    },
-                    json={
-                        "model": "claude-3-haiku-20240307",
-                        "max_tokens": 2048,
-                        "temperature": 0.3,
-                        "messages": [
-                            {
-                                "role": "user",
-                                "content": f"You are a cybersecurity expert specializing in threat intelligence analysis. Provide clear, helpful responses to questions about threat intelligence articles.\n\n{full_prompt}"
-                            }
-                        ]
-                    },
-                    timeout=60.0
-                )
-            
-            if response.status_code != 200:
-                error_detail = f"Failed to get response from Anthropic: {response.status_code}"
-                if response.status_code == 401:
-                    error_detail = "Invalid API key. Please check your Anthropic API key in Settings."
-                elif response.status_code == 429:
-                    error_detail = "Rate limit exceeded. Please try again later."
-                raise HTTPException(status_code=500, detail=error_detail)
-            
-            result = response.json()
-            ai_response = result['content'][0]['text']
-            model_used = 'anthropic'
-            model_name = 'claude-3-haiku-20240307'
-        else:
-            # Use Ollama API
-            ollama_url = os.getenv('LLM_API_URL', 'http://cti_ollama:11434')
-            ollama_model = os.getenv('LLM_MODEL')
-            
-            logger.info(f"Using Ollama at {ollama_url} with model {ollama_model}")
-            
-            async with httpx.AsyncClient() as client:
-                try:
-                    response = await client.post(
-                        f"{ollama_url}/api/generate",
-                        json={
-                            "model": ollama_model,
-                            "prompt": full_prompt,
-                            "stream": False,
-                                "options": {
-                                    "temperature": 0.7,  # Increased for more creative, narrative responses
-                                    "num_predict": 2048
-                                }
-                        },
-                        timeout=300.0
-                    )
-                    
-                    if response.status_code != 200:
-                        logger.error(f"Ollama API error: {response.status_code} - {response.text}")
-                        raise HTTPException(status_code=500, detail=f"Failed to get response from Ollama: {response.status_code}")
-                    
-                    result = response.json()
-                    ai_response = result.get('response', 'No response available')
-                    model_used = 'ollama'
-                    model_name = ollama_model
-                    logger.info(f"Successfully got response from Ollama: {len(ai_response)} characters")
-                    
-                except Exception as e:
-                    logger.error(f"Ollama API request failed: {e}")
-                    raise HTTPException(status_code=500, detail=f"Failed to get response from Ollama: {str(e)}")
-        
-        # Store the custom prompt response in article metadata
-        if 'custom_prompts' not in current_metadata:
-            current_metadata['custom_prompts'] = []
-        
-        current_metadata['custom_prompts'].append({
-            'prompt': custom_prompt,
-            'response': ai_response,
-            'responded_at': datetime.now().isoformat(),
-            'model_used': model_used,
-            'model_name': model_name
-        })
-        
-        # Update the article
-        update_data = ArticleUpdate(article_metadata=current_metadata)
-        await async_db_manager.update_article(article_id, update_data)
-        
-        return {
-            "success": True,
-            "article_id": article_id,
-            "response": ai_response,
-            "responded_at": current_metadata['custom_prompts'][-1]['responded_at'],
-            "model_used": model_used,
-            "model_name": model_name
-        }
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"API custom prompt error: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.post("/api/test-chatgpt-summary")
-async def test_chatgpt_summary(request: Request):
-    """Test ChatGPT summary functionality with provided API key."""
-    try:
-        body = await request.json()
-        api_key = body.get('api_key')
-        test_prompt = body.get('test_prompt', 'Please provide a brief summary of cybersecurity threats.')
-        
-        if not api_key:
-            raise HTTPException(status_code=400, detail="API key is required")
-        
-        # Use ChatGPT API with provided key
-        chatgpt_api_url = os.getenv('CHATGPT_API_URL', 'https://api.openai.com/v1/chat/completions')
-        use_responses_api = _is_responses_api(chatgpt_api_url)
-        chatgpt_model = os.getenv('CHATGPT_MODEL')
-        if not chatgpt_model:
-            chatgpt_model = 'gpt-4o-mini' if use_responses_api else 'gpt-4'
-        
-        payload = _build_openai_payload(
-            prompt=test_prompt,
-            system_prompt="You are a cybersecurity expert. Provide brief, helpful responses.",
-            temperature=0.3,
-            token_limit=100,
-            model=chatgpt_model,
-            use_responses_api=use_responses_api
-        )
-        
-        async with httpx.AsyncClient() as client:
-            response = await client.post(
-                chatgpt_api_url,
-                headers={
-                    "Authorization": f"Bearer {api_key}",
-                    "Content-Type": "application/json"
-                },
-                json=payload,
-                timeout=30.0
-            )
-            
-            if response.status_code == 200:
-                result = response.json()
-                try:
-                    summary, model_name = _extract_openai_summary(result, use_responses_api)
-                except ValueError as exc:
-                    raise HTTPException(status_code=500, detail=str(exc)) from exc
-                model_name = model_name or chatgpt_model
-                return {
-                    "success": True, 
-                    "message": "ChatGPT Summary is working",
-                    "model_name": model_name,
-                    "test_summary": summary
-                }
-            elif response.status_code == 401:
-                raise HTTPException(status_code=400, detail="Invalid API key")
-            else:
-                raise HTTPException(status_code=400, detail=f"API error: {response.status_code}")
-                
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Test ChatGPT summary error: {e}")
-        raise HTTPException(status_code=500, detail="Failed to test ChatGPT summary")
-
-@app.post("/api/test-openai-key")
-async def test_openai_key(request: Request):
-    """Test OpenAI API key validity."""
-    try:
-        body = await request.json()
-        api_key = body.get('api_key')
-        
-        if not api_key:
-            raise HTTPException(status_code=400, detail="API key is required")
-        
-        # Test the API key by making a simple request to OpenAI
-        async with httpx.AsyncClient() as client:
-            response = await client.get(
-                "https://api.openai.com/v1/models",
-                headers={
-                    "Authorization": f"Bearer {api_key}",
-                    "Content-Type": "application/json"
-                },
-                timeout=10.0
-            )
-            
-            if response.status_code == 200:
-                return {"success": True, "message": "API key is valid"}
-            elif response.status_code == 401:
-                raise HTTPException(status_code=400, detail="Invalid API key")
-            else:
-                raise HTTPException(status_code=400, detail=f"API error: {response.status_code}")
-                
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Test OpenAI API key error: {e}")
-        raise HTTPException(status_code=500, detail="Failed to test API key")
-
-@app.post("/api/test-anthropic-key")
-async def test_anthropic_key(request: Request):
-    """Test Anthropic API key validity."""
-    try:
-        body = await request.json()
-        api_key = body.get('api_key')
-        
-        if not api_key:
-            raise HTTPException(status_code=400, detail="API key is required")
-        
-        # Test the API key by making a simple request to Anthropic
-        async with httpx.AsyncClient() as client:
-            response = await client.post(
-                "https://api.anthropic.com/v1/messages",
-                headers={
-                    "x-api-key": api_key,
-                    "Content-Type": "application/json",
-                    "anthropic-version": "2023-06-01"
-                },
-                json={
-                    "model": "claude-3-haiku-20240307",
-                    "max_tokens": 10,
-                    "messages": [
-                        {
-                            "role": "user",
-                            "content": "Hello"
-                        }
-                    ]
-                },
-                timeout=10.0
-            )
-            
-            if response.status_code == 200:
-                return {"success": True, "message": "API key is valid"}
-            elif response.status_code == 401:
-                raise HTTPException(status_code=400, detail="Invalid API key")
-            else:
-                raise HTTPException(status_code=400, detail=f"API error: {response.status_code}")
-                
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Test Anthropic API key error: {e}")
-        raise HTTPException(status_code=500, detail="Failed to test API key")
-
-@app.post("/api/test-claude-summary")
-async def test_claude_summary(request: Request):
-    """Test Claude summary functionality."""
-    try:
-        body = await request.json()
-        api_key = body.get('api_key')
-        test_prompt = body.get('test_prompt', 'Please provide a brief summary of cybersecurity threats.')
-        
-        if not api_key:
-            raise HTTPException(status_code=400, detail="API key is required")
-        
-        # Test the API key by making a simple request to Anthropic
-        async with httpx.AsyncClient() as client:
-            response = await client.post(
-                "https://api.anthropic.com/v1/messages",
-                headers={
-                    "x-api-key": api_key,
-                    "Content-Type": "application/json",
-                    "anthropic-version": "2023-06-01"
-                },
-                json={
-                    "model": "claude-3-haiku-20240307",
-                    "max_tokens": 100,
-                    "temperature": 0.3,
-                    "messages": [
-                        {
-                            "role": "user",
-                            "content": f"You are a cybersecurity expert. {test_prompt}"
-                        }
-                    ]
-                },
-                timeout=30.0
-            )
-            
-            if response.status_code == 200:
-                result = response.json()
-                return {
-                    "success": True, 
-                    "message": "Claude summary generation works",
-                    "model_name": "claude-3-haiku-20240307",
-                    "response": result['content'][0]['text'][:200] + "..." if len(result['content'][0]['text']) > 200 else result['content'][0]['text']
-                }
-            elif response.status_code == 401:
-                raise HTTPException(status_code=400, detail="Invalid API key")
-            else:
-                raise HTTPException(status_code=400, detail=f"API error: {response.status_code}")
-                
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Test Claude summary error: {e}")
-        raise HTTPException(status_code=500, detail="Failed to test Claude summary")
-
-@app.post("/api/articles/{article_id}/generate-sigma")
-async def api_generate_sigma(article_id: int, request: Request):
-    """API endpoint for generating SIGMA detection rules from an article."""
-    try:
-        # Get the article
-        article = await async_db_manager.get_article(article_id)
-        if not article:
-            raise HTTPException(status_code=404, detail="Article not found")
-        
-        # Get request body first to check force_regenerate
-        body = await request.json()
-        force_regenerate = body.get('force_regenerate', False)  # Force regeneration
-        include_content = body.get('include_content', True)  # Default to full content
-        api_key = body.get('api_key')  # Get API key from request
-        ai_model = body.get('ai_model', 'chatgpt')  # Get AI model from request
-        author_name = body.get('author_name', 'CTIScraper User')  # Get author name from request
-        optimization_options = body.get('optimization_options', {})  # Get optimization options
-        temperature = float(body.get('temperature', 0.2))  # Get temperature from request (default 0.2 for SIGMA)
-        
-        # Check if article is marked as "chosen" (required for SIGMA generation)
-        training_category = article.article_metadata.get('training_category', '') if article.article_metadata else ''
-        logger.info(f"SIGMA generation request for article {article_id}, training_category: '{training_category}', force_regenerate: {force_regenerate}")
-        if training_category != 'chosen':
-            raise HTTPException(status_code=400, detail="SIGMA rules can only be generated for articles marked as 'Chosen'. Please classify this article first.")
-        
-        # If force regeneration is requested, skip cache check
-        if not force_regenerate:
-            # Check if SIGMA rules already exist and return cached version
-            existing_sigma_rules = article.article_metadata.get('sigma_rules', {}) if article.article_metadata else {}
-            if existing_sigma_rules and existing_sigma_rules.get('rules'):
-                logger.info(f"Returning cached SIGMA rules for article {article_id}")
-                return {
-                    "success": True,
-                    "article_id": article_id,
-                    "sigma_rules": existing_sigma_rules['rules'],
-                    "generated_at": existing_sigma_rules['generated_at'],
-                    "content_type": existing_sigma_rules['content_type'],
-                    "model_used": existing_sigma_rules['model_used'],
-                    "model_name": existing_sigma_rules['model_name'],
-                    "cached": True
-                }
-        
-        logger.info(f"SIGMA generation request for article {article_id}, ai_model: {ai_model}, api_key provided: {bool(api_key)}, author: {author_name}")
-        
-        # Initialize metadata for caching
-        current_metadata = article.article_metadata.copy() if article.article_metadata else {}
-        
-        # Check if API key is provided (only required for ChatGPT)
-        if ai_model == 'chatgpt' and not api_key:
-            logger.warning(f"SIGMA generation failed: No API key provided for article {article_id}")
-            raise HTTPException(status_code=400, detail="OpenAI API key is required for ChatGPT. Please configure it in Settings.")
-        
-        # Prepare the SIGMA generation prompt
-        if include_content:
-            # Use content filtering for high-value chunks if enabled (higher confidence for SIGMA)
-            content_filtering_enabled = os.getenv('CONTENT_FILTERING_ENABLED', 'true').lower() == 'true'
-            
-            if content_filtering_enabled:
-                from src.utils.gpt4o_optimizer import optimize_article_content
-                
-                try:
-                    # Use optimization options if provided, otherwise use environment defaults
-                    use_filtering = optimization_options.get('useFiltering', True)
-                    min_confidence = optimization_options.get('minConfidence', float(os.getenv('CONTENT_FILTERING_CONFIDENCE', '0.8')))
-                    
-                    if use_filtering:
-                        optimization_result = await optimize_article_content(
-                            article.content, 
-                            min_confidence=min_confidence,
-                            article_metadata=article.article_metadata,
-                            content_hash=article.content_hash
-                        )
-                        if optimization_result['success']:
-                            content = optimization_result['filtered_content']
-                            logger.info(f"Content filtered for SIGMA: {optimization_result['tokens_saved']:,} tokens saved, "
-                                      f"{optimization_result['cost_reduction_percent']:.1f}% cost reduction")
-                        else:
-                            # Fallback to original content if filtering fails
-                            content = article.content
-                            logger.warning("Content filtering failed for SIGMA, using original content")
-                    else:
-                        content = article.content
-                        logger.info("Content filtering disabled for SIGMA")
-                except Exception as e:
-                    logger.error(f"Content filtering error for SIGMA: {e}, using original content")
-                    content = article.content
-            else:
-                # Use original content if filtering is disabled
-                content = article.content
-            
-            # Enhanced SIGMA-specific prompt based on SigmaHQ best practices - simplified
-            prompt = format_prompt("sigma_generation", 
-                title=article.title,
-                source=article.canonical_url or 'N/A',
-                url=article.canonical_url or 'N/A',
-                content=content
-            )
-        else:
-            # Metadata-only prompt
-            prompt = format_prompt("sigma_guidance", 
-                title=article.title,
-                source=article.canonical_url or 'N/A',
-                url=article.canonical_url or 'N/A',
-                published_date=article.published_at or 'N/A',
-                content_length=len(article.content)
-            )
-        
-        # Generate SIGMA rules based on AI model
-        logger.info(f"Sending SIGMA request to {ai_model} for article {article_id}, content length: {len(content) if include_content else 'metadata only'}")
-        
-        # Enhanced system prompt with compliance requirements
-        system_prompt = format_prompt("sigma_system")
-
-        # Iterative fixing loop (up to 3 attempts)
-        sigma_rules = None
-        validation_results = []
-        conversation_log = []  # Capture LLM ↔ validator conversation per attempt
-        attempt = 0  # Start at 0, increment at beginning of loop
-        max_attempts = 3
-        
-        async with httpx.AsyncClient() as client:
-            while attempt < max_attempts:
-                attempt += 1  # Increment at beginning of loop
-                logger.info(f"SIGMA generation attempt {attempt}/{max_attempts} for article {article_id}")
-                
-                # Add delay between retry attempts to avoid rate limiting
-                if attempt > 1:
-                    import asyncio
-                    delay = min(2 ** (attempt - 1), 10)  # Exponential backoff, max 10 seconds
-                    logger.info(f"Waiting {delay} seconds before retry attempt {attempt}")
-                    await asyncio.sleep(delay)
-                
-                # Prepare messages for this attempt
-                messages = [
-                    {
-                        "role": "system",
-                        "content": system_prompt
-                    },
-                    {
-                        "role": "user",
-                        "content": prompt
-                    }
-                ]
-                
-                # Record initial prompt for this attempt
-                conversation_entry = {
-                    "attempt": attempt,
-                    "messages": [
-                        {"role": "system", "content": system_prompt},
-                        {"role": "user", "content": prompt}
-                    ],
-                    "llm_response": None,
-                    "validation": None
-                }
-
-                # Add validation feedback if this is a retry
-                if attempt > 1 and validation_results:
-                    last_validation = validation_results[-1]
-                    if not last_validation.get('is_valid', False):
-                        feedback_prompt = format_prompt("sigma_feedback", 
-                            validation_errors=chr(10).join(last_validation.get('errors', [])),
-                            original_rule="[Previous rule content]"
-                        )
-                        
-                        messages.append({
-                            "role": "user",
-                            "content": feedback_prompt
-                        })
-                        conversation_entry["messages"].append({
-                            "role": "user",
-                            "content": feedback_prompt
-                        })
-                
-                try:
-                    if ai_model == 'chatgpt':
-                        # Use ChatGPT API
-                        chatgpt_api_url = os.getenv('CHATGPT_API_URL', 'https://api.openai.com/v1/chat/completions')
-                        
-                        response = await client.post(
-                            chatgpt_api_url,
-                            headers={
-                                "Authorization": f"Bearer {api_key}",
-                                "Content-Type": "application/json"
-                            },
-                            json={
-                                "model": "gpt-4",
-                                "messages": messages,
-                                "max_tokens": 2048,
-                                "temperature": temperature
-                            },
-                            timeout=120.0
-                        )
-                        
-                        if response.status_code != 200:
-                            error_detail = f"Failed to generate SIGMA rules: {response.status_code}"
-                            if response.status_code == 401:
-                                error_detail = "Invalid API key. Please check your OpenAI API key in Settings."
-                            elif response.status_code == 429:
-                                error_detail = "Rate limit exceeded. Please try again later."
-                            elif response.status_code == 400:
-                                try:
-                                    error_response = response.json()
-                                    logger.error(f"OpenAI API 400 error details: {error_response}")
-                                    error_detail = f"OpenAI API error: {error_response.get('error', {}).get('message', 'Bad request')}"
-                                except:
-                                    error_detail = "OpenAI API error: Bad request - check prompt format"
-                            raise HTTPException(status_code=500, detail=error_detail)
-                        
-                        result = response.json()
-                        sigma_rules = result['choices'][0]['message']['content']
-                        conversation_entry["llm_response"] = sigma_rules
-                        model_used = 'chatgpt'
-                        model_name = 'gpt-4'
-                    elif ai_model == 'anthropic':
-                        # Use Anthropic API
-                        anthropic_api_url = os.getenv('ANTHROPIC_API_URL', 'https://api.anthropic.com/v1/messages')
-                        
-                        # Convert messages to Anthropic format
-                        anthropic_messages = []
-                        for msg in messages:
-                            if msg['role'] == 'system':
-                                # Anthropic doesn't have system messages, prepend to first user message
-                                if anthropic_messages and anthropic_messages[-1]['role'] == 'user':
-                                    anthropic_messages[-1]['content'] = f"{msg['content']}\n\n{anthropic_messages[-1]['content']}"
-                                else:
-                                    # If no user message yet, create one with system content
-                                    anthropic_messages.append({
-                                        "role": "user",
-                                        "content": msg['content']
-                                    })
-                            else:
-                                anthropic_messages.append(msg)
-                        
-                        response = await client.post(
-                            anthropic_api_url,
-                            headers={
-                                "x-api-key": api_key,
-                                "Content-Type": "application/json",
-                                "anthropic-version": "2023-06-01"
-                            },
-                            json={
-                                "model": "claude-3-haiku-20240307",
-                                "max_tokens": 2048,
-                                "temperature": temperature,
-                                "messages": anthropic_messages
-                            },
-                            timeout=120.0
-                        )
-                        
-                        if response.status_code != 200:
-                            error_detail = f"Failed to generate SIGMA rules: {response.status_code}"
-                            if response.status_code == 401:
-                                error_detail = "Invalid API key. Please check your Anthropic API key in Settings."
-                            elif response.status_code == 429:
-                                error_detail = "Rate limit exceeded. Please try again later."
-                            raise HTTPException(status_code=500, detail=error_detail)
-                        
-                        result = response.json()
-                        sigma_rules = result['content'][0]['text']
-                        conversation_entry["llm_response"] = sigma_rules
-                        model_used = 'anthropic'
-                        model_name = 'claude-3-haiku-20240307'
-                    else:
-                        # Use Ollama API
-                        ollama_url = os.getenv('LLM_API_URL', 'http://cti_ollama:11434')
-                        ollama_model = os.getenv('LLM_MODEL')
-                        
-                        logger.info(f"Using Ollama at {ollama_url} with model {ollama_model}")
-                        
-                        # Combine system prompt and user prompt for Ollama
-                        full_prompt = f"{system_prompt}\n\n{prompt}"
-                        
-                        response = await client.post(
-                            f"{ollama_url}/api/generate",
-                            json={
-                                "model": ollama_model,
-                                "prompt": full_prompt,
-                                "stream": False,
-                                "options": {
-                                    "temperature": temperature,
-                                    "num_predict": 2048
-                                }
-                            },
-                            timeout=300.0
-                        )
-                        
-                        if response.status_code != 200:
-                            logger.error(f"Ollama API error: {response.status_code} - {response.text}")
-                            raise HTTPException(status_code=500, detail=f"Failed to get SIGMA rules from Ollama: {response.status_code}")
-                        
-                        result = response.json()
-                        sigma_rules = result.get('response', 'No SIGMA rules available')
-                        conversation_entry["llm_response"] = sigma_rules
-                        model_used = 'ollama'
-                        model_name = ollama_model
-                        logger.info(f"Successfully got SIGMA rules from Ollama: {len(sigma_rules)} characters")
-                    
-                    # Validate the generated rules
-                    if sigma_rules:
-                        try:
-                            # Split rules if multiple rules are generated
-                            rules_text = sigma_rules.strip()
-                            if '---' in rules_text:
-                                individual_rules = [rule.strip() for rule in rules_text.split('---') if rule.strip()]
-                            else:
-                                individual_rules = [rules_text]
-                            
-                            attempt_validation_results = []
-                            all_valid = True
-                            
-                            for i, rule_text in enumerate(individual_rules):
-                                # Clean up YAML formatting issues (replace tabs with spaces)
-                                cleaned_rule_text = rule_text.replace('\t', '  ')  # Replace tabs with 2 spaces
-                                validation_result = validate_sigma_rule(cleaned_rule_text)
-                                attempt_validation_results.append({
-                                    'rule_index': i + 1,
-                                    'is_valid': validation_result.is_valid,
-                                    'errors': validation_result.errors,
-                                    'warnings': validation_result.warnings,
-                                    'rule_info': validation_result.metadata  # metadata contains rule_info
-                                })
-                                
-                                if not validation_result.is_valid:
-                                    all_valid = False
-                                
-                                # Update the rule text with cleaned version for storage
-                                individual_rules[i] = cleaned_rule_text
-                            
-                            validation_results = attempt_validation_results
-                            conversation_entry["validation"] = attempt_validation_results
-                            
-                            # If all rules are valid, break out of the loop
-                            if all_valid:
-                                # Update sigma_rules with cleaned version
-                                sigma_rules = '\n---\n'.join(individual_rules)
-                                logger.info(f"SIGMA rules passed validation on attempt {attempt}")
-                                break
-                            else:
-                                logger.warning(f"SIGMA rules failed validation on attempt {attempt}")
-                                if attempt == max_attempts:
-                                    logger.error(f"SIGMA rules failed validation after {max_attempts} attempts")
-                                    break
-                                
-                        except Exception as e:
-                            logger.warning(f"SIGMA validation failed on attempt {attempt}: {e}")
-                            validation_results = [{
-                                'rule_index': 1,
-                                'is_valid': False,
-                                'errors': [f"Validation error: {e}"],
-                                'warnings': [],
-                                'rule_info': None
-                            }]
-                            conversation_entry["validation"] = validation_results
-                            
-                            if attempt == max_attempts:
-                                break
-                    
-                except Exception as e:
-                    logger.error(f"SIGMA generation attempt {attempt} failed: {e}")
-                    conversation_entry["error"] = str(e)
-                    # Append this attempt's conversation entry to the log
-                    if conversation_entry:
-                        conversation_log.append(conversation_entry)
-                    
-                    if attempt == max_attempts:
-                        # Save partial conversation log even on failure
-                        current_metadata = article.article_metadata.copy() if article.article_metadata else {}
-                        current_metadata['sigma_rules'] = {
-                            'rules': None,
-                            'generated_at': datetime.now().isoformat(),
-                            'content_type': 'full content' if include_content else 'metadata only',
-                            'model_used': model_used if 'model_used' in locals() else 'unknown',
-                            'model_name': model_name if 'model_name' in locals() else 'unknown',
-                            'validation_results': validation_results,
-                            'conversation': conversation_log,
-                            'validation_passed': False,
-                            'attempts_made': attempt,
-                            'error': str(e)
-                        }
-                        update_data = ArticleUpdate(article_metadata=current_metadata)
-                        await async_db_manager.update_article(article_id, update_data)
-                        
-                        raise HTTPException(status_code=500, detail=f"SIGMA generation failed after {max_attempts} attempts: {e}")
-                    else:
-                        # Continue to next attempt
-                        continue
-                
-                # Append this attempt's conversation entry to the log (for successful attempts)
-                finally:
-                    if conversation_entry and conversation_entry not in conversation_log:
-                        conversation_log.append(conversation_entry)
-        
-        # Check if we have valid rules after all attempts
-        if not sigma_rules:
-            raise HTTPException(status_code=500, detail="Failed to generate SIGMA rules after all attempts")
-
-        # Determine if rules passed validation
-        all_rules_valid = all(result.get('is_valid', False) for result in validation_results)
-        
-        # Store the SIGMA rules in article metadata
-        sigma_metadata = {
-            'rules': sigma_rules,
-            'generated_at': datetime.now().isoformat(),
-            'content_type': 'full content' if include_content else 'metadata only',
-            'model_used': model_used,
-            'model_name': model_name,
-            'validation_results': validation_results,
-            'conversation': conversation_log,
-            'validation_passed': all_rules_valid,
-            'attempts_made': attempt,
-            'temperature': temperature
-        }
-        
-        # Add optimization details if filtering was used
-        if include_content and content_filtering_enabled and optimization_options.get('useFiltering', True):
-            try:
-                # Get optimization stats from the last optimization result
-                optimization_result = await optimize_article_content(
-                    article.content, 
-                    min_confidence=optimization_options.get('minConfidence', float(os.getenv('CONTENT_FILTERING_CONFIDENCE', '0.8'))),
-                    article_metadata=article.article_metadata,
-                    content_hash=article.content_hash
-                )
-                if optimization_result['success']:
-                    sigma_metadata['optimization'] = {
-                        'enabled': True,
-                        'cost_savings': optimization_result['cost_savings'],
-                        'tokens_saved': optimization_result['tokens_saved'],
-                        'chunks_removed': optimization_result['chunks_removed'],
-                        'min_confidence': optimization_options.get('minConfidence', float(os.getenv('CONTENT_FILTERING_CONFIDENCE', '0.8')))
-                    }
-            except Exception as e:
-                logger.warning(f"Could not add optimization details to SIGMA metadata: {e}")
-        
-        current_metadata['sigma_rules'] = sigma_metadata
-        
-        # Update the article
-        update_data = ArticleUpdate(article_metadata=current_metadata)
-        await async_db_manager.update_article(article_id, update_data)
-        
-        # Prepare response with validation status
-        response_data = {
-            "success": True,
-            "article_id": article_id,
-            "sigma_rules": sigma_rules,
-            "generated_at": current_metadata['sigma_rules']['generated_at'],
-            "content_type": current_metadata['sigma_rules']['content_type'],
-            "model_used": current_metadata['sigma_rules']['model_used'],
-            "model_name": current_metadata['sigma_rules']['model_name'],
-            "validation_results": validation_results,
-            "conversation": conversation_log,
-            "validation_passed": all_rules_valid,
-            "attempts_made": attempt,
-            "temperature": current_metadata['sigma_rules']['temperature']
-        }
-        
-        # Add optimization details to response if available
-        if 'optimization' in current_metadata['sigma_rules']:
-            response_data['optimization'] = current_metadata['sigma_rules']['optimization']
-        
-        # Add appropriate message based on validation status
-        if all_rules_valid:
-            response_data["message"] = f"✅ SIGMA rules generated successfully and passed pySIGMA validation after {attempt} attempt(s)."
-        else:
-            response_data["message"] = f"⚠️ SIGMA rules generated but failed pySIGMA validation after {max_attempts} attempts. Please review the validation errors and consider manual correction."
-        
-        return response_data
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"SIGMA generation error: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.post("/api/articles/{article_id}/extract-iocs")
-async def api_extract_iocs(article_id: int, request: Request):
-    """API endpoint for extracting IOCs from an article using hybrid approach."""
-    try:
-        # Get the article
-        article = await async_db_manager.get_article(article_id)
-        if not article:
-            raise HTTPException(status_code=404, detail="Article not found")
-        
-        # Get request body
-        body = await request.json()
-        include_content = body.get('include_content', True)  # Default to full content
-        api_key = body.get('api_key')  # Get API key from request
-        ai_model = body.get('ai_model', 'chatgpt')  # Get AI model from request
-        force_regenerate = body.get('force_regenerate', False)  # Force regeneration
-        use_llm_validation = body.get('use_llm_validation', True)  # Use LLM validation
-        use_filtering = body.get('use_filtering', True)  # Enable filtering by default
-        min_confidence = body.get('min_confidence', 0.7)  # Confidence threshold
-        optimization_options = body.get('optimization_options', {})  # Get optimization options
-        
-        logger.info(f"IOC extraction request for article {article_id}, ai_model: {ai_model}, api_key provided: {bool(api_key)}, force_regenerate: {force_regenerate}, use_llm_validation: {use_llm_validation}")
-        
-        # Check if API key is provided (required for ChatGPT and Anthropic)
-        if ai_model == 'chatgpt' and not api_key:
-            raise HTTPException(status_code=400, detail="OpenAI API key is required for ChatGPT. Please configure it in Settings.")
-        elif ai_model == 'anthropic' and not api_key:
-            raise HTTPException(status_code=400, detail="Anthropic API key is required for Claude. Please configure it in Settings.")
-        
-        # If force regeneration is requested, skip cache check
-        if not force_regenerate:
-            # Check if IOCs already exist and return cached version
-            existing_iocs = article.article_metadata.get('extracted_iocs', {}) if article.article_metadata else {}
-            if existing_iocs and existing_iocs.get('iocs'):
-                logger.info(f"Returning cached IOCs for article {article_id}")
-                return {
-                    "success": True,
-                    "article_id": article_id,
-                    "iocs": existing_iocs['iocs'],
-                    "extracted_at": existing_iocs['extracted_at'],
-                    "content_type": existing_iocs['content_type'],
-                    "model_used": existing_iocs['model_used'],
-                    "model_name": existing_iocs['model_name'],
-                    "extraction_method": existing_iocs.get('extraction_method', 'unknown'),
-                    "confidence": existing_iocs.get('confidence', 0.0),
-                    "cached": True,
-                    "llm_validation_used": existing_iocs.get('metadata', {}).get('validation_applied', False),
-                    "validation_model": existing_iocs['model_name'] if existing_iocs.get('metadata', {}).get('validation_applied', False) else None,
-                    "validation_timestamp": existing_iocs['extracted_at'] if existing_iocs.get('metadata', {}).get('validation_applied', False) else None,
-                    "validation_summary": f"Validated {existing_iocs.get('validated_count', 0)} IOCs from {existing_iocs.get('raw_count', 0)} raw extractions" if existing_iocs.get('metadata', {}).get('validation_applied', False) else None,
-                    "false_positives_removed": (existing_iocs.get('raw_count', 0) - existing_iocs.get('validated_count', 0)) if existing_iocs.get('metadata', {}).get('validation_applied', False) else 0,
-                    "validation_confidence": existing_iocs.get('confidence', 0.0) if existing_iocs.get('metadata', {}).get('validation_applied', False) else None
-                }
-        
-        # Initialize hybrid IOC extractor (default: iocextract only)
-        ioc_extractor = HybridIOCExtractor(use_llm_validation=use_llm_validation)
-        
-        # Initialize metadata for caching
-        current_metadata = article.article_metadata.copy() if article.article_metadata else {}
-        
-        # Prepare content for extraction
-        if include_content:
-            # Use content filtering for high-value chunks if enabled
-            content_filtering_enabled = os.getenv('CONTENT_FILTERING_ENABLED', 'true').lower() == 'true'
-            
-            if content_filtering_enabled and use_filtering:
-                from src.utils.gpt4o_optimizer import optimize_article_content
-                
-                try:
-                    # Use optimization options if provided, otherwise use request parameters
-                    use_filtering_opt = optimization_options.get('useFiltering', use_filtering)
-                    min_confidence_opt = optimization_options.get('minConfidence', min_confidence)
-                    
-                    if use_filtering_opt:
-                        optimization_result = await optimize_article_content(
-                            article.content, 
-                            min_confidence=min_confidence_opt,
-                            article_metadata=article.article_metadata,
-                            content_hash=article.content_hash
-                        )
-                        if optimization_result['success']:
-                            content = optimization_result['filtered_content']
-                            logger.info(f"Content filtered for IOC extraction: {optimization_result['tokens_saved']:,} tokens saved, "
-                                      f"{optimization_result['cost_reduction_percent']:.1f}% cost reduction")
-                        else:
-                            # Fallback to original content if filtering fails
-                            content = article.content
-                            logger.warning("Content filtering failed for IOC extraction, using original content")
-                    else:
-                        content = article.content
-                        logger.info("Content filtering disabled for IOC extraction")
-                except Exception as e:
-                    logger.error(f"Content filtering error for IOC extraction: {e}")
-                    content = article.content
-            else:
-                # Use original content if filtering is disabled
-                content = article.content
-        else:
-            # Metadata-only content
-            content = f"Title: {article.title}\nURL: {article.canonical_url or 'N/A'}\nPublished: {article.published_at or 'N/A'}\nSource: {article.source_id}"
-        
-        # Extract IOCs using hybrid approach
-        extraction_result = await ioc_extractor.extract_iocs(content, api_key)
-        
-        # Store the IOCs in article metadata
-        current_metadata['extracted_iocs'] = {
-            'iocs': extraction_result.iocs,
-            'extracted_at': datetime.now().isoformat(),
-            'content_type': 'full content' if include_content else 'metadata only',
-            'model_used': ai_model if extraction_result.extraction_method == 'hybrid' else 'regex',
-            'model_name': ai_model if extraction_result.extraction_method == 'hybrid' else 'custom-regex',
-            'extraction_method': extraction_result.extraction_method,
-            'confidence': extraction_result.confidence,
-            'processing_time': extraction_result.processing_time,
-            'raw_count': extraction_result.raw_count,
-            'validated_count': extraction_result.validated_count,
-            'metadata': extraction_result.metadata,
-            'content_filtering': {
-                'enabled': content_filtering_enabled and use_filtering if include_content else False,
-                'min_confidence': min_confidence if content_filtering_enabled and use_filtering and include_content else None,
-                'tokens_saved': optimization_result.get('tokens_saved', 0) if content_filtering_enabled and use_filtering and include_content else 0,
-                'cost_reduction_percent': optimization_result.get('cost_reduction_percent', 0) if content_filtering_enabled and use_filtering and include_content else 0
-            }
-        }
-        
-        # Update the article
-        update_data = ArticleUpdate(article_metadata=current_metadata)
-        await async_db_manager.update_article(article_id, update_data)
-        
-        return {
-            "success": True,
-            "article_id": article_id,
-            "iocs": extraction_result.iocs,
-            "extracted_at": current_metadata['extracted_iocs']['extracted_at'],
-            "content_type": current_metadata['extracted_iocs']['content_type'],
-            "model_used": current_metadata['extracted_iocs']['model_used'],
-            "model_name": current_metadata['extracted_iocs']['model_name'],
-            "extraction_method": extraction_result.extraction_method,
-            "confidence": extraction_result.confidence,
-            "processing_time": extraction_result.processing_time,
-            "raw_count": extraction_result.raw_count,
-            "validated_count": extraction_result.validated_count,
-            "llm_validation_used": extraction_result.metadata.get('validation_applied', False),
-            "validation_model": current_metadata['extracted_iocs']['model_name'] if extraction_result.metadata.get('validation_applied', False) else None,
-            "validation_timestamp": current_metadata['extracted_iocs']['extracted_at'] if extraction_result.metadata.get('validation_applied', False) else None,
-            "validation_summary": f"Validated {extraction_result.validated_count} IOCs from {extraction_result.raw_count} raw extractions" if extraction_result.metadata.get('validation_applied', False) else None,
-            "false_positives_removed": extraction_result.raw_count - extraction_result.validated_count if extraction_result.metadata.get('validation_applied', False) else 0,
-            "validation_confidence": extraction_result.confidence if extraction_result.metadata.get('validation_applied', False) else None,
-            "content_filtering": current_metadata['extracted_iocs']['content_filtering']
-        }
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"IOC extraction error: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-
 @app.post("/api/articles/{article_id}/rank-with-gpt4o")
 async def api_rank_with_gpt4o(article_id: int, request: Request):
     """API endpoint for GPT4o SIGMA huntability ranking (frontend-compatible endpoint)."""
@@ -4174,6 +2997,7 @@ async def api_rank_with_gpt4o(article_id: int, request: Request):
         logger.error(f"API GPT4o ranking error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.post("/api/articles/{article_id}/gpt4o-rank")
 async def api_gpt4o_rank(article_id: int, request: Request):
     """API endpoint for GPT4o SIGMA huntability ranking."""
     try:
@@ -6097,6 +4921,217 @@ async def api_gpt4o_rank_optimized(article_id: int, request: Request):
         raise HTTPException(status_code=500, detail=str(e))
 
 # Error handlers
+# AI Analysis API endpoints
+
+@app.post("/api/articles/{article_id}/extract-iocs")
+async def api_extract_iocs(article_id: int, request: Request):
+    """Extract IOCs (Indicators of Compromise) from an article using AI."""
+    try:
+        # Get the article
+        article = await async_db_manager.get_article(article_id)
+        if not article:
+            raise HTTPException(status_code=404, detail="Article not found")
+        
+        # Get request body
+        body = await request.json()
+        api_key = body.get('api_key')
+        ai_model = body.get('ai_model', 'chatgpt')
+        use_llm_validation = body.get('use_llm_validation', False)
+        debug_mode = body.get('debug_mode', False)
+        
+        if not api_key:
+            raise HTTPException(status_code=400, detail="API key is required. Please configure it in Settings.")
+        
+        # Use the IOC extractor
+        from src.utils.ioc_extractor import HybridIOCExtractor
+        
+        extractor = HybridIOCExtractor(use_llm_validation=use_llm_validation)
+        
+        # Extract IOCs from the article content
+        result = await extractor.extract_iocs(
+            content=article.content,
+            api_key=api_key
+        )
+        
+        # Update article metadata with extracted IOCs
+        if result.iocs and len(result.iocs) > 0:
+            # Get current metadata and merge with new IOCs data
+            current_metadata = article.article_metadata or {}
+            current_metadata['extracted_iocs'] = {
+                'iocs': result.iocs,
+                'extraction_method': result.extraction_method,
+                'confidence': result.confidence,
+                'extracted_at': datetime.now().isoformat(),
+                'ai_model': ai_model,
+                'use_llm_validation': use_llm_validation,
+                'processing_time': result.processing_time,
+                'raw_count': result.raw_count,
+                'validated_count': result.validated_count
+            }
+            
+            # Update the article in the database
+            from src.models.article import ArticleUpdate
+            update_data = ArticleUpdate(article_metadata=current_metadata)
+            await async_db_manager.update_article(article_id, update_data)
+        
+        return {
+            "success": len(result.iocs) > 0,
+            "iocs": result.iocs,
+            "method": result.extraction_method,
+            "confidence": result.confidence,
+            "processing_time": result.processing_time,
+            "raw_count": result.raw_count,
+            "validated_count": result.validated_count,
+            "debug_info": result.metadata if debug_mode else None,
+            "error": None if len(result.iocs) > 0 else "No IOCs found"
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"IOCs extraction error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# Custom Prompt API endpoint
+@app.post("/api/articles/{article_id}/custom-prompt")
+async def api_custom_prompt(article_id: int, request: Request):
+    """Process a custom AI prompt for an article."""
+    try:
+        # Get the article
+        article = await async_db_manager.get_article(article_id)
+        if not article:
+            raise HTTPException(status_code=404, detail="Article not found")
+        
+        # Get request body
+        body = await request.json()
+        prompt = body.get('prompt')
+        api_key = body.get('api_key')
+        ai_model = body.get('ai_model', 'chatgpt')
+        
+        if not prompt:
+            raise HTTPException(status_code=400, detail="Prompt is required")
+        
+        if not api_key:
+            raise HTTPException(status_code=400, detail="API key is required. Please configure it in Settings.")
+        
+        # Prepare the article content for analysis
+        if not article.content:
+            raise HTTPException(status_code=400, detail="Article content is required for analysis")
+        
+        # Get the source name from source_id
+        source = await async_db_manager.get_source(article.source_id)
+        source_name = source.name if source else f"Source {article.source_id}"
+        
+        # Create the full prompt with article context
+        full_prompt = f"""Article Title: {article.title}
+Source: {source_name}
+URL: {article.canonical_url or 'N/A'}
+
+Article Content:
+{article.content}
+
+User Request: {prompt}
+
+Please provide a detailed analysis based on the article content and the user's request."""
+        
+        # Call the appropriate AI API
+        if ai_model == 'anthropic':
+            # Use Anthropic API
+            async with httpx.AsyncClient() as client:
+                response = await client.post(
+                    "https://api.anthropic.com/v1/messages",
+                    headers={
+                        "x-api-key": api_key,
+                        "Content-Type": "application/json",
+                        "anthropic-version": "2023-06-01"
+                    },
+                    json={
+                        "model": "claude-3-haiku-20240307",
+                        "max_tokens": 2000,
+                        "messages": [
+                            {
+                                "role": "user",
+                                "content": full_prompt
+                            }
+                        ]
+                    },
+                    timeout=60.0
+                )
+                
+                if response.status_code != 200:
+                    error_detail = response.text
+                    logger.error(f"Anthropic API error: {error_detail}")
+                    raise HTTPException(status_code=500, detail=f"Anthropic API error: {error_detail}")
+                
+                result = response.json()
+                analysis = result['content'][0]['text']
+                model_used = 'anthropic'
+                model_name = 'claude-3-haiku-20240307'
+        else:
+            # Use OpenAI API
+            async with httpx.AsyncClient() as client:
+                response = await client.post(
+                    "https://api.openai.com/v1/chat/completions",
+                    headers={
+                        "Authorization": f"Bearer {api_key}",
+                        "Content-Type": "application/json"
+                    },
+                    json={
+                        "model": "gpt-4o",
+                        "messages": [
+                            {
+                                "role": "user",
+                                "content": full_prompt
+                            }
+                        ],
+                        "max_tokens": 2000,
+                        "temperature": 0.3
+                    },
+                    timeout=60.0
+                )
+                
+                if response.status_code != 200:
+                    error_detail = response.text
+                    logger.error(f"OpenAI API error: {error_detail}")
+                    raise HTTPException(status_code=500, detail=f"OpenAI API error: {error_detail}")
+                
+                result = response.json()
+                analysis = result['choices'][0]['message']['content']
+                model_used = 'openai'
+                model_name = 'gpt-4o'
+        
+        # Save the analysis to the article's metadata
+        if article.article_metadata is None:
+            article.article_metadata = {}
+        
+        article.article_metadata['custom_prompt'] = {
+            'prompt': prompt,
+            'response': analysis,
+            'analyzed_at': datetime.now().isoformat(),
+            'model_used': model_used,
+            'model_name': model_name
+        }
+        
+        # Update the article in the database
+        from src.models.article import ArticleUpdate
+        update_data = ArticleUpdate(article_metadata=article.article_metadata)
+        await async_db_manager.update_article(article_id, update_data)
+        
+        return {
+            "success": True,
+            "article_id": article_id,
+            "response": analysis,
+            "analyzed_at": article.article_metadata['custom_prompt']['analyzed_at'],
+            "model_used": model_used,
+            "model_name": model_name
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Custom prompt error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 # Annotation API endpoints
 
 @app.post("/api/articles/{article_id}/annotations")
