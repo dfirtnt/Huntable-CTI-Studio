@@ -35,7 +35,7 @@ Living Off the Land Binaries and Scripts - High technical value:
 - **Script Engines**: `cscript.exe`, `mshta.exe`, `wscript.exe`
 - **Installation Tools**: `msiexec.exe`, `regsvr32.exe`, `rundll32.exe`
 - **File Operations**: `forfiles.exe`, `explorer.exe`, `ieexec.exe`
-- **And 40+ more legitimate Windows executables commonly abused by threat actors**
+- **And 30+ more legitimate Windows executables commonly abused by threat actors**
 
 
 ## Implementation

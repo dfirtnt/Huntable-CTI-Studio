@@ -1,256 +1,556 @@
 #!/usr/bin/env python3
 """
-Unified test runner for CTI Scraper.
+CTI Scraper Unified Test Runner
 
-This is the primary interface for all testing operations.
-Supports multiple execution contexts: localhost, Docker, and CI/CD.
+This is the single entry point for all test execution needs across different contexts.
+Consolidates functionality from run_tests.py, run_tests.sh, and run_tests_standardized.py.
+
+Features:
+- Context-aware execution (localhost, Docker, CI/CD)
+- Standardized environment management
+- Enhanced error reporting and debugging
+- Comprehensive test discovery and execution
+- Rich output formatting and reporting
+- Backward compatibility with existing interfaces
 
 Usage:
     python run_tests.py --help                    # Show all options
-    python run_tests.py --smoke                   # Quick health check
-    python run_tests.py --all                     # Full test suite
-    python run_tests.py --docker                  # Docker-based testing
-    python run_tests.py --coverage                # With coverage report
+    python run_tests.py smoke                     # Quick health check
+    python run_tests.py all --coverage            # Full test suite with coverage
+    python run_tests.py --docker integration      # Docker-based integration tests
+    python run_tests.py --debug --verbose         # Debug mode with verbose output
 """
+
 import os
 import sys
-import subprocess
 import argparse
+import asyncio
+import subprocess
 import time
+import json
+import logging
 from pathlib import Path
+from typing import List, Optional, Dict, Any, Tuple
+from dataclasses import dataclass
+from enum import Enum
 
-def run_command(cmd: str, description: str) -> bool:
-    """Run a command and return success status."""
-    print(f"\n🔄 {description}")
-    print(f"Running: {cmd}")
+# Add project root to Python path
+project_root = Path(__file__).parent
+sys.path.insert(0, str(project_root))
+
+# Import test environment utilities
+try:
+    from tests.utils.test_environment import (
+        TestEnvironmentValidator,
+        TestEnvironmentManager,
+        TestContext,
+        get_test_config,
+        validate_test_environment
+    )
+    from tests.utils.database_connections import (
+        validate_database_connection,
+        validate_redis_connection
+    )
+    ENVIRONMENT_UTILS_AVAILABLE = True
+except ImportError:
+    ENVIRONMENT_UTILS_AVAILABLE = False
+    print("Warning: Test environment utilities not available. Some features may be limited.")
+
+# Enhanced debugging imports
+try:
+    from tests.utils.test_failure_analyzer import TestFailureReporter
+    from tests.utils.async_debug_utils import AsyncDebugger
+    from tests.utils.test_isolation import TestIsolationManager
+    from tests.utils.performance_profiler import PerformanceProfiler, start_performance_monitoring, stop_performance_monitoring
+    from tests.utils.test_output_formatter import TestOutputFormatter, print_header, print_test_result, print_summary
+    DEBUGGING_AVAILABLE = True
+except ImportError as e:
+    DEBUGGING_AVAILABLE = False
+    print(f"Warning: Enhanced debugging utilities not available: {e}")
+    print("Enhanced debugging features will not be available.")
+
+# Set up logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
+
+
+class TestType(Enum):
+    """Test execution types."""
+    SMOKE = "smoke"
+    UNIT = "unit"
+    API = "api"
+    INTEGRATION = "integration"
+    UI = "ui"
+    E2E = "e2e"
+    PERFORMANCE = "performance"
+    AI = "ai"
+    AI_UI = "ai-ui"
+    AI_INTEGRATION = "ai-integration"
+    ALL = "all"
+    COVERAGE = "coverage"
+
+
+class ExecutionContext(Enum):
+    """Test execution contexts."""
+    LOCALHOST = "localhost"
+    DOCKER = "docker"
+    CI = "ci"
+
+
+@dataclass
+class TestConfig:
+    """Test execution configuration."""
+    test_type: TestType
+    context: ExecutionContext
+    verbose: bool = False
+    debug: bool = False
+    parallel: bool = False
+    coverage: bool = False
+    install_deps: bool = False
+    validate_env: bool = True
+    skip_real_api: bool = False
+    test_paths: Optional[List[str]] = None
+    markers: Optional[List[str]] = None
+    exclude_markers: Optional[List[str]] = None
+    config_file: Optional[str] = None
+    output_format: str = "progress"
+    fail_fast: bool = False
+    retry_count: int = 0
+    timeout: Optional[int] = None
+
+
+class TestRunner:
+    """Unified test runner with enhanced functionality."""
     
-    try:
-        result = subprocess.run(cmd, shell=True, check=True, capture_output=True, text=True)
-        print(f"✅ {description} completed successfully")
-        if result.stdout:
-            print(f"Output: {result.stdout}")
+    def __init__(self, config: TestConfig):
+        self.config = config
+        self.start_time = time.time()
+        self.results = {}
+        self.environment_manager = None
+        
+        # Enhanced debugging components
+        self.failure_reporter = None
+        self.async_debugger = None
+        self.isolation_manager = None
+        self.performance_profiler = None
+        self.output_formatter = None
+        
+        # Initialize debugging components if available
+        if DEBUGGING_AVAILABLE:
+            self.failure_reporter = TestFailureReporter()
+            self.async_debugger = AsyncDebugger()
+            self.isolation_manager = TestIsolationManager()
+            self.performance_profiler = PerformanceProfiler()
+            self.output_formatter = TestOutputFormatter()
+        
+        # Set up logging level
+        if config.debug:
+            logging.getLogger().setLevel(logging.DEBUG)
+        elif config.verbose:
+            logging.getLogger().setLevel(logging.INFO)
+    
+    async def setup_environment(self) -> bool:
+        """Set up test environment."""
+        if not ENVIRONMENT_UTILS_AVAILABLE:
+            logger.warning("Environment utilities not available, skipping environment setup")
+            return True
+        
+        try:
+            logger.info("Setting up test environment...")
+            
+            # Load configuration
+            validator = TestEnvironmentValidator()
+            test_config = validator.load_test_config(self.config.config_file)
+            
+            # Validate environment if requested
+            if self.config.validate_env:
+                logger.info("Validating test environment...")
+                validation_results = await validator.validate_environment()
+                if not all(validation_results.values()):
+                    logger.error("Environment validation failed")
+                    if not self.config.debug:
+                        return False
+                    logger.warning("Continuing despite validation failures (debug mode)")
+            
+            # Set up environment manager
+            self.environment_manager = TestEnvironmentManager(test_config)
+            await self.environment_manager.setup_test_environment()
+            
+            logger.info("Test environment setup completed")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Environment setup failed: {e}")
+            if self.config.debug:
+                logger.exception("Full traceback:")
+            return False
+
+    async def teardown_environment(self):
+        """Tear down test environment."""
+        if self.environment_manager:
+            try:
+                await self.environment_manager.teardown_test_environment()
+                logger.info("Test environment teardown completed")
+            except Exception as e:
+                logger.error(f"Environment teardown failed: {e}")
+                if self.config.debug:
+                    logger.exception("Full traceback:")
+    
+    def install_dependencies(self) -> bool:
+        """Install test dependencies."""
+        logger.info("Installing test dependencies...")
+        
+        commands = [
+            ("pip install -r requirements-test.txt", "Installing Python test dependencies"),
+            ("playwright install chromium", "Installing Playwright browser"),
+        ]
+        
+        for cmd, description in commands:
+            if not self._run_command(cmd, description):
+                logger.error(f"Failed to {description.lower()}")
+        return False
+
+        logger.info("Dependencies installed successfully")
         return True
-    except subprocess.CalledProcessError as e:
-        print(f"❌ {description} failed")
-        print(f"Error: {e}")
-        if e.stdout:
-            print(f"Stdout: {e.stdout}")
-        if e.stderr:
-            print(f"Stderr: {e.stderr}")
-        return False
-
-def check_app_running() -> bool:
-    """Check if the CTI Scraper app is running."""
-    try:
-        import httpx
-        import asyncio
+    
+    def _run_command(self, cmd: str, description: str, capture_output: bool = True) -> bool:
+        """Run a command and return success status."""
+        logger.info(f"🔄 {description}")
         
-        async def check():
-            base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
-            async with httpx.AsyncClient(timeout=5.0) as client:
-                response = await client.get(f"{base_url}/health")
-                return response.status_code == 200
+        if self.config.debug:
+            logger.debug(f"Command: {cmd}")
         
-        result = asyncio.run(check())
-        return result
-    except Exception:
-        return False
-
-def install_test_dependencies() -> bool:
-    """Install test dependencies."""
-    print("\n📦 Installing test dependencies...")
+        try:
+            result = subprocess.run(
+                cmd,
+                shell=True,
+                check=True,
+                capture_output=capture_output,
+                text=True,
+                timeout=self.config.timeout
+            )
+            
+            logger.info(f"✅ {description} completed successfully")
+            
+            if capture_output and result.stdout and self.config.verbose:
+                logger.info(f"Output: {result.stdout}")
+            
+            return True
+            
+        except subprocess.CalledProcessError as e:
+            logger.error(f"❌ {description} failed")
+            logger.error(f"Error: {e}")
+            
+            if capture_output:
+                if e.stdout:
+                    logger.error(f"Stdout: {e.stdout}")
+                if e.stderr:
+                    logger.error(f"Stderr: {e.stderr}")
+            
+            return False
+            
+        except subprocess.TimeoutExpired as e:
+            logger.error(f"⏰ {description} timed out after {e.timeout} seconds")
+            return False
     
-    # Install Python test dependencies
-    if not run_command("pip install -r requirements-test.txt", "Installing Python test dependencies"):
-        return False
+        except Exception as e:
+            logger.error(f"💥 Unexpected error in {description}: {e}")
+            if self.config.debug:
+                logger.exception("Full traceback:")
+            return False
     
-    # Install Playwright browsers
-    if not run_command("playwright install", "Installing Playwright browsers"):
-        return False
-    
-    return True
-
-def run_unit_tests(docker_mode: bool = False) -> bool:
-    """Run unit tests."""
-    if docker_mode:
-        return run_command(
-            "docker exec cti_web python -m pytest tests/ -m 'not (ui or integration)' -v --tb=short",
-            "Running unit tests in Docker"
-        )
-    return run_command(
-        "python3 -m pytest tests/ -m 'not (ui or integration)' -v --tb=short",
-        "Running unit tests"
-    )
-
-def run_api_tests(docker_mode: bool = False) -> bool:
-    """Run API tests."""
-    if docker_mode:
-        return run_command(
-            "docker exec cti_web python -m pytest tests/api/ -v --tb=short",
-            "Running API tests in Docker"
-        )
-    return run_command(
-        "python3 -m pytest tests/api/ -v --tb=short",
-        "Running API tests"
-    )
-
-def run_integration_tests(docker_mode: bool = False) -> bool:
-    """Run integration tests."""
-    if docker_mode:
-        return run_command(
-            "docker exec cti_web python -m pytest tests/integration/ -v --tb=short",
-            "Running integration tests in Docker"
-        )
-    return run_command(
-        "python3 -m pytest tests/integration/ -v --tb=short",
-        "Running integration tests"
-    )
-
-def run_ui_tests(docker_mode: bool = False) -> bool:
-    """Run UI tests with Playwright."""
-    if docker_mode:
-        return run_command(
-            "docker exec cti_web python -m pytest tests/ui/ -v --tb=short",
-            "Running UI tests in Docker"
-        )
-    return run_command(
-        "python3 -m pytest tests/ui/ -v --tb=short",
-        "Running UI tests with Playwright"
-    )
-
-def run_smoke_tests(docker_mode: bool = False) -> bool:
-    """Run smoke tests."""
-    if docker_mode:
-        return run_command(
-            "docker exec cti_web python -m pytest tests/ -m smoke -v --tb=short",
-            "Running smoke tests in Docker"
-        )
-    return run_command(
-        "python3 -m pytest tests/ -m smoke -v --tb=short",
-        "Running smoke tests"
-    )
-
-def run_all_tests(docker_mode: bool = False) -> bool:
-    """Run all tests with enhanced visual reporting."""
-    if docker_mode:
-        return run_command(
-            "docker exec cti_web python -m pytest tests/ -v --tb=short --report-log=test-results/reportlog.jsonl --alluredir=allure-results",
-            "Running all tests in Docker with enhanced visual reporting"
-        )
-    return run_command(
-        "python3 -m pytest tests/ -v --tb=short --report-log=test-results/reportlog.jsonl --alluredir=allure-results",
-        "Running all tests with enhanced visual reporting"
-    )
-
-def run_coverage_tests(docker_mode: bool = False) -> bool:
-    """Run tests with coverage."""
-    if docker_mode:
-        return run_command(
-            "docker exec cti_web python -m pytest tests/ --cov=src --cov-report=html --cov-report=term-missing",
-            "Running tests with coverage in Docker"
-        )
-    return run_command(
-        "python3 -m pytest tests/ --cov=src --cov-report=html --cov-report=term-missing",
-        "Running tests with coverage report"
-    )
-
-def run_performance_tests(docker_mode: bool = False) -> bool:
-    """Run performance tests."""
-    if docker_mode:
-        return run_command(
-            "docker exec cti_web python -m pytest tests/ -m slow -v --tb=short",
-            "Running performance tests in Docker"
-        )
-    return run_command(
-        "python3 -m pytest tests/ -m slow -v --tb=short",
-        "Running performance tests"
-    )
-
-def run_ai_tests(docker_mode: bool = False, skip_real_api: bool = False) -> bool:
-    """Run all AI Assistant tests."""
-    if docker_mode:
-        cmd = "docker exec cti_web python -m pytest tests/ui/test_ai_assistant_ui.py tests/integration/test_ai_cross_model_integration.py tests/integration/test_ai_real_api_integration.py -m ai -v --tb=short"
-        if skip_real_api:
-            cmd += " -e SKIP_REAL_API_TESTS=1"
-        return run_command(cmd, "Running all AI Assistant tests in Docker")
-    
-    cmd = "python3 -m pytest tests/ui/test_ai_assistant_ui.py tests/integration/test_ai_cross_model_integration.py tests/integration/test_ai_real_api_integration.py -m ai -v --tb=short"
-    if skip_real_api:
-        cmd += " -e SKIP_REAL_API_TESTS=1"
-    return run_command(cmd, "Running all AI Assistant tests")
-
-def run_ai_ui_tests(docker_mode: bool = False) -> bool:
-    """Run AI UI tests only."""
-    if docker_mode:
-        return run_command(
-            "docker exec cti_web python -m pytest tests/ui/test_ai_assistant_ui.py -m 'ui and ai' -v --tb=short",
-            "Running AI UI tests in Docker"
-        )
-    return run_command(
-        "python3 -m pytest tests/ui/test_ai_assistant_ui.py -m 'ui and ai' -v --tb=short",
-        "Running AI UI tests"
-    )
-
-def run_ai_integration_tests(docker_mode: bool = False, skip_real_api: bool = False) -> bool:
-    """Run AI integration tests only."""
-    if docker_mode:
-        cmd = "docker exec cti_web python -m pytest tests/integration/test_ai_cross_model_integration.py tests/integration/test_ai_real_api_integration.py -m 'integration and ai' -v --tb=short"
-        if skip_real_api:
-            cmd += " -e SKIP_REAL_API_TESTS=1"
-        return run_command(cmd, "Running AI integration tests in Docker")
-    
-    cmd = "python3 -m pytest tests/integration/test_ai_cross_model_integration.py tests/integration/test_ai_real_api_integration.py -m 'integration and ai' -v --tb=short"
-    if skip_real_api:
-        cmd += " -e SKIP_REAL_API_TESTS=1"
-    return run_command(cmd, "Running AI integration tests")
-
-def generate_test_report() -> None:
-    """Generate a test summary report with visual tracking information."""
-    print("\n📊 Test Summary Report")
-    print("=" * 50)
-    
-    # Check if test results exist
-    test_results_dir = Path("test-results")
-    if test_results_dir.exists():
-                # Allure results
-                allure_results = Path("allure-results")
-                if allure_results.exists():
-                    print(f"📊 Allure Results: {allure_results.absolute()}")
-                    print(f"💡 Run './manage_allure.sh start' for containerized reports (recommended)")
-                    print(f"💡 Run 'allure serve allure-results' for host-based reports")
+    def _build_pytest_command(self) -> List[str]:
+        """Build pytest command based on configuration."""
+        cmd = ["python", "-m", "pytest"]
         
-        # Report log for analysis
-        report_log = test_results_dir / "reportlog.jsonl"
-        if report_log.exists():
-            print(f"📊 Report Log: {report_log.absolute()}")
-            print(f"💡 Use Allure Reports for comprehensive visual analysis")
+        # Add test paths
+        if self.config.test_paths:
+            cmd.extend(self.config.test_paths)
+        else:
+            # Default test paths based on test type
+            test_path_map = {
+                TestType.SMOKE: ["tests/", "-m", "smoke"],
+                TestType.UNIT: ["tests/", "-m", "not (smoke or integration or api or ui or e2e or performance)"],
+                TestType.API: ["tests/api/"],
+                TestType.INTEGRATION: ["tests/integration/"],
+                TestType.UI: ["tests/ui/"],
+                TestType.E2E: ["tests/e2e/"],
+                TestType.PERFORMANCE: ["tests/", "-m", "performance"],
+                TestType.AI: ["tests/ui/test_ai_assistant_ui.py", "tests/integration/test_ai_*.py", "-m", "ai"],
+                TestType.AI_UI: ["tests/ui/test_ai_assistant_ui.py", "-m", "ui and ai"],
+                TestType.AI_INTEGRATION: ["tests/integration/test_ai_*.py", "-m", "integration and ai"],
+                TestType.ALL: ["tests/"],
+                TestType.COVERAGE: ["tests/", "--cov=src"]
+            }
+            
+            if self.config.test_type in test_path_map:
+                cmd.extend(test_path_map[self.config.test_type])
+            else:
+                cmd.append("tests/")
+        
+        # Add markers
+        if self.config.markers:
+            marker_expr = " or ".join(self.config.markers)
+            cmd.extend(["-m", marker_expr])
+        
+        # Exclude markers
+        if self.config.exclude_markers:
+            exclude_expr = " and ".join([f"not {marker}" for marker in self.config.exclude_markers])
+            if self.config.markers:
+                cmd.extend(["-m", f"({marker_expr}) and ({exclude_expr})"])
+            else:
+                cmd.extend(["-m", exclude_expr])
+        
+        # Add execution context specific options
+        if self.config.context == ExecutionContext.DOCKER:
+            cmd = ["docker", "exec", "cti_web"] + cmd
+        
+        # Add parallel execution
+        if self.config.parallel:
+            cmd.extend(["-n", "auto"])
+        
+        # Add coverage
+        if self.config.coverage:
+            cmd.extend([
+                "--cov=src",
+                "--cov-report=html:htmlcov",
+                "--cov-report=xml:coverage.xml",
+                "--cov-report=term-missing"
+            ])
+        
+        # Add output format
+        if self.config.output_format == "progress":
+            cmd.append("-q" if not self.config.verbose else "-v")
+        elif self.config.output_format == "verbose":
+            cmd.append("-v")
+        elif self.config.output_format == "quiet":
+            cmd.append("-q")
+        
+        # Add debugging options
+        if self.config.debug:
+            cmd.extend(["--tb=long", "--capture=no", "-s"])
+        else:
+            cmd.extend(["--tb=short"])
+        
+        # Add fail fast
+        if self.config.fail_fast:
+            cmd.extend(["-x", "--maxfail=1"])
+        
+        # Add retry
+        if self.config.retry_count > 0:
+            cmd.extend(["--maxfail=1", f"--reruns={self.config.retry_count}"])
+        
+        # Add timeout
+        if self.config.timeout:
+            cmd.extend(["--timeout", str(self.config.timeout)])
+        
+        # Add reporting (only if supported)
+        # Note: --report-log and --alluredir require additional plugins
+        # cmd.extend([
+        #     "--report-log=test-results/reportlog.jsonl",
+        #     "--alluredir=allure-results"
+        # ])
+        
+        return cmd
     
-    coverage_dir = Path("htmlcov")
-    if coverage_dir.exists():
-        index_file = coverage_dir / "index.html"
-        if index_file.exists():
-            print(f"📊 Coverage Report: {index_file.absolute()}")
+    def run_tests(self) -> bool:
+        """Run tests based on configuration."""
+        logger.info(f"Running {self.config.test_type.value} tests in {self.config.context.value} context")
+        
+        # Start debugging components
+        self.start_debugging()
+        
+        try:
+            # Install dependencies if requested
+            if self.config.install_deps:
+                if not self.install_dependencies():
+                    return False
+            
+            # Build and run pytest command
+            cmd = self._build_pytest_command()
+            cmd_str = " ".join(cmd)
+            
+            logger.info(f"Executing: {cmd_str}")
+            
+            # Set environment variables
+            env = os.environ.copy()
+            if ENVIRONMENT_UTILS_AVAILABLE:
+                try:
+                    validator = TestEnvironmentValidator()
+                    test_config = validator.load_test_config(self.config.config_file)
+                    env.update({
+                        "DATABASE_URL": test_config.database_url,
+                        "REDIS_URL": test_config.redis_url,
+                        "TESTING": "true",
+                        "ENVIRONMENT": "test"
+                    })
+                except Exception as e:
+                    logger.warning(f"Could not set environment variables: {e}")
+            
+            # Add skip real API flag
+            if self.config.skip_real_api:
+                env["SKIP_REAL_API_TESTS"] = "1"
+            
+            # Run tests
+            try:
+                result = subprocess.run(
+                    cmd,
+                    env=env,
+                    cwd=project_root,
+                    timeout=self.config.timeout
+                )
+                
+                success = result.returncode == 0
+                self.results[self.config.test_type.value] = {
+                    "success": success,
+                    "returncode": result.returncode,
+                    "duration": time.time() - self.start_time
+                }
+                
+                return success
+                
+            except subprocess.TimeoutExpired:
+                logger.error(f"Test execution timed out after {self.config.timeout} seconds")
+                return False
+            except KeyboardInterrupt:
+                logger.info("Test execution interrupted by user")
+                return False
+            except Exception as e:
+                logger.error(f"Test execution failed: {e}")
+                if self.config.debug:
+                    logger.exception("Full traceback:")
+                return False
+        finally:
+            # Stop debugging components
+            self.stop_debugging()
     
-    print("\n🎯 Test Categories Available:")
-    print("  • Unit Tests: tests/ -m 'not (ui or integration)'")
-    print("  • API Tests: tests/api/")
-    print("  • Integration Tests: tests/integration/")
-    print("  • UI Tests: tests/ui/")
-    print("  • Smoke Tests: tests/ -m smoke")
-    print("  • Performance Tests: tests/ -m slow")
-    print("  • AI Assistant Tests: tests/ui/test_ai_assistant_ui.py + tests/integration/test_ai_*.py")
-    print("  • All Tests: tests/")
-    print("  • Coverage: tests/ --cov=src")
+    def generate_report(self) -> None:
+        """Generate comprehensive test report."""
+        duration = time.time() - self.start_time
+        
+        print("\n" + "="*60)
+        print("📊 CTI Scraper Test Execution Report")
+        print("="*60)
     
-            print("\n🔍 Visual Tracking Features:")
-            print("  • Allure Reports: Rich visual analytics with pie charts, bar charts, and trends")
-            print("  • Containerized Reports: Dedicated Docker container for reliable access")
-            print("  • Enhanced HTML Reports: Rich reporting with better debugging info")
-            print("  • Performance Analytics: Track test execution trends over time")
-            print("  • ML/AI Debugging: Detailed visualization for AI inference tests")
+    def start_debugging(self):
+        """Start debugging components."""
+        if not DEBUGGING_AVAILABLE:
+            logger.warning("Debugging utilities not available")
+            return
+        
+        # Start performance monitoring if debug mode
+        if self.config.debug and self.performance_profiler:
+            start_performance_monitoring()
+            logger.debug("Performance monitoring started")
+        
+        # Start async debugging if available
+        if self.async_debugger:
+            logger.debug("Async debugging available")
+    
+    def stop_debugging(self):
+        """Stop debugging components."""
+        if not DEBUGGING_AVAILABLE:
+            return
+        
+        # Stop performance monitoring
+        if self.performance_profiler:
+            stop_performance_monitoring()
+            logger.debug("Performance monitoring stopped")
+    
+    def print_enhanced_summary(self):
+        """Print enhanced test summary with debugging information."""
+        if not DEBUGGING_AVAILABLE or not self.output_formatter:
+            self.generate_report()
+            return
+        
+        # Calculate duration
+        duration = time.time() - self.start_time
+        
+        # Print enhanced summary
+        self.output_formatter.print_summary()
+        
+        # Print performance information if available
+        if self.performance_profiler:
+            performance_report = self.performance_profiler.generate_performance_report()
+            if performance_report.get("status") == "success":
+                self.output_formatter.print_performance_info(performance_report)
+        print(f"🎯 Test Type: {self.config.test_type.value}")
+        print(f"🌍 Context: {self.config.context.value}")
+        print(f"🔧 Debug Mode: {'Yes' if self.config.debug else 'No'}")
+        print(f"📈 Coverage: {'Yes' if self.config.coverage else 'No'}")
+        
+        # Results summary
+        if self.results:
+            print("\n📋 Test Results:")
+            for test_type, result in self.results.items():
+                status = "✅ PASS" if result["success"] else "❌ FAIL"
+                print(f"  {test_type}: {status} ({result['duration']:.2f}s)")
+        
+        # Report locations
+        print("\n📁 Generated Reports:")
+        
+        # Test results
+        test_results_dir = Path("test-results")
+        if test_results_dir.exists():
+            print(f"  📊 Test Results: {test_results_dir.absolute()}")
+            
+            # Allure results
+            allure_results = Path("allure-results")
+            if allure_results.exists():
+                print(f"  📊 Allure Results: {allure_results.absolute()}")
+                print(f"    💡 Run 'allure serve allure-results' for interactive reports")
+        
+            # Report log
+            report_log = test_results_dir / "reportlog.jsonl"
+            if report_log.exists():
+                print(f"  📊 Report Log: {report_log.absolute()}")
+    
+        # Coverage report
+        coverage_dir = Path("htmlcov")
+        if coverage_dir.exists():
+            index_file = coverage_dir / "index.html"
+            if index_file.exists():
+                print(f"  📊 Coverage Report: {index_file.absolute()}")
+        
+        # Available test categories
+        print("\n🎯 Available Test Categories:")
+        categories = [
+            ("smoke", "Quick health check (~30s)"),
+            ("unit", "Unit tests only (~1m)"),
+            ("api", "API endpoint tests (~2m)"),
+            ("integration", "System integration tests (~3m)"),
+            ("ui", "Web interface tests (~5m)"),
+            ("e2e", "End-to-end tests (~3m)"),
+            ("performance", "Performance tests (~2m)"),
+            ("ai", "AI Assistant tests (~3m)"),
+            ("ai-ui", "AI UI tests only (~1m)"),
+            ("ai-integration", "AI integration tests (~2m)"),
+            ("all", "Complete test suite (~8m)"),
+            ("coverage", "Tests with coverage report")
+        ]
+        
+        for category, description in categories:
+            print(f"  • {category:<15} {description}")
+        
+        # Usage examples
+        print("\n💡 Usage Examples:")
+        examples = [
+            "python run_tests.py smoke",
+            "python run_tests.py all --coverage",
+            "python run_tests.py --docker integration",
+            "python run_tests.py --debug --verbose",
+            "python run_tests.py --parallel --fail-fast"
+        ]
+        
+        for example in examples:
+            print(f"  $ {example}")
 
-def main():
-    """Main test runner."""
+
+def parse_arguments() -> TestConfig:
+    """Parse command line arguments."""
     parser = argparse.ArgumentParser(
         description="CTI Scraper Unified Test Runner",
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -260,134 +560,141 @@ Execution Contexts:
   docker       Run tests inside Docker containers
   ci           Run tests in CI/CD environment
 
-Test Categories:
+Test Types:
   smoke        Quick health check (~30s)
   unit         Unit tests only (~1m)
   api          API endpoint tests (~2m)
   integration  System integration tests (~3m)
   ui           Web interface tests (~5m)
+  e2e          End-to-end tests (~3m)
+  performance  Performance tests (~2m)
   ai           AI Assistant tests (~3m)
   ai-ui        AI UI tests only (~1m)
   ai-integration AI integration tests (~2m)
   all          Complete test suite (~8m)
+  coverage     Tests with coverage report
 
 Examples:
-  python run_tests.py --smoke                    # Quick health check
-  python run_tests.py --all --coverage           # Full suite with coverage
-  python run_tests.py --docker --integration     # Docker-based integration tests
-  python run_tests.py --ai                       # All AI Assistant tests
-  python run_tests.py --ai-ui --coverage         # AI UI tests with coverage
-  python run_tests.py --ai-skip-real-api         # AI tests without real API calls
-  python run_tests.py --install                  # Install test dependencies
+  python run_tests.py smoke                    # Quick health check
+  python run_tests.py all --coverage           # Full suite with coverage
+  python run_tests.py --docker integration     # Docker-based integration tests
+  python run_tests.py --debug --verbose        # Debug mode with verbose output
+  python run_tests.py --parallel --fail-fast   # Parallel execution with fail-fast
         """
     )
     
+    # Test type (positional argument)
+    parser.add_argument(
+        "test_type",
+        nargs="?",
+        default="smoke",
+        choices=[t.value for t in TestType],
+        help="Type of tests to run"
+    )
+    
     # Execution context
+    parser.add_argument(
+        "--context",
+        choices=[c.value for c in ExecutionContext],
+        default="localhost",
+        help="Execution context"
+    )
     parser.add_argument("--docker", action="store_true", help="Run tests in Docker containers")
     parser.add_argument("--ci", action="store_true", help="Run tests in CI/CD mode")
     
-    # Test categories
+    # Test execution options
+    parser.add_argument("--verbose", "-v", action="store_true", help="Verbose output")
+    parser.add_argument("--debug", action="store_true", help="Debug mode with detailed output")
+    parser.add_argument("--parallel", action="store_true", help="Run tests in parallel")
+    parser.add_argument("--coverage", action="store_true", help="Generate coverage report")
     parser.add_argument("--install", action="store_true", help="Install test dependencies")
-    parser.add_argument("--unit", action="store_true", help="Run unit tests only")
-    parser.add_argument("--api", action="store_true", help="Run API tests only")
-    parser.add_argument("--integration", action="store_true", help="Run integration tests only")
-    parser.add_argument("--ui", action="store_true", help="Run UI tests only")
-    parser.add_argument("--smoke", action="store_true", help="Run smoke tests only")
-    parser.add_argument("--performance", action="store_true", help="Run performance tests only")
-    parser.add_argument("--coverage", action="store_true", help="Run tests with coverage")
-    parser.add_argument("--all", action="store_true", help="Run all tests")
-    parser.add_argument("--check-app", action="store_true", help="Check if app is running")
+    parser.add_argument("--no-validate", action="store_true", help="Skip environment validation")
     
-    # AI Assistant test categories
-    parser.add_argument("--ai", action="store_true", help="Run all AI Assistant tests")
-    parser.add_argument("--ai-ui", action="store_true", help="Run AI UI tests only")
-    parser.add_argument("--ai-integration", action="store_true", help="Run AI integration tests only")
-    parser.add_argument("--ai-skip-real-api", action="store_true", help="Skip real API tests (cost/rate limiting)")
+    # Test filtering
+    parser.add_argument("--paths", nargs="+", help="Specific test paths to run")
+    parser.add_argument("--markers", nargs="+", help="Test markers to include")
+    parser.add_argument("--exclude-markers", nargs="+", help="Test markers to exclude")
+    parser.add_argument("--skip-real-api", action="store_true", help="Skip real API tests")
+    
+    # Output and reporting
+    parser.add_argument("--output-format", choices=["progress", "verbose", "quiet"], default="progress", help="Output format")
+    parser.add_argument("--fail-fast", "-x", action="store_true", help="Stop on first failure")
+    parser.add_argument("--retry", type=int, default=0, help="Number of retries for failed tests")
+    parser.add_argument("--timeout", type=int, help="Timeout for test execution in seconds")
+    
+    # Configuration
+    parser.add_argument("--config", help="Path to test configuration file")
     
     args = parser.parse_args()
     
-    print("🚀 CTI Scraper Unified Test Runner")
-    print("=" * 50)
-    
     # Determine execution context
     if args.docker:
-        print("🐳 Execution Context: Docker containers")
+        context = ExecutionContext.DOCKER
     elif args.ci:
-        print("🔄 Execution Context: CI/CD environment")
+        context = ExecutionContext.CI
     else:
-        print("💻 Execution Context: Localhost (virtual environment)")
+        context = ExecutionContext(args.context)
     
-    # Check if app is running (only for localhost and docker contexts)
-    if not args.ci and (args.check_app or not args.install):
-        print("\n🔍 Checking if CTI Scraper app is running...")
-        if check_app_running():
-            print("✅ CTI Scraper app is running on http://localhost:8001")
-        else:
-            print("❌ CTI Scraper app is not running")
-            print("💡 Start the app first with: ./start.sh")
-            if not args.install:
-                return False
+    # Convert test type
+    test_type = TestType(args.test_type)
     
-    # Install dependencies if requested
-    if args.install:
-        if not install_test_dependencies():
-            print("❌ Failed to install test dependencies")
-            return False
+    return TestConfig(
+        test_type=test_type,
+        context=context,
+        verbose=args.verbose,
+        debug=args.debug,
+        parallel=args.parallel,
+        coverage=args.coverage,
+        install_deps=args.install,
+        validate_env=not args.no_validate,
+        skip_real_api=args.skip_real_api,
+        test_paths=args.paths,
+        markers=args.markers,
+        exclude_markers=args.exclude_markers,
+        config_file=args.config,
+        output_format=args.output_format,
+        fail_fast=args.fail_fast,
+        retry_count=args.retry,
+        timeout=args.timeout
+    )
+
+
+async def main():
+    """Main entry point."""
+    try:
+        # Parse configuration
+        config = parse_arguments()
+        
+        # Create test runner
+        runner = TestRunner(config)
+        
+        # Setup environment
+        if not await runner.setup_environment():
+            logger.error("Failed to setup test environment")
+            return 1
+        
+        try:
+            # Run tests
+            success = runner.run_tests()
+            
+            # Generate enhanced report
+            runner.print_enhanced_summary()
+            
+            return 0 if success else 1
+            
+        finally:
+            # Teardown environment
+            await runner.teardown_environment()
     
-    # Run specific test categories
-    success = True
-    docker_mode = args.docker
-    
-    if args.unit:
-        success &= run_unit_tests(docker_mode)
-    
-    if args.api:
-        success &= run_api_tests(docker_mode)
-    
-    if args.integration:
-        success &= run_integration_tests(docker_mode)
-    
-    if args.ui:
-        success &= run_ui_tests(docker_mode)
-    
-    if args.smoke:
-        success &= run_smoke_tests(docker_mode)
-    
-    if args.performance:
-        success &= run_performance_tests(docker_mode)
-    
-    if args.coverage:
-        success &= run_coverage_tests(docker_mode)
-    
-    if args.all:
-        success &= run_all_tests(docker_mode)
-    
-    # AI Assistant test categories
-    if args.ai:
-        success &= run_ai_tests(docker_mode, args.ai_skip_real_api)
-    
-    if args.ai_ui:
-        success &= run_ai_ui_tests(docker_mode)
-    
-    if args.ai_integration:
-        success &= run_ai_integration_tests(docker_mode, args.ai_skip_real_api)
-    
-    # If no specific tests specified, run smoke tests
-    if not any([args.unit, args.api, args.integration, args.ui, args.smoke, args.performance, args.coverage, args.all, args.ai, args.ai_ui, args.ai_integration]):
-        print("\n🎯 No specific tests specified, running smoke tests...")
-        success &= run_smoke_tests(docker_mode)
-    
-    # Generate report
-    generate_test_report()
-    
-    # Final result
-    if success:
-        print("\n🎉 All tests completed successfully!")
-        return True
-    else:
-        print("\n💥 Some tests failed. Check the output above for details.")
-        return False
+    except KeyboardInterrupt:
+        logger.info("Test execution interrupted by user")
+        return 1
+    except Exception as e:
+        logger.error(f"Test runner failed: {e}")
+        logger.exception("Full traceback:")
+        return 1
+
 
 if __name__ == "__main__":
-    success = main()
-    sys.exit(0 if success else 1)
+    exit_code = asyncio.run(main())
+    sys.exit(exit_code)

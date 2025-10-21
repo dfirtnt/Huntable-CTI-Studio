@@ -287,7 +287,7 @@ The pattern-based classification uses the comprehensive Hunt Scoring keyword sys
 - **Network Tools**: `bitsadmin`, `ftp`, `netsh`, `powershell`
 - **Script Engines**: `cscript`, `mshta`, `wscript`, `msiexec`
 - **File Operations**: `forfiles`, `explorer`, `ieexec`, `conhost`
-- **And 40+ more legitimate Windows executables commonly abused by threat actors**
+- **And 30+ more legitimate Windows executables commonly abused by threat actors**
 
 **Intelligence Indicators (45 patterns):**
 - **Threat Activity**: `APT`, `threat actor`, `campaign`, `incident`, `breach`, `compromise`

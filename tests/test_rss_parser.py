@@ -12,7 +12,6 @@ from src.models.source import Source
 from src.utils.http import HTTPClient
 
 
-@pytest.mark.asyncio
 class TestRSSParser:
     """Test RSS parser functionality."""
 
@@ -66,6 +65,11 @@ class TestRSSParser:
         entry.published_parsed = parsed_date
         entry.updated_parsed = parsed_date
         entry.get = Mock(return_value=None)
+        
+        # Add proper mock attributes for debugging
+        entry.id = "https://example.com/article1"
+        entry.link = "https://example.com/article1"
+        
         return entry
 
     @pytest.mark.asyncio
@@ -432,8 +436,8 @@ class TestRSSParser:
         source_config = {"title_filter_keywords": ["custom-filter", "test-exclude"]}
         
         # Should be filtered by custom keywords
-        assert parser._should_filter_title("Article about custom-filter")
-        assert parser._should_filter_title("Content with test-exclude")
+        assert parser._should_filter_title("Article about custom-filter", source_config)
+        assert parser._should_filter_title("Content with test-exclude", source_config)
         
         # Should not be filtered
         assert not parser._should_filter_title("Normal threat intelligence article")
@@ -442,7 +446,7 @@ class TestRSSParser:
         """Test quality content validation with valid content."""
         parser = RSSParser(mock_http_client)
         
-        valid_content = "This is a valid article with sufficient content. It has multiple sentences and enough words to pass quality checks. The content is substantial and meaningful."
+        valid_content = "This is a valid article with sufficient content. It has multiple sentences and enough words to pass quality checks. The content is substantial and meaningful. This article contains detailed information about threat intelligence and security research. It provides comprehensive analysis of recent cyber attacks and malware campaigns. The content includes technical details about attack vectors, indicators of compromise, and mitigation strategies. Security professionals can use this information to improve their defensive capabilities and understand emerging threats in the cybersecurity landscape. This type of content is essential for threat hunters and security analysts who need to stay informed about the latest developments in cyber security."
         
         assert parser._is_quality_content(valid_content, "https://example.com/article")
 
@@ -468,6 +472,8 @@ class TestRSSParser:
         entry.description = "<p>Test description content</p>"
         entry.content = None
         entry.summary = None
+        entry.id = "test-entry-1"
+        entry.link = "https://example.com/article1"
         
         parser = RSSParser(mock_http_client)
         content = parser._get_feed_content(entry)
@@ -480,6 +486,8 @@ class TestRSSParser:
         entry.description = None
         entry.content = None
         entry.summary = "<p>Test summary content</p>"
+        entry.id = "test-entry-2"
+        entry.link = "https://example.com/article2"
         
         parser = RSSParser(mock_http_client)
         content = parser._get_feed_content(entry)
@@ -492,6 +500,8 @@ class TestRSSParser:
         entry.description = None
         entry.content = [{"value": "<p>Test content</p>"}]
         entry.summary = None
+        entry.id = "test-entry-3"
+        entry.link = "https://example.com/article3"
         
         parser = RSSParser(mock_http_client)
         content = parser._get_feed_content(entry)
@@ -504,6 +514,8 @@ class TestRSSParser:
         entry.description = None
         entry.content = None
         entry.summary = None
+        entry.id = "test-entry-4"
+        entry.link = "https://example.com/article4"
         
         parser = RSSParser(mock_http_client)
         content = parser._get_feed_content(entry)

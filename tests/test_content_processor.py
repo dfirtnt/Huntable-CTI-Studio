@@ -26,7 +26,6 @@ class TestDeduplicationResult:
         assert result.stats == stats
 
 
-@pytest.mark.asyncio
 class TestContentProcessor:
     """Test ContentProcessor functionality."""
 
@@ -553,7 +552,6 @@ class TestContentProcessor:
         assert cache_size['fingerprints'] > 0
 
 
-@pytest.mark.skip(reason="Async mock configuration needed for BatchProcessor tests")
 class TestBatchProcessor:
     """Test BatchProcessor functionality."""
 

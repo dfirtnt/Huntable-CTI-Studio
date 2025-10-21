@@ -180,7 +180,6 @@ class TestSimHash:
         assert 0b0000 not in similar  # Distance 3
 
 
-@pytest.mark.skip(reason="SimHash function tests need refinement")
 class TestSimHashFunctions:
     """Test SimHash utility functions."""
 
@@ -237,7 +236,6 @@ class TestSimHashFunctions:
         assert is_content_similar(content1, content2, threshold=10)
 
 
-@pytest.mark.skip(reason="Async mock configuration needed for DeduplicationService tests")
 class TestDeduplicationService:
     """Test DeduplicationService functionality."""
 

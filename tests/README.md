@@ -11,7 +11,7 @@
 | **Unit Tests** | 24 | 580+ | ✅ Active | Core functionality testing |
 | **UI Tests** | 6 | 80+ | ✅ Active | User interface testing (Playwright sync API) |
 | **Integration Tests** | 6 | 50+ | ✅ Active | Cross-component testing including ML feedback |
-| **API Tests** | 3 | 40+ | ✅ Active | API endpoint testing including ML feedback APIs |
+| **API Tests** | 3 | 30+ | ✅ Active | API endpoint testing including ML feedback APIs |
 | **E2E Tests** | 1 | 13 | ✅ Active | End-to-end workflow testing |
 | **ML Feedback Tests** | 3 | 11 | ✅ Active | Essential regression prevention for ML features |
 
