@@ -13,7 +13,8 @@ from playwright.sync_api import sync_playwright
 async def async_client() -> AsyncGenerator[httpx.AsyncClient, None]:
     """Async HTTP client for API testing."""
     base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
-    async with httpx.AsyncClient(base_url=base_url) as client:
+    timeout = httpx.Timeout(60.0)  # Increased timeout for RAG operations
+    async with httpx.AsyncClient(base_url=base_url, timeout=timeout) as client:
         yield client
 
 
