@@ -193,7 +193,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Removed debug prints and sensitive TODOs
 - Implemented proper environment variable handling
 
-## [2.0.0] - 2025-01-15
+## [2.0.0 "Tycho"] - 2025-01-15
 
 ### Added
 - **PostgreSQL Database**: Replaced SQLite with production-grade PostgreSQL
