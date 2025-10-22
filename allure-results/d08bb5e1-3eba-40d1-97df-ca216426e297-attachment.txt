@@ -1,1 +1,0 @@
-ERROR    src.services.embedding_service:embedding_service.py:139 Failed to generate batch embeddings: Batch encoding failed

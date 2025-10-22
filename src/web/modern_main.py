@@ -6435,11 +6435,12 @@ async def api_hunt_overview():
             high_quality_result = await session.execute(high_quality_query)
             high_quality_articles = high_quality_result.scalar() or 0
 
-            # Get perfect matches (score = 100)
+            # Get perfect matches (articles with perfect keyword matches)
             perfect_query = text("""
                 SELECT COUNT(*) as count
                 FROM articles 
-                WHERE (article_metadata->>'threat_hunting_score')::float = 100
+                WHERE article_metadata::jsonb->'perfect_keyword_matches' IS NOT NULL
+                   AND jsonb_array_length(article_metadata::jsonb->'perfect_keyword_matches') > 0
             """)
             perfect_result = await session.execute(perfect_query)
             perfect_matches = perfect_result.scalar() or 0

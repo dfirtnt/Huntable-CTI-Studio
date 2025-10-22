@@ -1,1 +1,0 @@
-ERROR    src.services.embedding_service:embedding_service.py:85 Failed to generate embedding: Encoding failed
