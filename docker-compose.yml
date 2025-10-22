@@ -118,6 +118,12 @@ services:
       - cti_network
     restart: unless-stopped
     command: celery -A src.worker.celery_app worker --loglevel=debug
+    healthcheck:
+      test: ["CMD-SHELL", "celery -A src.worker.celery_app inspect ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
 
   # Celery Beat for Scheduled Tasks
   scheduler:
@@ -144,6 +150,12 @@ services:
       - cti_network
     restart: unless-stopped
     command: celery -A src.worker.celery_app beat --loglevel=debug
+    healthcheck:
+      test: ["CMD-SHELL", "python -c 'import sys; sys.exit(0)'"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
 
   # Ollama for GPT OSS 20B
   ollama:

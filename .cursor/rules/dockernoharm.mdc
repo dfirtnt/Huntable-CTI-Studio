@@ -5,3 +5,6 @@ globs:
 alwaysApply: true
 ---
 description:NEVER  git commit . nor git push origin main without getting positive confirmation from user. 
+globs:
+alwaysApply: true
+---

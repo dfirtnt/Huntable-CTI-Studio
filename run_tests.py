@@ -264,7 +264,7 @@ class TestRunner:
     
     def _build_pytest_command(self) -> List[str]:
         """Build pytest command based on configuration."""
-        cmd = ["python", "-m", "pytest"]
+        cmd = ["python3", "-m", "pytest"]
         
         # Add test paths
         if self.config.test_paths:
@@ -310,6 +310,7 @@ class TestRunner:
         
         # Add parallel execution
         if self.config.parallel:
+            logger.warning("Parallel execution requires pytest-xdist. Install with: pip install pytest-xdist")
             cmd.extend(["-n", "auto"])
         
         # Add coverage
@@ -347,12 +348,10 @@ class TestRunner:
         if self.config.timeout:
             cmd.extend(["--timeout", str(self.config.timeout)])
         
-        # Add reporting (only if supported)
-        # Note: --report-log and --alluredir require additional plugins
-        # cmd.extend([
-        #     "--report-log=test-results/reportlog.jsonl",
-        #     "--alluredir=allure-results"
-        # ])
+        # Add reporting
+        cmd.extend([
+            "--alluredir=allure-results"
+        ])
         
         return cmd
     
@@ -542,7 +541,7 @@ class TestRunner:
             "python run_tests.py all --coverage",
             "python run_tests.py --docker integration",
             "python run_tests.py --debug --verbose",
-            "python run_tests.py --parallel --fail-fast"
+            "python run_tests.py unit --fail-fast"
         ]
         
         for example in examples:
@@ -579,7 +578,7 @@ Examples:
   python run_tests.py all --coverage           # Full suite with coverage
   python run_tests.py --docker integration     # Docker-based integration tests
   python run_tests.py --debug --verbose        # Debug mode with verbose output
-  python run_tests.py --parallel --fail-fast   # Parallel execution with fail-fast
+  python run_tests.py unit --fail-fast         # Unit tests with fail-fast
         """
     )
     
@@ -605,7 +604,7 @@ Examples:
     # Test execution options
     parser.add_argument("--verbose", "-v", action="store_true", help="Verbose output")
     parser.add_argument("--debug", action="store_true", help="Debug mode with detailed output")
-    parser.add_argument("--parallel", action="store_true", help="Run tests in parallel")
+    parser.add_argument("--parallel", action="store_true", help="Run tests in parallel (requires pytest-xdist)")
     parser.add_argument("--coverage", action="store_true", help="Generate coverage report")
     parser.add_argument("--install", action="store_true", help="Install test dependencies")
     parser.add_argument("--no-validate", action="store_true", help="Skip environment validation")

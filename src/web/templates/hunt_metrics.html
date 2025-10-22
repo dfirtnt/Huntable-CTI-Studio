@@ -312,7 +312,7 @@ async function loadHuntMetrics() {
         document.getElementById('avgHuntScore').textContent = overviewData.avg_hunt_score ? 
             Math.round(overviewData.avg_hunt_score) : '-';
         document.getElementById('highQualityArticles').textContent = overviewData.high_quality_articles || '-';
-        document.getElementById('perfectMatches').textContent = overviewData.perfect_matches || '-';
+        document.getElementById('perfectMatches').textContent = overviewData.perfect_matches || '0';
         document.getElementById('lolbasMatches').textContent = overviewData.lolbas_matches || '-';
 
         // Load score distribution chart
