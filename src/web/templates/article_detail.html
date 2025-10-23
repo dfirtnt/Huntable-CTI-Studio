@@ -497,6 +497,8 @@
 <script>
 
     // Global help functions - must be defined at top level for onclick handlers
+    let previousModalElement = null;
+    
     function showHelpModal(title, promptContent, modelInfo = null) {
         // Remove any existing help modal
         const existingModal = document.getElementById('helpModal');
@@ -504,9 +506,20 @@
             existingModal.remove();
         }
         
+        // Find and hide the currently visible modal (the one that opened the help)
+        const visibleModals = document.querySelectorAll('#iocsModal, #sigmaRulesModal, #gpt4oRankingModal, #customPromptModal');
+        previousModalElement = null;
+        
+        visibleModals.forEach(modal => {
+            if (modal.style.display !== 'none' && modal.offsetParent !== null) {
+                modal.style.display = 'none';
+                previousModalElement = modal;
+            }
+        });
+        
         const modal = document.createElement('div');
         modal.id = 'helpModal';
-        modal.className = 'fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-60';
+        modal.className = 'fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-[9999]';
         
         // Add click outside to close
         modal.addEventListener('click', function(e) {
@@ -557,6 +570,12 @@
         const modal = document.getElementById('helpModal');
         if (modal) {
             modal.remove();
+        }
+        
+        // Restore the previously hidden modal
+        if (previousModalElement) {
+            previousModalElement.style.display = 'block';
+            previousModalElement = null;
         }
     }
 
@@ -3233,7 +3252,12 @@ Please provide a detailed analysis based on the article content and the user's s
             modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
             modal.innerHTML = `
                 <div class="bg-white rounded-lg p-6 max-w-md w-full mx-4">
-                    <h3 class="text-lg font-semibold text-gray-900 mb-4">${modelDisplayName} Content Optimization</h3>
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="text-lg font-semibold text-gray-900">${modelDisplayName} Content Optimization</h3>
+                        <button onclick="showRankingHelp()" class="text-gray-400 hover:text-gray-600 text-sm px-2 py-1 rounded">
+                            Help
+                        </button>
+                    </div>
                     
                     <div class="space-y-4">
                         <div class="flex items-center">
@@ -6221,348 +6245,6 @@ Please provide a detailed analysis based on the article content and the user's s
         });
     }
 
-    // Generic help modal function
-    function showHelpModal(title, promptContent, modelInfo = null) {
-        // Remove any existing help modal
-        const existingModal = document.getElementById('helpModal');
-        if (existingModal) {
-            existingModal.remove();
-        }
-        
-        const modal = document.createElement('div');
-        modal.id = 'helpModal';
-        modal.className = 'fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-60';
-        
-        // Add click outside to close
-        modal.addEventListener('click', function(e) {
-            if (e.target === modal) {
-                closeHelpModal();
-            }
-        });
-        
-        // Add ESC key to close
-        const handleEsc = function(e) {
-            if (e.key === 'Escape') {
-                closeHelpModal();
-                document.removeEventListener('keydown', handleEsc);
-            }
-        };
-        document.addEventListener('keydown', handleEsc);
-        
-        modal.innerHTML = `
-            <div class="relative top-10 mx-auto p-5 border w-11/12 max-w-4xl shadow-lg rounded-md bg-white">
-                <div class="flex justify-between items-center mb-4">
-                    <h3 class="text-lg font-medium text-gray-900">ℹ️ ${title}</h3>
-                    <button onclick="closeHelpModal()" class="text-gray-400 hover:text-gray-600">
-                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                        </svg>
-                    </button>
-                </div>
-                
-                <div class="mb-4 text-sm text-gray-600">
-                    <span class="font-medium">Prompt Template:</span> This is the canned prompt sent to the LLM for this analysis.
-                    ${modelInfo ? `<br><span class="font-medium">Model:</span> ${modelInfo}` : ''}
-                </div>
-                
-                <div class="bg-gray-50 p-4 rounded-lg max-h-96 overflow-y-auto">
-                    <pre class="text-sm text-gray-800 whitespace-pre-wrap font-mono">${promptContent}</pre>
-                </div>
-                
-                <div class="mt-4 text-xs text-gray-500">
-                    <strong>Note:</strong> Future versions will support custom prompts for different models.
-                </div>
-            </div>
-        `;
-        
-        document.body.appendChild(modal);
-    }
-    
-    function closeHelpModal() {
-        const modal = document.getElementById('helpModal');
-        if (modal) {
-            modal.remove();
-        }
-    }
-
-    // Specific help functions for each modal to avoid template literal issues
-    function showIOCHelp() {
-        const promptContent = `Extract Indicators of Compromise (IOCs) from this threat intelligence article.
-
-**Article Title:** {title}
-**Source:** {source}
-**URL:** {url}
-
-**Extraction Guidelines:**
-1. **Focus on Actionable IOCs:** Extract IP addresses, domains, file hashes, email addresses, and URLs
-2. **Context Matters:** Include surrounding context for each IOC to understand its significance
-3. **Categorize Properly:** Classify each IOC by type (ip, domain, hash, email, url, etc.)
-4. **Confidence Scoring:** Provide confidence scores (0.0-1.0) based on IOC clarity and context
-5. **Avoid False Positives:** Only extract IOCs that are clearly malicious or suspicious
-
-**IOC Types to Extract:**
-- **IP Addresses:** IPv4 and IPv6 addresses
-- **Domains:** Fully qualified domain names
-- **File Hashes:** MD5, SHA1, SHA256 hashes
-- **Email Addresses:** Malicious or suspicious email addresses
-- **URLs:** Full URLs including paths and parameters
-- **File Paths:** Suspicious file paths and filenames
-- **Registry Keys:** Windows registry keys and values
-- **Process Names:** Malicious process names and executables
-
-**Output Format:**
-Return a JSON array of IOC objects with the following structure:
-[
-  {
-    "type": "ip",
-    "value": "192.168.1.100",
-    "context": "C2 server used for command and control",
-    "confidence": 0.95
-  },
-  {
-    "type": "domain",
-    "value": "malicious.example.com",
-    "context": "Domain used for data exfiltration",
-    "confidence": 0.88
-  }
-]
-
-**Important Notes:**
-- Only extract IOCs that are clearly malicious or suspicious
-- Provide meaningful context for each IOC
-- Use appropriate confidence scores based on IOC clarity
-- Return valid JSON format only
-
-**Threat Intelligence Content:**
-{content}`;
-        showHelpModal('IOC Extraction Prompt', promptContent, 'GPT-4o-mini');
-    }
-
-    function showSigmaHelp() {
-        const promptContent = `Generate a Sigma detection rule based on this threat intelligence:
-
-**Article Title:** {title}
-**Source:** {source}
-**URL:** {url}
-
-**SIGMA Rule Requirements:**
-1. **Focus on TTPs:** Create rules for Tactics, Techniques, and Procedures, not atomic IOCs
-2. **Behavioral Patterns:** Detect attack behaviors and techniques
-3. **Proper Syntax:** Use correct SIGMA rule format and structure
-4. **Required Fields:** Include all mandatory SIGMA fields (title, description, logsource, detection, etc.)
-5. **Actionable Detection:** Rules should detect real attack patterns
-
-**Rule Guidelines:**
-- Avoid rules for single IP addresses or file hashes
-- Focus on command-line patterns, process creation, and system modifications
-- Use appropriate log sources (Windows Event Logs, Sysmon, Linux auditd, etc.)
-- Include proper categorization and references
-- Make rules specific enough to avoid false positives
-
-**CRITICAL OUTPUT REQUIREMENTS:**
-- Output ONLY the YAML rule content
-- Do NOT include markdown code blocks (\`\`\`yaml or \`\`\`)
-- Do NOT include any explanatory text before or after the rule
-- Start directly with the YAML content
-
-**YAML Formatting Rules:**
-- Use exactly 2 spaces for each indentation level
-- NEVER use tabs
-- Ensure proper YAML syntax
-- All field names must be lowercase
-- Use quotes for values containing special characters
-
-**Required YAML Structure:**
-title: [Descriptive rule title]
-id: [UUID or generated ID]
-description: [What this rule detects]
-logsource:
-  category: [process_creation/network_connection/etc]
-  product: [windows/linux/macos]
-detection:
-  selection:
-    [detection criteria]
-  condition: selection
-level: [low/medium/high/critical]
-tags:
-  - attack.[technique]
-references:
-  - [URL or reference]
-
-**Threat Intelligence Content:**
-{content}`;
-        showHelpModal('SIGMA Generation Prompt', promptContent, 'GPT-4o-mini');
-    }
-
-    function showRankingHelp() {
-        const promptContent = `# Blog Content SIGMA-Suitability Huntability Ranking System
-
-## Your Role
-
-You are a detection engineer evaluating cybersecurity blog content specifically for its suitability to create SIGMA detection rules. Rate content based on how directly it maps to structured log data sources including Windows Event Logs, Sysmon, Linux auditd/Syslog, macOS system logs, AND cloud service logs (AWS CloudTrail, Azure Activity, GCP Audit).
-
-## SIGMA-Focused Scoring (1-10 Scale)
-
-Only content that maps to structured log telemetry receives points. Ignore network payloads, binary analysis, or packet-level details.
-
-## Important Notes
-
-- Do not award points for atomic IOCs (file hashes, IPs, or one-off domains).
-- Filename/path patterns and directory conventions are acceptable if they indicate repeatable behavior.
-- Only award points for observables that map directly to Windows Event Logs, Sysmon, Linux auditd/Syslog, or macOS system logs.
-
-### Category A – Process Creation & Command-Line Arguments (0-4 pts)
-
-**Data Sources:** 
-- Windows: Sysmon Event ID 1, Security 4688
-- Linux: process logs, auditd
-- **macOS: Endpoint Security process events, unified logging (log show)**
-- Cloud: CLI commands in CloudTrail/Activity logs
-
-**Look For:**
-
-- Parent → child process chains with full paths
-- Exact command-line strings with arguments, switches, flags
-- Process execution sequences
-- Cloud CLI commands (aws, az, gcloud) with specific parameters
-- **macOS-specific:** osascript commands, launchctl usage, security framework calls
-
-**Scoring:**
-
-- 0 = No process/command details
-- 1 = Vague mentions ("runs PowerShell", "uses AWS CLI", or "executes AppleScript")
-- 2 = Partial arguments or missing execution context
-- 3 = Detailed examples but limited coverage
-- 4 = Multiple detailed command chains with full arguments
-
-### Category B - Persistence & System/Service Modification (0-3 pts)
-
-**Data Sources:** 
-- Windows: Sysmon Event IDs 12/13/19/7045, Security 4697
-- Linux: auditd, systemd logs
-- **macOS: LaunchAgent/LaunchDaemon creation, login items, authorization database changes**
-- Cloud: AWS CloudTrail, Azure Activity
-
-**Look For:**
-
-- Registry keys with exact paths and values (Windows)
-- Service creation/modification details
-- Scheduled tasks, cron jobs, or **macOS LaunchAgents/LaunchDaemons**
-- Cloud service configurations (IAM roles, SNS topics, Lambda functions, etc.)
-- API calls that establish persistence or modify services
-- **macOS persistence:** ~/Library/LaunchAgents, /Library/LaunchDaemons, login items, authorization plugins
-
-**Scoring:**
-
-- 0 = No persistence/modification details
-- 1 = Generic mention ("creates persistence" or "modifies cloud config")
-- 2 = Specific mechanism but incomplete details
-- 3 = Exact configurations, API calls, plist files, or settings ready for SIGMA rules
-
-### Category C - Log-Correlated Behavior (0-2 pts)
-
-**Data Sources:** Multiple log sources in sequence (Windows/Linux/macOS/Cloud)
-
-**Look For:**
-
-- Cross-log correlations (process → network, cloud API → local execution)
-- Event sequences that can be chained in SIGMA rules
-- Time-based correlations between different log types
-- Cloud service chains (EC2 → SNS → external endpoint)
-- **macOS correlations:** Endpoint Security events + unified logging + authorization logs
-
-**Scoring:**
-
-- 0 = Single log source only
-- 1 = Limited correlation opportunities
-- 2 = Clear multi-log correlation patterns
-
-### Category D - Structured Log Patterns (0-1 pt)
-
-**Data Sources:** Any structured log format (file creation, API calls, service events)
-
-**Look For:**
-
-- File path patterns or naming conventions (not hashes)
-- API call patterns with specific parameters
-- Service usage patterns or anomalous configurations
-- Structured event patterns in any log format
-- **macOS-specific:** .plist file patterns, app bundle structures, Gatekeeper/XProtect logs
-
-**Scoring:**
-
-- 0 = No usable structured patterns
-- 1 = Clear structured patterns present
-
-## Important: Multi-Platform Content
-
-**AWS CloudTrail, Azure Activity Logs, GCP Audit Logs, and macOS system logs ARE valid SIGMA data sources.** Do not dismiss cloud-focused or macOS content. API calls, service configurations, LaunchAgent creation, and command execution are all huntable through structured logs.
-
-**macOS SIGMA Data Sources Include:**
-- Endpoint Security Framework events
-- Unified Logging System (log show commands)  
-- Authorization database logs
-- LaunchAgent/LaunchDaemon plist files
-- Gatekeeper and XProtect logs
-
-## Scoring Bands
-
-- **1-2:** Mostly strategic content, minimal SIGMA applicability
-- **3-4:** Limited SIGMA potential, too generic for reliable rules
-- **5-6:** Moderate SIGMA candidates with some specificity
-- **7-8:** Strong SIGMA potential, multiple rule-ready observables
-- **9-10:** Excellent SIGMA content, rules can be drafted immediately
-
-## Output Format
-
-**SIGMA HUNTABILITY SCORE: [1-10]**
-
-**CATEGORY BREAKDOWN:**
-
-- **Process/Command-Line (0-4):** [Score] - [Brief reasoning, noting platform if applicable]
-- **Persistence/System Mods (0-3):** [Score] - [Brief reasoning, noting platform-specific mechanisms]
-- **Log Correlation (0-2):** [Score] - [Brief reasoning]
-- **Structured Patterns (0-1):** [Score] - [Brief reasoning]
-
-**SIGMA-READY OBSERVABLES:**
-[List specific elements that can directly become SIGMA rules, noting target platform]
-
-**REQUIRED LOG SOURCES:**
-[Windows Event IDs, Sysmon events, Linux logs, macOS log sources, OR cloud service logs needed]
-
-**RULE FEASIBILITY:**
-[Assessment of how quickly detection rules could be created, noting any platform-specific considerations]
-
-## Instructions
-
-Analyze the provided blog content using this SIGMA-focused rubric. All major platforms (Windows, Linux, macOS) and cloud service logs are valid SIGMA data sources. Focus on structured log patterns regardless of platform. Ignore only unstructured data like network payloads or binary analysis.
-
-Please analyze the following blog content:
-
-**Title:** {title}
-**Source:** {source}
-**URL:** {url}
-
-**Content:**
-{content}`;
-        showHelpModal('GPT-4O SIGMA Huntability Analysis Prompt', promptContent, 'GPT-4O');
-    }
-
-    function showCustomHelp() {
-        const promptContent = `You are a cybersecurity analyst with expertise in threat intelligence analysis. Analyze the provided article content and respond to the user's specific question or request.
-
-**Article Title:** {title}
-**Source:** {source}
-**URL:** {url}
-
-**Article Content:**
-{content}
-
-**User Request:** {user_prompt}
-
-Please provide a detailed analysis based on the article content and the user's specific request. Focus on actionable insights, technical details, and practical recommendations where applicable.`;
-        showHelpModal('Custom Prompt Template', promptContent, 'ChatGPT/Claude/Llama');
-    }
 
     // Toggle Keyword Matches panel
     function toggleKeywordMatches() {
