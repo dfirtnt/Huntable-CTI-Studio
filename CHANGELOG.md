@@ -8,6 +8,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **RAG (Retrieval-Augmented Generation) System**: Complete conversational AI implementation
+- **Multi-Provider LLM Integration**: OpenAI GPT-4o, Anthropic Claude, and Ollama support
+- **Conversational Context**: Multi-turn conversation support with context memory
+- **Synthesized Responses**: LLM-generated analysis instead of raw article excerpts
+- **Vector Embeddings**: Sentence Transformers (all-mpnet-base-v2) for semantic similarity search
+- **RAG Generation Service**: `src/services/llm_generation_service.py` for response synthesis
+- **Auto-Fallback System**: Graceful degradation between LLM providers
+- **RAG Chat API**: `POST /api/chat/rag` endpoint with conversation history
+- **Frontend RAG Controls**: LLM provider selection and synthesis toggle
+- **Professional System Prompt**: Cybersecurity analyst persona for threat intelligence analysis
+- **Source Attribution**: All responses include relevance scores and source citations
+- **RAG Documentation**: Comprehensive RAG system documentation in `docs/RAG_SYSTEM.md`
+
+### Changed
+- **RAG Architecture**: Upgraded from template-only to full LLM synthesis
+- **API Response Format**: Enhanced with LLM provider and synthesis status
+- **Frontend Configuration**: Added LLM provider selection and synthesis controls
+- **Documentation**: Updated README, API endpoints, and Docker architecture docs
+
+### Fixed
+- **OpenAI API Integration**: Proper API key handling and error fallback
+- **Conversation Context**: Fixed context truncation and memory management
+- **Response Quality**: Improved synthesis quality with professional formatting
+
+### Technical Details
+- **Embedding Model**: all-mpnet-base-v2 (768-dimensional vectors)
+- **Vector Storage**: PostgreSQL with pgvector extension
+- **Context Management**: Last 4 conversation turns for LLM context
+- **Response Times**: 3-5 seconds (OpenAI), 4-6 seconds (Claude), 10-30 seconds (Ollama)
+- **Fallback Strategy**: Template → Ollama → Claude → OpenAI priority order
+
+### Added
 - **Allure Reports Integration**: Rich visual test analytics with pie charts, bar charts, and trend graphs
 - **Dedicated Allure Container**: Containerized Allure Reports server for reliable access
 - **Interactive Test Dashboard**: Step-by-step test visualization for debugging and analysis

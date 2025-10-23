@@ -32,12 +32,13 @@ The CTI Scraper uses a microservices architecture with the following components:
    - Manages periodic task scheduling
    - Triggers source checks and maintenance tasks
 
-6. **Ollama LLM Service** (`cti_ollama`)
-   - Local large language model for content analysis
-   - Provides threat hunting and detection engineering analysis
-   - Runs Llama 3.2 1B model for content processing
+6. **Multi-Provider LLM Service** (`cti_ollama`)
+   - Local Ollama service with Llama 3.2 1B model for content analysis
+   - Supports OpenAI GPT-4o and Anthropic Claude integration
+   - Auto-fallback between providers based on availability
    - Configured for parallel processing (3 concurrent requests, 2 loaded models)
    - Supports multiple AI endpoints: summaries, SIGMA rules, rankings, and RAG chat
+   - RAG generation service with conversation context and response synthesis
 
 7. **Automated Backup System**
    - Daily backup scheduling with cron jobs (2:00 AM daily, 3:00 AM weekly cleanup)
@@ -48,7 +49,14 @@ The CTI Scraper uses a microservices architecture with the following components:
 
 ### Additional Services
 
-8. **CLI Tool Service** (`cli`) - **NEW**
+8. **RAG Generation Service** (`llm_generation_service`)
+   - Multi-provider LLM integration (OpenAI, Anthropic, Ollama)
+   - Conversational AI with context memory
+   - Synthesized response generation instead of raw chunks
+   - Auto-fallback between providers
+   - Conversation history management
+
+9. **CLI Tool Service** (`cli`) - **NEW**
    - Containerized command-line interface
    - Uses same PostgreSQL database as web application
    - Eliminates data inconsistency between CLI and web operations
