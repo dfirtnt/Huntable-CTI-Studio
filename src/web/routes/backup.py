@@ -24,7 +24,7 @@ async def api_create_backup(request: Request):
         compress = payload.get("compress", True)
         verify = payload.get("verify", True)
 
-        project_root = Path(__file__).parent.parent.parent
+        project_root = Path(__file__).parent.parent.parent.parent
         cmd = [sys.executable, str(project_root / "scripts" / "backup_system.py")]
 
         if not compress:
@@ -67,7 +67,7 @@ async def api_create_backup(request: Request):
 async def api_list_backups():
     """API endpoint for listing backups."""
     try:
-        project_root = Path(__file__).parent.parent.parent
+        project_root = Path(__file__).parent.parent.parent.parent
 
         result = subprocess.run(
             [sys.executable, str(project_root / "scripts" / "prune_backups.py"), "--stats"],
@@ -126,7 +126,7 @@ async def api_list_backups():
 async def api_backup_status():
     """API endpoint for retrieving backup status and summary."""
     try:
-        project_root = Path(__file__).parent.parent.parent
+        project_root = Path(__file__).parent.parent.parent.parent
 
         result = subprocess.run(
             [sys.executable, str(project_root / "scripts" / "prune_backups.py"), "--stats"],
