@@ -101,24 +101,6 @@ This automated script will:
 
 ### Manual Installation (Alternative)
 
-## Quick Start (Recommended)
-
-**Automated setup with backups enabled by default:**
-
-```bash
-git clone https://github.com/starlord/CTIScraper.git
-cd CTIScraper
-./setup.sh
-```
-
-This will:
-- Set up the environment
-- Start all services
-- Configure automated daily backups
-- Verify the installation
-
-## Manual Setup
-
 If you prefer manual setup or the automated script fails:
 
 1. **Clone the repository**
@@ -332,7 +314,7 @@ Protect your data with command-line backup and restore tools:
 **Create Backup:**
 ```bash
 # Using helper script (recommended)
-./backup_restore.sh create
+./scripts/backup_restore.sh create
 
 # Using CLI command (in Docker container)
 docker exec cti_worker python -m src.cli.main backup create
@@ -344,7 +326,7 @@ docker exec cti_worker python scripts/backup_database.py
 **List Backups:**
 ```bash
 # Using helper script
-./backup_restore.sh list
+./scripts/backup_restore.sh list
 
 # Using CLI command (in Docker container)
 docker exec cti_worker python -m src.cli.main backup list
@@ -356,7 +338,7 @@ docker exec cti_worker python scripts/backup_database.py --list
 **Restore Database:**
 ```bash
 # Using helper script
-./backup_restore.sh restore cti_scraper_backup_20250907_134653.sql.gz
+./scripts/backup_restore.sh restore cti_scraper_backup_20250907_134653.sql.gz
 
 # Using CLI command (in Docker container)
 docker exec cti_worker python -m src.cli.main backup restore cti_scraper_backup_20250907_134653.sql.gz

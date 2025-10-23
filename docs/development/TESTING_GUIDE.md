@@ -38,7 +38,6 @@ python run_tests.py --smoke
 
 ```bash
 # Test backup creation and restore
-python run_tests.py --backup
 ./run_tests.sh backup
 
 # Test backup API endpoints

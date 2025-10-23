@@ -550,10 +550,10 @@ def _has_compression_failure_indicators(content: str) -> bool:
 # Windows Malware Keywords for Threat Hunting Scoring
 WINDOWS_MALWARE_KEYWORDS = {
         'perfect_discriminators': [
-            'rundll32', 'comspec', 'msiexec', 'wmic', 'iex', 'findstr',
+            'rundll32.exe', 'comspec', 'msiexec.exe', 'wmic.exe', 'iex', 'findstr.exe',
             'hklm', 'appdata', 'programdata', 'powershell.exe', 'wbem',
             '.lnk', 'D:\\', 'C:\\', '.iso', '<Command>', 'MZ',
-            'svchost', '-accepteula', 'lsass.exe', 'WINDIR', 'wintmp',
+            'svchost.exe', '-accepteula', 'lsass.exe', 'WINDIR', 'wintmp',
             '\\temp\\', '\\pipe\\', '%WINDIR%', '%wintmp%', 'FromBase64String',
             'MemoryStream', 'New-Object', 'DownloadString', 'Defender query',
             'sptth',
@@ -658,21 +658,35 @@ WINDOWS_MALWARE_KEYWORDS = {
         'overview', 'introduction', 'basics', 'fundamentals'
     ],
     'lolbas_executables': [
-        'certutil', 'cmd', 'schtasks', 'wmic',
-        'bitsadmin', 'ftp', 'netsh', 'cscript', 'mshta',
-        'regsvr32', 'rundll32',
-        'forfiles', 'explorer', 'ieexec', 'powershell',
-        'conhost', 'svchost', 'lsass',
-        'csrss', 'smss', 'wininit', 'nltest', 'odbcconf', 'scrobj',
-        # Additional LOLBAS from comprehensive list
-        'addinutil', 'appinstaller', 'aspnet_compiler', 'at.exe', 'atbroker', 'bash',
-        'certoc', 'certreq', 'cipher', 'cmdkey', 'cmdl32', 'cmstp', 'colorcpl',
-        'computerdefaults', 'configsecuritypolicy', 'control.exe', 'csc', 'customshellhost',
-        'datasvcutil', 'desktopimgdownldr', 'devicecredentialdeployment', 'dfsvc',
-        'diantz', 'diskshadow', 'dnscmd', 'esentutl', 'eventvwr', 'expand.exe',
-        'extexport', 'extrac32', 'findstr', 'finger.exe', 'fltmc', 'gpscript',
-        'replace.exe', 'sc', 'print.exe', 'ssh', 'teams.exe', 'rdrleakdiag.exe',
-        'ipconfig', 'systeminfo'
+        'certutil.exe', 'cmd.exe', 'schtasks.exe', 'wmic.exe', 'bitsadmin.exe', 'ftp.exe', 'netsh.exe', 'cscript.exe', 'mshta.exe',
+        'regsvr32.exe', 'rundll32.exe', 'forfiles.exe', 'explorer.exe', 'ieexec.exe', 'powershell.exe', 'conhost.exe', 'svchost.exe', 'lsass.exe',
+        'csrss.exe', 'smss.exe', 'wininit.exe', 'nltest.exe', 'odbcconf.exe', 'scrobj.dll', 'addinutil.exe', 'appinstaller.exe', 'aspnet_compiler.exe',
+        'at.exe', 'atbroker.exe', 'bash.exe', 'certoc.exe', 'certreq.exe', 'cipher.exe', 'cmdkey.exe', 'cmdl32.exe', 'cmstp.exe', 'colorcpl.exe',
+        'computerdefaults.exe', 'configsecuritypolicy.exe', 'control.exe', 'csc.exe', 'customshellhost.exe', 'datasvcutil.exe',
+        'desktopimgdownldr.exe', 'devicecredentialdeployment.exe', 'dfsvc.exe', 'diantz.exe', 'diskshadow.exe', 'dnscmd.exe', 'esentutl.exe',
+        'eventvwr.exe', 'expand.exe', 'extexport.exe', 'extrac32.exe', 'findstr.exe', 'finger.exe', 'fltmc.exe', 'gpscript.exe',
+        'replace.exe', 'sc.exe', 'print.exe', 'ssh.exe', 'teams.exe', 'rdrleakdiag.exe', 'ipconfig.exe', 'systeminfo.exe',
+        'aspnet_com.exe', 'acroreer.exe', 'change.exe', 'configse.exe', 'customshell.exe', 'datasecutil.exe', 'desktopimg.exe',
+        'devicescred.exe', 'dism.exe', 'eudcedit.exe', 'export.exe', 'finger.exe', 'flmc.exe', 'fsutil.exe', 'gscript.exe', 'hh.exe', 'imewdbld.exe',
+        'ie4uinit.exe', 'inetcpl.exe', 'installutil.exe', 'iscsicpl.exe', 'isc.exe', 'ldifde.exe', 'makecab.exe', 'mavinject.exe',
+        'microsoft.workflow.exe', 'mmc.exe', 'mpcmdrun.exe', 'msbuild.exe', 'msconfig.exe', 'msdt.exe', 'msedge.exe', 'ngen.exe',
+        'offlinescanner.exe', 'onedrivesta.exe', 'pcalua.exe', 'pcwrun.exe', 'platman.exe', 'pnputil.exe', 'presentationsettings.exe',
+        'print.exe', 'printbrm.exe', 'prowlaunch.exe', 'psr.exe', 'query.exe', 'rasautou.exe', 'rdrleakdiag.exe', 'reg.exe', 'regasm.exe', 'regedit.exe',
+        'regini.exe', 'register-cim.exe', 'replace.exe', 'reset.exe', 'rpcping.exe', 'runschlp.exe', 'runonce.exe', 'runscripthelper.exe',
+        'scriptrunner.exe', 'setres.exe', 'settingsynchost.exe', 'sftp.exe', 'syncappvpublishingserver.exe', 'tar.exe', 'tldinject.exe',
+        'tracerpt.exe', 'unregmp2.exe', 'wbc.exe', 'vssadmin.exe', 'wab.exe', 'wbadmin.exe', 'wbemtest.exe', 'wfgen.exe', 'wfp.exe', 'winword.exe',
+        'wsreset.exe', 'wuzucht.exe', 'xwizard.exe', 'msedge_proxy.exe', 'msedgewebview2.exe', 'wsl.exe', 'adxpack.dll', 'desk.cpl', 'ieframe.dll',
+        'mshtml.dll', 'pcwutil.dll', 'photoviewer.dll', 'setupapi.dll', 'shdocvw.dll', 'shell32.dll', 'shimgvw.dll', 'syssetup.dll', 'url.dll',
+        'zipfldr.dll', 'comsvcs.dll', 'acccheckco.dll', 'adplus.exe', 'agentexecu.exe', 'applauncher.exe', 'appcert.exe', 'appvlp.exe', 'bginfo.exe',
+        'cdb.exe', 'coregen.exe', 'createdump.exe', 'csi.exe', 'defaultpack.exe', 'devinit.exe', 'devtroubleshoot.exe', 'dnx.exe', 'dotnet.exe',
+        'dpubuild.exe', 'dputil.exe', 'dump64.exe', 'dumpmini.exe', 'dxcap.exe', 'ecmangen.exe', 'excel.exe', 'foj.exe', 'fsrmgpu.exe', 'hltrace.exe',
+        'microsoft.notes.exe', 'mpiexec.exe', 'msaccess.exe', 'msdeploy.exe', 'msohtmed.exe', 'mspub.exe', 'mses.exe', 'ndsutil.exe', 'ntds.exe',
+        'openconsole.exe', 'pstools.exe', 'powerpnt.exe', 'procdump.exe', 'protocolhandler.exe', 'rcsi.exe', 'remote.exe', 'sqldumper.exe',
+        'sqlps.exe', 'sqltoolsps.exe', 'squirrel.exe', 'ta.exe', 'teams.exe', 'testwindow.exe', 'tracker.exe', 'update.exe', 'vsdiagnostic.exe',
+        'vsixinstaller.exe', 'visio.exe', 'visualuiaver.exe', 'vsixlaunch.exe', 'vsshadow.exe', 'wsgldebugger.exe', 'wfhformat.exe', 'wic.exe',
+        'windbg.exe', 'winproj.exe', 'xbootmgr.exe', 'xtoolmgr.exe', 'rdptunnel.exe', 'wslg-agent.exe', 'wstest_console.exe', 'winfile.exe',
+        'xsd.exe', 'cl_loadas.exe', 'cl_mute.exe', 'cl_invoca.exe', 'launch-vsd.exe', 'manage-bde.exe', 'pubprn.vbs', 'syncappvpu.exe',
+        'utilityfunc.exe', 'winrm.vbs', 'poster.bat'
     ],
 }
 
