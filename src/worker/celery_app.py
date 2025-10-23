@@ -59,6 +59,13 @@ def setup_periodic_tasks(sender, **kwargs):
         embed_new_articles.s(),
         name='embed-new-articles-weekly'
     )
+    
+    # Generate annotation embeddings weekly on Sundays at 4 AM
+    sender.add_periodic_task(
+        crontab(hour=4, minute=0, day_of_week=0),  # Weekly on Sunday at 4 AM
+        generate_annotation_embeddings.s(),
+        name='embed-annotations-weekly'
+    )
 
 
 @celery_app.task(bind=True, max_retries=3)

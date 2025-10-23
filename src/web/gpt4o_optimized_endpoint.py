@@ -5,11 +5,16 @@ import httpx
 import os
 import logging
 
-# Import the app instance and other dependencies
-from src.web.modern_main import app, async_db_manager, logger
+# Import dependencies
+from src.database.async_manager import async_db_manager
+from src.web.dependencies import logger
+from fastapi import APIRouter
+
+# Create router for this endpoint
+router = APIRouter()
 from src.models.article import ArticleUpdate
 
-@app.post("/api/articles/{article_id}/gpt4o-rank-optimized")
+@router.post("/api/articles/{article_id}/gpt4o-rank-optimized")
 async def api_gpt4o_rank_optimized(article_id: int, request: Request):
     """Enhanced API endpoint for GPT4o SIGMA huntability ranking with content filtering."""
     try:
