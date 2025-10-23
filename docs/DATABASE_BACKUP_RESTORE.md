@@ -98,22 +98,22 @@ python3 scripts/restore_database.py cti_scraper_backup_20250907_134653.sql.gz
 #### Create Backup
 ```bash
 # Basic backup
-./backup_restore.sh create
+./scripts/backup_restore.sh create
 
 # Custom backup directory
-./backup_restore.sh create --backup-dir /path/to/backups
+./scripts/backup_restore.sh create --backup-dir /path/to/backups
 
 # Uncompressed backup
-./backup_restore.sh create --no-compress
+./scripts/backup_restore.sh create --no-compress
 ```
 
 #### List Backups
 ```bash
 # List all backups
-./backup_restore.sh list
+./scripts/backup_restore.sh list
 
 # List from specific directory
-./backup_restore.sh list --backup-dir /path/to/backups
+./scripts/backup_restore.sh list --backup-dir /path/to/backups
 ```
 
 ### Restore Commands
@@ -121,16 +121,16 @@ python3 scripts/restore_database.py cti_scraper_backup_20250907_134653.sql.gz
 #### Restore Database
 ```bash
 # Basic restore
-./backup_restore.sh restore cti_scraper_backup_20250907_134653.sql.gz
+./scripts/backup_restore.sh restore cti_scraper_backup_20250907_134653.sql.gz
 
 # Force restore without confirmation
-./backup_restore.sh restore cti_scraper_backup_20250907_134653.sql.gz --force
+./scripts/backup_restore.sh restore cti_scraper_backup_20250907_134653.sql.gz --force
 
 # Skip snapshot creation
-./backup_restore.sh restore cti_scraper_backup_20250907_134653.sql.gz --no-snapshot
+./scripts/backup_restore.sh restore cti_scraper_backup_20250907_134653.sql.gz --no-snapshot
 
 # Custom backup directory
-./backup_restore.sh restore backup.sql.gz --backup-dir /path/to/backups
+./scripts/backup_restore.sh restore backup.sql.gz --backup-dir /path/to/backups
 ```
 
 ## File Structure
@@ -222,7 +222,7 @@ python3 scripts/restore_database.py backups/pre_restore_snapshot_20250907_140201
 ```bash
 #!/bin/bash
 # Add to your CI/CD pipeline
-./backup_restore.sh create --backup-dir /backups/ci
+./scripts/backup_restore.sh create --backup-dir /backups/ci
 ```
 
 ### Backup Validation
@@ -280,9 +280,9 @@ The comprehensive backup system provides:
 
 | Legacy Command | New Command | Notes |
 |----------------|-------------|-------|
-| `./backup_restore.sh create` | `./scripts/backup_restore.sh db-create` | Database-only backup |
-| `./backup_restore.sh list` | `./scripts/backup_restore.sh db-list` | Database-only backups |
-| `./backup_restore.sh restore` | `./scripts/backup_restore.sh db-restore` | Database-only restore |
+| `./scripts/backup_restore.sh create` | `./scripts/backup_restore.sh db-create` | Database-only backup |
+| `./scripts/backup_restore.sh list` | `./scripts/backup_restore.sh db-list` | Database-only backups |
+| `./scripts/backup_restore.sh restore` | `./scripts/backup_restore.sh db-restore` | Database-only restore |
 
 ## Support
 
