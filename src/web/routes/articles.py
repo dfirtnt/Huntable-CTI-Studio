@@ -17,7 +17,7 @@ class SimpleFilter:
     def __init__(
         self,
         limit: Optional[int] = None,
-        sort_by: str = "threat_hunting_score",
+        sort_by: str = "published_at",
         sort_order: str = "desc",
         source_id: Optional[int] = None,
         processing_status: Optional[str] = None,
@@ -39,7 +39,7 @@ router = APIRouter(prefix="/api/articles", tags=["Articles"])
 @router.get("")
 async def api_articles_list(
     limit: Optional[int] = 100,
-    sort_by: str = "threat_hunting_score",
+    sort_by: str = "published_at",
     sort_order: str = "desc",
     source_id: Optional[int] = None,
     processing_status: Optional[str] = None,

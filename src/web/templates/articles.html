@@ -50,7 +50,7 @@
         <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">🔍 Filters & Search</h2>
         <form method="GET" class="grid grid-cols-1 md:grid-cols-4 gap-4">
             <!-- Hidden inputs to preserve sort parameters -->
-            <input type="hidden" name="sort_by" value="{{ filters.sort_by or 'threat_hunting_score' }}">
+            <input type="hidden" name="sort_by" value="{{ filters.sort_by or 'published_at' }}">
             <input type="hidden" name="sort_order" value="{{ filters.sort_order or 'desc' }}">
             
             <!-- Search -->
@@ -977,7 +977,7 @@
             classification: document.getElementById('classification')?.value || '',
             threat_hunting_range: document.getElementById('threat-hunting-range')?.value || '',
             per_page: document.getElementById('per-page')?.value || '100',
-            sort_by: document.getElementById('sort-by')?.value || 'threat_hunting_score',
+            sort_by: document.getElementById('sort-by')?.value || 'published_at',
             sort_order: document.getElementById('sort-order')?.value || 'desc',
             title_only: document.getElementById('title-only')?.checked || false
         };
