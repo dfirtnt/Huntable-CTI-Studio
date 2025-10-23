@@ -649,7 +649,7 @@ async def api_extract_iocs(article_id: int, request: Request):
                 'confidence': result.confidence,
                 'extracted_at': datetime.now().isoformat(),
                 'ai_model': ai_model,
-                'use_llm_validation': use_llm_validation,
+                'use_llm_validation': result.extraction_method == 'hybrid',  # Store actual validation status
                 'processing_time': result.processing_time,
                 'raw_count': result.raw_count,
                 'validated_count': result.validated_count
@@ -676,6 +676,316 @@ async def api_extract_iocs(article_id: int, request: Request):
         raise
     except Exception as e:
         logger.error(f"IOCs extraction error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/{article_id}/generate-sigma")
+async def api_generate_sigma(article_id: int, request: Request):
+    """Generate SIGMA detection rules from an article using AI."""
+    try:
+        # Get the article
+        article = await async_db_manager.get_article(article_id)
+        if not article:
+            raise HTTPException(status_code=404, detail="Article not found")
+        
+        # Get request body
+        body = await request.json()
+        api_key = body.get('api_key')
+        ai_model = body.get('ai_model', 'chatgpt')
+        author_name = body.get('author_name', 'CTI Scraper User')
+        force_regenerate = body.get('force_regenerate', False)
+        
+        if not api_key:
+            raise HTTPException(status_code=400, detail="API key is required. Please configure it in Settings.")
+        
+        # Check for existing SIGMA rules (unless force regeneration is requested)
+        if not force_regenerate and article.article_metadata and article.article_metadata.get('sigma_rules'):
+            existing_rules = article.article_metadata.get('sigma_rules')
+            return {
+                "success": True,
+                "rules": existing_rules.get('rules', []),
+                "metadata": existing_rules.get('metadata', {}),
+                "cached": True,
+                "error": None
+            }
+        
+        # Prepare the article content for analysis
+        if not article.content:
+            raise HTTPException(status_code=400, detail="Article content is required for SIGMA rule generation")
+        
+        # Get the source name from source_id
+        source = await async_db_manager.get_source(article.source_id)
+        source_name = source.name if source else f"Source {article.source_id}"
+        
+        # Apply content filtering to optimize for SIGMA generation
+        from src.utils.gpt4o_optimizer import optimize_article_content
+        
+        # Use content filtering with high confidence threshold for SIGMA generation
+        min_confidence = 0.7
+        logger.info(f"Optimizing content for SIGMA generation with confidence threshold {min_confidence}")
+        optimization_result = await optimize_article_content(article.content, min_confidence)
+        
+        if optimization_result['success']:
+            content_to_analyze = optimization_result['filtered_content']
+            cost_savings = optimization_result['cost_savings']
+            tokens_saved = optimization_result['tokens_saved']
+            chunks_removed = optimization_result['chunks_removed']
+            
+            logger.info(f"Content optimization completed for SIGMA generation: "
+                       f"{tokens_saved:,} tokens saved, "
+                       f"${cost_savings:.4f} cost savings, "
+                       f"{chunks_removed} chunks removed")
+        else:
+            logger.warning("Content optimization failed for SIGMA generation, using original content")
+            content_to_analyze = article.content
+            cost_savings = 0.0
+            tokens_saved = 0
+            chunks_removed = 0
+        
+        # Load SIGMA generation prompt with filtered content
+        sigma_prompt = format_prompt("sigma_generation",
+            title=article.title,
+            source=source_name,
+            url=article.canonical_url or 'N/A',
+            content=content_to_analyze
+        )
+        
+        # Call OpenAI API for SIGMA rule generation
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                "https://api.openai.com/v1/chat/completions",
+                headers={
+                    "Authorization": f"Bearer {api_key}",
+                    "Content-Type": "application/json"
+                },
+                json={
+                    "model": "gpt-4o-mini",
+                    "messages": [
+                        {
+                            "role": "system",
+                            "content": "You are a senior cybersecurity detection engineer specializing in SIGMA rule creation. Generate high-quality, actionable SIGMA rules based on threat intelligence articles. Always use proper SIGMA syntax and include all required fields according to SigmaHQ standards."
+                        },
+                        {
+                            "role": "user",
+                            "content": sigma_prompt
+                        }
+                    ],
+                    "max_tokens": 4000,
+                    "temperature": 0.3
+                },
+                timeout=120.0
+            )
+            
+            if response.status_code != 200:
+                raise HTTPException(status_code=500, detail=f"OpenAI API error: {response.status_code}")
+            
+            result = response.json()
+            sigma_response = result['choices'][0]['message']['content']
+        
+        # Implement iterative SIGMA rule generation with validation feedback
+        from src.services.sigma_validator import validate_sigma_rule, clean_sigma_rule
+        
+        conversation_log = []
+        validation_results = []
+        rules = []
+        max_attempts = 3
+        
+        for attempt in range(max_attempts):
+            logger.info(f"SIGMA generation attempt {attempt + 1}/{max_attempts}")
+            
+            # Prepare the prompt for this attempt
+            if attempt == 0:
+                # First attempt - use the original prompt
+                current_prompt = sigma_prompt
+            else:
+                # Subsequent attempts - include validation feedback
+                previous_errors = []
+                for result in validation_results:
+                    if not result.is_valid and result.errors:
+                        previous_errors.extend(result.errors)
+                
+                if previous_errors:
+                    error_feedback = "\n\n".join(previous_errors)
+                    current_prompt = f"""{sigma_prompt}
+
+IMPORTANT: The previous attempt had validation errors. Please fix these issues:
+
+VALIDATION ERRORS FROM PREVIOUS ATTEMPT:
+{error_feedback}
+
+CRITICAL: Output ONLY the YAML rule content. Do NOT include markdown code blocks (```yaml or ```). Do NOT include any explanatory text. Start directly with the YAML content.
+
+Please generate corrected SIGMA rules that address these validation errors. Ensure all required fields are present and the YAML syntax is correct."""
+                else:
+                    # No errors to fix, break the loop
+                    break
+            
+            # Call OpenAI API for SIGMA rule generation
+            async with httpx.AsyncClient() as client:
+                response = await client.post(
+                    "https://api.openai.com/v1/chat/completions",
+                    headers={
+                        "Authorization": f"Bearer {api_key}",
+                        "Content-Type": "application/json"
+                    },
+                    json={
+                        "model": "gpt-4o-mini",
+                        "messages": [
+                            {
+                                "role": "system",
+                                "content": "You are a senior cybersecurity detection engineer specializing in SIGMA rule creation. Generate high-quality, actionable SIGMA rules based on threat intelligence articles. Always use proper SIGMA syntax and include all required fields according to SigmaHQ standards."
+                            },
+                            {
+                                "role": "user",
+                                "content": current_prompt
+                            }
+                        ],
+                        "max_tokens": 4000,
+                        "temperature": 0.3
+                    },
+                    timeout=120.0
+                )
+                
+                if response.status_code == 429:
+                    error_detail = "OpenAI API rate limit exceeded. Please wait a few minutes and try again, or check your API usage limits."
+                    logger.warning(f"OpenAI rate limit hit: {response.text}")
+                    raise HTTPException(status_code=429, detail=error_detail)
+                elif response.status_code != 200:
+                    error_detail = f"OpenAI API error: {response.status_code}"
+                    if response.status_code == 401:
+                        error_detail = "OpenAI API key is invalid or expired. Please check your API key in Settings."
+                    elif response.status_code == 402:
+                        error_detail = "OpenAI API billing issue. Please check your account billing."
+                    logger.error(f"OpenAI API error {response.status_code}: {response.text}")
+                    raise HTTPException(status_code=500, detail=error_detail)
+                
+                result = response.json()
+                sigma_response = result['choices'][0]['message']['content']
+            
+            # Clean the response and extract YAML rules
+            cleaned_response = clean_sigma_rule(sigma_response)
+            
+            # Parse and validate the rules
+            attempt_validation_results = []
+            attempt_rules = []
+            all_valid = True
+            
+            # Split response into individual rules (separated by --- or multiple yaml blocks)
+            rule_blocks = cleaned_response.split('---')
+            for i, block in enumerate(rule_blocks):
+                block = block.strip()
+                if not block or not block.startswith('title:'):
+                    continue
+                    
+                try:
+                    validation_result = validate_sigma_rule(block)
+                    validation_result.rule_index = i + 1
+                    attempt_validation_results.append(validation_result)
+                    
+                    if validation_result.is_valid:
+                        attempt_rules.append({
+                            'content': block,
+                            'title': validation_result.metadata.get('title', f'Rule {i+1}'),
+                            'level': validation_result.metadata.get('level', 'medium'),
+                            'validated': True
+                        })
+                    else:
+                        all_valid = False
+                        attempt_rules.append({
+                            'content': block,
+                            'title': f'Rule {i+1} (Validation Failed)',
+                            'level': 'low',
+                            'validated': False,
+                            'errors': validation_result.errors
+                        })
+                except Exception as e:
+                    logger.error(f"SIGMA rule validation error: {e}")
+                    all_valid = False
+                    attempt_rules.append({
+                        'content': block,
+                        'title': f'Rule {i+1} (Parse Error)',
+                        'level': 'low',
+                        'validated': False,
+                        'errors': [str(e)]
+                    })
+            
+            # Store conversation log entry
+            conversation_log.append({
+                'attempt': attempt + 1,
+                'messages': [
+                    {
+                        'role': 'system',
+                        'content': 'You are a senior cybersecurity detection engineer specializing in SIGMA rule creation.'
+                    },
+                    {
+                        'role': 'user',
+                        'content': current_prompt
+                    }
+                ],
+                'llm_response': sigma_response,
+                'validation': attempt_validation_results,
+                'all_valid': all_valid,
+                'error': None
+            })
+            
+            # Update validation results and rules
+            validation_results = attempt_validation_results
+            rules = attempt_rules
+            
+            # If all rules are valid, break the loop
+            if all_valid:
+                logger.info(f"SIGMA generation successful on attempt {attempt + 1}")
+                break
+            else:
+                logger.info(f"SIGMA generation attempt {attempt + 1} had validation errors, retrying...")
+        
+        # Log final results
+        if validation_results and all(result.is_valid for result in validation_results):
+            logger.info(f"SIGMA generation completed successfully after {len(conversation_log)} attempts")
+        else:
+            logger.warning(f"SIGMA generation completed with errors after {len(conversation_log)} attempts")
+        
+        # Update article metadata with generated SIGMA rules
+        current_metadata = article.article_metadata or {}
+        current_metadata['sigma_rules'] = {
+            'rules': rules,
+            'metadata': {
+                'generated_at': datetime.now().isoformat(),
+                'ai_model': ai_model,
+                'author': author_name,
+                'total_rules': len(rules),
+                'valid_rules': len([r for r in rules if r.get('validated', False)]),
+                'validation_results': validation_results,
+                'conversation': conversation_log,
+                'attempts': len(conversation_log),
+                'successful': len(conversation_log) > 0 and all(result.is_valid for result in validation_results),
+                'optimization': {
+                    'enabled': True,
+                    'cost_savings': cost_savings,
+                    'tokens_saved': tokens_saved,
+                    'chunks_removed': chunks_removed,
+                    'min_confidence': min_confidence
+                }
+            }
+        }
+        
+        # Update the article in the database
+        from src.models.article import ArticleUpdate
+        update_data = ArticleUpdate(article_metadata=current_metadata)
+        await async_db_manager.update_article(article_id, update_data)
+        
+        return {
+            "success": len(rules) > 0,
+            "rules": rules,
+            "metadata": current_metadata['sigma_rules']['metadata'],
+            "cached": False,
+            "error": None if len(rules) > 0 else "No valid SIGMA rules could be generated"
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"SIGMA rules generation error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 

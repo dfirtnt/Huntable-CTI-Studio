@@ -130,13 +130,41 @@ pre-commit install
 
 ## Testing
 
-### Writing Tests
+**For comprehensive testing documentation, see [Testing Guide](tests/TESTING.md)**
 
-- Write tests for all new functionality
-- Use descriptive test names
-- Group related tests in classes
-- Use fixtures for common setup
-- Mock external dependencies
+### Quick Testing Commands
+
+```bash
+# Quick health check (recommended first step)
+python run_tests.py --smoke
+
+# Run all tests with coverage
+python run_tests.py --all --coverage
+
+# Run specific test categories
+python run_tests.py --unit
+python run_tests.py --api
+python run_tests.py --integration
+python run_tests.py --ui
+
+# Docker-based testing
+python run_tests.py --docker --all
+```
+
+### Test Requirements
+
+- **Unit Tests**: Core functionality and business logic
+- **Integration Tests**: Database and API interactions
+- **UI Tests**: End-to-end user workflows
+- **API Tests**: REST endpoint validation
+- **Security Tests**: Vulnerability scanning and dependency auditing
+
+### Test Coverage
+
+- Maintain 85%+ overall test coverage
+- Write tests for new features
+- Update tests when modifying existing functionality
+- Use appropriate test markers and categories
 
 ### ML Feedback Feature Testing
 
@@ -147,50 +175,6 @@ For ML feedback features, follow the balanced testing approach:
 - **Test the 3 essential areas**: Huntable probability calculation, API contracts, and retraining workflow
 
 See `tests/ML_FEEDBACK_TESTS_README.md` for detailed guidelines.
-
-### Test Structure
-
-```python
-import pytest
-from src.core.models import Article
-
-class TestArticleModel:
-    """Test cases for Article model."""
-    
-    def test_article_creation(self):
-        """Test article creation with valid data."""
-        article = Article(
-            title="Test Article",
-            url="https://example.com/test",
-            content="Test content"
-        )
-        assert article.title == "Test Article"
-        assert article.url == "https://example.com/test"
-    
-    def test_article_validation(self):
-        """Test article validation with invalid data."""
-        with pytest.raises(ValueError):
-            Article(title="", url="invalid-url")
-```
-
-### Running Tests
-
-```bash
-# Run all tests
-pytest
-
-# Run tests with verbose output
-pytest -v
-
-# Run tests and generate coverage report
-pytest --cov=src --cov-report=html
-
-# Run specific test file
-pytest tests/test_models.py
-
-# Run tests matching pattern
-pytest -k "test_article"
-```
 
 ## Pull Request Process
 

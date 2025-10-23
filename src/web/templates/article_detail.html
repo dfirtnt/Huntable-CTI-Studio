@@ -496,6 +496,348 @@
 {% block scripts %}
 <script>
 
+    // Global help functions - must be defined at top level for onclick handlers
+    function showHelpModal(title, promptContent, modelInfo = null) {
+        // Remove any existing help modal
+        const existingModal = document.getElementById('helpModal');
+        if (existingModal) {
+            existingModal.remove();
+        }
+        
+        const modal = document.createElement('div');
+        modal.id = 'helpModal';
+        modal.className = 'fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-60';
+        
+        // Add click outside to close
+        modal.addEventListener('click', function(e) {
+            if (e.target === modal) {
+                closeHelpModal();
+            }
+        });
+        
+        // Add ESC key to close
+        const handleEsc = function(e) {
+            if (e.key === 'Escape') {
+                closeHelpModal();
+                document.removeEventListener('keydown', handleEsc);
+            }
+        };
+        document.addEventListener('keydown', handleEsc);
+        
+        modal.innerHTML = `
+            <div class="relative top-10 mx-auto p-5 border w-11/12 max-w-4xl shadow-lg rounded-md bg-white">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-lg font-medium text-gray-900">ℹ️ ${title}</h3>
+                    <button onclick="closeHelpModal()" class="text-gray-400 hover:text-gray-600">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </button>
+                </div>
+                
+                <div class="mb-4 text-sm text-gray-600">
+                    <span class="font-medium">Prompt Template:</span> This is the canned prompt sent to the LLM for this analysis.
+                    ${modelInfo ? `<br><span class="font-medium">Model:</span> ${modelInfo}` : ''}
+                </div>
+                
+                <div class="bg-gray-50 p-4 rounded-lg max-h-96 overflow-y-auto">
+                    <pre class="text-sm text-gray-800 whitespace-pre-wrap font-mono">${promptContent}</pre>
+                </div>
+                
+                <div class="mt-4 text-xs text-gray-500">
+                    <strong>Note:</strong> Future versions will support custom prompts for different models.
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(modal);
+    }
+    
+    function closeHelpModal() {
+        const modal = document.getElementById('helpModal');
+        if (modal) {
+            modal.remove();
+        }
+    }
+
+    function showIOCHelp() {
+        const promptContent = `Extract Indicators of Compromise (IOCs) from this threat intelligence article.
+
+**Article Title:** {title}
+**Source:** {source}
+**URL:** {url}
+
+**Extraction Guidelines:**
+1. **Focus on Actionable IOCs:** Extract IP addresses, domains, file hashes, email addresses, and URLs
+2. **Context Matters:** Include surrounding context for each IOC to understand its significance
+3. **Categorize Properly:** Classify each IOC by type (ip, domain, hash, email, url, etc.)
+4. **Confidence Scoring:** Provide confidence scores (0.0-1.0) based on IOC clarity and context
+5. **Avoid False Positives:** Only extract IOCs that are clearly malicious or suspicious
+
+**IOC Types to Extract:**
+- **IP Addresses:** IPv4 and IPv6 addresses
+- **Domains:** Fully qualified domain names
+- **File Hashes:** MD5, SHA1, SHA256 hashes
+- **Email Addresses:** Malicious or suspicious email addresses
+- **URLs:** Full URLs including paths and parameters
+- **File Paths:** Suspicious file paths and filenames
+- **Registry Keys:** Windows registry keys and values
+- **Process Names:** Malicious process names and executables
+
+**Output Format:**
+Return a JSON array of IOC objects with the following structure:
+[
+  {
+    "type": "ip",
+    "value": "192.168.1.100",
+    "context": "C2 server used for command and control",
+    "confidence": 0.95
+  },
+  {
+    "type": "domain",
+    "value": "malicious.example.com",
+    "context": "Domain used for data exfiltration",
+    "confidence": 0.88
+  }
+]
+
+**Important Notes:**
+- Only extract IOCs that are clearly malicious or suspicious
+- Provide meaningful context for each IOC
+- Use appropriate confidence scores based on IOC clarity
+- Return valid JSON format only
+
+**Threat Intelligence Content:**
+{content}`;
+        showHelpModal('IOC Extraction Prompt', promptContent, 'GPT-4o-mini');
+    }
+
+    function showSigmaHelp() {
+        const promptContent = `Generate a Sigma detection rule based on this threat intelligence:
+
+**Article Title:** {title}
+**Source:** {source}
+**URL:** {url}
+
+**SIGMA Rule Requirements:**
+1. **Focus on TTPs:** Create rules for Tactics, Techniques, and Procedures, not atomic IOCs
+2. **Behavioral Patterns:** Detect attack behaviors and techniques
+3. **Proper Syntax:** Use correct SIGMA rule format and structure
+4. **Required Fields:** Include all mandatory SIGMA fields (title, description, logsource, detection, etc.)
+5. **Actionable Detection:** Rules should detect real attack patterns
+
+**Rule Guidelines:**
+- Avoid rules for single IP addresses or file hashes
+- Focus on command-line patterns, process creation, and system modifications
+- Use appropriate log sources (Windows Event Logs, Sysmon, Linux auditd, etc.)
+- Include proper categorization and references
+- Make rules specific enough to avoid false positives
+
+**CRITICAL OUTPUT REQUIREMENTS:**
+- Output ONLY the YAML rule content
+- Do NOT include markdown code blocks (\`\`\`yaml or \`\`\`)
+- Do NOT include any explanatory text before or after the rule
+- Start directly with the YAML content
+
+**YAML Formatting Rules:**
+- Use exactly 2 spaces for each indentation level
+- NEVER use tabs
+- Ensure proper YAML syntax
+- All field names must be lowercase
+- Use quotes for values containing special characters
+
+**Required YAML Structure:**
+title: [Descriptive rule title]
+id: [UUID or generated ID]
+description: [What this rule detects]
+logsource:
+  category: [process_creation/network_connection/etc]
+  product: [windows/linux/macos]
+detection:
+  selection:
+    [detection criteria]
+  condition: selection
+level: [low/medium/high/critical]
+tags:
+  - attack.[technique]
+references:
+  - [URL or reference]
+
+**Threat Intelligence Content:**
+{content}`;
+        showHelpModal('SIGMA Generation Prompt', promptContent, 'GPT-4o-mini');
+    }
+
+    function showRankingHelp() {
+        const promptContent = `# Blog Content SIGMA-Suitability Huntability Ranking System
+
+## Your Role
+
+You are a detection engineer evaluating cybersecurity blog content specifically for its suitability to create SIGMA detection rules. Rate content based on how directly it maps to structured log data sources including Windows Event Logs, Sysmon, Linux auditd/Syslog, macOS system logs, AND cloud service logs (AWS CloudTrail, Azure Activity, GCP Audit).
+
+## SIGMA-Focused Scoring (1-10 Scale)
+
+Only content that maps to structured log telemetry receives points. Ignore network payloads, binary analysis, or packet-level details.
+
+## Important Notes
+
+- Do not award points for atomic IOCs (file hashes, IPs, or one-off domains).
+- Filename/path patterns and directory conventions are acceptable if they indicate repeatable behavior.
+- Only award points for observables that map directly to Windows Event Logs, Sysmon, Linux auditd/Syslog, or macOS system logs.
+
+### Category A – Process Creation & Command-Line Arguments (0-4 pts)
+
+**Data Sources:** 
+- Windows: Sysmon Event ID 1, Security 4688
+- Linux: process logs, auditd
+- **macOS: Endpoint Security process events, unified logging (log show)**
+- Cloud: CLI commands in CloudTrail/Activity logs
+
+**Look For:**
+
+- Parent → child process chains with full paths
+- Exact command-line strings with arguments, switches, flags
+- Process execution sequences
+- Cloud CLI commands (aws, az, gcloud) with specific parameters
+- **macOS-specific:** osascript commands, launchctl usage, security framework calls
+
+**Scoring:**
+
+- 0 = No process/command details
+- 1 = Vague mentions ("runs PowerShell", "uses AWS CLI", or "executes AppleScript")
+- 2 = Partial arguments or missing execution context
+- 3 = Detailed examples but limited coverage
+- 4 = Multiple detailed command chains with full arguments
+
+### Category B - Persistence & System/Service Modification (0-3 pts)
+
+**Data Sources:** 
+- Windows: Sysmon Event IDs 12/13/19/7045, Security 4697
+- Linux: auditd, systemd logs
+- **macOS: LaunchAgent/LaunchDaemon creation, login items, authorization database changes**
+- Cloud: AWS CloudTrail, Azure Activity
+
+**Look For:**
+
+- Registry keys with exact paths and values (Windows)
+- Service creation/modification details
+- Scheduled tasks, cron jobs, or **macOS LaunchAgents/LaunchDaemons**
+- Cloud service configurations (IAM roles, SNS topics, Lambda functions, etc.)
+- API calls that establish persistence or modify services
+- **macOS persistence:** ~/Library/LaunchAgents, /Library/LaunchDaemons, login items, authorization plugins
+
+**Scoring:**
+
+- 0 = No persistence/modification details
+- 1 = Generic mention ("creates persistence" or "modifies cloud config")
+- 2 = Specific mechanism but incomplete details
+- 3 = Exact configurations, API calls, plist files, or settings ready for SIGMA rules
+
+### Category C - Log-Correlated Behavior (0-2 pts)
+
+**Data Sources:** Multiple log sources in sequence (Windows/Linux/macOS/Cloud)
+
+**Look For:**
+
+- Cross-log correlations (process → network, cloud API → local execution)
+- Event sequences that can be chained in SIGMA rules
+- Time-based correlations between different log types
+- Cloud service chains (EC2 → SNS → external endpoint)
+- **macOS correlations:** Endpoint Security events + unified logging + authorization logs
+
+**Scoring:**
+
+- 0 = Single log source only
+- 1 = Limited correlation opportunities
+- 2 = Clear multi-log correlation patterns
+
+### Category D - Structured Log Patterns (0-1 pt)
+
+**Data Sources:** Any structured log format (file creation, API calls, service events)
+
+**Look For:**
+
+- File path patterns or naming conventions (not hashes)
+- API call patterns with specific parameters
+- Service usage patterns or anomalous configurations
+- Structured event patterns in any log format
+- **macOS-specific:** .plist file patterns, app bundle structures, Gatekeeper/XProtect logs
+
+**Scoring:**
+
+- 0 = No usable structured patterns
+- 1 = Clear structured patterns present
+
+## Important: Multi-Platform Content
+
+**AWS CloudTrail, Azure Activity Logs, GCP Audit Logs, and macOS system logs ARE valid SIGMA data sources.** Do not dismiss cloud-focused or macOS content. API calls, service configurations, LaunchAgent creation, and command execution are all huntable through structured logs.
+
+**macOS SIGMA Data Sources Include:**
+- Endpoint Security Framework events
+- Unified Logging System (log show commands)  
+- Authorization database logs
+- LaunchAgent/LaunchDaemon plist files
+- Gatekeeper and XProtect logs
+
+## Scoring Bands
+
+- **1-2:** Mostly strategic content, minimal SIGMA applicability
+- **3-4:** Limited SIGMA potential, too generic for reliable rules
+- **5-6:** Moderate SIGMA candidates with some specificity
+- **7-8:** Strong SIGMA potential, multiple rule-ready observables
+- **9-10:** Excellent SIGMA content, rules can be drafted immediately
+
+## Output Format
+
+**SIGMA HUNTABILITY SCORE: [1-10]**
+
+**CATEGORY BREAKDOWN:**
+
+- **Process/Command-Line (0-4):** [Score] - [Brief reasoning, noting platform if applicable]
+- **Persistence/System Mods (0-3):** [Score] - [Brief reasoning, noting platform-specific mechanisms]
+- **Log Correlation (0-2):** [Score] - [Brief reasoning]
+- **Structured Patterns (0-1):** [Score] - [Brief reasoning]
+
+**SIGMA-READY OBSERVABLES:**
+[List specific elements that can directly become SIGMA rules, noting target platform]
+
+**REQUIRED LOG SOURCES:**
+[Windows Event IDs, Sysmon events, Linux logs, macOS log sources, OR cloud service logs needed]
+
+**RULE FEASIBILITY:**
+[Assessment of how quickly detection rules could be created, noting any platform-specific considerations]
+
+## Instructions
+
+Analyze the provided blog content using this SIGMA-focused rubric. All major platforms (Windows, Linux, macOS) and cloud service logs are valid SIGMA data sources. Focus on structured log patterns regardless of platform. Ignore only unstructured data like network payloads or binary analysis.
+
+Please analyze the following blog content:
+
+**Title:** {title}
+**Source:** {source}
+**URL:** {url}
+
+**Content:**
+{content}`;
+        showHelpModal('GPT-4O SIGMA Huntability Analysis Prompt', promptContent, 'GPT-4O');
+    }
+
+    function showCustomHelp() {
+        const promptContent = `You are a cybersecurity analyst with expertise in threat intelligence analysis. Analyze the provided article content and respond to the user's specific question or request.
+
+**Article Title:** {title}
+**Source:** {source}
+**URL:** {url}
+
+**Article Content:**
+{content}
+
+**User Request:** {user_prompt}
+
+Please provide a detailed analysis based on the article content and the user's specific request. Focus on actionable insights, technical details, and practical recommendations where applicable.`;
+        showHelpModal('Custom Prompt Template', promptContent, 'ChatGPT/Claude/Llama');
+    }
+
     // Add syntax highlighting for matched text
     document.addEventListener('DOMContentLoaded', function() {
         
@@ -2531,6 +2873,15 @@
         if (!forceRegenerate) {
             if (type === 'sigma' && {{ 'true' if article.article_metadata and article.article_metadata.get('sigma_rules') else 'false' }}) {
                 const sigmaData = {{ article.article_metadata.get('sigma_rules') | tojson if article.article_metadata and article.article_metadata.get('sigma_rules') else 'null' }};
+                // Parse conversation log if it's a string
+                if (sigmaData && sigmaData.metadata && sigmaData.metadata.conversation && typeof sigmaData.metadata.conversation === 'string') {
+                    try {
+                        sigmaData.metadata.conversation = JSON.parse(sigmaData.metadata.conversation);
+                    } catch (e) {
+                        console.error('Failed to parse conversation log:', e);
+                        sigmaData.metadata.conversation = [];
+                    }
+                }
                 showSigmaRulesModal(sigmaData.rules, sigmaData);
                 return;
             }
@@ -3072,11 +3423,19 @@
             <div class="relative top-10 mx-auto p-5 border w-11/12 max-w-2xl shadow-lg rounded-md bg-white">
                 <div class="flex justify-between items-center mb-4">
                     <h3 class="text-xl font-bold text-gray-900">💬 Custom AI Prompt</h3>
-                    <button onclick="closeCustomPromptModal()" class="text-gray-400 hover:text-gray-600">
-                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                        </svg>
-                    </button>
+                    <div class="flex items-center space-x-2">
+                        <button onclick="showCustomHelp()" class="text-blue-500 hover:text-blue-700 text-sm px-2 py-1 rounded border border-blue-300 hover:bg-blue-50">
+                            <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                            Help
+                        </button>
+                        <button onclick="closeCustomPromptModal()" class="text-gray-400 hover:text-gray-600">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                            </svg>
+                        </button>
+                    </div>
                 </div>
                 
                 <div class="mb-4 p-3 bg-gray-50 border border-gray-200 rounded-md">
@@ -3486,9 +3845,9 @@
         };
         document.addEventListener('keydown', handleEsc);
         
-        const modelUsed = data?.ai_model || data?.model_name || 'gpt-4';
-        const generatedAt = data?.generated_at ? new Date(data.generated_at).toLocaleString() : 'Unknown';
-        const validationResults = data?.validation_results || [];
+        const modelUsed = data?.ai_model || data?.model_name || data?.metadata?.ai_model || 'gpt-4';
+        const generatedAt = data?.generated_at || data?.metadata?.generated_at ? new Date(data.generated_at || data.metadata.generated_at).toLocaleString() : 'Unknown';
+        const validationResults = data?.validation_results || data?.metadata?.validation_results || [];
         const failureError = data?.error || null;
         const hasFailure = (sigmaRules === null || sigmaRules === 'null') && failureError;
         
@@ -3519,18 +3878,20 @@
                 const statusIcon = result.is_valid ? '✅' : '❌';
                 const statusColor = result.is_valid ? 'text-green-600' : 'text-red-600';
                 const statusText = result.is_valid ? 'Valid' : 'Invalid';
+                const ruleIndex = result.rule_index !== undefined ? result.rule_index : (index + 1);
                 
                 validationStatusHtml += `<div class="mb-2 p-2 border rounded ${result.is_valid ? 'border-green-200 bg-green-50' : 'border-red-200 bg-red-50'}">`;
                 validationStatusHtml += `<div class="flex items-center mb-1">`;
                 validationStatusHtml += `<span class="mr-2">${statusIcon}</span>`;
-                validationStatusHtml += `<span class="font-medium ${statusColor}">Rule ${result.rule_index}: ${statusText}</span>`;
+                validationStatusHtml += `<span class="font-medium ${statusColor}">Rule ${ruleIndex}: ${statusText}</span>`;
                 validationStatusHtml += `</div>`;
                 
                 if (result.errors && result.errors.length > 0) {
                     validationStatusHtml += `<div class="text-sm text-red-600 mb-1">`;
                     validationStatusHtml += `<strong>Errors:</strong><ul class="list-disc list-inside ml-2">`;
                     result.errors.forEach(error => {
-                        validationStatusHtml += `<li>${error}</li>`;
+                        const escapedError = String(error).replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+                        validationStatusHtml += `<li>${escapedError}</li>`;
                     });
                     validationStatusHtml += `</ul></div>`;
                 }
@@ -3539,7 +3900,8 @@
                     validationStatusHtml += `<div class="text-sm text-yellow-600 mb-1">`;
                     validationStatusHtml += `<strong>Warnings:</strong><ul class="list-disc list-inside ml-2">`;
                     result.warnings.forEach(warning => {
-                        validationStatusHtml += `<li>${warning}</li>`;
+                        const escapedWarning = String(warning).replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+                        validationStatusHtml += `<li>${escapedWarning}</li>`;
                     });
                     validationStatusHtml += `</ul></div>`;
                 }
@@ -3563,11 +3925,19 @@
             <div class="relative top-10 mx-auto p-5 border w-11/12 max-w-6xl shadow-lg rounded-md bg-white">
                 <div class="flex justify-between items-center mb-4">
                     <h3 class="text-lg font-medium text-gray-900">🔍 SIGMA Detection Rules</h3>
-                    <button onclick="closeSigmaRulesModal()" class="text-gray-400 hover:text-gray-600">
-                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                        </svg>
-                    </button>
+                    <div class="flex items-center space-x-2">
+                        <button onclick="showSigmaHelp()" class="text-blue-500 hover:text-blue-700 text-sm px-2 py-1 rounded border border-blue-300 hover:bg-blue-50">
+                            <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                            Help
+                        </button>
+                        <button onclick="closeSigmaRulesModal()" class="text-gray-400 hover:text-gray-600">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                            </svg>
+                        </button>
+                    </div>
                 </div>
                 
                 <div class="mb-4 text-sm text-gray-600">
@@ -3631,25 +4001,30 @@
 
         // Render conversation entries if present
         try {
-            const convo = (data && data.conversation) ? data.conversation : [];
+            console.log('DEBUG: data object:', data);
+            console.log('DEBUG: data.metadata:', data && data.metadata);
+            console.log('DEBUG: data.metadata.conversation:', data && data.metadata && data.metadata.conversation);
+            const convo = (data && data.metadata && data.metadata.conversation) ? data.metadata.conversation : []; // Corrected data path
+            console.log('DEBUG: convo array:', convo);
             const container = document.getElementById('sigmaConversation');
             if (container) {
                 if (!convo.length) {
                     container.innerHTML = '<div class="text-sm text-gray-600 text-center py-4">⚠️ No conversation log available. This might be cached data from an older version.</div>';
                 } else {
                     container.innerHTML = convo.map((entry, idx) => {
-                        const attempt = entry.attempt || 0;
+                        const attempt = entry.attempt || (idx + 1);
                         const attemptBadgeColor = idx === convo.length - 1 ? 'bg-green-500' : 'bg-blue-500';
                         const attemptIcon = idx === convo.length - 1 ? '✅' : '🔄';
                         
-                        // Format messages (system + user prompts)
-                        const msgHtml = (entry.messages || []).map((m, i) => {
-                            const role = m.role || 'user';
-                            const content = (m.content || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                        // Format the messages (system + user prompts)
+                        const messages = entry.messages || [];
+                        const messagesHtml = messages.map((msg, msgIdx) => {
+                            const role = msg.role || 'user';
+                            const content = String(msg.content || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
                             const roleIcon = role === 'system' ? '⚙️' : '👤';
                             const roleColor = role === 'system' ? 'text-purple-700' : 'text-blue-700';
-                            const preview = content.substring(0, 100) + (content.length > 100 ? '...' : '');
-                            const collapsibleId = 'msg-' + idx + '-' + i;
+                            const preview = content.substring(0, 200) + (content.length > 200 ? '...' : '');
+                            const collapsibleId = 'msg-' + idx + '-' + msgIdx;
                             
                             return '<div class="mb-2">' +
                                 '<div class="flex items-center mb-1">' +
@@ -3667,71 +4042,47 @@
                         }).join('');
                         
                         // Format LLM response
-                        const llm = (entry.llm_response || 'No response').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-                        const llmPreview = llm.substring(0, 200) + (llm.length > 200 ? '...' : '');
+                        const llmResponse = entry.llm_response || '';
+                        const llmContent = String(llmResponse).replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                        const llmPreview = llmContent.substring(0, 200) + (llmContent.length > 200 ? '...' : '');
                         const llmCollapsibleId = 'llm-' + idx;
                         
                         // Format validation results
-                        const val = entry.validation || [];
-                        const hasErrors = val.some(v => !v.is_valid);
+                        const validation = entry.validation || [];
+                        const hasErrors = validation.some(v => !v.is_valid);
                         const validationIcon = hasErrors ? '❌' : '✅';
                         const validationColor = hasErrors ? 'text-red-700' : 'text-green-700';
                         
-                        const valHtml = val.length > 0 ? val.map(v => {
-                            const errs = (v.errors || []).map(e => '<li class="text-red-700 text-xs">' + e.replace(/</g,'&lt;').replace(/>/g,'&gt;') + '</li>').join('');
-                            const warns = (v.warnings || []).map(w => '<li class="text-yellow-700 text-xs">' + w.replace(/</g,'&lt;').replace(/>/g,'&gt;') + '</li>').join('');
+                        const validationHtml = validation.map((v, vIdx) => {
+                            const errs = (v.errors || []).map(e => '<li class="text-red-700 text-xs">' + String(e).replace(/</g,'&lt;').replace(/>/g,'&gt;') + '</li>').join('');
+                            const warns = (v.warnings || []).map(w => '<li class="text-yellow-700 text-xs">' + String(w).replace(/</g,'&lt;').replace(/>/g,'&gt;') + '</li>').join('');
                             const statusBadge = v.is_valid 
                                 ? '<span class="px-2 py-1 text-xs bg-green-100 text-green-800 rounded">✅ VALID</span>'
                                 : '<span class="px-2 py-1 text-xs bg-red-100 text-red-800 rounded">❌ INVALID</span>';
                             const borderClass = v.is_valid ? 'border-green-300' : 'border-red-300';
-                            const ruleIndex = v.rule_index || '?';
-                            const ruleInfoHtml = (v.rule_info && v.rule_info.title) ? '<div class="text-xs text-gray-600 mt-2">Rule: ' + v.rule_info.title + '</div>' : '';
                             const errsHtml = errs ? '<div class="mt-2"><strong class="text-sm text-red-800">Errors:</strong><ul class="list-disc ml-5 mt-1">' + errs + '</ul></div>' : '';
                             const warnsHtml = warns ? '<div class="mt-2"><strong class="text-sm text-yellow-800">Warnings:</strong><ul class="list-disc ml-5 mt-1">' + warns + '</ul></div>' : '';
                             
                             return '<div class="mb-3 p-3 bg-white border ' + borderClass + ' rounded">' +
                                 '<div class="flex items-center justify-between mb-2">' +
-                                    '<span class="font-semibold text-sm">Rule #' + ruleIndex + '</span>' +
+                                    '<span class="font-semibold text-sm">Rule #' + (vIdx + 1) + '</span>' +
                                     statusBadge +
                                 '</div>' +
                                 errsHtml +
                                 warnsHtml +
-                                ruleInfoHtml +
                             '</div>';
-                        }).join('') : '<div class="text-sm text-gray-600 italic">No validation performed</div>';
+                        }).join('');
                         
-                        // Build attempt card
-                        const borderClass = (hasErrors && idx < convo.length - 1) ? 'border-red-300' : 'border-green-300';
-                        const bgGradient = (hasErrors && idx < convo.length - 1) ? 'from-red-50 to-red-100' : 'from-green-50 to-green-100';
-                        const attemptBadgeText = (idx === convo.length - 1) ? 'FINAL' : 'RETRY';
-                        const validationBorderClass = hasErrors ? 'border-red-500' : 'border-green-500';
-                        const errorHtml = entry.error ? 
-                            '<div class="border-l-4 border-red-500 pl-3 mt-3">' +
-                                '<div class="text-sm text-red-700">' +
-                                    '<strong>⚠️ Error:</strong> ' + entry.error.replace(/</g,'&lt;').replace(/>/g,'&gt;') +
-                                '</div>' +
-                            '</div>' : '';
-                        
-                        return '<div class="bg-white border-2 ' + borderClass + ' rounded-lg shadow-sm">' +
-                            '<div class="bg-gradient-to-r ' + bgGradient + ' p-3 rounded-t-lg border-b">' +
-                                '<div class="flex items-center justify-between">' +
-                                    '<div class="flex items-center">' +
-                                        '<span class="text-xl mr-2">' + attemptIcon + '</span>' +
-                                        '<span class="font-bold text-gray-900">Attempt #' + attempt + '</span>' +
-                                    '</div>' +
-                                    '<span class="' + attemptBadgeColor + ' text-white px-3 py-1 rounded-full text-xs font-bold">' +
-                                        attemptBadgeText +
-                                    '</span>' +
-                                '</div>' +
+                        return '<div class="mb-4 p-3 border rounded ' + (hasErrors ? 'bg-red-50 border-red-200' : 'bg-green-50 border-green-200') + '">' +
+                            '<div class="flex items-center mb-2">' +
+                                '<span class="mr-2">' + attemptIcon + '</span>' +
+                                '<span class="font-medium">Attempt ' + attempt + ':</span>' +
                             '</div>' +
-                            '<div class="p-4 space-y-4">' +
-                                '<!-- Prompts Section -->' +
+                            '<div class="space-y-3">' +
                                 '<div class="border-l-4 border-blue-500 pl-3">' +
                                     '<div class="font-semibold text-sm text-gray-700 mb-2">📝 Prompts Sent to LLM</div>' +
-                                    msgHtml +
+                                    messagesHtml +
                                 '</div>' +
-                                '' +
-                                '<!-- LLM Response Section -->' +
                                 '<div class="border-l-4 border-purple-500 pl-3">' +
                                     '<div class="flex items-center mb-2">' +
                                         '<span class="mr-2">🤖</span>' +
@@ -3742,22 +4093,18 @@
                                     '</div>' +
                                     '<div class="bg-purple-50 p-3 rounded border border-purple-200">' +
                                         '<div id="' + llmCollapsibleId + '-preview" class="text-xs text-gray-700">' + llmPreview + '</div>' +
-                                        '<pre id="' + llmCollapsibleId + '-full" class="text-xs whitespace-pre-wrap text-gray-800 hidden">' + llm + '</pre>' +
+                                        '<pre id="' + llmCollapsibleId + '-full" class="text-xs whitespace-pre-wrap text-gray-800 hidden">' + llmContent + '</pre>' +
                                     '</div>' +
                                 '</div>' +
-                                '' +
-                                '<!-- Validation Section -->' +
-                                '<div class="border-l-4 ' + validationBorderClass + ' pl-3">' +
+                                '<div class="border-l-4 ' + (hasErrors ? 'border-red-500' : 'border-green-500') + ' pl-3">' +
                                     '<div class="flex items-center mb-2">' +
                                         '<span class="mr-2">' + validationIcon + '</span>' +
                                         '<span class="font-semibold text-sm ' + validationColor + '">pySigma Validation</span>' +
                                     '</div>' +
                                     '<div class="space-y-2">' +
-                                        valHtml +
+                                        validationHtml +
                                     '</div>' +
                                 '</div>' +
-                                '' +
-                                errorHtml +
                             '</div>' +
                         '</div>';
                     }).join('');
@@ -3765,7 +4112,10 @@
             }
         } catch (e) {
             console.error('Failed to render sigma conversation', e);
-            container.innerHTML = '<div class="text-sm text-red-600">Error rendering conversation log. Check console for details.</div>';
+            const container = document.getElementById('sigmaConversation');
+            if (container) {
+                container.innerHTML = '<div class="text-sm text-red-600">Error rendering conversation log. Check console for details.</div>';
+            }
         }
     }
     
@@ -3842,11 +4192,19 @@
             <div class="relative top-10 mx-auto p-5 border w-11/12 max-w-6xl shadow-lg rounded-md bg-white">
                 <div class="flex justify-between items-center mb-4">
                     <h3 class="text-lg font-medium text-gray-900">🔍 Extracted IOCs</h3>
-                    <button onclick="closeIOCsModal()" class="text-gray-400 hover:text-gray-600">
-                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                        </svg>
-                    </button>
+                    <div class="flex items-center space-x-2">
+                        <button onclick="showIOCHelp()" class="text-blue-500 hover:text-blue-700 text-sm px-2 py-1 rounded border border-blue-300 hover:bg-blue-50">
+                            <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                            Help
+                        </button>
+                        <button onclick="closeIOCsModal()" class="text-gray-400 hover:text-gray-600">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                            </svg>
+                        </button>
+                    </div>
                 </div>
                 
                 <div class="mb-4 text-sm text-gray-600">
@@ -3977,11 +4335,19 @@
                         if (model.includes('gpt')) return 'GPT-4O';
                         return model.toUpperCase();
                     })() : 'GPT-4O'} SIGMA Huntability Analysis</h3>
-                    <button onclick="closeGPT4oRankingModal()" class="text-gray-400 hover:text-gray-600">
-                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                        </svg>
-                    </button>
+                    <div class="flex items-center space-x-2">
+                        <button onclick="showRankingHelp()" class="text-blue-500 hover:text-blue-700 text-sm px-2 py-1 rounded border border-blue-300 hover:bg-blue-50">
+                            <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                            Help
+                        </button>
+                        <button onclick="closeGPT4oRankingModal()" class="text-gray-400 hover:text-gray-600">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                            </svg>
+                        </button>
+                    </div>
                 </div>
                 
                 <div class="mb-4">
@@ -4115,6 +4481,16 @@
                     const sigmaData = {{ article.article_metadata.get('sigma_rules') | tojson if article.article_metadata and article.article_metadata.get('sigma_rules') else 'null' }};
                     console.log('Sigma data (template):', sigmaData);
                     
+                    // Parse conversation log if it's a string
+                    if (sigmaData && sigmaData.metadata && sigmaData.metadata.conversation && typeof sigmaData.metadata.conversation === 'string') {
+                        try {
+                            sigmaData.metadata.conversation = JSON.parse(sigmaData.metadata.conversation);
+                        } catch (e) {
+                            console.error('Failed to parse conversation log:', e);
+                            sigmaData.metadata.conversation = [];
+                        }
+                    }
+                    
                     if (sigmaData) {
                         console.log('Auto-opening SIGMA modal from URL fragment (template)');
                         setTimeout(() => showSigmaRulesModal(sigmaData.rules, sigmaData), 500);
@@ -4130,6 +4506,15 @@
                     .then(data => {
                         console.log('Fetched article data for SIGMA:', data);
                         if (data.article_metadata && data.article_metadata.sigma_rules) {
+                            // Parse conversation log if it's a string
+                            if (data.article_metadata.sigma_rules.metadata && data.article_metadata.sigma_rules.metadata.conversation && typeof data.article_metadata.sigma_rules.metadata.conversation === 'string') {
+                                try {
+                                    data.article_metadata.sigma_rules.metadata.conversation = JSON.parse(data.article_metadata.sigma_rules.metadata.conversation);
+                                } catch (e) {
+                                    console.error('Failed to parse conversation log:', e);
+                                    data.article_metadata.sigma_rules.metadata.conversation = [];
+                                }
+                            }
                             console.log('Auto-opening SIGMA modal from URL fragment (API)');
                             setTimeout(() => showSigmaRulesModal(data.article_metadata.sigma_rules.rules, data.article_metadata.sigma_rules), 500);
                         } else {
@@ -4276,9 +4661,19 @@
                     const sigmaData = {{ article.article_metadata.get('sigma_rules') | tojson if article.article_metadata and article.article_metadata.get('sigma_rules') else 'null' }};
                     console.log('Sigma data (template):', sigmaData);
                     
+                    // Parse conversation log if it's a string
+                    if (sigmaData && sigmaData.metadata && sigmaData.metadata.conversation && typeof sigmaData.metadata.conversation === 'string') {
+                        try {
+                            sigmaData.metadata.conversation = JSON.parse(sigmaData.metadata.conversation);
+                        } catch (e) {
+                            console.error('Failed to parse conversation log:', e);
+                            sigmaData.metadata.conversation = [];
+                        }
+                    }
+                    
                     if (sigmaData) {
                         console.log('Auto-opening sigma modal from URL fragment (template)');
-                        setTimeout(() => showSigmaModal(sigmaData.rules, sigmaData), 500);
+                        setTimeout(() => showSigmaRulesModal(sigmaData.rules, sigmaData), 500);
                     }
                 }
             } else {
@@ -4289,8 +4684,17 @@
                     .then(data => {
                         console.log('Fetched article data for sigma:', data);
                         if (data.metadata && data.metadata.sigma_rules) {
+                            // Parse conversation log if it's a string
+                            if (data.metadata.sigma_rules.metadata && data.metadata.sigma_rules.metadata.conversation && typeof data.metadata.sigma_rules.metadata.conversation === 'string') {
+                                try {
+                                    data.metadata.sigma_rules.metadata.conversation = JSON.parse(data.metadata.sigma_rules.metadata.conversation);
+                                } catch (e) {
+                                    console.error('Failed to parse conversation log:', e);
+                                    data.metadata.sigma_rules.metadata.conversation = [];
+                                }
+                            }
                             console.log('Auto-opening sigma modal from URL fragment (API)');
-                            setTimeout(() => showSigmaModal(data.metadata.sigma_rules.rules, data.metadata.sigma_rules), 500);
+                            setTimeout(() => showSigmaRulesModal(data.metadata.sigma_rules.rules, data.metadata.sigma_rules), 500);
                         } else {
                             console.log('No sigma data found for this article');
                         }
@@ -5815,6 +6219,349 @@
                 }
             }
         });
+    }
+
+    // Generic help modal function
+    function showHelpModal(title, promptContent, modelInfo = null) {
+        // Remove any existing help modal
+        const existingModal = document.getElementById('helpModal');
+        if (existingModal) {
+            existingModal.remove();
+        }
+        
+        const modal = document.createElement('div');
+        modal.id = 'helpModal';
+        modal.className = 'fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-60';
+        
+        // Add click outside to close
+        modal.addEventListener('click', function(e) {
+            if (e.target === modal) {
+                closeHelpModal();
+            }
+        });
+        
+        // Add ESC key to close
+        const handleEsc = function(e) {
+            if (e.key === 'Escape') {
+                closeHelpModal();
+                document.removeEventListener('keydown', handleEsc);
+            }
+        };
+        document.addEventListener('keydown', handleEsc);
+        
+        modal.innerHTML = `
+            <div class="relative top-10 mx-auto p-5 border w-11/12 max-w-4xl shadow-lg rounded-md bg-white">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-lg font-medium text-gray-900">ℹ️ ${title}</h3>
+                    <button onclick="closeHelpModal()" class="text-gray-400 hover:text-gray-600">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </button>
+                </div>
+                
+                <div class="mb-4 text-sm text-gray-600">
+                    <span class="font-medium">Prompt Template:</span> This is the canned prompt sent to the LLM for this analysis.
+                    ${modelInfo ? `<br><span class="font-medium">Model:</span> ${modelInfo}` : ''}
+                </div>
+                
+                <div class="bg-gray-50 p-4 rounded-lg max-h-96 overflow-y-auto">
+                    <pre class="text-sm text-gray-800 whitespace-pre-wrap font-mono">${promptContent}</pre>
+                </div>
+                
+                <div class="mt-4 text-xs text-gray-500">
+                    <strong>Note:</strong> Future versions will support custom prompts for different models.
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(modal);
+    }
+    
+    function closeHelpModal() {
+        const modal = document.getElementById('helpModal');
+        if (modal) {
+            modal.remove();
+        }
+    }
+
+    // Specific help functions for each modal to avoid template literal issues
+    function showIOCHelp() {
+        const promptContent = `Extract Indicators of Compromise (IOCs) from this threat intelligence article.
+
+**Article Title:** {title}
+**Source:** {source}
+**URL:** {url}
+
+**Extraction Guidelines:**
+1. **Focus on Actionable IOCs:** Extract IP addresses, domains, file hashes, email addresses, and URLs
+2. **Context Matters:** Include surrounding context for each IOC to understand its significance
+3. **Categorize Properly:** Classify each IOC by type (ip, domain, hash, email, url, etc.)
+4. **Confidence Scoring:** Provide confidence scores (0.0-1.0) based on IOC clarity and context
+5. **Avoid False Positives:** Only extract IOCs that are clearly malicious or suspicious
+
+**IOC Types to Extract:**
+- **IP Addresses:** IPv4 and IPv6 addresses
+- **Domains:** Fully qualified domain names
+- **File Hashes:** MD5, SHA1, SHA256 hashes
+- **Email Addresses:** Malicious or suspicious email addresses
+- **URLs:** Full URLs including paths and parameters
+- **File Paths:** Suspicious file paths and filenames
+- **Registry Keys:** Windows registry keys and values
+- **Process Names:** Malicious process names and executables
+
+**Output Format:**
+Return a JSON array of IOC objects with the following structure:
+[
+  {
+    "type": "ip",
+    "value": "192.168.1.100",
+    "context": "C2 server used for command and control",
+    "confidence": 0.95
+  },
+  {
+    "type": "domain",
+    "value": "malicious.example.com",
+    "context": "Domain used for data exfiltration",
+    "confidence": 0.88
+  }
+]
+
+**Important Notes:**
+- Only extract IOCs that are clearly malicious or suspicious
+- Provide meaningful context for each IOC
+- Use appropriate confidence scores based on IOC clarity
+- Return valid JSON format only
+
+**Threat Intelligence Content:**
+{content}`;
+        showHelpModal('IOC Extraction Prompt', promptContent, 'GPT-4o-mini');
+    }
+
+    function showSigmaHelp() {
+        const promptContent = `Generate a Sigma detection rule based on this threat intelligence:
+
+**Article Title:** {title}
+**Source:** {source}
+**URL:** {url}
+
+**SIGMA Rule Requirements:**
+1. **Focus on TTPs:** Create rules for Tactics, Techniques, and Procedures, not atomic IOCs
+2. **Behavioral Patterns:** Detect attack behaviors and techniques
+3. **Proper Syntax:** Use correct SIGMA rule format and structure
+4. **Required Fields:** Include all mandatory SIGMA fields (title, description, logsource, detection, etc.)
+5. **Actionable Detection:** Rules should detect real attack patterns
+
+**Rule Guidelines:**
+- Avoid rules for single IP addresses or file hashes
+- Focus on command-line patterns, process creation, and system modifications
+- Use appropriate log sources (Windows Event Logs, Sysmon, Linux auditd, etc.)
+- Include proper categorization and references
+- Make rules specific enough to avoid false positives
+
+**CRITICAL OUTPUT REQUIREMENTS:**
+- Output ONLY the YAML rule content
+- Do NOT include markdown code blocks (\`\`\`yaml or \`\`\`)
+- Do NOT include any explanatory text before or after the rule
+- Start directly with the YAML content
+
+**YAML Formatting Rules:**
+- Use exactly 2 spaces for each indentation level
+- NEVER use tabs
+- Ensure proper YAML syntax
+- All field names must be lowercase
+- Use quotes for values containing special characters
+
+**Required YAML Structure:**
+title: [Descriptive rule title]
+id: [UUID or generated ID]
+description: [What this rule detects]
+logsource:
+  category: [process_creation/network_connection/etc]
+  product: [windows/linux/macos]
+detection:
+  selection:
+    [detection criteria]
+  condition: selection
+level: [low/medium/high/critical]
+tags:
+  - attack.[technique]
+references:
+  - [URL or reference]
+
+**Threat Intelligence Content:**
+{content}`;
+        showHelpModal('SIGMA Generation Prompt', promptContent, 'GPT-4o-mini');
+    }
+
+    function showRankingHelp() {
+        const promptContent = `# Blog Content SIGMA-Suitability Huntability Ranking System
+
+## Your Role
+
+You are a detection engineer evaluating cybersecurity blog content specifically for its suitability to create SIGMA detection rules. Rate content based on how directly it maps to structured log data sources including Windows Event Logs, Sysmon, Linux auditd/Syslog, macOS system logs, AND cloud service logs (AWS CloudTrail, Azure Activity, GCP Audit).
+
+## SIGMA-Focused Scoring (1-10 Scale)
+
+Only content that maps to structured log telemetry receives points. Ignore network payloads, binary analysis, or packet-level details.
+
+## Important Notes
+
+- Do not award points for atomic IOCs (file hashes, IPs, or one-off domains).
+- Filename/path patterns and directory conventions are acceptable if they indicate repeatable behavior.
+- Only award points for observables that map directly to Windows Event Logs, Sysmon, Linux auditd/Syslog, or macOS system logs.
+
+### Category A – Process Creation & Command-Line Arguments (0-4 pts)
+
+**Data Sources:** 
+- Windows: Sysmon Event ID 1, Security 4688
+- Linux: process logs, auditd
+- **macOS: Endpoint Security process events, unified logging (log show)**
+- Cloud: CLI commands in CloudTrail/Activity logs
+
+**Look For:**
+
+- Parent → child process chains with full paths
+- Exact command-line strings with arguments, switches, flags
+- Process execution sequences
+- Cloud CLI commands (aws, az, gcloud) with specific parameters
+- **macOS-specific:** osascript commands, launchctl usage, security framework calls
+
+**Scoring:**
+
+- 0 = No process/command details
+- 1 = Vague mentions ("runs PowerShell", "uses AWS CLI", or "executes AppleScript")
+- 2 = Partial arguments or missing execution context
+- 3 = Detailed examples but limited coverage
+- 4 = Multiple detailed command chains with full arguments
+
+### Category B - Persistence & System/Service Modification (0-3 pts)
+
+**Data Sources:** 
+- Windows: Sysmon Event IDs 12/13/19/7045, Security 4697
+- Linux: auditd, systemd logs
+- **macOS: LaunchAgent/LaunchDaemon creation, login items, authorization database changes**
+- Cloud: AWS CloudTrail, Azure Activity
+
+**Look For:**
+
+- Registry keys with exact paths and values (Windows)
+- Service creation/modification details
+- Scheduled tasks, cron jobs, or **macOS LaunchAgents/LaunchDaemons**
+- Cloud service configurations (IAM roles, SNS topics, Lambda functions, etc.)
+- API calls that establish persistence or modify services
+- **macOS persistence:** ~/Library/LaunchAgents, /Library/LaunchDaemons, login items, authorization plugins
+
+**Scoring:**
+
+- 0 = No persistence/modification details
+- 1 = Generic mention ("creates persistence" or "modifies cloud config")
+- 2 = Specific mechanism but incomplete details
+- 3 = Exact configurations, API calls, plist files, or settings ready for SIGMA rules
+
+### Category C - Log-Correlated Behavior (0-2 pts)
+
+**Data Sources:** Multiple log sources in sequence (Windows/Linux/macOS/Cloud)
+
+**Look For:**
+
+- Cross-log correlations (process → network, cloud API → local execution)
+- Event sequences that can be chained in SIGMA rules
+- Time-based correlations between different log types
+- Cloud service chains (EC2 → SNS → external endpoint)
+- **macOS correlations:** Endpoint Security events + unified logging + authorization logs
+
+**Scoring:**
+
+- 0 = Single log source only
+- 1 = Limited correlation opportunities
+- 2 = Clear multi-log correlation patterns
+
+### Category D - Structured Log Patterns (0-1 pt)
+
+**Data Sources:** Any structured log format (file creation, API calls, service events)
+
+**Look For:**
+
+- File path patterns or naming conventions (not hashes)
+- API call patterns with specific parameters
+- Service usage patterns or anomalous configurations
+- Structured event patterns in any log format
+- **macOS-specific:** .plist file patterns, app bundle structures, Gatekeeper/XProtect logs
+
+**Scoring:**
+
+- 0 = No usable structured patterns
+- 1 = Clear structured patterns present
+
+## Important: Multi-Platform Content
+
+**AWS CloudTrail, Azure Activity Logs, GCP Audit Logs, and macOS system logs ARE valid SIGMA data sources.** Do not dismiss cloud-focused or macOS content. API calls, service configurations, LaunchAgent creation, and command execution are all huntable through structured logs.
+
+**macOS SIGMA Data Sources Include:**
+- Endpoint Security Framework events
+- Unified Logging System (log show commands)  
+- Authorization database logs
+- LaunchAgent/LaunchDaemon plist files
+- Gatekeeper and XProtect logs
+
+## Scoring Bands
+
+- **1-2:** Mostly strategic content, minimal SIGMA applicability
+- **3-4:** Limited SIGMA potential, too generic for reliable rules
+- **5-6:** Moderate SIGMA candidates with some specificity
+- **7-8:** Strong SIGMA potential, multiple rule-ready observables
+- **9-10:** Excellent SIGMA content, rules can be drafted immediately
+
+## Output Format
+
+**SIGMA HUNTABILITY SCORE: [1-10]**
+
+**CATEGORY BREAKDOWN:**
+
+- **Process/Command-Line (0-4):** [Score] - [Brief reasoning, noting platform if applicable]
+- **Persistence/System Mods (0-3):** [Score] - [Brief reasoning, noting platform-specific mechanisms]
+- **Log Correlation (0-2):** [Score] - [Brief reasoning]
+- **Structured Patterns (0-1):** [Score] - [Brief reasoning]
+
+**SIGMA-READY OBSERVABLES:**
+[List specific elements that can directly become SIGMA rules, noting target platform]
+
+**REQUIRED LOG SOURCES:**
+[Windows Event IDs, Sysmon events, Linux logs, macOS log sources, OR cloud service logs needed]
+
+**RULE FEASIBILITY:**
+[Assessment of how quickly detection rules could be created, noting any platform-specific considerations]
+
+## Instructions
+
+Analyze the provided blog content using this SIGMA-focused rubric. All major platforms (Windows, Linux, macOS) and cloud service logs are valid SIGMA data sources. Focus on structured log patterns regardless of platform. Ignore only unstructured data like network payloads or binary analysis.
+
+Please analyze the following blog content:
+
+**Title:** {title}
+**Source:** {source}
+**URL:** {url}
+
+**Content:**
+{content}`;
+        showHelpModal('GPT-4O SIGMA Huntability Analysis Prompt', promptContent, 'GPT-4O');
+    }
+
+    function showCustomHelp() {
+        const promptContent = `You are a cybersecurity analyst with expertise in threat intelligence analysis. Analyze the provided article content and respond to the user's specific question or request.
+
+**Article Title:** {title}
+**Source:** {source}
+**URL:** {url}
+
+**Article Content:**
+{content}
+
+**User Request:** {user_prompt}
+
+Please provide a detailed analysis based on the article content and the user's specific request. Focus on actionable insights, technical details, and practical recommendations where applicable.`;
+        showHelpModal('Custom Prompt Template', promptContent, 'ChatGPT/Claude/Llama');
     }
 
     // Toggle Keyword Matches panel
