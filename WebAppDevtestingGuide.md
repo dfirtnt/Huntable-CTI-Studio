@@ -6,7 +6,7 @@ This guide provides comprehensive instructions for testing the CTI Scraper web a
 
 The CTI Scraper web application testing strategy includes:
 - **Docker Playwright E2E Testing**: Primary testing method for full application testing
-- **IDE MCPs**: Development debugging and testing
+- **IDE Debugging**: Development debugging and testing
 - **GitHub Actions CI/CD**: Automated testing pipeline
 - **Manual Testing**: Interactive testing for specific scenarios
 - **ML Feedback Regression Tests**: Essential tests for ML feedback features
@@ -23,7 +23,7 @@ The CTI Scraper web application testing strategy includes:
 ### Development Tools
 
 1. **Cursor IDE**: Primary development environment
-2. **MCP Tools**: Model Context Protocol tools for debugging
+2. **IDE Debugging**: Development environment debugging tools
 3. **Docker Compose**: Container orchestration for testing
 4. **GitHub Actions**: Continuous integration testing
 
@@ -81,25 +81,29 @@ docker-compose run --rm web python -m pytest tests/e2e/test_article_flow.py --br
 - **RAG Chat**: Test semantic search interface
 - **Content Analysis**: Test AI-powered content analysis
 
-## IDE MCP Testing
+## IDE Debugging
 
-### DebugBrowser-Agent Extension
+### Browser Developer Tools
 
-The DebugBrowser-Agent browser extension is used for viewing errors during debugging:
+Use browser developer tools for debugging web application issues:
 
-1. **Install Extension**: Follow installation instructions in `browser-extension/`
-2. **Enable Debug Mode**: Set `LOG_LEVEL=DEBUG` in environment
-3. **View Errors**: Use extension to inspect browser errors
-4. **Debug Issues**: Analyze error logs and stack traces
+1. **Open DevTools**: F12 or right-click → Inspect
+2. **Console Tab**: View JavaScript errors and logs
+3. **Network Tab**: Monitor API requests and responses
+4. **Elements Tab**: Inspect DOM structure and CSS
+5. **Sources Tab**: Set breakpoints and debug JavaScript
 
-### MCP Tools Usage
+### Debug Commands
 
 ```bash
-# Start MCP server
-python -m src.mcp.server
+# Enable debug logging
+export LOG_LEVEL=DEBUG
 
-# Connect IDE to MCP
-# Use Cursor IDE MCP integration
+# View application logs
+docker-compose logs -f web
+
+# Debug specific service
+docker-compose exec web bash
 ```
 
 ## API Testing
