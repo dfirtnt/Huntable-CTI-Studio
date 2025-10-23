@@ -211,7 +211,7 @@ async def articles_list(
     threat_hunting_range: Optional[str] = None,
     per_page: Optional[int] = 100,
     page: Optional[int] = 1,
-    sort_by: str = "threat_hunting_score",
+    sort_by: str = "published_at",
     sort_order: str = "desc",
     title_only: Optional[bool] = False,
 ):
@@ -339,7 +339,7 @@ async def articles_list(
                             and x.article_metadata.get("threat_hunting_score")
                             else 0,
                         ),
-                        reverse=False,
+                        reverse=True,
                     )
                 else:
                     filtered_articles.sort(
