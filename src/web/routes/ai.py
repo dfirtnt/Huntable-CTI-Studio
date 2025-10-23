@@ -22,6 +22,89 @@ from src.web.dependencies import logger
 
 router = APIRouter(prefix="/api/articles", tags=["Articles", "AI"])
 
+# Test API key endpoints (separate router for correct URL paths)
+test_router = APIRouter(prefix="/api", tags=["AI", "Testing"])
+
+@test_router.post("/test-openai-key")
+async def api_test_openai_key(request: Request):
+    """Test OpenAI API key validity."""
+    try:
+        body = await request.json()
+        api_key = body.get('api_key')
+        
+        if not api_key:
+            raise HTTPException(status_code=400, detail="API key is required")
+        
+        # Test the API key with a simple request
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                "https://api.openai.com/v1/chat/completions",
+                headers={
+                    "Authorization": f"Bearer {api_key}",
+                    "Content-Type": "application/json"
+                },
+                json={
+                    "model": "gpt-3.5-turbo",
+                    "messages": [{"role": "user", "content": "Hello"}],
+                    "max_tokens": 5
+                },
+                timeout=10.0
+            )
+            
+            if response.status_code == 200:
+                return {"valid": True, "message": "API key is valid"}
+            elif response.status_code == 401:
+                return {"valid": False, "message": "Invalid API key"}
+            else:
+                return {"valid": False, "message": f"API error: {response.status_code}"}
+                
+    except httpx.TimeoutException:
+        raise HTTPException(status_code=408, detail="Request timeout")
+    except Exception as e:
+        logger.error(f"OpenAI API key test error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@test_router.post("/test-anthropic-key")
+async def api_test_anthropic_key(request: Request):
+    """Test Anthropic API key validity."""
+    try:
+        body = await request.json()
+        api_key = body.get('api_key')
+        
+        if not api_key:
+            raise HTTPException(status_code=400, detail="API key is required")
+        
+        # Test the API key with a simple request
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                "https://api.anthropic.com/v1/messages",
+                headers={
+                    "x-api-key": api_key,
+                    "Content-Type": "application/json",
+                    "anthropic-version": "2023-06-01"
+                },
+                json={
+                    "model": "claude-3-haiku-20240307",
+                    "max_tokens": 5,
+                    "messages": [{"role": "user", "content": "Hello"}]
+                },
+                timeout=10.0
+            )
+            
+            if response.status_code == 200:
+                return {"valid": True, "message": "API key is valid"}
+            elif response.status_code == 401:
+                return {"valid": False, "message": "Invalid API key"}
+            else:
+                return {"valid": False, "message": f"API error: {response.status_code}"}
+                
+    except httpx.TimeoutException:
+        raise HTTPException(status_code=408, detail="Request timeout")
+    except Exception as e:
+        logger.error(f"Anthropic API key test error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 
 @router.post("/{article_id}/rank-with-gpt4o")
 async def api_rank_with_gpt4o(article_id: int, request: Request):
@@ -249,6 +332,7 @@ async def api_rank_with_gpt4o(article_id: int, request: Request):
         }
         
         # Update the article
+        from src.models.article import ArticleUpdate
         update_data = ArticleUpdate(article_metadata=article.article_metadata)
         await async_db_manager.update_article(article_id, update_data)
         

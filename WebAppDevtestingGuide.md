@@ -49,6 +49,7 @@ curl http://localhost:8001/health
 
 | Type            | Command                                      | Description                            |
 | --------------- | -------------------------------------------- | -------------------------------------- |
+| **Smoke**       | `python run_tests.py --smoke`                | Quick health check (~30s)              |
 | **E2E**         | `docker-compose run web pytest tests/e2e -v` | Browser automation via Playwright      |
 | **API**         | `pytest tests/api -v`                        | FastAPI endpoint validation            |
 | **Database**    | `pytest tests/database -v`                   | Schema and data validation             |
@@ -64,6 +65,7 @@ curl http://localhost:8001/health
 
 ### Application Features
 
+* **Smoke Tests:** Critical health checks (API endpoints, database connectivity, service status)
 * **Dashboard:** load, stats, and source health
 * **Articles:** listing, details, classification, and search
 * **Sources:** CRUD operations, health checks, manual collection
