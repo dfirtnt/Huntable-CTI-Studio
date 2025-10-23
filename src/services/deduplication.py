@@ -152,7 +152,9 @@ class AsyncDeduplicationService:
         result = await self.session.execute(
             select(ArticleTable).where(ArticleTable.canonical_url == article.canonical_url)
         )
-        existing_by_url = result.scalar_one_or_none()
+        existing_by_url = result.first()
+        if existing_by_url:
+            existing_by_url = existing_by_url[0]
         
         if existing_by_url:
             logger.info(f"Duplicate found by canonical URL: {article.canonical_url}")
@@ -163,7 +165,9 @@ class AsyncDeduplicationService:
         result = await self.session.execute(
             select(ArticleTable).where(ArticleTable.content_hash == content_hash)
         )
-        existing_by_hash = result.scalar_one_or_none()
+        existing_by_hash = result.first()
+        if existing_by_hash:
+            existing_by_hash = existing_by_hash[0]
         
         if existing_by_hash:
             logger.info(f"Duplicate found by content hash: {content_hash[:8]}...")
