@@ -1598,6 +1598,34 @@ class AsyncDatabaseManager:
             logger.error(f"Failed to update annotation embedding {annotation_id}: {e}")
             return False
     
+    async def get_annotation_by_id(self, annotation_id: int) -> Optional[ArticleAnnotationTable]:
+        """Get a single annotation by ID."""
+        try:
+            async with self.get_session() as session:
+                result = await session.execute(
+                    select(ArticleAnnotationTable)
+                    .where(ArticleAnnotationTable.id == annotation_id)
+                )
+                return result.scalar_one_or_none()
+                
+        except Exception as e:
+            logger.error(f"Failed to get annotation {annotation_id}: {e}")
+            return None
+    
+    async def get_annotations_by_ids(self, annotation_ids: List[int]) -> List[ArticleAnnotationTable]:
+        """Get multiple annotations by their IDs."""
+        try:
+            async with self.get_session() as session:
+                result = await session.execute(
+                    select(ArticleAnnotationTable)
+                    .where(ArticleAnnotationTable.id.in_(annotation_ids))
+                )
+                return result.scalars().all()
+                
+        except Exception as e:
+            logger.error(f"Failed to get annotations by IDs: {e}")
+            return []
+
     async def search_similar_annotations(self, query_embedding: List[float], limit: int = 10, 
                                       threshold: float = 0.7, annotation_type: Optional[str] = None) -> List[Dict[str, Any]]:
         """Search for similar annotations using cosine similarity."""
