@@ -6,23 +6,21 @@ This directory contains comprehensive documentation for the CTI Scraper project.
 
 ```
 docs/
-├── api/                    # API documentation
 ├── development/           # Development guides and technical documentation
-│   ├── ADVANCED_QUALITY_SYSTEM.md
-│   ├── boolean-search.md
-│   ├── DATABASE_QUERY_GUIDE.md
-│   ├── HYBRID_IOC_EXTRACTION.md
-│   ├── MANUAL_TEST_CHECKLIST.md
-│   ├── search-queries.md
-│   ├── TESTING_GUIDE.md
-│   ├── TESTING_SUMMARY.md
-│   └── THREAT_HUNTING_SCORING.md
+│   ├── ADVANCED_TESTING.md      # API, E2E, and performance testing
+│   ├── DEVELOPMENT_SETUP.md     # Environment setup, pytest, virtual environments
+│   ├── DATABASE_QUERY_GUIDE.md  # Database operations
+│   ├── HYBRID_IOC_EXTRACTION.md # IOC extraction system
+│   ├── THREAT_HUNTING_SCORING.md # Scoring algorithms
+│   └── ... (other development docs)
 ├── deployment/           # Deployment and infrastructure documentation
-│   ├── CLEANUP_SUMMARY.md
-│   ├── DOCKER_ARCHITECTURE.md
-│   ├── GITHUB_READY_SUMMARY.md
-│   ├── MIGRATION_SUMMARY.md
-│   └── TECHNICAL_READOUT.md
+│   ├── DOCKER_ARCHITECTURE.md   # Container setup and architecture
+│   ├── GETTING_STARTED.md       # Quick deployment guide
+│   ├── DATABASE_BACKUP_RESTORE.md # Backup and restore procedures
+│   └── ... (other deployment docs)
+├── API_ENDPOINTS.md      # Complete API reference
+├── RAG_SYSTEM.md         # Retrieval-Augmented Generation
+├── CONTENT_FILTERING_SYSTEM.md # ML-based content filtering
 └── README.md             # This file
 ```
 
@@ -30,33 +28,30 @@ docs/
 
 ### 🚀 Getting Started
 - **Main README**: `../README.md` - Quick start and overview
+- **Master Documentation**: `../DOCUMENTATION.md` - Complete documentation index
+- **Getting Started**: `deployment/GETTING_STARTED.md` - Quick deployment guide
 - **Docker Architecture**: `deployment/DOCKER_ARCHITECTURE.md` - Complete Docker setup guide
 
 ### 🔧 Development
-- **Testing Guide**: `development/TESTING_GUIDE.md` - Comprehensive testing documentation
-- **Manual Test Checklist**: `development/MANUAL_TEST_CHECKLIST.md` - Testing procedures
+- **Testing Guide**: `../tests/TESTING.md` - Comprehensive testing documentation
+- **Development Setup**: `development/DEVELOPMENT_SETUP.md` - Environment setup and pytest
+- **Advanced Testing**: `development/ADVANCED_TESTING.md` - API, E2E, and performance testing
 - **Database Queries**: `development/DATABASE_QUERY_GUIDE.md` - Database operations
-- **Boolean Search**: `development/boolean-search.md` - Search functionality
 - **ML Feedback Tests**: `../tests/ML_FEEDBACK_TESTS_README.md` - Essential regression prevention tests
-- **Search Queries**: `development/search-queries.md` - Query examples and patterns
-- **Web App Testing**: `WebAppDevtestingGuide.md` - Web application testing guide
 
 ### 🤖 AI Features
-- **Hybrid IOC Extraction**: `development/HYBRID_IOC_EXTRACTION.md` - Advanced IOC extraction system
-- **Content Filtering System**: `CONTENT_FILTERING_SYSTEM.md` - ML-based content filtering with hunt score integration
-- **ML vs Hunt Comparison**: `ML_VS_HUNT_COMPARISON_GUIDE.md` - Comprehensive ML model analysis dashboard
-- **GPT-4o Optimization**: `GPT4O_CONTENT_FILTERING_SYSTEM.md` - Enhanced filtering system documentation
 - **RAG System**: `RAG_SYSTEM.md` - Retrieval-Augmented Generation with conversational AI
-
-### 🏗️ Architecture & Quality
-- **Advanced Quality System**: `development/ADVANCED_QUALITY_SYSTEM.md` - Quality assessment framework
+- **Content Filtering**: `CONTENT_FILTERING_SYSTEM.md` - ML-based content filtering
+- **Hybrid IOC Extraction**: `development/HYBRID_IOC_EXTRACTION.md` - Advanced IOC extraction system
 - **Threat Hunting Scoring**: `development/THREAT_HUNTING_SCORING.md` - Scoring algorithms with ML integration
 
 ### 📦 Deployment
-- **Migration Summary**: `deployment/MIGRATION_SUMMARY.md` - Migration procedures
-- **Cleanup Summary**: `deployment/CLEANUP_SUMMARY.md` - System cleanup
-- **Technical Readout**: `deployment/TECHNICAL_READOUT.md` - Technical overview
-- **GitHub Ready Summary**: `deployment/GITHUB_READY_SUMMARY.md` - Repository preparation
+- **Getting Started**: `deployment/GETTING_STARTED.md` - Quick deployment guide
+- **Docker Architecture**: `deployment/DOCKER_ARCHITECTURE.md` - Container setup and architecture
+- **Backup System**: `deployment/DATABASE_BACKUP_RESTORE.md` - Backup and restore procedures
+
+### 🔌 API Reference
+- **API Endpoints**: `API_ENDPOINTS.md` - Complete API documentation (128 endpoints)
 
 ## Contributing
 
@@ -65,6 +60,7 @@ When adding new documentation:
 2. Update this README with a brief description
 3. Follow the existing naming conventions
 4. Link to it from relevant existing documentation
+5. Update the master documentation index at `../DOCUMENTATION.md`
 
 ## Notes
 
@@ -72,3 +68,4 @@ When adding new documentation:
 - Keep documentation up to date with code changes
 - Use relative links when referencing other documentation files
 - Include code examples where appropriate
+- See `../DOCUMENTATION.md` for the complete documentation structure

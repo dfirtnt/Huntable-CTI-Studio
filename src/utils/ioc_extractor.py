@@ -165,7 +165,7 @@ Output format (return ONLY this JSON structure):
                         "Content-Type": "application/json"
                     },
                     json={
-                        "model": "gpt-4",
+                        "model": "gpt-4o-mini",
                         "messages": [
                             {
                                 "role": "system",
@@ -184,7 +184,7 @@ Output format (return ONLY this JSON structure):
                 
                 if response.status_code != 200:
                     logger.error(f"LLM validation failed: {response.status_code}")
-                    return raw_iocs  # Return raw IOCs if LLM fails
+                    raise Exception(f"LLM validation failed with status {response.status_code}")
                 
                 result = response.json()
                 validated_json = result['choices'][0]['message']['content']
@@ -196,11 +196,11 @@ Output format (return ONLY this JSON structure):
                     return validated_iocs
                 except json.JSONDecodeError as e:
                     logger.error(f"Failed to parse LLM validation response: {e}")
-                    return raw_iocs  # Return raw IOCs if parsing fails
+                    raise Exception(f"Failed to parse LLM validation response: {e}")
                     
         except Exception as e:
             logger.error(f"Error in LLM validation: {e}")
-            return raw_iocs  # Return raw IOCs if validation fails
+            raise  # Re-raise the exception so the caller can handle it
     
     async def extract_iocs(self, content: str, api_key: Optional[str] = None) -> IOCExtractionResult:
         """
@@ -244,6 +244,9 @@ Output format (return ONLY this JSON structure):
                     
             except Exception as e:
                 logger.warning(f"LLM validation failed, using iocextract results: {e}")
+                # Reset to iocextract method when LLM validation fails
+                extraction_method = 'iocextract'
+                confidence = 0.8
         
         processing_time = time.time() - start_time
         validated_count = sum(len(v) for v in final_iocs.values())
