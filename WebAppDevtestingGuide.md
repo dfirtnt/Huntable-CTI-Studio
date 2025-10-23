@@ -16,7 +16,7 @@ The CTI Scraper web application testing strategy includes:
 ### Primary Tools
 
 1. **Docker Playwright**: End-to-end testing in containerized environment
-2. **Browser Extensions**: DebugBrowser-Agent for error viewing
+2. **Browser Developer Tools**: Built-in browser debugging for error viewing
 3. **FastAPI Test Client**: API endpoint testing
 4. **PostgreSQL Testing**: Database integration testing
 
@@ -207,7 +207,7 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Run tests
         run: |
           docker-compose up -d
@@ -287,7 +287,6 @@ docker-compose ps
 # View logs
 docker-compose logs -f web
 docker-compose logs -f postgres
-docker-compose logs -f redis
 
 # Debug specific service
 docker-compose exec web bash
