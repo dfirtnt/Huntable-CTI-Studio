@@ -4,12 +4,13 @@ This document provides a comprehensive list of all API endpoints available in th
 
 ## Overview
 
-The CTI Scraper provides **127 API endpoints** across multiple categories:
+The CTI Scraper provides **128 API endpoints** across multiple categories:
 - **Health & Monitoring**: 8 endpoints
 - **Web Pages**: 15 endpoints
 - **Sources Management**: 10 endpoints  
 - **Articles Management**: 12 endpoints
 - **AI & Analysis**: 15 endpoints
+- **RAG Chat Interface**: 1 endpoint
 - **ML Feedback & Model Management**: 10 endpoints
 - **Annotations**: 8 endpoints
 - **Jobs & Tasks**: 7 endpoints
@@ -30,6 +31,22 @@ The CTI Scraper provides **127 API endpoints** across multiple categories:
 - `GET /api/health/celery` - Celery workers health
 - `GET /api/health/ingestion` - Ingestion analytics health
 - `GET /api/metrics/health` - Metrics health check
+
+## RAG Chat Interface Endpoints
+
+### Conversational AI
+- `POST /api/chat/rag` - Interactive chat with threat intelligence database using semantic search
+  - **Parameters**: 
+    - `message` (string): User query
+    - `conversation_history` (array): Previous conversation context
+    - `use_llm_generation` (boolean): Enable LLM synthesis (default: true)
+    - `llm_provider` (string): LLM provider ("auto", "openai", "anthropic", "ollama", "template")
+    - `max_results` (integer): Maximum results to retrieve (default: 10)
+    - `similarity_threshold` (float): Similarity threshold (default: 0.3)
+    - `use_chunks` (boolean): Use chunk-level search (default: false)
+    - `context_length` (integer): Context length per chunk (default: 2000)
+  - **Response**: Synthesized analysis with source citations and conversation history
+  - **Features**: Multi-turn conversations, context memory, LLM synthesis with fallback
 
 ## ML Feedback & Model Management Endpoints
 

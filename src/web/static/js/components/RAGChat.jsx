@@ -14,7 +14,9 @@ const RAGChat = () => {
     maxResults: 10,  // Default to 10 chunks for better precision
     similarityThreshold: 0.3,  // Lower threshold for broader coverage
     useChunks: false,  // Disable chunk-level search until annotations have embeddings
-    contextLength: 2000  // Context length per chunk
+    contextLength: 2000,  // Context length per chunk
+    useLLMGeneration: true,  // Enable LLM synthesis by default
+    llmProvider: 'auto'  // Auto-select best available provider
   });
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
@@ -52,7 +54,9 @@ const RAGChat = () => {
           max_results: settings.maxResults,
           similarity_threshold: settings.similarityThreshold,
           use_chunks: settings.useChunks,
-          context_length: settings.contextLength
+          context_length: settings.contextLength,
+          use_llm_generation: settings.useLLMGeneration,
+          llm_provider: settings.llmProvider
         }),
       });
 
@@ -191,6 +195,33 @@ const RAGChat = () => {
                 <option value={0.7}>70%</option>
                 <option value={0.8}>80%</option>
               </select>
+            </div>
+            
+            <div className="flex items-center space-x-2">
+              <label htmlFor="llmProvider" className="text-gray-300">LLM:</label>
+              <select
+                id="llmProvider"
+                value={settings.llmProvider}
+                onChange={(e) => setSettings(prev => ({ ...prev, llmProvider: e.target.value }))}
+                className="border border-gray-600 bg-gray-700 text-white rounded px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-purple-500"
+              >
+                <option value="auto">Auto</option>
+                <option value="openai">OpenAI</option>
+                <option value="anthropic">Claude</option>
+                <option value="ollama">Ollama</option>
+                <option value="template">Template Only</option>
+              </select>
+            </div>
+            
+            <div className="flex items-center space-x-2">
+              <input
+                type="checkbox"
+                id="useLLMGeneration"
+                checked={settings.useLLMGeneration}
+                onChange={(e) => setSettings(prev => ({ ...prev, useLLMGeneration: e.target.checked }))}
+                className="rounded border-gray-600 bg-gray-700 text-purple-600 focus:ring-purple-500"
+              />
+              <label htmlFor="useLLMGeneration" className="text-gray-300 text-xs">LLM Synthesis</label>
             </div>
           </div>
         </div>

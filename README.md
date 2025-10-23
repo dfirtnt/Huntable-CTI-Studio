@@ -19,15 +19,17 @@ A comprehensive threat intelligence aggregation and analysis platform designed f
 
 ### 🤖 AI-Powered Analysis
 - **Threat Hunting Scoring**: Rule-based relevance scoring using keyword density and logarithmic formulas
-- **LLM Integration**: Support for Ollama (local), OpenAI GPT models, and LM Studio
+- **Multi-Provider LLM Integration**: Support for OpenAI GPT-4o, Anthropic Claude, and Ollama (local)
 - **Intelligent Classification**: GPT-4 powered article relevance assessment and categorization
 - **IOC Extraction**: Hybrid IOC extraction combining iocextract with optional LLM validation
 - **SIGMA Rule Generation**: AI-powered generation of detection rules with pySIGMA validation
-- **RAG Chat Interface**: Interactive chat with threat intelligence database using semantic search
-- **Vector Embeddings**: Sentence Transformers integration for semantic similarity search
+- **RAG Chat Interface**: Conversational AI with threat intelligence database using semantic search
+- **Vector Embeddings**: Sentence Transformers (all-mpnet-base-v2) for 768-dimensional semantic similarity
 - **ML-Powered Content Filtering**: Machine learning model for automated chunk classification
 - **Interactive Feedback System**: User feedback collection for continuous model improvement
 - **Model Versioning & Comparison**: Track model performance changes and confidence improvements
+- **Conversational Context**: Multi-turn conversation support with context memory
+- **Synthesized Responses**: LLM-generated analysis instead of raw article excerpts
 
 ### 📊 Advanced Analytics
 - **Text Annotation System**: Web-based interface for marking huntable vs non-huntable content
@@ -43,8 +45,10 @@ A comprehensive threat intelligence aggregation and analysis platform designed f
 - **Automated Backup System**: Comprehensive backup with database, config, and data protection
 - **Backup Management**: Web-based backup creation, listing, and status monitoring
 - **Database Management**: Command-line backup and restore tools for data protection
-- **RAG Chat Interface**: Interactive chat with threat intelligence database using semantic search
-- **AI-Powered Responses**: Template-based responses with optional LLM integration for enhanced analysis
+- **RAG Chat Interface**: Conversational AI with threat intelligence database using semantic search
+- **Multi-Provider LLM**: OpenAI GPT-4o, Anthropic Claude, and Ollama integration with auto-fallback
+- **Synthesized Analysis**: LLM-generated insights instead of raw article excerpts
+- **Conversational Context**: Multi-turn conversations with context memory and follow-up questions
 - **Clickable Results**: Direct links to article details from chat responses
 - **ML Feedback Interface**: Interactive feedback system for model improvement with confidence tracking
 - **Model Performance Analytics**: Visual comparison of model versions and confidence improvements
@@ -54,19 +58,22 @@ A comprehensive threat intelligence aggregation and analysis platform designed f
 ### Core Components
 - **FastAPI Backend**: High-performance async web framework with automatic API documentation
 - **PostgreSQL Database**: Robust data storage with advanced indexing and query optimization
-- **pgvector Extension**: Vector similarity search for semantic embeddings
+- **pgvector Extension**: Vector similarity search for 768-dimensional semantic embeddings
 - **Redis Cache**: High-speed caching and task queue management
 - **Celery Workers**: Distributed task processing for scalable content collection
-- **Sentence Transformers**: AI-powered semantic embeddings for RAG functionality
-- **Ollama LLM Service**: Local large language model with parallel processing support
+- **Sentence Transformers**: all-mpnet-base-v2 model for semantic embeddings and RAG functionality
+- **Multi-Provider LLM Service**: OpenAI GPT-4o, Anthropic Claude, and Ollama with auto-fallback
+- **RAG Generation Service**: LLM-powered response synthesis with conversation context
 - **Docker Containers**: Containerized deployment for consistent environments
 
 ### Data Flow
 1. **Collection**: RSS feed parsing (primary) with basic web scraping fallback
 2. **Processing**: Content extraction, cleaning, and deduplication
 3. **Analysis**: Rule-based scoring and AI-powered classification
-4. **Storage**: Structured data storage with full-text search capabilities
-5. **Presentation**: Real-time web interface and API endpoints
+4. **Embedding**: Vector generation using Sentence Transformers for semantic search
+5. **Storage**: Structured data storage with full-text search and vector similarity capabilities
+6. **RAG Generation**: LLM-powered synthesis of retrieved content with conversation context
+7. **Presentation**: Real-time web interface, conversational AI, and API endpoints
 
 ## 🚀 Quick Start
 

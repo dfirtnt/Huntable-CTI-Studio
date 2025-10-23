@@ -92,93 +92,112 @@ async def api_rag_chat(request: Request):
         )
 
         if relevant_articles:
-            context_parts = []
-            for article in relevant_articles:
-                context_parts.append(f"{article['title']} from {article['source_name']}: {article['content']}")
-                context_parts.append(f"Source: {article['canonical_url']}")
+            # Use LLM generation service for synthesized responses
+            use_llm_generation = body.get("use_llm_generation", True)
+            
+            if use_llm_generation:
+                try:
+                    from src.services.llm_generation_service import get_llm_generation_service
+                    
+                    llm_service = get_llm_generation_service()
+                    generation_result = await llm_service.generate_rag_response(
+                        query=message,
+                        retrieved_chunks=relevant_articles,
+                        conversation_history=conversation_history,
+                        provider=body.get("llm_provider", "auto")
+                    )
+                    
+                    response = generation_result["response"]
+                    llm_provider = generation_result["provider"]
+                    logger.info(f"Generated LLM response using {llm_provider}")
+                    
+                except Exception as e:
+                    logger.warning(f"LLM generation failed, falling back to template: {e}")
+                    use_llm_generation = False
+            
+            if not use_llm_generation:
+                # Fallback to template-based response
+                context_parts = []
+                for article in relevant_articles:
+                    context_parts.append(f"{article['title']} from {article['source_name']}: {article['content']}")
+                    context_parts.append(f"Source: {article['canonical_url']}")
 
-            context = "\n\n".join(context_parts)
+                context = "\n\n".join(context_parts)
 
-            use_llm = False
-            logger.debug("DEBUG: LLM enabled: %s", use_llm)
+                unique_techniques = []
+                unique_threats = []
+                unique_sources = []
+                insights = []
 
-            if use_llm:
-                api_key = os.getenv("OPENAI_API_KEY")
-                logger.info("OpenAI API key present: %s", bool(api_key))
+                for article in relevant_articles:
+                    metadata = article.get("metadata", {})
 
-            unique_techniques = []
-            unique_threats = []
-            unique_sources = []
-            insights = []
+                    for technique in article.get("keywords", []):
+                        if technique not in unique_techniques:
+                            unique_techniques.append(technique)
 
-            for article in relevant_articles:
-                metadata = article.get("metadata", {})
+                    category = metadata.get("threat_category")
+                    if category and category not in unique_threats:
+                        unique_threats.append(category)
 
-                for technique in article.get("keywords", []):
-                    if technique not in unique_techniques:
-                        unique_techniques.append(technique)
+                    source_name = article.get("source_name")
+                    if source_name and source_name not in unique_sources:
+                        unique_sources.append(source_name)
 
-                category = metadata.get("threat_category")
-                if category and category not in unique_threats:
-                    unique_threats.append(category)
+                    summary = metadata.get("ai_summary")
+                    if summary and summary not in insights:
+                        insights.append(summary)
 
-                source_name = article.get("source_name")
-                if source_name and source_name not in unique_sources:
-                    unique_sources.append(source_name)
+                ai_articles = [
+                    article
+                    for article in relevant_articles
+                    if "prompt injection" in article.get("content", "").lower()
+                    or "promptlock" in article.get("title", "").lower()
+                    or "funklocker" in article.get("title", "").lower()
+                ]
+                if len(ai_articles) >= 3:
+                    insights.append(
+                        "AI threat landscape is maturing - from proof-of-concept PromptLock to operational FunkLocker, "
+                        "showing progression from research to real-world deployment"
+                    )
 
-                summary = metadata.get("ai_summary")
-                if summary and summary not in insights:
-                    insights.append(summary)
-
-            ai_articles = [
-                article
-                for article in relevant_articles
-                if "prompt injection" in article.get("content", "").lower()
-                or "promptlock" in article.get("title", "").lower()
-                or "funklocker" in article.get("title", "").lower()
-            ]
-            if len(ai_articles) >= 3:
-                insights.append(
-                    "AI threat landscape is maturing - from proof-of-concept PromptLock to operational FunkLocker, "
-                    "showing progression from research to real-world deployment"
+                analysis_text = (
+                    "**Key Detection Techniques Identified:**\n"
+                    + "\n".join(f"- {tech}" for tech in unique_techniques[:5])
+                    + "\n\n**Threat Categories Covered:**\n"
+                    + "\n".join(f"- {threat}" for threat in unique_threats[:3])
+                    + "\n\n**Research Sources:**\n"
+                    + "\n".join(f"- {source}" for source in unique_sources[:3])
+                    + "\n\n**Key Insights:**\n"
+                    + (
+                        "\n".join(f"- {insight}" for insight in insights[:3])
+                        if insights
+                        else "- Multiple authoritative sources provide comprehensive coverage of malware detection techniques"
+                    )
                 )
 
-            analysis_text = (
-                "**Key Detection Techniques Identified:**\n"
-                + "\n".join(f"- {tech}" for tech in unique_techniques[:5])
-                + "\n\n**Threat Categories Covered:**\n"
-                + "\n".join(f"- {threat}" for threat in unique_threats[:3])
-                + "\n\n**Research Sources:**\n"
-                + "\n".join(f"- {source}" for source in unique_sources[:3])
-                + "\n\n**Key Insights:**\n"
-                + (
-                    "\n".join(f"- {insight}" for insight in insights[:3])
-                    if insights
-                    else "- Multiple authoritative sources provide comprehensive coverage of malware detection techniques"
+                response = (
+                    "Based on our comprehensive threat intelligence analysis, here's my assessment of your query:\n\n"
+                    "**Executive Summary**:\n"
+                    f"{analysis_text}\n\n"
+                    "**Synthesized Insights**:\n"
+                    + "\n".join(f"- {insight}" for insight in insights)
+                    + "\n\n**Threat Intelligence Assessment**:\n"
+                    f"I've identified {len(relevant_articles)} highly relevant articles from our threat intelligence "
+                    "database that directly address your query. These sources provide authoritative coverage from leading "
+                    "cybersecurity organizations and researchers.\n\n"
+                    "**Key Implications**:\n"
+                    f"- Multiple authoritative sources confirm the threat landscape\n"
+                    f"- Similarity scores range from {min(article['similarity'] for article in relevant_articles):.1%} "
+                    f"to {max(article['similarity'] for article in relevant_articles):.1%}, indicating strong relevance\n"
+                    "- Cross-source validation strengthens the reliability of findings\n\n"
+                    "**Recommendations**:\n"
+                    "- Review the linked sources for detailed technical information\n"
+                    "- Consider the temporal aspects of the threat intelligence\n"
+                    "- Integrate findings into your security posture and threat hunting activities\n\n"
+                    "Would you like me to provide deeper analysis on any specific aspect or explore related threat vectors?"
                 )
-            )
-
-            response = (
-                "Based on our comprehensive threat intelligence analysis, here's my assessment of your query:\n\n"
-                "**Executive Summary**:\n"
-                f"{analysis_text}\n\n"
-                "**Synthesized Insights**:\n"
-                + "\n".join(f"- {insight}" for insight in insights)
-                + "\n\n**Threat Intelligence Assessment**:\n"
-                f"I've identified {len(relevant_articles)} highly relevant articles from our threat intelligence "
-                "database that directly address your query. These sources provide authoritative coverage from leading "
-                "cybersecurity organizations and researchers.\n\n"
-                "**Key Implications**:\n"
-                f"- Multiple authoritative sources confirm the threat landscape\n"
-                f"- Similarity scores range from {min(article['similarity'] for article in relevant_articles):.1%} "
-                f"to {max(article['similarity'] for article in relevant_articles):.1%}, indicating strong relevance\n"
-                "- Cross-source validation strengthens the reliability of findings\n\n"
-                "**Recommendations**:\n"
-                "- Review the linked sources for detailed technical information\n"
-                "- Consider the temporal aspects of the threat intelligence\n"
-                "- Integrate findings into your security posture and threat hunting activities\n\n"
-                "Would you like me to provide deeper analysis on any specific aspect or explore related threat vectors?"
-            )
+                llm_provider = "template"
         else:
             response = (
                 "I couldn't find any relevant articles in our threat intelligence database that match your query.\n\n"
@@ -232,7 +251,7 @@ async def api_rag_chat(request: Request):
                     for article in relevant_articles
                 ],
                 llm_response=response,
-                model_used="ollama" if use_llm else "template",
+                model_used=llm_provider,
                 urls=urls,
                 similarity_scores=similarity_scores,
                 response_time_ms=int((datetime.now() - start_time).total_seconds() * 1000),
@@ -253,6 +272,8 @@ async def api_rag_chat(request: Request):
             "total_results": len(relevant_articles),
             "query": message,
             "timestamp": datetime.now().isoformat(),
+            "llm_provider": llm_provider if 'llm_provider' in locals() else "template",
+            "use_llm_generation": use_llm_generation if 'use_llm_generation' in locals() else False,
         }
 
     except Exception as exc:  # noqa: BLE001
