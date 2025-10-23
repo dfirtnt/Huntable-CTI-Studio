@@ -35,6 +35,7 @@ def register_routes(app: FastAPI) -> None:
     app.include_router(feedback.router)
     app.include_router(models.router)
     app.include_router(ai.router)
+    app.include_router(ai.test_router)  # Add test API key endpoints
     app.include_router(annotation_router)
     app.include_router(tasks.router)
     app.include_router(scrape.router)
