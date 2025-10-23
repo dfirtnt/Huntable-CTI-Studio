@@ -276,6 +276,9 @@ async def api_rag_chat(request: Request):
             "use_llm_generation": use_llm_generation if 'use_llm_generation' in locals() else False,
         }
 
+    except HTTPException:
+        # Re-raise HTTP exceptions (like validation errors) as-is
+        raise
     except Exception as exc:  # noqa: BLE001
         logger.error("RAG chat error: %s", exc)
         raise HTTPException(status_code=500, detail=str(exc)) from exc

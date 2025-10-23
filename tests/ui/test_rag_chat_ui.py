@@ -1,12 +1,8 @@
 """
 UI tests for RAG chat interface.
-DISABLED: RAG tests are currently disabled per user request.
 """
 import pytest
 from playwright.sync_api import Page, expect
-
-# Disable all RAG tests
-pytestmark = pytest.mark.skip(reason="RAG tests disabled per user request")
 
 
 class TestRAGChatUI:

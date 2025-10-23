@@ -114,6 +114,9 @@ async def api_semantic_search(request: Request):
 
         return results
 
+    except HTTPException:
+        # Re-raise HTTP exceptions (like validation errors) as-is
+        raise
     except Exception as exc:  # noqa: BLE001
         logger.error("Semantic search error: %s", exc)
         raise HTTPException(status_code=500, detail=str(exc)) from exc
