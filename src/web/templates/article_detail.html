@@ -3891,6 +3891,19 @@ Please provide a detailed analysis based on the article content and the user's s
         const failureError = data?.error || null;
         const hasFailure = (sigmaRules === null || sigmaRules === 'null') && failureError;
         
+        // Convert sigmaRules to string if it's an object
+        let sigmaRulesText = sigmaRules;
+        if (typeof sigmaRules === 'object' && sigmaRules !== null) {
+            // If it's an array of rules with content field, extract and format the content
+            if (Array.isArray(sigmaRules) && sigmaRules.length > 0 && sigmaRules[0].content) {
+                sigmaRulesText = sigmaRules.map((rule, index) => {
+                    return `--- Rule ${index + 1} ---\n${rule.content.replace(/\\n/g, '\n')}`;
+                }).join('\n\n');
+            } else {
+                sigmaRulesText = JSON.stringify(sigmaRules, null, 2);
+            }
+        }
+        
         // Build error banner if there was a failure
         let errorBannerHtml = '';
         if (hasFailure) {
@@ -4012,6 +4025,15 @@ Please provide a detailed analysis based on the article content and the user's s
                 ` : ''}
                 
                 ${errorBannerHtml}
+                ${hasFailure ? '' : `
+                <div class="mt-4">
+                    <h4 class="text-md font-medium text-gray-900 mb-2">📝 SIGMA Rules</h4>
+                    <div class="bg-blue-50 p-4 rounded-lg max-h-96 overflow-y-auto">
+                        <pre class="text-sm font-mono whitespace-pre-wrap text-gray-800">${sigmaRulesText}</pre>
+                    </div>
+                </div>
+                `}
+
                 ${validationStatusHtml}
 
                 <div class="mt-4">
@@ -4021,8 +4043,6 @@ Please provide a detailed analysis based on the article content and the user's s
                         <!-- Filled by script below -->
                     </div>
                 </div>
-
-                ${hasFailure ? '' : '<div class="bg-gray-50 p-4 rounded-lg max-h-96 overflow-y-auto"><pre class="text-sm font-mono whitespace-pre-wrap text-gray-800">' + sigmaRules + '</pre></div>'}
                 
                 <div class="mt-4 flex justify-between">
                     <button onclick="regenerateSigmaRules()" 
