@@ -60,6 +60,9 @@ class LLMGenerationService:
             # Select provider
             selected_provider = self._select_provider(provider)
             
+            # Get model name
+            model_name = self._get_model_name(selected_provider)
+            
             # Generate response
             response = await self._call_llm(
                 system_prompt=system_prompt,
@@ -70,6 +73,7 @@ class LLMGenerationService:
             return {
                 "response": response,
                 "provider": selected_provider,
+                "model_name": model_name,
                 "chunks_used": len(retrieved_chunks),
                 "context_length": len(context),
                 "generated_at": datetime.now().isoformat()
@@ -166,6 +170,17 @@ You analyze retrieved CTI article content to answer user questions about threat 
         user_prompt = "\n".join(user_prompt_parts)
         
         return system_prompt, user_prompt
+    
+    def _get_model_name(self, provider: str) -> str:
+        """Get the actual model name for the provider."""
+        if provider == "openai":
+            return "gpt-4o-mini"
+        elif provider == "anthropic":
+            return "claude-3-haiku-20240307"
+        elif provider == "ollama":
+            return self.ollama_model
+        else:
+            return "template"
     
     def _select_provider(self, provider: str) -> str:
         """Select the best available LLM provider."""

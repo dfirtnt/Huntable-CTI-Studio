@@ -31,7 +31,9 @@
             maxResults: 10,  // Default to 10 chunks for better precision
             similarityThreshold: 0.3,  // Lower threshold for broader coverage
             useChunks: false,  // Disable chunk-level search until annotations have embeddings
-            contextLength: 2000  // Context length per chunk
+            contextLength: 2000,  // Context length per chunk
+            useLLMGeneration: true,  // Enable LLM synthesis by default
+            llmProvider: 'auto'  // Auto-select best available provider
         });
         const messagesEndRef = useRef(null);
         const inputRef = useRef(null);
@@ -135,7 +137,9 @@
                         max_results: settings.maxResults,
                         similarity_threshold: settings.similarityThreshold,
                         use_chunks: settings.useChunks,
-                        context_length: settings.contextLength
+                        context_length: settings.contextLength,
+                        use_llm_generation: settings.useLLMGeneration,
+                        llm_provider: settings.llmProvider
                     }),
                 });
 
@@ -150,7 +154,10 @@
                     content: data.response,
                     timestamp: data.timestamp,
                     relevantArticles: data.relevant_articles,
-                    totalResults: data.total_results
+                    totalResults: data.total_results,
+                    llmProvider: data.llm_provider,
+                    llmModelName: data.llm_model_name,
+                    useLLMGeneration: data.use_llm_generation
                 };
 
                 setMessages(prev => [...prev, assistantMessage]);
@@ -232,8 +239,15 @@
                             </div>
                         )}
                         
-                        <div className="text-xs opacity-70 mt-2 text-gray-400">
-                            {formatTimestamp(message.timestamp)}
+                        <div className="flex items-center justify-between mt-2">
+                            <div className="text-xs opacity-70 text-gray-400">
+                                {formatTimestamp(message.timestamp)}
+                            </div>
+                            {message.llmModelName && (
+                                <div className="text-xs px-2 py-1 rounded bg-gray-700 text-gray-300 border border-gray-600">
+                                    🤖 {message.llmModelName}
+                                </div>
+                            )}
                         </div>
                     </div>
                 </div>
@@ -252,6 +266,9 @@
                             </p>
                             <p className="text-xs text-green-400 mt-1">
                                 ✅ AI-powered responses enabled
+                            </p>
+                            <p className="text-xs text-blue-400 mt-1">
+                                💡 LLM: GPT-4o-mini (OpenAI) / Claude 3 Haiku (Anthropic) / TinyLlama (Ollama)
                             </p>
                         </div>
                         
