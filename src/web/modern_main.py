@@ -74,32 +74,35 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         if updated_agents:
             logger.info("Normalized robots user-agent for %s sources", updated_agents)
 
-        try:
-            celery_app = Celery("cti_scraper")
-            celery_app.config_from_object("src.worker.celeryconfig")
+        # Disabled startup collection to prevent UI hanging
+        # try:
+        #     celery_app = Celery("cti_scraper")
+        #     celery_app.config_from_object("src.worker.celeryconfig")
 
-            sources = await async_db_manager.list_sources()
-            active_sources = [source for source in sources if getattr(source, "active", True)]
+        #     sources = await async_db_manager.list_sources()
+        #     active_sources = [source for source in sources if getattr(source, "active", True)]
 
-            logger.info("Triggering startup collection for %s active sources…", len(active_sources))
+        #     logger.info("Triggering startup collection for %s active sources…", len(active_sources))
 
-            for source in active_sources:
-                try:
-                    task = celery_app.send_task(
-                        "src.worker.celery_app.collect_from_source",
-                        args=[source.id],
-                        queue="collection",
-                    )
-                    logger.info(
-                        "Started collection task for %s (ID: %s) - Task: %s",
-                        source.name,
-                        source.id,
-                        task.id,
-                    )
-                except Exception as exc:  # noqa: BLE001
-                    logger.error("Failed to start collection for %s: %s", source.name, exc)
-        except Exception as exc:  # noqa: BLE001
-            logger.error("Failed to trigger startup collection: %s", exc)
+        #     for source in active_sources:
+        #         try:
+        #             task = celery_app.send_task(
+        #                 "src.worker.celery_app.collect_from_source",
+        #                 args=[source.id],
+        #                 queue="collection",
+        #             )
+        #             logger.info(
+        #                 "Started collection task for %s (ID: %s) - Task: %s",
+        #                 source.name,
+        #                 source.id,
+        #                 task.id,
+        #             )
+        #         except Exception as exc:  # noqa: BLE001
+        #             logger.error("Failed to start collection for %s: %s", source.name, exc)
+        # except Exception as exc:  # noqa: BLE001
+        #     logger.error("Failed to trigger startup collection: %s", exc)
+        
+        logger.info("Startup collection disabled to prevent UI performance issues")
     except Exception as exc:  # noqa: BLE001
         logger.error("Database connection failed: %s", exc)
         raise

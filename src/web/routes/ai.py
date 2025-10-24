@@ -154,6 +154,51 @@ async def api_test_anthropic_key(request: Request):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@test_router.post("/test-lmstudio-connection")
+async def api_test_lmstudio_connection(request: Request):
+    """Test LMStudio connection and model availability."""
+    try:
+        lmstudio_url = os.getenv("LMSTUDIO_API_URL", "http://host.docker.internal:1234/v1")
+        lmstudio_model = os.getenv("LMSTUDIO_MODEL", "llama-3.2-1b-instruct")
+        
+        # Test the LMStudio connection with a simple request
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                f"{lmstudio_url}/chat/completions",
+                headers={
+                    "Content-Type": "application/json"
+                },
+                json={
+                    "model": lmstudio_model,
+                    "messages": [{"role": "user", "content": "Hello"}],
+                    "max_tokens": 5,
+                    "temperature": 0.1
+                },
+                timeout=15.0
+            )
+            
+            if response.status_code == 200:
+                result = response.json()
+                response_text = result.get('choices', [{}])[0].get('message', {}).get('content', '')
+                return {
+                    "valid": True, 
+                    "message": f"LMStudio connection successful. Model '{lmstudio_model}' responded: '{response_text.strip()}'"
+                }
+            else:
+                return {
+                    "valid": False, 
+                    "message": f"LMStudio API error: {response.status_code} - {response.text}"
+                }
+                
+    except httpx.TimeoutException:
+        raise HTTPException(status_code=408, detail="Request timeout - LMStudio may be starting up")
+    except httpx.ConnectError:
+        raise HTTPException(status_code=503, detail="Cannot connect to LMStudio service")
+    except Exception as e:
+        logger.error(f"LMStudio connection test error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @router.post("/{article_id}/rank-with-gpt4o")
 async def api_rank_with_gpt4o(article_id: int, request: Request):
     """API endpoint for GPT4o SIGMA huntability ranking (frontend-compatible endpoint)."""
@@ -245,8 +290,15 @@ async def api_rank_with_gpt4o(article_id: int, request: Request):
                 url=article.canonical_url or 'N/A',
                 content=content_to_analyze
             )
+        elif ai_model == 'lmstudio':
+            # Use ultra-short prompt for LMStudio
+            sigma_prompt = format_prompt("lmstudio_sigma_ranking", 
+                title=article.title,
+                source=source_name,
+                content=content_to_analyze[:2000]  # Limit content to 2000 chars
+            )
         else:
-            # Use simplified prompt for local LLMs
+            # Use simplified prompt for other local LLMs
             sigma_prompt = format_prompt("llm_sigma_ranking_simple", 
                 title=article.title,
                 source=source_name,
@@ -373,7 +425,52 @@ async def api_rank_with_gpt4o(article_id: int, request: Request):
                 except Exception as e:
                     logger.error(f"TinyLlama API request failed: {e}")
                     raise HTTPException(status_code=500, detail=f"Failed to get ranking from TinyLlama: {str(e)}")
-        else:
+        elif ai_model == 'lmstudio':
+            # Use LMStudio API
+            lmstudio_url = os.getenv("LMSTUDIO_API_URL", "http://host.docker.internal:1234/v1")
+            lmstudio_model = os.getenv("LMSTUDIO_MODEL", "llama-3.2-1b-instruct")
+            
+            logger.info(f"Using LMStudio at {lmstudio_url} with model {lmstudio_model}")
+            
+            async with httpx.AsyncClient() as client:
+                try:
+                    response = await client.post(
+                        f"{lmstudio_url}/chat/completions",
+                        headers={
+                            "Content-Type": "application/json"
+                        },
+                        json={
+                            "model": lmstudio_model,
+                            "messages": [
+                                {
+                                    "role": "user",
+                                    "content": sigma_prompt
+                                }
+                            ],
+                            "max_tokens": 2000,
+                            "temperature": 0.3
+                        },
+                        timeout=300.0
+                    )
+                    
+                    if response.status_code != 200:
+                        logger.error(f"LMStudio API error: {response.status_code} - {response.text}")
+                        raise HTTPException(status_code=500, detail=f"Failed to get ranking from LMStudio: {response.status_code}")
+                    
+                    result = response.json()
+                    analysis = result['choices'][0]['message']['content']
+                    
+                    if not analysis:
+                        analysis = "No analysis available"
+                    
+                    model_used = 'lmstudio'
+                    model_name = lmstudio_model
+                    logger.info(f"Successfully got ranking from LMStudio: {len(analysis)} characters")
+                    
+                except Exception as e:
+                    logger.error(f"LMStudio API request failed: {e}")
+                    raise HTTPException(status_code=500, detail=f"Failed to get ranking from LMStudio: {str(e)}")
+        elif ai_model == 'ollama':
             # Use Ollama API with default model (Llama 3.2 1B)
             ollama_url = os.getenv('LLM_API_URL', 'http://cti_ollama:11434')
             ollama_model = os.getenv('LLM_MODEL', 'llama3.2:1b')
@@ -423,6 +520,39 @@ async def api_rank_with_gpt4o(article_id: int, request: Request):
                 except Exception as e:
                     logger.error(f"Ollama API request failed: {e}")
                     raise HTTPException(status_code=500, detail=f"Failed to get ranking from Ollama: {str(e)}")
+        else:
+            # Default fallback - use OpenAI API
+            logger.warning(f"Unknown AI model '{ai_model}', falling back to OpenAI")
+            async with httpx.AsyncClient() as client:
+                response = await client.post(
+                    "https://api.openai.com/v1/chat/completions",
+                    headers={
+                        "Authorization": f"Bearer {api_key}",
+                        "Content-Type": "application/json"
+                    },
+                    json={
+                        "model": "gpt-4o",
+                        "messages": [
+                            {
+                                "role": "user",
+                                "content": sigma_prompt
+                            }
+                        ],
+                        "max_tokens": 2000,
+                        "temperature": 0.3
+                    },
+                    timeout=60.0
+                )
+                
+                if response.status_code != 200:
+                    error_detail = response.text
+                    logger.error(f"OpenAI API error: {error_detail}")
+                    raise HTTPException(status_code=500, detail=f"OpenAI API error: {error_detail}")
+                
+                result = response.json()
+                analysis = result['choices'][0]['message']['content']
+                model_used = 'openai'
+                model_name = 'gpt-4o'
         
         # Save the analysis to the article's metadata
         if article.article_metadata is None:
@@ -736,18 +866,26 @@ async def api_extract_iocs(article_id: int, request: Request):
         use_llm_validation = body.get('use_llm_validation', False)
         debug_mode = body.get('debug_mode', False)
         
-        if not api_key:
-            raise HTTPException(status_code=400, detail="API key is required. Please configure it in Settings.")
+        # Only require API key for cloud-based models
+        if ai_model in ['chatgpt', 'anthropic'] and not api_key:
+            key_type = 'OpenAI' if ai_model == 'chatgpt' else 'Anthropic'
+            raise HTTPException(status_code=400, detail=f"{key_type} API key is required. Please configure it in Settings.")
         
         # Use the IOC extractor
         from src.utils.ioc_extractor import HybridIOCExtractor
         
-        extractor = HybridIOCExtractor(use_llm_validation=use_llm_validation)
+        # Enable LLM validation for all models
+        effective_llm_validation = use_llm_validation
+        if use_llm_validation:
+            logger.info(f"LLM validation enabled for {ai_model} model")
+        
+        extractor = HybridIOCExtractor(use_llm_validation=effective_llm_validation)
         
         # Extract IOCs from the article content
         result = await extractor.extract_iocs(
             content=article.content,
-            api_key=api_key
+            api_key=api_key,
+            ai_model=ai_model  # Pass AI model to extractor
         )
         
         # Update article metadata with extracted IOCs
@@ -763,7 +901,8 @@ async def api_extract_iocs(article_id: int, request: Request):
                 'use_llm_validation': result.extraction_method == 'hybrid',  # Store actual validation status
                 'processing_time': result.processing_time,
                 'raw_count': result.raw_count,
-                'validated_count': result.validated_count
+                'validated_count': result.validated_count,
+                'metadata': result.metadata  # Store prompt and response
             }
             
             # Update the article in the database
@@ -780,6 +919,8 @@ async def api_extract_iocs(article_id: int, request: Request):
             "raw_count": result.raw_count,
             "validated_count": result.validated_count,
             "debug_info": result.metadata if debug_mode else None,
+            "llm_prompt": result.metadata.get('prompt') if result.metadata else None,
+            "llm_response": result.metadata.get('response') if result.metadata else None,
             "error": None if len(result.iocs) > 0 else "No IOCs found"
         }
         
@@ -1118,8 +1259,10 @@ async def api_custom_prompt(article_id: int, request: Request):
         if not prompt:
             raise HTTPException(status_code=400, detail="Prompt is required")
         
-        if not api_key:
-            raise HTTPException(status_code=400, detail="API key is required. Please configure it in Settings.")
+        # Only require API key for cloud-based models
+        if ai_model in ['chatgpt', 'anthropic'] and not api_key:
+            key_type = 'OpenAI' if ai_model == 'chatgpt' else 'Anthropic'
+            raise HTTPException(status_code=400, detail=f"{key_type} API key is required. Please configure it in Settings.")
         
         # Prepare the article content for analysis
         if not article.content:
@@ -1174,8 +1317,98 @@ Please provide a detailed analysis based on the article content and the user's r
                 analysis = result['content'][0]['text']
                 model_used = 'anthropic'
                 model_name = 'claude-3-haiku-20240307'
+        elif ai_model == 'ollama':
+            # Use Ollama API
+            ollama_url = os.getenv('LLM_API_URL', 'http://cti_ollama:11434')
+            
+            async with httpx.AsyncClient() as client:
+                response = await client.post(
+                    f"{ollama_url}/api/generate",
+                    json={
+                        "model": "llama3.2:1b",
+                        "prompt": full_prompt,
+                        "stream": False,
+                        "options": {
+                            "temperature": 0.3,
+                            "num_predict": 2000
+                        }
+                    },
+                    timeout=300.0
+                )
+                
+                if response.status_code != 200:
+                    error_detail = response.text
+                    logger.error(f"Ollama API error: {error_detail}")
+                    raise HTTPException(status_code=500, detail=f"Ollama API error: {error_detail}")
+                
+                result = response.json()
+                analysis = result['response']
+                model_used = 'ollama'
+                model_name = 'llama3.2:1b'
+        elif ai_model == 'tinyllama':
+            # Use Ollama API with TinyLlama
+            ollama_url = os.getenv('LLM_API_URL', 'http://cti_ollama:11434')
+            
+            async with httpx.AsyncClient() as client:
+                response = await client.post(
+                    f"{ollama_url}/api/generate",
+                    json={
+                        "model": "tinyllama",
+                        "prompt": full_prompt,
+                        "stream": False,
+                        "options": {
+                            "temperature": 0.3,
+                            "num_predict": 2000
+                        }
+                    },
+                    timeout=300.0
+                )
+                
+                if response.status_code != 200:
+                    error_detail = response.text
+                    logger.error(f"Ollama API error: {error_detail}")
+                    raise HTTPException(status_code=500, detail=f"Ollama API error: {error_detail}")
+                
+                result = response.json()
+                analysis = result['response']
+                model_used = 'tinyllama'
+                model_name = 'tinyllama'
+        elif ai_model == 'lmstudio':
+            # Use LMStudio API
+            lmstudio_url = os.getenv("LMSTUDIO_API_URL", "http://host.docker.internal:1234/v1")
+            lmstudio_model = os.getenv("LMSTUDIO_MODEL", "llama-3.2-1b-instruct")
+            
+            async with httpx.AsyncClient() as client:
+                response = await client.post(
+                    f"{lmstudio_url}/chat/completions",
+                    headers={
+                        "Content-Type": "application/json"
+                    },
+                    json={
+                        "model": lmstudio_model,
+                        "messages": [
+                            {
+                                "role": "user",
+                                "content": full_prompt
+                            }
+                        ],
+                        "max_tokens": 2000,
+                        "temperature": 0.3
+                    },
+                    timeout=300.0
+                )
+                
+                if response.status_code != 200:
+                    error_detail = response.text
+                    logger.error(f"LMStudio API error: {error_detail}")
+                    raise HTTPException(status_code=500, detail=f"LMStudio API error: {error_detail}")
+                
+                result = response.json()
+                analysis = result['choices'][0]['message']['content']
+                model_used = 'lmstudio'
+                model_name = lmstudio_model
         else:
-            # Use OpenAI API
+            # Use OpenAI API (default)
             async with httpx.AsyncClient() as client:
                 response = await client.post(
                     "https://api.openai.com/v1/chat/completions",

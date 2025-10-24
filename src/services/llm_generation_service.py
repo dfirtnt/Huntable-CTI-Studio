@@ -24,6 +24,10 @@ class LLMGenerationService:
         self.ollama_url = os.getenv("LLM_API_URL", "http://cti_ollama:11434")
         self.ollama_model = os.getenv("LLM_MODEL", "llama3.2:1b")
         
+        # LMStudio configuration
+        self.lmstudio_url = os.getenv("LMSTUDIO_API_URL", "http://host.docker.internal:1234/v1")
+        self.lmstudio_model = os.getenv("LMSTUDIO_MODEL", "local-model")
+        
         logger.info("Initialized LLM Generation Service")
     
     async def generate_rag_response(
@@ -205,6 +209,8 @@ You analyze retrieved CTI article content to answer user questions about threat 
             return await self._call_anthropic(system_prompt, user_prompt)
         elif provider == "ollama":
             return await self._call_ollama(system_prompt, user_prompt)
+        elif provider == "lmstudio":
+            return await self._call_lmstudio(system_prompt, user_prompt)
         else:
             raise ValueError(f"Unknown provider: {provider}")
     
@@ -299,6 +305,34 @@ You analyze retrieved CTI article content to answer user questions about threat 
             result = response.json()
             return result['response']
     
+    async def _call_lmstudio(self, system_prompt: str, user_prompt: str) -> str:
+        """Call LMStudio API (OpenAI-compatible)."""
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                f"{self.lmstudio_url}/chat/completions",
+                headers={
+                    "Content-Type": "application/json"
+                },
+                json={
+                    "model": self.lmstudio_model,
+                    "messages": [
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": user_prompt}
+                    ],
+                    "max_tokens": 2000,
+                    "temperature": 0.3
+                },
+                timeout=120.0
+            )
+            
+            if response.status_code != 200:
+                error_detail = response.text
+                logger.error(f"LMStudio API error: {error_detail}")
+                raise RuntimeError(f"LMStudio API error: {error_detail}")
+            
+            result = response.json()
+            return result['choices'][0]['message']['content']
+    
     def get_available_providers(self) -> List[str]:
         """Get list of available LLM providers."""
         providers = []
@@ -310,6 +344,7 @@ You analyze retrieved CTI article content to answer user questions about threat 
             providers.append("anthropic")
         
         providers.append("ollama")  # Always available if Ollama is running
+        providers.append("lmstudio")  # Always available if LMStudio is running
         
         return providers
 

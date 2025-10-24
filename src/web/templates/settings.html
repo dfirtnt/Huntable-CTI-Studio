@@ -297,6 +297,7 @@
                         <option value="anthropic">Claude (Anthropic)</option>
                         <option value="ollama">Llama 3.2 1B (Local Ollama)</option>
                         <option value="tinyllama">TinyLlama (Local Ollama)</option>
+                        <option value="lmstudio">LMStudio (Local)</option>
                     </select>
                     <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Choose your preferred AI model for summaries and analysis</p>
                 </div>
@@ -331,6 +332,7 @@
                             <li><strong>Claude:</strong> Advanced reasoning, long context (requires Anthropic API key)</li>
                             <li><strong>Llama 3.2 1B:</strong> Local processing, no API costs (fast and private)</li>
                             <li><strong>TinyLlama:</strong> Ultra-lightweight local model, fastest processing (no API costs)</li>
+                            <li><strong>LMStudio:</strong> Local model via LMStudio, supports various models (no API costs)</li>
                         </ul>
                     </div>
                 </div>
@@ -535,6 +537,12 @@
             openaiSection.style.display = 'none';
             anthropicSection.style.display = 'none';
             testApiKeyBtn.textContent = aiModel === 'tinyllama' ? '🧪 Test TinyLlama Connection' : '🧪 Test Ollama Connection';
+        } else if (aiModel === 'lmstudio') {
+            // Show API section for LMStudio but hide API key inputs
+            apiSection.style.display = 'block';
+            openaiSection.style.display = 'none';
+            anthropicSection.style.display = 'none';
+            testApiKeyBtn.textContent = '🧪 Test LMStudio Connection';
         } else {
             apiSection.style.display = 'none';
         }
@@ -652,6 +660,48 @@
                 // Re-enable button
                 testButton.disabled = false;
                 testButton.textContent = aiModel === 'tinyllama' ? '🧪 Test TinyLlama Connection' : '🧪 Test Ollama Connection';
+            }
+            return;
+        }
+        
+        // Handle LMStudio (no API key required)
+        if (aiModel === 'lmstudio') {
+            // Disable button and show loading
+            testButton.disabled = true;
+            testButton.textContent = '🧪 Testing...';
+            statusElement.textContent = '⏳ Testing LMStudio connection...';
+            statusElement.className = 'ml-3 text-sm text-gray-600';
+            
+            try {
+                const response = await fetch('/api/test-lmstudio-connection', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({})
+                });
+                
+                if (response.ok) {
+                    const result = await response.json();
+                    if (result.valid) {
+                        statusElement.textContent = '✅ LMStudio connection successful';
+                        statusElement.className = 'ml-3 text-sm text-green-600';
+                    } else {
+                        statusElement.textContent = `❌ ${result.message}`;
+                        statusElement.className = 'ml-3 text-sm text-red-600';
+                    }
+                } else {
+                    const error = await response.json();
+                    statusElement.textContent = `❌ ${error.detail}`;
+                    statusElement.className = 'ml-3 text-sm text-red-600';
+                }
+            } catch (error) {
+                statusElement.textContent = '❌ Network error - please try again';
+                statusElement.className = 'ml-3 text-sm text-red-600';
+            } finally {
+                // Re-enable button
+                testButton.disabled = false;
+                testButton.textContent = '🧪 Test LMStudio Connection';
             }
             return;
         }
