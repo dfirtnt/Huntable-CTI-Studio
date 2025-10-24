@@ -139,7 +139,7 @@ async def api_chunk_debug(
 
                     # Check for keywords and patterns using threat hunting scorer
                     from src.utils.content import ThreatHuntingScorer
-                    hunt_result = ThreatHuntingScorer.score_threat_hunting_content(chunk_text, "Content Filter Analysis")
+                    hunt_result = ThreatHuntingScorer.score_threat_hunting_content("Content Filter Analysis", chunk_text)
                     
                     has_keywords = hunt_result.get('good_keyword_matches', [])
                     has_command_patterns = hunt_result.get('lolbas_matches', [])
