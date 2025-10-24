@@ -71,6 +71,8 @@ def rescore(ctx: CLIContext, article_id: int, force: bool, dry_run: bool):
                         article.article_metadata['perfect_keyword_matches'] = enhanced_metadata.get('perfect_keyword_matches', [])
                         article.article_metadata['good_keyword_matches'] = enhanced_metadata.get('good_keyword_matches', [])
                         article.article_metadata['lolbas_matches'] = enhanced_metadata.get('lolbas_matches', [])
+                        article.article_metadata['intelligence_matches'] = enhanced_metadata.get('intelligence_matches', [])
+                        article.article_metadata['negative_matches'] = enhanced_metadata.get('negative_matches', [])
                         
                         # Save the updated article
                         db_manager.update_article(article.id, article)
@@ -147,6 +149,8 @@ def rescore(ctx: CLIContext, article_id: int, force: bool, dry_run: bool):
                                     article.article_metadata['perfect_keyword_matches'] = enhanced_metadata.get('perfect_keyword_matches', [])
                                     article.article_metadata['good_keyword_matches'] = enhanced_metadata.get('good_keyword_matches', [])
                                     article.article_metadata['lolbas_matches'] = enhanced_metadata.get('lolbas_matches', [])
+                                    article.article_metadata['intelligence_matches'] = enhanced_metadata.get('intelligence_matches', [])
+                                    article.article_metadata['negative_matches'] = enhanced_metadata.get('negative_matches', [])
                                     
                                     # Save the updated article
                                     db_manager.update_article(article.id, article)
