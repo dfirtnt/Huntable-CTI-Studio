@@ -22,7 +22,7 @@ babel==2.17.0
 bandit==1.8.6
 beautifulsoup4==4.14.2
 billiard==4.2.2
-black==25.9.0
+black==24.3.0
 bleach==6.2.0
 cachetools==6.2.1
 celery==5.5.3
@@ -131,7 +131,7 @@ nbformat==5.10.4
 nest-asyncio==1.6.0
 networkx==3.5
 nltk==3.9.2
-notebook==7.4.7
+notebook==7.2.2
 notebook_shim==0.2.4
 numpy==2.3.3
 ollama==0.6.0

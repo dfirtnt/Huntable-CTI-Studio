@@ -33,14 +33,14 @@ bandit==1.7.5
 safety==2.3.5
 
 # Code quality
-black==24.1.0
+black==24.3.0
 isort==5.12.0
 flake8==6.1.0
 mypy==1.8.0
 
 # Jupyter for test analysis
 jupyter==1.0.0
-notebook==7.0.0
+notebook==7.2.2
 
 # Documentation testing
 sphinx==7.1.0
