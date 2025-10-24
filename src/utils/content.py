@@ -597,7 +597,9 @@ WINDOWS_MALWARE_KEYWORDS = {
             'MpPreference', 'Whoami', 'C$', 'MSBuild', '7z',
             # High-performing non-Windows keywords (>90% chosen rate)
             'auditd', 'systemd', 'xattr', 'EndpointSecurity', 'osquery',
-            'zeek', 'dns_query', 'ja3'
+            'zeek', 'dns_query', 'ja3',
+            # WMI reconnaissance patterns (high threat hunting value)
+            'SELECT * FROM'
         ],
             'good_discriminators': [
                 'temp', '==', 'c:\\windows\\', 'Event ID', '.bat', '.ps1',

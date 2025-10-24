@@ -61,11 +61,11 @@ def setup_periodic_tasks(sender, **kwargs):
     )
     
     # Generate annotation embeddings weekly on Sundays at 4 AM
-    sender.add_periodic_task(
-        crontab(hour=4, minute=0, day_of_week=0),  # Weekly on Sunday at 4 AM
-        generate_annotation_embeddings.s(),
-        name='embed-annotations-weekly'
-    )
+    # sender.add_periodic_task(
+    #     crontab(hour=4, minute=0, day_of_week=0),  # Weekly on Sunday at 4 AM
+    #     generate_annotation_embeddings.s(),
+    #     name='embed-annotations-weekly'
+    # )
 
 
 @celery_app.task(bind=True, max_retries=3)
@@ -266,7 +266,8 @@ def embed_new_articles(self):
                             source_name=article['source_name'],
                             article_content=article['content'],
                             summary=article.get('summary'),
-                            tags=article.get('tags', [])
+                            tags=article.get('tags', []),
+                            article_metadata=article.get('article_metadata', {})
                         )
                     )
                     
@@ -470,7 +471,8 @@ def generate_article_embedding(self, article_id: int):
                     source_name=article.source.name,
                     article_content=article.content,
                     summary=article.summary,
-                    tags=article.tags
+                    tags=article.tags,
+                    article_metadata=article.article_metadata if hasattr(article, 'article_metadata') else {}
                 )
                 
                 embedding = embedding_service.generate_embedding(enriched_text)
@@ -549,7 +551,8 @@ def batch_generate_embeddings(self, article_ids: List[int], batch_size: int = 32
                             source_name=article.source.name,
                             article_content=article.content,
                             summary=article.summary,
-                            tags=article.tags
+                            tags=article.tags,
+                            article_metadata=article.article_metadata if hasattr(article, 'article_metadata') else {}
                         )
                         texts_to_embed.append(enriched_text)
                         article_mapping.append(article.id)

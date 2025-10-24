@@ -3365,7 +3365,7 @@ Please provide a detailed analysis based on the article content and the user's s
                     ${chunk.text.replace(/\n/g, '<br>')}
                 </div>
                 <div class="text-xs text-red-600 mt-1">
-                    Reason: ${chunk.reason || 'Not huntable'} | Confidence: ${chunk.confidence ? chunk.confidence.toFixed(2) : 'N/A'}
+                    Reason: ${chunk.reason || 'Not huntable'} | Confidence: ${chunk.confidence && !isNaN(chunk.confidence) ? chunk.confidence.toFixed(2) : 'N/A'}
                 </div>
             </div>
         `).join('');
@@ -5335,7 +5335,13 @@ Please provide a detailed analysis based on the article content and the user's s
                         <div class="grid grid-cols-2 gap-4 text-sm">
                             <div>
                                 <div class="text-gray-600">Confidence:</div>
-                                <div class="font-semibold">${(chunk.ml_details.confidence * 100).toFixed(1)}%</div>
+                                <div class="font-semibold">${(() => {
+                                    let conf = chunk.ml_details.confidence;
+                                    if (conf === undefined || conf === null) {
+                                        conf = Math.max(chunk.ml_details.probabilities.huntable, chunk.ml_details.probabilities.not_huntable);
+                                    }
+                                    return (conf * 100).toFixed(1);
+                                })()}%</div>
                             </div>
                             <div>
                                 <div class="text-gray-600">Probabilities:</div>
@@ -5376,7 +5382,7 @@ Please provide a detailed analysis based on the article content and the user's s
                 
                 <div class="text-sm text-gray-700 mb-2">
                     <strong>Reason:</strong> ${chunk.reason}
-                    ${chunk.confidence > 0 ? ` | <strong>Confidence:</strong> ${(chunk.confidence * 100).toFixed(1)}%` : ''}
+                    ${chunk.confidence && !isNaN(chunk.confidence) && chunk.confidence > 0 ? ` | <strong>Confidence:</strong> ${(chunk.confidence * 100).toFixed(1)}%` : ''}
                 </div>
                 
                 <!-- Feedback Section (only show when ML model is available) -->
@@ -5446,10 +5452,20 @@ Please provide a detailed analysis based on the article content and the user's s
         
         let confidence = null;
         
+        // First try to get confidence from ml_details.confidence
         if (chunkData.ml_details && typeof chunkData.ml_details.confidence !== 'undefined' && chunkData.ml_details.confidence !== null) {
             confidence = parseFloat(chunkData.ml_details.confidence);
         }
         
+        // If not found, calculate from probabilities
+        if ((confidence === null || Number.isNaN(confidence)) && chunkData.ml_details && chunkData.ml_details.probabilities) {
+            const probs = chunkData.ml_details.probabilities;
+            if (probs.huntable !== undefined && probs.not_huntable !== undefined) {
+                confidence = Math.max(parseFloat(probs.huntable), parseFloat(probs.not_huntable));
+            }
+        }
+        
+        // Fallback to chunk confidence
         if ((confidence === null || Number.isNaN(confidence)) && typeof chunkData.confidence !== 'undefined' && chunkData.confidence !== null) {
             confidence = parseFloat(chunkData.confidence);
         }
