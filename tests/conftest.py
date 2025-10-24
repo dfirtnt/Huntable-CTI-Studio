@@ -20,25 +20,31 @@ from unittest.mock import AsyncMock, MagicMock
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
-# Import test environment utilities
-from tests.utils.test_environment import (
-    TestEnvironmentValidator,
-    TestEnvironmentManager,
-    TestContext,
-    get_test_config,
-    validate_test_environment,
-    setup_test_environment
-)
-
-# Enhanced debugging imports
-from tests.utils.test_failure_analyzer import TestFailureReporter, analyze_test_failure
-from tests.utils.async_debug_utils import AsyncDebugger, debug_async_test
-from tests.utils.test_isolation import TestIsolationManager, test_isolation
-from tests.utils.performance_profiler import PerformanceProfiler, profile_test
-from tests.utils.test_output_formatter import TestOutputFormatter, print_test_result, print_test_failure
-
-# Load test configuration
-test_config = get_test_config()
+# Import test environment utilities (optional)
+try:
+    from tests.utils.test_environment import (
+        TestEnvironmentValidator,
+        TestEnvironmentManager,
+        TestContext,
+        get_test_config,
+        validate_test_environment,
+        setup_test_environment
+    )
+    
+    # Enhanced debugging imports
+    from tests.utils.test_failure_analyzer import TestFailureReporter, analyze_test_failure
+    from tests.utils.async_debug_utils import AsyncDebugger, debug_async_test
+    from tests.utils.test_isolation import TestIsolationManager, test_isolation
+    from tests.utils.performance_profiler import PerformanceProfiler, profile_test
+    from tests.utils.test_output_formatter import TestOutputFormatter, print_test_result, print_test_failure
+    
+    # Load test configuration
+    test_config = get_test_config()
+    ENVIRONMENT_UTILS_AVAILABLE = True
+except ImportError as e:
+    print(f"Warning: Test environment utilities not available: {e}")
+    ENVIRONMENT_UTILS_AVAILABLE = False
+    test_config = None
 
 # Set up logging for tests
 logging.basicConfig(
@@ -51,6 +57,8 @@ logger = logging.getLogger(__name__)
 @pytest.fixture(scope="session")
 def test_environment_config():
     """Provide test environment configuration."""
+    if not ENVIRONMENT_UTILS_AVAILABLE:
+        pytest.skip("Test environment utilities not available")
     return test_config
 
 

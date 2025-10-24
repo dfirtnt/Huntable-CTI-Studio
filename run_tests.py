@@ -131,6 +131,10 @@ class TestRunner:
         self.results = {}
         self.environment_manager = None
         
+        # Virtual environment paths
+        self.venv_python = "python3"
+        self.venv_pip = "pip"
+        
         # Enhanced debugging components
         self.failure_reporter = None
         self.async_debugger = None
@@ -203,18 +207,73 @@ class TestRunner:
         """Install test dependencies."""
         logger.info("Installing test dependencies...")
         
+        # Set up virtual environment if needed
+        if not self._setup_venv():
+            return False
+        
+        # Install essential dependencies first
+        essential_deps = [
+            "pytest>=7.0.0",
+            "pytest-asyncio>=1.0.0", 
+            "pytest-mock>=3.0.0",
+            "playwright>=1.0.0",
+            "redis>=4.0.0",
+            "httpx>=0.20.0",
+            "sqlalchemy>=1.4.0",
+            "asyncpg>=0.27.0",
+            "fastapi>=0.100.0",
+            "uvicorn>=0.20.0",
+            "pydantic>=2.0.0",
+            "beautifulsoup4>=4.10.0",
+            "feedparser>=6.0.0",
+            "pyyaml>=6.0.0"
+        ]
+        
         commands = [
-            ("pip install -r requirements-test.txt", "Installing Python test dependencies"),
-            ("playwright install chromium", "Installing Playwright browser"),
+            (f"{self.venv_pip} install {' '.join(essential_deps)}", "Installing essential test dependencies"),
+            (f"{self.venv_python} -m playwright install chromium", "Installing Playwright browser"),
         ]
         
         for cmd, description in commands:
             if not self._run_command(cmd, description):
                 logger.error(f"Failed to {description.lower()}")
-        return False
+                return False
 
         logger.info("Dependencies installed successfully")
         return True
+    
+    def _setup_venv(self) -> bool:
+        """Set up virtual environment if needed."""
+        venv_path = ".venv"
+        
+        # Check if .venv exists
+        if not os.path.exists(venv_path):
+            logger.info("Creating virtual environment...")
+            if not self._run_command(f"python3 -m venv {venv_path}", "Creating virtual environment"):
+                return False
+        
+        # Activate virtual environment
+        logger.info("Activating virtual environment...")
+        activate_script = os.path.join(venv_path, "bin", "activate")
+        
+        # Set environment variables for virtual environment
+        venv_python = os.path.join(venv_path, "bin", "python3")
+        venv_pip = os.path.join(venv_path, "bin", "pip")
+        
+        # Update the commands to use venv paths
+        self.venv_python = venv_python
+        self.venv_pip = venv_pip
+        
+        return True
+    
+    def _check_dependencies(self) -> bool:
+        """Check if essential test dependencies are available."""
+        try:
+            import pytest
+            import pytest_asyncio
+            return True
+        except ImportError:
+            return False
     
     def _run_command(self, cmd: str, description: str, capture_output: bool = True) -> bool:
         """Run a command and return success status."""
@@ -304,6 +363,10 @@ class TestRunner:
             else:
                 cmd.extend(["-m", exclude_expr])
         
+        # Use virtual environment python if available
+        if hasattr(self, 'venv_python') and self.venv_python != "python3":
+            cmd[0] = self.venv_python
+        
         # Add execution context specific options
         if self.config.context == ExecutionContext.DOCKER:
             cmd = ["docker", "exec", "cti_web"] + cmd
@@ -348,10 +411,12 @@ class TestRunner:
         if self.config.timeout:
             cmd.extend(["--timeout", str(self.config.timeout)])
         
-        # Add reporting
-        cmd.extend([
-            "--alluredir=allure-results"
-        ])
+        # Add reporting (only if allure is available)
+        try:
+            import allure
+            cmd.extend(["--alluredir=allure-results"])
+        except ImportError:
+            pass
         
         return cmd
     
@@ -363,7 +428,13 @@ class TestRunner:
         self.start_debugging()
         
         try:
-            # Install dependencies if requested
+            # Check if dependencies are available, install if missing
+            if not self._check_dependencies():
+                logger.info("Missing test dependencies detected, installing...")
+                if not self.install_dependencies():
+                    return False
+            
+            # Install dependencies if explicitly requested
             if self.config.install_deps:
                 if not self.install_dependencies():
                     return False

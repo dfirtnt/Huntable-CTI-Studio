@@ -119,8 +119,38 @@ if [[ ! -f "run_tests.py" ]]; then
     exit 1
 fi
 
-# Build the command
-CMD="python run_tests.py"
+# Set up virtual environment
+setup_venv() {
+    local venv_path=".venv"
+    
+    # Check if .venv exists
+    if [[ ! -d "$venv_path" ]]; then
+        print_status "Creating virtual environment..."
+        python3 -m venv "$venv_path"
+    fi
+    
+    # Activate virtual environment
+    print_status "Activating virtual environment..."
+    source "$venv_path/bin/activate"
+    
+    # Install/upgrade dependencies if needed
+    if [[ "$INSTALL" == true ]] || [[ ! -f "$venv_path/pyvenv.cfg" ]]; then
+        print_status "Installing test dependencies..."
+        pip install -q --upgrade pip
+        pip install -q -r requirements.txt
+        pip install -q -r requirements-test.txt
+    fi
+}
+
+# Set up virtual environment
+setup_venv
+
+# Build the command - use venv python if available
+if [[ -f ".venv/bin/python" ]]; then
+    CMD=".venv/bin/python run_tests.py"
+else
+    CMD="python run_tests.py"
+fi
 
 # Add test type (positional argument)
 case "$TEST_TYPE" in

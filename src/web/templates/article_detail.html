@@ -2760,7 +2760,8 @@ Please provide a detailed analysis based on the article content and the user's s
         
         if (contentLength > contentLimit) {
             const modelName = aiModel === 'chatgpt' ? 'ChatGPT' : 
-                            aiModel === 'anthropic' ? 'Claude' : 'Llama';
+                            aiModel === 'anthropic' ? 'Claude' : 
+                            aiModel === 'tinyllama' ? 'TinyLlama' : 'Llama';
             showNotification(`Article too large for ${modelName}. Content: ${contentLength.toLocaleString()} chars, limit: ${contentLimit.toLocaleString()} chars.`, 'warning');
             return;
         }
@@ -2818,7 +2819,7 @@ Please provide a detailed analysis based on the article content and the user's s
             (aiModel === 'chatgpt' ? 'Display GPT4o Rank' : 
              aiModel === 'anthropic' ? 'Display Claude Rank' : 'Display LLM Rank') :
             (aiModel === 'chatgpt' ? 'Rank with GPT4o' : 
-             aiModel === 'anthropic' ? 'Rank with Claude' : 'Rank with Local LLM');
+             aiModel === 'anthropic' ? 'Rank with Claude' : 'Rank with LLM');
         
         modal.innerHTML = `
             <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
@@ -2870,7 +2871,8 @@ Please provide a detailed analysis based on the article content and the user's s
                     
                     <div class="mt-4 p-2 bg-gray-50 rounded text-xs text-gray-600">
                         Using: ${aiModel === 'chatgpt' ? 'ChatGPT (OpenAI)' : 
-                               aiModel === 'anthropic' ? 'Claude (Anthropic)' : 'Llama (Local)'}
+                               aiModel === 'anthropic' ? 'Claude (Anthropic)' : 
+                               aiModel === 'tinyllama' ? 'TinyLlama (Local)' : 'Llama (Local)'}
                     </div>
                 </div>
             </div>
@@ -3245,7 +3247,8 @@ Please provide a detailed analysis based on the article content and the user's s
             const settings = JSON.parse(localStorage.getItem('ctiScraperSettings') || '{}');
             const aiModel = settings.aiModel || 'chatgpt';
             const modelDisplayName = aiModel === 'chatgpt' ? 'GPT-4o' : 
-                                    aiModel === 'anthropic' ? 'Claude' : 'LLM';
+                                    aiModel === 'anthropic' ? 'Claude' : 
+                                    aiModel === 'tinyllama' ? 'TinyLlama' : 'LLM';
             
             // Create modal dialog
             const modal = document.createElement('div');
@@ -3421,7 +3424,8 @@ Please provide a detailed analysis based on the article content and the user's s
         const settings = JSON.parse(localStorage.getItem('ctiScraperSettings') || '{}');
         const aiModel = settings.aiModel || 'chatgpt';
         const modelDisplayName = aiModel === 'chatgpt' ? 'ChatGPT (OpenAI)' : 
-                                aiModel === 'anthropic' ? 'Claude (Anthropic)' : 'Llama (Local Ollama)';
+                                aiModel === 'anthropic' ? 'Claude (Anthropic)' : 
+                                aiModel === 'tinyllama' ? 'TinyLlama (Local Ollama)' : 'Llama (Local Ollama)';
         
         const modal = document.createElement('div');
         modal.id = 'customPromptModal';
