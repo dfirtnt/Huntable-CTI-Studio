@@ -101,12 +101,35 @@ async def api_rag_chat(request: Request):
                 logger.warning(f"Could not determine LLM model: {e}")
 
         search_limit = max_results if max_results <= 100 else 50
+        
+        # Extract hunt score filter from query if present
+        min_hunt_score = None
+        if "hunt score" in enhanced_query.lower() or "hunt_score" in enhanced_query.lower():
+            # Look for patterns like "hunt score above 80", "hunt score > 70", etc.
+            import re
+            score_patterns = [
+                r'hunt\s+scores?\s+(?:above|>|>=)\s*(\d+)',
+                r'hunt\s+scores?\s+(\d+)\s*(?:and\s+above|or\s+higher)',
+                r'hunt\s+scores?\s+over\s*(\d+)',
+                r'hunt\s+scores?\s+(\d+)\+',
+                r'hunt\s+scores?\s+(\d+)',  # Simple "hunt score 80"
+                r'scores?\s+(?:above|>|>=)\s*(\d+)',  # "score above 80"
+                r'scores?\s+(\d+)\+'  # "score 80+"
+            ]
+            for pattern in score_patterns:
+                match = re.search(pattern, enhanced_query.lower())
+                if match:
+                    min_hunt_score = float(match.group(1))
+                    logger.info(f"Extracted hunt score filter: {min_hunt_score}")
+                    break
+        
         relevant_articles = await rag_service.find_similar_content(
             query=enhanced_query,
             top_k=search_limit,
             threshold=similarity_threshold,
             use_chunks=use_chunks,
             context_length=context_length,
+            min_hunt_score=min_hunt_score,
         )
 
         if relevant_articles:

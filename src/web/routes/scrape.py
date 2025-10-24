@@ -61,6 +61,10 @@ async def api_scrape_url(request: dict):
         import hashlib
         content_hash = hashlib.sha256(f"{extracted_title}\n{sanitized_content}".encode('utf-8')).hexdigest()
         
+        # Compute SimHash for near-duplicate detection
+        from src.utils.simhash import compute_article_simhash
+        simhash, simhash_bucket = compute_article_simhash(sanitized_content, extracted_title)
+        
         # Store directly using sync manager (proven to work)
         from src.database.manager import DatabaseManager
         from src.models.article import ArticleCreate
@@ -84,6 +88,8 @@ async def api_scrape_url(request: dict):
                 "word_count": len(sanitized_content.split()),
                 "content_length": len(sanitized_content),
                 "content_hash": content_hash,
+                "simhash": simhash,
+                "simhash_bucket": simhash_bucket,
                 "threat_hunting_score": 50.0,
                 "quality_score": 50.0,
                 "processing_status": "completed",

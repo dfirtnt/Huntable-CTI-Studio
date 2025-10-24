@@ -98,8 +98,9 @@ def check_all_sources(self):
                     enable_content_enhancement=True
                 )
                 
-                # Get existing content hashes for deduplication
+                # Get existing content hashes and URLs for deduplication
                 existing_hashes = await db.get_existing_content_hashes()
+                existing_urls = await db.get_existing_urls()
                 
                 total_articles_collected = 0
                 total_articles_saved = 0
@@ -355,8 +356,9 @@ def check_source(self, source_identifier: str):
                     enable_content_enhancement=True
                 )
                 
-                # Get existing content hashes for deduplication
+                # Get existing content hashes and URLs for deduplication
                 existing_hashes = await db.get_existing_content_hashes()
+                existing_urls = await db.get_existing_urls()
                 
                 async with HTTPClient() as http_client:
                     rss_parser = RSSParser(http_client)
@@ -372,7 +374,7 @@ def check_source(self, source_identifier: str):
                             logger.info(f"  ✓ {source.name}: {len(articles)} articles collected")
                             
                             # Process articles through deduplication
-                            dedup_result = await processor.process_articles(articles, existing_hashes)
+                            dedup_result = await processor.process_articles(articles, existing_hashes, existing_urls)
                             
                             # Save deduplicated articles
                             saved_count = 0

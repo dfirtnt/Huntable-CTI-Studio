@@ -94,7 +94,8 @@ class RAGService:
     
     async def find_similar_content(self, query: str, top_k: int = 10, 
                                  threshold: float = 0.7, source_id: Optional[int] = None,
-                                 use_chunks: bool = True, context_length: int = 2000) -> List[Dict[str, Any]]:
+                                 use_chunks: bool = True, context_length: int = 2000,
+                                 min_hunt_score: Optional[float] = None) -> List[Dict[str, Any]]:
         """
         Find similar content using both article-level and chunk-level search.
         
@@ -105,6 +106,7 @@ class RAGService:
             source_id: Filter by source ID
             use_chunks: Whether to use chunk-level search
             context_length: Maximum context length per result
+            min_hunt_score: Minimum threat hunting score filter (0-100)
             
         Returns:
             List of similar content with metadata
@@ -127,30 +129,52 @@ class RAGService:
                 for chunk in chunks:
                     article_id = chunk['article_id']
                     if article_id not in seen_articles:
-                        seen_articles.add(article_id)
-                        deduplicated_results.append({
-                            'id': chunk['id'],
-                            'article_id': article_id,
-                            'title': chunk['article_title'],
-                            'url': chunk['article_url'],
-                            'source_name': chunk['source_name'],
-                            'published_at': chunk['published_at'],
-                            'content': chunk['selected_text'],
-                            'similarity': chunk['similarity'],
-                            'annotation_type': chunk['annotation_type'],
-                            'confidence_score': chunk['confidence_score']
-                        })
+                        # Get full article to check hunt score
+                        article = await self.db_manager.get_article_by_id(article_id)
+                        if article:
+                            hunt_score = article.get('article_metadata', {}).get('threat_hunting_score', 0)
+                            
+                            # Apply hunt score filter if specified
+                            if min_hunt_score is not None and hunt_score < min_hunt_score:
+                                continue
+                                
+                            seen_articles.add(article_id)
+                            deduplicated_results.append({
+                                'id': chunk['id'],
+                                'article_id': article_id,
+                                'title': chunk['article_title'],
+                                'url': chunk['article_url'],
+                                'source_name': chunk['source_name'],
+                                'published_at': chunk['published_at'],
+                                'content': chunk['selected_text'],
+                                'similarity': chunk['similarity'],
+                                'annotation_type': chunk['annotation_type'],
+                                'confidence_score': chunk['confidence_score'],
+                                'hunt_score': hunt_score
+                            })
                 
                 logger.info(f"Found {len(deduplicated_results)} unique articles from chunk search")
                 return deduplicated_results[:top_k]
             else:
                 # Fallback to article-level search
-                return await self.find_similar_articles(
+                articles = await self.find_similar_articles(
                     query=query,
-                    top_k=top_k,
+                    top_k=top_k * 2,  # Get more to filter
                     threshold=threshold,
                     source_id=source_id
                 )
+                
+                # Apply hunt score filter if specified
+                if min_hunt_score is not None:
+                    filtered_articles = []
+                    for article in articles:
+                        hunt_score = article.get('article_metadata', {}).get('threat_hunting_score', 0)
+                        if hunt_score >= min_hunt_score:
+                            article['hunt_score'] = hunt_score
+                            filtered_articles.append(article)
+                    return filtered_articles[:top_k]
+                
+                return articles[:top_k]
                 
         except Exception as e:
             logger.error(f"Failed to find similar content: {e}")

@@ -150,24 +150,39 @@ def process_feedback_for_training(feedback_df: pd.DataFrame):
     if feedback_df.empty:
         return pd.DataFrame()
     
-    # Filter for incorrect classifications (these are the ones we want to learn from)
+    # Use ALL feedback (both correct and incorrect) for training
+    # Correct feedback reinforces patterns, incorrect feedback corrects mistakes
     incorrect_feedback = feedback_df[feedback_df['is_correct'] == False]
+    correct_feedback = feedback_df[feedback_df['is_correct'] == True]
     
-    if incorrect_feedback.empty:
-        print("✅ No incorrect classifications found in feedback")
+    print(f"📊 Feedback breakdown:")
+    print(f"   - Incorrect classifications: {len(incorrect_feedback)} (to correct mistakes)")
+    print(f"   - Correct classifications: {len(correct_feedback)} (to reinforce patterns)")
+    
+    if incorrect_feedback.empty and correct_feedback.empty:
+        print("⚠️  No feedback found")
         return pd.DataFrame()
     
-    print(f"🔍 Found {len(incorrect_feedback)} incorrect classifications to learn from")
-    
-    # Create training examples from feedback
+    # Create training examples from all feedback
     training_examples = []
     
+    # Add incorrect feedback (with user's correction)
     for _, row in incorrect_feedback.iterrows():
         training_examples.append({
             'record_number': f"feedback_{row['chunk_id']}",
             'highlighted_text': row['chunk_text'],
             'classification': row['user_classification']
         })
+    
+    # Add correct feedback (reinforce model's prediction)
+    for _, row in correct_feedback.iterrows():
+        training_examples.append({
+            'record_number': f"feedback_{row['chunk_id']}",
+            'highlighted_text': row['chunk_text'],
+            'classification': row['model_classification']  # Use model's classification since it was correct
+        })
+    
+    print(f"✅ Created {len(training_examples)} training examples from feedback")
     
     return pd.DataFrame(training_examples)
 
@@ -305,8 +320,8 @@ def retrain_model_with_feedback(original_file: str = "outputs/training_data/comb
             db_manager = AsyncDatabaseManager()
             version_manager = MLModelVersionManager(db_manager)
             
-            # Count feedback samples used
-            feedback_count = len(feedback_df[feedback_df['is_correct'] == False]) if not feedback_df.empty else 0
+            # Count feedback samples used (both correct and incorrect)
+            feedback_count = len(feedback_df) if not feedback_df.empty else 0
             
             new_version_id = asyncio.run(version_manager.save_model_version(
                 metrics=training_result,
@@ -421,6 +436,7 @@ def retrain_model_with_feedback(original_file: str = "outputs/training_data/comb
             print(f"   - Correct classifications: {correct_feedback}")
             print(f"   - Incorrect classifications: {incorrect_feedback}")
             print(f"   - Accuracy from feedback: {correct_feedback/total_feedback*100:.1f}%")
+            print(f"   - Training examples created: {correct_feedback + incorrect_feedback}")
         
         return training_result
     else:

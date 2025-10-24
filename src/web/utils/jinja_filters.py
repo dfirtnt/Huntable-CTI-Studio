@@ -137,10 +137,12 @@ def highlight_keywords(content: str, metadata: Dict[str, Any]) -> str:
 
     highlighted_content = content
     for match in reversed(non_overlapping):
+        # Use the actual matched text from content, not the keyword from metadata
+        matched_text = content[match["start"]:match["end"]]
         highlight_span = (
             '<span class="px-1 py-0.5 rounded text-xs font-medium border '
             f'{match["css_classes"]}" title="{match["type_name"].title()} discriminator: {match["keyword"]}">'
-            f'{match["keyword"]}</span>'
+            f'{matched_text}</span>'
         )
         highlighted_content = (
             highlighted_content[: match["start"]]

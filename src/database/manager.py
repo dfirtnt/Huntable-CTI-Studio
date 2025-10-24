@@ -256,6 +256,10 @@ class DatabaseManager:
                         # Extract word count from metadata
                         word_count = article_data.article_metadata.get('word_count', 0)
                         
+                        # Compute SimHash for near-duplicate detection
+                        from src.utils.simhash import compute_article_simhash
+                        simhash, simhash_bucket = compute_article_simhash(article_data.content, article_data.title)
+                        
                         # Create database record
                         db_article = ArticleTable(
                             source_id=article_data.source_id,
@@ -268,6 +272,8 @@ class DatabaseManager:
                             summary=article_data.summary,
                             content=article_data.content,
                             content_hash=article_data.content_hash,
+                            simhash=simhash,
+                            simhash_bucket=simhash_bucket,
                             article_metadata=article_data.article_metadata,
                             word_count=word_count
                         )
@@ -429,6 +435,13 @@ class DatabaseManager:
             return {hash_tuple[0] for hash_tuple in hashes}
     
     # Source check tracking
+    
+    
+    def get_existing_urls(self, limit: int = 10000) -> Set[str]:
+        """Get set of existing canonical URLs for deduplication."""
+        with self.get_session() as session:
+            urls = session.query(ArticleTable.canonical_url).where(ArticleTable.archived == False).limit(limit).all()
+            return {url_tuple[0] for url_tuple in urls}
     
     def record_source_check(
         self,
