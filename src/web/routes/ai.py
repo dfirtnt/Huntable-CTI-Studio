@@ -5,6 +5,7 @@ AI-powered article analysis endpoints.
 from __future__ import annotations
 
 import os
+import json
 from datetime import datetime
 from typing import Dict, Optional
 
@@ -62,6 +63,53 @@ async def api_test_openai_key(request: Request):
         raise HTTPException(status_code=408, detail="Request timeout")
     except Exception as e:
         logger.error(f"OpenAI API key test error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@test_router.post("/test-ollama-connection")
+async def api_test_ollama_connection(request: Request):
+    """Test Ollama connection and model availability."""
+    try:
+        body = await request.json()
+        model = body.get('model', 'tinyllama')  # Default to tinyllama
+        
+        ollama_url = os.getenv('LLM_API_URL', 'http://cti_ollama:11434')
+        
+        # Test the Ollama connection with a simple request
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                f"{ollama_url}/api/generate",
+                json={
+                    "model": model,
+                    "prompt": "Hello",
+                    "stream": False,
+                    "options": {
+                        "temperature": 0.1,
+                        "num_predict": 5
+                    }
+                },
+                timeout=15.0
+            )
+            
+            if response.status_code == 200:
+                result = response.json()
+                response_text = result.get('response', '')
+                return {
+                    "valid": True, 
+                    "message": f"Ollama connection successful. Model '{model}' responded: '{response_text.strip()}'"
+                }
+            else:
+                return {
+                    "valid": False, 
+                    "message": f"Ollama API error: {response.status_code} - {response.text}"
+                }
+                
+    except httpx.TimeoutException:
+        raise HTTPException(status_code=408, detail="Request timeout - Ollama may be starting up")
+    except httpx.ConnectError:
+        raise HTTPException(status_code=503, detail="Cannot connect to Ollama service")
+    except Exception as e:
+        logger.error(f"Ollama connection test error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -276,10 +324,59 @@ async def api_rank_with_gpt4o(article_id: int, request: Request):
                 analysis = result['content'][0]['text']
                 model_used = 'anthropic'
                 model_name = 'claude-3-haiku-20240307'
-        else:
-            # Use Ollama API
+        elif ai_model == 'tinyllama':
+            # Use Ollama API with TinyLlama model
             ollama_url = os.getenv('LLM_API_URL', 'http://cti_ollama:11434')
-            ollama_model = os.getenv('LLM_MODEL')
+            
+            logger.info(f"Using Ollama at {ollama_url} with TinyLlama model")
+            
+            async with httpx.AsyncClient() as client:
+                try:
+                    response = await client.post(
+                        f"{ollama_url}/api/generate",
+                        json={
+                            "model": "tinyllama",
+                            "prompt": sigma_prompt,
+                            "stream": True,  # Enable streaming for better responsiveness
+                            "options": {
+                                "temperature": 0.3,
+                                "num_predict": 2000
+                            }
+                        },
+                        timeout=300.0
+                    )
+                    
+                    if response.status_code != 200:
+                        logger.error(f"Ollama API error: {response.status_code} - {response.text}")
+                        raise HTTPException(status_code=500, detail=f"Failed to get ranking from TinyLlama: {response.status_code}")
+                    
+                    # Collect streaming response
+                    analysis = ""
+                    async for line in response.aiter_lines():
+                        if line:
+                            try:
+                                chunk = json.loads(line)
+                                if 'response' in chunk:
+                                    analysis += chunk['response']
+                                if chunk.get('done', False):
+                                    break
+                            except json.JSONDecodeError:
+                                continue
+                    
+                    if not analysis:
+                        analysis = "No analysis available"
+                    
+                    model_used = 'tinyllama'
+                    model_name = 'tinyllama'
+                    logger.info(f"Successfully got ranking from TinyLlama: {len(analysis)} characters")
+                    
+                except Exception as e:
+                    logger.error(f"TinyLlama API request failed: {e}")
+                    raise HTTPException(status_code=500, detail=f"Failed to get ranking from TinyLlama: {str(e)}")
+        else:
+            # Use Ollama API with default model (Llama 3.2 1B)
+            ollama_url = os.getenv('LLM_API_URL', 'http://cti_ollama:11434')
+            ollama_model = os.getenv('LLM_MODEL', 'llama3.2:1b')
             
             logger.info(f"Using Ollama at {ollama_url} with model {ollama_model}")
             
@@ -290,7 +387,7 @@ async def api_rank_with_gpt4o(article_id: int, request: Request):
                         json={
                             "model": ollama_model,
                             "prompt": sigma_prompt,
-                            "stream": False,
+                            "stream": True,  # Enable streaming for better responsiveness
                             "options": {
                                 "temperature": 0.3,
                                 "num_predict": 2000
@@ -303,8 +400,22 @@ async def api_rank_with_gpt4o(article_id: int, request: Request):
                         logger.error(f"Ollama API error: {response.status_code} - {response.text}")
                         raise HTTPException(status_code=500, detail=f"Failed to get ranking from Ollama: {response.status_code}")
                     
-                    result = response.json()
-                    analysis = result.get('response', 'No analysis available')
+                    # Collect streaming response
+                    analysis = ""
+                    async for line in response.aiter_lines():
+                        if line:
+                            try:
+                                chunk = json.loads(line)
+                                if 'response' in chunk:
+                                    analysis += chunk['response']
+                                if chunk.get('done', False):
+                                    break
+                            except json.JSONDecodeError:
+                                continue
+                    
+                    if not analysis:
+                        analysis = "No analysis available"
+                    
                     model_used = 'ollama'
                     model_name = ollama_model
                     logger.info(f"Successfully got ranking from Ollama: {len(analysis)} characters")

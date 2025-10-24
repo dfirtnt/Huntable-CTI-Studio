@@ -98,7 +98,8 @@ async function showOptimizationDialog() {
         const settings = JSON.parse(localStorage.getItem('ctiScraperSettings') || '{}');
         const aiModel = settings.aiModel || 'chatgpt';
         const modelDisplayName = aiModel === 'chatgpt' ? 'GPT-4o' : 
-                                aiModel === 'anthropic' ? 'Claude' : 'LLM';
+                                aiModel === 'anthropic' ? 'Claude' : 
+                                aiModel === 'tinyllama' ? 'TinyLlama' : 'LLM';
         
         // Create modal dialog
         const modal = document.createElement('div');

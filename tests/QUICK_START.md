@@ -60,7 +60,27 @@ python run_tests.py --docker --integration
 python run_tests.py --all --coverage
 ```
 
-## 5. Essential Commands Reference
+## 5. Quick Commands
+
+### Essential Commands
+```bash
+# Health check
+python run_tests.py --smoke
+
+# Full suite with coverage
+python run_tests.py --all --coverage
+
+# Docker integration tests
+python run_tests.py --docker --integration
+
+# ML feedback tests (critical)
+./scripts/run_ml_feedback_tests.sh
+
+# Debug mode
+python run_tests.py --debug --verbose
+```
+
+### Essential Commands Reference
 
 | Command | Purpose | Duration |
 |---------|---------|----------|
