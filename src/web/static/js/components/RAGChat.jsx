@@ -209,6 +209,7 @@ const RAGChat = () => {
                 <option value="openai">OpenAI</option>
                 <option value="anthropic">Claude</option>
                 <option value="ollama">Ollama</option>
+                <option value="lmstudio">LMStudio</option>
                 <option value="template">Template Only</option>
               </select>
             </div>

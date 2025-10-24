@@ -1,0 +1,22 @@
+# SIGMA Huntability Analysis
+
+Analyze this threat intelligence article for SIGMA detection rule potential.
+
+**Scoring (1-10):**
+- 7-10: Specific technical details (commands, registry, files, processes)
+- 4-6: Some technical details but limited
+- 1-3: Strategic content, minimal technical details
+
+**Output Format:**
+SIGMA HUNTABILITY SCORE: [1-10]
+
+TECHNICAL DETAILS: [List specific elements]
+
+DETECTION OPPORTUNITIES: [What can be detected]
+
+REASONING: [Why this score]
+
+**Article:**
+Title: {title}
+Source: {source}
+Content: {content}

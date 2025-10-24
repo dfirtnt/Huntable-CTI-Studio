@@ -3037,13 +3037,14 @@ Please provide a detailed analysis based on the article content and the user's s
             const endpoint = type === 'sigma' ? 'generate-sigma' : type === 'ranking' ? 'rank-with-gpt4o' : 'extract-iocs';
             
             // Prepare request body
+            const debugCheckbox = document.getElementById('debugModeCheckbox');
             const requestBody = {
                 include_content: true,
                 api_key: apiKey,
                 force_regenerate: forceRegenerate,
                 ai_model: aiModel,
                 temperature: parseFloat(settings.aiTemperature || '0.3'),
-                debug_mode: document.getElementById('debugModeCheckbox').checked
+                debug_mode: debugCheckbox ? debugCheckbox.checked : false
             };
             
             // Add LLM validation setting for IOC extraction
@@ -3064,7 +3065,14 @@ Please provide a detailed analysis based on the article content and the user's s
             }
             
             // Add optimization options for ranking, sigma, and IOC extraction with LLM validation
-            if (type === 'ranking' || type === 'sigma' || (type === 'iocs' && useLLMValidation)) {
+            // Only show optimization dialog for cloud models to prevent UI hanging
+            const shouldShowOptimization = (type === 'ranking' || type === 'sigma' || 
+                (type === 'iocs' && useLLMValidation && ['chatgpt', 'anthropic'].includes(aiModel)));
+            
+            console.log('shouldShowOptimization:', shouldShowOptimization, 'type:', type, 'useLLMValidation:', useLLMValidation, 'aiModel:', aiModel);
+            
+            if (shouldShowOptimization) {
+                console.log('Showing optimization dialog...');
                 const optimizationOptions = await showOptimizationDialog();
                 if (!optimizationOptions) {
                     // User cancelled - clean up and return
@@ -3077,6 +3085,9 @@ Please provide a detailed analysis based on the article content and the user's s
                 }
                 requestBody.optimization_options = optimizationOptions;
             }
+            
+            console.log('Making fetch request to:', `/api/articles/{{ article.id }}/${endpoint}`);
+            console.log('Request body:', requestBody);
             
             const fetchPromise = fetch(`/api/articles/{{ article.id }}/${endpoint}`, {
                 method: 'POST',
@@ -3425,7 +3436,8 @@ Please provide a detailed analysis based on the article content and the user's s
         const aiModel = settings.aiModel || 'chatgpt';
         const modelDisplayName = aiModel === 'chatgpt' ? 'ChatGPT (OpenAI)' : 
                                 aiModel === 'anthropic' ? 'Claude (Anthropic)' : 
-                                aiModel === 'tinyllama' ? 'TinyLlama (Local Ollama)' : 'Llama (Local Ollama)';
+                                aiModel === 'tinyllama' ? 'TinyLlama (Local Ollama)' : 
+                                aiModel === 'lmstudio' ? 'LMStudio (Local)' : 'Llama (Local Ollama)';
         
         const modal = document.createElement('div');
         modal.id = 'customPromptModal';
@@ -4287,6 +4299,22 @@ Please provide a detailed analysis based on the article content and the user's s
                     `}
                 </div>
                 `}
+                
+                ${(data?.llm_prompt || data?.metadata?.prompt) ? `
+                <div class="mt-6 border-t pt-4">
+                    <h4 class="font-medium text-gray-900 mb-3">LLM Prompt & Response</h4>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="bg-blue-50 p-3 rounded border border-blue-200">
+                            <h5 class="font-medium text-blue-900 mb-2">Prompt</h5>
+                            <pre class="text-xs text-blue-800 bg-white p-2 rounded overflow-x-auto max-h-64">${(data.llm_prompt || data.metadata.prompt).substring(0, 1000)}...</pre>
+                        </div>
+                        <div class="bg-green-50 p-3 rounded border border-green-200">
+                            <h5 class="font-medium text-green-900 mb-2">Response</h5>
+                            <pre class="text-xs text-green-800 bg-white p-2 rounded overflow-x-auto max-h-64">${(data.llm_response || data.metadata.response)?.substring(0, 1000)}...</pre>
+                        </div>
+                    </div>
+                </div>
+                ` : ''}
                 
                 <div class="mt-4 flex justify-between items-center">
                     <div class="flex items-center space-x-4">
