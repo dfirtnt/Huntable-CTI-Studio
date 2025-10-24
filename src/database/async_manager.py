@@ -888,6 +888,21 @@ class AsyncDatabaseManager:
             logger.error(f"Failed to get existing content hashes: {e}")
             return set()
     
+    
+    async def get_existing_urls(self, limit: int = 10000) -> set:
+        """Get existing canonical URLs for deduplication."""
+        try:
+            async with self.get_session() as session:
+                result = await session.execute(
+                    select(ArticleTable.canonical_url).where(ArticleTable.archived == False).limit(limit)
+                )
+                urls = result.scalars().all()
+                return set(urls)
+                
+        except Exception as e:
+            logger.error(f"Failed to get existing URLs: {e}")
+            return set()
+    
     async def get_total_article_count(self) -> int:
         """Get the actual total count of articles in the database."""
         try:
@@ -1858,6 +1873,7 @@ class AsyncDatabaseManager:
                     ArticleTable.canonical_url,
                     ArticleTable.published_at,
                     ArticleTable.source_id,
+                    ArticleTable.article_metadata,
                     SourceTable.name.label('source_name'),
                     text("1 - (embedding <=> :query_vector) AS similarity")
                 ).select_from(
@@ -1883,7 +1899,7 @@ class AsyncDatabaseManager:
                 # Filter by similarity threshold and format results
                 similar_articles = []
                 for row in result:
-                    similarity = float(row[8])  # similarity is the 9th column (index 8)
+                    similarity = float(row[9])  # similarity is the 10th column (index 9) after adding article_metadata
                     if similarity >= threshold:
                         similar_articles.append({
                             'id': row.id,
@@ -1894,6 +1910,7 @@ class AsyncDatabaseManager:
                             'published_at': row.published_at.isoformat() if row.published_at else None,
                             'source_id': row.source_id,
                             'source_name': row.source_name,
+                            'metadata': row.article_metadata,
                             'similarity': similarity
                         })
                 

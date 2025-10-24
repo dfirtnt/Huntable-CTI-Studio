@@ -47,6 +47,39 @@
             box-sizing: border-box;
         }
         .quality-excellent { background-color: #10b981; }
+        
+        /* Chat layout improvements */
+        #rag-chat-container {
+            min-height: 500px;
+            max-height: calc(100vh - 120px);
+        }
+        
+        @media (max-height: 600px) {
+            #rag-chat-container {
+                height: calc(100vh - 100px) !important;
+            }
+        }
+        
+        /* Ultra-compact article links */
+        .article-link-compact {
+            line-height: 1.2;
+            padding: 2px 4px;
+            margin: 1px 0;
+        }
+        
+        .article-link-compact a {
+            font-size: 11px;
+            line-height: 1.1;
+        }
+        
+        /* Collapsible article links */
+        .article-collapsible {
+            transition: all 0.2s ease-in-out;
+        }
+        
+        .article-collapsible:hover {
+            background-color: #374151;
+        }
         .quality-good { background-color: #3b82f6; }
         .quality-fair { background-color: #f59e0b; }
         .quality-limited { background-color: #ef4444; }

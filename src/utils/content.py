@@ -639,6 +639,10 @@ WINDOWS_MALWARE_KEYWORDS = {
         'real-world', 'in the wild', 'active campaign', 'ongoing threat',
         'victim', 'targeted', 'exploited', 'compromised', 'infiltrated',
         
+        # Attack lifecycle phases (high-priority additions)
+        'intrusion', 'beacon', 'lateral movement', 'persistence', 'reconnaissance',
+        'exfiltration', 'command and control', 'c2', 'initial access', 'privilege escalation',
+        
         # Specific threat groups
         'FIN', 'TA', 'UNC', 'APT1', 'APT28', 'APT29', 'Lazarus', 'Carbanak',
         'Cozy Bear', 'Fancy Bear', 'Wizard Spider', 'Ryuk', 'Maze',

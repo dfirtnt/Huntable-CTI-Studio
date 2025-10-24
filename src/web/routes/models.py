@@ -474,6 +474,24 @@ async def api_get_feedback_count():
             
             result = await session.execute(annotation_query)
             annotation_count = result.scalar() or 0
+            
+            # Get total feedback count
+            total_feedback_query = text("""
+            SELECT COUNT(*) as total_feedback_count
+            FROM chunk_classification_feedback
+            """)
+            result = await session.execute(total_feedback_query)
+            total_feedback_count = result.scalar() or 0
+            
+            # Get total annotation count
+            total_annotation_query = text("""
+            SELECT COUNT(*) as total_annotation_count
+            FROM article_annotations
+            WHERE LENGTH(selected_text) >= 950
+            AND LENGTH(selected_text) <= 1050
+            """)
+            result = await session.execute(total_annotation_query)
+            total_annotation_count = result.scalar() or 0
         
         total_count = feedback_count + annotation_count
         
@@ -482,6 +500,8 @@ async def api_get_feedback_count():
             "count": total_count,
             "feedback_count": feedback_count,
             "annotation_count": annotation_count,
+            "total_feedback_count": total_feedback_count,
+            "total_annotation_count": total_annotation_count,
             "message": f"Found {total_count} training samples available ({feedback_count} feedback + {annotation_count} annotations)"
         }
         

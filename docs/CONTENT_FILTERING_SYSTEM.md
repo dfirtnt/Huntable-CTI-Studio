@@ -53,8 +53,10 @@ I've successfully designed and implemented a machine learning-based content filt
 ## Key Findings from Annotation Analysis
 
 **Data Analysis:**
-- **22 total annotations:** 9 Huntable, 13 Not Huntable
-- **Huntable patterns:** Commands (14), URLs (5), File paths (7), Processes (6), Technical terms (32)
+- **222 total annotations:** 167 Huntable, 55 Not Huntable
+- **81 feedback samples:** 39 correct predictions, 42 incorrect predictions
+- **Latest model:** Trained on 278 total samples
+- **Huntable patterns:** Commands, URLs, File paths, Processes, Technical terms
 - **Not Huntable patterns:** Acknowledgments, general statements, marketing content
 - **Text characteristics:** Huntable texts are shorter (407 chars avg) but more technical
 

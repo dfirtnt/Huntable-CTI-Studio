@@ -105,8 +105,10 @@
             <div class="text-lg font-medium text-gray-900 dark:text-white">
                 <div>Current model: <span id="retrainingStatus">v24 (79.4% accuracy)</span></div>
                 <div class="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                    Available feedback: <span id="feedbackCount">-</span> user classifications and/or corrections
+                    Available training data: <span id="feedbackCount">-</span> samples
+                    <span id="feedbackBreakdown" class="text-xs ml-2"></span>
                 </div>
+                <div id="totalDataBreakdown" class="text-xs text-gray-400 dark:text-gray-500 mt-0.5"></div>
                 <div id="retrainWarning" class="text-sm text-amber-600 dark:text-amber-400 mt-1 hidden">
                     ⚠️ Warning: 229 articles are unprocessed. Consider processing them first for complete workflow.
                 </div>
@@ -234,6 +236,27 @@
             // Check feedback count and disable retrain button if no feedback available
             const feedbackResponse = await fetch('/api/model/feedback-count');
             const feedbackData = await feedbackResponse.json();
+            
+            // Update feedback count display
+            const feedbackElement = document.getElementById('feedbackCount');
+            if (feedbackElement && feedbackData.success) {
+                feedbackElement.textContent = feedbackData.count.toLocaleString();
+                
+                // Show breakdown if available
+                const breakdownElement = document.getElementById('feedbackBreakdown');
+                if (breakdownElement && feedbackData.total_feedback_count && feedbackData.total_annotation_count) {
+                    const usedFeedback = feedbackData.total_feedback_count - feedbackData.feedback_count;
+                    const usedAnnotations = feedbackData.total_annotation_count - feedbackData.annotation_count;
+                    breakdownElement.textContent = `(${feedbackData.feedback_count} unused feedback, ${feedbackData.annotation_count} unused annotations)`;
+                    
+                    // Show total breakdown
+                    const totalBreakdown = document.getElementById('totalDataBreakdown');
+                    if (totalBreakdown) {
+                        totalBreakdown.textContent = `Total: ${feedbackData.total_feedback_count} feedback (${usedFeedback} used), ${feedbackData.total_annotation_count} annotations (${usedAnnotations} used)`;
+                    }
+                }
+            }
+            
             if (feedbackData.success && feedbackData.count === 0) {
                 const retrainBtn = document.getElementById('retrainModelBtn');
                 retrainBtn.disabled = true;
@@ -1031,6 +1054,20 @@
             if (feedbackData.success) {
                 const feedbackCount = feedbackData.count;
                 feedbackElement.textContent = feedbackCount.toLocaleString();
+                
+                // Show breakdown if available
+                const breakdownElement = document.getElementById('feedbackBreakdown');
+                if (breakdownElement && feedbackData.total_feedback_count && feedbackData.total_annotation_count) {
+                    const usedFeedback = feedbackData.total_feedback_count - feedbackData.feedback_count;
+                    const usedAnnotations = feedbackData.total_annotation_count - feedbackData.annotation_count;
+                    breakdownElement.textContent = `(${feedbackData.feedback_count} unused feedback, ${feedbackData.annotation_count} unused annotations)`;
+                    
+                    // Show total breakdown
+                    const totalBreakdown = document.getElementById('totalDataBreakdown');
+                    if (totalBreakdown) {
+                        totalBreakdown.textContent = `Total: ${feedbackData.total_feedback_count} feedback (${usedFeedback} used), ${feedbackData.total_annotation_count} annotations (${usedAnnotations} used)`;
+                    }
+                }
                 
                 // Enable/disable retrain button based on feedback availability
                 if (feedbackCount === 0) {

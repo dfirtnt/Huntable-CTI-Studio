@@ -311,7 +311,8 @@ The pattern-based classification uses the comprehensive Hunt Scoring keyword sys
 ### Model Details
 
 **Algorithm:** RandomForestClassifier
-**Training Data:** 22 annotated examples (9 huntable, 13 not huntable)
+**Training Data:** 222 annotations (167 huntable, 55 not huntable) + 81 feedback samples
+**Latest Model:** Trained on 278 total samples
 **Accuracy:** 80% on test data (requires validation)
 **Features:** 27 extracted features per chunk
 
