@@ -23,13 +23,13 @@ psycopg2-binary==2.9.10
 alembic==1.16.5
 
 # Web framework and server
-fastapi==0.118.0
+fastapi==0.120.0
 uvicorn[standard]==0.37.0
 jinja2==3.1.6
 
 # Background task processing
 celery==5.5.3
-redis==6.4.0
+redis==7.0.0
 
 # Classification and ML
 scikit-learn==1.7.2
@@ -43,16 +43,12 @@ rich==14.1.0
 pydantic==2.11.9
 pydantic-settings==2.11.0
 
-# Development and testing
-# Note: See requirements-test.txt for comprehensive testing dependencies
-pytest==8.4.2
-pytest-asyncio==1.2.0
-
 # Security
 certifi==2025.8.3
 urllib3==2.5.0
 charset-normalizer==3.4.3
 python-multipart==0.0.20
+cryptography>=41.0.0  # Enhanced encryption
 
 # PDF processing
 PyPDF2==3.0.2
@@ -67,21 +63,4 @@ accelerate>=0.20.0  # For model optimization
 openai>=1.0.0  # Official OpenAI client
 tiktoken>=0.5.0  # Token counting utilities
 sentence-transformers>=2.2.2  # For semantic embeddings
-pgvector>=0.2.0  # PostgreSQL vector extension support
-
-# Enhanced testing and development
-pytest-playwright>=0.4.0  # Browser automation testing
-pytest-mock>=3.10.0  # Mock utilities
-pytest-cov>=4.0.0  # Coverage reporting
-factory-boy>=3.2.0  # Test data generation
-freezegun>=1.2.0  # Time mocking
-
-# Performance and monitoring
-psutil>=5.9.0  # System monitoring
-memory-profiler>=0.60.0  # Memory profiling
-line-profiler>=4.0.0  # Code profiling
-
-# Security enhancements
-bandit>=1.7.0  # Security linting
-safety>=2.3.0  # Dependency vulnerability scanning
-cryptography>=41.0.0  # Enhanced encryption
+pgvector>=0.4.0  # PostgreSQL vector extension support

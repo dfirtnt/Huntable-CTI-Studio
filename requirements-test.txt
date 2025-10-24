@@ -11,7 +11,7 @@ pytest-xdist==3.5.0  # Parallel test execution
 
 # Browser automation testing
 pytest-playwright>=0.4.0
-playwright==1.48.0
+playwright==1.55.0
 
 # Test utilities
 factory-boy==3.3.3
@@ -24,7 +24,7 @@ testcontainers==3.7.0  # Docker containers for integration tests
 faker==28.1.0  # Generate test data
 
 # Performance and profiling
-psutil==5.9.0
+psutil>=7.0.0
 memory-profiler==0.61.0
 pytest-benchmark==4.0.0
 
@@ -49,3 +49,6 @@ sphinx-rtd-theme==3.0.2
 # Visual test tracking and enhanced reporting
 pytest-reportlog>=0.1.0
 allure-pytest>=2.13.0
+
+# Development profiling tools
+line-profiler>=4.0.0  # Code profiling

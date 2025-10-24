@@ -116,7 +116,7 @@ class ContentFilter:
         from .content import ThreatHuntingScorer
         
         # Use Hunt Scoring system to check for perfect discriminators
-        hunt_result = ThreatHuntingScorer.score_threat_hunting_content(text, "Content Filter Analysis")
+        hunt_result = ThreatHuntingScorer.score_threat_hunting_content("Content Filter Analysis", text)
         perfect_matches = hunt_result.get('perfect_keyword_matches', [])
         
         return len(perfect_matches) > 0
@@ -443,7 +443,7 @@ class ContentFilter:
         from .content import ThreatHuntingScorer
         
         # Use Hunt Scoring system as the source of truth
-        hunt_result = ThreatHuntingScorer.score_threat_hunting_content(text, "Content Filter Analysis")
+        hunt_result = ThreatHuntingScorer.score_threat_hunting_content("Content Filter Analysis", text)
         
         # Extract scores from Hunt Scoring result
         perfect_score = hunt_result.get('perfect_keyword_matches', [])
