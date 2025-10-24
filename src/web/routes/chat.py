@@ -82,6 +82,24 @@ async def api_rag_chat(request: Request):
 
         enhanced_query = f"{message} {context_summary}" if context_summary else message
 
+        # Determine which LLM would be used
+        use_llm_generation = body.get("use_llm_generation", True)
+        requested_provider = body.get("llm_provider", "auto")
+        
+        # Get the actual model name that would be used
+        llm_provider = "template"
+        llm_model_name = "template"
+        if use_llm_generation:
+            try:
+                from src.services.llm_generation_service import get_llm_generation_service
+                llm_service = get_llm_generation_service()
+                # Just get the model name without calling it
+                selected_provider = llm_service._select_provider(requested_provider)
+                llm_provider = selected_provider
+                llm_model_name = llm_service._get_model_name(selected_provider)
+            except Exception as e:
+                logger.warning(f"Could not determine LLM model: {e}")
+
         search_limit = max_results if max_results <= 100 else 50
         relevant_articles = await rag_service.find_similar_content(
             query=enhanced_query,
@@ -109,7 +127,8 @@ async def api_rag_chat(request: Request):
                     
                     response = generation_result["response"]
                     llm_provider = generation_result["provider"]
-                    logger.info(f"Generated LLM response using {llm_provider}")
+                    llm_model_name = generation_result.get("model_name", llm_provider)
+                    logger.info(f"Generated LLM response using {llm_provider} ({llm_model_name})")
                     
                 except Exception as e:
                     logger.warning(f"LLM generation failed, falling back to template: {e}")
@@ -196,8 +215,7 @@ async def api_rag_chat(request: Request):
                     "- Consider the temporal aspects of the threat intelligence\n"
                     "- Integrate findings into your security posture and threat hunting activities\n\n"
                     "Would you like me to provide deeper analysis on any specific aspect or explore related threat vectors?"
-                )
-                llm_provider = "template"
+            )
         else:
             response = (
                 "I couldn't find any relevant articles in our threat intelligence database that match your query.\n\n"
@@ -273,6 +291,7 @@ async def api_rag_chat(request: Request):
             "query": message,
             "timestamp": datetime.now().isoformat(),
             "llm_provider": llm_provider if 'llm_provider' in locals() else "template",
+            "llm_model_name": llm_model_name if 'llm_model_name' in locals() else "template",
             "use_llm_generation": use_llm_generation if 'use_llm_generation' in locals() else False,
         }
 
