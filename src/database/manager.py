@@ -394,7 +394,8 @@ class DatabaseManager:
                         'content': article.content,
                         'summary': article.summary,
                         'tags': article.tags or [],
-                        'source_name': article.source.name if article.source else 'Unknown'
+                        'source_name': article.source.name if article.source else 'Unknown',
+                        'article_metadata': article.article_metadata or {}
                     })
                 
                 return articles

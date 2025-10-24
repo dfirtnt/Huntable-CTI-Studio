@@ -85,6 +85,7 @@ def highlight_keywords(content: str, metadata: Dict[str, Any]) -> str:
             "executable",
             "parent-child",
             "defender query",
+            ".exe",
         ]
 
         # For wildcard keywords, use prefix matching

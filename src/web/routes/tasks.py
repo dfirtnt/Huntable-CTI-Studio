@@ -50,57 +50,73 @@ async def api_get_task_status(task_id: str):
 
 @router.get("/api/jobs/status")
 async def api_jobs_status():
-    """Get current status of all Celery jobs using Redis-based approach."""
+    """Get current status of all Celery jobs using Celery inspect API."""
     try:
-        import redis
-
-        redis_url = os.getenv("REDIS_URL", "redis://redis:6379/0")
-        redis_client = redis.from_url(redis_url, decode_responses=True)
-
-        worker_keys = redis_client.keys("celery@*")
-        heartbeat_keys = redis_client.keys("celery-worker-heartbeat*")
-        active_workers: list[str] = []
-
-        for key in worker_keys + heartbeat_keys:
-            if ":" in key:
-                worker_name = key.split(":")[0]
-                if worker_name not in active_workers:
-                    active_workers.append(worker_name)
-
-        if not active_workers:
-            task_keys = redis_client.keys("celery-task-meta-*")
-            if task_keys:
-                active_workers = ["celery@worker"]
-
-        active_tasks: dict[str, list[dict[str, str]]] = {}
-        for worker in active_workers:
-            worker_key = f"{worker}:active"
-            tasks = redis_client.lrange(worker_key, 0, -1)
-            if tasks:
-                active_tasks[worker] = []
-                for task in tasks:
-                    try:
-                        task_data = json.loads(task)
-                        active_tasks[worker].append(task_data)
-                    except Exception:
-                        continue
-
-        worker_stats = {
-            worker: {
-                "pool": {"processes": list(range(1, 13))},
-                "total": {"SUCCESS": 1184, "FAILURE": 0, "PENDING": 0},
-            }
-            for worker in active_workers
-        }
-
+        import asyncio
+        from src.worker.celery_app import celery_app
+        
+        # Use Celery's inspect API to get active tasks directly from workers
+        inspect = celery_app.control.inspect(timeout=1.0)  # 1 second timeout
+        
+        # Helper to run sync inspect calls with timeout
+        def run_inspect(func_name):
+            try:
+                func = getattr(inspect, func_name)
+                return func() or {}
+            except Exception as e:
+                logger.warning(f"Failed to get {func_name}: {e}")
+                return {}
+        
+        # Get active tasks from all workers (with timeout handling)
+        active_tasks = await asyncio.wait_for(
+            asyncio.to_thread(run_inspect, 'active'),
+            timeout=2.0
+        )
+        
+        # Get worker stats
+        stats = await asyncio.wait_for(
+            asyncio.to_thread(run_inspect, 'stats'),
+            timeout=2.0
+        )
+        
+        # Get registered tasks
+        registered = await asyncio.wait_for(
+            asyncio.to_thread(run_inspect, 'registered'),
+            timeout=2.0
+        )
+        
+        # Get scheduled tasks
+        scheduled = await asyncio.wait_for(
+            asyncio.to_thread(run_inspect, 'scheduled'),
+            timeout=2.0
+        )
+        
+        # Get reserved tasks
+        reserved = await asyncio.wait_for(
+            asyncio.to_thread(run_inspect, 'reserved'),
+            timeout=2.0
+        )
+        
         return {
             "status": "success",
             "timestamp": datetime.now().isoformat(),
             "active_tasks": active_tasks,
+            "scheduled_tasks": scheduled,
+            "reserved_tasks": reserved,
+            "worker_stats": stats,
+            "registered_tasks": registered,
+        }
+    except asyncio.TimeoutError:
+        logger.warning("Celery inspect timeout")
+        return {
+            "status": "timeout",
+            "timestamp": datetime.now().isoformat(),
+            "active_tasks": {},
             "scheduled_tasks": {},
             "reserved_tasks": {},
-            "worker_stats": worker_stats,
+            "worker_stats": {},
             "registered_tasks": {},
+            "error": "Worker inspection timeout",
         }
     except Exception as exc:  # noqa: BLE001
         logger.error("Failed to get job status: %s", exc)

@@ -42,6 +42,14 @@ async def api_chunk_debug(
 
         content_filter = get_content_filter()
 
+        # Extract hunt_score from article metadata
+        hunt_score = article.article_metadata.get('threat_hunting_score')
+        if hunt_score is not None:
+            try:
+                hunt_score = float(hunt_score)
+            except (ValueError, TypeError):
+                hunt_score = None
+
         max_chunks_setting = int(os.getenv("CHUNK_DEBUG_MAX_CHUNKS", "150"))
         concurrency_limit = max(1, int(os.getenv("CHUNK_DEBUG_CONCURRENCY", "4")))
         per_chunk_timeout = float(os.getenv("CHUNK_DEBUG_CHUNK_TIMEOUT", "12.0"))
@@ -65,6 +73,7 @@ async def api_chunk_debug(
             article.content,
             min_confidence,
             chunk_size,
+            hunt_score,
         )
 
         total_chunks = len(original_chunks)
@@ -82,9 +91,10 @@ async def api_chunk_debug(
                         chunk_text,
                         min_confidence,
                         max(len(chunk_text), 1),
+                        hunt_score,
                     )
 
-                    features = content_filter.extract_features(chunk_text, include_new_features=True)
+                    features = content_filter.extract_features(chunk_text, hunt_score, include_new_features=True)
                     sanitized_features = {}
                     for key, value in features.items():
                         if hasattr(value, "item"):
@@ -98,7 +108,7 @@ async def api_chunk_debug(
                     if content_filter.model:
                         try:
                             ml_features = content_filter.extract_features(
-                                chunk_text, include_new_features=False
+                                chunk_text, hunt_score, include_new_features=False
                             )
                             feature_vector = np.array(list(ml_features.values()), dtype=float).reshape(1, -1)
                             prediction = content_filter.model.predict(feature_vector)[0]
@@ -127,13 +137,17 @@ async def api_chunk_debug(
                         except Exception as exc:  # noqa: BLE001
                             ml_details = {"error": str(exc)}
 
-                    has_keywords = chunk_result.keywords is not None and len(chunk_result.keywords) > 0
-                    has_command_patterns = chunk_result.command_patterns is not None and len(
-                        chunk_result.command_patterns
-                    ) > 0
-                    has_perfect_discriminators = chunk_result.perfect_discriminators is not None and len(
-                        chunk_result.perfect_discriminators
-                    ) > 0
+                    # Check for keywords and patterns using threat hunting scorer
+                    from src.utils.content import ThreatHuntingScorer
+                    hunt_result = ThreatHuntingScorer.score_threat_hunting_content(chunk_text, "Content Filter Analysis")
+                    
+                    has_keywords = hunt_result.get('good_keyword_matches', [])
+                    has_command_patterns = hunt_result.get('lolbas_matches', [])
+                    has_perfect_discriminators = hunt_result.get('perfect_keyword_matches', [])
+                    
+                    has_keywords = len(has_keywords) > 0
+                    has_command_patterns = len(has_command_patterns) > 0
+                    has_perfect_discriminators = len(has_perfect_discriminators) > 0
 
                     ml_prediction_correct = None
                     ml_mismatch = False

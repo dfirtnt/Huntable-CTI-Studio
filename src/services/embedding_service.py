@@ -140,7 +140,8 @@ class EmbeddingService:
             raise RuntimeError(f"Batch embedding generation failed: {e}")
     
     def create_enriched_text(self, article_title: str, source_name: str, 
-                           article_content: str, summary: str = None, tags: list = None) -> str:
+                           article_content: str, summary: str = None, tags: list = None,
+                           article_metadata: dict = None) -> str:
         """
         Create enriched text for embedding by combining metadata with article content.
         
@@ -150,6 +151,7 @@ class EmbeddingService:
             article_content: The full article content
             summary: Article summary (optional)
             tags: List of article tags (optional)
+            article_metadata: Article metadata dict (optional)
             
         Returns:
             Enriched text ready for embedding
@@ -171,6 +173,24 @@ class EmbeddingService:
         
         if tags_text:
             text_parts.append(f"Tags: {tags_text}")
+        
+        # Add hunt scoring information
+        if article_metadata:
+            hunt_score = article_metadata.get('threat_hunting_score', 0)
+            if hunt_score > 0:
+                text_parts.append(f"Threat Hunting Score: {hunt_score:.1f}/100")
+                
+                # Add keyword matches
+                perfect_matches = article_metadata.get('perfect_keyword_matches', [])
+                good_matches = article_metadata.get('good_keyword_matches', [])
+                lolbas_matches = article_metadata.get('lolbas_matches', [])
+                
+                if perfect_matches:
+                    text_parts.append(f"Perfect Threat Keywords: {', '.join(perfect_matches[:10])}")
+                if good_matches:
+                    text_parts.append(f"Good Threat Keywords: {', '.join(good_matches[:10])}")
+                if lolbas_matches:
+                    text_parts.append(f"LOLBAS Executables: {', '.join(lolbas_matches[:10])}")
         
         text_parts.append(f"Content: {content}")
         

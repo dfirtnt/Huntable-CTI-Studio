@@ -199,7 +199,7 @@ async def api_celery_health() -> Dict[str, Any]:
         try:
             from src.worker.celery_app import celery_app
 
-            inspect = celery_app.control.inspect()
+            inspect = celery_app.control.inspect(timeout=2.0)  # 2 second timeout
             active_workers = inspect.active()
 
             if active_workers:
