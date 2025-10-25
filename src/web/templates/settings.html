@@ -293,11 +293,11 @@
                     </label>
                     <select id="aiModel" 
                             class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
-                        <option value="chatgpt">ChatGPT (OpenAI)</option>
-                        <option value="anthropic">Claude (Anthropic)</option>
-                        <option value="ollama">Llama 3.2 1B (Local Ollama)</option>
-                        <option value="tinyllama">TinyLlama (Local Ollama)</option>
-                        <option value="lmstudio">LMStudio (Local)</option>
+                        <option value="chatgpt">OpenAI -> ChatGPT</option>
+                        <option value="anthropic">Anthropic -> Claude</option>
+                        <option value="ollama">Ollama -> Llama 3.2 1B</option>
+                        <option value="tinyllama">Ollama -> TinyLlama</option>
+                        <option value="lmstudio">LMStudio -> Local</option>
                     </select>
                     <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Choose your preferred AI model for summaries and analysis</p>
                 </div>
@@ -564,14 +564,14 @@
                 if (lmstudioOption) {
                     // Update the option text to show the current model
                     const currentModel = data.models[0]; // Use first loaded model
-                    lmstudioOption.textContent = `LMStudio (${currentModel})`;
+                    lmstudioOption.textContent = `LMStudio -> ${currentModel}`;
                 }
             } else {
                 // Fallback to default text if no models found
                 const select = document.getElementById('aiModel');
                 const lmstudioOption = select.querySelector('option[value="lmstudio"]');
                 if (lmstudioOption) {
-                    lmstudioOption.textContent = 'LMStudio (Local)';
+                    lmstudioOption.textContent = 'LMStudio -> Local';
                 }
             }
         } catch (error) {
