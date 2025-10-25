@@ -937,6 +937,21 @@ document.getElementById('cancelSourceConfigBtn').addEventListener('click', close
 // Adhoc URL form event listener
 document.getElementById('adhocUrlForm').addEventListener('submit', handleAdhocUrlSubmit);
 
+// Handle Enter key in adhoc URL form inputs
+document.getElementById('adhocUrl').addEventListener('keypress', function(e) {
+    if (e.key === 'Enter') {
+        e.preventDefault();
+        handleAdhocUrlSubmit(e);
+    }
+});
+
+document.getElementById('adhocTitle').addEventListener('keypress', function(e) {
+    if (e.key === 'Enter') {
+        e.preventDefault();
+        handleAdhocUrlSubmit(e);
+    }
+});
+
 // Close modal when clicking outside
 document.getElementById('sourceConfigModal').addEventListener('click', function(e) {
     if (e.target === this) {
