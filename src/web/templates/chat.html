@@ -33,7 +33,7 @@
             useChunks: false,  // Disable chunk-level search until annotations have embeddings
             contextLength: 2000,  // Context length per chunk
             useLLMGeneration: true,  // Enable LLM synthesis by default
-            llmProvider: 'auto'  // Auto-select best available provider
+            llmProvider: 'chatgpt'  // Default aligns with Settings page selection
         });
         const [expandedArticles, setExpandedArticles] = useState(new Set());
         const messagesEndRef = useRef(null);
@@ -63,6 +63,31 @@
         // Load embedding stats on component mount
         useEffect(() => {
             loadEmbeddingStats();
+        }, []);
+
+        const normalizeModelSelection = (value) => {
+            if (!value) {
+                return 'chatgpt';
+            }
+            const normalized = value.toLowerCase();
+            if (['openai', 'gpt4o', 'gpt-4o', 'gpt-4o-mini', 'gpt'].includes(normalized)) {
+                return 'chatgpt';
+            }
+            return normalized;
+        };
+
+        // Load AI model from Settings on mount
+        useEffect(() => {
+            const ctiSettings = localStorage.getItem('ctiScraperSettings');
+            if (ctiSettings) {
+                try {
+                    const parsed = JSON.parse(ctiSettings);
+                    const aiModel = normalizeModelSelection(parsed.aiModel);
+                    setSettings(prev => ({ ...prev, llmProvider: aiModel }));
+                } catch (e) {
+                    console.error('Failed to parse settings:', e);
+                }
+            }
         }, []);
 
         const loadEmbeddingStats = async () => {

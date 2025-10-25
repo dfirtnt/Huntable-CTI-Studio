@@ -19,14 +19,14 @@ class LLMGenerationService:
     
     def __init__(self):
         """Initialize the LLM generation service."""
-        self.openai_api_key = os.getenv("OPENAI_API_KEY") or "sk-__JQEX6tg6SSKxcOtqnIj85Jl_SN8FxJBq4XmmeSAtT3BlbkFJYVkz3kCxA93viNKE93bdO3elUwbYg9AR1hYuNBePcA"
+        self.openai_api_key = os.getenv("OPENAI_API_KEY")
         self.anthropic_api_key = os.getenv("ANTHROPIC_API_KEY")
         self.ollama_url = os.getenv("LLM_API_URL", "http://cti_ollama:11434")
         self.ollama_model = os.getenv("LLM_MODEL", "llama3.2:1b")
         
         # LMStudio configuration
         self.lmstudio_url = os.getenv("LMSTUDIO_API_URL", "http://host.docker.internal:1234/v1")
-        self.lmstudio_model = os.getenv("LMSTUDIO_MODEL", "local-model")
+        self.lmstudio_model = os.getenv("LMSTUDIO_MODEL", "meta-llama-3.1-8b-instruct")
         
         logger.info("Initialized LLM Generation Service")
     
@@ -61,11 +61,18 @@ class LLMGenerationService:
                 query, context, conversation_context
             )
             
-            # Select provider
+            requested_provider = self._canonicalize_requested_provider(provider)
+            
+            # Select provider after applying fallbacks
             selected_provider = self._select_provider(provider)
             
-            # Get model name
+            # Get model metadata
             model_name = self._get_model_name(selected_provider)
+            model_display_name = self._build_model_display(
+                selected_provider,
+                model_name,
+                requested_provider,
+            )
             
             # Generate response
             response = await self._call_llm(
@@ -78,6 +85,7 @@ class LLMGenerationService:
                 "response": response,
                 "provider": selected_provider,
                 "model_name": model_name,
+                "model_display_name": model_display_name,
                 "chunks_used": len(retrieved_chunks),
                 "context_length": len(context),
                 "generated_at": datetime.now().isoformat()
@@ -176,26 +184,147 @@ You analyze retrieved CTI article content to answer user questions about threat 
         """Get the actual model name for the provider."""
         if provider == "openai":
             return "gpt-4o-mini"
-        elif provider == "anthropic":
+        if provider == "anthropic":
             return "claude-3-haiku-20240307"
-        elif provider == "ollama":
+        if provider == "ollama":
             return self.ollama_model
-        elif provider == "lmstudio":
+        if provider == "tinyllama":
+            return "tinyllama"
+        if provider == "lmstudio":
             return self.lmstudio_model
-        else:
-            return "template"
-    
+        return "template"
+
+    def _canonicalize_requested_provider(self, provider: str | None) -> str:
+        """Normalize requested provider aliases without applying fallbacks."""
+        normalized = (provider or "").lower().strip()
+        alias_map = {
+            "chatgpt": "openai",
+            "openai": "openai",
+            "gpt4o": "openai",
+            "gpt-4o": "openai",
+            "gpt-4o-mini": "openai",
+            "claude": "anthropic",
+            "claude-haiku": "anthropic",
+            "claude3": "anthropic",
+            "anthropic": "anthropic",
+            "ollama": "ollama",
+            "llama": "ollama",
+            "llama3": "ollama",
+            "tinyllama": "tinyllama",
+            "lmstudio": "lmstudio",
+            "template": "template",
+            "disabled": "template",
+            "none": "template",
+        }
+        if normalized in alias_map:
+            return alias_map[normalized]
+        if normalized == "":
+            return "auto"
+        return normalized
+
+    def _format_provider_name(self, provider: str) -> str:
+        """Return human-friendly provider label."""
+        mapping = {
+            "openai": "OpenAI",
+            "anthropic": "Claude",
+            "ollama": "Ollama",
+            "tinyllama": "Ollama",
+            "lmstudio": "LM Studio",
+            "template": "Template",
+            "auto": "Auto",
+        }
+        return mapping.get(provider, provider.title())
+
+    def _build_model_display(
+        self,
+        provider: str,
+        model_name: str | None,
+        requested_provider: str | None = None,
+    ) -> str:
+        """Build a user-facing display label for the resolved model."""
+        base_provider = provider
+        detail = model_name or ""
+
+        if provider == "tinyllama":
+            base_provider = "ollama"
+            detail = "tinyllama"
+        elif provider == "ollama":
+            detail = model_name or self.ollama_model or "ollama-model"
+        elif provider == "lmstudio":
+            detail = model_name or self.lmstudio_model or "local-model"
+        elif provider == "template":
+            base_provider = "template"
+            detail = ""
+        elif provider == "openai":
+            detail = model_name or "gpt-4o-mini"
+        elif provider == "anthropic":
+            detail = model_name or "claude-3-haiku-20240307"
+
+        provider_label = self._format_provider_name(base_provider)
+        detail = detail.strip()
+        display = f"{provider_label} • {detail}" if detail else provider_label
+
+        normalized_requested = (
+            None if requested_provider in {None, "", "auto"} else requested_provider
+        )
+        if normalized_requested and normalized_requested != provider:
+            display = (
+                f"{display} (fallback from {self._format_provider_name(normalized_requested)})"
+            )
+
+        return display
+
     def _select_provider(self, provider: str) -> str:
-        """Select the best available LLM provider."""
-        if provider == "auto":
+        """Select the effective LLM provider with graceful fallbacks."""
+        normalized = self._canonicalize_requested_provider(provider)
+
+        if normalized in {"template", "disabled", "none"}:
+            return "template"
+
+        if normalized == "openai":
             if self.openai_api_key:
                 return "openai"
-            elif self.anthropic_api_key:
+            raise ValueError("OpenAI provider requested but API key is missing")
+
+        if normalized == "anthropic":
+            if self.anthropic_api_key:
                 return "anthropic"
-            else:
-                return "ollama"
-        
-        return provider
+            raise ValueError("Anthropic provider requested but API key is missing")
+
+        if normalized == "tinyllama":
+            return "tinyllama"
+
+        if normalized == "ollama":
+            return "ollama"
+
+        if normalized == "lmstudio":
+            return "lmstudio"
+
+        if normalized == "auto":
+            return self._fallback_provider(set())
+
+        logger.warning("Unknown provider '%s'; falling back to default", provider)
+        return self._fallback_provider(set())
+
+    def _fallback_provider(self, excluded: set[str]) -> str:
+        """Choose best available provider excluding the given set."""
+        if self.openai_api_key and "openai" not in excluded:
+            return "openai"
+
+        if self.anthropic_api_key and "anthropic" not in excluded:
+            return "anthropic"
+
+        if (
+            self.lmstudio_model
+            and self.lmstudio_model != "local-model"
+            and "lmstudio" not in excluded
+        ):
+            return "lmstudio"
+
+        if "tinyllama" not in excluded and self.ollama_model == "tinyllama":
+            return "tinyllama"
+
+        return "ollama"
     
     async def _call_llm(
         self, 
@@ -211,6 +340,8 @@ You analyze retrieved CTI article content to answer user questions about threat 
             return await self._call_anthropic(system_prompt, user_prompt)
         elif provider == "ollama":
             return await self._call_ollama(system_prompt, user_prompt)
+        elif provider == "tinyllama":
+            return await self._call_ollama_with_model(system_prompt, user_prompt, "tinyllama")
         elif provider == "lmstudio":
             return await self._call_lmstudio(system_prompt, user_prompt)
         else:
@@ -303,6 +434,33 @@ You analyze retrieved CTI article content to answer user questions about threat 
                 error_detail = response.text
                 logger.error(f"Ollama API error: {error_detail}")
                 raise RuntimeError(f"Ollama API error: {error_detail}")
+            
+            result = response.json()
+            return result['response']
+    
+    async def _call_ollama_with_model(self, system_prompt: str, user_prompt: str, model_name: str) -> str:
+        """Call Ollama API with specific model."""
+        full_prompt = f"{system_prompt}\n\n{user_prompt}"
+        
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                f"{self.ollama_url}/api/generate",
+                json={
+                    "model": model_name,
+                    "prompt": full_prompt,
+                    "stream": False,
+                    "options": {
+                        "temperature": 0.3,
+                        "num_predict": 2000
+                    }
+                },
+                timeout=120.0
+            )
+            
+            if response.status_code != 200:
+                error_detail = response.text
+                logger.error(f"Ollama API error for {model_name}: {error_detail}")
+                raise RuntimeError(f"Ollama API error for {model_name}: {error_detail}")
             
             result = response.json()
             return result['response']

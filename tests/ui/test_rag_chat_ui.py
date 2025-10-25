@@ -1,6 +1,7 @@
 """
 UI tests for RAG chat interface.
 """
+import json
 import pytest
 from playwright.sync_api import Page, expect
 
@@ -323,3 +324,43 @@ class TestRAGChatUI:
         dashboard_link = page.locator("a[href='/']")
         dashboard_link.click()
         expect(page).to_have_url("http://localhost:8001/")
+
+    @pytest.mark.ui
+    def test_chat_displays_selected_model_name(self, page: Page):
+        """Ensure the LLM model badge matches the settings selection."""
+        page.add_init_script(
+            "window.localStorage.setItem('ctiScraperSettings', JSON.stringify({aiModel: 'chatgpt'}));"
+        )
+
+        captured_request = {}
+
+        def handle_chat_route(route):
+            request_body = json.loads(route.request.post_data or "{}")
+            captured_request["llm_provider"] = request_body.get("llm_provider")
+
+            mock_response = {
+                "response": "Test response from mocked provider.",
+                "timestamp": "2025-01-01T00:00:00Z",
+                "relevant_articles": [],
+                "total_results": 0,
+                "query": request_body.get("message"),
+                "llm_provider": "openai",
+                "llm_model_name": "OpenAI • gpt-4o-mini",
+                "use_llm_generation": True,
+            }
+
+            route.fulfill(
+                status=200,
+                body=json.dumps(mock_response),
+                headers={"Content-Type": "application/json"},
+            )
+
+        page.route("**/api/chat/rag", handle_chat_route)
+        page.goto("http://localhost:8001/chat")
+
+        page.locator("textarea[placeholder*='Ask about cybersecurity']").fill("Model check?")
+        page.locator("button:has-text('Send')").click()
+
+        expect(page.locator("text=Model check?")).to_be_visible()
+        expect(page.locator("text=🤖 OpenAI • gpt-4o-mini")).to_be_visible()
+        assert captured_request.get("llm_provider") == "chatgpt"

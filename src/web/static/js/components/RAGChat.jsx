@@ -16,7 +16,7 @@ const RAGChat = () => {
     useChunks: false,  // Disable chunk-level search until annotations have embeddings
     contextLength: 2000,  // Context length per chunk
     useLLMGeneration: true,  // Enable LLM synthesis by default
-    llmProvider: 'auto'  // Will be set from Settings in useEffect
+    llmProvider: 'chatgpt'  // Default aligns with Settings in useEffect
   });
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
@@ -29,13 +29,24 @@ const RAGChat = () => {
     scrollToBottom();
   }, [messages]);
   
+  const normalizeModelSelection = (value) => {
+    if (!value) {
+      return 'chatgpt';
+    }
+    const normalized = value.toLowerCase();
+    if (['openai', 'gpt4o', 'gpt-4o', 'gpt-4o-mini', 'gpt'].includes(normalized)) {
+      return 'chatgpt';
+    }
+    return normalized;
+  };
+
   // Load AI model from Settings on mount
   useEffect(() => {
     const ctiSettings = localStorage.getItem('ctiScraperSettings');
     if (ctiSettings) {
       try {
         const parsed = JSON.parse(ctiSettings);
-        const aiModel = parsed.aiModel || 'auto';
+        const aiModel = normalizeModelSelection(parsed.aiModel);
         setSettings(prev => ({ ...prev, llmProvider: aiModel }));
       } catch (e) {
         console.error('Failed to parse settings:', e);
