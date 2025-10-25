@@ -154,6 +154,51 @@ async def api_test_anthropic_key(request: Request):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@test_router.get("/lmstudio-models")
+async def api_get_lmstudio_models():
+    """Get currently loaded models from LMStudio."""
+    try:
+        lmstudio_url = os.getenv("LMSTUDIO_API_URL", "http://host.docker.internal:1234/v1")
+        
+        async with httpx.AsyncClient() as client:
+            response = await client.get(f"{lmstudio_url}/models", timeout=10.0)
+            
+            if response.status_code == 200:
+                models_data = response.json()
+                models = [model["id"] for model in models_data.get("data", [])]
+                return {
+                    "success": True,
+                    "models": models,
+                    "message": f"Found {len(models)} loaded model(s)"
+                }
+            else:
+                return {
+                    "success": False,
+                    "models": [],
+                    "message": f"LMStudio API error: {response.status_code}"
+                }
+                
+    except httpx.TimeoutException:
+        return {
+            "success": False,
+            "models": [],
+            "message": "Request timeout - LMStudio may be starting up"
+        }
+    except httpx.ConnectError:
+        return {
+            "success": False,
+            "models": [],
+            "message": "Cannot connect to LMStudio service"
+        }
+    except Exception as e:
+        logger.error(f"LMStudio models fetch error: {e}")
+        return {
+            "success": False,
+            "models": [],
+            "message": f"Error fetching models: {str(e)}"
+        }
+
+
 @test_router.post("/test-lmstudio-connection")
 async def api_test_lmstudio_connection(request: Request):
     """Test LMStudio connection and model availability."""
