@@ -506,6 +506,9 @@
         // Load backup configuration
         loadBackupSettings();
         
+        // Load dynamic LMStudio models
+        loadLMStudioModels();
+        
         // Update API Configuration section visibility
         updateApiConfigurationVisibility();
     }
@@ -545,6 +548,40 @@
             testApiKeyBtn.textContent = '🧪 Test LMStudio Connection';
         } else {
             apiSection.style.display = 'none';
+        }
+    }
+    
+    // Load LMStudio models dynamically
+    async function loadLMStudioModels() {
+        try {
+            const response = await fetch('/api/lmstudio-models');
+            const data = await response.json();
+            
+            if (data.success && data.models.length > 0) {
+                const select = document.getElementById('aiModel');
+                const lmstudioOption = select.querySelector('option[value="lmstudio"]');
+                
+                if (lmstudioOption) {
+                    // Update the option text to show the current model
+                    const currentModel = data.models[0]; // Use first loaded model
+                    lmstudioOption.textContent = `LMStudio (${currentModel})`;
+                    
+                    // Add a small indicator if multiple models are loaded
+                    if (data.models.length > 1) {
+                        lmstudioOption.textContent += ` (+${data.models.length - 1} more)`;
+                    }
+                }
+            } else {
+                // Fallback to default text if no models found
+                const select = document.getElementById('aiModel');
+                const lmstudioOption = select.querySelector('option[value="lmstudio"]');
+                if (lmstudioOption) {
+                    lmstudioOption.textContent = 'LMStudio (Local)';
+                }
+            }
+        } catch (error) {
+            console.log('Could not load LMStudio models:', error);
+            // Keep default text on error
         }
     }
     
