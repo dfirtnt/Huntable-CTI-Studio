@@ -88,15 +88,20 @@ async def api_rag_chat(request: Request):
         
         # Get the actual model name that would be used
         llm_provider = "template"
-        llm_model_name = "template"
+        llm_model_name = "Template"
+        llm_service = None
+        canonical_requested = None
         if use_llm_generation:
             try:
                 from src.services.llm_generation_service import get_llm_generation_service
                 llm_service = get_llm_generation_service()
-                # Just get the model name without calling it
+                canonical_requested = llm_service._canonicalize_requested_provider(requested_provider)
                 selected_provider = llm_service._select_provider(requested_provider)
                 llm_provider = selected_provider
-                llm_model_name = llm_service._get_model_name(selected_provider)
+                resolved_model = llm_service._get_model_name(selected_provider)
+                llm_model_name = llm_service._build_model_display(
+                    selected_provider, resolved_model, canonical_requested
+                )
             except Exception as e:
                 logger.warning(f"Could not determine LLM model: {e}")
 
@@ -138,9 +143,11 @@ async def api_rag_chat(request: Request):
             
             if use_llm_generation:
                 try:
-                    from src.services.llm_generation_service import get_llm_generation_service
-                    
-                    llm_service = get_llm_generation_service()
+                    if llm_service is None:
+                        from src.services.llm_generation_service import get_llm_generation_service
+
+                        llm_service = get_llm_generation_service()
+                        canonical_requested = llm_service._canonicalize_requested_provider(requested_provider)
                     generation_result = await llm_service.generate_rag_response(
                         query=message,
                         retrieved_chunks=relevant_articles,
@@ -150,7 +157,11 @@ async def api_rag_chat(request: Request):
                     
                     response = generation_result["response"]
                     llm_provider = generation_result["provider"]
-                    llm_model_name = generation_result.get("model_name", llm_provider)
+                    llm_model_name = (
+                        generation_result.get("model_display_name")
+                        or generation_result.get("model_name")
+                        or llm_provider
+                    )
                     logger.info(f"Generated LLM response using {llm_provider} ({llm_model_name})")
                     
                 except Exception as e:
@@ -217,6 +228,33 @@ async def api_rag_chat(request: Request):
                         else "- Multiple authoritative sources provide comprehensive coverage of malware detection techniques"
                     )
                 )
+
+                llm_provider = "template"
+                if llm_service is None:
+                    try:
+                        from src.services.llm_generation_service import get_llm_generation_service
+
+                        llm_service = get_llm_generation_service()
+                    except Exception:
+                        llm_service = None
+
+                if llm_service is not None and canonical_requested is None:
+                    try:
+                        canonical_requested = llm_service._canonicalize_requested_provider(requested_provider)
+                    except Exception:
+                        canonical_requested = None
+
+                if llm_service is not None:
+                    try:
+                        llm_model_name = llm_service._build_model_display(
+                            "template",
+                            "template",
+                            canonical_requested,
+                        )
+                    except Exception:
+                        llm_model_name = "Template"
+                else:
+                    llm_model_name = "Template"
 
                 response = (
                     "Based on our comprehensive threat intelligence analysis, here's my assessment of your query:\n\n"
@@ -324,4 +362,3 @@ async def api_rag_chat(request: Request):
     except Exception as exc:  # noqa: BLE001
         logger.error("RAG chat error: %s", exc)
         raise HTTPException(status_code=500, detail=str(exc)) from exc
-
