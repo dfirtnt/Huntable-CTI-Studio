@@ -565,11 +565,6 @@
                     // Update the option text to show the current model
                     const currentModel = data.models[0]; // Use first loaded model
                     lmstudioOption.textContent = `LMStudio (${currentModel})`;
-                    
-                    // Add a small indicator if multiple models are loaded
-                    if (data.models.length > 1) {
-                        lmstudioOption.textContent += ` (+${data.models.length - 1} more)`;
-                    }
                 }
             } else {
                 // Fallback to default text if no models found
