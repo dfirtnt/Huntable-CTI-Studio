@@ -293,11 +293,11 @@
                     </label>
                     <select id="aiModel" 
                             class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
-                        <option value="chatgpt">OpenAI -> ChatGPT</option>
-                        <option value="anthropic">Anthropic -> Claude</option>
-                        <option value="ollama">Ollama -> Llama 3.2 1B</option>
-                        <option value="tinyllama">Ollama -> TinyLlama</option>
-                        <option value="lmstudio">LMStudio -> Local</option>
+                        <option value="chatgpt">OpenAI → GPT-4o-mini</option>
+                        <option value="anthropic">Anthropic → Claude Sonnet 4.5</option>
+                        <option value="ollama">Ollama → llama3.2:1b</option>
+                        <option value="tinyllama">Ollama → tinyllama:1.1b</option>
+                        <option value="lmstudio">LMStudio → llama-3.2-1b-instruct</option>
                     </select>
                     <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Choose your preferred AI model for summaries and analysis</p>
                 </div>
@@ -328,11 +328,11 @@
                     <div class="text-sm text-blue-800">
                         <p class="font-medium mb-1">Model Details:</p>
                         <ul class="list-disc list-inside space-y-1">
-                            <li><strong>ChatGPT:</strong> Fast, high-quality responses (requires OpenAI API key)</li>
-                            <li><strong>Claude:</strong> Advanced reasoning, long context (requires Anthropic API key)</li>
-                            <li><strong>Llama 3.2 1B:</strong> Local processing, no API costs (fast and private)</li>
-                            <li><strong>TinyLlama:</strong> Ultra-lightweight local model, fastest processing (no API costs)</li>
-                            <li><strong>LMStudio:</strong> Local model via LMStudio, supports various models (no API costs)</li>
+                            <li><strong>GPT-4o-mini:</strong> Fast, high-quality responses, cost-efficient (requires OpenAI API key)</li>
+                            <li><strong>Claude Sonnet 4.5:</strong> Advanced reasoning, cybersecurity-optimized, long context (requires Anthropic API key)</li>
+                            <li><strong>llama3.2:1b:</strong> Local processing via Ollama, no API costs (fast and private)</li>
+                            <li><strong>tinyllama:1.1b:</strong> Ultra-lightweight local model, fastest processing (no API costs)</li>
+                            <li><strong>llama-3.2-1b-instruct:</strong> Local model via LMStudio, no API costs</li>
                         </ul>
                     </div>
                 </div>
@@ -932,6 +932,19 @@
         
         // Export annotations button
         document.getElementById('exportAnnotationsBtn').addEventListener('click', exportAnnotations);
+        
+        // Handle Enter key in input fields
+        ['backupDirectory', 'sigmaAuthor', 'openaiApiKey', 'anthropicApiKey', 'dailyRetention', 'weeklyRetention', 'monthlyRetention', 'maxSizeGb'].forEach(id => {
+            const element = document.getElementById(id);
+            if (element) {
+                element.addEventListener('keypress', function(e) {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        saveSettings();
+                    }
+                });
+            }
+        });
         
     });
     
