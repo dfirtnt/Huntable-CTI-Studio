@@ -124,9 +124,9 @@ The system supports multiple AI models:
 - Best for: High-quality rule generation
 
 **Claude (Anthropic)**
-- Model: claude-3-haiku-20240307
+- Model: claude-sonnet-4-5
 - API Key: Required in request body
-- Best for: Complex analysis and reasoning
+- Best for: Complex analysis and reasoning, cybersecurity tasks
 
 **Ollama (Local LLM)**
 - Model: llama3.2:1b (configurable)
