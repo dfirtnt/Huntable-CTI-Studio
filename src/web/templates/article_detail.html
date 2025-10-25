@@ -321,13 +321,6 @@
                     AL/ML Assistant
                 </button>
                 
-                <!-- Debug Mode Checkbox -->
-                <div class="mt-2 flex items-center">
-                    <input type="checkbox" id="debugModeCheckbox" class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
-                    <label for="debugModeCheckbox" class="ml-2 text-sm text-gray-700">
-                        🐛 Debug Mode (Show LLM Conversation)
-                    </label>
-                </div>
                 
                 <!-- Popover explanation -->
                 <div id="aiAssistantPopover" class="absolute z-10 top-full left-0 mt-2 hidden w-64">
@@ -550,7 +543,6 @@
                 
                 <div class="mb-4 text-sm text-gray-600">
                     <span class="font-medium">Prompt Template:</span> This is the canned prompt sent to the LLM for this analysis.
-                    ${modelInfo ? `<br><span class="font-medium">Model:</span> ${modelInfo}` : ''}
                 </div>
                 
                 <div class="bg-gray-50 p-4 rounded-lg max-h-96 overflow-y-auto">
@@ -628,7 +620,7 @@ Return a JSON array of IOC objects with the following structure:
 
 **Threat Intelligence Content:**
 {content}`;
-        showHelpModal('IOC Extraction Prompt', promptContent, 'GPT-4o-mini');
+        showHelpModal('IOC Extraction Prompt', promptContent);
     }
 
     function showSigmaHelp() {
@@ -684,7 +676,7 @@ references:
 
 **Threat Intelligence Content:**
 {content}`;
-        showHelpModal('SIGMA Generation Prompt', promptContent, 'GPT-4o-mini');
+        showHelpModal('SIGMA Generation Prompt', promptContent);
     }
 
     function showRankingHelp() {
@@ -838,7 +830,7 @@ Please analyze the following blog content:
 
 **Content:**
 {content}`;
-        showHelpModal('GPT-4O SIGMA Huntability Analysis Prompt', promptContent, 'GPT-4O');
+        showHelpModal('LLM SIGMA Huntability Analysis Prompt', promptContent, 'LLM');
     }
 
     function showCustomHelp() {
@@ -3037,14 +3029,12 @@ Please provide a detailed analysis based on the article content and the user's s
             const endpoint = type === 'sigma' ? 'generate-sigma' : type === 'ranking' ? 'rank-with-gpt4o' : 'extract-iocs';
             
             // Prepare request body
-            const debugCheckbox = document.getElementById('debugModeCheckbox');
             const requestBody = {
                 include_content: true,
                 api_key: apiKey,
                 force_regenerate: forceRegenerate,
                 ai_model: aiModel,
-                temperature: parseFloat(settings.aiTemperature || '0.3'),
-                debug_mode: debugCheckbox ? debugCheckbox.checked : false
+                temperature: parseFloat(settings.aiTemperature || '0.3')
             };
             
             // Add LLM validation setting for IOC extraction
@@ -3529,11 +3519,11 @@ Please provide a detailed analysis based on the article content and the user's s
         `;
         document.body.appendChild(modal);
         
-        // Add Enter key handler to textarea
+        // Add Cmd/Ctrl+Enter key handler to textarea
         const textarea = document.getElementById('customPrompt');
         if (textarea) {
             textarea.addEventListener('keydown', function(e) {
-                if (e.key === 'Enter' && !e.shiftKey) {
+                if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
                     e.preventDefault();
                     generateCustomPrompt();
                 }
@@ -4037,10 +4027,17 @@ Please provide a detailed analysis based on the article content and the user's s
                 ${validationStatusHtml}
 
                 <div class="mt-4">
-                    <h4 class="text-md font-medium text-gray-900 mb-2">🔄 LLM ↔ pySigma Conversation Log</h4>
+                    <div class="flex items-center justify-between mb-2">
+                        <h4 class="text-md font-medium text-gray-900">🔄 LLM ↔ pySigma Conversation Log</h4>
+                        <button id="toggleSigmaConversation" class="text-sm text-blue-600 hover:text-blue-800 px-3 py-1 border border-blue-300 rounded hover:bg-blue-50">
+                            Show Log
+                        </button>
+                    </div>
                     <div class="text-xs text-gray-600 mb-2">Shows the iterative validation process between the LLM and pySigma validator</div>
-                    <div id="sigmaConversation" class="space-y-4 max-h-96 overflow-y-auto p-4 bg-gray-50 rounded border">
-                        <!-- Filled by script below -->
+                    <div id="sigmaConversationContent" style="display: none;">
+                        <div id="sigmaConversation" class="space-y-4 max-h-96 overflow-y-auto p-4 bg-gray-50 rounded border">
+                            <!-- Filled by script below -->
+                        </div>
                     </div>
                 </div>
                 
@@ -4059,6 +4056,21 @@ Please provide a detailed analysis based on the article content and the user's s
         
         document.body.appendChild(modal);
 
+        // Add toggle functionality for conversation log
+        const toggleButton = document.getElementById('toggleSigmaConversation');
+        const conversationContent = document.getElementById('sigmaConversationContent');
+        if (toggleButton && conversationContent) {
+            toggleButton.addEventListener('click', function() {
+                if (conversationContent.style.display === 'none') {
+                    conversationContent.style.display = 'block';
+                    toggleButton.textContent = 'Hide Log';
+                } else {
+                    conversationContent.style.display = 'none';
+                    toggleButton.textContent = 'Show Log';
+                }
+            });
+        }
+        
         // Render conversation entries if present
         try {
             console.log('DEBUG: data object:', data);
@@ -4322,15 +4334,22 @@ Please provide a detailed analysis based on the article content and the user's s
                 
                 ${(data?.llm_prompt || data?.metadata?.prompt) ? `
                 <div class="mt-6 border-t pt-4">
-                    <h4 class="font-medium text-gray-900 mb-3">LLM Prompt & Response</h4>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div class="bg-blue-50 p-3 rounded border border-blue-200">
-                            <h5 class="font-medium text-blue-900 mb-2">Prompt</h5>
-                            <pre class="text-xs text-blue-800 bg-white p-2 rounded overflow-x-auto max-h-64">${(data.llm_prompt || data.metadata.prompt).substring(0, 1000)}...</pre>
-                        </div>
-                        <div class="bg-green-50 p-3 rounded border border-green-200">
-                            <h5 class="font-medium text-green-900 mb-2">Response</h5>
-                            <pre class="text-xs text-green-800 bg-white p-2 rounded overflow-x-auto max-h-64">${(data.llm_response || data.metadata.response)?.substring(0, 1000)}...</pre>
+                    <div class="flex items-center justify-between mb-2">
+                        <h4 class="font-medium text-gray-900">LLM Prompt & Response</h4>
+                        <button id="toggleIocLlmLog" class="text-sm text-blue-600 hover:text-blue-800 px-3 py-1 border border-blue-300 rounded hover:bg-blue-50">
+                            Show Log
+                        </button>
+                    </div>
+                    <div id="iocLlmLogContent" style="display: none;">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div class="bg-blue-50 p-3 rounded border border-blue-200">
+                                <h5 class="font-medium text-blue-900 mb-2">Prompt</h5>
+                                <pre class="text-xs text-blue-800 bg-white p-2 rounded overflow-x-auto max-h-64">${(data.llm_prompt || data.metadata.prompt).substring(0, 1000)}...</pre>
+                            </div>
+                            <div class="bg-green-50 p-3 rounded border border-green-200">
+                                <h5 class="font-medium text-green-900 mb-2">Response</h5>
+                                <pre class="text-xs text-green-800 bg-white p-2 rounded overflow-x-auto max-h-64">${(data.llm_response || data.metadata.response)?.substring(0, 1000)}...</pre>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -4367,6 +4386,21 @@ Please provide a detailed analysis based on the article content and the user's s
         `;
         
         document.body.appendChild(modal);
+        
+        // Add toggle functionality for IOC LLM log
+        const iocLlmToggleButton = document.getElementById('toggleIocLlmLog');
+        const iocLlmLogContent = document.getElementById('iocLlmLogContent');
+        if (iocLlmToggleButton && iocLlmLogContent) {
+            iocLlmToggleButton.addEventListener('click', function() {
+                if (iocLlmLogContent.style.display === 'none') {
+                    iocLlmLogContent.style.display = 'block';
+                    iocLlmToggleButton.textContent = 'Hide Log';
+                } else {
+                    iocLlmLogContent.style.display = 'none';
+                    iocLlmToggleButton.textContent = 'Show Log';
+                }
+            });
+        }
     }
     
     function closeIOCsModal() {
@@ -4410,7 +4444,7 @@ Please provide a detailed analysis based on the article content and the user's s
                         if (model.includes('claude')) return 'CLAUDE';
                         if (model.includes('gpt')) return 'GPT-4O';
                         return model.toUpperCase();
-                    })() : 'GPT-4O'} SIGMA Huntability Analysis</h3>
+                    })() : 'LLM'} SIGMA Huntability Analysis</h3>
                     <div class="flex items-center space-x-2">
                         <button onclick="showRankingHelp()" class="text-blue-500 hover:text-blue-700 text-sm px-2 py-1 rounded border border-blue-300 hover:bg-blue-50">
                             <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">

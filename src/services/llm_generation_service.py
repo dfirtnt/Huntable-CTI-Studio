@@ -180,6 +180,8 @@ You analyze retrieved CTI article content to answer user questions about threat 
             return "claude-3-haiku-20240307"
         elif provider == "ollama":
             return self.ollama_model
+        elif provider == "lmstudio":
+            return self.lmstudio_model
         else:
             return "template"
     
