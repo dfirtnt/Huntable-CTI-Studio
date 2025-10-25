@@ -418,10 +418,11 @@
         );
     };
 
-    // Render the chat component
+    // Render the chat component using React 18 createRoot
     const container = document.getElementById('rag-chat-container');
     if (container) {
-        ReactDOM.render(<RAGChat />, container);
+        const root = ReactDOM.createRoot(container);
+        root.render(<RAGChat />);
     }
 </script>
 {% endblock %}

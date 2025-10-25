@@ -16,7 +16,7 @@ const RAGChat = () => {
     useChunks: false,  // Disable chunk-level search until annotations have embeddings
     contextLength: 2000,  // Context length per chunk
     useLLMGeneration: true,  // Enable LLM synthesis by default
-    llmProvider: 'auto'  // Auto-select best available provider
+    llmProvider: 'auto'  // Will be set from Settings in useEffect
   });
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
@@ -28,6 +28,20 @@ const RAGChat = () => {
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+  
+  // Load AI model from Settings on mount
+  useEffect(() => {
+    const ctiSettings = localStorage.getItem('ctiScraperSettings');
+    if (ctiSettings) {
+      try {
+        const parsed = JSON.parse(ctiSettings);
+        const aiModel = parsed.aiModel || 'auto';
+        setSettings(prev => ({ ...prev, llmProvider: aiModel }));
+      } catch (e) {
+        console.error('Failed to parse settings:', e);
+      }
+    }
+  }, []);
 
   const handleSendMessage = async () => {
     if (!inputMessage.trim() || isLoading) return;
@@ -43,6 +57,7 @@ const RAGChat = () => {
     setIsLoading(true);
 
     try {
+      console.log('Sending RAG request with provider:', settings.llmProvider);
       const response = await fetch('/api/chat/rag', {
         method: 'POST',
         headers: {
@@ -71,7 +86,8 @@ const RAGChat = () => {
         content: data.response,
         timestamp: data.timestamp,
         relevantArticles: data.relevant_articles,
-        totalResults: data.total_results
+        totalResults: data.total_results,
+        llmModelName: data.llm_model_name || data.llmModelName
       };
 
       setMessages(prev => [...prev, assistantMessage]);
