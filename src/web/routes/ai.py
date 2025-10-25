@@ -133,7 +133,7 @@ async def api_test_anthropic_key(request: Request):
                     "anthropic-version": "2023-06-01"
                 },
                 json={
-                    "model": "claude-3-haiku-20240307",
+                    "model": "claude-sonnet-4-5",
                     "max_tokens": 5,
                     "messages": [{"role": "user", "content": "Hello"}]
                 },
@@ -399,7 +399,7 @@ async def api_rank_with_gpt4o(article_id: int, request: Request):
                         "anthropic-version": "2023-06-01"
                     },
                     json={
-                        "model": "claude-3-haiku-20240307",
+                        "model": "claude-sonnet-4-5",
                         "max_tokens": 2000,
                         "temperature": 0.3,
                         "messages": [
@@ -420,7 +420,7 @@ async def api_rank_with_gpt4o(article_id: int, request: Request):
                 result = response.json()
                 analysis = result['content'][0]['text']
                 model_used = 'anthropic'
-                model_name = 'claude-3-haiku-20240307'
+                model_name = 'claude-sonnet-4-5'
         elif ai_model == 'tinyllama':
             # Use Ollama API with TinyLlama model
             ollama_url = os.getenv('LLM_API_URL', 'http://cti_ollama:11434')
@@ -1341,7 +1341,7 @@ Please provide a detailed analysis based on the article content and the user's r
                         "anthropic-version": "2023-06-01"
                     },
                     json={
-                        "model": "claude-3-haiku-20240307",
+                        "model": "claude-sonnet-4-5",
                         "max_tokens": 2000,
                         "messages": [
                             {
@@ -1361,7 +1361,7 @@ Please provide a detailed analysis based on the article content and the user's r
                 result = response.json()
                 analysis = result['content'][0]['text']
                 model_used = 'anthropic'
-                model_name = 'claude-3-haiku-20240307'
+                model_name = 'claude-sonnet-4-5'
         elif ai_model == 'ollama':
             # Use Ollama API
             ollama_url = os.getenv('LLM_API_URL', 'http://cti_ollama:11434')

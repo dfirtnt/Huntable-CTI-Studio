@@ -11,54 +11,17 @@
 
     <!-- Settings Sections -->
     <div class="space-y-8">
-        <!-- Classification Settings -->
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-            <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">🏷️ Classification Settings</h2>
-            
-            <div class="space-y-4">
-                <!-- Comment Prompts Toggle -->
-                <div class="flex items-center justify-between">
-                    <div>
-                        <h3 class="text-lg font-medium text-gray-900 dark:text-white">Comment Prompts</h3>
-                        <p class="text-sm text-gray-600 dark:text-gray-400">Show comment prompts when classifying articles as Chosen or Rejected</p>
-                    </div>
-                    <div class="flex items-center">
-                        <button id="commentPromptsToggle" 
-                                class="relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-                                role="switch" aria-checked="false">
-                            <span class="sr-only">Enable comment prompts</span>
-                            <span class="inline-block h-4 w-4 transform rounded-full bg-white transition-transform"></span>
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Display Settings -->
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-            <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">📊 Display Settings</h2>
-            
-            <div class="space-y-4">
-                <!-- Articles Per Page -->
-                <div>
-                    <label for="articlesPerPage" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                        Articles Per Page
-                    </label>
-                    <select id="articlesPerPage" 
-                            class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
-                        <option value="20">20</option>
-                        <option value="50">50</option>
-                        <option value="100" selected>100</option>
-                    </select>
-                </div>
-            </div>
-        </div>
 
         <!-- Backup Configuration -->
         <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-            <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">💾 Backup Configuration</h2>
+            <div class="flex items-center justify-between cursor-pointer" onclick="toggleBackupConfig()">
+                <h2 class="text-xl font-semibold text-gray-900 dark:text-white">💾 Backup Configuration</h2>
+                <svg id="backupConfigChevron" class="w-5 h-5 text-gray-500 dark:text-gray-400 transform transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                </svg>
+            </div>
             
-            <div class="space-y-6">
+            <div id="backupConfigContent" class="space-y-6 hidden">
                 <!-- Backup Schedule -->
                 <div>
                     <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-3">🕐 Schedule</h3>
@@ -474,13 +437,7 @@
     function loadSettings() {
         const settings = JSON.parse(localStorage.getItem('ctiScraperSettings') || '{}');
         
-        // Set comment prompts toggle
-        const commentPromptsEnabled = settings.commentPromptsEnabled === true; // Default to false
-        setToggleState('commentPromptsToggle', commentPromptsEnabled);
         
-        // Set articles per page
-        const articlesPerPage = settings.articlesPerPage || '100';
-        document.getElementById('articlesPerPage').value = articlesPerPage;
         
         // Set OpenAI API key
         const openaiApiKey = settings.openaiApiKey || '';
@@ -613,8 +570,6 @@
     // Save settings to localStorage
     function saveSettings() {
         const settings = {
-            commentPromptsEnabled: getToggleState('commentPromptsToggle'),
-            articlesPerPage: document.getElementById('articlesPerPage').value,
             openaiApiKey: document.getElementById('openaiApiKey').value,
             anthropicApiKey: document.getElementById('anthropicApiKey').value,
             aiModel: document.getElementById('aiModel').value,
@@ -863,6 +818,20 @@
         setToggleState(toggleId, !currentState);
     }
     
+    // Toggle backup configuration section
+    function toggleBackupConfig() {
+        const content = document.getElementById('backupConfigContent');
+        const chevron = document.getElementById('backupConfigChevron');
+        
+        if (content.classList.contains('hidden')) {
+            content.classList.remove('hidden');
+            chevron.style.transform = 'rotate(180deg)';
+        } else {
+            content.classList.add('hidden');
+            chevron.style.transform = 'rotate(0deg)';
+        }
+    }
+    
     // Show success notification
     function showSuccessNotification() {
         const notification = document.getElementById('successNotification');
@@ -877,10 +846,6 @@
     document.addEventListener('DOMContentLoaded', function() {
         loadSettings();
         
-        // Comment prompts toggle
-        document.getElementById('commentPromptsToggle').addEventListener('click', function() {
-            toggleSwitch('commentPromptsToggle');
-        });
         
         // AI model selection
         document.getElementById('aiModel').addEventListener('change', function() {

@@ -185,7 +185,7 @@ You analyze retrieved CTI article content to answer user questions about threat 
         if provider == "openai":
             return "gpt-4o-mini"
         if provider == "anthropic":
-            return "claude-3-haiku-20240307"
+            return "claude-sonnet-4-5"
         if provider == "ollama":
             return self.ollama_model
         if provider == "tinyllama":
@@ -258,7 +258,7 @@ You analyze retrieved CTI article content to answer user questions about threat 
         elif provider == "openai":
             detail = model_name or "gpt-4o-mini"
         elif provider == "anthropic":
-            detail = model_name or "claude-3-haiku-20240307"
+            detail = model_name or "claude-sonnet-4-5"
 
         provider_label = self._format_provider_name(base_provider)
         detail = detail.strip()
@@ -393,7 +393,7 @@ You analyze retrieved CTI article content to answer user questions about threat 
                     "anthropic-version": "2023-06-01"
                 },
                 json={
-                    "model": "claude-3-haiku-20240307",
+                    "model": "claude-sonnet-4-5",
                     "max_tokens": 2000,
                     "system": system_prompt,
                     "messages": [

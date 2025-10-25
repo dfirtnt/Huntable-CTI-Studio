@@ -2505,15 +2505,6 @@ Please provide a detailed analysis based on the article content and the user's s
     async function classifyArticle(category) {
         const articleId = {{ article.id }};
         
-        // Check if comment prompts are enabled
-        const settings = JSON.parse(localStorage.getItem('ctiScraperSettings') || '{}');
-        const commentPromptsEnabled = settings.commentPromptsEnabled === true; // Default to false
-        
-        let reason = null;
-        if (commentPromptsEnabled && (category === 'chosen' || category === 'rejected')) {
-            reason = prompt(`Reason for marking as ${category} (optional):`);
-        }
-        
         try {
             const response = await fetch(`/api/articles/${articleId}/classify`, {
                 method: 'POST',
@@ -2521,8 +2512,7 @@ Please provide a detailed analysis based on the article content and the user's s
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
-                    category: category,
-                    reason: reason || null
+                    category: category
                 })
             });
             

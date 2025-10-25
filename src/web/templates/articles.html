@@ -690,7 +690,7 @@
         }
         
         // Load settings
-        updateCommentPromptsStatus();
+        // Note: Comment prompts functionality removed
     });
 
     // Note: Removed auto-submit on typing to prevent focus loss while entering text.
@@ -815,14 +815,6 @@
     async function classifyArticle(category) {
         if (!currentArticleId) return;
         
-        let reason = '';
-        const commentPromptsEnabled = JSON.parse(localStorage.getItem('ctiScraperSettings') || '{}').commentPromptsEnabled === true;
-        
-        if (commentPromptsEnabled && category !== 'unclassified') {
-            reason = prompt(`Why are you marking this article as ${category}? (optional)`);
-            if (reason === null) return; // User cancelled
-        }
-        
         try {
             const response = await fetch(`/api/articles/${currentArticleId}/classify`, {
                 method: 'POST',
@@ -830,8 +822,7 @@
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
-                    category: category,
-                    reason: reason
+                    category: category
                 })
             });
             
@@ -843,7 +834,6 @@
             if (currentArticleData) {
                 currentArticleData.metadata = currentArticleData.metadata || {};
                 currentArticleData.metadata.training_category = category;
-                currentArticleData.metadata.training_reason = reason;
                 currentArticleData.metadata.training_categorized_at = new Date().toISOString();
                 
                 updateCurrentClassification(currentArticleData);
@@ -935,11 +925,6 @@
         }, 3000);
     }
     
-    function updateCommentPromptsStatus() {
-        const settings = JSON.parse(localStorage.getItem('ctiScraperSettings') || '{}');
-        const commentPromptsEnabled = settings.commentPromptsEnabled === true;
-        // This function can be used to update UI elements based on settings
-    }
     
     // Close modal when clicking outside
     document.getElementById('classificationModal').addEventListener('click', function(e) {
