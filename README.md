@@ -18,18 +18,16 @@ A comprehensive threat intelligence aggregation and analysis platform designed f
 - **Source Health Monitoring**: Real-time monitoring with automatic failure detection and recovery
 
 ### 🤖 AI-Powered Analysis
-- **Threat Hunting Scoring**: Rule-based relevance scoring using keyword density and logarithmic formulas
-- **Multi-Provider LLM Integration**: Support for OpenAI GPT-4o, Anthropic Claude, and Ollama (local)
-- **Intelligent Classification**: GPT-4 powered article relevance assessment and categorization
+- **Threat Hunting Scoring**: Rule-based relevance scoring using logarithmic formulas
+- **Multi-Provider LLM Integration**: Support for OpenAI GPT-4o, Anthropic Claude, LMStudio (local), and Ollama (local)
 - **IOC Extraction**: Hybrid IOC extraction combining iocextract with optional LLM validation
 - **SIGMA Rule Generation**: AI-powered generation of detection rules with pySIGMA validation
 - **RAG Chat Interface**: Conversational AI with threat intelligence database using semantic search
 - **Vector Embeddings**: Sentence Transformers (all-mpnet-base-v2) for 768-dimensional semantic similarity
 - **ML-Powered Content Filtering**: Machine learning model for automated chunk classification
-- **Interactive Feedback System**: User feedback collection for continuous model improvement
+- **Interactive Feedback System**: User feedback collection for continuous ML model improvement
 - **Model Versioning & Comparison**: Track model performance changes and confidence improvements
 - **Conversational Context**: Multi-turn conversation support with context memory
-- **Synthesized Responses**: LLM-generated analysis instead of raw article excerpts
 
 ### 📊 Advanced Analytics
 - **Text Annotation System**: Web-based interface for marking huntable vs non-huntable content
