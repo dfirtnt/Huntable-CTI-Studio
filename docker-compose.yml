@@ -75,6 +75,8 @@ services:
       - ./models:/app/models
       - ./outputs:/app/outputs
       - ./scripts:/app/scripts
+      - ./allure-results:/app/allure-results
+      - ./test-results:/app/test-results
       - /var/run/docker.sock:/var/run/docker.sock
       - /var/db/timezone/zoneinfo/America/New_York:/etc/localtime:ro
     depends_on:
@@ -109,6 +111,8 @@ services:
       - ./outputs:/app/outputs
       - ./models:/app/models
       - ./scripts:/app/scripts
+      - ./allure-results:/app/allure-results
+      - ./test-results:/app/test-results
     depends_on:
       postgres:
         condition: service_healthy

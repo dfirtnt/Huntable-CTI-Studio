@@ -74,7 +74,12 @@ class PerformanceProfiler:
         
         # Create output directory
         self.output_dir = Path(self.config.profile_output_dir)
-        self.output_dir.mkdir(parents=True, exist_ok=True)
+        try:
+            self.output_dir.mkdir(parents=True, exist_ok=True)
+        except (FileNotFoundError, OSError) as e:
+            # If directory creation fails, use current directory as fallback
+            self.output_dir = Path.cwd() / "profiling_fallback"
+            self.output_dir.mkdir(parents=True, exist_ok=True)
     
     @contextmanager
     def profile_test(self, test_name: str):

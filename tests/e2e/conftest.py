@@ -49,3 +49,31 @@ def page(context):
     page = context.new_page()
     yield page
     page.close()
+
+@pytest.fixture
+def firefox_page(playwright_context):
+    """Firefox browser page for multi-browser testing"""
+    browser = playwright_context.firefox.launch(headless=True)
+    context = browser.new_context(
+        viewport={"width": 1280, "height": 720},
+        ignore_https_errors=True,
+    )
+    page = context.new_page()
+    yield page
+    page.close()
+    context.close()
+    browser.close()
+
+@pytest.fixture
+def webkit_page(playwright_context):
+    """WebKit (Safari) browser page for multi-browser testing"""
+    browser = playwright_context.webkit.launch(headless=True)
+    context = browser.new_context(
+        viewport={"width": 1280, "height": 720},
+        ignore_https_errors=True,
+    )
+    page = context.new_page()
+    yield page
+    page.close()
+    context.close()
+    browser.close()

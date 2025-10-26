@@ -20,6 +20,12 @@ from unittest.mock import AsyncMock, MagicMock
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
+# Import AI test fixtures
+try:
+    from tests.conftest_ai import ai_test_config
+except ImportError:
+    pass  # AI fixtures not required for all tests
+
 # Import test environment utilities (optional)
 try:
     from tests.utils.test_environment import (

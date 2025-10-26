@@ -1,15 +1,33 @@
 # CTI Scraper Smoke Test Documentation
 
+## Quick Start
+
+**Run smoke tests:**
+```bash
+python3 run_tests.py smoke
+```
+
+**Duration:** ~15 seconds | **Tests:** 26 passed ✅
+
 ## Overview
 
-Smoke tests provide rapid health checks of critical system functionality, completing in ~30 seconds for quick verification.
+Smoke tests provide rapid health checks of critical system functionality, completing in ~15 seconds for quick verification.
 
 ## Current Coverage
 
-### ✅ Existing Smoke Tests (16 tests)
-- **API Tests**: Dashboard, articles, sources, RAG chat endpoints
-- **Integration Tests**: System startup verification
-- **UI Tests**: Basic navigation and functionality (requires Playwright setup)
+### ✅ Smoke Tests (26 tests)
+- **System Health** (3): Health endpoints, core endpoints, database connectivity
+- **Service Health** (3): External services, ingestion pipeline, deduplication
+- **Data Pipeline** (2): Article processing, source management
+- **ML Services** (2): RAG, embeddings
+- **Security** (2): Security headers, API error handling
+- **Backup System** (1): Backup endpoints
+- **Performance** (2): Response times, concurrency
+- **Background Jobs** (3): Celery workers, job queues, task status
+- **Search** (2): Search functionality, help
+- **Analytics** (3): Dashboard, scraper overview, hunt metrics
+- **Article Operations** (2): Next unclassified, annotations stats
+- **Export** (1): CSV export
 
 ### 🚧 Coverage Gaps Identified
 
@@ -61,15 +79,24 @@ Smoke tests provide rapid health checks of critical system functionality, comple
 ## Running Smoke Tests
 
 ### Quick Health Check
-```bash
-# Run all smoke tests
-python run_tests.py --smoke
 
-# Run new critical smoke tests only
-python tests/smoke/run_smoke_tests.py
+**Simplest command:**
+```bash
+python3 run_tests.py smoke
+```
+
+**Alternative methods:**
+```bash
+# Using venv python directly
+.venv/bin/python -m pytest tests/smoke/test_critical_smoke_tests.py -m smoke -v
+
+# Activate venv first
+source .venv/bin/activate
+python -m pytest tests/smoke/test_critical_smoke_tests.py -m smoke -v
+deactivate
 
 # Run in Docker
-python tests/smoke/run_smoke_tests.py --docker
+docker exec cti_web pytest tests/smoke/test_critical_smoke_tests.py -m smoke -v
 ```
 
 ### Test Configuration

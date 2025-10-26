@@ -119,38 +119,40 @@ if [[ ! -f "run_tests.py" ]]; then
     exit 1
 fi
 
-# Set up virtual environment
+# Set up and use virtual environment
 setup_venv() {
     local venv_path=".venv"
     
-    # Check if .venv exists
+    # Create venv if it doesn't exist
     if [[ ! -d "$venv_path" ]]; then
-        print_status "Creating virtual environment..."
+        print_status "Creating virtual environment at .venv..."
         python3 -m venv "$venv_path"
     fi
     
-    # Activate virtual environment
-    print_status "Activating virtual environment..."
-    source "$venv_path/bin/activate"
-    
-    # Install/upgrade dependencies if needed
-    if [[ "$INSTALL" == true ]] || [[ ! -f "$venv_path/pyvenv.cfg" ]]; then
-        print_status "Installing test dependencies..."
-        pip install -q --upgrade pip
-        pip install -q -r requirements.txt
-        pip install -q -r requirements-test.txt
+    # Ensure venv has required dependencies
+    if [[ "$INSTALL" == true ]] || [[ ! -f "$venv_path/.installed" ]]; then
+        print_status "Installing/updating test dependencies in venv..."
+        "$venv_path/bin/pip" install -q --upgrade pip
+        "$venv_path/bin/pip" install -q -r requirements.txt
+        "$venv_path/bin/pip" install -q -r requirements-test.txt
+        touch "$venv_path/.installed"
     fi
 }
 
-# Set up virtual environment
+# Always set up and use virtual environment
 setup_venv
 
-# Build the command - use venv python if available
-if [[ -f ".venv/bin/python" ]]; then
-    CMD=".venv/bin/python run_tests.py"
+# Always use venv python
+if [[ -f ".venv/bin/python3" ]]; then
+    VENV_PYTHON=".venv/bin/python3"
+elif [[ -f ".venv/bin/python" ]]; then
+    VENV_PYTHON=".venv/bin/python"
 else
-    CMD="python run_tests.py"
+    print_error "Virtual environment not properly set up"
+    exit 1
 fi
+
+CMD="$VENV_PYTHON run_tests.py"
 
 # Add test type (positional argument)
 case "$TEST_TYPE" in
