@@ -25,120 +25,6 @@
         <p class="text-gray-600 dark:text-gray-400">Manage and monitor your threat intelligence collection sources</p>
     </div>
 
-    <!-- Header Stats -->
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-8">
-        <div class="flex items-center justify-between">
-            <div>
-                <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">📊 Source Statistics</h2>
-            </div>
-            <button id="sourceStatsToggle" class="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors duration-200">
-                <svg class="w-5 h-5 transform transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
-                </svg>
-            </button>
-        </div>
-        <div id="sourceStatsContent" class="hidden">
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div class="text-center">
-                    <div class="text-2xl font-bold text-blue-600 dark:text-blue-400">{{ sources|length }}</div>
-                    <div class="text-sm text-gray-500 dark:text-gray-400">Total Sources</div>
-                </div>
-                <div class="text-center">
-                    <div class="text-2xl font-bold text-green-600 dark:text-green-400">{{ sources|selectattr('active')|list|length }}</div>
-                    <div class="text-sm text-gray-500 dark:text-gray-400">Active</div>
-                </div>
-                <div class="text-center">
-                    <div class="text-2xl font-bold text-purple-600 dark:text-purple-400">{{ sources|selectattr('rss_url')|list|length }}</div>
-                    <div class="text-sm text-gray-500 dark:text-gray-400">RSS Sources</div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Quality Summary -->
-    {% if quality_stats %}
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-8">
-        <div class="flex items-center justify-between">
-            <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">📈 Quality Overview</h2>
-            <button id="qualityOverviewToggle" class="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors duration-200">
-                <svg class="w-5 h-5 transform transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
-                </svg>
-            </button>
-        </div>
-        <div id="qualityOverviewContent" class="hidden">
-            <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
-                <div class="text-center">
-                    <p class="text-2xl font-bold text-gray-900 dark:text-white">{{ total_articles }}</p>
-                    <p class="text-sm text-gray-500 dark:text-gray-400">Total Articles</p>
-                </div>
-                <div class="text-center">
-                    <p class="text-2xl font-bold text-red-600 dark:text-red-400">{{ quality_stats.values()|sum(attribute='rejected_count') }}</p>
-                    <p class="text-sm text-gray-500 dark:text-gray-400">Total Rejected</p>
-                </div>
-                <div class="text-center">
-                    <p class="text-2xl font-bold text-green-600 dark:text-green-400">{{ quality_stats.values()|sum(attribute='chosen_count') }}</p>
-                    <p class="text-sm text-gray-500 dark:text-gray-400">Total Chosen</p>
-                </div>
-                <div class="text-center">
-                    {% set total_rejected = quality_stats.values()|sum(attribute='rejected_count') %}
-                    {% if total_articles > 0 %}
-                        <p class="text-2xl font-bold text-blue-600 dark:text-blue-400">{{ (total_rejected / total_articles * 100)|round(1) }}%</p>
-                    {% else %}
-                        <p class="text-2xl font-bold text-blue-600 dark:text-blue-400">0%</p>
-                    {% endif %}
-                    <p class="text-sm text-gray-500 dark:text-gray-400">Overall Rejection Rate</p>
-                </div>
-            </div>
-            
-            <!-- Sources Requiring Attention -->
-            <div class="border-t pt-4">
-            <h4 class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">📊 Rejection Rate Analysis</h4>
-            {% set high_rejection = [] %}
-            {% set moderate_rejection = [] %}
-            {% set low_rejection = [] %}
-            
-            {% for source in sources %}
-                {% if source.id in quality_stats %}
-                    {% set stat = quality_stats[source.id] %}
-                    {% set rate = stat.rejection_rate|float %}
-                    {% if rate > 70 %}
-                        {% set high_rejection = high_rejection + [source.name + ' (' + stat.rejection_rate|string + '%)'] %}
-                    {% elif rate > 50 %}
-                        {% set moderate_rejection = moderate_rejection + [source.name + ' (' + stat.rejection_rate|string + '%)'] %}
-                    {% else %}
-                        {% set low_rejection = low_rejection + [source.name + ' (' + stat.rejection_rate|string + '%)'] %}
-                    {% endif %}
-                {% endif %}
-            {% endfor %}
-            
-            {% if high_rejection|length > 0 %}
-            <div class="mb-2">
-                <p class="text-xs text-red-600 font-medium">High Rejection Rate (>70%):</p>
-                <p class="text-xs text-gray-600 dark:text-gray-400">{{ high_rejection|join(', ') }}</p>
-            </div>
-            {% endif %}
-            {% if moderate_rejection|length > 0 %}
-            <div class="mb-2">
-                <p class="text-xs text-yellow-600 font-medium">Moderate Rejection Rate (50-70%):</p>
-                <p class="text-xs text-gray-600 dark:text-gray-400">{{ moderate_rejection|join(', ') }}</p>
-            </div>
-            {% endif %}
-            {% if low_rejection|length > 0 %}
-            <div>
-                <p class="text-xs text-green-600 font-medium">Low Rejection Rate (<50%):</p>
-                <p class="text-xs text-gray-600 dark:text-gray-400">{{ low_rejection|join(', ') }}</p>
-            </div>
-            {% endif %}
-            </div>
-        </div>
-    </div>
-    {% else %}
-    <div class="bg-yellow-50 dark:bg-yellow-900 border border-yellow-200 dark:border-yellow-700 rounded-lg p-4 mb-8">
-        <p class="text-sm text-yellow-700 dark:text-yellow-300">⚠️ No quality statistics available</p>
-    </div>
-    {% endif %}
-
     <!-- Database Status Banner -->
     <div id="dbStatusBanner" class="hidden bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
         <div class="flex items-center">
@@ -644,11 +530,14 @@ function closeModal() {
 }
 
 // Close modal when clicking outside
-document.getElementById('resultModal').addEventListener('click', function(e) {
-    if (e.target === this) {
-        closeModal();
-    }
-});
+const resultModal = document.getElementById('resultModal');
+if (resultModal) {
+    resultModal.addEventListener('click', function(e) {
+        if (e.target === this) {
+            closeModal();
+        }
+    });
+}
 
 // Close modal with ESC key
 document.addEventListener('keydown', function(e) {
@@ -748,11 +637,14 @@ function closeSourceConfig() {
 }
 
 // Close source config modal when clicking outside
-document.getElementById('sourceConfigModal').addEventListener('click', function(e) {
-    if (e.target === this) {
-        closeSourceConfig();
-    }
-});
+const sourceConfigModalClick = document.getElementById('sourceConfigModal');
+if (sourceConfigModalClick) {
+    sourceConfigModalClick.addEventListener('click', function(e) {
+        if (e.target === this) {
+            closeSourceConfig();
+        }
+    });
+}
 
 // Close source config modal with ESC key
 document.addEventListener('keydown', function(e) {
@@ -930,49 +822,48 @@ function handleAdhocUrlSubmit(event) {
     });
 }
 
-// Event listeners
-document.getElementById('saveSourceConfigBtn').addEventListener('click', saveSourceConfig);
-document.getElementById('cancelSourceConfigBtn').addEventListener('click', closeSourceConfig);
+// Event listeners with null checks
+const saveConfigBtn = document.getElementById('saveSourceConfigBtn');
+if (saveConfigBtn) saveConfigBtn.addEventListener('click', saveSourceConfig);
 
-// Adhoc URL form event listener
-document.getElementById('adhocUrlForm').addEventListener('submit', handleAdhocUrlSubmit);
+const cancelConfigBtn = document.getElementById('cancelSourceConfigBtn');
+if (cancelConfigBtn) cancelConfigBtn.addEventListener('click', closeSourceConfig);
 
-// Handle Enter key in adhoc URL form inputs
-document.getElementById('adhocUrl').addEventListener('keypress', function(e) {
+const adhocUrlForm = document.getElementById('adhocUrlForm');
+if (adhocUrlForm) adhocUrlForm.addEventListener('submit', handleAdhocUrlSubmit);
+
+const adhocUrl = document.getElementById('adhocUrl');
+if (adhocUrl) adhocUrl.addEventListener('keypress', function(e) {
     if (e.key === 'Enter') {
         e.preventDefault();
         handleAdhocUrlSubmit(e);
     }
 });
 
-document.getElementById('adhocTitle').addEventListener('keypress', function(e) {
+const adhocTitle = document.getElementById('adhocTitle');
+if (adhocTitle) adhocTitle.addEventListener('keypress', function(e) {
     if (e.key === 'Enter') {
         e.preventDefault();
         handleAdhocUrlSubmit(e);
     }
 });
 
-// Close modal when clicking outside
-document.getElementById('sourceConfigModal').addEventListener('click', function(e) {
-    if (e.target === this) {
-        closeSourceConfig();
-    }
-});
-
-// Handle Enter key in inputs
-document.getElementById('configLookbackDays').addEventListener('keypress', function(e) {
+const configLookbackDays = document.getElementById('configLookbackDays');
+if (configLookbackDays) configLookbackDays.addEventListener('keypress', function(e) {
     if (e.key === 'Enter') {
         saveSourceConfig();
     }
 });
 
-document.getElementById('configCheckFrequency').addEventListener('keypress', function(e) {
+const configCheckFrequency = document.getElementById('configCheckFrequency');
+if (configCheckFrequency) configCheckFrequency.addEventListener('keypress', function(e) {
     if (e.key === 'Enter') {
         saveSourceConfig();
     }
 });
 
-document.getElementById('configMinContentLength').addEventListener('keypress', function(e) {
+const configMinContentLength = document.getElementById('configMinContentLength');
+if (configMinContentLength) configMinContentLength.addEventListener('keypress', function(e) {
     if (e.key === 'Enter') {
         saveSourceConfig();
     }
@@ -1119,46 +1010,6 @@ function monitorTaskProgress(taskId, sourceId, sourceName) {
     };
 }
 
-// Toggle functionality for collapsible panels
-document.addEventListener('DOMContentLoaded', function() {
-    // Source Statistics toggle
-    const sourceStatsToggle = document.getElementById('sourceStatsToggle');
-    const sourceStatsContent = document.getElementById('sourceStatsContent');
-    const sourceStatsIcon = sourceStatsToggle?.querySelector('svg');
-    
-    if (sourceStatsToggle && sourceStatsContent && sourceStatsIcon) {
-        sourceStatsToggle.addEventListener('click', function() {
-            const isHidden = sourceStatsContent.classList.contains('hidden');
-            
-            if (isHidden) {
-                sourceStatsContent.classList.remove('hidden');
-                sourceStatsIcon.style.transform = 'rotate(0deg)';
-            } else {
-                sourceStatsContent.classList.add('hidden');
-                sourceStatsIcon.style.transform = 'rotate(180deg)';
-            }
-        });
-    }
-    
-    // Quality Overview toggle
-    const qualityOverviewToggle = document.getElementById('qualityOverviewToggle');
-    const qualityOverviewContent = document.getElementById('qualityOverviewContent');
-    const qualityOverviewIcon = qualityOverviewToggle?.querySelector('svg');
-    
-    if (qualityOverviewToggle && qualityOverviewContent && qualityOverviewIcon) {
-        qualityOverviewToggle.addEventListener('click', function() {
-            const isHidden = qualityOverviewContent.classList.contains('hidden');
-            
-            if (isHidden) {
-                qualityOverviewContent.classList.remove('hidden');
-                qualityOverviewIcon.style.transform = 'rotate(0deg)';
-            } else {
-                qualityOverviewContent.classList.add('hidden');
-                qualityOverviewIcon.style.transform = 'rotate(180deg)';
-            }
-        });
-    }
-});
 </script>
 
     <!-- Manual URL Scraping Section -->
