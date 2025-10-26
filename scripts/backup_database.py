@@ -60,9 +60,18 @@ def get_database_info() -> Dict[str, Any]:
         )
         tables_result = subprocess.run(tables_cmd, capture_output=True, text=True, check=True)
         
+        # Get ml_model_versions count
+        model_versions_cmd = get_docker_exec_cmd(
+            'cti_postgres',
+            "psql -U cti_user -d cti_scraper -c \"SELECT COUNT(*) FROM ml_model_versions;\" -t"
+        )
+        model_versions_result = subprocess.run(model_versions_cmd, capture_output=True, text=True, check=True)
+        model_versions_count = model_versions_result.stdout.strip()
+        
         return {
             'database_size': db_size,
             'table_stats': tables_result.stdout.strip(),
+            'ml_model_versions_count': model_versions_count,
             'backup_timestamp': datetime.now().isoformat(),
             'postgres_version': '15-alpine'
         }
@@ -185,6 +194,8 @@ def list_backups(backup_dir: str = 'backups') -> None:
                     metadata = json.load(f)
                 if 'database_size' in metadata:
                     print(f"   💾 DB Size: {metadata['database_size']}")
+                if 'ml_model_versions_count' in metadata:
+                    print(f"   🤖 Model Versions: {metadata['ml_model_versions_count']}")
             except:
                 pass
         

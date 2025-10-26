@@ -90,10 +90,11 @@ docker exec cti_web python -m pytest tests/integration/test_retraining_integrati
 | **Unit** | 24 | 580+ | ~1m | Component testing | None |
 | **API** | 3 | 30+ | ~2m | Endpoint testing | Application running |
 | **Integration** | 6 | 50+ | ~3m | System testing | Full Docker stack |
+| **Integration Workflow** | 8 | 60+ | ~5m | End-to-end workflows | Full Docker stack |
 | **UI** | 6 | 80+ | ~5m | Web interface testing | Playwright, browser |
 | **E2E** | 1 | 13 | ~5m | End-to-end workflows | Full environment |
 | **ML Feedback** | 3 | 11 | ~1m | Regression prevention | Database |
-| **All** | 38+ | 710+ | ~8m | Complete test suite | Full environment |
+| **All** | 46+ | 770+ | ~10m | Complete test suite | Full environment |
 
 ### Test Execution Summary
 
@@ -104,6 +105,7 @@ docker exec cti_web python -m pytest tests/integration/test_retraining_integrati
 | **API**         | `pytest tests/api -v`                        | FastAPI endpoint validation            |
 | **Database**    | `pytest tests/database -v`                   | Schema and data validation             |
 | **ML Feedback** | `./scripts/run_ml_feedback_tests.sh`         | Regression and feedback loop stability |
+| **Integration Workflow** | `pytest tests/integration -m integration_workflow -v` | End-to-end workflow tests |
 | **Security**    | `pytest tests/security -v`                   | Bandit, safety, and dependency checks  |
 | **Performance** | `pytest tests/performance -v`                | Load and profiling tests               |
 | **Allure Reports** | `python run_tests.py --all`                | Generate comprehensive test reports     |
@@ -220,6 +222,18 @@ Cross-component testing with real dependencies:
 - **`test_lightweight_integration.py`** (12 tests) - Lightweight integration
 - **`test_ai_real_api_integration.py`** (10 tests) - Real AI API integration
 - **`test_ai_cross_model_integration.py`** (11 tests) - Cross-model AI integration
+
+#### Integration Workflow Tests (NEW)
+End-to-end workflow testing with real services:
+
+- **`test_celery_workflow_integration.py`** - Celery task workflows (collection, embedding, retry, concurrency)
+- **`test_scoring_system_integration.py`** - Scoring workflows (initial scoring, rescore, keyword updates, ML integration)
+- **`test_annotation_feedback_integration.py`** - Annotation and feedback loop (creation, retraining, version tracking)
+- **`test_content_pipeline_integration.py`** - Content processing pipeline (RSS to storage, validation, deduplication)
+- **`test_source_management_integration.py`** - Source lifecycle (add, configure, collect, monitor, recover)
+- **`test_rag_conversation_integration.py`** - RAG chat workflows (single/multi-turn, context, provider fallback)
+- **`test_error_recovery_integration.py`** - Resilience tests (database loss, API failures, task retry, concurrent load)
+- **`test_export_backup_integration.py`** - Export and backup workflows (creation, restoration, filtering, performance)
 
 #### API Tests (30+ tests)
 API endpoint testing:

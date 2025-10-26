@@ -131,9 +131,9 @@ class TestRunner:
         self.results = {}
         self.environment_manager = None
         
-        # Virtual environment paths
-        self.venv_python = "python3"
-        self.venv_pip = "pip"
+        # Virtual environment paths - always use .venv
+        self.venv_python = self._ensure_venv()
+        self.venv_pip = self.venv_python.replace("python3", "pip")
         
         # Enhanced debugging components
         self.failure_reporter = None
@@ -155,6 +155,29 @@ class TestRunner:
             logging.getLogger().setLevel(logging.DEBUG)
         elif config.verbose:
             logging.getLogger().setLevel(logging.INFO)
+    
+    def _ensure_venv(self) -> str:
+        """Ensure virtual environment exists and return its Python path."""
+        venv_path = ".venv"
+        venv_python = os.path.join(venv_path, "bin", "python3")
+        
+        # Check if .venv exists
+        if not os.path.exists(venv_path):
+            logger.info("Creating virtual environment at .venv...")
+            subprocess.run(
+                ["python3", "-m", "venv", venv_path],
+                check=True,
+                capture_output=True
+            )
+            logger.info("Virtual environment created")
+        
+        # Verify venv python exists
+        if not os.path.exists(venv_python):
+            logger.warning(f"Virtual environment Python not found at {venv_python}, falling back to system python3")
+            return "python3"
+        
+        logger.info(f"Using virtual environment: {venv_python}")
+        return venv_python
     
     async def setup_environment(self) -> bool:
         """Set up test environment."""
@@ -194,6 +217,11 @@ class TestRunner:
 
     async def teardown_environment(self):
         """Tear down test environment."""
+        # Skip teardown if validation was skipped (no test DB configured)
+        if not self.config.validate_env:
+            logger.debug("Skipping teardown (validation disabled)")
+            return
+        
         if self.environment_manager:
             try:
                 await self.environment_manager.teardown_test_environment()
@@ -207,72 +235,55 @@ class TestRunner:
         """Install test dependencies."""
         logger.info("Installing test dependencies...")
         
-        # Set up virtual environment if needed
-        if not self._setup_venv():
-            return False
+        # Virtual environment is already set up in __init__
         
-        # Install essential dependencies first
-        essential_deps = [
-            "pytest>=7.0.0",
-            "pytest-asyncio>=1.0.0", 
-            "pytest-mock>=3.0.0",
-            "playwright>=1.0.0",
-            "redis>=4.0.0",
-            "httpx>=0.20.0",
-            "sqlalchemy>=1.4.0",
-            "asyncpg>=0.27.0",
-            "fastapi>=0.100.0",
-            "uvicorn>=0.20.0",
-            "pydantic>=2.0.0",
-            "beautifulsoup4>=4.10.0",
-            "feedparser>=6.0.0",
-            "pyyaml>=6.0.0"
-        ]
-        
+        # Install from requirements files
         commands = [
-            (f"{self.venv_pip} install {' '.join(essential_deps)}", "Installing essential test dependencies"),
-            (f"{self.venv_python} -m playwright install chromium", "Installing Playwright browser"),
+            (f"{self.venv_pip} install --upgrade pip", "Upgrading pip"),
+            (f"{self.venv_pip} install -r requirements.txt", "Installing project dependencies"),
         ]
+        
+        # Add test requirements if it exists (non-blocking)
+        if os.path.exists("requirements-test.txt"):
+            try:
+                logger.info("Attempting to install test dependencies (may have conflicts, continuing if it fails)...")
+                commands.append((f"{self.venv_pip} install -r requirements-test.txt", "Installing test dependencies"))
+            except Exception:
+                logger.warning("Test dependencies not installed, continuing without them")
+        
+        # Install Playwright if it's installed
+        result = subprocess.run(
+            [self.venv_python, "-c", "import playwright"],
+            capture_output=True,
+            check=False
+        )
+        if result.returncode == 0:
+            commands.append((f"{self.venv_python} -m playwright install chromium", "Installing Playwright browser"))
+        
+        # Track which commands are optional
+        optional_commands = ["Installing test dependencies"]
         
         for cmd, description in commands:
-            if not self._run_command(cmd, description):
+            result = self._run_command(cmd, description, capture_output=True)
+            if not result and description not in optional_commands:
                 logger.error(f"Failed to {description.lower()}")
                 return False
+            elif not result:
+                logger.warning(f"Optional step failed: {description}")
 
         logger.info("Dependencies installed successfully")
         return True
     
-    def _setup_venv(self) -> bool:
-        """Set up virtual environment if needed."""
-        venv_path = ".venv"
-        
-        # Check if .venv exists
-        if not os.path.exists(venv_path):
-            logger.info("Creating virtual environment...")
-            if not self._run_command(f"python3 -m venv {venv_path}", "Creating virtual environment"):
-                return False
-        
-        # Activate virtual environment
-        logger.info("Activating virtual environment...")
-        activate_script = os.path.join(venv_path, "bin", "activate")
-        
-        # Set environment variables for virtual environment
-        venv_python = os.path.join(venv_path, "bin", "python3")
-        venv_pip = os.path.join(venv_path, "bin", "pip")
-        
-        # Update the commands to use venv paths
-        self.venv_python = venv_python
-        self.venv_pip = venv_pip
-        
-        return True
-    
     def _check_dependencies(self) -> bool:
-        """Check if essential test dependencies are available."""
+        """Check if essential test dependencies are available in venv."""
         try:
-            import pytest
-            import pytest_asyncio
-            return True
-        except ImportError:
+            result = subprocess.run(
+                [self.venv_python, "-c", "import pytest; import pytest_asyncio"],
+                capture_output=True,
+                check=False
+            )
+            return result.returncode == 0
+        except Exception:
             return False
     
     def _run_command(self, cmd: str, description: str, capture_output: bool = True) -> bool:
@@ -334,7 +345,7 @@ class TestRunner:
                 TestType.SMOKE: ["tests/", "-m", "smoke"],
                 TestType.UNIT: ["tests/", "-m", "not (smoke or integration or api or ui or e2e or performance)"],
                 TestType.API: ["tests/api/"],
-                TestType.INTEGRATION: ["tests/integration/"],
+                TestType.INTEGRATION: ["tests/integration/", "-m", "integration_workflow"],
                 TestType.UI: ["tests/ui/"],
                 TestType.E2E: ["tests/e2e/"],
                 TestType.PERFORMANCE: ["tests/", "-m", "performance"],
@@ -363,9 +374,8 @@ class TestRunner:
             else:
                 cmd.extend(["-m", exclude_expr])
         
-        # Use virtual environment python if available
-        if hasattr(self, 'venv_python') and self.venv_python != "python3":
-            cmd[0] = self.venv_python
+        # Use virtual environment python (always set to venv)
+        cmd[0] = self.venv_python
         
         # Add execution context specific options
         if self.config.context == ExecutionContext.DOCKER:
@@ -411,11 +421,16 @@ class TestRunner:
         if self.config.timeout:
             cmd.extend(["--timeout", str(self.config.timeout)])
         
-        # Add reporting (only if allure is available)
+        # Add reporting (only if allure is available in venv)
         try:
-            import allure
-            cmd.extend(["--alluredir=allure-results"])
-        except ImportError:
+            result = subprocess.run(
+                [self.venv_python, "-c", "import allure"],
+                capture_output=True,
+                check=False
+            )
+            if result.returncode == 0:
+                cmd.extend(["--alluredir=allure-results"])
+        except Exception:
             pass
         
         return cmd

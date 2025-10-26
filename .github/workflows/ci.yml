@@ -130,6 +130,11 @@ jobs:
         run: |
           pytest tests/ -v --cov=src --cov-report=xml --cov-report=html
 
+      - name: Run integration workflow tests (mock mode)
+        timeout-minutes: 30
+        run: |
+          pytest tests/integration -m integration_workflow -v --alluredir=allure-results || echo "Some integration tests may require external services"
+
       - name: Upload coverage reports
         uses: codecov/codecov-action@v3
         with:

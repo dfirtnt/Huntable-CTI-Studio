@@ -19,9 +19,50 @@ def event_loop():
 @pytest.fixture
 def ai_test_config():
     """Configuration for AI tests."""
+    import getpass
+    
+    # Check for API keys in environment
+    openai_key_env = os.getenv('OPENAI_API_KEY')
+    anthropic_key_env = os.getenv('ANTHROPIC_API_KEY')
+    
+    # Always prompt for explicit authorization
+    print("\n" + "="*70)
+    print("AI API Key Authorization for Tests")
+    print("="*70)
+    print("These tests may use external AI APIs (OpenAI, Anthropic) which incur costs.")
+    print("="*70)
+    
+    # Prompt for OpenAI API key authorization
+    if openai_key_env:
+        print(f"\n✓ OPENAI_API_KEY found in environment ({openai_key_env[:10]}...)")
+        response = input("Authorize use of OpenAI API key for these tests? [y/N]: ").strip().lower()
+        openai_key = openai_key_env if response == 'y' else None
+    else:
+        print("\n⚠️  OPENAI_API_KEY not found in environment.")
+        response = input("Enter OpenAI API key (or press Enter to skip): ").strip()
+        openai_key = response if response else None
+    
+    # Prompt for Anthropic API key authorization
+    if anthropic_key_env:
+        print(f"\n✓ ANTHROPIC_API_KEY found in environment ({anthropic_key_env[:10]}...)")
+        response = input("Authorize use of Anthropic API key for these tests? [y/N]: ").strip().lower()
+        anthropic_key = anthropic_key_env if response == 'y' else None
+    else:
+        print("\n⚠️  ANTHROPIC_API_KEY not found in environment.")
+        response = input("Enter Anthropic API key (or press Enter to skip): ").strip()
+        anthropic_key = response if response else None
+    
+    # Summary
+    if openai_key or anthropic_key:
+        print("\n✓ API keys authorized for this test session.")
+    else:
+        print("\n⚠️  No API keys authorized. Tests will use mocked responses.")
+    
+    print("="*70 + "\n")
+    
     return {
-        'openai_api_key': os.getenv('OPENAI_API_KEY'),
-        'anthropic_api_key': os.getenv('ANTHROPIC_API_KEY'),
+        'openai_api_key': openai_key,
+        'anthropic_api_key': anthropic_key,
         'ollama_endpoint': os.getenv('OLLAMA_ENDPOINT', 'http://localhost:11434'),
         'test_timeout': 30.0,
         'max_retries': 3

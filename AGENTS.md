@@ -19,8 +19,8 @@
 - **Workflow**: Recon → Plan → Execute → Verify → Report.
 - **Read before write**. Re-read after write.
 - **System-wide planning**: account for dependencies.
-- **Autonomous correction** up to 3 retries, else escalate.
-- **Extreme Ownership**: Keep testing until verified success.
+- **Autonomous correction** up to 5 retries, else escalate.
+- **Extreme Ownership**: Keep testing until verified success. Always use strong verification. When applicable, always use Playwright and/or DevTools to make sure. 
 - **Status**: ✅ success | ⚠️ self-corrected | 🚧 blocker.
 
 ## Environment
@@ -36,13 +36,8 @@
   - `annotations.label` → huntable/not huntable
   - `annotations.article_id` → links annotations to articles
 
-## Threat Intel Scope
-- **Focus**: threat intel only.
-- **SIGMA rule generation** + pySigma validation (≤3 attempts).
-- **Detection engineering best practices**: out of scope.
-
 ## Scoring
-- **Regenerate scores** after LOLBAS/keyword updates.
+- **Regenerate scores** after Hunt Scoring system rule updates.
 - **Use** `./run_cli.sh rescore --force` after keyword changes.
 
 ## Sources
@@ -62,7 +57,7 @@
 - **`rs`** = rescore all articles (via CLI).
 
 ## Dev Workflow
-- **No file deletion** without confirmation.
+- **No file/volume/data deletion** without user confirmation.
 - **Docs always** in Markdown.
 
 ## User Classification
