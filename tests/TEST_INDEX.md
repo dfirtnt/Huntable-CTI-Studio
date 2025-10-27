@@ -3,15 +3,24 @@
 ## 📋 Complete Test Inventory
 
 ### 🎯 Test Statistics
-- **Total Test Files**: 37
-- **Total Test Methods**: 682
-- **Active Tests**: 450
-- **Skipped Tests**: 202
+- **Total Test Files**: 42
+- **Total Test Methods**: 685
+- **Active Tests**: 457
+- **Skipped Tests**: 205
 - **Failing Tests**: 32
 
 ## 📁 Test Files by Category
 
-### Unit Tests (21 files, 539 tests)
+### Unit Tests (26 files, 629 tests)
+
+#### New Service and Utility Tests
+| File | Tests | Status | Description |
+|------|-------|--------|-------------|
+| `test_chunk_analysis_service.py` | 20 | ✅ Passing | ML vs Hunt scoring comparison, chunk analysis |
+| `test_prompt_loader.py` | 17 | ✅ Passing | Prompt file management and loading |
+| `test_query_safety.py` | 33 | ✅ Passing | SQL injection prevention and query validation |
+| `test_simhash.py` | 48 | ✅ Passing | Near-duplicate detection using simhash |
+| `test_model_evaluation.py` | 24 | ✅ Passing | ML model evaluation metrics |
 
 #### Core System Tests
 | File | Tests | Status | Description |
@@ -83,9 +92,10 @@
 
 ## 🎯 Test Status Summary
 
-### ✅ Fully Functional (442 tests)
+### ✅ Fully Functional (449 tests)
 - **AI Assistant Tests**: 36 tests (Priority 1 implementation)
 - **Core Functionality**: 222 tests (previously fixed)
+- **Service/Utility Tests**: 142 tests (chunk analysis, prompt loader, query safety, simhash, model evaluation)
 - **UI Tests**: 61 tests (all working)
 - **Integration Tests**: 46 tests (all working)
 - **API Tests**: 15 tests (all working)
@@ -194,11 +204,11 @@ Fix async mock configurations for:
 - **`AI_PRIORITY_1_TESTS_IMPLEMENTATION.md`** - AI test implementation summary
 
 ### Quick Reference
-- **Total Tests**: 674
-- **Active Tests**: 442 (65.6%)
-- **Skipped Tests**: 202 (30.0%)
+- **Total Tests**: 685
+- **Active Tests**: 449 (65.5%)
+- **Skipped Tests**: 205 (29.9%)
 - **Failing Tests**: 32 (4.7%)
-- **Test Files**: 32
+- **Test Files**: 42
 - **Categories**: 5 (Unit, UI, Integration, API, E2E)
 
 ## 🔄 Maintenance
