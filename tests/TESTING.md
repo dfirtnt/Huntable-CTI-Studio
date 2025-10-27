@@ -720,9 +720,8 @@ docker-compose ps
 
 ### Additional Documentation
 
-- **`ML_FEEDBACK_TESTS_README.md`** - Essential regression prevention for ML features
+- **`AI_PRIORITY_1_TESTS_IMPLEMENTATION.md`** - AI test implementation summary
 - **`SKIPPED_TESTS.md`** - Detailed skipped test information
-- **`AI_TESTS_README.md`** - AI-specific testing
 - **`AI_PRIORITY_1_TESTS_IMPLEMENTATION.md`** - AI test implementation summary
 
 ### Test Priorities

@@ -80,16 +80,6 @@ python run_tests.py --docker --integration
 python run_tests.py --debug --verbose
 ```
 
-### Essential Commands Reference
-
-| Command | Purpose | Duration |
-|---------|---------|----------|
-| `python run_tests.py --smoke` | Quick health check | ~30s |
-| `python run_tests.py --unit` | Component testing | ~1m |
-| `python run_tests.py --api` | API endpoint testing | ~2m |
-| `python run_tests.py --docker --integration` | System testing | ~3m |
-| `python run_tests.py --all --coverage` | Complete test suite | ~8m |
-
 ## 6. ML Feedback Tests (Critical)
 
 Run these essential regression prevention tests:
@@ -166,7 +156,7 @@ Check for conflicts on ports 8001, 5432, 6379
 ## 10. Next Steps
 
 - **Learn more**: See [Testing Guide](TESTING.md) for comprehensive documentation
-- **ML Testing**: See [ML Feedback Tests](ML_FEEDBACK_TESTS_README.md) for regression prevention
+- **ML Testing**: See [ML Feedback Tests](ML_FEEDBACK_TESTING.md) for regression prevention
 - **Advanced**: See [Advanced Testing](docs/development/ADVANCED_TESTING.md) for API, E2E, and performance testing
 
 ## Quick Reference
@@ -194,3 +184,109 @@ Check for conflicts on ports 8001, 5432, 6379
 ---
 
 **Need help?** Check the [Testing Guide](TESTING.md) or open a GitHub issue.
+
+# Running Tests Guide
+
+## Quick Reference Commands
+
+### Health check
+```bash
+python3 run_tests.py --smoke          # Quick health check
+```
+
+### Full suite
+```bash
+python3 run_tests.py --all --coverage  # Complete test suite with coverage
+```
+
+### Docker integration tests
+```bash
+python3 run_tests.py --docker --integration
+```
+
+### ML feedback tests (critical)
+```bash
+./scripts/run_ml_feedback_tests.sh
+```
+
+### Debug mode
+```bash
+python3 run_tests.py --debug --verbose
+```
+
+## Verbose Output
+```bash
+python3 run_tests.py all -v
+```
+
+## Debug Mode
+```bash
+python3 run_tests.py all --debug
+```
+
+## Coverage Report
+```bash
+python3 run_tests.py all --coverage
+```
+
+## Specific Test Path
+```bash
+python3 run_tests.py all --paths tests/unit/
+```
+
+## Fail Fast (Stop on First Failure)
+```bash
+python3 run_tests.py all --fail-fast
+```
+
+## Common Issues
+
+### Missing Dependencies
+
+The test runner will automatically install them, but if you need to manually:
+
+```bash
+# Using the runner
+python3 run_tests.py all --install
+
+# Manual install
+pip install -r requirements-test.txt
+pip install -r requirements.txt
+python -m playwright install chromium
+```
+
+### Database Connection Issues
+```bash
+# Ensure services are running
+docker-compose ps
+
+# Check database is accessible
+docker exec cti_postgres psql -U cti_user -d cti_scraper -c "SELECT 1"
+```
+
+### Playwright Browser Issues
+```bash
+# Install Playwright browsers
+python -m playwright install chromium
+```
+
+## Output Locations
+
+- **Test Results**: `allure-results/`
+- **Coverage Reports**: `htmlcov/`
+- **Test Logs**: `test-results/`
+- **Videos**: `test-results/videos/` (on failure)
+
+## View Reports
+
+### Allure Report
+```bash
+allure serve allure-results
+```
+
+### Coverage Report
+```bash
+open htmlcov/index.html
+```
+
+---

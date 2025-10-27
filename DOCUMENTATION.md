@@ -68,10 +68,12 @@ Choose your path based on your role:
 
 ### API Documentation
 - **[API Endpoints](docs/API_ENDPOINTS.md)** - Complete API reference (128 endpoints)
-- **[API Examples](docs/API_ENDPOINTS.md#usage-examples)** - Usage examples and code samples
+- **[API Examples](docs/API_ENDPOINTS.md#usage-examples) - Usage examples and code samples**
 
-### Process Documentation
+### Process and System Documentation
 - **[Process Diagrams](process_diagrams.md)** - ASCII diagrams for presentations
+- **[SYSTEM OVERVIEW](docs/SYSTEM_OVERVIEW.md)** - Detailed system workflow
+- **[Technical Readout](docs/deployment/TECHNICAL_READOUT.md)** - Technical overview**
 
 ## 🔍 Finding What You Need
 
