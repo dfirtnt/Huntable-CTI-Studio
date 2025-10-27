@@ -7,11 +7,12 @@ The SIGMA Rule Generation feature automatically creates detection rules from thr
 ## Features
 
 ### 🤖 AI-Powered Rule Generation
-- **Multiple AI Models**: Supports ChatGPT (OpenAI), Claude (Anthropic), and Ollama (local LLM)
+- **Multiple AI Models**: Supports ChatGPT (OpenAI) and LMStudio (local LLM)
 - **Content Analysis**: Analyzes article content to extract relevant detection patterns
 - **Context Awareness**: Understands threat techniques and attack patterns
 - **Multiple Rule Generation**: Can generate multiple rules per article when appropriate
 - **Content Filtering**: ML-based content optimization to reduce token usage and costs
+- **Consistent Temperature**: Uses temperature 0.2 for deterministic, focused output
 
 ### ✅ pySIGMA Validation
 - **Automatic Validation**: All generated rules are validated using pySIGMA
@@ -44,7 +45,9 @@ The SIGMA Rule Generation feature automatically creates detection rules from thr
 ### Prerequisites
 - Article must be classified as "chosen" (required)
 - Threat hunting score < 65 shows warning but allows proceeding
-- AI model API key must be configured (varies by model)
+- AI model configured:
+  - ChatGPT: OpenAI API key required
+  - LMStudio: Local server running (no API key needed)
 - pySIGMA library must be installed
 
 ### How to Use
@@ -86,8 +89,9 @@ Content-Type: application/json
   "sigma_rules": "Generated SIGMA rule content...",
   "generated_at": "2025-10-10T15:28:28.134389",
   "content_type": "full content",
-  "model_used": "ollama",
-  "model_name": "llama3.2:1b",
+  "model_used": "lmstudio",
+  "model_name": "llama-3.2-1b-instruct",
+  "temperature": 0.2,
   "validation_results": [
     {
       "rule_index": 1,
@@ -119,19 +123,16 @@ Content-Type: application/json
 The system supports multiple AI models:
 
 **ChatGPT (OpenAI)**
-- Model: GPT-4 or GPT-3.5-turbo
+- Model: gpt-4o-mini
 - API Key: Required in request body
-- Best for: High-quality rule generation
+- Temperature: 0.2 (for consistent, focused output)
+- Best for: High-quality rule generation with cloud processing
 
-**Claude (Anthropic)**
-- Model: claude-sonnet-4-5
-- API Key: Required in request body
-- Best for: Complex analysis and reasoning, cybersecurity tasks
-
-**Ollama (Local LLM)**
-- Model: llama3.2:1b (configurable)
+**LMStudio (Local LLM)**
+- Model: User-configured (e.g., llama-3.2-1b-instruct)
 - API Key: Not required
-- Best for: Local processing and privacy
+- Temperature: 0.2 (for consistent, focused output)
+- Best for: Local processing, privacy, and cost savings
 
 ### Request Parameters
 
@@ -139,10 +140,10 @@ The system supports multiple AI models:
 {
   "force_regenerate": false,        // Skip cache and regenerate
   "include_content": true,          // Use full content vs metadata only
-  "ai_model": "chatgpt",           // chatgpt, anthropic, or ollama
-  "api_key": "your_key_here",      // Required for ChatGPT/Claude
+  "ai_model": "chatgpt",           // chatgpt or lmstudio
+  "api_key": "your_key_here",      // Required for ChatGPT only
   "author_name": "Your Name",       // Rule author name
-  "temperature": 0.2,              // LLM creativity (0.0-1.0)
+  "temperature": 0.2,              // Fixed at 0.2 for consistent output
   "optimization_options": {         // Content filtering options
     "useFiltering": true,
     "minConfidence": 0.7
@@ -273,9 +274,10 @@ level: high
 ### Common Issues
 
 **API Key Errors:**
-- Check API key configuration in request body
-- Verify API quota and billing for ChatGPT/Claude
+- Check API key configuration in request body (ChatGPT only)
+- Verify API quota and billing for ChatGPT
 - Monitor rate limiting
+- LMStudio does not require API key, verify local server is running
 
 **pySIGMA Validation Failures:**
 - Ensure pySIGMA is properly installed
@@ -305,9 +307,9 @@ docker-compose logs -f web | grep "SIGMA"
 
 ### Data Privacy
 - Article content sent to selected AI model for analysis
-- No sensitive data stored in AI provider logs
+- No sensitive data stored in AI provider logs (ChatGPT)
 - Rules stored locally in database
-- Ollama option provides local processing
+- LMStudio option provides local processing for full privacy
 
 ### Input Validation
 - Article ID validation
@@ -345,4 +347,4 @@ For issues and questions:
 
 ---
 
-**Note**: This feature supports multiple AI models (ChatGPT, Claude, Ollama) and requires pySIGMA validation. Ensure proper configuration and monitoring for production use.
+**Note**: This feature supports multiple AI models (ChatGPT and LMStudio) and requires pySIGMA validation. All models use temperature 0.2 for consistent, deterministic output. Ensure proper configuration and monitoring for production use.
