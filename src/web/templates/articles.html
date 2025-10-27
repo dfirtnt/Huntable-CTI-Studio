@@ -192,6 +192,29 @@
             </div>
         </form>
 
+        <!-- Save Default Filters Button -->
+        <div class="mt-4 flex items-center justify-between p-3 bg-gray-50 border border-gray-200 rounded-md">
+            <div class="flex items-center space-x-2">
+                <button type="button" onclick="saveDefaultFilters()" 
+                        class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
+                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                    </svg>
+                    Set as Default Filters
+                </button>
+                <button type="button" onclick="clearDefaultFilters()" 
+                        class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
+                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                    Clear Defaults
+                </button>
+                <span id="default-filters-indicator" class="hidden text-sm text-green-600 font-medium">
+                    ✓ Default filters active
+                </span>
+            </div>
+        </div>
+
         <!-- Filter Summary -->
         {% if filters.search or filters.source or filters.classification or filters.threat_hunting_range %}
         <div class="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
@@ -1018,9 +1041,107 @@
         }
     }
     
+    // Persistent default filters (localStorage)
+    function saveDefaultFilters() {
+        const settings = {
+            search: document.getElementById('search')?.value || '',
+            source: document.getElementById('source')?.value || '',
+            classification: document.getElementById('classification')?.value || '',
+            threat_hunting_range: document.getElementById('threat-hunting-range')?.value || '',
+            per_page: document.getElementById('per-page')?.value || '100',
+            sort_by: document.getElementById('sort-by')?.value || 'published_at',
+            sort_order: document.getElementById('sort-order')?.value || 'desc',
+            title_only: document.getElementById('title-only')?.checked || false
+        };
+        
+        localStorage.setItem('cti_articles_default_filters', JSON.stringify(settings));
+        showNotification('Default filters saved! These will be applied on future page loads.', 'success');
+        updateDefaultFiltersIndicator();
+    }
+    
+    function clearDefaultFilters() {
+        localStorage.removeItem('cti_articles_default_filters');
+        showNotification('Default filters cleared.', 'info');
+        updateDefaultFiltersIndicator();
+    }
+    
+    function loadDefaultFilters() {
+        const saved = localStorage.getItem('cti_articles_default_filters');
+        if (!saved) return false;
+        
+        try {
+            const settings = JSON.parse(saved);
+            
+            // Only load default filters if URL doesn't have parameters (fresh page load)
+            const urlParams = new URLSearchParams(window.location.search);
+            const hasUrlParams = Array.from(urlParams.keys()).length > 0;
+            
+            if (!hasUrlParams) {
+                // Apply default filters to form elements
+                if (settings.search && document.getElementById('search')) {
+                    document.getElementById('search').value = settings.search;
+                }
+                if (settings.source && document.getElementById('source')) {
+                    document.getElementById('source').value = settings.source;
+                }
+                if (settings.classification && document.getElementById('classification')) {
+                    document.getElementById('classification').value = settings.classification;
+                }
+                if (settings.threat_hunting_range && document.getElementById('threat-hunting-range')) {
+                    document.getElementById('threat-hunting-range').value = settings.threat_hunting_range;
+                }
+                if (settings.per_page && document.getElementById('per-page')) {
+                    document.getElementById('per-page').value = settings.per_page;
+                }
+                if (settings.sort_by && document.getElementById('sort-by')) {
+                    document.getElementById('sort-by').value = settings.sort_by;
+                }
+                if (settings.sort_order && document.getElementById('sort-order')) {
+                    document.getElementById('sort-order').value = settings.sort_order;
+                }
+                if (settings.title_only !== undefined && document.getElementById('title-only')) {
+                    document.getElementById('title-only').checked = settings.title_only;
+                }
+                
+                // Auto-submit form to apply filters
+                setTimeout(() => {
+                    document.querySelector('form').submit();
+                }, 100);
+                
+                return true;
+            }
+            return false;
+        } catch (e) {
+            console.error('Failed to load default filters:', e);
+            return false;
+        }
+    }
+    
+    function updateDefaultFiltersIndicator() {
+        const indicator = document.getElementById('default-filters-indicator');
+        const hasDefaults = localStorage.getItem('cti_articles_default_filters');
+        
+        if (indicator) {
+            if (hasDefaults) {
+                indicator.classList.remove('hidden');
+            } else {
+                indicator.classList.add('hidden');
+            }
+        }
+    }
+    
     // Load settings when page loads
     document.addEventListener('DOMContentLoaded', function() {
-        loadSessionSettings();
+        // Load default filters first (persistent across sessions)
+        const defaultsLoaded = loadDefaultFilters();
+        
+        // Only load session settings if defaults weren't loaded
+        if (!defaultsLoaded) {
+            loadSessionSettings();
+        }
+        
+        // Update indicator
+        updateDefaultFiltersIndicator();
         
         // Save settings when form elements change
         const formElements = ['search', 'source', 'classification', 'threat-hunting-range', 'per-page', 'sort-by', 'sort-order', 'title-only'];
