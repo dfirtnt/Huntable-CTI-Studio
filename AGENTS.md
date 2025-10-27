@@ -8,11 +8,11 @@
 
 ## Precedence Rules
 1. **User safety** overrides autonomy (file deletion, secrets).
-2. **Verification** before reporting success. ALWAYS use Playwright to verify UI fixes and changes before saying it is working. 
-3. **Max retries**: 3 attempts, then report 🚧.
+2. **Verification** before reporting success. ALWAYS use Playwright, DevTools, or similar to verify UI fixes and changes before saying it is working. 
+3. **Max retries**: 5 attempts, then report 🚧.
 
-#Style Rules
-1. NEVER say things like "Your new xyz system is production ready"
+#Style Rules. No hype or hyperbole.
+1. NEVER say things like "Your new system is production ready"
 2. NEVER say things like "You're absolutely right!"
 
 ## Doctrine
