@@ -201,7 +201,7 @@ Fix async mock configurations for:
 - **`README.md`** - Main test documentation
 - **`TEST_INDEX.md`** - This comprehensive index
 - **`SKIPPED_TESTS.md`** - Detailed skipped test information
-- **`AI_TESTS_README.md`** - AI Assistant test documentation
+- **`AI_TESTING.md`** - AI Assistant test documentation
 - **`AI_PRIORITY_1_TESTS_IMPLEMENTATION.md`** - AI test implementation summary
 
 ### Quick Reference

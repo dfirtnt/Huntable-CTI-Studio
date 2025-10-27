@@ -19,8 +19,7 @@ A comprehensive threat intelligence aggregation and analysis platform designed f
 ## 🏗️ Architecture
 - **Core Components**: FastAPI, PostgreSQL, Redis, Celery workers, and Docker.
 - **Data Flow**: Collection, processing, and analysis pipelines ensure efficiency.
-
-[Provide a high-level visual diagram or link to detailed docs.]
+- **Architecture Diagram**: For a high-level overview, refer to [Architecture Diagram](#)
 
 ## 🚀 Getting Started
 ### Prerequisites

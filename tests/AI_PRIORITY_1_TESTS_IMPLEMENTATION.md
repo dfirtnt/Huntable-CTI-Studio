@@ -56,7 +56,7 @@ Successfully implemented comprehensive Priority 1 tests for AI Assistant feature
 ### 4. **Supporting Infrastructure**
 - **`tests/conftest_ai.py`** - AI-specific pytest configuration
 - **`tests/run_ai_tests.py`** - Dedicated test runner with options
-- **`tests/AI_TESTS_README.md`** - Comprehensive documentation
+- **`tests/AI_TESTING.md`** - Comprehensive documentation
 - **`AI_PRIORITY_1_TESTS_IMPLEMENTATION.md`** - This summary
 
 ## 🚀 Usage

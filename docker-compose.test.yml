@@ -11,6 +11,7 @@ services:
     volumes:
       - test_postgres_data:/var/lib/postgresql/data
       - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+      - ./init_tests.sql:/docker-entrypoint-initdb.d/init_tests.sql
     ports:
       - "5433:5432"  # Different port to avoid conflicts
     networks:
