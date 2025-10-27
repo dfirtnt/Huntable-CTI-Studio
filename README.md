@@ -38,14 +38,13 @@ A comprehensive threat intelligence aggregation and analysis platform designed f
 ### 🌐 Modern Web Interface
 - **Responsive Design**: Modern UI built with FastAPI and contemporary JavaScript
 - **Real-time Updates**: Live monitoring of collection and processing status
-- **Export Capabilities**: CSV export for annotations and classified content
+- **Export Capabilities**: CSV export for annotations and classifications
 - **RESTful API**: Comprehensive API for integration with other security tools
-- **Automated Backup System**: Comprehensive backup with database, config, and data protection
+- **Automated Backup System**: Backup with database, config, and data protection
 - **Backup Management**: Web-based backup creation, listing, and status monitoring
 - **Database Management**: Command-line backup and restore tools for data protection
 - **RAG Chat Interface**: Conversational AI with threat intelligence database using semantic search
-- **Multi-Provider LLM**: OpenAI GPT-4o, Anthropic Claude, and Ollama integration with auto-fallback
-- **Synthesized Analysis**: LLM-generated insights instead of raw article excerpts
+- **Multi-Provider LLM**: OpenAI GPT-4o, Anthropic Claude, LMStudio, and Ollama integration with auto-fallback
 - **Conversational Context**: Multi-turn conversations with context memory and follow-up questions
 - **Clickable Results**: Direct links to article details from chat responses
 - **ML Feedback Interface**: Interactive feedback system for model improvement with confidence tracking
