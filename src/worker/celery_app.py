@@ -365,6 +365,7 @@ def check_source(self, source_identifier: str):
                     
                     # Track timing for health metrics
                     start_time = time.time()
+                    collection_success = False
                     
                     try:
                         # Parse RSS feed for new articles
@@ -395,6 +396,8 @@ def check_source(self, source_identifier: str):
                             logger.info(f"    - Saved: {saved_count} new articles")
                             logger.info(f"    - Duplicates filtered: {duplicates_filtered} articles")
                             
+                            collection_success = True
+                            
                             return {
                                 "status": "success",
                                 "source_id": source.id,
@@ -406,6 +409,8 @@ def check_source(self, source_identifier: str):
                             }
                         else:
                             logger.info(f"  ✓ {source.name}: No new articles found")
+                            collection_success = True  # No articles is still a successful check
+                            
                             return {
                                 "status": "success",
                                 "source_id": source.id,
@@ -418,12 +423,13 @@ def check_source(self, source_identifier: str):
                             
                     except Exception as e:
                         logger.error(f"Error collecting from {source.name}: {e}")
+                        collection_success = False
                         return {"status": "error", "source_id": source.id, "message": str(e)}
                     finally:
-                        # Update source health metrics regardless of success/failure
+                        # Update source health metrics with actual success/failure status
                         try:
                             response_time = time.time() - start_time
-                            await db.update_source_health(source.id, True, response_time)
+                            await db.update_source_health(source.id, collection_success, response_time)
                             await db.update_source_article_count(source.id)
                             logger.info(f"Updated source {source.id} health and article count")
                         except Exception as health_error:
@@ -690,6 +696,7 @@ def collect_from_source(self, source_id: int):
                 async with ContentFetcher() as fetcher:
                     # Track timing for health metrics
                     start_time = time.time()
+                    collection_success = False
                     
                     try:
                         # Fetch articles using hierarchical strategy
@@ -737,6 +744,8 @@ def collect_from_source(self, source_id: int):
                             logger.info(f"    - Saved: {saved_count} new articles")
                             logger.info(f"    - Duplicates filtered: {duplicates_filtered} articles")
                             
+                            collection_success = True
+                            
                             return {
                                 "status": "success", 
                                 "source_id": source_id,
@@ -750,6 +759,8 @@ def collect_from_source(self, source_id: int):
                             }
                         else:
                             logger.info(f"  ✓ {source.name}: 0 articles found")
+                            collection_success = True  # No articles is still a successful check
+                            
                             return {
                                 "status": "success", 
                                 "source_id": source_id,
@@ -764,12 +775,13 @@ def collect_from_source(self, source_id: int):
                             
                     except Exception as e:
                         logger.error(f"  ✗ {source.name}: Error - {e}")
+                        collection_success = False
                         return {"status": "error", "source_id": source_id, "message": str(e)}
                     finally:
-                        # Update source health metrics regardless of success/failure
+                        # Update source health metrics with actual success/failure status
                         try:
                             response_time = time.time() - start_time
-                            db.update_source_health(source_id, True, response_time)
+                            db.update_source_health(source_id, collection_success, response_time)
                             # Update article count using the private method
                             with db.get_session() as session:
                                 db._update_source_article_count(session, source_id)
