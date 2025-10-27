@@ -143,17 +143,23 @@ class RedisConnectionManager:
             socket_connect_timeout = 10
             max_connections = 10
         
-        client = redis.Redis(
-            host=self.config.redis_host,
-            port=self.config.redis_port,
-            db=self.config.redis_db,
-            password=self.config.redis_password,
-            socket_timeout=socket_timeout,
-            socket_connect_timeout=socket_connect_timeout,
-            max_connections=max_connections,
-            retry_on_timeout=True,
-            health_check_interval=30
-        )
+        # Only include password if it's provided
+        redis_kwargs = {
+            "host": self.config.redis_host,
+            "port": self.config.redis_port,
+            "db": self.config.redis_db,
+            "socket_timeout": socket_timeout,
+            "socket_connect_timeout": socket_connect_timeout,
+            "max_connections": max_connections,
+            "retry_on_timeout": True,
+            "health_check_interval": 30
+        }
+        
+        # Only add password if it's set
+        if self.config.redis_password:
+            redis_kwargs["password"] = self.config.redis_password
+        
+        client = redis.Redis(**redis_kwargs)
         
         logger.info(f"Created Redis client for {self.config.context.value} context")
         return client
