@@ -7,7 +7,6 @@
       "Bash(python:*)",
       "Bash(jupyter lab --version)",
       "Bash(jupyter lab:*)",
-      "Read(//Users/starlord/**)",
       "Bash(pip install:*)",
       "Bash(curl:*)",
       "Bash(pkill:*)",
