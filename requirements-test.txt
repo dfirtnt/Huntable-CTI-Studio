@@ -2,9 +2,9 @@
 # Additional packages for comprehensive testing
 
 # Core testing framework
-pytest==8.4.2
-pytest-asyncio==1.2.0
-pytest-mock==3.12.0
+pytest>=8.4.2
+pytest-asyncio>=1.2.0
+pytest-mock>=3.12.0
 pytest-cov==4.1.0
 pytest-html==4.0.1
 pytest-xdist==3.5.0  # Parallel test execution
@@ -30,10 +30,10 @@ pytest-benchmark==4.0.0
 
 # Security testing
 bandit==1.7.5
-safety==2.3.5
+safety>=2.3.5
 
 # Code quality
-black==24.1.0
+black>=24.1.0
 isort==5.12.0
 flake8==6.1.0
 mypy==1.8.0
