@@ -203,7 +203,9 @@ class AsyncDeduplicationService:
         similar_articles = []
         for existing_article in bucket_articles:
             if existing_article.simhash is not None:
-                distance = simhash_calculator.hamming_distance(simhash, existing_article.simhash)
+                # Convert decimal.Decimal to int for SimHash comparison
+                existing_simhash = int(existing_article.simhash)
+                distance = simhash_calculator.hamming_distance(simhash, existing_simhash)
                 if distance <= threshold:
                     similar_articles.append(existing_article)
         
@@ -225,8 +227,8 @@ class AsyncDeduplicationService:
         if is_exact_duplicate:
             return False, existing_article, []
         
-        # Temporarily disable near-duplicate checking to fix SimHash decimal issue
-        similar_articles = []
+        # Check for near-duplicates using SimHash
+        similar_articles = await self.check_near_duplicates(article)
         
         # Create new article
         content_hash = self.compute_content_hash(article.content)

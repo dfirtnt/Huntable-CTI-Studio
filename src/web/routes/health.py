@@ -176,6 +176,29 @@ async def api_services_health() -> Dict[str, Any]:
                 "error": str(ollama_exc),
             }
 
+        # Check LMStudio
+        try:
+            lmstudio_url = os.getenv("LMSTUDIO_API_URL", "http://host.docker.internal:1234/v1")
+            async with httpx.AsyncClient() as client:
+                response = await client.get(f"{lmstudio_url}/models", timeout=5.0)
+                if response.status_code == 200:
+                    models_data = response.json()
+                    services_status["lmstudio"] = {
+                        "status": "healthy",
+                        "models_available": len(models_data.get("data", [])),
+                        "models": [model.get("id", "unknown") for model in models_data.get("data", [])],
+                    }
+                else:
+                    services_status["lmstudio"] = {
+                        "status": "unhealthy",
+                        "error": f"HTTP {response.status_code}",
+                    }
+        except Exception as lmstudio_exc:
+            services_status["lmstudio"] = {
+                "status": "unhealthy",
+                "error": str(lmstudio_exc),
+            }
+
         return {
             "status": "healthy",
             "timestamp": datetime.now().isoformat(),
