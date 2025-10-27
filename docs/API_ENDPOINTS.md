@@ -240,6 +240,18 @@ Use `full_analysis=true` when analysts click **Finish Full Analysis** in the UI;
 
 ### Document Processing
 - `POST /api/pdf/upload` - Upload and process PDF files
+  - **Parameters**: 
+    - `file`: PDF file (max 50MB)
+  - **Response**: 
+    - `article_id`: Created article ID
+    - `threat_hunting_score`: Article's threat score
+    - `page_count`: Number of pages processed
+  - **Features**: 
+    - Text extraction from PDF
+    - Automatic page separation
+    - Content deduplication
+    - Integration with manual source category
+    - Threat hunting score calculation
 
 ## API Documentation
 

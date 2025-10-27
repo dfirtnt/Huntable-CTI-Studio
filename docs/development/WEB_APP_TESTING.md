@@ -152,6 +152,8 @@ def test_navigation_menu(page: Page):
 ```
 
 ### Form Testing
+
+#### Source Form Testing
 ```python
 @pytest.mark.ui
 def test_add_source_form(page: Page):
@@ -172,6 +174,30 @@ def test_add_source_form(page: Page):
     # Verify source was added
     expect(page.locator("text=Test Source")).to_be_visible()
     expect(page.locator(".success-message")).to_be_visible()
+```
+
+#### PDF Upload Form Testing
+```python
+@pytest.mark.ui
+def test_pdf_upload_form(page: Page):
+    """Test PDF file upload functionality."""
+    page.goto("http://localhost:8001/pdf-upload")
+    
+    # Prepare file for upload
+    with open("test-data/sample.pdf", "rb") as f:
+        page.set_input_files("input[type='file']", f)
+    
+    # Click upload button
+    page.click("button:has-text('Upload')")
+    
+    # Verify upload success
+    expect(page.locator(".upload-success")).to_be_visible()
+    expect(page.locator("text=Article ID")).to_be_visible()
+    expect(page.locator("text=Threat Score")).to_be_visible()
+    
+    # Verify redirection to article page
+    page.wait_for_url("/articles/*")
+    expect(page.locator(".article-content")).to_be_visible()
 ```
 
 ### Search Functionality
