@@ -709,6 +709,9 @@ async function updateServicesHealth() {
                                         <p class="text-xs text-gray-600">${serviceData.models.join(', ')}</p>
                                     ` : serviceName === 'redis' ? `
                                         <p class="font-medium">Memory: ${Math.round(serviceData.info.used_memory / 1024 / 1024)}MB</p>
+                                    ` : serviceName === 'lmstudio' ? `
+                                        <p class="font-medium">${serviceData.models_available} models available</p>
+                                        <p class="text-xs text-gray-600">${serviceData.models.join(', ')}</p>
                                     ` : ''}
                                 </div>
                             ` : `
