@@ -219,7 +219,23 @@ All threat hunting scorer tests are working correctly and validate:
 9. **Content Cleaner** - Content processing (30 tests) - ✅ FIXED
 10. **Modern Scraper** - Alternative ingestion (18 tests) - SKIPPED
 
+### ⏭️ ML Model Version Tests (3 tests - SKIPPED)
+**Skip Reason**: Tests increment ML model versions in production database
+
+**Skipped tests**:
+- `test_model_retraining_trigger` (test_ml_feedback_workflow.py)
+- `test_new_model_version_creation` (test_ml_feedback_workflow.py)
+- `test_model_retrain_button` (test_ml_hunt_comparison_workflow.py)
+
+**Test coverage includes**:
+- Model retraining workflow
+- Model version creation
+- Model performance comparison
+
+**To re-enable**: Run in isolated test environment with separate database
+
 ## Recent Updates
+- **2024-10-27**: Disabled 3 ML model version tests that increment production model versions
 - **2024-10-06**: Implemented Priority 1 AI Assistant tests (36 new tests)
 - **2024-10-06**: Added comprehensive test documentation and runners
 - **2024-10-06**: Updated test structure and organization
