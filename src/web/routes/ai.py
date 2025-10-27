@@ -154,6 +154,30 @@ async def api_test_anthropic_key(request: Request):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+async def _get_current_lmstudio_model() -> str:
+    """
+    Get the currently loaded model from LMStudio API.
+    Falls back to env var if API query fails.
+    """
+    try:
+        lmstudio_url = os.getenv("LMSTUDIO_API_URL", "http://host.docker.internal:1234/v1")
+        
+        async with httpx.AsyncClient() as client:
+            response = await client.get(f"{lmstudio_url}/models", timeout=5.0)
+            
+            if response.status_code == 200:
+                models_data = response.json()
+                models = [model["id"] for model in models_data.get("data", [])]
+                if models:
+                    # Return the first loaded model
+                    return models[0]
+    except Exception as e:
+        logger.warning(f"Could not fetch current LMStudio model: {e}")
+    
+    # Fallback to env var
+    return os.getenv("LMSTUDIO_MODEL", "llama-3.2-1b-instruct")
+
+
 @test_router.get("/lmstudio-models")
 async def api_get_lmstudio_models():
     """Get currently loaded models from LMStudio."""
@@ -992,8 +1016,9 @@ async def api_generate_sigma(article_id: int, request: Request):
         author_name = body.get('author_name', 'CTI Scraper User')
         force_regenerate = body.get('force_regenerate', False)
         
-        if not api_key:
-            raise HTTPException(status_code=400, detail="API key is required. Please configure it in Settings.")
+        # Only require API key for ChatGPT
+        if ai_model == 'chatgpt' and not api_key:
+            raise HTTPException(status_code=400, detail="OpenAI API key is required for ChatGPT. Please configure it in Settings.")
         
         # Check for existing SIGMA rules (unless force regeneration is requested)
         if not force_regenerate and article.article_metadata and article.article_metadata.get('sigma_rules'):
@@ -1047,37 +1072,97 @@ async def api_generate_sigma(article_id: int, request: Request):
             content=content_to_analyze
         )
         
-        # Call OpenAI API for SIGMA rule generation
-        async with httpx.AsyncClient() as client:
-            response = await client.post(
-                "https://api.openai.com/v1/chat/completions",
-                headers={
-                    "Authorization": f"Bearer {api_key}",
-                    "Content-Type": "application/json"
-                },
-                json={
-                    "model": "gpt-4o-mini",
-                    "messages": [
-                        {
-                            "role": "system",
-                            "content": "You are a senior cybersecurity detection engineer specializing in SIGMA rule creation. Generate high-quality, actionable SIGMA rules based on threat intelligence articles. Always use proper SIGMA syntax and include all required fields according to SigmaHQ standards."
+        # Define helper function for API calls based on ai_model
+        async def call_llm_api(prompt_text: str) -> str:
+            """Call the appropriate LLM API based on ai_model setting."""
+            if ai_model == 'lmstudio':
+                # Use LMStudio API
+                lmstudio_url = os.getenv("LMSTUDIO_API_URL", "http://host.docker.internal:1234/v1")
+                lmstudio_model = await _get_current_lmstudio_model()
+                
+                logger.info(f"Using LMStudio at {lmstudio_url} with model {lmstudio_model}")
+                
+                async with httpx.AsyncClient() as client:
+                    try:
+                        response = await client.post(
+                            f"{lmstudio_url}/chat/completions",
+                            headers={
+                                "Content-Type": "application/json"
+                            },
+                            json={
+                                "model": lmstudio_model,
+                                "messages": [
+                                    {
+                                        "role": "system",
+                                        "content": "You are a senior cybersecurity detection engineer specializing in SIGMA rule creation. Generate high-quality, actionable SIGMA rules based on threat intelligence articles. Always use proper SIGMA syntax and include all required fields according to SigmaHQ standards."
+                                    },
+                                    {
+                                        "role": "user",
+                                        "content": prompt_text
+                                    }
+                                ],
+                                "max_tokens": 4000,
+                                "temperature": 0.2
+                            },
+                            timeout=300.0
+                        )
+                        
+                        if response.status_code != 200:
+                            logger.error(f"LMStudio API error: {response.status_code} - {response.text}")
+                            raise HTTPException(status_code=500, detail=f"Failed to generate SIGMA rules from LMStudio: {response.status_code}")
+                        
+                        result = response.json()
+                        return result['choices'][0]['message']['content']
+                        
+                    except httpx.TimeoutException:
+                        raise HTTPException(status_code=408, detail="LMStudio request timeout - the model may be slow or overloaded")
+                    except httpx.ConnectError:
+                        raise HTTPException(status_code=503, detail="Cannot connect to LMStudio service")
+                    except Exception as e:
+                        logger.error(f"LMStudio API request failed: {e}")
+                        raise HTTPException(status_code=500, detail=f"Failed to generate SIGMA rules from LMStudio: {str(e)}")
+            else:
+                # Use OpenAI API (chatgpt)
+                async with httpx.AsyncClient() as client:
+                    response = await client.post(
+                        "https://api.openai.com/v1/chat/completions",
+                        headers={
+                            "Authorization": f"Bearer {api_key}",
+                            "Content-Type": "application/json"
                         },
-                        {
-                            "role": "user",
-                            "content": sigma_prompt
-                        }
-                    ],
-                    "max_tokens": 4000,
-                    "temperature": 0.3
-                },
-                timeout=120.0
-            )
-            
-            if response.status_code != 200:
-                raise HTTPException(status_code=500, detail=f"OpenAI API error: {response.status_code}")
-            
-            result = response.json()
-            sigma_response = result['choices'][0]['message']['content']
+                        json={
+                            "model": "gpt-4o-mini",
+                            "messages": [
+                                {
+                                    "role": "system",
+                                    "content": "You are a senior cybersecurity detection engineer specializing in SIGMA rule creation. Generate high-quality, actionable SIGMA rules based on threat intelligence articles. Always use proper SIGMA syntax and include all required fields according to SigmaHQ standards."
+                                },
+                                {
+                                    "role": "user",
+                                    "content": prompt_text
+                                }
+                            ],
+                            "max_tokens": 4000,
+                            "temperature": 0.2
+                        },
+                        timeout=120.0
+                    )
+                    
+                    if response.status_code == 429:
+                        error_detail = "OpenAI API rate limit exceeded. Please wait a few minutes and try again, or check your API usage limits."
+                        logger.warning(f"OpenAI rate limit hit: {response.text}")
+                        raise HTTPException(status_code=429, detail=error_detail)
+                    elif response.status_code != 200:
+                        error_detail = f"OpenAI API error: {response.status_code}"
+                        if response.status_code == 401:
+                            error_detail = "OpenAI API key is invalid or expired. Please check your API key in Settings."
+                        elif response.status_code == 402:
+                            error_detail = "OpenAI API billing issue. Please check your account billing."
+                        logger.error(f"OpenAI API error {response.status_code}: {response.text}")
+                        raise HTTPException(status_code=500, detail=error_detail)
+                    
+                    result = response.json()
+                    return result['choices'][0]['message']['content']
         
         # Implement iterative SIGMA rule generation with validation feedback
         from src.services.sigma_validator import validate_sigma_rule, clean_sigma_rule
@@ -1117,47 +1202,8 @@ Please generate corrected SIGMA rules that address these validation errors. Ensu
                     # No errors to fix, break the loop
                     break
             
-            # Call OpenAI API for SIGMA rule generation
-            async with httpx.AsyncClient() as client:
-                response = await client.post(
-                    "https://api.openai.com/v1/chat/completions",
-                    headers={
-                        "Authorization": f"Bearer {api_key}",
-                        "Content-Type": "application/json"
-                    },
-                    json={
-                        "model": "gpt-4o-mini",
-                        "messages": [
-                            {
-                                "role": "system",
-                                "content": "You are a senior cybersecurity detection engineer specializing in SIGMA rule creation. Generate high-quality, actionable SIGMA rules based on threat intelligence articles. Always use proper SIGMA syntax and include all required fields according to SigmaHQ standards."
-                            },
-                            {
-                                "role": "user",
-                                "content": current_prompt
-                            }
-                        ],
-                        "max_tokens": 4000,
-                        "temperature": 0.3
-                    },
-                    timeout=120.0
-                )
-                
-                if response.status_code == 429:
-                    error_detail = "OpenAI API rate limit exceeded. Please wait a few minutes and try again, or check your API usage limits."
-                    logger.warning(f"OpenAI rate limit hit: {response.text}")
-                    raise HTTPException(status_code=429, detail=error_detail)
-                elif response.status_code != 200:
-                    error_detail = f"OpenAI API error: {response.status_code}"
-                    if response.status_code == 401:
-                        error_detail = "OpenAI API key is invalid or expired. Please check your API key in Settings."
-                    elif response.status_code == 402:
-                        error_detail = "OpenAI API billing issue. Please check your account billing."
-                    logger.error(f"OpenAI API error {response.status_code}: {response.text}")
-                    raise HTTPException(status_code=500, detail=error_detail)
-                
-                result = response.json()
-                sigma_response = result['choices'][0]['message']['content']
+            # Call LLM API for SIGMA rule generation
+            sigma_response = await call_llm_api(current_prompt)
             
             # Clean the response and extract YAML rules
             cleaned_response = clean_sigma_rule(sigma_response)
@@ -1242,6 +1288,12 @@ Please generate corrected SIGMA rules that address these validation errors. Ensu
         else:
             logger.warning(f"SIGMA generation completed with errors after {len(conversation_log)} attempts")
         
+        # Get model name for metadata
+        if ai_model == 'lmstudio':
+            model_name = await _get_current_lmstudio_model()
+        else:
+            model_name = 'gpt-4o-mini'
+        
         # Update article metadata with generated SIGMA rules
         current_metadata = article.article_metadata or {}
         current_metadata['sigma_rules'] = {
@@ -1249,7 +1301,9 @@ Please generate corrected SIGMA rules that address these validation errors. Ensu
             'metadata': {
                 'generated_at': datetime.now().isoformat(),
                 'ai_model': ai_model,
+                'model_name': model_name,
                 'author': author_name,
+                'temperature': 0.2,
                 'total_rules': len(rules),
                 'valid_rules': len([r for r in rules if r.get('validated', False)]),
                 'validation_results': validation_results,
