@@ -65,7 +65,7 @@ A comprehensive threat intelligence aggregation and analysis platform designed f
 
 ### Data Flow
 1. **Collection**: RSS feed parsing (primary) with basic web scraping fallback
-2. **Processing**: Content extraction, cleaning, and deduplication
+2. **Processing**: Content extraction and deduplication
 3. **Analysis**: Rule-based scoring and AI-powered classification
 4. **Embedding**: Vector generation using Sentence Transformers for semantic search
 5. **Storage**: Structured data storage with full-text search and vector similarity capabilities
@@ -80,7 +80,7 @@ A comprehensive threat intelligence aggregation and analysis platform designed f
 
 ### ⚡ One-Command Setup
 ```bash
-git clone https://github.com/starlord/CTIScraper.git
+git clone https://github.com/CTIScraper.git
 cd CTIScraper
 ./start.sh
 ```
