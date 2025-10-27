@@ -78,11 +78,12 @@
 | `test_ai_real_api_integration.py` | 10 | ✅ Passing | Real AI API integration |
 | `test_ai_cross_model_integration.py` | 11 | ✅ Passing | Cross-model AI integration |
 
-### API Tests (1 file, 15 tests)
+### API Tests (2 files, 33 tests)
 
 | File | Tests | Status | Description |
 |------|-------|--------|-------------|
 | `test_endpoints.py` | 15 | ✅ Passing | REST API endpoints |
+| `test_annotations_api.py` | 18 | ✅ Passing | Annotation CRUD endpoint tests |
 
 ### E2E Tests (1 file, 13 tests)
 
@@ -98,7 +99,7 @@
 - **Service/Utility Tests**: 142 tests (chunk analysis, prompt loader, query safety, simhash, model evaluation)
 - **UI Tests**: 61 tests (all working)
 - **Integration Tests**: 46 tests (all working)
-- **API Tests**: 15 tests (all working)
+- **API Tests**: 33 tests (all working)
 - **E2E Tests**: 13 tests (all working)
 - **Other Unit Tests**: 49 tests (various modules)
 
