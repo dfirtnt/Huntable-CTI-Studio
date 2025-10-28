@@ -10,7 +10,7 @@ services:
       POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --lc-collate=C --lc-ctype=C"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+      - ./init.sql:/docker-entrypoint-initdb.d
     ports:
       - "5432:5432"
     networks:
@@ -33,9 +33,9 @@ services:
     networks:
       - cti_network
     restart: unless-stopped
-    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD}
+    command: redis-server --appendonly yes
     healthcheck:
-      test: ["CMD-SHELL", "timeout 3 redis-cli -a ${REDIS_PASSWORD} --no-auth-warning ping | grep -q PONG"]
+      test: ["CMD-SHELL", "timeout 3 redis-cli ping | grep -q PONG"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -48,7 +48,7 @@ services:
     container_name: cti_web
     environment:
       - DATABASE_URL=postgresql+asyncpg://cti_user:${POSTGRES_PASSWORD}@postgres:5432/cti_scraper
-      - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
+      - REDIS_URL=redis://redis:6379/0
       - ENVIRONMENT=development
       - LOG_LEVEL=DEBUG
       - LLM_API_URL=http://cti_ollama:11434
@@ -97,7 +97,7 @@ services:
     container_name: cti_worker
     environment:
       - DATABASE_URL=postgresql+asyncpg://cti_user:${POSTGRES_PASSWORD}@postgres:5432/cti_scraper
-      - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
+      - REDIS_URL=redis://redis:6379/0
       - ENVIRONMENT=development
       - LOG_LEVEL=DEBUG
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
@@ -137,7 +137,7 @@ services:
     container_name: cti_scheduler
     environment:
       - DATABASE_URL=postgresql+asyncpg://cti_user:${POSTGRES_PASSWORD}@postgres:5432/cti_scraper
-      - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
+      - REDIS_URL=redis://redis:6379/0
       - ENVIRONMENT=development
       - LOG_LEVEL=DEBUG
     volumes:
@@ -199,7 +199,7 @@ services:
     container_name: cti_cli
     environment:
       - DATABASE_URL=postgresql+asyncpg://cti_user:${POSTGRES_PASSWORD}@postgres:5432/cti_scraper
-      - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
+      - REDIS_URL=redis://redis:6379/0
       - ENVIRONMENT=development
       - LOG_LEVEL=DEBUG
       - SOURCES_CONFIG=/app/config/sources.yaml
