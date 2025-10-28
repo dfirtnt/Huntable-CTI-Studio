@@ -780,9 +780,16 @@ async def api_gpt4o_rank_optimized(article_id: int, request: Request):
         body = await request.json()
         article_url = body.get('url')
         api_key = body.get('api_key')
+        ai_model = body.get('ai_model', 'chatgpt')
         use_filtering = body.get('use_filtering', True)  # Enable filtering by default
         min_confidence = body.get('min_confidence', 0.7)  # Confidence threshold
         
+        # This endpoint is specifically for GPT-4o optimization
+        # Only support chatgpt model
+        if ai_model != 'chatgpt':
+            raise HTTPException(status_code=400, detail="This endpoint (gpt4o-rank-optimized) only supports ChatGPT. Use the standard rank-with-gpt4o endpoint for other models.")
+        
+        # Only require API key for chatgpt
         if not api_key:
             raise HTTPException(status_code=400, detail="OpenAI API key is required. Please configure it in Settings.")
         
@@ -1506,6 +1513,69 @@ async def api_get_sigma_matches(article_id: int):
         
     except Exception as e:
         logger.error(f"Error getting Sigma matches for article {article_id}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/sigma-rules/{rule_id}")
+async def api_get_sigma_rule_details(rule_id: str):
+    """Get full details of a specific Sigma rule by its rule_id."""
+    try:
+        from src.database.manager import DatabaseManager
+        from src.database.models import SigmaRuleTable
+        
+        db_manager = DatabaseManager()
+        session = db_manager.get_session()
+        
+        try:
+            # Query the rule by rule_id
+            rule = session.query(SigmaRuleTable).filter_by(rule_id=rule_id).first()
+            
+            if not rule:
+                raise HTTPException(status_code=404, detail=f"Sigma rule '{rule_id}' not found")
+            
+            # Convert to dictionary with proper JSON serialization
+            import json
+            
+            def convert_value(value):
+                if value is None:
+                    return None
+                if isinstance(value, (dict, list)):
+                    return value
+                if isinstance(value, (tuple, set)):
+                    return list(value)
+                return value
+            
+            rule_data = {
+                "rule_id": rule.rule_id,
+                "title": rule.title,
+                "description": rule.description,
+                "logsource": convert_value(rule.logsource),
+                "detection": convert_value(rule.detection),
+                "tags": list(rule.tags) if rule.tags else [],
+                "level": rule.level,
+                "status": rule.status,
+                "author": rule.author,
+                "date": rule.date.isoformat() if rule.date else None,
+                "rule_references": list(rule.rule_references) if rule.rule_references else [],
+                "false_positives": list(rule.false_positives) if rule.false_positives else [],
+                "fields": list(rule.fields) if rule.fields else [],
+                "file_path": rule.file_path,
+                "repo_commit_sha": rule.repo_commit_sha,
+                "created_at": rule.created_at.isoformat() if rule.created_at else None,
+                "updated_at": rule.updated_at.isoformat() if rule.updated_at else None
+            }
+            
+            return {
+                "success": True,
+                "rule": rule_data
+            }
+        finally:
+            session.close()
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting Sigma rule details for rule_id '{rule_id}': {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
