@@ -47,9 +47,10 @@
 
 ## User Shortcut Commands
 - **`lg`** = commit + push + full GitHub hygiene:
+  - **Test Assessment**: Consider if recent updates warrant new/updated tests (e.g. smoke, UI, E2E, etc). Critical tests only. If yes, halt further steps, prompt the user with proposed tests.
   - **Security & Setup**: Scan for hardcoded credentials/API keys, create comprehensive .gitignore, add .env.example, move config to external files
   - **Dependency Security**: Check requirements for latest versions and CVE vulnerabilities, update if patches available, alert if no patches
-  - **Documentation & Standards**: Create professional README.md, add LICENSE (MIT), pin dependencies, add type hints/docstrings, remove debug prints
+  - **Documentation & Standards**: Update README.md, and LICENSE (MIT), pin dependencies, add type hints/docstrings, remove debug prints.
   - **Repository Files**: Add Update CHANGELOG.md
   - **Final Verification**: Ensure no secrets in code, comprehensive .gitignore, professional README, proper license, documented dependencies/code
 - **`lgl`** = commit + push (lite).

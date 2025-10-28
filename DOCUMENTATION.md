@@ -22,7 +22,7 @@ Choose your path based on your role:
 ### DevOps & Operations
 **Deploying and Managing CTIScraper**
 1. [Docker Architecture](docs/deployment/DOCKER_ARCHITECTURE.md) - Container setup
-2. [Backup System](docs/DATABASE_BACKUP_RESTORE.md) - Data protection
+2. [Backup & Restore](docs/operations/BACKUP_AND_RESTORE.md) - Comprehensive backup system
 3. [Monitoring](README.md#monitoring) - Health checks and metrics
 4. [Production Deployment](README.md#production-deployment) - Production setup
 
@@ -41,21 +41,25 @@ Choose your path based on your role:
 - **[VERSIONING.md](VERSIONING.md)** - Version numbering system
 
 ### Feature Documentation
-- **[SIGMA_RULE_GENERATION.md](SIGMA_RULE_GENERATION.md)** - AI-powered detection rule generation
+- **[SIGMA Detection Rules](docs/features/SIGMA_DETECTION_RULES.md)** - AI-powered rule generation, matching & similarity
+- **[Content Filtering](docs/features/CONTENT_FILTERING.md)** - ML-based content optimization for GPT-4o
 - **[AGENTS.md](AGENTS.md)** - AI assistant guidelines and instructions
 
 ### Development Documentation
 - **[Development Setup](docs/development/DEVELOPMENT_SETUP.md)** - Environment, pytest, virtual environments
-- **[Advanced Testing](docs/development/ADVANCED_TESTING.md)** - API, E2E, performance testing
 - **[Database Queries](docs/development/DATABASE_QUERY_GUIDE.md)** - Database operations
 - **[Threat Hunting Scoring](docs/development/THREAT_HUNTING_SCORING.md)** - Scoring algorithms
 - **[Hybrid IOC Extraction](docs/development/HYBRID_IOC_EXTRACTION.md)** - IOC extraction system
-- **[Content Filtering](docs/CONTENT_FILTERING_SYSTEM.md)** - ML-based content filtering
+- **[Web App Testing](docs/development/WEB_APP_TESTING.md)** - Playwright-based UI testing
+- **[Allure Reports](docs/development/ALLURE_REPORTS.md)** - Test visualization and reporting
+- **[Lightweight Integration](docs/development/LIGHTWEIGHT_INTEGRATION_TESTING.md)** - Fast integration testing
 - **[RAG System](docs/RAG_SYSTEM.md)** - Retrieval-Augmented Generation
 
 ### Testing Documentation
 - **[Testing Guide](tests/TESTING.md)** - Comprehensive testing documentation
 - **[Testing Quick Start](tests/QUICK_START.md)** - 5-minute testing setup
+- **[Advanced Testing](tests/ADVANCED_TESTING.md)** - API, E2E, and performance testing
+- **[CI/CD Testing](tests/CICD_TESTING.md)** - GitHub Actions and pipeline integration
 - **[ML Feedback Tests](tests/ML_FEEDBACK_TESTS_README.md)** - Essential regression prevention
 - **[Skipped Tests](tests/SKIPPED_TESTS.md)** - Test status reference
 - **[AI Tests](tests/AI_TESTS_README.md)** - AI-specific testing
@@ -63,8 +67,11 @@ Choose your path based on your role:
 ### Deployment Documentation
 - **[Docker Architecture](docs/deployment/DOCKER_ARCHITECTURE.md)** - Container setup and architecture
 - **[Getting Started](docs/deployment/GETTING_STARTED.md)** - Quick deployment guide
-- **[Database Backup](docs/DATABASE_BACKUP_RESTORE.md)** - Backup and restore procedures
 - **[Technical Readout](docs/deployment/TECHNICAL_READOUT.md)** - Technical overview
+
+### Operations Documentation
+- **[Backup & Restore](docs/operations/BACKUP_AND_RESTORE.md)** - Database and full system backups
+- **[Automated Backups](docs/operations/BACKUP_AND_RESTORE.md#automated-backups)** - Scheduled backup configuration
 
 ### API Documentation
 - **[API Endpoints](docs/API_ENDPOINTS.md)** - Complete API reference (128 endpoints)
@@ -82,20 +89,21 @@ Choose your path based on your role:
 - **Running Tests** → [Testing Quick Start](tests/QUICK_START.md)
 - **Contributing Code** → [CONTRIBUTING.md](CONTRIBUTING.md)
 - **Using the API** → [API Endpoints](docs/API_ENDPOINTS.md)
-- **Backing Up Data** → [Database Backup](docs/DATABASE_BACKUP_RESTORE.md)
+- **Backing Up Data** → [Backup & Restore](docs/operations/BACKUP_AND_RESTORE.md)
+- **Generating SIGMA Rules** → [SIGMA Detection Rules](docs/features/SIGMA_DETECTION_RULES.md)
 - **Understanding Architecture** → [Docker Architecture](docs/deployment/DOCKER_ARCHITECTURE.md)
 
 ### By Component
 - **Web Interface** → [README.md](README.md#web-interface) + [API Endpoints](docs/API_ENDPOINTS.md)
-- **AI Features** → [RAG System](docs/RAG_SYSTEM.md) + [SIGMA Rules](SIGMA_RULE_GENERATION.md)
-- **Testing** → [Testing Guide](tests/TESTING.md) + [ML Tests](tests/ML_FEEDBACK_TESTS_README.md)
-- **Database** → [Database Queries](docs/development/DATABASE_QUERY_GUIDE.md) + [Backup](docs/DATABASE_BACKUP_RESTORE.md)
+- **AI Features** → [RAG System](docs/RAG_SYSTEM.md) + [SIGMA Detection Rules](docs/features/SIGMA_DETECTION_RULES.md) + [Content Filtering](docs/features/CONTENT_FILTERING.md)
+- **Testing** → [Testing Guide](tests/TESTING.md) + [Advanced Testing](tests/ADVANCED_TESTING.md) + [ML Tests](tests/ML_FEEDBACK_TESTS_README.md)
+- **Database** → [Database Queries](docs/development/DATABASE_QUERY_GUIDE.md) + [Backup & Restore](docs/operations/BACKUP_AND_RESTORE.md)
 - **Docker** → [Docker Architecture](docs/deployment/DOCKER_ARCHITECTURE.md) + [Getting Started](docs/deployment/GETTING_STARTED.md)
 
 ### By Audience
 - **End Users** → [README.md](README.md) + [Getting Started](docs/deployment/GETTING_STARTED.md)
-- **Developers** → [Development Setup](docs/development/DEVELOPMENT_SETUP.md) + [Testing](tests/TESTING.md)
-- **DevOps** → [Docker Architecture](docs/deployment/DOCKER_ARCHITECTURE.md) + [Backup](docs/DATABASE_BACKUP_RESTORE.md)
+- **Developers** → [Development Setup](docs/development/DEVELOPMENT_SETUP.md) + [Testing](tests/TESTING.md) + [Advanced Testing](tests/ADVANCED_TESTING.md)
+- **DevOps** → [Docker Architecture](docs/deployment/DOCKER_ARCHITECTURE.md) + [Backup & Restore](docs/operations/BACKUP_AND_RESTORE.md)
 - **API Integrators** → [API Endpoints](docs/API_ENDPOINTS.md)
 
 ## 📖 Documentation Standards
@@ -106,13 +114,23 @@ Choose your path based on your role:
 - **Examples**: Code examples and usage patterns provided
 - **Cross-references**: Related documentation is linked appropriately
 
-## 🔄 Recent Changes
+## 🔄 Recent Changes (January 2025)
 
-This documentation structure was restructured to:
-- Eliminate duplication across testing and setup docs
-- Provide clear navigation paths for different user types
-- Consolidate scattered information into focused guides
-- Improve maintainability and discoverability
+Major documentation consolidation completed:
+- **Eliminated 57 redundant files** (116 → 59 files, 49% reduction)
+- **Consolidated SIGMA docs** (4 → 1): New comprehensive guide at `docs/features/SIGMA_DETECTION_RULES.md`
+- **Consolidated backup docs** (3 → 1): Unified guide at `docs/operations/BACKUP_AND_RESTORE.md`
+- **Consolidated testing docs** (15 redundant → streamlined): Moved advanced guides to `tests/`
+- **Consolidated content filtering** (2 → 1): Single guide at `docs/features/CONTENT_FILTERING.md`
+- **Archived historical docs**: Moved implementation notes to `docs/archive/`
+- **Deleted 30 sample articles**: Removed test data from version control
+- **Created new structure**: Added `docs/features/` and `docs/operations/` directories
+
+Benefits:
+- Clearer navigation paths for all user types
+- Eliminated duplicate and outdated information
+- Improved maintainability and discoverability
+- Reduced cognitive load with focused, comprehensive guides
 
 ## 💡 Need Help?
 
