@@ -4715,10 +4715,11 @@ Please provide a detailed analysis based on the article content and the user's s
         } else {
             matchesHtml = matches.map((match, index) => {
                 const similarityPercent = (match.similarity_score * 100).toFixed(1);
-                const statusColor = match.coverage_status === 'covered' ? 'green' : 
-                                   match.coverage_status === 'extend' ? 'yellow' : 'purple';
-                const statusIcon = match.coverage_status === 'covered' ? '✓' : 
-                                  match.coverage_status === 'extend' ? '⚡' : '✨';
+                const coverageStatus = match.coverage_status || 'unknown';
+                const statusColor = coverageStatus === 'covered' ? 'green' : 
+                                   coverageStatus === 'extend' ? 'yellow' : 'purple';
+                const statusIcon = coverageStatus === 'covered' ? '✓' : 
+                                  coverageStatus === 'extend' ? '⚡' : '✨';
                 
                 return `
                     <div class="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition-colors">
@@ -4730,7 +4731,7 @@ Please provide a detailed analysis based on the article content and the user's s
                             <div class="ml-4 flex flex-col items-end">
                                 <div class="text-2xl font-bold text-${statusColor}-600">${similarityPercent}%</div>
                                 <div class="text-xs text-${statusColor}-600 bg-${statusColor}-100 px-2 py-1 rounded mt-1">
-                                    ${statusIcon} ${match.coverage_status.toUpperCase()}
+                                    ${statusIcon} ${coverageStatus.toUpperCase()}
                                 </div>
                             </div>
                         </div>
@@ -4797,7 +4798,7 @@ Please provide a detailed analysis based on the article content and the user's s
                 </div>
                 
                 <div class="mb-4 text-sm text-gray-600">
-                    Found ${matches ? matches.length : 0} similar rules with ≥70% similarity
+                    Found ${matches ? matches.length : 0} most similar rules (sorted by similarity)
                 </div>
                 
                 ${coverageHtml}

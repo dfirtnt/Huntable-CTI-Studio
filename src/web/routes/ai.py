@@ -1041,10 +1041,10 @@ async def api_generate_sigma(article_id: int, request: Request):
                 matching_service = SigmaMatchingService(db_session)
                 coverage_service = SigmaCoverageService(db_session)
                 
-                # Match at article level
+                # Match at article level (no threshold - return all sorted by similarity)
                 article_matches = matching_service.match_article_to_rules(
                     article_id,
-                    threshold=0.7,
+                    threshold=0.0,
                     limit=10
                 )
                 
@@ -1435,7 +1435,7 @@ Please generate corrected SIGMA rules that address these validation errors. Ensu
             for rule in rules:
                 similar_matches = matching_service.compare_proposed_rule_to_embeddings(
                     proposed_rule=rule,
-                    threshold=0.7
+                    threshold=0.0
                 )
                 if similar_matches:
                     similar_rules_by_generated.append({
@@ -1482,17 +1482,27 @@ async def api_get_sigma_matches(article_id: int):
         matching_service = SigmaMatchingService(session)
         coverage_service = SigmaCoverageService(session)
         
-        # Get existing matches
-        matches = matching_service.get_article_matches(article_id)
-        coverage_summary = matching_service.get_coverage_summary(article_id)
-        
-        session.close()
-        
-        return {
-            "success": True,
-            "matches": matches,
-            "coverage_summary": coverage_summary
-        }
+        try:
+            # Perform fresh matching (no threshold, returns top 10 sorted by similarity)
+            fresh_matches = matching_service.match_article_to_rules(
+                article_id,
+                threshold=0.0,
+                limit=10
+            )
+            
+            # Return fresh matches directly (no need to query database)
+            return {
+                "success": True,
+                "matches": fresh_matches,
+                "coverage_summary": {
+                    "covered": len([m for m in fresh_matches if m.get('coverage_status') == 'covered']),
+                    "extend": len([m for m in fresh_matches if m.get('coverage_status') == 'extend']),
+                    "new": len([m for m in fresh_matches if m.get('coverage_status') == 'new']),
+                    "total": len(fresh_matches)
+                }
+            }
+        finally:
+            session.close()
         
     except Exception as e:
         logger.error(f"Error getting Sigma matches for article {article_id}: {e}")

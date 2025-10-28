@@ -198,7 +198,20 @@ async def api_get_article(article_id: int):
         article = await async_db_manager.get_article(article_id)
         if not article:
             raise HTTPException(status_code=404, detail="Article not found")
-        return article.dict()
+        
+        # Convert to dict, handling embedding field (numpy array/list)
+        article_dict = article.dict()
+        
+        # Ensure embedding is serializable
+        if 'embedding' in article_dict:
+            if article_dict['embedding'] is not None:
+                # Convert to list if it's a numpy array or other type
+                if hasattr(article_dict['embedding'], 'tolist'):
+                    article_dict['embedding'] = article_dict['embedding'].tolist()
+                elif not isinstance(article_dict['embedding'], list):
+                    article_dict['embedding'] = list(article_dict['embedding']) if hasattr(article_dict['embedding'], '__iter__') else []
+        
+        return article_dict
     except HTTPException:
         raise
     except Exception as exc:  # noqa: BLE001
