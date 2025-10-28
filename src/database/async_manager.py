@@ -1059,7 +1059,10 @@ class AsyncDatabaseManager:
             collected_at=db_article.discovered_at,
             created_at=db_article.created_at,
             updated_at=db_article.updated_at,
-            processing_status=db_article.processing_status
+            processing_status=db_article.processing_status,
+            embedding=db_article.embedding,
+            embedding_model=db_article.embedding_model,
+            embedded_at=db_article.embedded_at
         )
     
     async def get_deduplication_stats(self) -> Dict[str, Any]:

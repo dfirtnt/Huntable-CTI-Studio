@@ -7,6 +7,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.0.0 "Copernicus"] - 2025-01-28
+
+### Added
+- **SIGMA Rule Similarity Search**: Advanced similarity matching between generated SIGMA rules and existing SigmaHQ rules
+- **Weighted Hybrid Embeddings**: Enhanced embedding strategy combining title, description, tags, logsource, and detection logic
+- **Interactive Similar Rules Modal**: UI modal showing similar SIGMA rules with coverage status (covered/extend/new)
+- **Embed Article Button**: One-click embedding generation for articles with async Celery task processing
+- **Coverage Classification**: Automatic classification of rule matches as "covered", "extend", or "new"
+- **Article Embedding Status**: Real-time tracking of article embedding status with disabled button tooltips
+- **Enhanced Sigma Generation**: Added MITRE ATT&CK technique extraction and tagging to SIGMA rule generation
+- **PostgreSQL Vector Index**: Efficient vector similarity search using pgvector extension
+
+### Changed
+- **Embedding Model**: Enhanced to use all-mpnet-base-v2 (768-dimensional vectors)
+- **Sigma Sync Service**: Updated to generate weighted hybrid embeddings for better semantic matching
+- **Article Detail UI**: Enhanced modal with dynamic button states based on embedding status
+- **Sigma Matching Service**: Improved similarity search with proper SQL parameter binding
+
+### Fixed
+- **SQL Syntax Errors**: Fixed mixing SQLAlchemy named parameters with psycopg2 format
+- **PostgreSQL Index Size**: Removed B-tree index on embedding column exceeding size limits
+- **Pydantic Model**: Added embedding, embedding_model, and embedded_at fields to Article model
+- **NumPy Array Truth Value**: Fixed ambiguous truth value when checking embedding existence
+- **Article Embedding API**: Proper handling of list-like embeddings with length validation
+
+### Technical Details
+- **Vector Similarity**: Cosine similarity with configurable threshold (default 0.7)
+- **API Endpoints**: `/api/articles/{id}/embed`, `/api/sigma/matches/{article_id}`, `/api/generate-sigma`
+- **Async Processing**: Celery workers for background embedding generation
+- **Database**: Article and Sigma rule embeddings stored in PostgreSQL with pgvector
+
+## [Unreleased]
+
 ### Added
 - **Full GitHub Hygiene Audit (LG)**: Comprehensive security and quality audit completed
 - **Dependency Security**: All 269 dependencies audited with pip-audit - no CVE vulnerabilities found

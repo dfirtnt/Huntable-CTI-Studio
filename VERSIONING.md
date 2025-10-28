@@ -13,7 +13,7 @@ CTI Scraper uses a combination of semantic versioning and moon crater names for 
 
 ## Current Version
 
-**v2.0.0 "Tycho"** - Current stable release
+**v3.0.0 "Copernicus"** - Current stable release
 
 ## Moon Crater Naming System
 
@@ -38,16 +38,17 @@ Moon craters are named by the International Astronomical Union (IAU) to honor:
 
 ## Version History
 
+### v3.0.0 "Copernicus" (2025-01-28)
+- **Named After**: Nicolaus Copernicus, astronomer who revolutionized our understanding of the solar system
+- **Significance**: Represents revolutionary changes and new paradigms
+- **Features**: SIGMA rule similarity search, weighted hybrid embeddings, enhanced threat intelligence matching
+
 ### v2.0.0 "Tycho" (2025-01-15)
 - **Named After**: Tycho Brahe, Danish astronomer known for accurate astronomical measurements
 - **Significance**: One of the most prominent and visible craters on the moon
 - **Features**: Major architectural rewrite with PostgreSQL, async support, Docker containerization
 
 ### Future Versions
-
-**v3.0.0 "Copernicus"** - Next planned major version
-- **Named After**: Nicolaus Copernicus, astronomer who revolutionized our understanding of the solar system
-- **Significance**: Represents revolutionary changes and new paradigms
 
 **v4.0.0 "Kepler"** - Future major version
 - **Named After**: Johannes Kepler, known for planetary motion laws

@@ -5,7 +5,7 @@ from typing import Dict, Any, List, Optional
 from sqlalchemy import Column, Integer, String, DateTime, Boolean, Float, Text, ForeignKey, JSON, Numeric, ARRAY
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.sql import func
 import uuid
 from pgvector.sqlalchemy import Vector
@@ -332,3 +332,78 @@ class ChunkClassificationFeedbackTable(Base):
     
     def __repr__(self):
         return f"<ChunkClassificationFeedback(id={self.id}, article_id={self.article_id}, chunk_id={self.chunk_id})>"
+
+
+class SigmaRuleTable(Base):
+    """Database table for Sigma detection rules from SigmaHQ repository."""
+    
+    __tablename__ = 'sigma_rules'
+    
+    id = Column(Integer, primary_key=True, index=True)
+    rule_id = Column(String(255), unique=True, nullable=False, index=True)
+    title = Column(Text, nullable=False)
+    description = Column(Text, nullable=True)
+    logsource = Column(JSONB, nullable=False)
+    detection = Column(JSONB, nullable=False)
+    tags = Column(ARRAY(String), nullable=False, default=list)
+    level = Column(String(20), nullable=True)
+    status = Column(String(20), nullable=True)
+    author = Column(Text, nullable=True)
+    date = Column(DateTime, nullable=True)
+    rule_references = Column(ARRAY(Text), nullable=False, default=list)
+    false_positives = Column(ARRAY(Text), nullable=False, default=list)
+    fields = Column(ARRAY(String), nullable=False, default=list)
+    
+    # Embedding fields
+    embedding = Column(Vector(768), nullable=True, index=True)
+    embedding_model = Column(String(100), nullable=True, default='all-mpnet-base-v2')
+    embedded_at = Column(DateTime, nullable=True)
+    
+    # Source tracking
+    file_path = Column(Text, nullable=False)
+    repo_commit_sha = Column(String(40), nullable=True)
+    
+    # Metadata
+    created_at = Column(DateTime, nullable=False, default=func.now())
+    updated_at = Column(DateTime, nullable=False, default=func.now(), onupdate=func.now())
+    
+    # Relationships
+    article_matches = relationship("ArticleSigmaMatchTable", back_populates="sigma_rule", cascade="all, delete-orphan")
+    
+    def __repr__(self):
+        return f"<SigmaRule(id={self.id}, rule_id='{self.rule_id}', title='{self.title[:50]}...')>"
+
+
+class ArticleSigmaMatchTable(Base):
+    """Database table for article-to-Sigma rule matches with coverage analysis."""
+    
+    __tablename__ = 'article_sigma_matches'
+    
+    id = Column(Integer, primary_key=True, index=True)
+    article_id = Column(Integer, ForeignKey('articles.id', ondelete='CASCADE'), nullable=False, index=True)
+    sigma_rule_id = Column(Integer, ForeignKey('sigma_rules.id', ondelete='CASCADE'), nullable=False, index=True)
+    
+    # Match metadata
+    similarity_score = Column(Float, nullable=False)
+    match_level = Column(String(20), nullable=False, index=True)
+    chunk_id = Column(Integer, nullable=True)
+    
+    # Coverage classification
+    coverage_status = Column(String(20), nullable=False, index=True)
+    coverage_confidence = Column(Float, nullable=True)
+    coverage_reasoning = Column(Text, nullable=True)
+    
+    # Behavior extraction from chunk_analysis_results
+    matched_discriminators = Column(ARRAY(String), nullable=False, default=list)
+    matched_lolbas = Column(ARRAY(String), nullable=False, default=list)
+    matched_intelligence = Column(ARRAY(String), nullable=False, default=list)
+    
+    created_at = Column(DateTime, nullable=False, default=func.now())
+    updated_at = Column(DateTime, nullable=False, default=func.now(), onupdate=func.now())
+    
+    # Relationships
+    article = relationship("ArticleTable", backref="sigma_matches")
+    sigma_rule = relationship("SigmaRuleTable", back_populates="article_matches")
+    
+    def __repr__(self):
+        return f"<ArticleSigmaMatch(id={self.id}, article_id={self.article_id}, sigma_rule_id={self.sigma_rule_id}, coverage='{self.coverage_status}')>"

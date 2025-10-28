@@ -77,7 +77,12 @@ async def api_generate_embedding(article_id: int):
         if not article:
             raise HTTPException(status_code=404, detail="Article not found")
 
-        if article.embedding:
+        # Check if embedding exists (handle numpy array)
+        has_embedding = article.embedding is not None
+        if isinstance(article.embedding, list):
+            has_embedding = len(article.embedding) > 0
+        
+        if has_embedding:
             return {
                 "status": "already_embedded",
                 "message": f"Article {article_id} already has an embedding",

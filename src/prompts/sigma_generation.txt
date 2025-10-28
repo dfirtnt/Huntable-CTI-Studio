@@ -10,6 +10,7 @@ Generate a Sigma detection rule based on this threat intelligence:
 3. **Proper Syntax:** Use correct SIGMA rule format and structure
 4. **Required Fields:** Include all mandatory SIGMA fields (title, description, logsource, detection, etc.)
 5. **Actionable Detection:** Rules should detect real attack patterns
+6. **MITRE ATT&CK Tags:** Extract specific ATT&CK technique IDs from the content (e.g., T1059.001 for PowerShell execution, T1486 for Data Encrypted for Impact/Ransomware)
 
 **Rule Guidelines:**
 - Avoid rules for single IP addresses or file hashes
@@ -44,7 +45,10 @@ detection:
   condition: selection
 level: [low/medium/high/critical]
 tags:
-  - attack.[technique]
+  - attack.execution  # High-level tactic (execution, persistence, evasion, etc.)
+  - attack.t1059.001  # Specific technique (Command and Scripting Interpreter: PowerShell)
+  - attack.t1486  # Specific technique (Data Encrypted for Impact)
+  # Include 2-4 relevant MITRE ATT&CK techniques based on article content
 references:
   - [URL or reference]
 

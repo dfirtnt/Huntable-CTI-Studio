@@ -827,6 +827,23 @@ class ThreatHuntingScorer:
         if keyword in regex_patterns:
             return bool(re.search(keyword, text, re.IGNORECASE))
         
+        # Get regex pattern for matching
+        pattern = ThreatHuntingScorer._build_keyword_pattern(keyword)
+        
+        return bool(re.search(pattern, text, re.IGNORECASE))
+    
+    @staticmethod
+    def _build_keyword_pattern(keyword: str) -> str:
+        """
+        Build regex pattern for keyword matching.
+        Shared logic used by both scoring and highlighting.
+        
+        Args:
+            keyword: Keyword to build pattern for
+            
+        Returns:
+            Regex pattern string
+        """
         # Escape special regex characters for literal matching
         escaped_keyword = re.escape(keyword)
         
@@ -841,18 +858,27 @@ class ThreatHuntingScorer:
         
         if keyword.lower() in partial_match_keywords:
             # Allow partial matches for these keywords
-            pattern = escaped_keyword
+            return escaped_keyword
         elif keyword.lower() in wildcard_keywords:
             # Allow wildcard matching (e.g., "spawn" matches "spawns", "spawning", "spawned")
-            pattern = escaped_keyword + r'\w*'
+            return escaped_keyword + r'\w*'
         elif keyword in symbol_keywords:
             # For symbols, don't use word boundaries
-            pattern = escaped_keyword
+            return escaped_keyword
+        elif keyword.startswith('-') or keyword.endswith('-'):
+            # For keywords with leading/trailing hyphens, use letter boundaries instead of word boundaries
+            return r"(?<![a-zA-Z])" + escaped_keyword + r"(?![a-zA-Z])"
+        elif keyword.endswith('.exe'):
+            # For .exe executables, match both with and without .exe extension
+            base_name = keyword[:-4]  # Remove .exe
+            return r'\b' + re.escape(base_name) + r'(\.exe)?\b'
+        elif keyword.endswith('.dll'):
+            # For .dll files, match both with and without .dll extension
+            base_name = keyword[:-4]  # Remove .dll
+            return r'\b' + re.escape(base_name) + r'(\.dll)?\b'
         else:
             # Use word boundaries for other keywords
-            pattern = r'\b' + escaped_keyword + r'\b'
-        
-        return bool(re.search(pattern, text, re.IGNORECASE))
+            return r'\b' + escaped_keyword + r'\b'
 
 
 class ContentExtractor:

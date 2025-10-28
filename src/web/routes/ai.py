@@ -1015,10 +1015,104 @@ async def api_generate_sigma(article_id: int, request: Request):
         ai_model = body.get('ai_model', 'chatgpt')
         author_name = body.get('author_name', 'CTI Scraper User')
         force_regenerate = body.get('force_regenerate', False)
+        skip_matching = body.get('skip_matching', False)  # Option to skip matching phase
         
         # Only require API key for ChatGPT
         if ai_model == 'chatgpt' and not api_key:
             raise HTTPException(status_code=400, detail="OpenAI API key is required for ChatGPT. Please configure it in Settings.")
+        
+        # === NEW: Match-First Logic ===
+        # Phase 1: Match article to existing Sigma rules (unless skipped)
+        matched_rules = []
+        coverage_summary = {'covered': 0, 'extend': 0, 'new': 0, 'total': 0}
+        
+        if not skip_matching:
+            try:
+                from src.database.manager import DatabaseManager
+                from src.services.sigma_matching_service import SigmaMatchingService
+                from src.services.sigma_coverage_service import SigmaCoverageService
+                from src.database.models import SigmaRuleTable
+                
+                logger.info(f"Matching article {article_id} to existing Sigma rules...")
+                
+                db_manager = DatabaseManager()
+                db_session = db_manager.get_session()
+                
+                matching_service = SigmaMatchingService(db_session)
+                coverage_service = SigmaCoverageService(db_session)
+                
+                # Match at article level
+                article_matches = matching_service.match_article_to_rules(
+                    article_id,
+                    threshold=0.7,
+                    limit=10
+                )
+                
+                # Process matches and classify coverage
+                for match in article_matches:
+                    rule = db_session.query(SigmaRuleTable).filter_by(rule_id=match['rule_id']).first()
+                    if rule:
+                        classification = coverage_service.classify_match(
+                            article_id,
+                            rule,
+                            match['similarity']
+                        )
+                        
+                        # Store match in database
+                        matching_service.store_match(
+                            article_id=article_id,
+                            sigma_rule_id=rule.id,
+                            similarity_score=match['similarity'],
+                            match_level='article',
+                            coverage_status=classification['coverage_status'],
+                            coverage_confidence=classification['coverage_confidence'],
+                            coverage_reasoning=classification['coverage_reasoning'],
+                            matched_discriminators=classification['matched_discriminators'],
+                            matched_lolbas=classification['matched_lolbas'],
+                            matched_intelligence=classification['matched_intelligence']
+                        )
+                        
+                        matched_rules.append({
+                            'rule_id': match['rule_id'],
+                            'title': match['title'],
+                            'description': match['description'],
+                            'similarity': match['similarity'],
+                            'level': match.get('level'),
+                            'status': match.get('status'),
+                            'coverage_status': classification['coverage_status'],
+                            'coverage_confidence': classification['coverage_confidence'],
+                            'matched_behaviors': classification['matched_discriminators'][:5]
+                        })
+                        
+                        # Update coverage summary
+                        status = classification['coverage_status']
+                        if status in coverage_summary:
+                            coverage_summary[status] += 1
+                
+                coverage_summary['total'] = len(matched_rules)
+                db_session.close()
+                
+                logger.info(f"Found {len(matched_rules)} matching rules: "
+                          f"{coverage_summary['covered']} covered, "
+                          f"{coverage_summary['extend']} extend, "
+                          f"{coverage_summary['new']} new")
+                
+                # Phase 2: Decision - skip generation if well covered
+                if coverage_summary['covered'] >= 2 and not force_regenerate:
+                    logger.info("Article is well covered by existing Sigma rules, skipping generation")
+                    return {
+                        "success": True,
+                        "matched_rules": matched_rules,
+                        "coverage_summary": coverage_summary,
+                        "generated_rules": [],
+                        "recommendation": f"Article behaviors are covered by {coverage_summary['covered']} existing Sigma rule(s). No new rules needed.",
+                        "skipped_generation": True,
+                        "error": None
+                    }
+                
+            except Exception as e:
+                logger.warning(f"Error during Sigma matching: {e}. Proceeding with generation.")
+                # Continue to generation phase even if matching fails
         
         # Check for existing SIGMA rules (unless force regeneration is requested)
         if not force_regenerate and article.article_metadata and article.article_metadata.get('sigma_rules'):
@@ -1027,6 +1121,8 @@ async def api_generate_sigma(article_id: int, request: Request):
                 "success": True,
                 "rules": existing_rules.get('rules', []),
                 "metadata": existing_rules.get('metadata', {}),
+                "matched_rules": matched_rules,
+                "coverage_summary": coverage_summary,
                 "cached": True,
                 "error": None
             }
@@ -1325,10 +1421,42 @@ Please generate corrected SIGMA rules that address these validation errors. Ensu
         update_data = ArticleUpdate(article_metadata=current_metadata)
         await async_db_manager.update_article(article_id, update_data)
         
+        # Compare generated rules to existing SigmaHQ rules
+        from src.database.manager import DatabaseManager
+        from src.services.sigma_matching_service import SigmaMatchingService
+        
+        similar_rules_by_generated = []
+        try:
+            db_manager = DatabaseManager()
+            sync_session = db_manager.get_session()
+            matching_service = SigmaMatchingService(sync_session)
+            
+            # For each generated rule, find similar existing Sigma rules
+            for rule in rules:
+                similar_matches = matching_service.compare_proposed_rule_to_embeddings(
+                    proposed_rule=rule,
+                    threshold=0.7
+                )
+                if similar_matches:
+                    similar_rules_by_generated.append({
+                        'generated_rule': {
+                            'title': rule.get('title'),
+                            'description': rule.get('description')
+                        },
+                        'similar_existing_rules': similar_matches[:5]  # Top 5 matches
+                    })
+            
+            sync_session.close()
+        except Exception as e:
+            logger.warning(f"Failed to compare generated rules to SigmaHQ: {e}")
+        
         return {
             "success": len(rules) > 0,
             "rules": rules,
             "metadata": current_metadata['sigma_rules']['metadata'],
+            "matched_rules": matched_rules,
+            "coverage_summary": coverage_summary,
+            "similar_rules": similar_rules_by_generated,  # Similarity results for each generated rule
             "cached": False,
             "error": None if len(rules) > 0 else "No valid SIGMA rules could be generated"
         }
@@ -1337,6 +1465,37 @@ Please generate corrected SIGMA rules that address these validation errors. Ensu
         raise
     except Exception as e:
         logger.error(f"SIGMA rules generation error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/{article_id}/sigma-matches")
+async def api_get_sigma_matches(article_id: int):
+    """Get Sigma rule matches for an article."""
+    try:
+        from src.database.manager import DatabaseManager
+        from src.services.sigma_matching_service import SigmaMatchingService
+        from src.services.sigma_coverage_service import SigmaCoverageService
+        
+        db_manager = DatabaseManager()
+        session = db_manager.get_session()
+        
+        matching_service = SigmaMatchingService(session)
+        coverage_service = SigmaCoverageService(session)
+        
+        # Get existing matches
+        matches = matching_service.get_article_matches(article_id)
+        coverage_summary = matching_service.get_coverage_summary(article_id)
+        
+        session.close()
+        
+        return {
+            "success": True,
+            "matches": matches,
+            "coverage_summary": coverage_summary
+        }
+        
+    except Exception as e:
+        logger.error(f"Error getting Sigma matches for article {article_id}: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 

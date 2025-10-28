@@ -4032,11 +4032,25 @@ Please provide a detailed analysis based on the article content and the user's s
                     </div>
                 </div>
                 
-                <div class="mt-4 flex justify-between">
-                    <button onclick="regenerateSigmaRules()" 
-                            class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors">
-                        🔄 Regenerate
-                    </button>
+                <div class="mt-4 flex justify-between items-center">
+                    <div class="flex space-x-2">
+                        <button onclick="regenerateSigmaRules()" 
+                                class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors">
+                            🔄 Regenerate
+                        </button>
+                        <button id="checkSimilarRulesBtn" onclick="checkSimilarSigmaRules()" 
+                                class="px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
+                                title="Search for similar rules in SigmaHQ repository"
+                                disabled>
+                            🔍 Check Similar Rules
+                        </button>
+                        <button id="embedArticleBtn" onclick="generateArticleEmbedding()" 
+                                class="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
+                                title="Generate article embedding for semantic search"
+                                disabled>
+                            🧬 Embed Article
+                        </button>
+                    </div>
                     <button onclick="closeSigmaRulesModal()" 
                             class="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 transition-colors">
                         Close
@@ -4046,6 +4060,49 @@ Please provide a detailed analysis based on the article content and the user's s
         `;
         
         document.body.appendChild(modal);
+
+        // Check if article has embeddings and enable/disable buttons
+        const checkBtn = document.getElementById('checkSimilarRulesBtn');
+        const embedBtn = document.getElementById('embedArticleBtn');
+        const articleId = {{ article.id }};
+        
+        // Fetch embedding status from API
+        fetch(`/api/articles/${articleId}`)
+            .then(response => response.json())
+            .then(data => {
+                const hasEmbedding = data.embedding && data.embedding.length > 0;
+                
+                if (checkBtn) {
+                    if (hasEmbedding) {
+                        checkBtn.disabled = false;
+                        checkBtn.title = 'Search for similar rules in SigmaHQ repository';
+                    } else {
+                        checkBtn.disabled = true;
+                        checkBtn.title = 'Article embeddings required. Click "Embed Article" below to generate.';
+                    }
+                }
+                
+                if (embedBtn) {
+                    if (hasEmbedding) {
+                        embedBtn.disabled = true;
+                        embedBtn.textContent = '✓ Embedded';
+                        embedBtn.title = 'Article already has embedding';
+                    } else {
+                        embedBtn.disabled = false;
+                        embedBtn.title = 'Generate article embedding for semantic search';
+                    }
+                }
+            })
+            .catch(error => {
+                console.error('Failed to check embedding status:', error);
+                if (checkBtn) {
+                    checkBtn.disabled = true;
+                    checkBtn.title = 'Unable to verify embedding status';
+                }
+                if (embedBtn) {
+                    embedBtn.disabled = false;
+                }
+            });
 
         // Add toggle functionality for conversation log
         const toggleButton = document.getElementById('toggleSigmaConversation');
@@ -4495,6 +4552,277 @@ Please provide a detailed analysis based on the article content and the user's s
         
         // Call generateAIAnalysis with force regeneration
         generateAIAnalysis('sigma', true);
+    }
+    
+    async function checkSimilarSigmaRules() {
+        // Get the currently displayed Sigma rules
+        const sigmaRulesModal = document.getElementById('sigmaRulesModal');
+        if (!sigmaRulesModal) {
+            showNotification('Please generate SIGMA rules first', 'error');
+            return;
+        }
+        
+        // Get the sigma rules data from the page
+        const articleId = {{ article.id }};
+        
+        // Show loading indicator
+        showNotification('Searching for similar rules in SigmaHQ repository...', 'info');
+        
+        try {
+            // Fetch similar rules from the API
+            const response = await fetch(`/api/articles/${articleId}/sigma-matches`, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            });
+            
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                showSimilarRulesModal(data.matches, data.coverage_summary);
+            } else {
+                showNotification('Failed to find similar rules', 'error');
+            }
+        } catch (error) {
+            console.error('Error checking similar rules:', error);
+            showNotification('Error checking similar rules: ' + error.message, 'error');
+        }
+    }
+    
+    async function generateArticleEmbedding() {
+        const articleId = {{ article.id }};
+        
+        // Disable button during generation
+        const embedBtn = document.getElementById('embedArticleBtn');
+        if (embedBtn) {
+            embedBtn.disabled = true;
+            embedBtn.textContent = '⏳ Generating...';
+        }
+        
+        showNotification('Generating article embedding...', 'info');
+        
+        try {
+            const response = await fetch(`/api/articles/${articleId}/embed`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            });
+            
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
+            const data = await response.json();
+            
+            if (data.status === 'task_submitted' || data.status === 'already_embedded') {
+                showNotification('✓ Article embedding generated successfully!', 'success');
+                
+                // Re-enable Check Similar Rules button
+                const checkBtn = document.getElementById('checkSimilarRulesBtn');
+                if (checkBtn) {
+                    checkBtn.disabled = false;
+                }
+                
+                // Keep embed button disabled (already embedded)
+                if (embedBtn) {
+                    embedBtn.disabled = true;
+                    embedBtn.textContent = '✓ Embedded';
+                }
+            } else {
+                throw new Error(data.error || data.message || 'Failed to generate embedding');
+            }
+        } catch (error) {
+            console.error('Error generating embedding:', error);
+            showNotification('Error: ' + error.message, 'error');
+            
+            if (embedBtn) {
+                embedBtn.disabled = false;
+                embedBtn.textContent = '🧬 Embed Article';
+            }
+        }
+    }
+    
+    function showSimilarRulesModal(matches, coverageSummary) {
+        // Remove any existing modal
+        closeSimilarRulesModal();
+        
+        const modal = document.createElement('div');
+        modal.id = 'similarRulesModal';
+        modal.className = 'fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50';
+        
+        // Add click outside to close
+        modal.addEventListener('click', function(e) {
+            if (e.target === modal) {
+                closeSimilarRulesModal();
+            }
+        });
+        
+        // Add ESC key to close
+        const handleEsc = function(e) {
+            if (e.key === 'Escape') {
+                closeSimilarRulesModal();
+                document.removeEventListener('keydown', handleEsc);
+            }
+        };
+        document.addEventListener('keydown', handleEsc);
+        
+        // Build coverage summary HTML
+        let coverageHtml = '';
+        if (coverageSummary && coverageSummary.total > 0) {
+            const coveredPercent = ((coverageSummary.covered / coverageSummary.total) * 100).toFixed(1);
+            const extendPercent = ((coverageSummary.extend / coverageSummary.total) * 100).toFixed(1);
+            const newPercent = ((coverageSummary.new / coverageSummary.total) * 100).toFixed(1);
+            
+            coverageHtml = `
+                <div class="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-md">
+                    <h4 class="text-sm font-medium text-blue-900 mb-2">📊 Coverage Summary</h4>
+                    <div class="grid grid-cols-3 gap-2 text-sm">
+                        <div class="text-center p-2 bg-green-100 rounded">
+                            <div class="font-bold text-green-700">${coverageSummary.covered}</div>
+                            <div class="text-xs text-green-600">Covered (${coveredPercent}%)</div>
+                        </div>
+                        <div class="text-center p-2 bg-yellow-100 rounded">
+                            <div class="font-bold text-yellow-700">${coverageSummary.extend}</div>
+                            <div class="text-xs text-yellow-600">Extend (${extendPercent}%)</div>
+                        </div>
+                        <div class="text-center p-2 bg-purple-100 rounded">
+                            <div class="font-bold text-purple-700">${coverageSummary.new}</div>
+                            <div class="text-xs text-purple-600">New (${newPercent}%)</div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+        
+        // Build matches HTML
+        let matchesHtml = '';
+        if (!matches || matches.length === 0) {
+            matchesHtml = `
+                <div class="text-center py-8 text-gray-500">
+                    <svg class="w-16 h-16 mx-auto mb-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    <p>No similar rules found in SigmaHQ repository</p>
+                    <p class="text-sm mt-2">This may indicate a novel detection opportunity!</p>
+                </div>
+            `;
+        } else {
+            matchesHtml = matches.map((match, index) => {
+                const similarityPercent = (match.similarity_score * 100).toFixed(1);
+                const statusColor = match.coverage_status === 'covered' ? 'green' : 
+                                   match.coverage_status === 'extend' ? 'yellow' : 'purple';
+                const statusIcon = match.coverage_status === 'covered' ? '✓' : 
+                                  match.coverage_status === 'extend' ? '⚡' : '✨';
+                
+                return `
+                    <div class="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition-colors">
+                        <div class="flex items-start justify-between">
+                            <div class="flex-1">
+                                <h5 class="font-medium text-gray-900">${match.title || 'Untitled Rule'}</h5>
+                                <p class="text-sm text-gray-600 mt-1">${match.description || 'No description'}</p>
+                            </div>
+                            <div class="ml-4 flex flex-col items-end">
+                                <div class="text-2xl font-bold text-${statusColor}-600">${similarityPercent}%</div>
+                                <div class="text-xs text-${statusColor}-600 bg-${statusColor}-100 px-2 py-1 rounded mt-1">
+                                    ${statusIcon} ${match.coverage_status.toUpperCase()}
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="mt-3 grid grid-cols-2 gap-2 text-xs">
+                            <div><span class="font-medium">Rule ID:</span> <code class="text-xs bg-gray-100 px-1 rounded">${match.rule_id || 'N/A'}</code></div>
+                            <div><span class="font-medium">Level:</span> <span class="px-2 py-0.5 rounded text-xs ${
+                                match.level === 'critical' ? 'bg-red-100 text-red-700' :
+                                match.level === 'high' ? 'bg-orange-100 text-orange-700' :
+                                match.level === 'medium' ? 'bg-yellow-100 text-yellow-700' :
+                                'bg-blue-100 text-blue-700'
+                            }">${match.level || 'N/A'}</span></div>
+                            <div><span class="font-medium">Status:</span> ${match.status || 'N/A'}</div>
+                            <div><span class="font-medium">Match Type:</span> ${match.match_level || 'article'}</div>
+                        </div>
+                        
+                        ${match.tags && match.tags.length > 0 ? `
+                            <div class="mt-2">
+                                <div class="text-xs font-medium text-gray-700">Tags:</div>
+                                <div class="flex flex-wrap gap-1 mt-1">
+                                    ${match.tags.slice(0, 5).map(tag => 
+                                        `<span class="text-xs px-2 py-0.5 bg-indigo-100 text-indigo-700 rounded">${tag}</span>`
+                                    ).join('')}
+                                    ${match.tags.length > 5 ? `<span class="text-xs text-gray-500">+${match.tags.length - 5} more</span>` : ''}
+                                </div>
+                            </div>
+                        ` : ''}
+                        
+                        ${match.matched_discriminators && match.matched_discriminators.length > 0 ? `
+                            <div class="mt-2">
+                                <div class="text-xs font-medium text-gray-700">Matched Behaviors:</div>
+                                <div class="flex flex-wrap gap-1 mt-1">
+                                    ${match.matched_discriminators.slice(0, 5).map(d => 
+                                        `<span class="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded">${d}</span>`
+                                    ).join('')}
+                                    ${match.matched_discriminators.length > 5 ? `<span class="text-xs text-gray-500">+${match.matched_discriminators.length - 5} more</span>` : ''}
+                                </div>
+                            </div>
+                        ` : ''}
+                        
+                        ${match.coverage_reasoning ? `
+                            <div class="mt-2 p-2 bg-gray-50 rounded text-xs text-gray-600 italic">
+                                💡 ${match.coverage_reasoning}
+                            </div>
+                        ` : ''}
+                        
+                        <div class="mt-2 text-xs text-gray-500">
+                            📁 ${match.file_path || 'N/A'}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+        
+        modal.innerHTML = `
+            <div class="relative top-10 mx-auto p-5 border w-11/12 max-w-5xl shadow-lg rounded-md bg-white">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-lg font-medium text-gray-900">🔍 Similar Rules in SigmaHQ Repository</h3>
+                    <button onclick="closeSimilarRulesModal()" class="text-gray-400 hover:text-gray-600">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </button>
+                </div>
+                
+                <div class="mb-4 text-sm text-gray-600">
+                    Found ${matches ? matches.length : 0} similar rules with ≥70% similarity
+                </div>
+                
+                ${coverageHtml}
+                
+                <div class="space-y-3 max-h-96 overflow-y-auto">
+                    ${matchesHtml}
+                </div>
+                
+                <div class="mt-6 flex justify-end">
+                    <button onclick="closeSimilarRulesModal()" 
+                            class="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 transition-colors">
+                        Close
+                    </button>
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(modal);
+    }
+    
+    function closeSimilarRulesModal() {
+        const modal = document.getElementById('similarRulesModal');
+        if (modal) {
+            modal.remove();
+        }
     }
     
     function regenerateIOCs() {

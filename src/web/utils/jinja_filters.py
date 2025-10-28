@@ -11,6 +11,7 @@ import logging
 import re
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
+from src.utils.content import ThreatHuntingScorer
 
 logger = logging.getLogger(__name__)
 
@@ -74,8 +75,6 @@ def highlight_keywords(content: str, metadata: Dict[str, Any]) -> str:
 
     matches = []
     for keyword, type_name, css_classes in all_keywords:
-        escaped_keyword = re.escape(keyword)
-
         # For certain keywords, allow partial matches (e.g., "hunting" in "threat hunting")
         partial_match_keywords = [
             "hunting",
@@ -92,12 +91,26 @@ def highlight_keywords(content: str, metadata: Dict[str, Any]) -> str:
         wildcard_keywords = ["spawn"]
 
         try:
+            # Handle special cases first
             if keyword.lower() in partial_match_keywords:
+                # For partial matches, just escape and compile
+                escaped_keyword = re.escape(keyword)
                 pattern = re.compile(escaped_keyword, re.IGNORECASE)
             elif keyword.lower() in wildcard_keywords:
-                pattern = re.compile(escaped_keyword + r"\\w*", re.IGNORECASE)
+                # For wildcard matching (e.g., "spawn" matches "spawns", "spawning", "spawned")
+                escaped_keyword = re.escape(keyword)
+                pattern = re.compile(escaped_keyword + r'\w*', re.IGNORECASE)
             else:
-                pattern = re.compile(r"(?<![a-zA-Z])" + escaped_keyword + r"(?![a-zA-Z])", re.IGNORECASE)
+                # Use shared keyword pattern logic from ThreatHuntingScorer
+                pattern_str = ThreatHuntingScorer._build_keyword_pattern(keyword)
+                # Convert word boundaries (\b) to letter boundaries for highlighting
+                # Replace \b at start with lookbehind, \b at end with lookahead
+                if pattern_str.startswith('\\b'):
+                    pattern_str = pattern_str.replace('\\b', r'(?<![a-zA-Z])', 1)
+                if pattern_str.endswith('\\b'):
+                    pattern_str = pattern_str[:-2] + r'(?![a-zA-Z])'
+                pattern_str = pattern_str.replace('\\b', r'(?![a-zA-Z])')
+                pattern = re.compile(pattern_str, re.IGNORECASE)
 
             for match in pattern.finditer(content):
                 matches.append(
