@@ -53,11 +53,11 @@ def setup_periodic_tasks(sender, **kwargs):
         name='generate-daily-report'
     )
     
-    # Embed new articles weekly on Sundays at 3 AM
+    # Embed new articles daily at 3 PM
     sender.add_periodic_task(
-        crontab(hour=3, minute=0, day_of_week=0),  # Weekly on Sunday at 3 AM
+        crontab(hour=15, minute=0),  # Daily at 3 PM
         embed_new_articles.s(),
-        name='embed-new-articles-weekly'
+        name='embed-new-articles-daily'
     )
     
     # Generate annotation embeddings weekly on Sundays at 4 AM
@@ -231,70 +231,53 @@ def generate_daily_report(self):
 
 
 @celery_app.task(bind=True, max_retries=3)
-def embed_new_articles(self):
+def embed_new_articles(self, batch_size: int = 50):
     """Generate embeddings for new articles that don't have them yet."""
     try:
-        from src.database.manager import DatabaseManager
-        from src.services.embedding_service import get_embedding_service
+        import asyncio
+        from src.database.async_manager import AsyncDatabaseManager
         
-        logger.info("Starting weekly embedding generation for new articles")
+        async def run_retroactive_embedding():
+            """Run retroactive embedding for all articles."""
+            db = AsyncDatabaseManager()
+            try:
+                # Get all articles without embeddings
+                articles_without_embeddings = await db.get_articles_without_embeddings()
+                
+                if not articles_without_embeddings:
+                    logger.info("No new articles found that need embeddings")
+                    return {
+                        "status": "success",
+                        "message": "No articles found without embeddings",
+                        "total_processed": 0
+                    }
+                
+                total_articles = len(articles_without_embeddings)
+                logger.info(f"Starting daily embedding generation for {total_articles} articles")
+                
+                # Process in batches
+                article_ids = [article.id for article in articles_without_embeddings]
+                
+                # Use the batch generation task
+                batch_result = batch_generate_embeddings.delay(article_ids, batch_size)
+                
+                return {
+                    "status": "success",
+                    "total_articles": total_articles,
+                    "batch_task_id": batch_result.id,
+                    "message": f"Started embedding generation for {total_articles} articles"
+                }
+                
+            except Exception as e:
+                logger.error(f"Retroactive embedding failed: {e}")
+                raise e
+            finally:
+                await db.close()
         
-        db_manager = DatabaseManager()
-        embedding_service = get_embedding_service()
-        
-        # Get articles without embeddings
-        articles_to_embed = db_manager.get_articles_without_embeddings()
-        
-        if not articles_to_embed:
-            logger.info("No new articles found that need embeddings")
-            return {"status": "success", "message": "No new articles to embed"}
-        
-        logger.info(f"Found {len(articles_to_embed)} articles that need embeddings")
-        
-        # Process articles in batches
-        batch_size = 10
-        embedded_count = 0
-        
-        for i in range(0, len(articles_to_embed), batch_size):
-            batch = articles_to_embed[i:i + batch_size]
-            
-            for article in batch:
-                try:
-                    # Generate embedding for the article
-                    embedding = embedding_service.generate_embedding(
-                        embedding_service.create_enriched_text(
-                            article_title=article['title'],
-                            source_name=article['source_name'],
-                            article_content=article['content'],
-                            summary=article.get('summary'),
-                            tags=article.get('tags', []),
-                            article_metadata=article.get('article_metadata', {})
-                        )
-                    )
-                    
-                    # Update the article with the embedding
-                    db_manager.update_article_embedding(
-                        article_id=article['id'],
-                        embedding=embedding,
-                        model_name='all-mpnet-base-v2'
-                    )
-                    
-                    embedded_count += 1
-                    logger.debug(f"Generated embedding for article {article['id']}: {article['title'][:50]}...")
-                    
-                except Exception as e:
-                    logger.error(f"Failed to embed article {article['id']}: {e}")
-                    continue
-            
-            # Small delay between batches to avoid overwhelming the system
-            time.sleep(1)
-        
-        logger.info(f"Successfully generated embeddings for {embedded_count} articles")
-        return {
-            "status": "success", 
-            "message": f"Generated embeddings for {embedded_count} articles",
-            "total_processed": embedded_count
-        }
+        # Run the async function
+        result = asyncio.run(run_retroactive_embedding())
+        logger.info(f"Daily embedding generation complete: {result.get('message')}")
+        return result
         
     except Exception as e:
         logger.error(f"Failed to embed new articles: {e}")
