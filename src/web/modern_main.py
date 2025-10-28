@@ -117,7 +117,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 app = FastAPI(
     title="CTI Scraper - Modern Threat Intelligence Platform",
     description="Enterprise-grade threat intelligence aggregation and analysis platform",
-    version="2.0.0",
+    version="3.0.0",
     lifespan=lifespan,
 )
 

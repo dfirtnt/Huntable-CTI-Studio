@@ -64,7 +64,10 @@ class Article(BaseModel):
     discovered_at: datetime
     created_at: datetime
     updated_at: datetime
-    archived: bool = False    
+    archived: bool = False
+    embedding: Optional[Any] = None
+    embedding_model: Optional[str] = None
+    embedded_at: Optional[datetime] = None
     class Config:
         from_attributes = True
 

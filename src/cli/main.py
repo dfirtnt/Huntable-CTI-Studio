@@ -14,6 +14,7 @@ from .context import CLIContext, setup_logging, get_managers
 from .commands import init, collect, search, export, stats, backup, sync_sources, archive
 from .commands.rescore import rescore
 from .commands.embed import embed_group
+from .sigma_commands import sigma_group
 
 pass_context = click.make_pass_decorator(CLIContext, ensure=True)
 
@@ -46,6 +47,7 @@ cli.add_command(sync_sources)
 cli.add_command(rescore)
 cli.add_command(embed_group)
 cli.add_command(archive)
+cli.add_command(sigma_group)
 
 
 if __name__ == '__main__':

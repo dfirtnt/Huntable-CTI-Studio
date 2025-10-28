@@ -53,8 +53,9 @@ cryptography>=41.0.0  # Enhanced encryption
 # PDF processing
 PyPDF2==3.0.1
 
-# SIGMA rule validation
+# SIGMA rule validation and repository management
 pysigma==0.11.23
+GitPython==3.1.43
 
 # Additional AI/ML dependencies for enhanced features
 torch>=2.0.0  # For advanced ML models

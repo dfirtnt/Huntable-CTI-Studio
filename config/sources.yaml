@@ -112,13 +112,6 @@ sources:
       min_content_length: 1500
       # Enhanced filtering for threat intelligence content only
       title_filter_keywords: ["webinar", "training", "careers", "job posting", "event", "podcast", "newsletter"]
-      content_filter_keywords: [
-        "threat", "intelligence", "apt", "malware", "ransomware", "campaign",
-        "attribution", "ioc", "ttp", "attack", "muddywater", "lazarus",
-        "cobalt", "unc", "hacker", "cybercrime", "breach", "compromise",
-        "persistence", "lateral movement", "defense evasion", "credential access"
-      ]
-      require_threat_intel_keywords: true  # Only collect articles with threat intelligence keywords
       rss_only: false  # Enable web scraping since RSS is blocked
       extract:
         prefer_jsonld: true
@@ -358,7 +351,6 @@ sources:
           - "time[datetime]::attr(datetime)"
         body_selectors: ["article", "main", ".content", ".post-content", ".message-body"]
         author_selectors: ["meta[name='author']::attr(content)", ".author-name"]
-      min_content_length: 2000
     description: "Official Microsoft Defender for Endpoint security updates and detection capabilities"
 
   # SOC Prime Blog
