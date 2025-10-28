@@ -30,6 +30,7 @@ async def api_rag_chat(request: Request):
         similarity_threshold = body.get("similarity_threshold", 0.3)
         use_chunks = body.get("use_chunks", False)
         context_length = body.get("context_length", 2000)
+        include_sigma_rules = body.get("include_sigma_rules", True)  # New parameter
 
         if not message:
             raise HTTPException(status_code=400, detail="Message is required")
@@ -128,14 +129,29 @@ async def api_rag_chat(request: Request):
                     logger.info(f"Extracted hunt score filter: {min_hunt_score}")
                     break
         
-        relevant_articles = await rag_service.find_similar_content(
-            query=enhanced_query,
-            top_k=search_limit,
-            threshold=similarity_threshold,
-            use_chunks=use_chunks,
-            context_length=context_length,
-            min_hunt_score=min_hunt_score,
-        )
+        # Use unified search if Sigma rules are enabled
+        if include_sigma_rules:
+            unified_results = await rag_service.find_unified_results(
+                query=enhanced_query,
+                top_k_articles=search_limit,
+                top_k_rules=min(5, max_results),  # Limit to 5 rules max
+                threshold=similarity_threshold,
+                use_chunks=use_chunks,
+                context_length=context_length,
+                min_hunt_score=min_hunt_score,
+            )
+            relevant_articles = unified_results.get('articles', [])
+            relevant_rules = unified_results.get('rules', [])
+        else:
+            relevant_articles = await rag_service.find_similar_content(
+                query=enhanced_query,
+                top_k=search_limit,
+                threshold=similarity_threshold,
+                use_chunks=use_chunks,
+                context_length=context_length,
+                min_hunt_score=min_hunt_score,
+            )
+            relevant_rules = []
 
         if relevant_articles:
             # Use LLM generation service for synthesized responses
@@ -348,12 +364,15 @@ async def api_rag_chat(request: Request):
             "response": response,
             "conversation_history": conversation_history,
             "relevant_articles": relevant_articles,
+            "relevant_rules": relevant_rules if include_sigma_rules else [],
             "total_results": len(relevant_articles),
+            "total_rules": len(relevant_rules) if include_sigma_rules else 0,
             "query": message,
             "timestamp": datetime.now().isoformat(),
             "llm_provider": llm_provider if 'llm_provider' in locals() else "template",
             "llm_model_name": llm_model_name if 'llm_model_name' in locals() else "template",
             "use_llm_generation": use_llm_generation if 'use_llm_generation' in locals() else False,
+            "include_sigma_rules": include_sigma_rules,
         }
 
     except HTTPException:
