@@ -36,7 +36,7 @@ class SigmaMatchingService:
     def match_article_to_rules(
         self, 
         article_id: int, 
-        threshold: float = 0.7,
+        threshold: float = 0.0,
         limit: int = 10
     ) -> List[Dict[str, Any]]:
         """
@@ -44,7 +44,7 @@ class SigmaMatchingService:
         
         Args:
             article_id: Article ID to match
-            threshold: Minimum similarity score (0-1)
+            threshold: Minimum similarity score (0-1, default 0.0 = no filtering)
             limit: Maximum number of matches to return
             
         Returns:
@@ -66,6 +66,7 @@ class SigmaMatchingService:
             embedding_str = '[' + ','.join(map(str, article.embedding)) + ']'
             
             # Query for similar Sigma rules using raw connection
+            # No threshold filter - return all results sorted by similarity
             query_text = """
                 SELECT 
                     sr.id,
@@ -81,7 +82,6 @@ class SigmaMatchingService:
                     1 - (sr.embedding <=> %(embedding)s::vector) AS similarity
                 FROM sigma_rules sr
                 WHERE sr.embedding IS NOT NULL
-                  AND 1 - (sr.embedding <=> %(embedding)s::vector) >= %(threshold)s
                 ORDER BY similarity DESC
                 LIMIT %(limit)s
             """
@@ -91,26 +91,49 @@ class SigmaMatchingService:
             cursor = connection.connection.cursor()
             cursor.execute(query_text, {
                 'embedding': embedding_str,
-                'threshold': threshold,
                 'limit': limit
             })
             rows = cursor.fetchall()
             cursor.close()
             
+            import json
             matches = []
             for row in rows:
+                # Handle JSONB fields (logsource, detection) - convert to serializable format
+                def safe_json_convert(value):
+                    if value is None:
+                        return None
+                    if isinstance(value, (dict, list)):
+                        return value
+                    if isinstance(value, str):
+                        try:
+                            return json.loads(value)
+                        except:
+                            return str(value)
+                    return str(value)
+                
+                # Handle PostgreSQL array types (tags)
+                tags = row[6]
+                if tags is not None and hasattr(tags, '__iter__') and not isinstance(tags, str):
+                    try:
+                        tags = list(tags)
+                    except:
+                        tags = []
+                elif tags is None:
+                    tags = []
+                
                 matches.append({
                     'sigma_rule_id': row[0],  # Database ID
                     'rule_id': row[1],        # YAML rule ID
-                    'title': row[2],
-                    'description': row[3],
-                    'logsource': row[4],
-                    'detection': row[5],
-                    'tags': row[6],
-                    'level': row[7],
-                    'status': row[8],
-                    'file_path': row[9],
-                    'similarity_score': float(row[10])  # Changed from 'similarity'
+                    'title': str(row[2]) if row[2] else '',
+                    'description': str(row[3]) if row[3] else '',
+                    'logsource': safe_json_convert(row[4]),
+                    'detection': safe_json_convert(row[5]),
+                    'tags': tags,
+                    'level': str(row[7]) if row[7] else '',
+                    'status': str(row[8]) if row[8] else '',
+                    'file_path': str(row[9]) if row[9] else '',
+                    'similarity_score': float(row[10])
                 })
             
             logger.info(f"Found {len(matches)} article-level matches for article {article_id}")
@@ -400,16 +423,16 @@ class SigmaMatchingService:
             logger.error(f"Error getting coverage summary for article {article_id}: {e}")
             return {'covered': 0, 'extend': 0, 'new': 0, 'total': 0}
 
-    def compare_proposed_rule_to_embeddings(self, proposed_rule: Dict[str, Any], threshold: float = 0.7) -> List[Dict[str, Any]]:
+    def compare_proposed_rule_to_embeddings(self, proposed_rule: Dict[str, Any], threshold: float = 0.0) -> List[Dict[str, Any]]:
         """
         Compare proposed Sigma rule to existing Sigma rules using semantic similarity.
 
         Args:
             proposed_rule: The proposed Sigma rule to compare.
-            threshold: Minimum similarity score (0-1) for matches.
+            threshold: Minimum similarity score (0-1, default 0.0 = no filtering).
 
         Returns:
-            List of Sigma rules with similarity scores that match above the threshold.
+            List of Sigma rules with similarity scores (sorted by similarity, no threshold filter).
         """
         try:
             # Generate embedding for the proposed rule
@@ -420,7 +443,7 @@ class SigmaMatchingService:
             embedding_str = '[' + ','.join(map(str, embedding)) + ']'
 
             # Query for similar Sigma rules using raw connection to avoid parameter binding issues
-            # This matches the pattern used successfully in match_article_to_rules
+            # No threshold filter - return all results sorted by similarity
             from sqlalchemy import text
             query_text = """
                 SELECT 
@@ -437,7 +460,6 @@ class SigmaMatchingService:
                     1 - (sr.embedding <=> %(embedding)s::vector) AS similarity
                 FROM sigma_rules sr
                 WHERE sr.embedding IS NOT NULL
-                  AND 1 - (sr.embedding <=> %(embedding)s::vector) >= %(threshold)s
                 ORDER BY similarity DESC
                 LIMIT 10
             """
@@ -445,7 +467,7 @@ class SigmaMatchingService:
             # Execute with raw connection
             connection = self.db.connection()
             cursor = connection.connection.cursor()
-            cursor.execute(query_text, {'embedding': embedding_str, 'threshold': threshold})
+            cursor.execute(query_text, {'embedding': embedding_str})
             rows = cursor.fetchall()
             cursor.close()
 
