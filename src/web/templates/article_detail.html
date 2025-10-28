@@ -2931,7 +2931,15 @@ Please provide a detailed analysis based on the article content and the user's s
         // Get AI model from settings
         const settings = JSON.parse(localStorage.getItem('ctiScraperSettings') || '{}');
         const aiModel = settings.aiModel || 'chatgpt';
-        const apiKey = aiModel === 'anthropic' ? settings.anthropicApiKey : settings.openaiApiKey;
+        
+        // Only set API key for cloud models that require it
+        let apiKey = null;
+        if (aiModel === 'anthropic') {
+            apiKey = settings.anthropicApiKey;
+        } else if (aiModel === 'chatgpt') {
+            apiKey = settings.openaiApiKey;
+        }
+        // For local models like lmstudio, apiKey remains null
         
         if ((aiModel === 'chatgpt' || aiModel === 'anthropic') && !apiKey) {
             const keyType = aiModel === 'anthropic' ? 'Anthropic' : 'OpenAI';
@@ -3021,11 +3029,15 @@ Please provide a detailed analysis based on the article content and the user's s
             // Prepare request body
             const requestBody = {
                 include_content: true,
-                api_key: apiKey,
                 force_regenerate: forceRegenerate,
                 ai_model: aiModel,
                 temperature: parseFloat(settings.aiTemperature || '0.3')
             };
+            
+            // Only include API key if it's provided (for cloud models)
+            if (apiKey) {
+                requestBody.api_key = apiKey;
+            }
             
             // Add LLM validation setting for IOC extraction
             if (type === 'iocs') {
@@ -3128,9 +3140,17 @@ Please provide a detailed analysis based on the article content and the user's s
         // Get API key from settings
         const settings = JSON.parse(localStorage.getItem('ctiScraperSettings') || '{}');
         const aiModel = settings.aiModel || 'chatgpt';
-        const apiKey = aiModel === 'anthropic' ? settings.anthropicApiKey : settings.openaiApiKey;
         
-        if (!apiKey) {
+        // Only set API key for cloud models that require it
+        let apiKey = null;
+        if (aiModel === 'anthropic') {
+            apiKey = settings.anthropicApiKey;
+        } else if (aiModel === 'chatgpt') {
+            apiKey = settings.openaiApiKey;
+        }
+        // For local models like lmstudio, apiKey remains null
+        
+        if ((aiModel === 'chatgpt' || aiModel === 'anthropic') && !apiKey) {
             const keyType = aiModel === 'anthropic' ? 'Anthropic' : 'OpenAI';
             showNotification(`Please configure your ${keyType} API key in Settings first`, 'error');
             return;
@@ -3142,41 +3162,43 @@ Please provide a detailed analysis based on the article content and the user's s
             return; // User cancelled
         }
         
-        // Estimate cost before proceeding
-        const articleContent = {{ article.content[:1000] | tojson }}; // Get first 1000 chars for estimation
-        const estimatedTokens = Math.ceil(articleContent.length / 4); // Rough estimate: 1 token ≈ 4 chars
-        const promptTokens = 1508; // Updated prompt length (6,033 chars ≈ 1,508 tokens)
-        const totalTokens = estimatedTokens + promptTokens;
-        
-        // GPT4o pricing: $5.00 per 1M input tokens, $15.00 per 1M output tokens
-        const inputCost = (totalTokens / 1000000) * 5.00;
-        const outputCost = (2000 / 1000000) * 15.00; // Assume 2000 output tokens
-        const totalCost = inputCost + outputCost;
-        
-        // Estimate cost savings if filtering is enabled
-        let costSavings = 0;
-        let costMessage = `Estimated cost: $${totalCost.toFixed(4)} (${totalTokens.toLocaleString()} input tokens + ~2,000 output tokens)`;
-        
-        if (optimizationOptions.useFiltering) {
-            // Dynamic cost reduction based on confidence threshold
-            // Lower confidence = more aggressive filtering = higher savings
-            let savingsPercent = 0;
-            if (optimizationOptions.minConfidence <= 0.5) {
-                savingsPercent = 0.6; // 60% savings for aggressive filtering
-            } else if (optimizationOptions.minConfidence <= 0.7) {
-                savingsPercent = 0.4; // 40% savings for balanced filtering
-            } else {
-                savingsPercent = 0.25; // 25% savings for conservative filtering
+        // Estimate cost before proceeding (only for ChatGPT)
+        if (aiModel === 'chatgpt') {
+            const articleContent = {{ article.content[:1000] | tojson }}; // Get first 1000 chars for estimation
+            const estimatedTokens = Math.ceil(articleContent.length / 4); // Rough estimate: 1 token ≈ 4 chars
+            const promptTokens = 1508; // Updated prompt length (6,033 chars ≈ 1,508 tokens)
+            const totalTokens = estimatedTokens + promptTokens;
+            
+            // GPT4o pricing: $5.00 per 1M input tokens, $15.00 per 1M output tokens
+            const inputCost = (totalTokens / 1000000) * 5.00;
+            const outputCost = (2000 / 1000000) * 15.00; // Assume 2000 output tokens
+            const totalCost = inputCost + outputCost;
+            
+            // Estimate cost savings if filtering is enabled
+            let costSavings = 0;
+            let costMessage = `Estimated cost: $${totalCost.toFixed(4)} (${totalTokens.toLocaleString()} input tokens + ~2,000 output tokens)`;
+            
+            if (optimizationOptions.useFiltering) {
+                // Dynamic cost reduction based on confidence threshold
+                // Lower confidence = more aggressive filtering = higher savings
+                let savingsPercent = 0;
+                if (optimizationOptions.minConfidence <= 0.5) {
+                    savingsPercent = 0.6; // 60% savings for aggressive filtering
+                } else if (optimizationOptions.minConfidence <= 0.7) {
+                    savingsPercent = 0.4; // 40% savings for balanced filtering
+                } else {
+                    savingsPercent = 0.25; // 25% savings for conservative filtering
+                }
+                
+                costSavings = totalCost * savingsPercent;
+                const optimizedCost = totalCost - costSavings;
+                costMessage = `Estimated cost: $${optimizedCost.toFixed(4)} (${(savingsPercent*100).toFixed(0)}% savings from content filtering)`;
             }
             
-            costSavings = totalCost * savingsPercent;
-            const optimizedCost = totalCost - costSavings;
-            costMessage = `Estimated cost: $${optimizedCost.toFixed(4)} (${(savingsPercent*100).toFixed(0)}% savings from content filtering)`;
-        }
-        
-        const confirmed = confirm(`GPT4o Analysis Cost Estimate:\n\n${costMessage}\n\nOptimization: ${optimizationOptions.useFiltering ? 'Enabled' : 'Disabled'}\nConfidence Threshold: ${optimizationOptions.minConfidence}\n\nDo you want to proceed with the analysis?`);
-        if (!confirmed) {
-            return;
+            const confirmed = confirm(`GPT4o Analysis Cost Estimate:\n\n${costMessage}\n\nOptimization: ${optimizationOptions.useFiltering ? 'Enabled' : 'Disabled'}\nConfidence Threshold: ${optimizationOptions.minConfidence}\n\nDo you want to proceed with the analysis?`);
+            if (!confirmed) {
+                return;
+            }
         }
         
         // Show loading state
@@ -3187,16 +3209,24 @@ Please provide a detailed analysis based on the article content and the user's s
         button.classList.add('opacity-75', 'cursor-not-allowed');
         
         try {
-            const response = await fetch(`/api/articles/${articleId}/gpt4o-rank-optimized`, {
+            // Build request body conditionally
+            const rankRequestBody = {
+                use_filtering: optimizationOptions.useFiltering,
+                min_confidence: optimizationOptions.minConfidence,
+                ai_model: aiModel
+            };
+            
+            // Only include API key if it's provided (for cloud models)
+            if (apiKey) {
+                rankRequestBody.api_key = apiKey;
+            }
+            
+            const response = await fetch(`/api/articles/${articleId}/rank-with-gpt4o`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({
-                    api_key: apiKey,
-                    use_filtering: optimizationOptions.useFiltering,
-                    min_confidence: optimizationOptions.minConfidence
-                })
+                body: JSON.stringify(rankRequestBody)
             });
             
             if (response.ok) {
@@ -3543,7 +3573,15 @@ Please provide a detailed analysis based on the article content and the user's s
         // Get AI model from settings
         const settings = JSON.parse(localStorage.getItem('ctiScraperSettings') || '{}');
         const aiModel = settings.aiModel || 'chatgpt';
-        const apiKey = aiModel === 'anthropic' ? settings.anthropicApiKey : settings.openaiApiKey;
+        
+        // Only set API key for cloud models that require it
+        let apiKey = null;
+        if (aiModel === 'anthropic') {
+            apiKey = settings.anthropicApiKey;
+        } else if (aiModel === 'chatgpt') {
+            apiKey = settings.openaiApiKey;
+        }
+        // For local models like lmstudio, apiKey remains null
         
         if ((aiModel === 'chatgpt' || aiModel === 'anthropic') && !apiKey) {
             const keyType = aiModel === 'anthropic' ? 'Anthropic' : 'OpenAI';
@@ -3600,17 +3638,24 @@ Please provide a detailed analysis based on the article content and the user's s
                 setTimeout(() => reject(new Error(`Request timed out after ${timeoutMs/1000} seconds`)), timeoutMs);
             });
             
+            // Build request body conditionally
+            const customPromptBody = {
+                prompt: customPrompt,
+                ai_model: aiModel
+            };
+            
+            // Only include API key if it's provided (for cloud models)
+            if (apiKey) {
+                customPromptBody.api_key = apiKey;
+            }
+            
             // Create the fetch promise
             const fetchPromise = fetch(`/api/articles/{{ article.id }}/custom-prompt`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({
-                    prompt: customPrompt,
-                    api_key: apiKey,
-                    ai_model: aiModel
-                })
+                body: JSON.stringify(customPromptBody)
             });
             
             // Mark request as started
@@ -4720,9 +4765,13 @@ Please provide a detailed analysis based on the article content and the user's s
                                    coverageStatus === 'extend' ? 'yellow' : 'purple';
                 const statusIcon = coverageStatus === 'covered' ? '✓' : 
                                   coverageStatus === 'extend' ? '⚡' : '✨';
+                // Escape rule_id for JavaScript
+                const escapedRuleId = match.rule_id ? match.rule_id.replace(/'/g, "\\'") : '';
                 
                 return `
-                    <div class="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition-colors">
+                    <div class="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition-colors cursor-pointer" 
+                         onclick="showFullSigmaRule('${escapedRuleId}')"
+                         title="Click to view full rule details">
                         <div class="flex items-start justify-between">
                             <div class="flex-1">
                                 <h5 class="font-medium text-gray-900">${match.title || 'Untitled Rule'}</h5>
@@ -4779,7 +4828,7 @@ Please provide a detailed analysis based on the article content and the user's s
                         ` : ''}
                         
                         <div class="mt-2 text-xs text-gray-500">
-                            📁 ${match.file_path || 'N/A'}
+                            📁 ${match.file_path || 'N/A'} | <span class="text-blue-600 font-medium">🔍 View full rule →</span>
                         </div>
                     </div>
                 `;
@@ -4821,6 +4870,207 @@ Please provide a detailed analysis based on the article content and the user's s
     
     function closeSimilarRulesModal() {
         const modal = document.getElementById('similarRulesModal');
+        if (modal) {
+            modal.remove();
+        }
+    }
+    
+    async function showFullSigmaRule(ruleId) {
+        // Show loading indicator
+        showNotification('Loading rule details...', 'info');
+        
+        try {
+            // Fetch the full rule details
+            const response = await fetch(`/api/articles/sigma-rules/${ruleId}`, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            });
+            
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
+            const data = await response.json();
+            
+            if (data.success && data.rule) {
+                displaySigmaRuleDetails(data.rule);
+            } else {
+                showNotification('Failed to load rule details', 'error');
+            }
+        } catch (error) {
+            console.error('Error fetching sigma rule:', error);
+            showNotification('Error loading rule details: ' + error.message, 'error');
+        }
+    }
+    
+    function displaySigmaRuleDetails(rule) {
+        // Remove any existing modal
+        closeSigmaRuleDetailsModal();
+        
+        const modal = document.createElement('div');
+        modal.id = 'sigmaRuleDetailsModal';
+        modal.className = 'fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50';
+        
+        // Add click outside to close
+        modal.addEventListener('click', function(e) {
+            if (e.target === modal) {
+                closeSigmaRuleDetailsModal();
+            }
+        });
+        
+        // Add ESC key to close
+        const handleEsc = function(e) {
+            if (e.key === 'Escape') {
+                closeSigmaRuleDetailsModal();
+                document.removeEventListener('keydown', handleEsc);
+            }
+        };
+        document.addEventListener('keydown', handleEsc);
+        
+        // Format detection logic
+        const detectionHtml = rule.detection ? `
+            <div class="mb-4">
+                <h4 class="text-sm font-medium text-gray-900 mb-2">Detection Logic:</h4>
+                <pre class="bg-gray-50 p-3 rounded text-xs overflow-x-auto border border-gray-200">
+${JSON.stringify(rule.detection, null, 2)}
+                </pre>
+            </div>
+        ` : '';
+        
+        // Format logsource
+        const logsourceHtml = rule.logsource ? `
+            <div class="mb-4">
+                <h4 class="text-sm font-medium text-gray-900 mb-2">Log Source:</h4>
+                <pre class="bg-gray-50 p-3 rounded text-xs overflow-x-auto border border-gray-200">
+${JSON.stringify(rule.logsource, null, 2)}
+                </pre>
+            </div>
+        ` : '';
+        
+        // Format tags
+        const tagsHtml = rule.tags && rule.tags.length > 0 ? `
+            <div class="mb-4">
+                <h4 class="text-sm font-medium text-gray-900 mb-2">Tags:</h4>
+                <div class="flex flex-wrap gap-2">
+                    ${rule.tags.map(tag => 
+                        `<span class="px-3 py-1 bg-indigo-100 text-indigo-700 rounded text-sm">${tag}</span>`
+                    ).join('')}
+                </div>
+            </div>
+        ` : '';
+        
+        // Format false positives
+        const falsePositivesHtml = rule.false_positives && rule.false_positives.length > 0 ? `
+            <div class="mb-4">
+                <h4 class="text-sm font-medium text-gray-900 mb-2">False Positives:</h4>
+                <ul class="list-disc list-inside text-sm text-gray-700">
+                    ${rule.false_positives.map(fp => `<li>${fp}</li>`).join('')}
+                </ul>
+            </div>
+        ` : '';
+        
+        // Format references
+        const referencesHtml = rule.rule_references && rule.rule_references.length > 0 ? `
+            <div class="mb-4">
+                <h4 class="text-sm font-medium text-gray-900 mb-2">References:</h4>
+                <ul class="list-disc list-inside text-sm text-gray-700">
+                    ${rule.rule_references.map(ref => `<li>${ref}</li>`).join('')}
+                </ul>
+            </div>
+        ` : '';
+        
+        modal.innerHTML = `
+            <div class="relative top-10 mx-auto p-5 border w-11/12 max-w-6xl shadow-lg rounded-md bg-white max-h-[90vh] overflow-y-auto">
+                <div class="flex justify-between items-center mb-4 sticky top-0 bg-white border-b pb-4">
+                    <div>
+                        <h3 class="text-lg font-medium text-gray-900">🔍 Sigma Rule Details</h3>
+                        <p class="text-sm text-gray-600 mt-1">${rule.rule_id}</p>
+                    </div>
+                    <button onclick="closeSigmaRuleDetailsModal()" class="text-gray-400 hover:text-gray-600">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </button>
+                </div>
+                
+                <div class="space-y-4">
+                    <!-- Title and Description -->
+                    <div>
+                        <h4 class="text-xl font-bold text-gray-900 mb-2">${rule.title || 'Untitled Rule'}</h4>
+                        <p class="text-sm text-gray-700">${rule.description || 'No description available'}</p>
+                    </div>
+                    
+                    <!-- Metadata Grid -->
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+                        ${rule.level ? `
+                            <div>
+                                <div class="text-xs text-gray-500 uppercase">Level</div>
+                                <div class="text-sm font-medium ${
+                                    rule.level === 'critical' ? 'text-red-700' :
+                                    rule.level === 'high' ? 'text-orange-700' :
+                                    rule.level === 'medium' ? 'text-yellow-700' :
+                                    'text-blue-700'
+                                }">${rule.level}</div>
+                            </div>
+                        ` : ''}
+                        
+                        ${rule.status ? `
+                            <div>
+                                <div class="text-xs text-gray-500 uppercase">Status</div>
+                                <div class="text-sm font-medium">${rule.status}</div>
+                            </div>
+                        ` : ''}
+                        
+                        ${rule.author ? `
+                            <div>
+                                <div class="text-xs text-gray-500 uppercase">Author</div>
+                                <div class="text-sm font-medium">${rule.author}</div>
+                            </div>
+                        ` : ''}
+                        
+                        ${rule.date ? `
+                            <div>
+                                <div class="text-xs text-gray-500 uppercase">Date</div>
+                                <div class="text-sm font-medium">${new Date(rule.date).toLocaleDateString()}</div>
+                            </div>
+                        ` : ''}
+                    </div>
+                    
+                    ${logsourceHtml}
+                    ${detectionHtml}
+                    ${tagsHtml}
+                    ${falsePositivesHtml}
+                    ${referencesHtml}
+                    
+                    <!-- File Path -->
+                    <div class="mt-4 pt-4 border-t border-gray-200">
+                        <div class="text-xs text-gray-500">
+                            <strong>File Path:</strong> ${rule.file_path || 'N/A'}
+                        </div>
+                        ${rule.repo_commit_sha ? `
+                            <div class="text-xs text-gray-500 mt-1">
+                                <strong>Commit:</strong> <code class="bg-gray-100 px-1 rounded">${rule.repo_commit_sha}</code>
+                            </div>
+                        ` : ''}
+                    </div>
+                </div>
+                
+                <div class="mt-6 flex justify-end">
+                    <button onclick="closeSigmaRuleDetailsModal()" 
+                            class="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 transition-colors">
+                        Close
+                    </button>
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(modal);
+    }
+    
+    function closeSigmaRuleDetailsModal() {
+        const modal = document.getElementById('sigmaRuleDetailsModal');
         if (modal) {
             modal.remove();
         }

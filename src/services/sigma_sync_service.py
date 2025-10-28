@@ -208,10 +208,11 @@ class SigmaSyncService:
         and technical (tags/logsource/detection) content.
         
         Weight distribution (via repetition):
-        - Title + Description: 40% (semantic matching with articles)
-        - MITRE Tags: 25% (primary threat classification)
-        - Logsource: 15% (scoping/platform)
-        - Detection: 20% (technical behaviors)
+        - Title: 10%
+        - Description: 10%
+        - MITRE Tags: 10% (only tags starting with attack.)
+        - Detection: 45% (full JSON structure)
+        - Logsource: 25% (platform/product info)
         
         Args:
             rule_data: Parsed rule data
@@ -222,37 +223,37 @@ class SigmaSyncService:
         import json
         parts = []
         
-        # === SEMANTIC LAYER (40% weight) ===
-        # Title (repeat 2x for weight)
+        # === SEMANTIC LAYER (20% weight total) ===
+        # Title (repeat 1x for 10% weight)
         if rule_data.get('title'):
-            parts.extend([f"Title: {rule_data['title']}"] * 2)
+            parts.append(f"Title: {rule_data['title']}")
         
-        # Description (repeat 2x for weight)
+        # Description (repeat 1x for 10% weight)
         if rule_data.get('description'):
-            parts.extend([f"Description: {rule_data['description']}"] * 2)
+            parts.append(f"Description: {rule_data['description']}")
         
-        # === CLASSIFICATION LAYER (25% weight) ===
-        # MITRE ATT&CK tags (repeat 2x for weight)
+        # === CLASSIFICATION LAYER (10% weight) ===
+        # MITRE ATT&CK tags (repeat 1x for 10% weight)
         tags = rule_data.get('tags', [])
         if tags:
             attack_tags = [t for t in tags if t.startswith('attack.')]
             if attack_tags:
-                parts.extend([f"MITRE: {', '.join(attack_tags)}"] * 2)
+                parts.append(f"MITRE: {', '.join(attack_tags)}")
         
-        # === PLATFORM LAYER (15% weight) ===
-        # Logsource (repeat 1x)
+        # === PLATFORM LAYER (25% weight) ===
+        # Logsource (repeat 5x for 25% weight)
         logsource = rule_data.get('logsource', {})
         if isinstance(logsource, dict) and logsource:
             logsource_str = json.dumps(logsource, separators=(',', ':'))
-            parts.append(f"Logsource: {logsource_str}")
+            parts.extend([f"Logsource: {logsource_str}"] * 5)
         
-        # === BEHAVIORAL LAYER (20% weight) ===
-        # Detection logic (repeat 2x for weight)
+        # === BEHAVIORAL LAYER (45% weight) ===
+        # Detection logic (repeat 9x for 45% weight)
         detection = rule_data.get('detection', {})
         if isinstance(detection, dict) and detection:
             # Serialize full detection logic including all patterns
             detection_str = json.dumps(detection, separators=(',', ':'))
-            parts.extend([f"Detection: {detection_str}"] * 2)
+            parts.extend([f"Detection: {detection_str}"] * 9)
         
         return ' '.join(parts)
     
