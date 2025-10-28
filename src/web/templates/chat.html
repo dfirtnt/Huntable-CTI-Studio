@@ -178,7 +178,8 @@
                         use_chunks: settings.useChunks,
                         context_length: settings.contextLength,
                         use_llm_generation: settings.useLLMGeneration,
-                        llm_provider: settings.llmProvider
+                        llm_provider: settings.llmProvider,
+                        include_sigma_rules: true
                     }),
                 });
 
@@ -193,7 +194,9 @@
                     content: data.response,
                     timestamp: data.timestamp,
                     relevantArticles: data.relevant_articles,
+                    relevantRules: data.relevant_rules || [],
                     totalResults: data.total_results,
+                    totalRules: data.total_rules || 0,
                     llmProvider: data.llm_provider,
                     llmModelName: data.llm_model_name,
                     useLLMGeneration: data.use_llm_generation
@@ -293,6 +296,69 @@
                                                         {article.summary && (
                                                             <div className="text-gray-300 text-xs">
                                                                 {article.summary.substring(0, 150)}...
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        )}
+                        
+                        {message.relevantRules && message.relevantRules.length > 0 && (
+                            <div className="mt-1 pt-1 border-t border-gray-600">
+                                <div className="text-xs font-semibold mb-0.5 text-yellow-300">
+                                    🛡️ {message.totalRules} detection rules:
+                                </div>
+                                <div className="space-y-0.5">
+                                    {message.relevantRules.map((rule, idx) => {
+                                        const isExpanded = expandedArticles.has(`rule-${index}-${idx}`);
+                                        const tagList = Array.isArray(rule.tags) ? rule.tags : [];
+                                        const mitreTags = tagList.filter(tag => tag.startsWith('attack.'));
+                                        return (
+                                            <div key={`rule-${idx}`} className="text-xs bg-gray-700 rounded border border-gray-600 hover:bg-gray-600 transition-colors">
+                                                {/* Compact view */}
+                                                <div 
+                                                    className="px-2 py-1 cursor-pointer flex items-center justify-between"
+                                                    onClick={() => toggleArticleExpansion(`rule-${index}`, idx)}
+                                                >
+                                                    <div className="flex items-center flex-1 min-w-0">
+                                                        <span className="text-gray-400 text-xs mr-2 flex-shrink-0">
+                                                            {(rule.similarity * 100).toFixed(0)}%
+                                                        </span>
+                                                        <span className="text-gray-300 text-xs truncate">
+                                                            {rule.title}
+                                                        </span>
+                                                    </div>
+                                                    <span className="text-gray-400 text-xs ml-2 flex-shrink-0">
+                                                        {isExpanded ? '▼' : '▶'}
+                                                    </span>
+                                                </div>
+                                                
+                                                {/* Expanded view */}
+                                                {isExpanded && (
+                                                    <div className="px-2 pb-2 border-t border-gray-600">
+                                                        <div className="font-medium text-yellow-400 text-xs mb-1">
+                                                            {rule.title}
+                                                        </div>
+                                                        <div className="text-gray-400 text-xs mb-1">
+                                                            Status: {rule.status} | Level: {rule.level} | Similarity: {(rule.similarity * 100).toFixed(1)}%
+                                                        </div>
+                                                        {rule.description && (
+                                                            <div className="text-gray-300 text-xs mb-1">
+                                                                {rule.description.substring(0, 150)}...
+                                                            </div>
+                                                        )}
+                                                        {mitreTags.length > 0 && (
+                                                            <div className="text-cyan-400 text-xs mt-1">
+                                                                MITRE: {mitreTags.slice(0, 3).join(', ')}
+                                                            </div>
+                                                        )}
+                                                        {rule.file_path && (
+                                                            <div className="text-gray-400 text-xs mt-1">
+                                                                📁 {rule.file_path}
                                                             </div>
                                                         )}
                                                     </div>

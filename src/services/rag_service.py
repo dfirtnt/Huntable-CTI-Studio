@@ -5,6 +5,7 @@ Provides high-level utilities for semantic search, context retrieval,
 and other RAG operations using vector embeddings on articles.
 """
 
+import asyncio
 import logging
 from typing import List, Dict, Any, Optional, Tuple
 from datetime import datetime
@@ -271,6 +272,134 @@ class RAGService:
         except Exception as e:
             logger.error(f"Failed to dedupe similar articles: {e}")
             return {'status': 'error', 'message': str(e)}
+    
+    async def find_similar_sigma_rules(self, query: str, top_k: int = 10, 
+                                      threshold: float = 0.7) -> List[Dict[str, Any]]:
+        """
+        Find similar Sigma detection rules using semantic search.
+        
+        Args:
+            query: Search query text
+            top_k: Number of results to return
+            threshold: Minimum similarity threshold (0.0-1.0)
+            
+        Returns:
+            List of similar Sigma rules with metadata
+        """
+        try:
+            # Generate query embedding
+            query_embedding = await self.embed_query(query)
+            embedding_str = '[' + ','.join(map(str, query_embedding)) + ']'
+            
+            # Get database session
+            async with self.db_manager.get_session() as session:
+                from sqlalchemy import text, select
+                from src.database.models import SigmaRuleTable
+                
+                # Build query using SQLAlchemy ORM + text for vector operations
+                stmt = select(
+                    SigmaRuleTable.id,
+                    SigmaRuleTable.rule_id,
+                    SigmaRuleTable.title,
+                    SigmaRuleTable.description,
+                    SigmaRuleTable.tags,
+                    SigmaRuleTable.level,
+                    SigmaRuleTable.status,
+                    SigmaRuleTable.file_path,
+                    text("1 - (embedding <=> :query_vector) AS similarity")
+                ).where(
+                    SigmaRuleTable.embedding.is_not(None)
+                ).order_by(
+                    text("embedding <=> :query_vector")
+                ).limit(top_k)
+                
+                # Execute query with vector binding
+                result = await session.execute(
+                    stmt.params(query_vector=embedding_str)
+                )
+                
+                rules = []
+                for row in result:
+                    similarity = float(row[8])
+                    if similarity >= threshold:
+                        rules.append({
+                            'id': row[0],
+                            'rule_id': row[1],
+                            'title': row[2],
+                            'description': row[3],
+                            'tags': row[4] if row[4] else [],
+                            'level': row[5],
+                            'status': row[6],
+                            'file_path': row[7],
+                            'similarity': similarity
+                        })
+                
+                logger.info(f"Found {len(rules)} similar Sigma rules for query: '{query[:50]}...'")
+                return rules
+                
+        except Exception as e:
+            logger.error(f"Failed to find similar Sigma rules: {e}")
+            return []
+    
+    async def find_unified_results(self, query: str, top_k_articles: int = 10, 
+                                   top_k_rules: int = 5, threshold: float = 0.7,
+                                   source_id: Optional[int] = None, 
+                                   use_chunks: bool = True,
+                                   context_length: int = 2000,
+                                   min_hunt_score: Optional[float] = None) -> Dict[str, Any]:
+        """
+        Find both similar articles and Sigma rules in unified search.
+        
+        Args:
+            query: Search query text
+            top_k_articles: Number of article results to return
+            top_k_rules: Number of Sigma rule results to return
+            threshold: Minimum similarity threshold
+            source_id: Filter by source ID
+            use_chunks: Whether to use chunk-level search for articles
+            context_length: Maximum context length per article result
+            min_hunt_score: Minimum threat hunting score filter
+            
+        Returns:
+            Dictionary with 'articles' and 'rules' keys
+        """
+        try:
+            # Search articles and Sigma rules in parallel
+            articles_task = self.find_similar_content(
+                query=query,
+                top_k=top_k_articles,
+                threshold=threshold,
+                source_id=source_id,
+                use_chunks=use_chunks,
+                context_length=context_length,
+                min_hunt_score=min_hunt_score
+            )
+            
+            rules_task = self.find_similar_sigma_rules(
+                query=query,
+                top_k=top_k_rules,
+                threshold=threshold
+            )
+            
+            # Wait for both searches to complete
+            articles, rules = await asyncio.gather(articles_task, rules_task)
+            
+            return {
+                'articles': articles,
+                'rules': rules,
+                'total_articles': len(articles),
+                'total_rules': len(rules)
+            }
+            
+        except Exception as e:
+            logger.error(f"Failed to find unified results: {e}")
+            return {
+                'articles': [],
+                'rules': [],
+                'total_articles': 0,
+                'total_rules': 0,
+                'error': str(e)
+            }
     
     async def semantic_search(self, query: str, filters: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         """
