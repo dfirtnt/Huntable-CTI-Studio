@@ -1668,10 +1668,32 @@ Output ONLY valid YAML starting with "title:"."""
                     attempt_validation_results.append(validation_result)
                     
                     if validation_result.is_valid:
+                        # Extract parsed logsource and detection from validation metadata
+                        rule_metadata = validation_result.metadata or {}
+                        # Parse YAML to get full detection (metadata only has detection_fields)
+                        import yaml
+                        parsed_yaml = {}
+                        try:
+                            parsed_yaml = yaml.safe_load(block) if block else {}
+                        except Exception as e:
+                            logger.warning(f"Failed to parse YAML block: {e}")
+                        
+                        # Ensure detection is properly extracted - it should include selection, condition, filter, etc.
+                        detection = parsed_yaml.get('detection')
+                        if detection and isinstance(detection, dict):
+                            # Make sure it's a complete dict with all nested structures
+                            # The detection should already be fully parsed by yaml.safe_load
+                            pass  # Already correct
+                        elif not detection:
+                            # Fallback: detection might be missing
+                            logger.warning(f"Rule {i+1} missing detection block")
+                        
                         attempt_rules.append({
                             'content': block,
-                            'title': validation_result.metadata.get('title', f'Rule {i+1}'),
-                            'level': validation_result.metadata.get('level', 'medium'),
+                            'title': rule_metadata.get('title', f'Rule {i+1}'),
+                            'level': rule_metadata.get('level', 'medium'),
+                            'logsource': parsed_yaml.get('logsource') or rule_metadata.get('logsource'),
+                            'detection': detection,  # Use the parsed detection
                             'validated': True
                         })
                     else:
