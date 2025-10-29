@@ -63,6 +63,10 @@ services:
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
       - ANTHROPIC_CONTENT_LIMIT=1000000
       - CHATGPT_API_KEY=${CHATGPT_API_KEY}
+      - LMSTUDIO_API_URL=${LMSTUDIO_API_URL:-http://host.docker.internal:1234/v1}
+      - LMSTUDIO_MODEL=${LMSTUDIO_MODEL:-meta-llama-3-8b-instruct}
+      - LMSTUDIO_EMBEDDING_URL=${LMSTUDIO_EMBEDDING_URL:-http://host.docker.internal:1234/v1/embeddings}
+      - LMSTUDIO_EMBEDDING_MODEL=${LMSTUDIO_EMBEDDING_MODEL:-text-embedding-e5-base-v2}
       - TZ=America/New_York
     ports:
       - "8001:8001"
@@ -103,6 +107,10 @@ services:
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - CHATGPT_API_KEY=${CHATGPT_API_KEY}
+      - LMSTUDIO_API_URL=${LMSTUDIO_API_URL:-http://host.docker.internal:1234/v1}
+      - LMSTUDIO_MODEL=${LMSTUDIO_MODEL:-meta-llama-3-8b-instruct}
+      - LMSTUDIO_EMBEDDING_URL=${LMSTUDIO_EMBEDDING_URL:-http://host.docker.internal:1234/v1/embeddings}
+      - LMSTUDIO_EMBEDDING_MODEL=${LMSTUDIO_EMBEDDING_MODEL:-text-embedding-e5-base-v2}
     volumes:
       - ./src:/app/src
       - ./config:/app/config

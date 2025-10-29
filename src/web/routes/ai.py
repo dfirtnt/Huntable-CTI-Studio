@@ -7,7 +7,7 @@ from __future__ import annotations
 import os
 import json
 from datetime import datetime
-from typing import Dict, Optional
+from typing import Dict, Optional, List
 
 import httpx
 
@@ -25,6 +25,110 @@ router = APIRouter(prefix="/api/articles", tags=["Articles", "AI"])
 
 # Test API key endpoints (separate router for correct URL paths)
 test_router = APIRouter(prefix="/api", tags=["AI", "Testing"])
+
+
+def _lmstudio_url_candidates() -> List[str]:
+    """
+    Generate ordered LMStudio base URL candidates.
+    Ensures compatibility whether LMSTUDIO_API_URL includes /v1 or not.
+    """
+    raw_url = os.getenv("LMSTUDIO_API_URL", "http://host.docker.internal:1234/v1").strip()
+    if not raw_url:
+        raw_url = "http://host.docker.internal:1234/v1"
+
+    normalized = raw_url.rstrip("/")
+    candidates: List[str] = [normalized]
+
+    if not normalized.lower().endswith("/v1"):
+        candidates.append(f"{normalized}/v1")
+
+    # Preserve order while removing duplicates
+    seen = set()
+    unique_candidates = []
+    for candidate in candidates:
+        if candidate not in seen:
+            unique_candidates.append(candidate)
+            seen.add(candidate)
+    return unique_candidates
+
+
+async def _post_lmstudio_chat(
+    payload: Dict,
+    *,
+    model_name: str,
+    timeout: float,
+    failure_context: str,
+) -> Dict:
+    """
+    Call LMStudio /chat/completions with automatic fallback handling.
+
+    Args:
+        payload: JSON payload to send to LMStudio.
+        model_name: Name of the LMStudio model (for logging).
+        timeout: Request timeout in seconds.
+        failure_context: Contextual message for raised HTTPException.
+
+    Returns:
+        Parsed JSON response from LMStudio.
+    """
+    lmstudio_urls = _lmstudio_url_candidates()
+    last_error_detail = ""
+
+    async with httpx.AsyncClient() as client:
+        for idx, lmstudio_url in enumerate(lmstudio_urls):
+            logger.info(
+                f"Attempting LMStudio at {lmstudio_url} with model {model_name} "
+                f"({failure_context}) attempt {idx + 1}/{len(lmstudio_urls)}"
+            )
+            try:
+                response = await client.post(
+                    f"{lmstudio_url}/chat/completions",
+                    headers={"Content-Type": "application/json"},
+                    json=payload,
+                    timeout=timeout,
+                )
+            except httpx.TimeoutException:
+                raise HTTPException(
+                    status_code=408,
+                    detail="LMStudio request timeout - the model may be slow or overloaded",
+                )
+            except httpx.ConnectError:
+                raise HTTPException(
+                    status_code=503,
+                    detail="Cannot connect to LMStudio service",
+                )
+            except Exception as e:  # pragma: no cover - defensive logging
+                logger.error(f"LMStudio API request failed at {lmstudio_url}: {e}")
+                raise HTTPException(
+                    status_code=500,
+                    detail=f"{failure_context}: {str(e)}",
+                )
+
+            if response.status_code == 200:
+                if idx > 0:
+                    logger.info(f"LMStudio request succeeded using fallback URL {lmstudio_url}")
+                return response.json()
+
+            last_error_detail = f"{response.status_code} - {response.text}"
+            logger.error(f"LMStudio API error ({failure_context}) at {lmstudio_url}: {last_error_detail}")
+
+            if response.status_code == 404 and idx < len(lmstudio_urls) - 1:
+                logger.warning(
+                    "LMStudio endpoint returned 404. "
+                    "This often means LMSTUDIO_API_URL is missing the '/v1' suffix. "
+                    "Retrying with fallback URL."
+                )
+                continue
+
+            raise HTTPException(
+                status_code=500,
+                detail=f"{failure_context}: {response.status_code}",
+            )
+
+    raise HTTPException(
+        status_code=500,
+        detail=f"{failure_context}: {last_error_detail or 'Unknown LMStudio error'}",
+    )
 
 @test_router.post("/test-openai-key")
 async def api_test_openai_key(request: Request):
@@ -157,50 +261,112 @@ async def api_test_anthropic_key(request: Request):
 async def _get_current_lmstudio_model() -> str:
     """
     Get the currently loaded model from LMStudio API.
-    Falls back to env var if API query fails.
+    Uses LMSTUDIO_MODEL env var first, then queries API for validation.
     """
+    # Use environment variable first (user-configured preference)
+    env_model = os.getenv("LMSTUDIO_MODEL")
+    if env_model:
+        logger.info(f"Using LMSTUDIO_MODEL from environment: {env_model}")
+        return env_model
+    
+    # Fallback: try to get from API
     try:
-        lmstudio_url = os.getenv("LMSTUDIO_API_URL", "http://host.docker.internal:1234/v1")
-        
+        lmstudio_urls = _lmstudio_url_candidates()
         async with httpx.AsyncClient() as client:
-            response = await client.get(f"{lmstudio_url}/models", timeout=5.0)
-            
-            if response.status_code == 200:
-                models_data = response.json()
-                models = [model["id"] for model in models_data.get("data", [])]
-                if models:
-                    # Return the first loaded model
-                    return models[0]
+            for idx, lmstudio_url in enumerate(lmstudio_urls):
+                try:
+                    response = await client.get(f"{lmstudio_url}/models", timeout=5.0)
+                except httpx.HTTPError as e:
+                    logger.debug(f"LMStudio model lookup failed via {lmstudio_url}: {e}")
+                    continue
+
+                if response.status_code == 200:
+                    models_data = response.json()
+                    models = [model["id"] for model in models_data.get("data", [])]
+                    if models:
+                        # Filter for chat models only (exclude embedding models)
+                        # Check for common embedding model patterns
+                        def is_embedding_model(model_name: str) -> bool:
+                            embedding_indicators = ['embedding', 'embed', 'e5-base', 'bge-', 'gte-']
+                            return any(indicator in model_name.lower() for indicator in embedding_indicators)
+
+                        chat_models = [m for m in models if not is_embedding_model(m)]
+                        if chat_models:
+                            logger.info(f"LMStudio chat model from API: {chat_models[0]}")
+                            return chat_models[0]
+                        # If no chat models, return first model
+                        logger.warning(f"No chat models found, using first model: {models[0]}")
+                        return models[0]
+                elif response.status_code == 404 and idx < len(lmstudio_urls) - 1:
+                    logger.warning(f"LMStudio /models endpoint not found at {lmstudio_url}; retrying with alternate base URL")
+                    continue
+                else:
+                    logger.debug(f"LMStudio /models request returned {response.status_code} from {lmstudio_url}")
+
     except Exception as e:
         logger.warning(f"Could not fetch current LMStudio model: {e}")
     
-    # Fallback to env var
-    return os.getenv("LMSTUDIO_MODEL", "llama-3.2-1b-instruct")
+    # Final fallback
+    return "llama-3.2-1b-instruct"
 
 
 @test_router.get("/lmstudio-models")
 async def api_get_lmstudio_models():
     """Get currently loaded models from LMStudio."""
     try:
-        lmstudio_url = os.getenv("LMSTUDIO_API_URL", "http://host.docker.internal:1234/v1")
-        
+        lmstudio_urls = _lmstudio_url_candidates()
         async with httpx.AsyncClient() as client:
-            response = await client.get(f"{lmstudio_url}/models", timeout=10.0)
-            
-            if response.status_code == 200:
-                models_data = response.json()
-                models = [model["id"] for model in models_data.get("data", [])]
-                return {
-                    "success": True,
-                    "models": models,
-                    "message": f"Found {len(models)} loaded model(s)"
-                }
-            else:
-                return {
-                    "success": False,
-                    "models": [],
-                    "message": f"LMStudio API error: {response.status_code}"
-                }
+            last_error = "Unknown LMStudio error"
+            for idx, lmstudio_url in enumerate(lmstudio_urls):
+                try:
+                    response = await client.get(f"{lmstudio_url}/models", timeout=10.0)
+                except httpx.HTTPError as e:
+                    last_error = str(e)
+                    logger.debug(f"LMStudio models fetch failed via {lmstudio_url}: {e}")
+                    continue
+
+                if response.status_code == 200:
+                    models_data = response.json()
+                    all_models = [model["id"] for model in models_data.get("data", [])]
+
+                    # Filter for chat models only (exclude embedding models)
+                    # Check for common embedding model patterns
+                    def is_embedding_model(model_name: str) -> bool:
+                        embedding_indicators = ['embedding', 'embed', 'e5-base', 'bge-', 'gte-']
+                        return any(indicator in model_name.lower() for indicator in embedding_indicators)
+
+                    chat_models = [m for m in all_models if not is_embedding_model(m)]
+
+                    # Return chat models first, then embedding models for reference
+                    models = chat_models if chat_models else all_models
+
+                    if idx > 0:
+                        logger.info(f"LMStudio models fetched using fallback URL {lmstudio_url}")
+
+                    return {
+                        "success": True,
+                        "models": models,
+                        "all_models": all_models,  # Include all models for debugging
+                        "chat_models_count": len(chat_models),
+                        "embedding_models_count": len(all_models) - len(chat_models),
+                        "message": f"Found {len(chat_models)} chat model(s) and {len(all_models) - len(chat_models)} embedding model(s)"
+                    }
+
+                last_error = f"{response.status_code}: {response.text}"
+                logger.error(f"LMStudio /models returned {last_error}")
+
+                if response.status_code == 404 and idx < len(lmstudio_urls) - 1:
+                    logger.warning(
+                        "LMStudio /models endpoint returned 404. "
+                        "Retrying with alternate base URL."
+                    )
+                    continue
+
+            return {
+                "success": False,
+                "models": [],
+                "message": f"LMStudio API error: {last_error}"
+            }
                 
     except httpx.TimeoutException:
         return {
@@ -227,37 +393,27 @@ async def api_get_lmstudio_models():
 async def api_test_lmstudio_connection(request: Request):
     """Test LMStudio connection and model availability."""
     try:
-        lmstudio_url = os.getenv("LMSTUDIO_API_URL", "http://host.docker.internal:1234/v1")
         lmstudio_model = os.getenv("LMSTUDIO_MODEL", "llama-3.2-1b-instruct")
         
-        # Test the LMStudio connection with a simple request
-        async with httpx.AsyncClient() as client:
-            response = await client.post(
-                f"{lmstudio_url}/chat/completions",
-                headers={
-                    "Content-Type": "application/json"
-                },
-                json={
-                    "model": lmstudio_model,
-                    "messages": [{"role": "user", "content": "Hello"}],
-                    "max_tokens": 5,
-                    "temperature": 0.1
-                },
-                timeout=15.0
-            )
-            
-            if response.status_code == 200:
-                result = response.json()
-                response_text = result.get('choices', [{}])[0].get('message', {}).get('content', '')
-                return {
-                    "valid": True, 
-                    "message": f"LMStudio connection successful. Model '{lmstudio_model}' responded: '{response_text.strip()}'"
-                }
-            else:
-                return {
-                    "valid": False, 
-                    "message": f"LMStudio API error: {response.status_code} - {response.text}"
-                }
+        payload = {
+            "model": lmstudio_model,
+            "messages": [{"role": "user", "content": "Hello"}],
+            "max_tokens": 5,
+            "temperature": 0.1,
+        }
+
+        result = await _post_lmstudio_chat(
+            payload,
+            model_name=lmstudio_model,
+            timeout=15.0,
+            failure_context="LMStudio connection test failed",
+        )
+
+        response_text = result.get('choices', [{}])[0].get('message', {}).get('content', '')
+        return {
+            "valid": True,
+            "message": f"LMStudio connection successful. Model '{lmstudio_model}' responded: '{response_text.strip()}'"
+        }
                 
     except httpx.TimeoutException:
         raise HTTPException(status_code=408, detail="Request timeout - LMStudio may be starting up")
@@ -496,49 +652,35 @@ async def api_rank_with_gpt4o(article_id: int, request: Request):
                     raise HTTPException(status_code=500, detail=f"Failed to get ranking from TinyLlama: {str(e)}")
         elif ai_model == 'lmstudio':
             # Use LMStudio API
-            lmstudio_url = os.getenv("LMSTUDIO_API_URL", "http://host.docker.internal:1234/v1")
             lmstudio_model = os.getenv("LMSTUDIO_MODEL", "llama-3.2-1b-instruct")
             
-            logger.info(f"Using LMStudio at {lmstudio_url} with model {lmstudio_model}")
+            payload = {
+                "model": lmstudio_model,
+                "messages": [
+                    {
+                        "role": "user",
+                        "content": sigma_prompt
+                    }
+                ],
+                "max_tokens": 2000,
+                "temperature": 0.3
+            }
+
+            result = await _post_lmstudio_chat(
+                payload,
+                model_name=lmstudio_model,
+                timeout=300.0,
+                failure_context="Failed to get ranking from LMStudio",
+            )
+
+            analysis = result['choices'][0]['message']['content']
             
-            async with httpx.AsyncClient() as client:
-                try:
-                    response = await client.post(
-                        f"{lmstudio_url}/chat/completions",
-                        headers={
-                            "Content-Type": "application/json"
-                        },
-                        json={
-                            "model": lmstudio_model,
-                            "messages": [
-                                {
-                                    "role": "user",
-                                    "content": sigma_prompt
-                                }
-                            ],
-                            "max_tokens": 2000,
-                            "temperature": 0.3
-                        },
-                        timeout=300.0
-                    )
-                    
-                    if response.status_code != 200:
-                        logger.error(f"LMStudio API error: {response.status_code} - {response.text}")
-                        raise HTTPException(status_code=500, detail=f"Failed to get ranking from LMStudio: {response.status_code}")
-                    
-                    result = response.json()
-                    analysis = result['choices'][0]['message']['content']
-                    
-                    if not analysis:
-                        analysis = "No analysis available"
-                    
-                    model_used = 'lmstudio'
-                    model_name = lmstudio_model
-                    logger.info(f"Successfully got ranking from LMStudio: {len(analysis)} characters")
-                    
-                except Exception as e:
-                    logger.error(f"LMStudio API request failed: {e}")
-                    raise HTTPException(status_code=500, detail=f"Failed to get ranking from LMStudio: {str(e)}")
+            if not analysis:
+                analysis = "No analysis available"
+            
+            model_used = 'lmstudio'
+            model_name = lmstudio_model
+            logger.info(f"Successfully got ranking from LMStudio: {len(analysis)} characters")
         elif ai_model == 'ollama':
             # Use Ollama API with default model (Llama 3.2 1B)
             ollama_url = os.getenv('LLM_API_URL', 'http://cti_ollama:11434')
@@ -1144,18 +1286,18 @@ async def api_generate_sigma(article_id: int, request: Request):
         
         # Apply content filtering to optimize for SIGMA generation
         from src.utils.gpt4o_optimizer import optimize_article_content
-        
+
         # Use content filtering with high confidence threshold for SIGMA generation
         min_confidence = 0.7
         logger.info(f"Optimizing content for SIGMA generation with confidence threshold {min_confidence}")
         optimization_result = await optimize_article_content(article.content, min_confidence)
-        
+
         if optimization_result['success']:
             content_to_analyze = optimization_result['filtered_content']
             cost_savings = optimization_result['cost_savings']
             tokens_saved = optimization_result['tokens_saved']
             chunks_removed = optimization_result['chunks_removed']
-            
+
             logger.info(f"Content optimization completed for SIGMA generation: "
                        f"{tokens_saved:,} tokens saved, "
                        f"${cost_savings:.4f} cost savings, "
@@ -1166,6 +1308,29 @@ async def api_generate_sigma(article_id: int, request: Request):
             cost_savings = 0.0
             tokens_saved = 0
             chunks_removed = 0
+
+        # For LMStudio, set context window size based on model
+        if ai_model == 'lmstudio':
+            lmstudio_model_name = os.getenv("LMSTUDIO_MODEL", "llama-3.2-1b-instruct")
+
+            # Determine context window based on model
+            # Reserve: 500 tokens for prompt template + 800 tokens for output + 200 safety margin = 1500 tokens overhead
+            if '1b' in lmstudio_model_name.lower():
+                # llama-3.2-1b-instruct: 2048 token context - 1500 overhead = ~550 tokens (~2200 chars)
+                max_content_chars = 2200
+            elif '3b' in lmstudio_model_name.lower():
+                # 3B models typically have 4096 token context - 1500 overhead = ~2600 tokens (~10400 chars)
+                max_content_chars = 10400
+            elif '8b' in lmstudio_model_name.lower() or '7b' in lmstudio_model_name.lower():
+                # llama-3-8b-instruct: 8192 token context - 1500 overhead = ~6700 tokens (~26800 chars)
+                max_content_chars = 26800
+            else:
+                # Default to conservative limit for unknown models
+                max_content_chars = 10400
+
+            if len(content_to_analyze) > max_content_chars:
+                logger.warning(f"LMStudio ({lmstudio_model_name}): Truncating content from {len(content_to_analyze)} to {max_content_chars} chars")
+                content_to_analyze = content_to_analyze[:max_content_chars] + "\n\n[Content truncated to fit model context window]"
         
         # Load SIGMA generation prompt with filtered content
         sigma_prompt = format_prompt("sigma_generation",
@@ -1174,56 +1339,42 @@ async def api_generate_sigma(article_id: int, request: Request):
             url=article.canonical_url or 'N/A',
             content=content_to_analyze
         )
+
+        # Log prompt size for debugging
+        prompt_tokens_estimate = len(sigma_prompt) // 4
+        logger.info(f"SIGMA generation prompt size: {len(sigma_prompt)} chars (~{prompt_tokens_estimate} tokens) for {ai_model}")
         
         # Define helper function for API calls based on ai_model
         async def call_llm_api(prompt_text: str) -> str:
             """Call the appropriate LLM API based on ai_model setting."""
             if ai_model == 'lmstudio':
                 # Use LMStudio API
-                lmstudio_url = os.getenv("LMSTUDIO_API_URL", "http://host.docker.internal:1234/v1")
                 lmstudio_model = await _get_current_lmstudio_model()
-                
-                logger.info(f"Using LMStudio at {lmstudio_url} with model {lmstudio_model}")
-                
-                async with httpx.AsyncClient() as client:
-                    try:
-                        response = await client.post(
-                            f"{lmstudio_url}/chat/completions",
-                            headers={
-                                "Content-Type": "application/json"
-                            },
-                            json={
-                                "model": lmstudio_model,
-                                "messages": [
-                                    {
-                                        "role": "system",
-                                        "content": "You are a senior cybersecurity detection engineer specializing in SIGMA rule creation. Generate high-quality, actionable SIGMA rules based on threat intelligence articles. Always use proper SIGMA syntax and include all required fields according to SigmaHQ standards."
-                                    },
-                                    {
-                                        "role": "user",
-                                        "content": prompt_text
-                                    }
-                                ],
-                                "max_tokens": 4000,
-                                "temperature": 0.2
-                            },
-                            timeout=300.0
-                        )
-                        
-                        if response.status_code != 200:
-                            logger.error(f"LMStudio API error: {response.status_code} - {response.text}")
-                            raise HTTPException(status_code=500, detail=f"Failed to generate SIGMA rules from LMStudio: {response.status_code}")
-                        
-                        result = response.json()
-                        return result['choices'][0]['message']['content']
-                        
-                    except httpx.TimeoutException:
-                        raise HTTPException(status_code=408, detail="LMStudio request timeout - the model may be slow or overloaded")
-                    except httpx.ConnectError:
-                        raise HTTPException(status_code=503, detail="Cannot connect to LMStudio service")
-                    except Exception as e:
-                        logger.error(f"LMStudio API request failed: {e}")
-                        raise HTTPException(status_code=500, detail=f"Failed to generate SIGMA rules from LMStudio: {str(e)}")
+
+                payload = {
+                    "model": lmstudio_model,
+                    "messages": [
+                        {
+                            "role": "system",
+                            "content": "You are a SIGMA rule creation expert. Output ONLY valid YAML starting with 'title:'. Use exact 2-space indentation. logsource and detection must be nested dictionaries. No markdown, no explanations."
+                        },
+                        {
+                            "role": "user",
+                            "content": prompt_text
+                        }
+                    ],
+                    "max_tokens": 800,  # Reduced for small models - enough for 1 SIGMA rule
+                    "temperature": 0.2
+                }
+
+                result = await _post_lmstudio_chat(
+                    payload,
+                    model_name=lmstudio_model,
+                    timeout=300.0,
+                    failure_context="Failed to generate SIGMA rules from LMStudio",
+                )
+
+                return result['choices'][0]['message']['content']
             else:
                 # Use OpenAI API (chatgpt)
                 async with httpx.AsyncClient() as client:
@@ -1238,7 +1389,7 @@ async def api_generate_sigma(article_id: int, request: Request):
                             "messages": [
                                 {
                                     "role": "system",
-                                    "content": "You are a senior cybersecurity detection engineer specializing in SIGMA rule creation. Generate high-quality, actionable SIGMA rules based on threat intelligence articles. Always use proper SIGMA syntax and include all required fields according to SigmaHQ standards."
+                                    "content": "You are a SIGMA rule creation expert. Output ONLY valid YAML starting with 'title:'. Use exact 2-space indentation. logsource and detection must be nested dictionaries with proper structure. No markdown, no explanations, no code blocks."
                                 },
                                 {
                                     "role": "user",
@@ -1273,6 +1424,7 @@ async def api_generate_sigma(article_id: int, request: Request):
         conversation_log = []
         validation_results = []
         rules = []
+        # Allow retries for all models - context window is managed via truncation
         max_attempts = 3
         
         for attempt in range(max_attempts):
@@ -1285,22 +1437,56 @@ async def api_generate_sigma(article_id: int, request: Request):
             else:
                 # Subsequent attempts - include validation feedback
                 previous_errors = []
+                previous_yaml = ""
                 for result in validation_results:
                     if not result.is_valid and result.errors:
                         previous_errors.extend(result.errors)
-                
+                        if result.content_preview:
+                            previous_yaml = result.content_preview
+
                 if previous_errors:
-                    error_feedback = "\n\n".join(previous_errors)
-                    current_prompt = f"""{sigma_prompt}
+                    error_feedback = "\n".join(previous_errors)
 
-IMPORTANT: The previous attempt had validation errors. Please fix these issues:
+                    # Build retry prompt - no need to send article content, just fix YAML structure
+                    yaml_preview = f"\n\nYOUR PREVIOUS INVALID YAML:\n{previous_yaml}\n" if previous_yaml else ""
 
-VALIDATION ERRORS FROM PREVIOUS ATTEMPT:
+                    current_prompt = f"""VALIDATION ERRORS FROM YOUR PREVIOUS ATTEMPT:
 {error_feedback}
+{yaml_preview}
+INSTRUCTIONS TO FIX ERRORS:
 
-CRITICAL: Output ONLY the YAML rule content. Do NOT include markdown code blocks (```yaml or ```). Do NOT include any explanatory text. Start directly with the YAML content.
+If you see "logsource must be a dictionary" error:
+WRONG: logsource: Windows Event Log, Sysmon
+CORRECT:
+logsource:
+  category: process_creation
+  product: windows
 
-Please generate corrected SIGMA rules that address these validation errors. Ensure all required fields are present and the YAML syntax is correct."""
+If you see "detection must be a dictionary" error:
+WRONG: detection: [selection, condition]
+CORRECT:
+detection:
+  selection:
+    CommandLine|contains: 'malware'
+  condition: selection
+
+If you see "Invalid tag format" error with dictionaries:
+WRONG: tags:
+  - MITRE ATT&CK: T1059.001
+CORRECT: tags:
+  - attack.execution
+  - attack.t1059.001
+
+CRITICAL FORMATTING RULES:
+1. Use ONLY simple YAML structures - no inline dictionaries in lists
+2. Indent nested keys with exactly 2 spaces
+3. Tags must be simple strings starting with "attack."
+4. Start output with "title:" - no explanatory text
+5. No markdown code blocks (```yaml)
+
+Generate the corrected SIGMA rule for the article titled: "{article.title}"
+Do NOT re-analyze the threat intelligence - just fix the YAML formatting errors above.
+Output ONLY valid YAML starting with "title:"."""
                 else:
                     # No errors to fix, break the loop
                     break
@@ -1320,12 +1506,27 @@ Please generate corrected SIGMA rules that address these validation errors. Ensu
             rule_blocks = cleaned_response.split('---')
             for i, block in enumerate(rule_blocks):
                 block = block.strip()
-                if not block or not block.startswith('title:'):
+
+                # Skip empty blocks
+                if not block:
                     continue
-                    
+
+                # Check if block looks like YAML (contains key:value pairs)
+                # Don't require it to start with 'title:' - it could start with any SIGMA field
+                has_yaml_structure = ':' in block and any(
+                    key in block for key in ['title', 'id', 'description', 'logsource', 'detection']
+                )
+
+                if not has_yaml_structure:
+                    logger.warning(f"Skipping block {i+1} - doesn't look like YAML: {block[:100]}")
+                    continue
+
                 try:
                     validation_result = validate_sigma_rule(block)
-                    validation_result.rule_index = i + 1
+                    # Store rule index in metadata instead of as attribute
+                    if validation_result.metadata is None:
+                        validation_result.metadata = {}
+                    validation_result.metadata['rule_index'] = i + 1
                     attempt_validation_results.append(validation_result)
                     
                     if validation_result.is_valid:
@@ -1713,38 +1914,30 @@ Please provide a detailed analysis based on the article content and the user's r
                 model_name = 'tinyllama'
         elif ai_model == 'lmstudio':
             # Use LMStudio API
-            lmstudio_url = os.getenv("LMSTUDIO_API_URL", "http://host.docker.internal:1234/v1")
             lmstudio_model = os.getenv("LMSTUDIO_MODEL", "llama-3.2-1b-instruct")
-            
-            async with httpx.AsyncClient() as client:
-                response = await client.post(
-                    f"{lmstudio_url}/chat/completions",
-                    headers={
-                        "Content-Type": "application/json"
-                    },
-                    json={
-                        "model": lmstudio_model,
-                        "messages": [
-                            {
-                                "role": "user",
-                                "content": full_prompt
-                            }
-                        ],
-                        "max_tokens": 2000,
-                        "temperature": 0.3
-                    },
-                    timeout=300.0
-                )
-                
-                if response.status_code != 200:
-                    error_detail = response.text
-                    logger.error(f"LMStudio API error: {error_detail}")
-                    raise HTTPException(status_code=500, detail=f"LMStudio API error: {error_detail}")
-                
-                result = response.json()
-                analysis = result['choices'][0]['message']['content']
-                model_used = 'lmstudio'
-                model_name = lmstudio_model
+
+            payload = {
+                "model": lmstudio_model,
+                "messages": [
+                    {
+                        "role": "user",
+                        "content": full_prompt
+                    }
+                ],
+                "max_tokens": 2000,
+                "temperature": 0.3
+            }
+
+            result = await _post_lmstudio_chat(
+                payload,
+                model_name=lmstudio_model,
+                timeout=300.0,
+                failure_context="LMStudio API error",
+            )
+
+            analysis = result['choices'][0]['message']['content']
+            model_used = 'lmstudio'
+            model_name = lmstudio_model
         else:
             # Use OpenAI API (default)
             async with httpx.AsyncClient() as client:

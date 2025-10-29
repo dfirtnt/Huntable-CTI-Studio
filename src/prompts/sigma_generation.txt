@@ -33,24 +33,32 @@ Generate a Sigma detection rule based on this threat intelligence:
 - Use quotes for values containing special characters
 
 **Required YAML Structure:**
-title: [Descriptive rule title]
-id: [UUID or generated ID]
-description: [What this rule detects]
+title: <Short Title in Title Case>
+id: <UUIDv4>
+status: experimental
+description: <What this rule detects and why it matters>
+author: <Name, Name>
+date: YYYY/MM/DD
+modified: YYYY/MM/DD
+references:
+  - <link-1>
+tags:
+  - attack.<tactic>
+  - attack.t####[.###]
+  - car.####-##-###
+  - cve.####-#####
 logsource:
-  category: [process_creation/network_connection/etc]
-  product: [windows/linux/macos]
+  category: <process_creation|network_connection|...>
+  product: <windows|linux|macos>
 detection:
   selection:
-    [detection criteria]
+    <FieldName>: <Value or List>
   condition: selection
-level: [low/medium/high/critical]
-tags:
-  - attack.execution  # High-level tactic (execution, persistence, evasion, etc.)
-  - attack.t1059.001  # Specific technique (Command and Scripting Interpreter: PowerShell)
-  - attack.t1486  # Specific technique (Data Encrypted for Impact)
-  # Include 2-4 relevant MITRE ATT&CK techniques based on article content
-references:
-  - [URL or reference]
+fields:
+  - <key-field-1>
+falsepositives:
+  - <expected-benign-case>
+level: <informational|low|medium|high|critical>
 
 **Threat Intelligence Content:**
 {content}
