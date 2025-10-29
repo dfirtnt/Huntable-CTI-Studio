@@ -40,6 +40,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **SIGMA Generation Quality Restoration**: Fixed deteriorated SIGMA rule generation that was producing malformed rules
+  - Reverted uncommitted prompt simplification in `src/prompts/sigma_generation.txt` that removed critical guidance
+  - Restored detailed SIGMA Rule Requirements and Rule Guidelines explaining separation of detection vs tags
+  - Fixed LMStudio model configuration mismatch (1B → 8B model) in `.env` and `docker-compose.yml`
+  - Implemented dynamic context window sizing based on model size (1B: 2.2K, 3B: 10.4K, 8B: 26.8K chars)
+  - Optimized retry prompts to remove wasteful article content repetition (~500 token savings per retry)
+  - Fixed issue where MITRE ATT&CK tags were incorrectly placed in detection/selection fields
+  - Temperature correctly set to 0.2 for deterministic SIGMA YAML generation
+
 ### Added
 - **Full GitHub Hygiene Audit (LG)**: Comprehensive security and quality audit completed
 - **Dependency Security**: All 269 dependencies audited with pip-audit - no CVE vulnerabilities found
