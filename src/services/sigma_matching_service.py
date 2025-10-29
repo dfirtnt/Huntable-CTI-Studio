@@ -447,7 +447,12 @@ class SigmaMatchingService:
                 logger.error("LM Studio client unavailable - cannot compare proposed rule")
                 return []
             
-            rule_text = ' '.join([proposed_rule.get('title', ''), proposed_rule.get('description', '')])
+            # Use the same embedding text format as when rules are indexed
+            # This ensures fair comparison by matching the weighted structure:
+            # Title 10%, Description 10%, Tags 10%, Logsource 25%, Detection 45%
+            from src.services.sigma_sync_service import SigmaSyncService
+            sync_service = SigmaSyncService()
+            rule_text = sync_service.create_rule_embedding_text(proposed_rule)
             embedding = self.sigma_embedding_client.generate_embedding(rule_text)
 
             # Prepare embedding string for pgvector
@@ -496,7 +501,8 @@ class SigmaMatchingService:
                     'level': row[7],
                     'status': row[8],
                     'file_path': row[9],
-                    'similarity': float(row[10])
+                    'similarity': float(row[10]),
+                    'similarity_score': float(row[10])  # Also include similarity_score for frontend compatibility
                 })
 
             return matches

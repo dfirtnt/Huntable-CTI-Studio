@@ -1838,40 +1838,79 @@ Output ONLY valid YAML starting with "title:"."""
 
 @router.get("/{article_id}/sigma-matches")
 async def api_get_sigma_matches(article_id: int):
-    """Get Sigma rule matches for an article."""
+    """Get Sigma rule matches by comparing generated SIGMA rules to embedded SigmaHQ rules."""
     try:
+        from src.database.async_manager import AsyncDatabaseManager
         from src.database.manager import DatabaseManager
         from src.services.sigma_matching_service import SigmaMatchingService
-        from src.services.sigma_coverage_service import SigmaCoverageService
         
+        # Get article with generated rules
+        async_db_manager = AsyncDatabaseManager()
+        article = await async_db_manager.get_article(article_id)
+        
+        if not article:
+            raise HTTPException(status_code=404, detail=f"Article {article_id} not found")
+        
+        # Get generated SIGMA rules from article metadata
+        generated_rules = []
+        if article.article_metadata and article.article_metadata.get('sigma_rules'):
+            generated_rules = article.article_metadata.get('sigma_rules', {}).get('rules', [])
+        
+        if not generated_rules:
+            return {
+                "success": True,
+                "matches": [],
+                "coverage_summary": {
+                    "covered": 0,
+                    "extend": 0,
+                    "new": 0,
+                    "total": 0
+                },
+                "message": "No generated SIGMA rules found. Please generate rules first."
+            }
+        
+        # Compare each generated rule to existing embedded SigmaHQ rules
         db_manager = DatabaseManager()
         session = db_manager.get_session()
         
-        matching_service = SigmaMatchingService(session)
-        coverage_service = SigmaCoverageService(session)
-        
         try:
-            # Perform fresh matching (no threshold, returns top 10 sorted by similarity)
-            fresh_matches = matching_service.match_article_to_rules(
-                article_id,
-                threshold=0.0,
-                limit=10
-            )
+            matching_service = SigmaMatchingService(session)
             
-            # Return fresh matches directly (no need to query database)
+            # Collect all matches across all generated rules
+            all_matches = {}
+            
+            for generated_rule in generated_rules:
+                # Compare this generated rule to embedded rules
+                similar_matches = matching_service.compare_proposed_rule_to_embeddings(
+                    proposed_rule=generated_rule,
+                    threshold=0.0  # No threshold - get top matches
+                )
+                
+                # Deduplicate by rule_id, keeping highest similarity score
+                for match in similar_matches:
+                    rule_id = match.get('rule_id')
+                    if rule_id not in all_matches or match.get('similarity', 0) > all_matches[rule_id].get('similarity', 0):
+                        all_matches[rule_id] = match
+            
+            # Sort by similarity (descending) and return top matches
+            matches = sorted(all_matches.values(), key=lambda x: x.get('similarity', 0), reverse=True)[:20]
+            
+            # Return matches
             return {
                 "success": True,
-                "matches": fresh_matches,
+                "matches": matches,
                 "coverage_summary": {
-                    "covered": len([m for m in fresh_matches if m.get('coverage_status') == 'covered']),
-                    "extend": len([m for m in fresh_matches if m.get('coverage_status') == 'extend']),
-                    "new": len([m for m in fresh_matches if m.get('coverage_status') == 'new']),
-                    "total": len(fresh_matches)
+                    "covered": len([m for m in matches if m.get('coverage_status') == 'covered']),
+                    "extend": len([m for m in matches if m.get('coverage_status') == 'extend']),
+                    "new": len([m for m in matches if m.get('coverage_status') == 'new']),
+                    "total": len(matches)
                 }
             }
         finally:
             session.close()
         
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error getting Sigma matches for article {article_id}: {e}")
         raise HTTPException(status_code=500, detail=str(e))
