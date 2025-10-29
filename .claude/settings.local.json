@@ -25,7 +25,9 @@
       "Bash(docker restart:*)",
       "Bash(cat:*)",
       "Bash(awk:*)",
-      "Bash(grep:*)"
+      "Bash(grep:*)",
+      "Bash(printenv:*)",
+      "Read(//Users/starlord/**)"
     ],
     "deny": [],
     "ask": []

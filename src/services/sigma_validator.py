@@ -28,51 +28,76 @@ class ValidationError(Exception):
     pass
 
 def clean_sigma_rule(rule_content: str) -> str:
-    """Clean SIGMA rule by removing markdown formatting"""
-    # Remove markdown code blocks
+    """Clean SIGMA rule by removing markdown formatting and explanatory text"""
+    import re
+
     cleaned = rule_content.strip()
-    
+
     # Debug logging
-    logger.debug(f"Original content starts with: {repr(cleaned[:50])}")
-    
-    # Remove any leading text before the first ```yaml or ```
-    lines = cleaned.split('\n')
-    start_idx = 0
-    
-    # Find the first line that starts with ```
-    for i, line in enumerate(lines):
-        if line.strip().startswith('```'):
-            start_idx = i
-            break
-    
-    # Rejoin from the markdown start
-    cleaned = '\n'.join(lines[start_idx:])
-    
-    # Remove various markdown code block formats at the beginning
+    logger.debug(f"Original content starts with: {repr(cleaned[:100])}")
+
+    # Strategy 1: Extract content between code blocks
+    code_block_pattern = r'```(?:yaml|yml)?\s*\n(.*?)```'
+    code_block_match = re.search(code_block_pattern, cleaned, re.DOTALL)
+
+    if code_block_match:
+        cleaned = code_block_match.group(1).strip()
+        logger.debug("Extracted content from code block")
+    else:
+        # Strategy 2: Remove leading explanatory text before YAML starts
+        # Look for the first line that starts with a YAML key (e.g., "title:", "id:", "description:")
+        lines = cleaned.split('\n')
+        yaml_start_idx = None
+
+        for i, line in enumerate(lines):
+            stripped = line.strip()
+            # Check if line looks like a YAML key:value pair
+            if stripped and ':' in stripped:
+                key_part = stripped.split(':')[0].strip()
+                # Common SIGMA rule top-level keys
+                if key_part in ['title', 'id', 'description', 'status', 'author', 'date',
+                                'modified', 'logsource', 'detection', 'falsepositives',
+                                'level', 'tags', 'references', 'fields']:
+                    yaml_start_idx = i
+                    logger.debug(f"Found YAML start at line {i}: {stripped[:50]}")
+                    break
+
+        if yaml_start_idx is not None:
+            cleaned = '\n'.join(lines[yaml_start_idx:])
+            logger.debug(f"Removed {yaml_start_idx} lines of explanatory text")
+
+    # Strategy 3: Remove any remaining markdown code block markers
     if cleaned.startswith('```yaml'):
-        cleaned = cleaned[7:]  # Remove ```yaml
+        cleaned = cleaned[7:].strip()
         logger.debug("Removed ```yaml prefix")
     elif cleaned.startswith('```yml'):
-        cleaned = cleaned[6:]   # Remove ```yml
+        cleaned = cleaned[6:].strip()
         logger.debug("Removed ```yml prefix")
     elif cleaned.startswith('```'):
-        cleaned = cleaned[3:]   # Remove ```
+        cleaned = cleaned[3:].strip()
         logger.debug("Removed ``` prefix")
-    
-    # Remove ``` at the end
+
     if cleaned.endswith('```'):
-        cleaned = cleaned[:-3]
+        cleaned = cleaned[:-3].strip()
         logger.debug("Removed ``` suffix")
-    
-    # Remove any remaining markdown artifacts
-    cleaned = cleaned.strip()
-    
-    # Remove any leading/trailing whitespace and newlines
+
+    # Strategy 4: Remove inline text mixed with YAML (e.g., "Here is the rule: title: ...")
+    # Look for pattern like "text: title:" and extract from "title:" onwards
+    first_line = cleaned.split('\n')[0]
+    if 'title:' in first_line and not first_line.strip().startswith('title:'):
+        # There's text before 'title:' on the same line
+        title_idx = first_line.index('title:')
+        rest_of_content = '\n'.join(cleaned.split('\n')[1:])
+        cleaned = first_line[title_idx:] + '\n' + rest_of_content
+        logger.debug("Removed inline explanatory text before 'title:'")
+
+    # Clean up whitespace
     cleaned = '\n'.join(line.rstrip() for line in cleaned.split('\n'))
-    
-    logger.debug(f"Cleaned content starts with: {repr(cleaned[:50])}")
-    
-    return cleaned.strip()
+    cleaned = cleaned.strip()
+
+    logger.debug(f"Cleaned content starts with: {repr(cleaned[:100])}")
+
+    return cleaned
 
 @dataclass
 class ValidationResult:
@@ -223,7 +248,10 @@ class SigmaValidator:
         if errors:
             return ValidationResult(False, errors, warnings)
         
-        # Extract rule information
+        # Extract rule information safely (handle incorrect types)
+        detection = rule_data.get('detection', {})
+        detection_fields = list(detection.keys()) if isinstance(detection, dict) else []
+
         rule_info = {
             'title': rule_data.get('title', ''),
             'id': rule_data.get('id', ''),
@@ -231,7 +259,7 @@ class SigmaValidator:
             'level': rule_data.get('level', ''),
             'tags': rule_data.get('tags', []),
             'logsource': rule_data.get('logsource', {}),
-            'detection_fields': list(rule_data.get('detection', {}).keys())
+            'detection_fields': detection_fields
         }
         
         # Custom validators
@@ -274,15 +302,26 @@ class SigmaValidator:
     def _validate_detection_logic(self, rule_data: Dict, errors: List[str], warnings: List[str]):
         """Validate detection logic structure"""
         detection = rule_data.get('detection', {})
-        
+
         if not detection:
             errors.append("Detection section is empty")
             return
-        
-        # Check for at least one condition
-        conditions = [k for k in detection.keys() if not k.startswith('_')]
-        if not conditions:
-            errors.append("Missing detection condition")
+
+        # CRITICAL: detection must be a dictionary, not a list or string
+        if not isinstance(detection, dict):
+            errors.append(f"Detection must be a dictionary/object, not {type(detection).__name__}. Example: detection:\\n  selection:\\n    CommandLine|contains: 'malware'\\n  condition: selection")
+            return
+
+        # Check for 'condition' key - required in SIGMA
+        if 'condition' not in detection:
+            errors.append("Detection must contain a 'condition' key. Example: condition: selection")
+            return
+
+        # Check for at least one selection/filter
+        selections = [k for k in detection.keys() if k not in ['condition', 'timeframe']]
+        if not selections:
+            errors.append("Detection must have at least one selection or filter (e.g., 'selection:', 'filter:')")
+            return
         
         # Validate condition structure
         for condition_name, condition_data in detection.items():
@@ -309,15 +348,20 @@ class SigmaValidator:
     def _validate_logsource(self, rule_data: Dict, errors: List[str], warnings: List[str]):
         """Validate logsource configuration"""
         logsource = rule_data.get('logsource', {})
-        
+
         if not logsource:
             errors.append("Logsource section is empty")
             return
-        
+
+        # CRITICAL: logsource must be a dictionary, not a string
+        if not isinstance(logsource, dict):
+            errors.append(f"Logsource must be a dictionary/object, not {type(logsource).__name__}. Example: logsource:\\n  category: process_creation\\n  product: windows")
+            return
+
         # Check for required logsource fields
         if 'category' not in logsource and 'product' not in logsource and 'service' not in logsource:
             warnings.append("Logsource should specify category, product, or service")
-        
+
         # Validate logsource values
         valid_categories = [
             'process_creation', 'process_access', 'file_access', 'file_change',
@@ -326,7 +370,7 @@ class SigmaValidator:
             'registry_delete', 'registry_rename', 'powershell', 'wmi',
             'sysmon', 'windows', 'linux', 'macos'
         ]
-        
+
         category = logsource.get('category')
         if category and category not in valid_categories:
             errors.append(f"Invalid logsource category: {category}")
@@ -347,11 +391,11 @@ class SigmaValidator:
         elif len(description) < 20:
             warnings.append("Description is very short")
         
-        # Check level
+        # Check level (case-insensitive)
         level = rule_data.get('level', '')
-        valid_levels = ['low', 'medium', 'high', 'critical']
-        if level and level not in valid_levels:
-            errors.append(f"Invalid level: {level}")
+        valid_levels = ['low', 'medium', 'high', 'critical', 'informational']
+        if level and level.lower() not in valid_levels:
+            errors.append(f"Invalid level: {level}. Must be one of: {', '.join(valid_levels)}")
         
         # Check status
         status = rule_data.get('status', '')
@@ -365,11 +409,12 @@ class SigmaValidator:
             warnings.append("Rule has no tags")
         
         # Validate tag format
+        # SIGMA tags can contain dots (attack.t1059.001), hyphens, and underscores
         for tag in tags:
             if not isinstance(tag, str):
-                errors.append(f"Invalid tag format: {tag}")
-            elif not tag.replace('_', '').replace('-', '').isalnum():
-                warnings.append(f"Tag contains special characters: {tag}")
+                errors.append(f"Invalid tag format: {tag}. Tags must be simple strings, not dictionaries or objects. Example: tags:\\n  - attack.execution\\n  - attack.t1059.001")
+            elif not tag.replace('.', '').replace('_', '').replace('-', '').isalnum():
+                warnings.append(f"Tag contains invalid special characters: {tag}")
 
 def validate_sigma_rule(rule_yaml: str) -> ValidationResult:
     """

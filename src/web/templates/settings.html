@@ -569,10 +569,25 @@
     
     // Save settings to localStorage
     function saveSettings() {
+        // Get values from form inputs
+        const openaiKeyInput = document.getElementById('openaiApiKey').value.trim();
+        const anthropicKeyInput = document.getElementById('anthropicApiKey').value.trim();
+        const aiModelInput = document.getElementById('aiModel').value;
+        
+        // DEBUG: Log what we're saving
+        console.log('💾 Saving settings:', {
+            aiModel: aiModelInput,
+            openaiKeyLength: openaiKeyInput.length,
+            openaiKeyEnding: openaiKeyInput.length >= 4 ? openaiKeyInput.substring(openaiKeyInput.length - 4) : 'N/A',
+            anthropicKeyLength: anthropicKeyInput.length
+        });
+        
         const settings = {
-            openaiApiKey: document.getElementById('openaiApiKey').value,
-            anthropicApiKey: document.getElementById('anthropicApiKey').value,
-            aiModel: document.getElementById('aiModel').value,
+            // Trim API keys to remove any accidental whitespace
+            // Only save non-empty keys (preserve existing if field is empty)
+            openaiApiKey: openaiKeyInput || '',
+            anthropicApiKey: anthropicKeyInput || '',
+            aiModel: aiModelInput,
             aiTemperature: document.getElementById('aiTemperature').value,
             sigmaAuthor: document.getElementById('sigmaAuthor').value,
             backupSettings: {
@@ -596,6 +611,15 @@
         };
         
         localStorage.setItem('ctiScraperSettings', JSON.stringify(settings));
+        
+        // DEBUG: Verify what was saved
+        const saved = JSON.parse(localStorage.getItem('ctiScraperSettings'));
+        console.log('✅ Settings saved. Verification:', {
+            aiModel: saved.aiModel,
+            openaiKeyLength: saved.openaiApiKey ? saved.openaiApiKey.length : 0,
+            openaiKeyEnding: saved.openaiApiKey && saved.openaiApiKey.length >= 4 ? saved.openaiApiKey.substring(saved.openaiApiKey.length - 4) : 'N/A'
+        });
+        
         showSuccessNotification();
     }
     

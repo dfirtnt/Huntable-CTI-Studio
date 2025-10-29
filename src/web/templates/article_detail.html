@@ -2930,7 +2930,25 @@ Please provide a detailed analysis based on the article content and the user's s
         
         // Get AI model from settings
         const settings = JSON.parse(localStorage.getItem('ctiScraperSettings') || '{}');
-        const aiModel = settings.aiModel || 'chatgpt';
+        let aiModel = settings.aiModel || 'chatgpt';
+        
+        // Fix: If OpenAI API key is configured but model is still 'lmstudio' (stale localStorage),
+        // default to 'chatgpt' to honor the user's settings page selection
+        if (aiModel === 'lmstudio' && settings.openaiApiKey) {
+            console.warn('⚠️ Detected stale localStorage: aiModel is "lmstudio" but OpenAI API key is configured. Defaulting to "chatgpt".');
+            aiModel = 'chatgpt';
+            // Update localStorage to persist the fix
+            settings.aiModel = 'chatgpt';
+            localStorage.setItem('ctiScraperSettings', JSON.stringify(settings));
+        }
+        // Fix: Similarly for Anthropic
+        if (aiModel === 'lmstudio' && settings.anthropicApiKey) {
+            console.warn('⚠️ Detected stale localStorage: aiModel is "lmstudio" but Anthropic API key is configured. Defaulting to "anthropic".');
+            aiModel = 'anthropic';
+            // Update localStorage to persist the fix
+            settings.aiModel = 'anthropic';
+            localStorage.setItem('ctiScraperSettings', JSON.stringify(settings));
+        }
         
         // Only set API key for cloud models that require it
         let apiKey = null;
@@ -2939,11 +2957,80 @@ Please provide a detailed analysis based on the article content and the user's s
         } else if (aiModel === 'chatgpt') {
             apiKey = settings.openaiApiKey;
         }
+        
+        // DEBUG: Log what we got from localStorage
+        console.log(`🔍 DEBUG: aiModel="${aiModel}", openaiApiKey exists=${!!settings.openaiApiKey}, anthropicApiKey exists=${!!settings.anthropicApiKey}`);
+        console.log(`🔍 DEBUG: apiKey after selection=${apiKey ? 'EXISTS' : 'NULL'}, type=${typeof apiKey}, length=${apiKey ? apiKey.length : 0}`);
+        
+        if (apiKey) {
+            console.log(`🔍 DEBUG localStorage: apiKey type: ${typeof apiKey}, length: ${apiKey.length}, ends_with: ...${apiKey.substring(apiKey.length - 4)}`);
+            console.log(`🔍 DEBUG localStorage: Full key check - ends with "1WQA": ${apiKey.endsWith('1WQA')}, ends with "gkMA": ${apiKey.endsWith('gkMA')}`);
+            
+            // CRITICAL: Detect if key is corrupted (ends with gkMA instead of expected 1WQA)
+            if (apiKey.endsWith('gkMA')) {
+                console.error(`❌ CORRUPTED API KEY DETECTED: Key ends with 'gkMA' instead of expected '1WQA'`);
+                console.error(`❌ This indicates localStorage corruption. The key must be re-entered in Settings.`);
+                showNotification(
+                    '⚠️ API key appears corrupted in localStorage (ends with gkMA). Please go to Settings and re-enter your OpenAI API key.',
+                    'error'
+                );
+                return;
+            }
+        } else {
+            // DEBUG: More detailed logging when apiKey is null
+            console.warn(`⚠️ DEBUG: apiKey is NULL. aiModel="${aiModel}", settings keys:`, {
+                hasOpenaiKey: !!settings.openaiApiKey,
+                hasAnthropicKey: !!settings.anthropicApiKey,
+                openaiKeyLength: settings.openaiApiKey ? settings.openaiApiKey.length : 0,
+                anthropicKeyLength: settings.anthropicApiKey ? settings.anthropicApiKey.length : 0
+            });
+        }
+        
+        // Strip whitespace from API key (common issue when copying/pasting)
+        if (apiKey && typeof apiKey === 'string') {
+            const beforeTrim = apiKey;
+            apiKey = apiKey.trim();
+            
+            // DEBUG: Check if trim changed anything
+            if (beforeTrim !== apiKey) {
+                console.warn(`⚠️ API key had whitespace - trimmed from ${beforeTrim.length} to ${apiKey.length}`);
+            }
+            
+            // Validate key format before using
+            if (!apiKey.startsWith('sk-')) {
+                console.error(`❌ ERROR: API key doesn't start with 'sk-': ${apiKey.substring(0, 10)}...`);
+                showNotification('Invalid API key format in localStorage. Please re-enter your API key in Settings.', 'error');
+                return;
+            }
+            
+            if (apiKey.startsWith('sk-proj-') && apiKey.length < 100) {
+                console.error(`❌ ERROR: API key appears truncated: length ${apiKey.length} (expected 100+ for sk-proj- keys)`);
+                showNotification('API key appears truncated in localStorage. Please re-enter your API key in Settings.', 'error');
+                return;
+            }
+            
+            // Update localStorage with trimmed value to persist the fix
+            if (aiModel === 'anthropic') {
+                settings.anthropicApiKey = apiKey;
+            } else if (aiModel === 'chatgpt') {
+                settings.openaiApiKey = apiKey;
+            }
+            localStorage.setItem('ctiScraperSettings', JSON.stringify(settings));
+        }
         // For local models like lmstudio, apiKey remains null
         
         if ((aiModel === 'chatgpt' || aiModel === 'anthropic') && !apiKey) {
             const keyType = aiModel === 'anthropic' ? 'Anthropic' : 'OpenAI';
-            showNotification(`Please configure your ${keyType} API key in Settings first`, 'error');
+            console.error(`❌ ERROR: ${keyType} API key not found! aiModel="${aiModel}", apiKey is ${apiKey ? 'NOT NULL' : 'NULL'}`);
+            console.error(`❌ DEBUG: Full settings from localStorage:`, {
+                aiModel: settings.aiModel,
+                hasOpenaiKey: !!settings.openaiApiKey,
+                hasAnthropicKey: !!settings.anthropicApiKey,
+                openaiKeyLength: settings.openaiApiKey ? settings.openaiApiKey.length : 0,
+                anthropicKeyLength: settings.anthropicApiKey ? settings.anthropicApiKey.length : 0,
+                allSettingsKeys: Object.keys(settings)
+            });
+            showNotification(`Please configure your ${keyType} API key in Settings first. Make sure to click "Save Settings" after entering the key.`, 'error');
             return;
         }
         
@@ -3036,7 +3123,18 @@ Please provide a detailed analysis based on the article content and the user's s
             
             // Only include API key if it's provided (for cloud models)
             if (apiKey) {
+                // DEBUG: Log before assignment
+                console.log(`🔍 DEBUG Frontend: apiKey type: ${typeof apiKey}, length: ${apiKey.length}, ends_with: ...${apiKey.substring(apiKey.length - 4)}`);
                 requestBody.api_key = apiKey;
+                // DEBUG: Log after assignment
+                console.log(`🔍 DEBUG Frontend: requestBody.api_key type: ${typeof requestBody.api_key}, length: ${requestBody.api_key.length}, ends_with: ...${requestBody.api_key.substring(requestBody.api_key.length - 4)}`);
+                // Debug logging (masked for security)
+                const apiKeyPreview = apiKey.length > 12 ? `${apiKey.substring(0, 8)}...${apiKey.substring(apiKey.length - 4)}` : 'N/A';
+                console.log(`🔑 Sending API key with length: ${apiKey.length}, preview: ${apiKeyPreview}`);
+                // DEBUG: Log full request body size
+                console.log(`🔍 DEBUG Frontend: requestBody JSON size: ${JSON.stringify(requestBody).length} chars`);
+            } else {
+                console.warn(`⚠️ No API key available for model: ${aiModel}`);
             }
             
             // Add LLM validation setting for IOC extraction
@@ -3079,13 +3177,59 @@ Please provide a detailed analysis based on the article content and the user's s
             }
             
             console.log('Making fetch request to:', `/api/articles/{{ article.id }}/${endpoint}`);
-            console.log('Request body:', requestBody);
+            // DEBUG: Check API key in request body before sending
+            if (requestBody.api_key) {
+                const keyInBody = requestBody.api_key;
+                console.log(`🔍 DEBUG Before Fetch: requestBody.api_key length: ${keyInBody.length}, ends_with: ...${keyInBody.substring(keyInBody.length - 4)}`);
+                console.log(`🔍 DEBUG Before Fetch: Key ends with "1WQA": ${keyInBody.endsWith('1WQA')}, ends with "gkMA": ${keyInBody.endsWith('gkMA')}`);
+                
+                // Stringify and parse back to check for corruption
+                const stringified = JSON.stringify(requestBody);
+                const parsedBack = JSON.parse(stringified);
+                if (parsedBack.api_key) {
+                    console.log(`🔍 DEBUG After JSON round-trip: api_key length: ${parsedBack.api_key.length}, ends_with: ...${parsedBack.api_key.substring(parsedBack.api_key.length - 4)}`);
+                    if (parsedBack.api_key !== keyInBody) {
+                        console.error(`❌ ERROR: API key corrupted during JSON stringify/parse!`);
+                        console.error(`Original: ...${keyInBody.substring(keyInBody.length - 10)}`);
+                        console.error(`After:    ...${parsedBack.api_key.substring(parsedBack.api_key.length - 10)}`);
+                    }
+                }
+            }
+            console.log('Request body (without content):', {...requestBody, include_content: requestBody.include_content ? '[CONTENT INCLUDED]' : false});
+            
+            // Send API key in header instead of body to avoid corruption with large payloads
+            const fetchHeaders = {
+                'Content-Type': 'application/json',
+            };
+            if (apiKey) {
+                // FINAL VALIDATION: Check key one more time before sending
+                const keyEnd = apiKey.substring(apiKey.length - 4);
+                if (keyEnd === 'gkMA') {
+                    console.error(`❌ CORRUPTED KEY DETECTED AT SEND TIME: ends with 'gkMA'`);
+                    showNotification(
+                        '⚠️ API key corruption detected. Please go to Settings and re-enter your OpenAI API key.',
+                        'error'
+                    );
+                    return;
+                }
+                
+                // Use appropriate header based on model
+                if (aiModel === 'anthropic') {
+                    fetchHeaders['X-Anthropic-API-Key'] = apiKey;
+                } else {
+                    fetchHeaders['X-OpenAI-API-Key'] = apiKey;
+                }
+                
+                // DEBUG: Log what we're actually sending
+                console.log(`🔍 DEBUG Send: Setting ${aiModel === 'anthropic' ? 'X-Anthropic-API-Key' : 'X-OpenAI-API-Key'} header with key ending: ...${keyEnd}`);
+                
+                // Remove from body to avoid potential corruption
+                delete requestBody.api_key;
+            }
             
             const fetchPromise = fetch(`/api/articles/{{ article.id }}/${endpoint}`, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
+                headers: fetchHeaders,
                 body: JSON.stringify(requestBody)
             });
             
@@ -3139,7 +3283,25 @@ Please provide a detailed analysis based on the article content and the user's s
         
         // Get API key from settings
         const settings = JSON.parse(localStorage.getItem('ctiScraperSettings') || '{}');
-        const aiModel = settings.aiModel || 'chatgpt';
+        let aiModel = settings.aiModel || 'chatgpt';
+        
+        // Fix: If OpenAI API key is configured but model is still 'lmstudio' (stale localStorage),
+        // default to 'chatgpt' to honor the user's settings page selection
+        if (aiModel === 'lmstudio' && settings.openaiApiKey) {
+            console.warn('⚠️ Detected stale localStorage: aiModel is "lmstudio" but OpenAI API key is configured. Defaulting to "chatgpt".');
+            aiModel = 'chatgpt';
+            // Update localStorage to persist the fix
+            settings.aiModel = 'chatgpt';
+            localStorage.setItem('ctiScraperSettings', JSON.stringify(settings));
+        }
+        // Fix: Similarly for Anthropic
+        if (aiModel === 'lmstudio' && settings.anthropicApiKey) {
+            console.warn('⚠️ Detected stale localStorage: aiModel is "lmstudio" but Anthropic API key is configured. Defaulting to "anthropic".');
+            aiModel = 'anthropic';
+            // Update localStorage to persist the fix
+            settings.aiModel = 'anthropic';
+            localStorage.setItem('ctiScraperSettings', JSON.stringify(settings));
+        }
         
         // Only set API key for cloud models that require it
         let apiKey = null;
@@ -3216,16 +3378,22 @@ Please provide a detailed analysis based on the article content and the user's s
                 ai_model: aiModel
             };
             
-            // Only include API key if it's provided (for cloud models)
+            // Send API key in header instead of body to avoid corruption with large payloads
+            const rankFetchHeaders = {
+                'Content-Type': 'application/json',
+            };
             if (apiKey) {
-                rankRequestBody.api_key = apiKey;
+                if (aiModel === 'anthropic') {
+                    rankFetchHeaders['X-Anthropic-API-Key'] = apiKey;
+                } else {
+                    rankFetchHeaders['X-OpenAI-API-Key'] = apiKey;
+                }
+                // Don't include in body to avoid potential corruption
             }
             
             const response = await fetch(`/api/articles/${articleId}/rank-with-gpt4o`, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
+                headers: rankFetchHeaders,
                 body: JSON.stringify(rankRequestBody)
             });
             

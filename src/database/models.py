@@ -356,7 +356,7 @@ class SigmaRuleTable(Base):
     
     # Embedding fields
     embedding = Column(Vector(768), nullable=True, index=True)
-    embedding_model = Column(String(100), nullable=True, default='all-mpnet-base-v2')
+    embedding_model = Column(String(100), nullable=True, default='intfloat/e5-base-v2')
     embedded_at = Column(DateTime, nullable=True)
     
     # Source tracking
