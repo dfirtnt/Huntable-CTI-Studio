@@ -288,7 +288,7 @@ class SigmaSyncService:
             Number of rules indexed
         """
         from src.database.models import SigmaRuleTable
-        from src.services.embedding_service import EmbeddingService
+        from src.services.lmstudio_embedding_client import LMStudioEmbeddingClient
         
         logger.info("Starting Sigma rule indexing...")
         
@@ -309,8 +309,13 @@ class SigmaSyncService:
         skipped_count = 0
         error_count = 0
         
-        # Initialize embedding service
-        embedding_service = EmbeddingService()
+        # Initialize LM Studio embedding client
+        try:
+            embedding_service = LMStudioEmbeddingClient()
+            logger.info("LM Studio embedding client initialized")
+        except Exception as e:
+            logger.error(f"Failed to initialize LM Studio embedding client: {e}")
+            raise RuntimeError("LM Studio embedding client unavailable") from e
         
         for file_path in rule_files:
             try:
@@ -328,9 +333,12 @@ class SigmaSyncService:
                     skipped_count += 1
                     continue
                 
-                # Generate embedding
+                # Generate embedding using LM Studio
                 embedding_text = self.create_rule_embedding_text(rule_data)
                 embedding = embedding_service.generate_embedding(embedding_text)
+                
+                # Store model name for tracking
+                embedding_model_name = "intfloat/e5-base-v2"
                 
                 # Create or update rule record (with no autoflush to prevent premature commits)
                 with db_session.no_autoflush:
@@ -342,6 +350,7 @@ class SigmaSyncService:
                             if key != 'rule_id':
                                 setattr(existing_rule, key, value)
                         existing_rule.embedding = embedding
+                        existing_rule.embedding_model = embedding_model_name
                         existing_rule.embedded_at = datetime.now()
                         existing_rule.repo_commit_sha = commit_sha
                     else:
@@ -363,6 +372,7 @@ class SigmaSyncService:
                             file_path=rule_data['file_path'],
                             repo_commit_sha=commit_sha,
                             embedding=embedding,
+                            embedding_model=embedding_model_name,
                             embedded_at=datetime.now()
                         )
                         db_session.add(new_rule)

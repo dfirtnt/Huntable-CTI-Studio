@@ -135,10 +135,23 @@ async def api_test_openai_key(request: Request):
     """Test OpenAI API key validity."""
     try:
         body = await request.json()
-        api_key = body.get('api_key')
+        api_key_raw = body.get('api_key')
+        # Strip whitespace from API key (common issue when copying/pasting)
+        api_key = api_key_raw.strip() if api_key_raw else None
         
         if not api_key:
             raise HTTPException(status_code=400, detail="API key is required")
+        
+        # Validate API key format - OpenAI keys start with sk- and should be reasonable length
+        if not api_key.startswith('sk-'):
+            logger.error(f"❌ API key validation failed: does not start with 'sk-' (length: {len(api_key) if api_key else 0})")
+            raise HTTPException(status_code=400, detail="Invalid API key format. OpenAI keys should start with 'sk-'")
+        if len(api_key) < 20:
+            logger.error(f"❌ API key validation failed: too short (length: {len(api_key)})")
+            raise HTTPException(status_code=400, detail="API key appears to be truncated or invalid (too short)")
+        
+        # Log key info for debugging (masked)
+        logger.info(f"🔑 Testing OpenAI API key: length={len(api_key)}, starts_with={api_key[:8]}..., ends_with=...{api_key[-4:]}")
         
         # Test the API key with a simple request
         async with httpx.AsyncClient() as client:
@@ -159,7 +172,15 @@ async def api_test_openai_key(request: Request):
             if response.status_code == 200:
                 return {"valid": True, "message": "API key is valid"}
             elif response.status_code == 401:
-                return {"valid": False, "message": "Invalid API key"}
+                # Try to extract more details from the error
+                try:
+                    error_json = response.json()
+                    error_message = error_json.get('error', {}).get('message', 'Invalid API key')
+                    logger.error(f"❌ OpenAI API key test failed: {error_message}")
+                    return {"valid": False, "message": f"Invalid API key: {error_message}"}
+                except:
+                    logger.error(f"❌ OpenAI API key test failed with 401, response: {response.text}")
+                    return {"valid": False, "message": "Invalid API key"}
             else:
                 return {"valid": False, "message": f"API error: {response.status_code}"}
                 
@@ -222,7 +243,9 @@ async def api_test_anthropic_key(request: Request):
     """Test Anthropic API key validity."""
     try:
         body = await request.json()
-        api_key = body.get('api_key')
+        api_key_raw = body.get('api_key')
+        # Strip whitespace from API key (common issue when copying/pasting)
+        api_key = api_key_raw.strip() if api_key_raw else None
         
         if not api_key:
             raise HTTPException(status_code=400, detail="API key is required")
@@ -436,7 +459,22 @@ async def api_rank_with_gpt4o(article_id: int, request: Request):
         # Get request body
         body = await request.json()
         article_url = body.get('url')
-        api_key = body.get('api_key')  # Get API key from request
+        # Try header first (prevents corruption with large payloads), fallback to body for backward compatibility
+        # Support both OpenAI and Anthropic headers
+        api_key_raw = request.headers.get('X-OpenAI-API-Key') or request.headers.get('X-Anthropic-API-Key') or body.get('api_key')
+        
+        # DEBUG: Log raw key before any processing
+        if api_key_raw:
+            api_key_source = 'header (OpenAI)' if request.headers.get('X-OpenAI-API-Key') else 'header (Anthropic)' if request.headers.get('X-Anthropic-API-Key') else 'body'
+            logger.info(f"🔍 DEBUG Ranking: api_key source: {api_key_source}, type: {type(api_key_raw)}, length: {len(api_key_raw) if isinstance(api_key_raw, str) else 'N/A'}, ends_with: ...{api_key_raw[-4:] if isinstance(api_key_raw, str) and len(api_key_raw) >= 4 else 'N/A'}")
+        
+        # Strip whitespace from API key (common issue when copying/pasting)
+        api_key = api_key_raw.strip() if api_key_raw else None
+        
+        # DEBUG: Log after stripping
+        if api_key:
+            logger.info(f"🔍 DEBUG Ranking: After strip - length: {len(api_key)}, ends_with: ...{api_key[-4:]}")
+        
         ai_model = body.get('ai_model', 'chatgpt')  # Get AI model from request
         optimization_options = body.get('optimization_options', {})
         use_filtering = body.get('use_filtering', True)  # Enable filtering by default
@@ -450,6 +488,19 @@ async def api_rank_with_gpt4o(article_id: int, request: Request):
             raise HTTPException(status_code=400, detail="OpenAI API key is required for ChatGPT. Please configure it in Settings.")
         elif ai_model == 'anthropic' and not api_key:
             raise HTTPException(status_code=400, detail="Anthropic API key is required for Claude. Please configure it in Settings.")
+        
+        # Validate API key format before making request
+        if ai_model == 'chatgpt' and api_key:
+            if not api_key.startswith('sk-'):
+                error_detail = "Invalid API key format. OpenAI keys should start with 'sk-'. Please check your API key in Settings."
+                logger.error(f"❌ Ranking API key validation failed: does not start with 'sk-' (length: {len(api_key)})")
+                raise HTTPException(status_code=400, detail=error_detail)
+            if len(api_key) < 20:
+                error_detail = "API key appears to be truncated or invalid (too short). Please check your API key in Settings."
+                logger.error(f"❌ Ranking API key validation failed: too short (length: {len(api_key)})")
+                raise HTTPException(status_code=400, detail=error_detail)
+            # Log key info (masked)
+            logger.info(f"🔑 Ranking with OpenAI: api_key length: {len(api_key)}, starts_with: {api_key[:8]}..., ends_with: ...{api_key[-4:]}")
         
         # Check for existing ranking data (unless force regeneration is requested)
         if not force_regenerate:
@@ -557,9 +608,19 @@ async def api_rank_with_gpt4o(article_id: int, request: Request):
                     timeout=60.0
                 )
                 
-                if response.status_code != 200:
+                if response.status_code == 401:
+                    # Try to extract more details from the error
+                    try:
+                        error_json = response.json()
+                        error_message = error_json.get('error', {}).get('message', 'Invalid API key')
+                        logger.error(f"❌ Ranking OpenAI 401 error: {error_message}, api_key ends_with: ...{api_key[-4:] if api_key and len(api_key) >= 4 else 'N/A'}")
+                        raise HTTPException(status_code=401, detail=f"OpenAI API key is invalid or expired. Error: {error_message}. Please check your API key in Settings.")
+                    except:
+                        logger.error(f"❌ Ranking OpenAI 401 error, response: {response.text}")
+                        raise HTTPException(status_code=401, detail="OpenAI API key is invalid or expired. Please check your API key in Settings.")
+                elif response.status_code != 200:
                     error_detail = response.text
-                    logger.error(f"OpenAI API error: {error_detail}")
+                    logger.error(f"❌ Ranking OpenAI API error {response.status_code}: {error_detail}")
                     raise HTTPException(status_code=500, detail=f"OpenAI API error: {error_detail}")
                 
                 result = response.json()
@@ -818,7 +879,10 @@ async def api_gpt4o_rank(article_id: int, request: Request):
         # Get request body
         body = await request.json()
         article_url = body.get('url')
-        api_key = body.get('api_key')  # Get API key from request
+        # Try header first (prevents corruption with large payloads), fallback to body for backward compatibility
+        api_key_raw = request.headers.get('X-OpenAI-API-Key') or body.get('api_key')
+        # Strip whitespace from API key (common issue when copying/pasting)
+        api_key = api_key_raw.strip() if api_key_raw else None
         
         if not api_key:
             raise HTTPException(status_code=400, detail="OpenAI API key is required. Please configure it in Settings.")
@@ -921,7 +985,10 @@ async def api_gpt4o_rank_optimized(article_id: int, request: Request):
         # Get request body
         body = await request.json()
         article_url = body.get('url')
-        api_key = body.get('api_key')
+        # Try header first (prevents corruption with large payloads), fallback to body for backward compatibility
+        api_key_raw = request.headers.get('X-OpenAI-API-Key') or body.get('api_key')
+        # Strip whitespace from API key (common issue when copying/pasting)
+        api_key = api_key_raw.strip() if api_key_raw else None
         ai_model = body.get('ai_model', 'chatgpt')
         use_filtering = body.get('use_filtering', True)  # Enable filtering by default
         min_confidence = body.get('min_confidence', 0.7)  # Confidence threshold
@@ -1079,7 +1146,15 @@ async def api_extract_iocs(article_id: int, request: Request):
         
         # Get request body
         body = await request.json()
-        api_key = body.get('api_key')
+        # Try header first (prevents corruption with large payloads), fallback to body for backward compatibility
+        # For Anthropic, check X-Anthropic-API-Key header, for OpenAI check X-OpenAI-API-Key
+        api_key_raw = None
+        if body.get('ai_model', 'chatgpt') == 'anthropic':
+            api_key_raw = request.headers.get('X-Anthropic-API-Key') or body.get('api_key')
+        else:
+            api_key_raw = request.headers.get('X-OpenAI-API-Key') or body.get('api_key')
+        # Strip whitespace from API key (common issue when copying/pasting)
+        api_key = api_key_raw.strip() if api_key_raw else None
         ai_model = body.get('ai_model', 'chatgpt')
         use_llm_validation = body.get('use_llm_validation', False)
         debug_mode = body.get('debug_mode', False)
@@ -1160,12 +1235,32 @@ async def api_generate_sigma(article_id: int, request: Request):
         
         # Get request body
         body = await request.json()
-        api_key = body.get('api_key')
+        
+        # Try header first (prevents corruption with large payloads), fallback to body for backward compatibility
+        # Support both OpenAI and Anthropic headers
+        api_key_raw = request.headers.get('X-OpenAI-API-Key') or request.headers.get('X-Anthropic-API-Key') or body.get('api_key')
+        
+        # DEBUG: Log raw key before any processing
+        if api_key_raw:
+            api_key_source = 'header (OpenAI)' if request.headers.get('X-OpenAI-API-Key') else 'header (Anthropic)' if request.headers.get('X-Anthropic-API-Key') else 'body'
+            logger.info(f"🔍 DEBUG SIGMA: api_key source: {api_key_source}, type: {type(api_key_raw)}, length: {len(api_key_raw) if isinstance(api_key_raw, str) else 'N/A'}, ends_with: ...{api_key_raw[-4:] if isinstance(api_key_raw, str) and len(api_key_raw) >= 4 else 'N/A'}")
+        
+        # Strip whitespace from API key (common issue when copying/pasting)
+        api_key = api_key_raw.strip() if api_key_raw else None
+        
+        # DEBUG: Log after stripping
+        if api_key:
+            logger.info(f"🔍 DEBUG SIGMA: After strip - length: {len(api_key)}, ends_with: ...{api_key[-4:]}")
+        
         ai_model = body.get('ai_model', 'chatgpt')
         author_name = body.get('author_name', 'CTI Scraper User')
         force_regenerate = body.get('force_regenerate', False)
         skip_matching = body.get('skip_matching', False)  # Option to skip matching phase
-        
+
+        # Log the received AI model for debugging (mask API key for security)
+        api_key_preview = f"{api_key[:8]}...{api_key[-4:]}" if api_key and len(api_key) > 12 else "None"
+        logger.info(f"🤖 SIGMA generation requested with ai_model='{ai_model}', api_key provided: {bool(api_key)}, api_key preview: {api_key_preview}")
+
         # Only require API key for ChatGPT
         if ai_model == 'chatgpt' and not api_key:
             raise HTTPException(status_code=400, detail="OpenAI API key is required for ChatGPT. Please configure it in Settings.")
@@ -1347,6 +1442,7 @@ async def api_generate_sigma(article_id: int, request: Request):
         # Define helper function for API calls based on ai_model
         async def call_llm_api(prompt_text: str) -> str:
             """Call the appropriate LLM API based on ai_model setting."""
+            logger.info(f"🔧 call_llm_api: ai_model='{ai_model}', will use {'LMStudio' if ai_model == 'lmstudio' else 'OpenAI (GPT-4o-mini)'}")
             if ai_model == 'lmstudio':
                 # Use LMStudio API
                 lmstudio_model = await _get_current_lmstudio_model()
@@ -1377,43 +1473,85 @@ async def api_generate_sigma(article_id: int, request: Request):
                 return result['choices'][0]['message']['content']
             else:
                 # Use OpenAI API (chatgpt)
+                # Verify API key is valid before making request
+                if not api_key:
+                    error_detail = "OpenAI API key is missing. Please configure it in Settings."
+                    logger.error(f"❌ OpenAI API key is None or empty when calling API")
+                    raise HTTPException(status_code=400, detail=error_detail)
+                
+                # Validate API key format before making request
+                if not api_key.startswith('sk-'):
+                    error_detail = "Invalid API key format. OpenAI keys should start with 'sk-'. Please check your API key in Settings."
+                    logger.error(f"❌ API key validation failed: does not start with 'sk-' (length: {len(api_key)})")
+                    raise HTTPException(status_code=400, detail=error_detail)
+                if len(api_key) < 20:
+                    error_detail = "API key appears to be truncated or invalid (too short). Please check your API key in Settings."
+                    logger.error(f"❌ API key validation failed: too short (length: {len(api_key)})")
+                    raise HTTPException(status_code=400, detail=error_detail)
+                # OpenAI API keys are typically 51 chars (sk-) or 100+ chars (sk-proj-)
+                # If key is suspiciously short for a proj key, warn
+                if api_key.startswith('sk-proj-') and len(api_key) < 100:
+                    logger.warning(f"⚠️ API key appears truncated: sk-proj- key with length {len(api_key)} (expected 100+ chars)")
+                
+                # Log API key info (masked) for debugging
+                api_key_len = len(api_key) if api_key else 0
+                api_key_start = api_key[:8] if api_key and len(api_key) >= 8 else "N/A"
+                api_key_end = api_key[-4:] if api_key and len(api_key) >= 4 else "N/A"
+                logger.info(f"🔑 Making OpenAI API call with api_key length: {api_key_len}, starts_with: {api_key_start}..., ends_with: ...{api_key_end}")
+                
                 async with httpx.AsyncClient() as client:
-                    response = await client.post(
-                        "https://api.openai.com/v1/chat/completions",
-                        headers={
-                            "Authorization": f"Bearer {api_key}",
-                            "Content-Type": "application/json"
-                        },
-                        json={
-                            "model": "gpt-4o-mini",
-                            "messages": [
-                                {
-                                    "role": "system",
-                                    "content": "You are a SIGMA rule creation expert. Output ONLY valid YAML starting with 'title:'. Use exact 2-space indentation. logsource and detection must be nested dictionaries with proper structure. No markdown, no explanations, no code blocks."
-                                },
-                                {
-                                    "role": "user",
-                                    "content": prompt_text
-                                }
-                            ],
-                            "max_tokens": 4000,
-                            "temperature": 0.2
-                        },
-                        timeout=120.0
-                    )
-                    
-                    if response.status_code == 429:
-                        error_detail = "OpenAI API rate limit exceeded. Please wait a few minutes and try again, or check your API usage limits."
-                        logger.warning(f"OpenAI rate limit hit: {response.text}")
-                        raise HTTPException(status_code=429, detail=error_detail)
-                    elif response.status_code != 200:
-                        error_detail = f"OpenAI API error: {response.status_code}"
-                        if response.status_code == 401:
-                            error_detail = "OpenAI API key is invalid or expired. Please check your API key in Settings."
-                        elif response.status_code == 402:
-                            error_detail = "OpenAI API billing issue. Please check your account billing."
-                        logger.error(f"OpenAI API error {response.status_code}: {response.text}")
-                        raise HTTPException(status_code=500, detail=error_detail)
+                    try:
+                        response = await client.post(
+                            "https://api.openai.com/v1/chat/completions",
+                            headers={
+                                "Authorization": f"Bearer {api_key}",
+                                "Content-Type": "application/json"
+                            },
+                            json={
+                                "model": "gpt-4o-mini",
+                                "messages": [
+                                    {
+                                        "role": "system",
+                                        "content": "You are a SIGMA rule creation expert. Output ONLY valid YAML starting with 'title:'. Use exact 2-space indentation. logsource and detection must be nested dictionaries with proper structure. No markdown, no explanations, no code blocks."
+                                    },
+                                    {
+                                        "role": "user",
+                                        "content": prompt_text
+                                    }
+                                ],
+                                "max_tokens": 4000,
+                                "temperature": 0.2
+                            },
+                            timeout=120.0
+                        )
+                        
+                        if response.status_code == 429:
+                            error_detail = "OpenAI API rate limit exceeded. Please wait a few minutes and try again, or check your API usage limits."
+                            logger.warning(f"OpenAI rate limit hit: {response.text}")
+                            raise HTTPException(status_code=429, detail=error_detail)
+                        elif response.status_code != 200:
+                            error_detail = f"OpenAI API error: {response.status_code}"
+                            if response.status_code == 401:
+                                # Try to get more details from the response
+                                try:
+                                    error_json = response.json()
+                                    error_message = error_json.get('error', {}).get('message', 'Unknown error')
+                                    logger.error(f"❌ OpenAI 401 error details: {error_message}, full response: {response.text}")
+                                    error_detail = f"OpenAI API key is invalid or expired. Error: {error_message}. Please check your API key in Settings."
+                                except:
+                                    logger.error(f"❌ OpenAI 401 error, response text: {response.text}")
+                                    error_detail = "OpenAI API key is invalid or expired. Please check your API key in Settings."
+                            elif response.status_code == 402:
+                                error_detail = "OpenAI API billing issue. Please check your account billing."
+                            else:
+                                logger.error(f"OpenAI API error {response.status_code}: {response.text}")
+                            raise HTTPException(status_code=500, detail=error_detail)
+                    except httpx.HTTPError as e:
+                        logger.error(f"❌ HTTP error calling OpenAI API: {e}")
+                        raise HTTPException(status_code=500, detail=f"Network error calling OpenAI API: {str(e)}")
+                    except Exception as e:
+                        logger.error(f"❌ Unexpected error calling OpenAI API: {e}")
+                        raise HTTPException(status_code=500, detail=f"Unexpected error: {str(e)}")
                     
                     result = response.json()
                     return result['choices'][0]['message']['content']
@@ -1792,7 +1930,15 @@ async def api_custom_prompt(article_id: int, request: Request):
         # Get request body
         body = await request.json()
         prompt = body.get('prompt')
-        api_key = body.get('api_key')
+        # Try header first (prevents corruption with large payloads), fallback to body for backward compatibility
+        # For Anthropic, check X-Anthropic-API-Key header, for OpenAI check X-OpenAI-API-Key
+        api_key_raw = None
+        if body.get('ai_model', 'chatgpt') == 'anthropic':
+            api_key_raw = request.headers.get('X-Anthropic-API-Key') or body.get('api_key')
+        else:
+            api_key_raw = request.headers.get('X-OpenAI-API-Key') or body.get('api_key')
+        # Strip whitespace from API key (common issue when copying/pasting)
+        api_key = api_key_raw.strip() if api_key_raw else None
         ai_model = body.get('ai_model', 'chatgpt')
         
         if not prompt:

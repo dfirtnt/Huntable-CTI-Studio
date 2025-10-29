@@ -85,6 +85,10 @@ Article → Match Existing Rules → Classify Coverage → Generate New Rules (i
 - AI model configured:
   - **ChatGPT**: OpenAI API key required
   - **LMStudio**: Local server running (no API key)
+- **LM Studio for Embeddings**: Required for SIGMA rule similarity search
+  - Model: intfloat/e5-base-v2 loaded in LM Studio
+  - API: http://localhost:1234/v1/embeddings
+  - Environment variables: `LMSTUDIO_EMBEDDING_URL` and `LMSTUDIO_EMBEDDING_MODEL`
 - pySIGMA library installed
 
 ### Generation Process
@@ -277,11 +281,12 @@ User Request → Generate Sigma Rules (AI) → For Each Generated Rule:
 
 ### Embedding Details
 
-- **Model**: all-mpnet-base-v2 (768 dimensions)
-- **Input**: Rule title + description concatenated
+- **Model**: intfloat/e5-base-v2 via LM Studio (768 dimensions)
+- **Provider**: LM Studio local API server
+- **Input**: Enriched rule text (title, description, logsource, detection)
 - **Similarity Metric**: Cosine similarity (1 - cosine distance)
 - **Threshold**: 0.7 (70% similarity minimum)
-- **Performance**: ~150-500ms overhead per generated rule
+- **Performance**: ~100-300ms overhead per generated rule
 
 ### Similarity Interpretation
 
@@ -296,7 +301,7 @@ User Request → Generate Sigma Rules (AI) → For Each Generated Rule:
 ### Technology Stack
 
 - **Database**: PostgreSQL with pgvector extension
-- **Embeddings**: all-mpnet-base-v2 (sentence-transformers)
+- **Embeddings**: intfloat/e5-base-v2 via LM Studio API
 - **Rule Format**: SIGMA YAML specification
 - **Validation**: pySIGMA library
 - **Repository**: SigmaHQ official repository
@@ -315,7 +320,7 @@ User Request → Generate Sigma Rules (AI) → For Each Generated Rule:
 
 - **Records**: 3,068+ indexed Sigma rules with embeddings
 - **Index Type**: IVFFlat vector index for fast similarity search
-- **Vector Dimension**: 768 (all-mpnet-base-v2 model)
+- **Vector Dimension**: 768 (intfloat/e5-base-v2 model)
 - **Storage**: JSONB for flexible rule metadata
 
 ---
@@ -540,8 +545,13 @@ Matches for Article 123
 ### Environment Variables
 
 ```bash
+# SIGMA repository and matching
 SIGMA_REPO_PATH=./data/sigma-repo
 SIGMA_MATCH_THRESHOLD=0.7
+
+# LM Studio embedding configuration (required for SIGMA embeddings)
+LMSTUDIO_EMBEDDING_URL=http://localhost:1234/v1/embeddings
+LMSTUDIO_EMBEDDING_MODEL=intfloat/e5-base-v2
 ```
 
 ### AI Model Configuration
@@ -557,6 +567,17 @@ SIGMA_MATCH_THRESHOLD=0.7
 - API Key: Not required
 - Temperature: 0.2 (for consistent output)
 - Best for: Local processing, privacy, cost savings
+
+**LM Studio for Embeddings** (SIGMA Rule Similarity Search)
+- Endpoint: http://localhost:1234/v1/embeddings
+- Model: intfloat/e5-base-v2 (must be loaded in LM Studio)
+- Dimension: 768
+- Purpose: Generate embeddings for SIGMA rule similarity search
+- Setup:
+  1. Open LM Studio
+  2. Download and load model: `intfloat/e5-base-v2`
+  3. Start local server
+  4. Verify endpoint is accessible
 
 ### Similarity Thresholds
 
@@ -587,6 +608,13 @@ SIGMA_MATCH_THRESHOLD=0.7
 - Verify API quota and billing
 - Monitor rate limiting
 - LMStudio requires no API key, verify local server running
+
+#### Embedding Generation Failures
+- **LM Studio not running**: Ensure LM Studio server is running at configured URL
+- **Model not loaded**: Verify intfloat/e5-base-v2 is loaded in LM Studio
+- **Connection timeout**: Check `LMSTUDIO_EMBEDDING_URL` environment variable
+- **Invalid model**: Ensure `LMSTUDIO_EMBEDDING_MODEL` is set to `intfloat/e5-base-v2`
+- **HTTP errors**: Check LM Studio server logs and network connectivity
 
 #### pySIGMA Validation Failures
 - Ensure pySIGMA properly installed

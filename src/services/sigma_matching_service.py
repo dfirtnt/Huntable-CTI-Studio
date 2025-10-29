@@ -16,6 +16,7 @@ from src.database.models import (
     ChunkAnalysisResultTable
 )
 from src.services.embedding_service import EmbeddingService
+from src.services.lmstudio_embedding_client import LMStudioEmbeddingClient
 
 logger = logging.getLogger(__name__)
 
@@ -31,7 +32,12 @@ class SigmaMatchingService:
             db_session: SQLAlchemy database session
         """
         self.db = db_session
-        self.embedding_service = EmbeddingService()
+        self.embedding_service = EmbeddingService()  # For article embeddings
+        try:
+            self.sigma_embedding_client = LMStudioEmbeddingClient()  # For SIGMA rule embeddings
+        except Exception as e:
+            logger.warning(f"LM Studio client unavailable for SIGMA embeddings: {e}")
+            self.sigma_embedding_client = None
     
     def match_article_to_rules(
         self, 
@@ -435,9 +441,14 @@ class SigmaMatchingService:
             List of Sigma rules with similarity scores (sorted by similarity, no threshold filter).
         """
         try:
-            # Generate embedding for the proposed rule
+            # Generate embedding for the proposed rule using LM Studio
+            # (to match the embedding model used for stored sigma rules)
+            if not self.sigma_embedding_client:
+                logger.error("LM Studio client unavailable - cannot compare proposed rule")
+                return []
+            
             rule_text = ' '.join([proposed_rule.get('title', ''), proposed_rule.get('description', '')])
-            embedding = self.embedding_service.generate_embedding(rule_text)
+            embedding = self.sigma_embedding_client.generate_embedding(rule_text)
 
             # Prepare embedding string for pgvector
             embedding_str = '[' + ','.join(map(str, embedding)) + ']'

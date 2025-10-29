@@ -1,0 +1,37 @@
+Generate a SIGMA detection rule in valid YAML format.
+
+Article: {title}
+Source: {source}
+
+Content:
+{content}
+
+CRITICAL: Output ONLY valid YAML. No explanatory text. No markdown blocks.
+
+Example format (copy this structure exactly):
+
+title: Suspicious PowerShell Execution
+id: 12345678-1234-1234-1234-123456789abc
+description: Detects suspicious PowerShell commands
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection:
+    Image|endswith: '\powershell.exe'
+    CommandLine|contains: 'bypass'
+  condition: selection
+level: high
+status: experimental
+tags:
+  - attack.execution
+  - attack.t1059.001
+references:
+  - {url}
+
+IMPORTANT FORMATTING RULES:
+1. logsource MUST be indented with 2 spaces under the key
+2. detection MUST be indented with 2 spaces under the key
+3. tags MUST be a list with "- " prefix
+4. Use lowercase for all field names
+5. Start output with "title:" - no text before it

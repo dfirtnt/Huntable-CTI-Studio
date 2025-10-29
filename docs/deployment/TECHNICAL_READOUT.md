@@ -18,7 +18,7 @@
 │                 │    │                 │    │     Tasks       │
 │ • RSS Feeds     │───▶│ • FastAPI App   │    │ • Celery Worker │
 │ • Web Scraping  │    │ • Dashboard     │    │ • Scheduler     │
-│ • 24+ Sources   │    │ • Search/Filter │    │ • Collection    │
+│ • 33+ Sources   │    │ • Search/Filter │    │ • Collection    │
 └─────────────────┘    └─────────────────┘    └─────────────────┘
          │                       │                       │
          ▼                       ▼                       ▼

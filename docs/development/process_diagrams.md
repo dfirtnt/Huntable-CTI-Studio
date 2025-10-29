@@ -14,7 +14,7 @@ ASCII diagrams of the main workflows in the CTI Scraper system, designed to fit 
 │                 │    │                 │    │     Tasks       │    │                 │
 │ • RSS Feeds     │───▶│ • FastAPI App   │    │ • Celery Worker │    │ • PostgreSQL    │
 │ • Web Scraping  │    │ • Dashboard     │    │ • Scheduler     │    │ • Redis Cache   │
-│ • 34 Sources    │    │ • Search/Filter │    │ • Collection    │    │ • pgvector      │
+│ • 33+ Sources   │    │ • Search/Filter │    │ • Collection    │    │ • pgvector      │
 │ • Browser Ext.  │    │ • RAG Chat      │    │ • AI Analysis   │    │ • Async Manager │
 └─────────────────┘    └─────────────────┘    └─────────────────┘    └─────────────────┘
          │                       │                       │                       │
@@ -58,7 +58,7 @@ ASCII diagrams of the main workflows in the CTI Scraper system, designed to fit 
           ▼
 ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
 │   Source List   │───▶│  RSS Parser     │───▶│ Modern Scraper  │
-│   (34 sources)  │    │                 │    │                 │
+│   (33+ sources) │    │                 │    │                 │
 └─────────────────┘    └─────────┬───────┘    └─────────┬───────┘
                                  │                      │
                                  ▼                      ▼
