@@ -4054,9 +4054,19 @@ Please provide a detailed analysis based on the article content and the user's s
         });
     }
     
+    // Store generated rules globally for easy access
+    let currentGeneratedSigmaRules = [];
+    
     function showSigmaRulesModal(sigmaRules, data) {
         // Remove any existing modal
         closeSigmaRulesModal();
+        
+        // Store generated rules globally
+        if (sigmaRules && Array.isArray(sigmaRules)) {
+            currentGeneratedSigmaRules = sigmaRules;
+        } else if (data && data.rules && Array.isArray(data.rules)) {
+            currentGeneratedSigmaRules = data.rules;
+        }
         
         const modal = document.createElement('div');
         modal.id = 'sigmaRulesModal';
@@ -4770,12 +4780,44 @@ Please provide a detailed analysis based on the article content and the user's s
     async function checkSimilarSigmaRules() {
         // Get the currently displayed Sigma rules
         const sigmaRulesModal = document.getElementById('sigmaRulesModal');
-        if (!sigmaRulesModal) {
-            showNotification('Please generate SIGMA rules first', 'error');
+        
+        // Get the generated rules from multiple sources
+        let generatedRules = currentGeneratedSigmaRules; // Try global variable first
+        
+        // Try to get from modal data attribute
+        if (generatedRules.length === 0 && sigmaRulesModal) {
+            try {
+                const modalRules = sigmaRulesModal.dataset.generatedRules;
+                if (modalRules) {
+                    generatedRules = JSON.parse(modalRules);
+                }
+            } catch (e) {
+                console.warn('Could not parse modal data', e);
+            }
+        }
+        
+        // If not found, fetch from article metadata
+        if (generatedRules.length === 0) {
+            const articleId = {{ article.id }};
+            try {
+                const articleResponse = await fetch(`/api/articles/${articleId}`);
+                if (articleResponse.ok) {
+                    const articleData = await articleResponse.json();
+                    if (articleData.article_metadata?.sigma_rules?.rules) {
+                        generatedRules = articleData.article_metadata.sigma_rules.rules;
+                        currentGeneratedSigmaRules = generatedRules; // Store globally
+                    }
+                }
+            } catch (e) {
+                console.warn('Could not fetch article metadata', e);
+            }
+        }
+        
+        if (generatedRules.length === 0) {
+            showNotification('No generated SIGMA rules found. Please generate rules first.', 'error');
             return;
         }
         
-        // Get the sigma rules data from the page
         const articleId = {{ article.id }};
         
         // Show loading indicator
@@ -4797,7 +4839,7 @@ Please provide a detailed analysis based on the article content and the user's s
             const data = await response.json();
             
             if (data.success) {
-                showSimilarRulesModal(data.matches, data.coverage_summary);
+                showSimilarRulesModal(data.matches, data.coverage_summary, generatedRules);
             } else {
                 showNotification('Failed to find similar rules', 'error');
             }
@@ -4861,7 +4903,7 @@ Please provide a detailed analysis based on the article content and the user's s
         }
     }
     
-    function showSimilarRulesModal(matches, coverageSummary) {
+    function showSimilarRulesModal(matches, coverageSummary, generatedRules = []) {
         // Remove any existing modal
         closeSimilarRulesModal();
         
@@ -4926,6 +4968,32 @@ Please provide a detailed analysis based on the article content and the user's s
                 </div>
             `;
         } else {
+            // Get parsed data from first generated rule
+            let newRuleLogsource = null;
+            let newRuleDetection = null;
+            if (generatedRules.length > 0) {
+                const firstRule = generatedRules[0];
+                
+                // Check if already parsed (should have direct logsource/detection fields)
+                if (firstRule.logsource || firstRule.detection) {
+                    newRuleLogsource = firstRule.logsource;
+                    newRuleDetection = firstRule.detection;
+                } else if (firstRule.content) {
+                    // Parse YAML content using regex (simple parser for logsource and detection blocks)
+                    try {
+                        const content = firstRule.content;
+                        
+                        // Backend should provide parsed fields, but if not available, log warning
+                        console.warn('Generated rule missing parsed logsource/detection fields. Backend should provide these.', firstRule);
+                        // Set to null - will show N/A in UI
+                        newRuleLogsource = null;
+                        newRuleDetection = null;
+                    } catch (e) {
+                        console.warn('Could not parse generated rule YAML:', e);
+                    }
+                }
+            }
+            
             matchesHtml = matches.map((match, index) => {
                 const similarityPercent = (match.similarity_score * 100).toFixed(1);
                 const coverageStatus = match.coverage_status || 'unknown';
@@ -4935,6 +5003,12 @@ Please provide a detailed analysis based on the article content and the user's s
                                   coverageStatus === 'extend' ? '⚡' : '✨';
                 // Escape rule_id for JavaScript
                 const escapedRuleId = match.rule_id ? match.rule_id.replace(/'/g, "\\'") : '';
+                // Escape logsource and detection for safe JSON display (escape HTML entities, keep JSON quotes)
+                const logsourceJson = match.logsource ? JSON.stringify(match.logsource, null, 2).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') : 'N/A';
+                const detectionJson = match.detection ? JSON.stringify(match.detection, null, 2).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') : 'N/A';
+                // Escape new rule logsource and detection
+                const newRuleLogsourceJson = newRuleLogsource ? JSON.stringify(newRuleLogsource, null, 2).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') : 'N/A';
+                const newRuleDetectionJson = newRuleDetection ? JSON.stringify(newRuleDetection, null, 2).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') : 'N/A';
                 
                 return `
                     <div class="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition-colors cursor-pointer" 
@@ -4995,6 +5069,55 @@ Please provide a detailed analysis based on the article content and the user's s
                             </div>
                         ` : ''}
                         
+                        ${(match.logsource || match.detection || (generatedRules.length > 0 && (generatedRules[0].logsource || generatedRules[0].detection))) ? `
+                            <div class="mt-3 border-t border-gray-200 pt-3">
+                                <button onclick="event.stopPropagation(); toggleRuleDetails('rule-details-${index}', 'toggle-icon-${index}')" 
+                                        class="text-xs text-blue-600 hover:text-blue-800 font-medium flex items-center">
+                                    <svg id="toggle-icon-${index}" class="w-4 h-4 mr-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                                    </svg>
+                                    <span>Show Logsource & Detection Comparison</span>
+                                </button>
+                                <div id="rule-details-${index}" class="hidden mt-2">
+                                    ${generatedRules.length > 0 ? `
+                                        <div class="mb-4 p-2 bg-yellow-50 border border-yellow-200 rounded">
+                                            <h6 class="text-xs font-bold text-yellow-900 mb-1">📝 New Rule: ${generatedRules[0].title || 'Untitled'}</h6>
+                                        </div>
+                                    ` : ''}
+                                    <div class="space-y-4">
+                                        <!-- Logsource Comparison -->
+                                        <div>
+                                            <h6 class="text-xs font-bold text-gray-700 mb-2">📋 Logsource Comparison</h6>
+                                            <div class="grid grid-cols-2 gap-4">
+                                                <div class="border border-gray-200 rounded p-2 bg-yellow-50">
+                                                    <h6 class="text-xs font-bold text-yellow-900 mb-2">New Rule</h6>
+                                                    <pre class="text-xs bg-white p-2 rounded border border-gray-200 overflow-x-auto whitespace-pre-wrap font-mono max-h-48">${newRuleLogsourceJson}</pre>
+                                                </div>
+                                                <div class="border border-gray-200 rounded p-2 bg-blue-50">
+                                                    <h6 class="text-xs font-bold text-blue-900 mb-2">Similar Rule</h6>
+                                                    <pre class="text-xs bg-white p-2 rounded border border-gray-200 overflow-x-auto whitespace-pre-wrap font-mono max-h-48">${logsourceJson}</pre>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <!-- Detection Comparison -->
+                                        <div>
+                                            <h6 class="text-xs font-bold text-gray-700 mb-2">🔍 Detection Comparison</h6>
+                                            <div class="grid grid-cols-2 gap-4">
+                                                <div class="border border-gray-200 rounded p-2 bg-yellow-50">
+                                                    <h6 class="text-xs font-bold text-yellow-900 mb-2">New Rule</h6>
+                                                    <pre class="text-xs bg-white p-2 rounded border border-gray-200 overflow-x-auto whitespace-pre-wrap font-mono max-h-64">${newRuleDetectionJson}</pre>
+                                                </div>
+                                                <div class="border border-gray-200 rounded p-2 bg-green-50">
+                                                    <h6 class="text-xs font-bold text-green-900 mb-2">Similar Rule</h6>
+                                                    <pre class="text-xs bg-white p-2 rounded border border-gray-200 overflow-x-auto whitespace-pre-wrap font-mono max-h-64">${detectionJson}</pre>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        ` : ''}
+                        
                         <div class="mt-2 text-xs text-gray-500">
                             📁 ${match.file_path || 'N/A'} | <span class="text-blue-600 font-medium">🔍 View full rule →</span>
                         </div>
@@ -5004,7 +5127,7 @@ Please provide a detailed analysis based on the article content and the user's s
         }
         
         modal.innerHTML = `
-            <div class="relative top-10 mx-auto p-5 border w-11/12 max-w-5xl shadow-lg rounded-md bg-white">
+            <div class="relative top-10 mx-auto p-5 border w-11/12 max-w-6xl shadow-lg rounded-md bg-white">
                 <div class="flex justify-between items-center mb-4">
                     <h3 class="text-lg font-medium text-gray-900">🔍 Similar Rules in SigmaHQ Repository</h3>
                     <button onclick="closeSimilarRulesModal()" class="text-gray-400 hover:text-gray-600">
@@ -5040,6 +5163,34 @@ Please provide a detailed analysis based on the article content and the user's s
         const modal = document.getElementById('similarRulesModal');
         if (modal) {
             modal.remove();
+        }
+    }
+    
+    function toggleRuleDetails(detailsId, iconId) {
+        const detailsDiv = document.getElementById(detailsId);
+        const iconSvg = document.getElementById(iconId);
+        const button = iconSvg ? iconSvg.closest('button') : null;
+        
+        if (!detailsDiv || !iconSvg) {
+            return;
+        }
+        
+        const isHidden = detailsDiv.classList.contains('hidden');
+        
+        if (isHidden) {
+            detailsDiv.classList.remove('hidden');
+            iconSvg.style.transform = 'rotate(180deg)';
+            if (button) {
+                const span = button.querySelector('span');
+                if (span) span.textContent = 'Hide Logsource & Detection Comparison';
+            }
+        } else {
+            detailsDiv.classList.add('hidden');
+            iconSvg.style.transform = 'rotate(0deg)';
+            if (button) {
+                const span = button.querySelector('span');
+                if (span) span.textContent = 'Show Logsource & Detection Comparison';
+            }
         }
     }
     
