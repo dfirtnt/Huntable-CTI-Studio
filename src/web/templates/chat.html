@@ -36,11 +36,35 @@
             llmProvider: 'chatgpt'  // Default aligns with Settings page selection
         });
         const [expandedArticles, setExpandedArticles] = useState(new Set());
+        const [yamlModal, setYamlModal] = useState({ isOpen: false, content: null, title: null, filePath: null });
         const messagesEndRef = useRef(null);
         const inputRef = useRef(null);
 
         const scrollToBottom = () => {
             messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+        };
+
+        const openYamlModal = async (ruleId, title, filePath) => {
+            try {
+                const response = await fetch(`/api/articles/sigma-rules-yaml/${ruleId}`);
+                if (!response.ok) {
+                    throw new Error('Failed to fetch YAML content');
+                }
+                const data = await response.json();
+                setYamlModal({
+                    isOpen: true,
+                    content: data.yaml_content,
+                    title: title || data.title,
+                    filePath: filePath || data.file_path
+                });
+            } catch (error) {
+                console.error('Error fetching YAML:', error);
+                alert('Failed to load YAML file. ' + error.message);
+            }
+        };
+
+        const closeYamlModal = () => {
+            setYamlModal({ isOpen: false, content: null, title: null, filePath: null });
         };
 
         const toggleArticleExpansion = (messageIndex, articleIndex) => {
@@ -358,7 +382,15 @@
                                                         )}
                                                         {rule.file_path && (
                                                             <div className="text-gray-400 text-xs mt-1">
-                                                                📁 {rule.file_path}
+                                                                📁 <button
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        openYamlModal(rule.rule_id, rule.title, rule.file_path);
+                                                                    }}
+                                                                    className="text-blue-400 hover:text-blue-300 hover:underline cursor-pointer"
+                                                                >
+                                                                    {rule.file_path}
+                                                                </button>
                                                             </div>
                                                         )}
                                                     </div>
@@ -505,6 +537,63 @@
                         💡 Try asking: "What are the latest ransomware threats?" or "Tell me about malware detection techniques"
                     </div>
                 </div>
+
+                {/* YAML Modal */}
+                {yamlModal.isOpen && (
+                    <div
+                        className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4"
+                        onClick={closeYamlModal}
+                    >
+                        <div
+                            className="bg-gray-800 rounded-lg shadow-2xl max-w-4xl w-full max-h-[90vh] flex flex-col"
+                            onClick={(e) => e.stopPropagation()}
+                        >
+                            {/* Modal Header */}
+                            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-700">
+                                <div className="flex-1 min-w-0">
+                                    <h2 className="text-xl font-bold text-white truncate">
+                                        {yamlModal.title}
+                                    </h2>
+                                    <p className="text-sm text-gray-400 mt-1">
+                                        📁 {yamlModal.filePath}
+                                    </p>
+                                </div>
+                                <button
+                                    onClick={closeYamlModal}
+                                    className="ml-4 text-gray-400 hover:text-white text-2xl font-bold leading-none flex-shrink-0"
+                                >
+                                    ×
+                                </button>
+                            </div>
+
+                            {/* Modal Body */}
+                            <div className="flex-1 overflow-auto p-6">
+                                <pre className="bg-gray-900 text-gray-100 p-4 rounded-lg text-sm overflow-x-auto font-mono">
+                                    <code>{yamlModal.content}</code>
+                                </pre>
+                            </div>
+
+                            {/* Modal Footer */}
+                            <div className="flex items-center justify-end px-6 py-4 border-t border-gray-700 space-x-3">
+                                <button
+                                    onClick={() => {
+                                        navigator.clipboard.writeText(yamlModal.content);
+                                        alert('YAML content copied to clipboard!');
+                                    }}
+                                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                                >
+                                    📋 Copy to Clipboard
+                                </button>
+                                <button
+                                    onClick={closeYamlModal}
+                                    className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
+                                >
+                                    Close
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
             </div>
         );
     };

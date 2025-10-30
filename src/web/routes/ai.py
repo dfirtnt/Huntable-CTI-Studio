@@ -109,8 +109,17 @@ async def _post_lmstudio_chat(
                     logger.info(f"LMStudio request succeeded using fallback URL {lmstudio_url}")
                 return response.json()
 
-            last_error_detail = f"{response.status_code} - {response.text}"
+            # Improved error detail extraction
+            error_text = response.text
+            try:
+                error_json = response.json()
+                error_message = error_json.get('error', {}).get('message', error_text) if isinstance(error_json.get('error'), dict) else error_text
+            except:
+                error_message = error_text
+
+            last_error_detail = f"{response.status_code} - {error_message}"
             logger.error(f"LMStudio API error ({failure_context}) at {lmstudio_url}: {last_error_detail}")
+            logger.error(f"Full response body: {error_text}")
 
             if response.status_code == 404 and idx < len(lmstudio_urls) - 1:
                 logger.warning(
@@ -120,9 +129,10 @@ async def _post_lmstudio_chat(
                 )
                 continue
 
+            # Include the actual error message in the exception
             raise HTTPException(
                 status_code=500,
-                detail=f"{failure_context}: {response.status_code}",
+                detail=f"{failure_context}: {response.status_code} - {error_message[:200]}",
             )
 
     raise HTTPException(
@@ -284,9 +294,27 @@ async def api_test_anthropic_key(request: Request):
 async def _get_current_lmstudio_model() -> str:
     """
     Get the currently loaded model from LMStudio API.
-    Uses LMSTUDIO_MODEL env var first, then queries API for validation.
+    Priority: database setting > env var > LMStudio API query
     """
-    # Use environment variable first (user-configured preference)
+    # Check database setting first (highest priority - user preference from UI)
+    try:
+        from src.database.async_manager import async_db_manager
+        from src.database.models import AppSettingsTable
+        from sqlalchemy import select
+
+        async with async_db_manager.get_session() as session:
+            result = await session.execute(
+                select(AppSettingsTable).where(AppSettingsTable.key == 'lmstudio_model')
+            )
+            setting = result.scalar_one_or_none()
+
+            if setting and setting.value:
+                logger.info(f"Using LMSTUDIO_MODEL from database setting: {setting.value}")
+                return setting.value
+    except Exception as e:
+        logger.debug(f"Could not fetch lmstudio_model from database: {e}")
+
+    # Fall back to environment variable (second priority)
     env_model = os.getenv("LMSTUDIO_MODEL")
     if env_model:
         logger.info(f"Using LMSTUDIO_MODEL from environment: {env_model}")
@@ -416,8 +444,12 @@ async def api_get_lmstudio_models():
 async def api_test_lmstudio_connection(request: Request):
     """Test LMStudio connection and model availability."""
     try:
-        lmstudio_model = os.getenv("LMSTUDIO_MODEL", "llama-3.2-1b-instruct")
-        
+        # Get the currently loaded model from LMStudio instead of env var
+        # This ensures we test the actual model that's loaded, not what's in .env
+        lmstudio_model = await _get_current_lmstudio_model()
+
+        logger.info(f"Testing LMStudio connection with model: {lmstudio_model}")
+
         payload = {
             "model": lmstudio_model,
             "messages": [{"role": "user", "content": "Hello"}],
@@ -437,7 +469,7 @@ async def api_test_lmstudio_connection(request: Request):
             "valid": True,
             "message": f"LMStudio connection successful. Model '{lmstudio_model}' responded: '{response_text.strip()}'"
         }
-                
+
     except httpx.TimeoutException:
         raise HTTPException(status_code=408, detail="Request timeout - LMStudio may be starting up")
     except httpx.ConnectError:
@@ -989,7 +1021,8 @@ async def api_gpt4o_rank_optimized(article_id: int, request: Request):
         api_key_raw = request.headers.get('X-OpenAI-API-Key') or body.get('api_key')
         # Strip whitespace from API key (common issue when copying/pasting)
         api_key = api_key_raw.strip() if api_key_raw else None
-        ai_model = body.get('ai_model', 'chatgpt')
+        # Prefer client-provided model; fallback to local LMStudio by default to avoid unnecessary cloud key prompts
+        ai_model = body.get('ai_model') or 'lmstudio'
         use_filtering = body.get('use_filtering', True)  # Enable filtering by default
         min_confidence = body.get('min_confidence', 0.7)  # Confidence threshold
         
@@ -1420,8 +1453,8 @@ async def api_generate_sigma(article_id: int, request: Request):
                 # llama-3-8b-instruct: 8192 token context - 1500 overhead = ~6700 tokens (~26800 chars)
                 max_content_chars = 26800
             else:
-                # Default to conservative limit for unknown models
-                max_content_chars = 10400
+                # Default to conservative limit for unknown models (assume 4k context)
+                max_content_chars = 6000
 
             if len(content_to_analyze) > max_content_chars:
                 logger.warning(f"LMStudio ({lmstudio_model_name}): Truncating content from {len(content_to_analyze)} to {max_content_chars} chars")
@@ -1434,6 +1467,19 @@ async def api_generate_sigma(article_id: int, request: Request):
             url=article.canonical_url or 'N/A',
             content=content_to_analyze
         )
+
+        # Additional guard: cap final prompt size for LMStudio to avoid context overflow
+        if ai_model == 'lmstudio':
+            # Default conservative cap; increase slightly for larger models
+            if '8b' in lmstudio_model_name.lower() or '7b' in lmstudio_model_name.lower():
+                max_prompt_chars = 12000
+            elif '3b' in lmstudio_model_name.lower():
+                max_prompt_chars = 9000
+            else:
+                max_prompt_chars = 8000
+            if len(sigma_prompt) > max_prompt_chars:
+                logger.warning(f"LMStudio: Truncating final prompt from {len(sigma_prompt)} to {max_prompt_chars} chars to fit context")
+                sigma_prompt = sigma_prompt[:max_prompt_chars] + "\n\n[Prompt truncated to fit model context window]"
 
         # Log prompt size for debugging
         prompt_tokens_estimate = len(sigma_prompt) // 4
@@ -1836,9 +1882,133 @@ Output ONLY valid YAML starting with "title:"."""
         raise HTTPException(status_code=500, detail=str(e))
 
 
+def calculate_semantic_overlap(generated_rule: Dict, sigmahq_rule: Dict) -> Dict[str, Any]:
+    """
+    Calculate semantic overlap between two SIGMA rules by comparing actual detection values.
+
+    Args:
+        generated_rule: The generated rule dictionary
+        sigmahq_rule: The SigmaHQ rule dictionary to compare against
+
+    Returns:
+        Dictionary with overlap metrics
+    """
+    def extract_values_from_detection(detection: Dict, field_name: str) -> Set[str]:
+        """Extract all values for a specific field from detection logic."""
+        values = set()
+        if not isinstance(detection, dict):
+            return values
+
+        for key, value in detection.items():
+            # Skip condition and timeframe keys
+            if key in ['condition', 'timeframe']:
+                continue
+
+            if isinstance(value, dict):
+                # Recursively search nested structures
+                nested_values = extract_values_from_detection(value, field_name)
+                values.update(nested_values)
+
+                # Check if this dict has the field we're looking for
+                for field_key, field_value in value.items():
+                    if field_name.lower() in field_key.lower():
+                        if isinstance(field_value, list):
+                            values.update(str(v).lower() for v in field_value)
+                        elif isinstance(field_value, str):
+                            values.add(field_value.lower())
+
+        return values
+
+    def normalize_path(path: str) -> str:
+        """Normalize file paths for comparison."""
+        return path.lower().replace('\\\\', '\\').replace('/', '\\').strip()
+
+    try:
+        gen_detection = generated_rule.get('detection', {})
+        sig_detection = sigmahq_rule.get('detection', {})
+
+        # Extract process/image names
+        gen_processes = extract_values_from_detection(gen_detection, 'image')
+        gen_processes.update(extract_values_from_detection(gen_detection, 'initiatingprocess'))
+        gen_processes.update(extract_values_from_detection(gen_detection, 'parentimage'))
+
+        sig_processes = extract_values_from_detection(sig_detection, 'image')
+        sig_processes.update(extract_values_from_detection(sig_detection, 'initiatingprocess'))
+        sig_processes.update(extract_values_from_detection(sig_detection, 'parentimage'))
+
+        # Extract file paths
+        gen_paths = extract_values_from_detection(gen_detection, 'path')
+        gen_paths.update(extract_values_from_detection(gen_detection, 'folderpath'))
+        gen_paths.update(extract_values_from_detection(gen_detection, 'targetfilename'))
+        gen_paths = {normalize_path(p) for p in gen_paths}
+
+        sig_paths = extract_values_from_detection(sig_detection, 'path')
+        sig_paths.update(extract_values_from_detection(sig_detection, 'folderpath'))
+        sig_paths.update(extract_values_from_detection(sig_detection, 'targetfilename'))
+        sig_paths = {normalize_path(p) for p in sig_paths}
+
+        # Extract command line keywords
+        gen_cmdline = extract_values_from_detection(gen_detection, 'commandline')
+        sig_cmdline = extract_values_from_detection(sig_detection, 'commandline')
+
+        # Calculate overlaps
+        process_overlap = len(gen_processes & sig_processes) if gen_processes and sig_processes else 0
+        path_overlap = len(gen_paths & sig_paths) if gen_paths and sig_paths else 0
+        cmdline_overlap = len(gen_cmdline & sig_cmdline) if gen_cmdline and sig_cmdline else 0
+
+        # Calculate ratios
+        total_gen_indicators = len(gen_processes) + len(gen_paths) + len(gen_cmdline)
+        total_sig_indicators = len(sig_processes) + len(sig_paths) + len(sig_cmdline)
+        total_overlaps = process_overlap + path_overlap + cmdline_overlap
+
+        # Overall semantic overlap ratio
+        if total_gen_indicators == 0 or total_sig_indicators == 0:
+            semantic_overlap_ratio = 0.0
+        else:
+            # Use average of indicators from both rules as denominator
+            avg_indicators = (total_gen_indicators + total_sig_indicators) / 2
+            semantic_overlap_ratio = total_overlaps / avg_indicators if avg_indicators > 0 else 0.0
+
+        return {
+            'semantic_overlap_ratio': min(1.0, semantic_overlap_ratio),
+            'process_overlap': process_overlap,
+            'path_overlap': path_overlap,
+            'cmdline_overlap': cmdline_overlap,
+            'gen_processes': list(gen_processes),
+            'sig_processes': list(sig_processes),
+            'gen_paths': list(gen_paths),
+            'sig_paths': list(sig_paths),
+            'gen_cmdline': list(gen_cmdline),
+            'sig_cmdline': list(sig_cmdline)
+        }
+
+    except Exception as e:
+        logger.warning(f"Error calculating semantic overlap: {e}")
+        return {
+            'semantic_overlap_ratio': 0.0,
+            'process_overlap': 0,
+            'path_overlap': 0,
+            'cmdline_overlap': 0,
+            'gen_processes': [],
+            'sig_processes': [],
+            'gen_paths': [],
+            'sig_paths': [],
+            'gen_cmdline': [],
+            'sig_cmdline': []
+        }
+
+
 @router.get("/{article_id}/sigma-matches")
-async def api_get_sigma_matches(article_id: int):
-    """Get Sigma rule matches by comparing generated SIGMA rules to embedded SigmaHQ rules."""
+async def api_get_sigma_matches(article_id: int, llm_provider: str = "auto"):
+    """
+    Get Sigma rule matches by comparing generated SIGMA rules to embedded SigmaHQ rules.
+
+    Uses hybrid approach:
+    1. Fast embedding-based search (top 20 candidates)
+    2. Optional LLM reranking of top 10 (if available, may take 10-30s)
+
+    Falls back gracefully to embeddings if LLM unavailable or times out.
+    """
     try:
         from src.database.async_manager import AsyncDatabaseManager
         from src.database.manager import DatabaseManager
@@ -1880,21 +2050,134 @@ async def api_get_sigma_matches(article_id: int):
             all_matches = {}
             
             for generated_rule in generated_rules:
-                # Compare this generated rule to embedded rules
-                similar_matches = matching_service.compare_proposed_rule_to_embeddings(
-                    proposed_rule=generated_rule,
-                    threshold=0.0  # No threshold - get top matches
-                )
-                
-                # Deduplicate by rule_id, keeping highest similarity score
-                for match in similar_matches:
-                    rule_id = match.get('rule_id')
-                    if rule_id not in all_matches or match.get('similarity', 0) > all_matches[rule_id].get('similarity', 0):
-                        all_matches[rule_id] = match
+                try:
+                    # Normalize rule structure - ensure all required fields exist
+                    normalized_rule = {
+                        'title': generated_rule.get('title', ''),
+                        'description': generated_rule.get('description', ''),
+                        'tags': generated_rule.get('tags', []),
+                        'logsource': generated_rule.get('logsource', {}),
+                        'detection': generated_rule.get('detection', {}),
+                        'level': generated_rule.get('level'),
+                        'status': generated_rule.get('status')
+                    }
+                    
+                    # Skip if essential fields are missing
+                    if not normalized_rule['title'] or not normalized_rule['detection']:
+                        logger.warning(f"Skipping rule with missing essential fields: {normalized_rule.get('title', 'Unknown')}")
+                        continue
+                    
+                    # Step 1: Fast embedding-based search to get top candidates
+                    similar_matches = matching_service.compare_proposed_rule_to_embeddings(
+                        proposed_rule=normalized_rule,
+                        threshold=0.0  # No threshold - get top matches
+                    )
+                    
+                    logger.debug(f"Rule '{normalized_rule['title']}' found {len(similar_matches)} similar rules via embeddings")
+                    
+                    # Step 2: LLM reranking for top 10 candidates (hybrid approach)
+                    # Note: This is optional and may take 10-30 seconds. Falls back to embeddings if timeout/failure
+                    if len(similar_matches) > 0:
+                        try:
+                            import asyncio
+                            # Add timeout to prevent hanging requests
+                            similar_matches = await asyncio.wait_for(
+                                matching_service.llm_rerank_matches(
+                                    proposed_rule=normalized_rule,
+                                    candidates=similar_matches,
+                                    top_k=10,
+                                    provider=llm_provider  # Use provider from Settings page
+                                ),
+                                timeout=28.0  # 28 seconds max (leave buffer for nginx 30s timeout)
+                            )
+                            logger.info(f"LLM reranking completed for rule '{normalized_rule['title']}', top match similarity: {similar_matches[0].get('similarity', 0) if similar_matches else 'N/A'}")
+                        except asyncio.TimeoutError:
+                            logger.warning(f"LLM reranking timed out for rule '{normalized_rule['title']}', using embeddings ranking")
+                        except Exception as e:
+                            logger.warning(f"LLM reranking failed for rule '{normalized_rule['title']}': {e}, using embeddings ranking")
+                            import traceback
+                            logger.debug(traceback.format_exc())
+                    
+                    # Deduplicate by rule_id, keeping highest similarity score
+                    # Also store reference to generated rule for semantic analysis
+                    for match in similar_matches:
+                        rule_id = match.get('rule_id')
+                        if rule_id not in all_matches or match.get('similarity', 0) > all_matches[rule_id].get('similarity', 0):
+                            match['_generated_rule'] = normalized_rule  # Store for semantic overlap calculation
+                            all_matches[rule_id] = match
+                except Exception as e:
+                    logger.error(f"Error comparing rule '{generated_rule.get('title', 'Unknown')}': {e}")
+                    import traceback
+                    logger.error(traceback.format_exc())
+                    continue
             
             # Sort by similarity (descending) and return top matches
             matches = sorted(all_matches.values(), key=lambda x: x.get('similarity', 0), reverse=True)[:20]
-            
+
+            # Add coverage classification to each match with semantic validation
+            for match in matches:
+                embedding_similarity = match.get('similarity', 0)
+
+                # Calculate semantic overlap between actual detection values
+                generated_rule = match.get('_generated_rule', {})
+                sigmahq_rule = {
+                    'detection': match.get('detection', {}),
+                    'logsource': match.get('logsource', {})
+                }
+
+                semantic_data = calculate_semantic_overlap(generated_rule, sigmahq_rule)
+                semantic_overlap = semantic_data['semantic_overlap_ratio']
+
+                # Store semantic analysis for debugging/explainability
+                match['semantic_overlap'] = semantic_overlap
+                match['semantic_details'] = {
+                    'process_overlap': semantic_data['process_overlap'],
+                    'path_overlap': semantic_data['path_overlap'],
+                    'cmdline_overlap': semantic_data['cmdline_overlap']
+                }
+
+                # Combined score: Weight embedding similarity 60%, semantic overlap 40%
+                # This balances structural similarity with actual behavioral overlap
+                combined_score = (0.6 * embedding_similarity) + (0.4 * semantic_overlap)
+                match['combined_score'] = combined_score
+
+                # Classification logic with adjusted thresholds:
+                # - COVERED: High combined score (90%+) AND semantic overlap (50%+)
+                # - EXTEND: Medium combined score (75-90%) OR (high embedding but low semantic)
+                # - NEW: Lower combined score or minimal semantic overlap
+
+                if combined_score >= 0.90 and semantic_overlap >= 0.50:
+                    match['coverage_status'] = 'covered'
+                    match['coverage_reasoning'] = (
+                        f"High combined similarity ({combined_score:.1%}) with semantic overlap ({semantic_overlap:.1%}). "
+                        f"Embedding: {embedding_similarity:.1%}, "
+                        f"Overlaps: {semantic_data['process_overlap']} processes, "
+                        f"{semantic_data['path_overlap']} paths, {semantic_data['cmdline_overlap']} cmdline patterns. "
+                        f"This detection is already covered by existing SigmaHQ rules."
+                    )
+                elif combined_score >= 0.75 or (embedding_similarity >= 0.80 and semantic_overlap >= 0.20):
+                    match['coverage_status'] = 'extend'
+                    match['coverage_reasoning'] = (
+                        f"Medium combined similarity ({combined_score:.1%}) with semantic overlap ({semantic_overlap:.1%}). "
+                        f"Embedding: {embedding_similarity:.1%}, "
+                        f"Overlaps: {semantic_data['process_overlap']} processes, "
+                        f"{semantic_data['path_overlap']} paths, {semantic_data['cmdline_overlap']} cmdline patterns. "
+                        f"Partial overlap detected - existing rule could be extended."
+                    )
+                else:
+                    match['coverage_status'] = 'new'
+                    match['coverage_reasoning'] = (
+                        f"Low combined similarity ({combined_score:.1%}) with semantic overlap ({semantic_overlap:.1%}). "
+                        f"Embedding: {embedding_similarity:.1%}, "
+                        f"Overlaps: {semantic_data['process_overlap']} processes, "
+                        f"{semantic_data['path_overlap']} paths, {semantic_data['cmdline_overlap']} cmdline patterns. "
+                        f"This represents a novel detection pattern not well-covered by SigmaHQ."
+                    )
+
+                # Clean up internal fields before returning
+                if '_generated_rule' in match:
+                    del match['_generated_rule']
+
             # Return matches
             return {
                 "success": True,
@@ -1913,6 +2196,89 @@ async def api_get_sigma_matches(article_id: int):
         raise
     except Exception as e:
         logger.error(f"Error getting Sigma matches for article {article_id}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/sigma-rules-yaml/{rule_id}")
+async def api_get_sigma_rule_yaml(rule_id: str):
+    """Get the YAML file contents for a specific Sigma rule (reconstructed from database)."""
+    try:
+        from src.database.manager import DatabaseManager
+        from src.database.models import SigmaRuleTable
+        import yaml
+        from collections import OrderedDict
+
+        db_manager = DatabaseManager()
+        session = db_manager.get_session()
+
+        try:
+            # Query the rule by rule_id
+            rule = session.query(SigmaRuleTable).filter_by(rule_id=rule_id).first()
+
+            if not rule:
+                raise HTTPException(status_code=404, detail=f"Sigma rule '{rule_id}' not found")
+
+            # Reconstruct YAML from database fields (using regular dict, not OrderedDict)
+            rule_dict = {}
+            rule_dict['title'] = rule.title
+            rule_dict['id'] = rule.rule_id
+
+            if rule.status:
+                rule_dict['status'] = rule.status
+
+            if rule.description:
+                rule_dict['description'] = rule.description
+
+            if rule.rule_references:
+                rule_dict['references'] = list(rule.rule_references)
+
+            if rule.author:
+                rule_dict['author'] = rule.author
+
+            if rule.date:
+                rule_dict['date'] = rule.date.strftime('%Y/%m/%d')
+
+            if rule.tags:
+                rule_dict['tags'] = list(rule.tags)
+
+            if rule.logsource:
+                rule_dict['logsource'] = dict(rule.logsource)
+
+            if rule.detection:
+                rule_dict['detection'] = dict(rule.detection)
+
+            if rule.fields:
+                rule_dict['fields'] = list(rule.fields)
+
+            if rule.false_positives:
+                rule_dict['falsepositives'] = list(rule.false_positives)
+
+            if rule.level:
+                rule_dict['level'] = rule.level
+
+            # Convert to YAML string with safe_dump to avoid Python object tags
+            yaml_content = yaml.safe_dump(
+                rule_dict,
+                default_flow_style=False,
+                allow_unicode=True,
+                sort_keys=False,
+                width=1000
+            )
+
+            return {
+                "success": True,
+                "rule_id": rule.rule_id,
+                "title": rule.title,
+                "file_path": rule.file_path or "N/A",
+                "yaml_content": yaml_content
+            }
+        finally:
+            session.close()
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting YAML for rule_id '{rule_id}': {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
