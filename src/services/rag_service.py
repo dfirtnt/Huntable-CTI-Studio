@@ -10,7 +10,7 @@ import logging
 from typing import List, Dict, Any, Optional, Tuple
 from datetime import datetime
 
-from src.services.embedding_service import get_embedding_service, generate_query_embedding
+from src.services.embedding_service import get_embedding_service, generate_query_embedding, EmbeddingService
 from src.database.async_manager import AsyncDatabaseManager
 
 logger = logging.getLogger(__name__)
@@ -18,12 +18,13 @@ logger = logging.getLogger(__name__)
 
 class RAGService:
     """High-level RAG service for semantic search and context retrieval."""
-    
+
     def __init__(self):
         """Initialize the RAG service."""
-        self.embedding_service = get_embedding_service()
+        self.embedding_service = get_embedding_service()  # For articles (all-mpnet-base-v2)
+        self.sigma_embedding_service = EmbeddingService(model_name="intfloat/e5-base-v2")  # For SIGMA rules
         self.db_manager = AsyncDatabaseManager()
-        logger.info("Initialized RAG service")
+        logger.info("Initialized RAG service with separate embedding models for articles and SIGMA rules")
     
     async def embed_query(self, query_text: str) -> List[float]:
         """
@@ -273,22 +274,22 @@ class RAGService:
             logger.error(f"Failed to dedupe similar articles: {e}")
             return {'status': 'error', 'message': str(e)}
     
-    async def find_similar_sigma_rules(self, query: str, top_k: int = 10, 
+    async def find_similar_sigma_rules(self, query: str, top_k: int = 10,
                                       threshold: float = 0.7) -> List[Dict[str, Any]]:
         """
         Find similar Sigma detection rules using semantic search.
-        
+
         Args:
             query: Search query text
             top_k: Number of results to return
             threshold: Minimum similarity threshold (0.0-1.0)
-            
+
         Returns:
             List of similar Sigma rules with metadata
         """
         try:
-            # Generate query embedding
-            query_embedding = await self.embed_query(query)
+            # Generate query embedding using SIGMA embedding model (e5-base-v2)
+            query_embedding = self.sigma_embedding_service.generate_embedding(query)
             embedding_str = '[' + ','.join(map(str, query_embedding)) + ']'
             
             # Get database session
@@ -319,8 +320,10 @@ class RAGService:
                 )
                 
                 rules = []
+                all_results = []
                 for row in result:
                     similarity = float(row[8])
+                    all_results.append((row[2], similarity))  # title and similarity
                     if similarity >= threshold:
                         rules.append({
                             'id': row[0],
@@ -333,7 +336,9 @@ class RAGService:
                             'file_path': row[7],
                             'similarity': similarity
                         })
-                
+
+                if all_results:
+                    logger.info(f"Top SIGMA rule matches (threshold={threshold}): {all_results[:3]}")
                 logger.info(f"Found {len(rules)} similar Sigma rules for query: '{query[:50]}...'")
                 return rules
                 
