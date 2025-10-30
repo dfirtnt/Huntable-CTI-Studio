@@ -142,6 +142,7 @@ async def api_rag_chat(request: Request):
             )
             relevant_articles = unified_results.get('articles', [])
             relevant_rules = unified_results.get('rules', [])
+            logger.info(f"RAG search returned {len(relevant_articles)} articles and {len(relevant_rules)} SIGMA rules")
         else:
             relevant_articles = await rag_service.find_similar_content(
                 query=enhanced_query,
@@ -164,6 +165,7 @@ async def api_rag_chat(request: Request):
 
                         llm_service = get_llm_generation_service()
                         canonical_requested = llm_service._canonicalize_requested_provider(requested_provider)
+                    logger.info(f"Passing {len(relevant_rules)} SIGMA rules to LLM generation")
                     generation_result = await llm_service.generate_rag_response(
                         query=message,
                         retrieved_chunks=relevant_articles,
