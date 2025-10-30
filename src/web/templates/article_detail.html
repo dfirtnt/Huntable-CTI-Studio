@@ -2874,8 +2874,10 @@ Please provide a detailed analysis based on the article content and the user's s
         
         // Check for existing content first (unless force regenerate)
         if (!forceRegenerate) {
-            if (type === 'sigma' && {{ 'true' if article.article_metadata and article.article_metadata.get('sigma_rules') else 'false' }}) {
-                const sigmaData = {{ article.article_metadata.get('sigma_rules') | tojson if article.article_metadata and article.article_metadata.get('sigma_rules') else 'null' }};
+            if (type === 'sigma' && (window.latestSigmaData || {{ 'true' if article.article_metadata and article.article_metadata.get('sigma_rules') else 'false' }})) {
+                // Use the latest generated data if available, otherwise fall back to page data
+                const sigmaData = window.latestSigmaData || {{ article.article_metadata.get('sigma_rules') | tojson if article.article_metadata and article.article_metadata.get('sigma_rules') else 'null' }};
+                console.log('Using sigma data:', window.latestSigmaData ? 'from window.latestSigmaData' : 'from page template');
                 // Parse conversation log if it's a string
                 if (sigmaData && sigmaData.metadata && sigmaData.metadata.conversation && typeof sigmaData.metadata.conversation === 'string') {
                     try {
@@ -2928,27 +2930,12 @@ Please provide a detailed analysis based on the article content and the user's s
             }
         }
         
-        // Get AI model from settings
+        // Get AI model from settings - ALWAYS respect user's explicit choice
         const settings = JSON.parse(localStorage.getItem('ctiScraperSettings') || '{}');
         let aiModel = settings.aiModel || 'chatgpt';
         
-        // Fix: If OpenAI API key is configured but model is still 'lmstudio' (stale localStorage),
-        // default to 'chatgpt' to honor the user's settings page selection
-        if (aiModel === 'lmstudio' && settings.openaiApiKey) {
-            console.warn('⚠️ Detected stale localStorage: aiModel is "lmstudio" but OpenAI API key is configured. Defaulting to "chatgpt".');
-            aiModel = 'chatgpt';
-            // Update localStorage to persist the fix
-            settings.aiModel = 'chatgpt';
-            localStorage.setItem('ctiScraperSettings', JSON.stringify(settings));
-        }
-        // Fix: Similarly for Anthropic
-        if (aiModel === 'lmstudio' && settings.anthropicApiKey) {
-            console.warn('⚠️ Detected stale localStorage: aiModel is "lmstudio" but Anthropic API key is configured. Defaulting to "anthropic".');
-            aiModel = 'anthropic';
-            // Update localStorage to persist the fix
-            settings.aiModel = 'anthropic';
-            localStorage.setItem('ctiScraperSettings', JSON.stringify(settings));
-        }
+        // NEVER override user's explicit model selection - if they chose LMStudio, use it
+        // Having API keys configured doesn't mean they want to use them
         
         // Only set API key for cloud models that require it
         let apiKey = null;
@@ -3241,16 +3228,34 @@ Please provide a detailed analysis based on the article content and the user's s
             
             if (response.ok) {
                 const data = await response.json();
-                
+
                 console.log('AI generation completed successfully:', data);
-                
+
                 // Mark operation as complete and show banner
                 markOperationComplete(operationId);
                 showCompletionBanner(type, typeText, typeIcon);
-                
+
                 console.log('Completion banner should be showing now');
-                
-                // Don't automatically show results - let user choose when to view them
+
+                // Update cached data and optionally show results
+                if (type === 'sigma' && data.rules) {
+                    // Update the page's sigmaData variable with the new rules
+                    window.latestSigmaData = data;
+                    console.log('✅ Updated window.latestSigmaData with new SIGMA rules');
+
+                    // Parse conversation log if needed
+                    if (data.metadata && data.metadata.conversation && typeof data.metadata.conversation === 'string') {
+                        try {
+                            data.metadata.conversation = JSON.parse(data.metadata.conversation);
+                        } catch (e) {
+                            console.error('Failed to parse conversation log:', e);
+                            data.metadata.conversation = [];
+                        }
+                    }
+
+                    // Automatically show the new rules
+                    setTimeout(() => showSigmaRulesModal(data.rules, data), 500);
+                }
             } else {
                 const error = await response.json();
                 console.log('API Error:', error);
@@ -3285,23 +3290,7 @@ Please provide a detailed analysis based on the article content and the user's s
         const settings = JSON.parse(localStorage.getItem('ctiScraperSettings') || '{}');
         let aiModel = settings.aiModel || 'chatgpt';
         
-        // Fix: If OpenAI API key is configured but model is still 'lmstudio' (stale localStorage),
-        // default to 'chatgpt' to honor the user's settings page selection
-        if (aiModel === 'lmstudio' && settings.openaiApiKey) {
-            console.warn('⚠️ Detected stale localStorage: aiModel is "lmstudio" but OpenAI API key is configured. Defaulting to "chatgpt".');
-            aiModel = 'chatgpt';
-            // Update localStorage to persist the fix
-            settings.aiModel = 'chatgpt';
-            localStorage.setItem('ctiScraperSettings', JSON.stringify(settings));
-        }
-        // Fix: Similarly for Anthropic
-        if (aiModel === 'lmstudio' && settings.anthropicApiKey) {
-            console.warn('⚠️ Detected stale localStorage: aiModel is "lmstudio" but Anthropic API key is configured. Defaulting to "anthropic".');
-            aiModel = 'anthropic';
-            // Update localStorage to persist the fix
-            settings.aiModel = 'anthropic';
-            localStorage.setItem('ctiScraperSettings', JSON.stringify(settings));
-        }
+        // NEVER override user's explicit model selection - always respect Settings page choice
         
         // Only set API key for cloud models that require it
         let apiKey = null;
@@ -4777,6 +4766,9 @@ Please provide a detailed analysis based on the article content and the user's s
         generateAIAnalysis('sigma', true);
     }
     
+    // Cache for similar rules per-article to avoid re-running the check
+    window._sigmaSimilarRulesCache = window._sigmaSimilarRulesCache || {};
+    
     async function checkSimilarSigmaRules() {
         // Get the currently displayed Sigma rules
         const sigmaRulesModal = document.getElementById('sigmaRulesModal');
@@ -4820,16 +4812,38 @@ Please provide a detailed analysis based on the article content and the user's s
         
         const articleId = {{ article.id }};
         
-        // Show loading indicator
+        const articleId = {{ article.id }};
+        const cacheKey = String(articleId);
+        const cached = window._sigmaSimilarRulesCache[cacheKey];
+        
+        // If we have cached results, display immediately without re-running
+        if (cached && cached.matches && Array.isArray(cached.matches)) {
+            showSimilarRulesModal(cached.matches, cached.coverage_summary || {covered:0,extend:0,new:cached.matches.length,total:cached.matches.length}, generatedRules);
+            return;
+        }
+
+        // Show loading indicator on first run
         showNotification('Searching for similar rules in SigmaHQ repository...', 'info');
         
         try {
             // Fetch similar rules from the API
-            const response = await fetch(`/api/articles/${articleId}/sigma-matches`, {
+            // Show loading state
+            const checkBtn = document.getElementById('checkSimilarRulesBtn');
+            if (checkBtn) {
+                checkBtn.disabled = true;
+                checkBtn.textContent = '⏳ Checking... (this may take 20-30 seconds)';
+            }
+            
+            // Get LLM provider from Settings
+            const settings = JSON.parse(localStorage.getItem('ctiScraperSettings') || '{}');
+            const llmProvider = settings.aiModel || 'chatgpt';
+            
+            const response = await fetch(`/api/articles/${articleId}/sigma-matches?llm_provider=${encodeURIComponent(llmProvider)}`, {
                 method: 'GET',
                 headers: {
                     'Content-Type': 'application/json',
-                }
+                },
+                signal: AbortSignal.timeout(60000)  // 60 second timeout on client side
             });
             
             if (!response.ok) {
@@ -4839,13 +4853,33 @@ Please provide a detailed analysis based on the article content and the user's s
             const data = await response.json();
             
             if (data.success) {
+                // Cache results for subsequent displays
+                window._sigmaSimilarRulesCache[cacheKey] = {
+                    matches: data.matches || [],
+                    coverage_summary: data.coverage_summary || null,
+                    generated_rules: generatedRules || []
+                };
+                
                 showSimilarRulesModal(data.matches, data.coverage_summary, generatedRules);
             } else {
                 showNotification('Failed to find similar rules', 'error');
             }
         } catch (error) {
             console.error('Error checking similar rules:', error);
-            showNotification('Error checking similar rules: ' + error.message, 'error');
+            if (error.name === 'AbortError' || error.name === 'TimeoutError') {
+                showNotification('Request timed out - LLM reranking may still be processing. Try refreshing in a moment.', 'warning');
+            } else {
+                showNotification('Error checking similar rules: ' + error.message, 'error');
+            }
+        } finally {
+            // Re-enable button
+            const checkBtn = document.getElementById('checkSimilarRulesBtn');
+            if (checkBtn) {
+                // If cached now exists, switch to Display label; else reset label
+                const hasCache = !!window._sigmaSimilarRulesCache[String({{ article.id }})];
+                checkBtn.disabled = false;
+                checkBtn.textContent = hasCache ? '📚 Display Similar Rules' : '🔍 Check Similar Rules';
+            }
         }
     }
     
@@ -5027,6 +5061,45 @@ Please provide a detailed analysis based on the article content and the user's s
                             </div>
                         </div>
                         
+                        ${match.llm_explanation ? `
+                            <div class="mt-3 p-2 bg-green-50 border border-green-200 rounded">
+                                <div class="text-xs font-bold text-green-900 mb-1">🤖 LLM Explanation:</div>
+                                <div class="text-xs text-green-800 italic">${match.llm_explanation}</div>
+                            </div>
+                        ` : ''}
+                        
+                        ${match.similarity_breakdown ? `
+                            <div class="mt-3 p-2 bg-blue-50 border border-blue-200 rounded">
+                                <div class="text-xs font-bold text-blue-900 mb-2">🔍 Embedding Similarity Breakdown:</div>
+                                <div class="grid grid-cols-2 gap-1 text-xs">
+                                    <div class="flex justify-between">
+                                        <span class="text-gray-700">Title:</span>
+                                        <span class="font-medium text-blue-700">${(match.similarity_breakdown.title * 100).toFixed(1)}%</span>
+                                    </div>
+                                    <div class="flex justify-between">
+                                        <span class="text-gray-700">Description:</span>
+                                        <span class="font-medium text-blue-700">${(match.similarity_breakdown.description * 100).toFixed(1)}%</span>
+                                    </div>
+                                    <div class="flex justify-between">
+                                        <span class="text-gray-700">Tags:</span>
+                                        <span class="font-medium text-blue-700">${(match.similarity_breakdown.tags * 100).toFixed(1)}%</span>
+                                    </div>
+                                    <div class="flex justify-between">
+                                        <span class="text-gray-700">Logsource:</span>
+                                        <span class="font-medium text-blue-700">${(match.similarity_breakdown.logsource * 100).toFixed(1)}%</span>
+                                    </div>
+                                    <div class="flex justify-between">
+                                        <span class="text-gray-700">Detection Structure:</span>
+                                        <span class="font-medium text-blue-700">${(match.similarity_breakdown.detection_structure * 100).toFixed(1)}%</span>
+                                    </div>
+                                    <div class="flex justify-between">
+                                        <span class="text-gray-700">Detection Fields:</span>
+                                        <span class="font-medium text-blue-700">${(match.similarity_breakdown.detection_fields * 100).toFixed(1)}%</span>
+                                    </div>
+                                </div>
+                            </div>
+                        ` : ''}
+                        
                         <div class="mt-3 grid grid-cols-2 gap-2 text-xs">
                             <div><span class="font-medium">Rule ID:</span> <code class="text-xs bg-gray-100 px-1 rounded">${match.rule_id || 'N/A'}</code></div>
                             <div><span class="font-medium">Level:</span> <span class="px-2 py-0.5 rounded text-xs ${
@@ -5138,7 +5211,7 @@ Please provide a detailed analysis based on the article content and the user's s
                 </div>
                 
                 <div class="mb-4 text-sm text-gray-600">
-                    Found ${matches ? matches.length : 0} most similar rules (sorted by similarity)
+                    Found ${matches ? matches.length : 0} most similar rules${matches && matches[0] && matches[0].similarity_method === 'llm_reranked' ? ' (LLM-reranked)' : ' (embedding-based)'} (sorted by similarity)
                 </div>
                 
                 ${coverageHtml}

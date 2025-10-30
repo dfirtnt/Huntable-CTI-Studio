@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from fastapi import FastAPI
 
-from . import actions, analytics, ai, articles, backup, chat, dashboard, debug, embeddings, evaluation, export, feedback, health, metrics, ml_hunt_comparison, models, pages, pdf, search, sources, tasks, scrape, test_scrape
+from . import actions, analytics, ai, articles, backup, chat, dashboard, debug, embeddings, evaluation, export, feedback, health, metrics, ml_hunt_comparison, models, pages, pdf, search, settings, sources, tasks, scrape, test_scrape
 from .annotations import router as annotation_router
 from ..gpt4o_optimized_endpoint import router as gpt4o_router
 
@@ -47,4 +47,5 @@ def register_routes(app: FastAPI) -> None:
     app.include_router(dashboard.router)
     app.include_router(actions.router)
     app.include_router(ml_hunt_comparison.router)
+    app.include_router(settings.router)
     app.include_router(gpt4o_router)

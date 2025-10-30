@@ -257,6 +257,146 @@ class SigmaSyncService:
         
         return ' '.join(parts)
     
+    def create_title_embedding_text(self, rule_data: Dict) -> str:
+        """Create embedding text for title section."""
+        title = rule_data.get('title', '')
+        return f"Title: {title}" if title else ""
+    
+    def create_description_embedding_text(self, rule_data: Dict) -> str:
+        """Create embedding text for description section."""
+        description = rule_data.get('description', '')
+        return f"Description: {description}" if description else ""
+    
+    def create_tags_embedding_text(self, rule_data: Dict) -> str:
+        """Create embedding text for tags section."""
+        tags = rule_data.get('tags', [])
+        if tags:
+            # Focus on MITRE ATT&CK tags, but include others
+            attack_tags = [t for t in tags if t.startswith('attack.')]
+            other_tags = [t for t in tags if not t.startswith('attack.')]
+            
+            parts = []
+            if attack_tags:
+                parts.append(f"MITRE: {', '.join(attack_tags)}")
+            if other_tags:
+                parts.append(f"Tags: {', '.join(other_tags)}")
+            
+            return ' '.join(parts) if parts else ""
+        return ""
+    
+    def create_logsource_embedding_text(self, rule_data: Dict) -> str:
+        """Create embedding text for logsource section (normalized to generic format)."""
+        import json
+        logsource = rule_data.get('logsource', {})
+        if isinstance(logsource, dict) and logsource:
+            # Normalize to generic format (category, product) - ignore service
+            normalized = {
+                'category': logsource.get('category', ''),
+                'product': logsource.get('product', '')
+            }
+            # Keep service if present but de-emphasize
+            if logsource.get('service'):
+                normalized['service'] = logsource.get('service')
+            logsource_str = json.dumps(normalized, separators=(',', ':'))
+            return f"Logsource: {logsource_str}"
+        return ""
+    
+    def create_detection_structure_embedding_text(self, rule_data: Dict) -> str:
+        """Create embedding text for detection structure section."""
+        from src.services.sigma_detection_analyzer import analyze_detection_structure
+        
+        detection = rule_data.get('detection', {})
+        if not detection or not isinstance(detection, dict):
+            return ""
+        
+        structure = analyze_detection_structure(detection)
+        
+        parts = []
+        
+        # Selection information
+        if structure['selection_count'] > 0:
+            parts.append(f"Selections: {structure['selection_count']}")
+            if structure['selection_keys']:
+                parts.append(f"Selection keys: {', '.join(sorted(structure['selection_keys']))}")
+        
+        # Nesting depth
+        if structure['max_nesting_depth'] > 0:
+            parts.append(f"Nesting depth: {structure['max_nesting_depth']}")
+        
+        # Boolean operators
+        if structure['boolean_operators']:
+            operators = ', '.join(sorted(structure['boolean_operators']))
+            parts.append(f"Operators: {operators}")
+        
+        # Unrolled condition
+        if structure['condition_unrolled']:
+            parts.append(f"Condition: {structure['condition_unrolled']}")
+        
+        # Modifiers
+        if structure['modifiers']:
+            modifiers = ', '.join(sorted(structure['modifiers']))
+            parts.append(f"Modifiers: {modifiers}")
+        
+        return ' '.join(parts) if parts else ""
+    
+    def create_detection_fields_embedding_text(self, rule_data: Dict) -> str:
+        """Create embedding text for detection fields section."""
+        from src.services.sigma_detection_analyzer import analyze_detection_fields
+        
+        detection = rule_data.get('detection', {})
+        if not detection or not isinstance(detection, dict):
+            return ""
+        
+        fields_analysis = analyze_detection_fields(detection)
+        
+        parts = []
+        
+        # EMPHASIZE VALUES over field names - values are what actually distinguish rules
+        # Values repeated 3x for emphasis
+        if fields_analysis['normalized_values']:
+            values = fields_analysis['normalized_values'][:30]  # Limit to avoid too long strings
+            # Repeat values 3x to give them much higher weight than field names
+            values_str = ', '.join(values[:15])  # Show first 15 unique values
+            parts.extend([f"Detection values: {values_str}"] * 3)
+        
+        # Field names (with modifiers) - mentioned once for context
+        if fields_analysis['field_names_with_modifiers']:
+            all_fields = []
+            for field in fields_analysis['field_names_with_modifiers']:
+                all_fields.append(field)
+                # High-signal fields get mentioned twice
+                base_field = field.split('|')[0]
+                if base_field in fields_analysis['high_signal_fields']:
+                    all_fields.append(field)
+            
+            parts.append(f"Field names: {', '.join(all_fields)}")
+        
+        # High-signal fields emphasis (context only)
+        if fields_analysis['high_signal_fields']:
+            high_signal = ', '.join(set(fields_analysis['high_signal_fields']))
+            parts.append(f"Key fields: {high_signal}")
+        
+        return ' '.join(parts) if parts else ""
+    
+    def create_section_embeddings_text(self, rule_data: Dict) -> Dict[str, str]:
+        """
+        Generate separate embedding text for each section.
+        
+        Args:
+            rule_data: Parsed rule data
+            
+        Returns:
+            Dictionary mapping section names to embedding text
+        """
+        return {
+            'title': self.create_title_embedding_text(rule_data),
+            'description': self.create_description_embedding_text(rule_data),
+            'tags': self.create_tags_embedding_text(rule_data),
+            'logsource': self.create_logsource_embedding_text(rule_data),
+            'detection_structure': self.create_detection_structure_embedding_text(rule_data),
+            'detection_fields': self.create_detection_fields_embedding_text(rule_data)
+        }
+    
     def get_existing_rule_ids(self, db_session) -> set:
         """
         Get set of existing rule IDs from database.
@@ -333,9 +473,37 @@ class SigmaSyncService:
                     skipped_count += 1
                     continue
                 
-                # Generate embedding using LM Studio
+                # Generate embeddings using LM Studio
+                # Generate main embedding (for backward compatibility)
                 embedding_text = self.create_rule_embedding_text(rule_data)
                 embedding = embedding_service.generate_embedding(embedding_text)
+                
+                # Generate section-based embeddings
+                section_texts = self.create_section_embeddings_text(rule_data)
+                
+                # Generate embeddings for each section (batch for efficiency)
+                section_texts_list = [
+                    section_texts['title'],
+                    section_texts['description'],
+                    section_texts['tags'],
+                    section_texts['logsource'],
+                    section_texts['detection_structure'],
+                    section_texts['detection_fields']
+                ]
+                
+                section_embeddings = embedding_service.generate_embeddings_batch(section_texts_list)
+                
+                # Handle cases where batch might return fewer embeddings than expected
+                # Ensure we have exactly 6 embeddings (empty strings will still generate embeddings)
+                while len(section_embeddings) < 6:
+                    section_embeddings.append([0.0] * 768)  # Zero vector for missing sections
+                
+                title_emb = section_embeddings[0] if section_embeddings[0] and len(section_embeddings[0]) == 768 else None
+                description_emb = section_embeddings[1] if section_embeddings[1] and len(section_embeddings[1]) == 768 else None
+                tags_emb = section_embeddings[2] if section_embeddings[2] and len(section_embeddings[2]) == 768 else None
+                logsource_emb = section_embeddings[3] if section_embeddings[3] and len(section_embeddings[3]) == 768 else None
+                detection_structure_emb = section_embeddings[4] if section_embeddings[4] and len(section_embeddings[4]) == 768 else None
+                detection_fields_emb = section_embeddings[5] if section_embeddings[5] and len(section_embeddings[5]) == 768 else None
                 
                 # Store model name for tracking
                 embedding_model_name = "intfloat/e5-base-v2"
@@ -353,6 +521,13 @@ class SigmaSyncService:
                         existing_rule.embedding_model = embedding_model_name
                         existing_rule.embedded_at = datetime.now()
                         existing_rule.repo_commit_sha = commit_sha
+                        # Update section embeddings
+                        existing_rule.title_embedding = title_emb
+                        existing_rule.description_embedding = description_emb
+                        existing_rule.tags_embedding = tags_emb
+                        existing_rule.logsource_embedding = logsource_emb
+                        existing_rule.detection_structure_embedding = detection_structure_emb
+                        existing_rule.detection_fields_embedding = detection_fields_emb
                     else:
                         # Create new rule
                         new_rule = SigmaRuleTable(
@@ -373,7 +548,14 @@ class SigmaSyncService:
                             repo_commit_sha=commit_sha,
                             embedding=embedding,
                             embedding_model=embedding_model_name,
-                            embedded_at=datetime.now()
+                            embedded_at=datetime.now(),
+                            # Section embeddings
+                            title_embedding=title_emb,
+                            description_embedding=description_emb,
+                            tags_embedding=tags_emb,
+                            logsource_embedding=logsource_emb,
+                            detection_structure_embedding=detection_structure_emb,
+                            detection_fields_embedding=detection_fields_emb
                         )
                         db_session.add(new_rule)
                 

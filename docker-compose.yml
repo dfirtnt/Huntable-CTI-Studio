@@ -46,6 +46,8 @@ services:
       context: .
       dockerfile: Dockerfile
     container_name: cti_web
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     environment:
       - DATABASE_URL=postgresql+asyncpg://cti_user:${POSTGRES_PASSWORD}@postgres:5432/cti_scraper
       - REDIS_URL=redis://redis:6379/0
@@ -99,6 +101,8 @@ services:
       context: .
       dockerfile: Dockerfile
     container_name: cti_worker
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     environment:
       - DATABASE_URL=postgresql+asyncpg://cti_user:${POSTGRES_PASSWORD}@postgres:5432/cti_scraper
       - REDIS_URL=redis://redis:6379/0
@@ -218,6 +222,7 @@ services:
       - ./config:/app/config
       - ./logs:/app/logs
       - ./tests:/app/tests
+      - ./data:/app/data
     depends_on:
       postgres:
         condition: service_healthy
