@@ -35,23 +35,25 @@ class LLMGenerationService:
         query: str,
         retrieved_chunks: List[Dict[str, Any]],
         conversation_history: Optional[List[Dict[str, Any]]] = None,
-        provider: str = "auto"
+        provider: str = "auto",
+        retrieved_rules: Optional[List[Dict[str, Any]]] = None
     ) -> Dict[str, Any]:
         """
         Generate a synthesized response using retrieved chunks.
-        
+
         Args:
             query: User's original query
             retrieved_chunks: List of retrieved article chunks
             conversation_history: Previous conversation context
             provider: LLM provider ("openai", "anthropic", "ollama", "auto")
-            
+            retrieved_rules: List of retrieved Sigma rules
+
         Returns:
             Dictionary with generated response and metadata
         """
         try:
-            # Build context from retrieved chunks
-            context = self._build_context(retrieved_chunks)
+            # Build context from retrieved chunks and rules
+            context = self._build_context(retrieved_chunks, retrieved_rules)
             
             # Create conversation context
             conversation_context = self._build_conversation_context(conversation_history)
@@ -87,6 +89,7 @@ class LLMGenerationService:
                 "model_name": model_name,
                 "model_display_name": model_display_name,
                 "chunks_used": len(retrieved_chunks),
+                "rules_used": len(retrieved_rules) if retrieved_rules else 0,
                 "context_length": len(context),
                 "generated_at": datetime.now().isoformat()
             }
@@ -95,24 +98,51 @@ class LLMGenerationService:
             logger.error(f"Failed to generate RAG response: {e}")
             raise
     
-    def _build_context(self, retrieved_chunks: List[Dict[str, Any]]) -> str:
-        """Build context string from retrieved chunks."""
+    def _build_context(self, retrieved_chunks: List[Dict[str, Any]],
+                       retrieved_rules: Optional[List[Dict[str, Any]]] = None) -> str:
+        """Build context string from retrieved chunks and Sigma rules."""
         context_parts = []
-        
+
+        # Add article sources
         for i, chunk in enumerate(retrieved_chunks, 1):
             title = chunk.get('title', 'Unknown Title')
             source = chunk.get('source_name', 'Unknown Source')
             content = chunk.get('content', '')
             url = chunk.get('canonical_url', '')
             similarity = chunk.get('similarity', 0.0)
-            
+
             context_parts.append(
                 f"Source {i}: {title} (from {source})\n"
                 f"Relevance: {similarity:.1%}\n"
                 f"Content: {content}\n"
                 f"URL: {url}\n"
             )
-        
+
+        # Add Sigma rule sources
+        if retrieved_rules:
+            context_parts.append("\n--- SIGMA DETECTION RULES ---\n")
+            for i, rule in enumerate(retrieved_rules, 1):
+                rule_id = rule.get('rule_id', rule.get('id', 'Unknown'))
+                title = rule.get('title', 'Unknown Rule')
+                description = rule.get('description', '')
+                level = rule.get('level', 'unknown')
+                status = rule.get('status', 'unknown')
+                tags = rule.get('tags', [])
+                similarity = rule.get('similarity', 0.0)
+
+                # Build URL to view rule details
+                rule_url = f"/sigma-rules/{rule_id}"
+
+                context_parts.append(
+                    f"SIGMA Rule {i}: {title}\n"
+                    f"ID: {rule_id}\n"
+                    f"Relevance: {similarity:.1%}\n"
+                    f"Level: {level} | Status: {status}\n"
+                    f"Tags: {', '.join(tags) if tags else 'None'}\n"
+                    f"Description: {description}\n"
+                    f"View Rule: {rule_url}\n"
+                )
+
         return "\n".join(context_parts)
     
     def _build_conversation_context(self, conversation_history: Optional[List[Dict[str, Any]]]) -> str:
@@ -146,20 +176,27 @@ class LLMGenerationService:
         
         system_prompt = """SYSTEM PROMPT — Huntable Analyst (RAG Chat Completion)
 
-You are **Huntable Analyst**, a Retrieval-Augmented Cyber Threat Intelligence assistant.  
-You analyze retrieved CTI article content to answer user questions about threat behavior, TTPs, and detection engineering.
+You are **Huntable Analyst**, a Retrieval-Augmented Cyber Threat Intelligence assistant.
+You analyze retrieved CTI article content and Sigma detection rules to answer user questions about threat behavior, TTPs, and detection engineering.
 
 == Core Behavior ==
 1. Extract technical signals: process names, command lines, registry paths, API calls, network indicators, telemetry types.
 2. Provide detection insight: relevant Sysmon EventIDs, Windows Security events, or Sigma rule elements.
 3. Rate confidence as **High / Medium / Low** based on textual support.
+4. **IMPORTANT**: When referencing Sigma rules, ALWAYS include clickable links using the format provided in the context.
 
 == Output Template ==
-**Answer:** factual synthesis from retrieved sources.  
-**Evidence:** article titles or source IDs with one-line justification.  
-**Detection Notes:** Sigma-style cues (EventIDs, keywords, log sources).  
-**Confidence:** High / Medium / Low.  
+**Answer:** factual synthesis from retrieved sources.
+**Evidence:** article titles or source IDs with one-line justification.
+**Detection Notes:** Sigma-style cues (EventIDs, keywords, log sources).
+**Relevant Sigma Rules:** When Sigma rules are provided in context, list them with their clickable links (e.g., "[Rule Title](/sigma-rules/rule_id)").
+**Confidence:** High / Medium / Low.
 **If context insufficient:** say so and suggest refined query terms.
+
+== Referencing Sources ==
+- For articles: Include the article title and URL provided in context
+- For Sigma rules: Include the rule title as a clickable link using the "/sigma-rules/{rule_id}" format shown in context
+- Always provide links to allow users to explore the full source material
 
 == Conversation Memory ==
 - Modern models (GPT-4o-mini: 128k, Claude Haiku: 200k) retain extensive dialogue history

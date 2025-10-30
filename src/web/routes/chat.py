@@ -168,7 +168,8 @@ async def api_rag_chat(request: Request):
                         query=message,
                         retrieved_chunks=relevant_articles,
                         conversation_history=conversation_history,
-                        provider=body.get("llm_provider", "auto")
+                        provider=body.get("llm_provider", "auto"),
+                        retrieved_rules=relevant_rules
                     )
                     
                     response = generation_result["response"]
