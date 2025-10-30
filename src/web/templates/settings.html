@@ -260,11 +260,23 @@
                         <option value="anthropic">Anthropic → Claude Sonnet 4.5</option>
                         <option value="ollama">Ollama → llama3.2:1b</option>
                         <option value="tinyllama">Ollama → tinyllama:1.1b</option>
-                        <option value="lmstudio">LMStudio → llama-3.2-1b-instruct</option>
+                        <option value="lmstudio">LMStudio (Local)</option>
                     </select>
                     <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Choose your preferred AI model for summaries and analysis</p>
                 </div>
-                
+
+                <!-- LMStudio Model Selection (only shown when LMStudio is selected) -->
+                <div id="lmstudioModelSection" style="display: none;">
+                    <label for="lmstudioModel" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        LMStudio Model
+                    </label>
+                    <select id="lmstudioModel"
+                            class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                        <option value="">Loading models...</option>
+                    </select>
+                    <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Select which LMStudio model to use for generation</p>
+                </div>
+
                 <!-- Temperature Setting -->
                 <div>
                     <label for="aiTemperature" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -506,6 +518,12 @@
         } else {
             apiSection.style.display = 'none';
         }
+
+        // Show/hide LMStudio model selection dropdown
+        const lmstudioModelSection = document.getElementById('lmstudioModelSection');
+        if (lmstudioModelSection) {
+            lmstudioModelSection.style.display = aiModel === 'lmstudio' ? 'block' : 'none';
+        }
     }
     
     // Load LMStudio models dynamically
@@ -513,27 +531,57 @@
         try {
             const response = await fetch('/api/lmstudio-models');
             const data = await response.json();
-            
+
             if (data.success && data.models.length > 0) {
+                // Populate the LMStudio model dropdown
+                const lmstudioModelSelect = document.getElementById('lmstudioModel');
+                lmstudioModelSelect.innerHTML = ''; // Clear loading option
+
+                // Get current saved model from database
+                let savedModel = null;
+                try {
+                    const settingsResponse = await fetch('/api/settings/lmstudio_model');
+                    const settingsData = await settingsResponse.json();
+                    if (settingsData.success && settingsData.exists) {
+                        savedModel = settingsData.value;
+                    }
+                } catch (error) {
+                    console.log('Could not fetch saved LMStudio model:', error);
+                }
+
+                data.models.forEach((model, index) => {
+                    const option = document.createElement('option');
+                    option.value = model;
+                    option.textContent = model;
+                    // Select the saved model or first model if no saved preference
+                    if ((savedModel && model === savedModel) || (!savedModel && index === 0)) {
+                        option.selected = true;
+                    }
+                    lmstudioModelSelect.appendChild(option);
+                });
+
+                // Update the main dropdown to show it's LMStudio (keep it simple)
                 const select = document.getElementById('aiModel');
                 const lmstudioOption = select.querySelector('option[value="lmstudio"]');
-                
                 if (lmstudioOption) {
-                    // Update the option text to show the current model
-                    const currentModel = data.models[0]; // Use first loaded model
-                    lmstudioOption.textContent = `LMStudio -> ${currentModel}`;
+                    // Just show "LMStudio" - the specific model is shown in the dropdown below
+                    lmstudioOption.textContent = `LMStudio (Local)`;
                 }
             } else {
                 // Fallback to default text if no models found
+                const lmstudioModelSelect = document.getElementById('lmstudioModel');
+                lmstudioModelSelect.innerHTML = '<option value="">No models available</option>';
+
                 const select = document.getElementById('aiModel');
                 const lmstudioOption = select.querySelector('option[value="lmstudio"]');
                 if (lmstudioOption) {
-                    lmstudioOption.textContent = 'LMStudio -> Local';
+                    lmstudioOption.textContent = 'LMStudio → Local';
                 }
             }
         } catch (error) {
             console.log('Could not load LMStudio models:', error);
-            // Keep default text on error
+            const lmstudioModelSelect = document.getElementById('lmstudioModel');
+            lmstudioModelSelect.innerHTML = '<option value="">Error loading models</option>';
         }
     }
     
@@ -568,20 +616,22 @@
     }
     
     // Save settings to localStorage
-    function saveSettings() {
+    async function saveSettings() {
         // Get values from form inputs
         const openaiKeyInput = document.getElementById('openaiApiKey').value.trim();
         const anthropicKeyInput = document.getElementById('anthropicApiKey').value.trim();
         const aiModelInput = document.getElementById('aiModel').value;
-        
+        const lmstudioModelInput = document.getElementById('lmstudioModel') ? document.getElementById('lmstudioModel').value : null;
+
         // DEBUG: Log what we're saving
         console.log('💾 Saving settings:', {
             aiModel: aiModelInput,
+            lmstudioModel: lmstudioModelInput,
             openaiKeyLength: openaiKeyInput.length,
             openaiKeyEnding: openaiKeyInput.length >= 4 ? openaiKeyInput.substring(openaiKeyInput.length - 4) : 'N/A',
             anthropicKeyLength: anthropicKeyInput.length
         });
-        
+
         const settings = {
             // Trim API keys to remove any accidental whitespace
             // Only save non-empty keys (preserve existing if field is empty)
@@ -609,9 +659,33 @@
                 enableVerification: document.getElementById('enableVerification').checked
             }
         };
-        
+
         localStorage.setItem('ctiScraperSettings', JSON.stringify(settings));
-        
+
+        // Save LMStudio model to database (if selected and changed)
+        if (aiModelInput === 'lmstudio' && lmstudioModelInput) {
+            try {
+                const response = await fetch('/api/settings', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        key: 'lmstudio_model',
+                        value: lmstudioModelInput
+                    })
+                });
+
+                if (response.ok) {
+                    console.log('✅ LMStudio model saved to database:', lmstudioModelInput);
+                } else {
+                    console.error('❌ Failed to save LMStudio model to database');
+                }
+            } catch (error) {
+                console.error('❌ Error saving LMStudio model:', error);
+            }
+        }
+
         // DEBUG: Verify what was saved
         const saved = JSON.parse(localStorage.getItem('ctiScraperSettings'));
         console.log('✅ Settings saved. Verification:', {
@@ -619,7 +693,7 @@
             openaiKeyLength: saved.openaiApiKey ? saved.openaiApiKey.length : 0,
             openaiKeyEnding: saved.openaiApiKey && saved.openaiApiKey.length >= 4 ? saved.openaiApiKey.substring(saved.openaiApiKey.length - 4) : 'N/A'
         });
-        
+
         showSuccessNotification();
     }
     

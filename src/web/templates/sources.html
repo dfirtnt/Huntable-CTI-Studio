@@ -742,13 +742,34 @@ function showNotification(message, type = 'info') {
 // Adhoc URL scraping functions
 function handleAdhocUrlSubmit(event) {
     event.preventDefault();
+    event.stopPropagation();
     
-    const url = document.getElementById('adhocUrl').value.trim();
+    console.log('Form submitted, processing batch URLs...');
+    
+    const urlText = document.getElementById('adhocUrl').value.trim();
     const title = document.getElementById('adhocTitle').value.trim();
     const forceScrape = document.getElementById('adhocForceScrape').checked;
     
-    if (!url) {
-        showNotification('Please enter a valid URL', 'error');
+    if (!urlText) {
+        showNotification('Please enter at least one URL', 'error');
+        return false;
+    }
+    
+    // Parse URLs from textarea (split by newlines, filter empty lines)
+    const urls = urlText.split('\n')
+        .map(line => line.trim())
+        .filter(line => line.length > 0);
+    
+    if (urls.length === 0) {
+        showNotification('Please enter at least one valid URL', 'error');
+        return;
+    }
+    
+    // Basic URL validation
+    const urlPattern = /^https?:\/\/.+/;
+    const invalidUrls = urls.filter(url => !urlPattern.test(url));
+    if (invalidUrls.length > 0) {
+        showNotification(`Invalid URLs detected: ${invalidUrls.join(', ')}`, 'error');
         return;
     }
     
@@ -758,13 +779,13 @@ function handleAdhocUrlSubmit(event) {
     const statusText = document.getElementById('scrapingStatusText');
     
     submitBtn.disabled = true;
-    submitBtn.innerHTML = '<span class="mr-2">⏳</span>Scraping...';
+    submitBtn.innerHTML = `<span class="mr-2">⏳</span>Scraping ${urls.length} URL${urls.length > 1 ? 's' : ''}...`;
     statusDiv.classList.remove('hidden');
-    statusText.textContent = 'Scraping URL...';
+    statusText.textContent = `Processing ${urls.length} URL${urls.length > 1 ? 's' : ''}...`;
     
     // Prepare request data
     const requestData = {
-        url: url,
+        urls: urls,
         force_scrape: forceScrape
     };
     
@@ -772,7 +793,8 @@ function handleAdhocUrlSubmit(event) {
         requestData.title = title;
     }
     
-    // Send scraping request
+    // Send batch scraping request
+    console.log('Sending batch request with', urls.length, 'URLs');
     fetch('/api/scrape-url', {
         method: 'POST',
         headers: {
@@ -780,11 +802,44 @@ function handleAdhocUrlSubmit(event) {
         },
         body: JSON.stringify(requestData)
     })
-    .then(response => response.json())
+    .then(response => {
+        console.log('Received response:', response.status, response.statusText);
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        return response.json();
+    })
     .then(data => {
+        console.log('Batch scraping result:', data);
         if (data.success) {
-            statusText.textContent = 'Scraping completed successfully!';
-            showNotification(`Article scraped successfully: ${data.article_title || 'Unknown Title'}`, 'success');
+            const total = data.total || urls.length;
+            const successful = data.successful || 0;
+            const failed = data.failed || 0;
+            
+            statusText.textContent = `Batch complete: ${successful} succeeded, ${failed} failed`;
+            
+            let message = `Batch scraping completed: ${successful} of ${total} URL${total > 1 ? 's' : ''} processed successfully`;
+            if (failed > 0) {
+                message += `. ${failed} failed.`;
+                if (data.results) {
+                    const failedResults = data.results.filter(r => !r.success);
+                    console.warn('Failed URLs:', failedResults);
+                    
+                    // Show detailed errors for first few failures
+                    const errorDetails = failedResults.slice(0, 3).map(r => {
+                        const errorMsg = r.error || 'Unknown error';
+                        const shortUrl = r.url.length > 60 ? r.url.substring(0, 60) + '...' : r.url;
+                        return `${shortUrl}: ${errorMsg}`;
+                    }).join('\n');
+                    
+                    if (failedResults.length > 3) {
+                        message += `\n\nFirst errors:\n${errorDetails}\n... and ${failedResults.length - 3} more`;
+                    } else {
+                        message += `\n\nErrors:\n${errorDetails}`;
+                    }
+                }
+            }
+            showNotification(message, failed === 0 ? 'success' : 'warning');
             
             // Clear form
             document.getElementById('adhocUrl').value = '';
@@ -794,32 +849,37 @@ function handleAdhocUrlSubmit(event) {
             // Hide status after delay
             setTimeout(() => {
                 statusDiv.classList.add('hidden');
-            }, 2000);
+            }, 3000);
             
-            // Optionally redirect to the new article
-            if (data.article_id) {
+            // Optionally redirect to the first successful article
+            if (data.results && data.results.length > 0 && data.results[0].article_id) {
                 setTimeout(() => {
-                    window.location.href = `/articles/${data.article_id}`;
-                }, 1500);
+                    window.location.href = `/articles/${data.results[0].article_id}`;
+                }, 2000);
             }
         } else {
-            throw new Error(data.error || 'Failed to scrape URL');
+            throw new Error(data.error || 'Failed to scrape URLs');
         }
     })
     .catch(error => {
-        console.error('Error scraping URL:', error);
-        statusText.textContent = 'Scraping failed';
-        showNotification('Failed to scrape URL: ' + error.message, 'error');
+        console.error('Error scraping URLs:', error);
+        statusText.textContent = 'Batch scraping failed';
+        const errorMsg = error.message || 'Unknown error occurred';
+        showNotification('Failed to scrape URLs: ' + errorMsg, 'error');
+        console.error('Full error details:', error);
         
         // Hide status after delay
         setTimeout(() => {
             statusDiv.classList.add('hidden');
-        }, 3000);
+        }, 5000);
     })
     .finally(() => {
         submitBtn.disabled = false;
-        submitBtn.innerHTML = '<span class="mr-2">🔍</span>Scrape URL';
+        submitBtn.innerHTML = '<span class="mr-2">🔍</span>Scrape URLs';
+        console.log('Batch scraping request completed');
     });
+    
+    return false; // Prevent form submission
 }
 
 // Event listeners with null checks
@@ -829,24 +889,44 @@ if (saveConfigBtn) saveConfigBtn.addEventListener('click', saveSourceConfig);
 const cancelConfigBtn = document.getElementById('cancelSourceConfigBtn');
 if (cancelConfigBtn) cancelConfigBtn.addEventListener('click', closeSourceConfig);
 
-const adhocUrlForm = document.getElementById('adhocUrlForm');
-if (adhocUrlForm) adhocUrlForm.addEventListener('submit', handleAdhocUrlSubmit);
-
-const adhocUrl = document.getElementById('adhocUrl');
-if (adhocUrl) adhocUrl.addEventListener('keypress', function(e) {
-    if (e.key === 'Enter') {
-        e.preventDefault();
-        handleAdhocUrlSubmit(e);
+// Attach event listeners when DOM is ready
+function attachAdhocUrlListeners() {
+    const adhocUrlForm = document.getElementById('adhocUrlForm');
+    if (adhocUrlForm) {
+        console.log('Attaching submit listener to form');
+        adhocUrlForm.addEventListener('submit', handleAdhocUrlSubmit);
+    } else {
+        console.warn('adhocUrlForm not found');
     }
-});
 
-const adhocTitle = document.getElementById('adhocTitle');
-if (adhocTitle) adhocTitle.addEventListener('keypress', function(e) {
-    if (e.key === 'Enter') {
-        e.preventDefault();
-        handleAdhocUrlSubmit(e);
+    const adhocUrl = document.getElementById('adhocUrl');
+    if (adhocUrl) {
+        adhocUrl.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+                e.preventDefault();
+                handleAdhocUrlSubmit(e);
+            }
+        });
     }
-});
+
+    const adhocTitle = document.getElementById('adhocTitle');
+    if (adhocTitle) {
+        adhocTitle.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+                e.preventDefault();
+                handleAdhocUrlSubmit(e);
+            }
+        });
+    }
+}
+
+// Try attaching immediately, or wait for DOM
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', attachAdhocUrlListeners);
+} else {
+    // DOM already loaded
+    attachAdhocUrlListeners();
+}
 
 const configLookbackDays = document.getElementById('configLookbackDays');
 if (configLookbackDays) configLookbackDays.addEventListener('keypress', function(e) {
@@ -1017,21 +1097,21 @@ function monitorTaskProgress(taskId, sourceId, sourceName) {
         <div class="flex items-center justify-between mb-4">
             <div>
                 <h2 class="text-xl font-bold text-gray-900 dark:text-white" style="color: #f1f5f9;">Manual URL Scraping</h2>
-                <p class="mt-1 text-sm text-gray-600" style="color: #a3b7d0;">Add individual URLs for immediate scraping and analysis</p>
+                <p class="mt-1 text-sm text-gray-600" style="color: #a3b7d0;">Add one or more URLs (one per line) for batch scraping and analysis</p>
             </div>
         </div>
         
-        <form id="adhocUrlForm" class="space-y-4">
+        <form id="adhocUrlForm" class="space-y-4" method="post" action="javascript:void(0);" onsubmit="return false;">
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                     <label for="adhocUrl" class="block text-sm font-medium text-gray-700 mb-2" style="color: #f1f5f9;">
-                        Article URL
+                        Article URLs (one per line)
                     </label>
-                    <input type="url" id="adhocUrl" name="url" required
-                           class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                           placeholder="https://example.com/article">
+                    <textarea id="adhocUrl" name="url" rows="6" required
+                           class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 font-mono text-sm"
+                           placeholder="https://example.com/article1&#10;https://example.com/article2&#10;https://example.com/article3"></textarea>
                     <p class="mt-1 text-xs text-gray-500" style="color: #a3b7d0;">
-                        Enter the full URL of the article you want to scrape
+                        Enter one or more URLs (one per line). Each URL will be scraped and processed.
                     </p>
                     <div class="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-md" style="background-color: #374151; border-color: #4b5563;">
                         <div class="flex items-start">
@@ -1076,9 +1156,10 @@ function monitorTaskProgress(taskId, sourceId, sourceName) {
                 </div>
                 
                 <button type="submit" id="scrapeUrlBtn"
+                        onclick="event.preventDefault(); event.stopPropagation(); handleAdhocUrlSubmit(event); return false;"
                         class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500" style="background: linear-gradient(135deg, #6366f1, #8b5cf6);">
                     <span class="mr-2">🔍</span>
-                    Scrape URL
+                    Scrape URLs
                 </button>
             </div>
         </form>
@@ -1093,6 +1174,29 @@ function monitorTaskProgress(taskId, sourceId, sourceName) {
             </div>
         </div>
     </div>
+
+    <!-- Ensure form handler is attached after form exists -->
+    <script>
+    (function() {
+        const adhocUrlForm = document.getElementById('adhocUrlForm');
+        if (adhocUrlForm) {
+            console.log('✓ Form found, attaching submit handler');
+            adhocUrlForm.addEventListener('submit', function(e) {
+                console.log('Form submit event caught');
+                e.preventDefault();
+                e.stopPropagation();
+                if (typeof handleAdhocUrlSubmit === 'function') {
+                    handleAdhocUrlSubmit(e);
+                } else {
+                    console.error('handleAdhocUrlSubmit function not found');
+                }
+                return false;
+            });
+        } else {
+            console.error('✗ adhocUrlForm not found when script executed');
+        }
+    })();
+    </script>
 
     <!-- Collection Status - Fixed Position -->
     <div id="collectionStatus" class="fixed top-4 right-4 z-50 w-96 hidden">

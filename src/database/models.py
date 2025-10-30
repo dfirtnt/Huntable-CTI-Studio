@@ -359,6 +359,14 @@ class SigmaRuleTable(Base):
     embedding_model = Column(String(100), nullable=True, default='intfloat/e5-base-v2')
     embedded_at = Column(DateTime, nullable=True)
     
+    # Section-based embedding fields for enhanced similarity
+    title_embedding = Column(Vector(768), nullable=True)
+    description_embedding = Column(Vector(768), nullable=True)
+    tags_embedding = Column(Vector(768), nullable=True)
+    logsource_embedding = Column(Vector(768), nullable=True)
+    detection_structure_embedding = Column(Vector(768), nullable=True)
+    detection_fields_embedding = Column(Vector(768), nullable=True)
+    
     # Source tracking
     file_path = Column(Text, nullable=False)
     repo_commit_sha = Column(String(40), nullable=True)
@@ -407,3 +415,21 @@ class ArticleSigmaMatchTable(Base):
     
     def __repr__(self):
         return f"<ArticleSigmaMatch(id={self.id}, article_id={self.article_id}, sigma_rule_id={self.sigma_rule_id}, coverage='{self.coverage_status}')>"
+
+
+class AppSettingsTable(Base):
+    """Database table for application settings (user preferences that override environment variables)."""
+
+    __tablename__ = 'app_settings'
+
+    id = Column(Integer, primary_key=True, index=True)
+    key = Column(String(255), unique=True, nullable=False, index=True)
+    value = Column(Text, nullable=True)
+    description = Column(Text, nullable=True)
+    category = Column(String(100), nullable=True, index=True)  # e.g., 'llm', 'api', 'system'
+
+    created_at = Column(DateTime, nullable=False, default=func.now())
+    updated_at = Column(DateTime, nullable=False, default=func.now(), onupdate=func.now())
+
+    def __repr__(self):
+        return f"<AppSettings(key='{self.key}', value='{self.value[:50] if self.value else None}...')>"

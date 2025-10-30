@@ -106,7 +106,8 @@ class ValidationResult:
     errors: List[str]
     warnings: List[str]
     metadata: Optional[Dict[str, Any]] = None
-    
+    content_preview: Optional[str] = None
+
     def __post_init__(self):
         if self.metadata is None:
             self.metadata = {}
@@ -433,11 +434,12 @@ def validate_sigma_rule(rule_yaml: str) -> ValidationResult:
     try:
         rule_data = yaml.safe_load(cleaned_content)
         if rule_data is None:
-            return ValidationResult(False, ["Empty or invalid YAML content"], [])
+            content_preview = cleaned_content[:200] + "..." if len(cleaned_content) > 200 else cleaned_content
+            return ValidationResult(False, ["Empty or invalid YAML content"], [], content_preview=content_preview)
     except yaml.YAMLError as e:
         # Provide more helpful error message with content preview
         content_preview = cleaned_content[:200] + "..." if len(cleaned_content) > 200 else cleaned_content
-        return ValidationResult(False, [f"Invalid YAML syntax: {e}\n\nContent preview:\n{content_preview}"], [])
+        return ValidationResult(False, [f"Invalid YAML syntax: {e}\n\nContent preview:\n{content_preview}"], [], content_preview=content_preview)
     
     validator = SigmaValidator()
     return validator.validate_rule(rule_data)

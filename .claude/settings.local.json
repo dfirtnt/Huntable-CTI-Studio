@@ -27,7 +27,8 @@
       "Bash(awk:*)",
       "Bash(grep:*)",
       "Bash(printenv:*)",
-      "Read(//Users/starlord/**)"
+      "Read(//Users/starlord/**)",
+      "Bash(python3:*)"
     ],
     "deny": [],
     "ask": []
