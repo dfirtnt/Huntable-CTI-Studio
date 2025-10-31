@@ -8,6 +8,7 @@ Supports OpenAI, Ollama, and Anthropic Claude.
 import os
 import logging
 import httpx
+import asyncio
 from typing import List, Dict, Any, Optional
 from datetime import datetime
 
@@ -417,36 +418,179 @@ You analyze retrieved CTI article content and Sigma detection rules to answer us
             return result['choices'][0]['message']['content']
     
     async def _call_anthropic(self, system_prompt: str, user_prompt: str) -> str:
-        """Call Anthropic Claude API."""
+        """Call Anthropic Claude API with rate limit handling and exponential backoff."""
+        return await self._call_anthropic_with_retry(
+            system_prompt=system_prompt,
+            user_prompt=user_prompt,
+            max_retries=5,
+            base_delay=1.0,
+            max_delay=60.0
+        )
+    
+    async def _call_anthropic_with_retry(
+        self,
+        system_prompt: str,
+        user_prompt: str,
+        max_retries: int = 5,
+        base_delay: float = 1.0,
+        max_delay: float = 60.0,
+        headers: Optional[Dict[str, str]] = None,
+        payload: Optional[Dict[str, Any]] = None
+    ) -> str:
+        """
+        Call Anthropic Claude API with exponential backoff rate limit handling.
+        
+        Args:
+            system_prompt: System prompt for Claude
+            user_prompt: User prompt/messages
+            max_retries: Maximum retry attempts
+            base_delay: Base delay for exponential backoff (seconds)
+            max_delay: Maximum delay cap (seconds)
+            headers: Optional custom headers (defaults to standard Anthropic headers)
+            payload: Optional custom payload (defaults to standard Anthropic payload)
+        
+        Returns:
+            Response text from Claude
+        
+        Raises:
+            ValueError: If API key not configured
+            RuntimeError: If all retries exhausted or non-retryable error
+        """
         if not self.anthropic_api_key:
             raise ValueError("Anthropic API key not configured")
         
-        async with httpx.AsyncClient() as client:
-            response = await client.post(
-                "https://api.anthropic.com/v1/messages",
-                headers={
-                    "x-api-key": self.anthropic_api_key,
-                    "Content-Type": "application/json",
-                    "anthropic-version": "2023-06-01"
-                },
-                json={
-                    "model": "claude-sonnet-4-5",
-                    "max_tokens": 2000,
-                    "system": system_prompt,
-                    "messages": [
-                        {"role": "user", "content": user_prompt}
-                    ]
-                },
-                timeout=60.0
-            )
-            
-            if response.status_code != 200:
-                error_detail = response.text
-                logger.error(f"Anthropic API error: {error_detail}")
-                raise RuntimeError(f"Anthropic API error: {error_detail}")
-            
-            result = response.json()
-            return result['content'][0]['text']
+        # Default headers
+        if headers is None:
+            headers = {
+                "x-api-key": self.anthropic_api_key,
+                "Content-Type": "application/json",
+                "anthropic-version": "2023-06-01"
+            }
+        
+        # Default payload
+        if payload is None:
+            payload = {
+                "model": "claude-sonnet-4-5",
+                "max_tokens": 2000,
+                "system": system_prompt,
+                "messages": [
+                    {"role": "user", "content": user_prompt}
+                ]
+            }
+        
+        last_exception = None
+        
+        for attempt in range(max_retries):
+            async with httpx.AsyncClient() as client:
+                try:
+                    response = await client.post(
+                        "https://api.anthropic.com/v1/messages",
+                        headers=headers,
+                        json=payload,
+                        timeout=60.0
+                    )
+                    
+                    # Success
+                    if response.status_code == 200:
+                        result = response.json()
+                        return result['content'][0]['text']
+                    
+                    # Rate limit (429) - retry with exponential backoff
+                    if response.status_code == 429:
+                        retry_after = self._parse_retry_after(response.headers.get("retry-after"))
+                        
+                        # Use exponential backoff with retry-after as minimum
+                        delay = max(retry_after, base_delay * (2 ** attempt))
+                        delay = min(delay, max_delay)
+                        
+                        if attempt < max_retries - 1:
+                            logger.warning(
+                                f"Anthropic API rate limited (429). "
+                                f"Retry {attempt + 1}/{max_retries} after {delay:.1f}s. "
+                                f"Retry-After header: {retry_after}s"
+                            )
+                            await asyncio.sleep(delay)
+                            continue
+                        else:
+                            error_detail = response.text
+                            logger.error(f"Anthropic API rate limit exceeded after {max_retries} attempts: {error_detail}")
+                            raise RuntimeError(f"Anthropic API rate limit exceeded: {error_detail}")
+                    
+                    # Other errors - retry with exponential backoff for 5xx, fail fast for 4xx
+                    if 500 <= response.status_code < 600:
+                        delay = min(base_delay * (2 ** attempt), max_delay)
+                        if attempt < max_retries - 1:
+                            error_detail = response.text
+                            logger.warning(
+                                f"Anthropic API server error ({response.status_code}). "
+                                f"Retry {attempt + 1}/{max_retries} after {delay:.1f}s: {error_detail}"
+                            )
+                            await asyncio.sleep(delay)
+                            continue
+                    
+                    # Client errors (4xx) - don't retry
+                    error_detail = response.text
+                    logger.error(f"Anthropic API client error ({response.status_code}): {error_detail}")
+                    raise RuntimeError(f"Anthropic API error ({response.status_code}): {error_detail}")
+                    
+                except httpx.TimeoutException as e:
+                    delay = min(base_delay * (2 ** attempt), max_delay)
+                    if attempt < max_retries - 1:
+                        logger.warning(
+                            f"Anthropic API timeout. Retry {attempt + 1}/{max_retries} after {delay:.1f}s"
+                        )
+                        await asyncio.sleep(delay)
+                        last_exception = e
+                        continue
+                    raise RuntimeError(f"Anthropic API timeout after {max_retries} attempts") from e
+                    
+                except Exception as e:
+                    delay = min(base_delay * (2 ** attempt), max_delay)
+                    if attempt < max_retries - 1:
+                        logger.warning(
+                            f"Anthropic API error: {e}. Retry {attempt + 1}/{max_retries} after {delay:.1f}s"
+                        )
+                        await asyncio.sleep(delay)
+                        last_exception = e
+                        continue
+                    raise RuntimeError(f"Anthropic API error after {max_retries} attempts: {e}") from e
+        
+        # Should not reach here, but handle edge case
+        if last_exception:
+            raise RuntimeError(f"Anthropic API failed after {max_retries} attempts") from last_exception
+        raise RuntimeError(f"Anthropic API failed after {max_retries} attempts")
+    
+    def _parse_retry_after(self, retry_after_header: Optional[str]) -> float:
+        """
+        Parse retry-after header value.
+        
+        Handles:
+        - Integer seconds: "30"
+        - HTTP date format: "Wed, 21 Oct 2015 07:28:00 GMT"
+        
+        Args:
+            retry_after_header: Value from retry-after header
+        
+        Returns:
+            Seconds to wait (default: 30.0 if parsing fails)
+        """
+        if not retry_after_header:
+            return 30.0
+        
+        try:
+            # Try integer seconds first
+            return float(retry_after_header.strip())
+        except ValueError:
+            # Try HTTP date format
+            try:
+                from email.utils import parsedate_to_datetime
+                retry_date = parsedate_to_datetime(retry_after_header)
+                now = datetime.now(retry_date.tzinfo) if retry_date.tzinfo else datetime.now()
+                delta = retry_date - now
+                return max(0.0, delta.total_seconds())
+            except (ValueError, TypeError):
+                logger.warning(f"Could not parse retry-after header: {retry_after_header}, using 30s default")
+                return 30.0
     
     async def _call_ollama(self, system_prompt: str, user_prompt: str) -> str:
         """Call local Ollama API."""
@@ -503,22 +647,32 @@ You analyze retrieved CTI article content and Sigma detection rules to answer us
             return result['response']
     
     async def _call_lmstudio(self, system_prompt: str, user_prompt: str) -> str:
-        """Call LMStudio API (OpenAI-compatible)."""
+        """Call LMStudio API (OpenAI-compatible) with recommended settings."""
+        # Get recommended settings (temperature 0.15, top_p 0.9, seed 42)
+        temperature = float(os.getenv("LMSTUDIO_TEMPERATURE", "0.15"))
+        top_p = float(os.getenv("LMSTUDIO_TOP_P", "0.9"))
+        seed = int(os.getenv("LMSTUDIO_SEED", "42")) if os.getenv("LMSTUDIO_SEED") else None
+        
+        payload = {
+            "model": self.lmstudio_model,
+            "messages": [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt}
+            ],
+            "max_tokens": 2000,
+            "temperature": temperature,
+            "top_p": top_p,
+        }
+        if seed is not None:
+            payload["seed"] = seed
+        
         async with httpx.AsyncClient() as client:
             response = await client.post(
                 f"{self.lmstudio_url}/chat/completions",
                 headers={
                     "Content-Type": "application/json"
                 },
-                json={
-                    "model": self.lmstudio_model,
-                    "messages": [
-                        {"role": "system", "content": system_prompt},
-                        {"role": "user", "content": user_prompt}
-                    ],
-                    "max_tokens": 2000,
-                    "temperature": 0.3
-                },
+                json=payload,
                 timeout=120.0
             )
             
