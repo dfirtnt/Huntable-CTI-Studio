@@ -1,0 +1,11 @@
+{
+  "name": "cti-scraper-tests",
+  "private": true,
+  "devDependencies": {
+    "@playwright/test": "^1.56.1"
+  },
+  "scripts": {
+    "test:pw": "playwright test",
+    "test:pw:all": "playwright test tests/playwright/ '**/*.spec.ts' '**/*.spec.js'"
+  }
+}

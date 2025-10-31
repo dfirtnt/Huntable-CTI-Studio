@@ -1,5 +1,12 @@
 const { test, expect } = require('@playwright/test');
 
+/**
+ * UI tests for help buttons in AI/ML Assistant modals.
+ * 
+ * NOTE: For prompt content synchronization tests (verifying help modals match
+ * prompt files), see: tests/playwright/prompt_sync.spec.ts
+ */
+
 test.describe('AI/ML Assistant Help Buttons', () => {
   test('should show help buttons in all AI/ML Assistant modals', async ({ page }) => {
     // Navigate to article detail page
