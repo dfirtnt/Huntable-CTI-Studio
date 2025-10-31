@@ -629,14 +629,15 @@ WINDOWS_MALWARE_KEYWORDS = {
                 'suricata', 'netflow', 'beaconing', 'user-agent',
                 # Good threat hunting discriminators (≤75% in 90+ hunt score range)
                 'process_creation', 'reg add', 'logsource:', 'get-', 'selection:',
-                'DeviceProcessEvents', 'hxxps', 'taskkill.exe', 'detection:', 'DeviceFileEvents'
+                'DeviceProcessEvents', 'hxxps', 'taskkill.exe', 'detection:', 'DeviceFileEvents',
+                'child'
             ],
     'intelligence_indicators': [
         # Real threat activity - specific indicators
         'APT', 'threat actor', 'attribution', 'campaign', 'incident',
         'breach', 'compromise', 'malware family', 'IOC', 'indicator',
         'TTP', 'technique', 'observed', 'discovered', 'detected in wild',
-        'real-world', 'in the wild', 'active campaign', 'ongoing threat',
+        'real-world', 'in the wild', 'in-the-wild', 'active campaign', 'ongoing threat',
         'victim', 'targeted', 'exploited', 'compromised', 'infiltrated',
         
         # Attack lifecycle phases (high-priority additions)
@@ -876,6 +877,10 @@ class ThreatHuntingScorer:
             # For .dll files, match both with and without .dll extension
             base_name = keyword[:-4]  # Remove .dll
             return r'\b' + re.escape(base_name) + r'(\.dll)?\b'
+        elif ' ' in keyword:
+            # For multi-word phrases, ensure word boundaries at start and end
+            # but allow flexible matching in the middle
+            return r'\b' + escaped_keyword + r'\b'
         else:
             # Use word boundaries for other keywords
             return r'\b' + escaped_keyword + r'\b'
