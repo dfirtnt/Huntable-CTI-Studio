@@ -6,8 +6,10 @@ from __future__ import annotations
 
 import os
 import json
+import asyncio
 from datetime import datetime
-from typing import Dict, Optional, List
+from typing import Dict, Optional, List, Any
+from email.utils import parsedate_to_datetime
 
 import httpx
 
@@ -25,6 +27,172 @@ router = APIRouter(prefix="/api/articles", tags=["Articles", "AI"])
 
 # Test API key endpoints (separate router for correct URL paths)
 test_router = APIRouter(prefix="/api", tags=["AI", "Testing"])
+
+
+async def _call_anthropic_with_retry(
+    api_key: str,
+    payload: Dict[str, Any],
+    anthropic_api_url: str = "https://api.anthropic.com/v1/messages",
+    max_retries: int = 5,
+    base_delay: float = 1.0,
+    max_delay: float = 60.0,
+    timeout: float = 60.0
+) -> httpx.Response:
+    """
+    Call Anthropic Claude API with exponential backoff rate limit handling.
+    
+    Args:
+        api_key: Anthropic API key
+        payload: Request payload (model, messages, etc.)
+        anthropic_api_url: Anthropic API endpoint URL
+        max_retries: Maximum retry attempts
+        base_delay: Base delay for exponential backoff (seconds)
+        max_delay: Maximum delay cap (seconds)
+        timeout: Request timeout in seconds
+    
+    Returns:
+        Successful httpx.Response (status_code == 200)
+    
+    Raises:
+        HTTPException: If all retries exhausted or non-retryable error
+    """
+    headers = {
+        "x-api-key": api_key,
+        "Content-Type": "application/json",
+        "anthropic-version": "2023-06-01"
+    }
+    
+    def _parse_retry_after(retry_after_header: Optional[str]) -> float:
+        """Parse retry-after header (seconds or HTTP date)."""
+        if not retry_after_header:
+            return 30.0
+        try:
+            return float(retry_after_header.strip())
+        except ValueError:
+            try:
+                retry_date = parsedate_to_datetime(retry_after_header)
+                now = datetime.now(retry_date.tzinfo) if retry_date.tzinfo else datetime.now()
+                delta = retry_date - now
+                return max(0.0, delta.total_seconds())
+            except (ValueError, TypeError):
+                logger.warning(f"Could not parse retry-after header: {retry_after_header}, using 30s default")
+                return 30.0
+    
+    last_exception = None
+    
+    for attempt in range(max_retries):
+        async with httpx.AsyncClient() as client:
+            try:
+                response = await client.post(
+                    anthropic_api_url,
+                    headers=headers,
+                    json=payload,
+                    timeout=timeout
+                )
+                
+                # Success
+                if response.status_code == 200:
+                    return response
+                
+                # Rate limit (429) - retry with exponential backoff
+                if response.status_code == 429:
+                    retry_after = _parse_retry_after(response.headers.get("retry-after"))
+                    delay = max(retry_after, base_delay * (2 ** attempt))
+                    delay = min(delay, max_delay)
+                    
+                    if attempt < max_retries - 1:
+                        logger.warning(
+                            f"Anthropic API rate limited (429). "
+                            f"Retry {attempt + 1}/{max_retries} after {delay:.1f}s. "
+                            f"Retry-After header: {retry_after}s"
+                        )
+                        await asyncio.sleep(delay)
+                        continue
+                    else:
+                        error_detail = response.text
+                        logger.error(f"Anthropic API rate limit exceeded after {max_retries} attempts: {error_detail}")
+                        raise HTTPException(
+                            status_code=429,
+                            detail=f"Anthropic API rate limit exceeded: {error_detail}"
+                        )
+                
+                # Other errors - retry with exponential backoff for 5xx, fail fast for 4xx
+                if 500 <= response.status_code < 600:
+                    delay = min(base_delay * (2 ** attempt), max_delay)
+                    if attempt < max_retries - 1:
+                        error_detail = response.text
+                        logger.warning(
+                            f"Anthropic API server error ({response.status_code}). "
+                            f"Retry {attempt + 1}/{max_retries} after {delay:.1f}s: {error_detail}"
+                        )
+                        await asyncio.sleep(delay)
+                        continue
+                
+                # Client errors (4xx) - don't retry
+                error_detail = response.text
+                logger.error(f"Anthropic API client error ({response.status_code}): {error_detail}")
+                raise HTTPException(
+                    status_code=response.status_code,
+                    detail=f"Anthropic API error: {error_detail}"
+                )
+                
+            except httpx.TimeoutException as e:
+                delay = min(base_delay * (2 ** attempt), max_delay)
+                if attempt < max_retries - 1:
+                    logger.warning(
+                        f"Anthropic API timeout. Retry {attempt + 1}/{max_retries} after {delay:.1f}s"
+                    )
+                    await asyncio.sleep(delay)
+                    last_exception = e
+                    continue
+                raise HTTPException(
+                    status_code=504,
+                    detail=f"Anthropic API timeout after {max_retries} attempts"
+                ) from e
+                
+            except Exception as e:
+                delay = min(base_delay * (2 ** attempt), max_delay)
+                if attempt < max_retries - 1:
+                    logger.warning(
+                        f"Anthropic API error: {e}. Retry {attempt + 1}/{max_retries} after {delay:.1f}s"
+                    )
+                    await asyncio.sleep(delay)
+                    last_exception = e
+                    continue
+                raise HTTPException(
+                    status_code=500,
+                    detail=f"Anthropic API error after {max_retries} attempts: {str(e)}"
+                ) from e
+    
+    # Should not reach here, but handle edge case
+    if last_exception:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Anthropic API failed after {max_retries} attempts"
+        )
+    raise HTTPException(
+        status_code=500,
+        detail=f"Anthropic API failed after {max_retries} attempts"
+    )
+
+
+def _get_lmstudio_settings() -> Dict[str, Any]:
+    """
+    Get recommended LMStudio settings for deterministic scoring.
+    
+    Settings can be overridden via environment variables:
+    - LMSTUDIO_TEMPERATURE (default: 0.15)
+    - LMSTUDIO_TOP_P (default: 0.9)
+    - LMSTUDIO_SEED (default: 42 for deterministic scoring)
+    
+    Note: Quantization (Q4_K_M, Q6_K, Q8_0) must be set in LMStudio UI
+    when loading the model - cannot be controlled via API.
+    """
+    return {
+        "temperature": float(os.getenv("LMSTUDIO_TEMPERATURE", "0.15")),
+        "top_p": float(os.getenv("LMSTUDIO_TOP_P", "0.9")),
+        "seed": int(os.getenv("LMSTUDIO_SEED", "42")) if os.getenv("LMSTUDIO_SEED") else None,
+    }
 
 
 def _lmstudio_url_candidates() -> List[str]:
@@ -660,40 +828,32 @@ async def api_rank_with_gpt4o(article_id: int, request: Request):
                 model_used = 'chatgpt'
                 model_name = 'gpt-4o'
         elif ai_model == 'anthropic':
-            # Use Anthropic API
+            # Use Anthropic API with rate limit handling
             anthropic_api_url = os.getenv('ANTHROPIC_API_URL', 'https://api.anthropic.com/v1/messages')
             
-            async with httpx.AsyncClient() as client:
-                response = await client.post(
-                    anthropic_api_url,
-                    headers={
-                        "x-api-key": api_key,
-                        "Content-Type": "application/json",
-                        "anthropic-version": "2023-06-01"
-                    },
-                    json={
-                        "model": "claude-sonnet-4-5",
-                        "max_tokens": 2000,
-                        "temperature": 0.3,
-                        "messages": [
-                            {
-                                "role": "user",
-                                "content": sigma_prompt
-                            }
-                        ]
-                    },
-                    timeout=60.0
-                )
-                
-                if response.status_code != 200:
-                    error_detail = response.text
-                    logger.error(f"Anthropic API error: {error_detail}")
-                    raise HTTPException(status_code=500, detail=f"Anthropic API error: {error_detail}")
-                
-                result = response.json()
-                analysis = result['content'][0]['text']
-                model_used = 'anthropic'
-                model_name = 'claude-sonnet-4-5'
+            payload = {
+                "model": "claude-sonnet-4-5",
+                "max_tokens": 2000,
+                "temperature": 0.3,
+                "messages": [
+                    {
+                        "role": "user",
+                        "content": sigma_prompt
+                    }
+                ]
+            }
+            
+            response = await _call_anthropic_with_retry(
+                api_key=api_key,
+                payload=payload,
+                anthropic_api_url=anthropic_api_url,
+                timeout=60.0
+            )
+            
+            result = response.json()
+            analysis = result['content'][0]['text']
+            model_used = 'anthropic'
+            model_name = 'claude-sonnet-4-5'
         elif ai_model == 'tinyllama':
             # Use Ollama API with TinyLlama model
             ollama_url = os.getenv('LLM_API_URL', 'http://cti_ollama:11434')
@@ -744,8 +904,9 @@ async def api_rank_with_gpt4o(article_id: int, request: Request):
                     logger.error(f"TinyLlama API request failed: {e}")
                     raise HTTPException(status_code=500, detail=f"Failed to get ranking from TinyLlama: {str(e)}")
         elif ai_model == 'lmstudio':
-            # Use LMStudio API
+            # Use LMStudio API with recommended settings
             lmstudio_model = os.getenv("LMSTUDIO_MODEL", "llama-3.2-1b-instruct")
+            lmstudio_settings = _get_lmstudio_settings()
             
             payload = {
                 "model": lmstudio_model,
@@ -756,8 +917,11 @@ async def api_rank_with_gpt4o(article_id: int, request: Request):
                     }
                 ],
                 "max_tokens": 2000,
-                "temperature": 0.3
+                "temperature": lmstudio_settings["temperature"],
+                "top_p": lmstudio_settings["top_p"],
             }
+            if lmstudio_settings["seed"] is not None:
+                payload["seed"] = lmstudio_settings["seed"]
 
             result = await _post_lmstudio_chat(
                 payload,
@@ -1493,6 +1657,7 @@ async def api_generate_sigma(article_id: int, request: Request):
                 # Use LMStudio API
                 lmstudio_model = await _get_current_lmstudio_model()
 
+                lmstudio_settings = _get_lmstudio_settings()
                 payload = {
                     "model": lmstudio_model,
                     "messages": [
@@ -1506,8 +1671,11 @@ async def api_generate_sigma(article_id: int, request: Request):
                         }
                     ],
                     "max_tokens": 800,  # Reduced for small models - enough for 1 SIGMA rule
-                    "temperature": 0.2
+                    "temperature": lmstudio_settings["temperature"],
+                    "top_p": lmstudio_settings["top_p"],
                 }
+                if lmstudio_settings["seed"] is not None:
+                    payload["seed"] = lmstudio_settings["seed"]
 
                 result = await _post_lmstudio_chat(
                     payload,
@@ -1999,7 +2167,7 @@ def calculate_semantic_overlap(generated_rule: Dict, sigmahq_rule: Dict) -> Dict
 
 
 @router.get("/{article_id}/sigma-matches")
-async def api_get_sigma_matches(article_id: int, llm_provider: str = "auto"):
+async def api_get_sigma_matches(article_id: int, llm_provider: str = "auto", force: bool = False):
     """
     Get Sigma rule matches by comparing generated SIGMA rules to embedded SigmaHQ rules.
 
@@ -2021,6 +2189,18 @@ async def api_get_sigma_matches(article_id: int, llm_provider: str = "auto"):
         if not article:
             raise HTTPException(status_code=404, detail=f"Article {article_id} not found")
         
+        # OPTIONAL CACHE: If not forcing, return cached matches from article metadata when available
+        if not force and article.article_metadata and article.article_metadata.get('sigma_similar_cache'):
+            cached = article.article_metadata.get('sigma_similar_cache')
+            return {
+                "success": True,
+                "matches": cached.get('matches', []),
+                "coverage_summary": cached.get('coverage_summary', {
+                    "covered": 0, "extend": 0, "new": 0, "total": 0
+                }),
+                "cached": True,
+            }
+
         # Get generated SIGMA rules from article metadata
         generated_rules = []
         if article.article_metadata and article.article_metadata.get('sigma_rules'):
@@ -2178,8 +2358,15 @@ async def api_get_sigma_matches(article_id: int, llm_provider: str = "auto"):
                 if '_generated_rule' in match:
                     del match['_generated_rule']
 
-            # Return matches
-            return {
+            # Prepare response
+            # Derive LLM model used for rerank if present in matches
+            llm_model_used = None
+            for m in matches:
+                if m.get('similarity_method') == 'llm_reranked' and m.get('llm_model'):
+                    llm_model_used = m.get('llm_model')
+                    break
+
+            result = {
                 "success": True,
                 "matches": matches,
                 "coverage_summary": {
@@ -2187,8 +2374,27 @@ async def api_get_sigma_matches(article_id: int, llm_provider: str = "auto"):
                     "extend": len([m for m in matches if m.get('coverage_status') == 'extend']),
                     "new": len([m for m in matches if m.get('coverage_status') == 'new']),
                     "total": len(matches)
-                }
+                },
+                "llm_model": llm_model_used
             }
+
+            # Save cache to article metadata (server-side) for subsequent fast displays
+            try:
+                current_metadata = article.article_metadata or {}
+                current_metadata['sigma_similar_cache'] = {
+                    'matches': result['matches'],
+                    'coverage_summary': result['coverage_summary'],
+                    'cached_at': datetime.now().isoformat(),
+                    'llm_provider': llm_provider,
+                    'llm_model': llm_model_used,
+                }
+                from src.models.article import ArticleUpdate
+                update_data = ArticleUpdate(article_metadata=current_metadata)
+                await async_db_manager.update_article(article_id, update_data)
+            except Exception as cache_err:
+                logger.debug(f"Sigma similar cache save skipped: {cache_err}")
+
+            return result
         finally:
             session.close()
         
@@ -2398,37 +2604,31 @@ Please provide a detailed analysis based on the article content and the user's r
         
         # Call the appropriate AI API
         if ai_model == 'anthropic':
-            # Use Anthropic API
-            async with httpx.AsyncClient() as client:
-                response = await client.post(
-                    "https://api.anthropic.com/v1/messages",
-                    headers={
-                        "x-api-key": api_key,
-                        "Content-Type": "application/json",
-                        "anthropic-version": "2023-06-01"
-                    },
-                    json={
-                        "model": "claude-sonnet-4-5",
-                        "max_tokens": 2000,
-                        "messages": [
-                            {
-                                "role": "user",
-                                "content": full_prompt
-                            }
-                        ]
-                    },
-                    timeout=60.0
-                )
-                
-                if response.status_code != 200:
-                    error_detail = response.text
-                    logger.error(f"Anthropic API error: {error_detail}")
-                    raise HTTPException(status_code=500, detail=f"Anthropic API error: {error_detail}")
-                
-                result = response.json()
-                analysis = result['content'][0]['text']
-                model_used = 'anthropic'
-                model_name = 'claude-sonnet-4-5'
+            # Use Anthropic API with rate limit handling
+            anthropic_api_url = os.getenv('ANTHROPIC_API_URL', 'https://api.anthropic.com/v1/messages')
+            
+            payload = {
+                "model": "claude-sonnet-4-5",
+                "max_tokens": 2000,
+                "messages": [
+                    {
+                        "role": "user",
+                        "content": full_prompt
+                    }
+                ]
+            }
+            
+            response = await _call_anthropic_with_retry(
+                api_key=api_key,
+                payload=payload,
+                anthropic_api_url=anthropic_api_url,
+                timeout=60.0
+            )
+            
+            result = response.json()
+            analysis = result['content'][0]['text']
+            model_used = 'anthropic'
+            model_name = 'claude-sonnet-4-5'
         elif ai_model == 'ollama':
             # Use Ollama API
             ollama_url = os.getenv('LLM_API_URL', 'http://cti_ollama:11434')
@@ -2489,6 +2689,7 @@ Please provide a detailed analysis based on the article content and the user's r
             # Use LMStudio API
             lmstudio_model = os.getenv("LMSTUDIO_MODEL", "llama-3.2-1b-instruct")
 
+            lmstudio_settings = _get_lmstudio_settings()
             payload = {
                 "model": lmstudio_model,
                 "messages": [
@@ -2498,8 +2699,11 @@ Please provide a detailed analysis based on the article content and the user's r
                     }
                 ],
                 "max_tokens": 2000,
-                "temperature": 0.3
+                "temperature": lmstudio_settings["temperature"],
+                "top_p": lmstudio_settings["top_p"],
             }
+            if lmstudio_settings["seed"] is not None:
+                payload["seed"] = lmstudio_settings["seed"]
 
             result = await _post_lmstudio_chat(
                 payload,
