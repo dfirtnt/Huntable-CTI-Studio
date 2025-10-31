@@ -59,7 +59,14 @@
 | `test_search_parser.py` | 15 | ⏭️ Skipped | Search functionality |
 | `test_web_application.py` | 10 | ⏭️ Skipped | Web application logic |
 
-### UI Tests (5 files, 61 tests)
+### Playwright Tests (TypeScript/JavaScript) (2 files)
+
+| File | Tests | Status | Description |
+|------|-------|--------|-------------|
+| `playwright/sigma.spec.ts` | 2 | ✅ Passing | SIGMA generation with LMStudio |
+| `test_help_buttons.spec.js` | 1 | ✅ Passing | Help button visibility in AI/ML modals |
+
+### UI Tests (6 files, 70 tests)
 
 | File | Tests | Status | Description |
 |------|-------|--------|-------------|
@@ -68,6 +75,7 @@
 | `test_article_classification.py` | 15 | ✅ Passing | Article classification UI |
 | `test_collect_now_button.py` | 9 | ✅ Passing | Collection button functionality |
 | `test_health_page.py` | 9 | ✅ Passing | Health monitoring page |
+| `test_prompt_sync_ui.py` | 9 | ✅ Passing | Prompt sync (help modals vs prompt files) |
 
 ### Integration Tests (4 files, 46 tests)
 
@@ -97,7 +105,8 @@
 - **AI Assistant Tests**: 36 tests (Priority 1 implementation)
 - **Core Functionality**: 222 tests (previously fixed)
 - **Service/Utility Tests**: 142 tests (chunk analysis, prompt loader, query safety, simhash, model evaluation)
-- **UI Tests**: 61 tests (all working)
+- **Playwright Tests**: 3 tests (help buttons, SIGMA generation)
+- **UI Tests**: 70 tests (prompt sync, help pages, workflows - all working)
 - **Integration Tests**: 46 tests (all working)
 - **API Tests**: 33 tests (all working)
 - **E2E Tests**: 13 tests (all working)
