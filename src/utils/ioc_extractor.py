@@ -158,30 +158,40 @@ Output format (return ONLY this JSON structure):
             # Route to appropriate API based on model
             async with httpx.AsyncClient() as client:
                 if ai_model == 'lmstudio':
-                    # Use LMStudio API
+                    # Use LMStudio API with recommended settings
                     lmstudio_url = os.getenv("LMSTUDIO_API_URL", "http://host.docker.internal:1234/v1")
                     lmstudio_model = os.getenv("LMSTUDIO_MODEL", "llama-3.2-1b-instruct")
+                    
+                    # Get recommended settings (temperature 0.15, top_p 0.9, seed 42)
+                    temperature = float(os.getenv("LMSTUDIO_TEMPERATURE", "0.15"))
+                    top_p = float(os.getenv("LMSTUDIO_TOP_P", "0.9"))
+                    seed = int(os.getenv("LMSTUDIO_SEED", "42")) if os.getenv("LMSTUDIO_SEED") else None
+                    
+                    payload = {
+                        "model": lmstudio_model,
+                        "messages": [
+                            {
+                                "role": "system",
+                                "content": "You are a cybersecurity analyst specializing in IOC validation. Validate and categorize IOCs from threat intelligence articles and return them in valid JSON format only. NEVER include explanatory text, comments, or markdown formatting. Return ONLY the JSON object."
+                            },
+                            {
+                                "role": "user",
+                                "content": prompt
+                            }
+                        ],
+                        "max_tokens": 2048,
+                        "temperature": temperature,
+                        "top_p": top_p,
+                    }
+                    if seed is not None:
+                        payload["seed"] = seed
                     
                     response = await client.post(
                         f"{lmstudio_url}/chat/completions",
                         headers={
                             "Content-Type": "application/json"
                         },
-                        json={
-                            "model": lmstudio_model,
-                            "messages": [
-                                {
-                                    "role": "system",
-                                    "content": "You are a cybersecurity analyst specializing in IOC validation. Validate and categorize IOCs from threat intelligence articles and return them in valid JSON format only. NEVER include explanatory text, comments, or markdown formatting. Return ONLY the JSON object."
-                                },
-                                {
-                                    "role": "user",
-                                    "content": prompt
-                                }
-                            ],
-                            "max_tokens": 2048,
-                            "temperature": 0.1
-                        },
+                        json=payload,
                         timeout=120.0
                     )
                 elif ai_model in ['ollama', 'tinyllama']:
