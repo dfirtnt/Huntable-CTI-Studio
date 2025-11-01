@@ -104,12 +104,39 @@ async def _scrape_single_url(url: str, title: Optional[str], force_scrape: bool)
     # Store directly using sync manager (proven to work)
     from src.database.manager import DatabaseManager
     from src.models.article import ArticleCreate
+    from src.database.models import SourceTable, ArticleTable
+    from sqlalchemy import func
     
     sync_db_manager = DatabaseManager()
     
+    # Get or create manual source
+    with sync_db_manager.get_session() as session:
+        # Look for manual source (case-insensitive)
+        manual_source = session.query(SourceTable).filter(
+            func.lower(SourceTable.name).like('%manual%')
+        ).first()
+        
+        if not manual_source:
+            # Create manual source if it doesn't exist
+            manual_source = SourceTable(
+                identifier='manual',
+                name='Manual',
+                url='manual://scraped',
+                rss_url=None,
+                check_frequency=3600,
+                lookback_days=180,
+                active=True,
+                config={}
+            )
+            session.add(manual_source)
+            session.commit()
+            session.refresh(manual_source)
+            logger.info(f"Created manual source with ID: {manual_source.id}")
+        
+        manual_source_id = manual_source.id
+    
     # Check for existing URL if force_scrape is False
     if not force_scrape:
-        from src.database.models import ArticleTable
         with sync_db_manager.get_session() as session:
             existing = session.query(ArticleTable).filter(
                 ArticleTable.canonical_url == url,
@@ -126,7 +153,7 @@ async def _scrape_single_url(url: str, title: Optional[str], force_scrape: bool)
                 }
     
     article_data = ArticleCreate(
-        source_id=-1,
+        source_id=manual_source_id,
         canonical_url=url,
         title=extracted_title,
         published_at=datetime.utcnow(),
