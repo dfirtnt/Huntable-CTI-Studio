@@ -45,13 +45,66 @@
         </div>
     </div>
 
-    <!-- Filters -->
+    <!-- Filters & Sorting -->
     <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-8">
-        <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">🔍 Filters & Search</h2>
-        <form method="GET" class="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">🔍 Filters, Search & Sorting</h2>
+        <form method="GET">
             <!-- Hidden inputs to preserve sort parameters -->
             <input type="hidden" name="sort_by" value="{{ filters.sort_by or 'published_at' }}">
             <input type="hidden" name="sort_order" value="{{ filters.sort_order or 'desc' }}">
+            
+            <!-- Sorting Controls Row -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6 pb-4 border-b border-gray-200 dark:border-gray-700">
+                <!-- Sort By -->
+                <div>
+                    <label for="sort-by" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Sort By</label>
+                    <select name="sort_by" id="sort-by" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-sm">
+                        <option value="discovered_at" {% if filters.sort_by == 'discovered_at' %}selected{% endif %}>Discovery Date</option>
+                        <option value="published_at" {% if filters.sort_by == 'published_at' %}selected{% endif %}>Publication Date</option>
+                        <option value="title" {% if filters.sort_by == 'title' %}selected{% endif %}>Title</option>
+                        <option value="source_id" {% if filters.sort_by == 'source_id' %}selected{% endif %}>Source</option>
+                        <option value="threat_hunting_score" {% if filters.sort_by == 'threat_hunting_score' %}selected{% endif %}>Threat Hunting Score</option>
+                        <option value="annotation_count" {% if filters.sort_by == 'annotation_count' %}selected{% endif %}>Annotation Count</option>
+                        <option value="word_count" {% if filters.sort_by == 'word_count' %}selected{% endif %}>Word Count</option>
+                        <option value="id" {% if filters.sort_by == 'id' %}selected{% endif %}>Article ID</option>
+                    </select>
+                </div>
+                
+                <!-- Sort Order -->
+                <div>
+                    <label for="sort-order" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Order</label>
+                    <select name="sort_order" id="sort-order" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-sm">
+                        <option value="desc" {% if filters.sort_order == 'desc' %}selected{% endif %}>Desc</option>
+                        <option value="asc" {% if filters.sort_order == 'asc' %}selected{% endif %}>Asc</option>
+                    </select>
+                </div>
+                
+                <!-- Article Classification Stats (compact) -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Classification Summary</label>
+                    <div class="grid grid-cols-4 gap-2 pt-2">
+                        <div class="text-center p-2 bg-blue-50 dark:bg-blue-900/20 rounded">
+                            <div class="text-xs text-gray-600 dark:text-gray-400">Total</div>
+                            <div class="text-sm font-semibold text-blue-700 dark:text-blue-400">{{ pagination.total_articles }}</div>
+                        </div>
+                        <div class="text-center p-2 bg-green-50 dark:bg-green-900/20 rounded">
+                            <div class="text-xs text-gray-600 dark:text-gray-400">Chosen</div>
+                            <div class="text-sm font-semibold text-green-700 dark:text-green-400">{{ stats.chosen_count }}</div>
+                        </div>
+                        <div class="text-center p-2 bg-red-50 dark:bg-red-900/20 rounded">
+                            <div class="text-xs text-gray-600 dark:text-gray-400">Rejected</div>
+                            <div class="text-sm font-semibold text-red-700 dark:text-red-400">{{ stats.rejected_count }}</div>
+                        </div>
+                        <div class="text-center p-2 bg-yellow-50 dark:bg-yellow-900/20 rounded">
+                            <div class="text-xs text-gray-600 dark:text-gray-400">Pending</div>
+                            <div class="text-sm font-semibold text-yellow-700 dark:text-yellow-400">{{ stats.unclassified_count }}</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Filter Controls Row -->
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
             
             <!-- Search -->
             <div>
@@ -190,6 +243,7 @@
                     <option value="60-100" {% if filters.threat_hunting_range == "60-100" %}selected{% endif %}>⭐ High Quality (60+)</option>
                 </select>
             </div>
+            </div>
         </form>
 
         <!-- Save Default Filters Button -->
@@ -229,77 +283,6 @@
         </div>
         {% endif %}
 
-        <!-- Article Classification Statistics -->
-        <div class="mt-4 p-4 bg-white border border-gray-200 rounded-lg">
-            <h4 class="text-sm font-medium text-gray-900 mb-3">Article Classification</h4>
-            <div class="grid grid-cols-4 gap-4">
-                <div class="text-center">
-                    <div class="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-1">
-                        <span class="text-blue-600 text-xs">📰</span>
-                    </div>
-                    <div class="text-xs text-gray-600">Total Articles</div>
-                    <div class="text-sm font-medium text-gray-900">{{ pagination.total_articles }}</div>
-                </div>
-                <div class="text-center">
-                    <div class="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-1">
-                        <span class="text-green-600 text-xs">✅</span>
-                    </div>
-                    <div class="text-xs text-gray-600">Chosen</div>
-                    <div class="text-sm font-medium text-gray-900">{{ stats.chosen_count }}</div>
-                </div>
-                <div class="text-center">
-                    <div class="w-8 h-8 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-1">
-                        <span class="text-red-600 text-xs">❌</span>
-                    </div>
-                    <div class="text-xs text-gray-600">Rejected</div>
-                    <div class="text-sm font-medium text-gray-900">{{ stats.rejected_count }}</div>
-                </div>
-                <div class="text-center">
-                    <div class="w-8 h-8 bg-yellow-100 rounded-full flex items-center justify-center mx-auto mb-1">
-                        <span class="text-yellow-600 text-xs">⏳</span>
-                    </div>
-                    <div class="text-xs text-gray-600">Unclassified</div>
-                    <div class="text-sm font-medium text-gray-900">{{ stats.unclassified_count }}</div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Sorting Controls -->
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-8">
-        <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">📊 Sort Articles</h2>
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <!-- Sort By -->
-            <div>
-                <label for="sort-by" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Sort By</label>
-                <select name="sort_by" id="sort-by" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-sm">
-                    <option value="discovered_at" {% if filters.sort_by == 'discovered_at' %}selected{% endif %}>Discovery Date</option>
-                    <option value="published_at" {% if filters.sort_by == 'published_at' %}selected{% endif %}>Publication Date</option>
-                    <option value="title" {% if filters.sort_by == 'title' %}selected{% endif %}>Title</option>
-                    <option value="source_id" {% if filters.sort_by == 'source_id' %}selected{% endif %}>Source</option>
-                    <option value="threat_hunting_score" {% if filters.sort_by == 'threat_hunting_score' %}selected{% endif %}>Threat Hunting Score</option>
-                    <option value="annotation_count" {% if filters.sort_by == 'annotation_count' %}selected{% endif %}>Annotation Count</option>
-                    <option value="word_count" {% if filters.sort_by == 'word_count' %}selected{% endif %}>Word Count</option>
-                    <option value="id" {% if filters.sort_by == 'id' %}selected{% endif %}>Article ID</option>
-                </select>
-            </div>
-            
-            <!-- Sort Order -->
-            <div>
-                <label for="sort-order" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Order</label>
-                <select name="sort_order" id="sort-order" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-sm">
-                    <option value="desc" {% if filters.sort_order == 'desc' %}selected{% endif %}>Desc</option>
-                    <option value="asc" {% if filters.sort_order == 'asc' %}selected{% endif %}>Asc</option>
-                </select>
-            </div>
-            
-            <!-- Apply Button -->
-            <div class="flex items-end">
-                <button type="submit" class="w-full px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
-                    Apply Sorting
-                </button>
-            </div>
-        </div>
     </div>
 
     <!-- Articles List -->
@@ -988,8 +971,8 @@
             search: document.getElementById('search')?.value || '',
             source: document.getElementById('source')?.value || '',
             classification: document.getElementById('classification')?.value || '',
-            threat_hunting_range: document.getElementById('threat-hunting-range')?.value || '',
-            per_page: document.getElementById('per-page')?.value || '100',
+            threat_hunting_range: document.getElementById('threat_hunting_range')?.value || '',
+            per_page: document.getElementById('per_page')?.value || '100',
             sort_by: document.getElementById('sort-by')?.value || 'published_at',
             sort_order: document.getElementById('sort-order')?.value || 'desc',
             title_only: document.getElementById('title-only')?.checked || false
@@ -1020,11 +1003,11 @@
                 if (settings.classification && document.getElementById('classification')) {
                     document.getElementById('classification').value = settings.classification;
                 }
-                if (settings.threat_hunting_range && document.getElementById('threat-hunting-range')) {
-                    document.getElementById('threat-hunting-range').value = settings.threat_hunting_range;
+                if (settings.threat_hunting_range && document.getElementById('threat_hunting_range')) {
+                    document.getElementById('threat_hunting_range').value = settings.threat_hunting_range;
                 }
-                if (settings.per_page && document.getElementById('per-page')) {
-                    document.getElementById('per-page').value = settings.per_page;
+                if (settings.per_page && document.getElementById('per_page')) {
+                    document.getElementById('per_page').value = settings.per_page;
                 }
                 if (settings.sort_by && document.getElementById('sort-by')) {
                     document.getElementById('sort-by').value = settings.sort_by;
@@ -1047,8 +1030,8 @@
             search: document.getElementById('search')?.value || '',
             source: document.getElementById('source')?.value || '',
             classification: document.getElementById('classification')?.value || '',
-            threat_hunting_range: document.getElementById('threat-hunting-range')?.value || '',
-            per_page: document.getElementById('per-page')?.value || '100',
+            threat_hunting_range: document.getElementById('threat_hunting_range')?.value || '',
+            per_page: document.getElementById('per_page')?.value || '100',
             sort_by: document.getElementById('sort-by')?.value || 'published_at',
             sort_order: document.getElementById('sort-order')?.value || 'desc',
             title_only: document.getElementById('title-only')?.checked || false
@@ -1087,17 +1070,33 @@
                 if (settings.classification && document.getElementById('classification')) {
                     document.getElementById('classification').value = settings.classification;
                 }
-                if (settings.threat_hunting_range && document.getElementById('threat-hunting-range')) {
-                    document.getElementById('threat-hunting-range').value = settings.threat_hunting_range;
+                if (settings.threat_hunting_range && document.getElementById('threat_hunting_range')) {
+                    document.getElementById('threat_hunting_range').value = settings.threat_hunting_range;
                 }
-                if (settings.per_page && document.getElementById('per-page')) {
-                    document.getElementById('per-page').value = settings.per_page;
+                if (settings.per_page && document.getElementById('per_page')) {
+                    document.getElementById('per_page').value = settings.per_page;
                 }
-                if (settings.sort_by && document.getElementById('sort-by')) {
-                    document.getElementById('sort-by').value = settings.sort_by;
+                if (settings.sort_by !== undefined) {
+                    const sortByEl = document.getElementById('sort-by');
+                    if (sortByEl) {
+                        sortByEl.value = settings.sort_by;
+                    }
+                    // Update hidden input so form submission uses correct value
+                    const hiddenSortBy = document.querySelector('input[name="sort_by"]');
+                    if (hiddenSortBy) {
+                        hiddenSortBy.value = settings.sort_by;
+                    }
                 }
-                if (settings.sort_order && document.getElementById('sort-order')) {
-                    document.getElementById('sort-order').value = settings.sort_order;
+                if (settings.sort_order !== undefined) {
+                    const sortOrderEl = document.getElementById('sort-order');
+                    if (sortOrderEl) {
+                        sortOrderEl.value = settings.sort_order;
+                    }
+                    // Update hidden input so form submission uses correct value
+                    const hiddenSortOrder = document.querySelector('input[name="sort_order"]');
+                    if (hiddenSortOrder) {
+                        hiddenSortOrder.value = settings.sort_order;
+                    }
                 }
                 if (settings.title_only !== undefined && document.getElementById('title-only')) {
                     document.getElementById('title-only').checked = settings.title_only;
@@ -1144,7 +1143,7 @@
         updateDefaultFiltersIndicator();
         
         // Save settings when form elements change
-        const formElements = ['search', 'source', 'classification', 'threat-hunting-range', 'per-page', 'sort-by', 'sort-order', 'title-only'];
+        const formElements = ['search', 'source', 'classification', 'threat_hunting_range', 'per_page', 'sort-by', 'sort-order', 'title-only'];
         formElements.forEach(id => {
             const element = document.getElementById(id);
             if (element) {
