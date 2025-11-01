@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Model Performance Comparison - Updated with Deepseek</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }
+        .container { max-width: 1200px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        h1 { color: #2c3e50; border-bottom: 3px solid #3498db; padding-bottom: 10px; }
+        h2 { color: #34495e; margin-top: 30px; }
+        .chart { margin: 30px 0; }
+        .bar-container { display: flex; align-items: center; margin: 10px 0; }
+        .label { width: 200px; font-weight: bold; font-size: 12px; }
+        .bar-wrapper { flex: 1; position: relative; height: 30px; background: #ecf0f1; border-radius: 4px; overflow: hidden; }
+        .bar { height: 100%; display: flex; align-items: center; justify-content: flex-end; padding-right: 8px; color: white; font-weight: bold; font-size: 11px; transition: width 0.3s; }
+        .bar.positive { background: linear-gradient(90deg, #2ecc71, #27ae60); }
+        .bar.negative { background: linear-gradient(90deg, #e74c3c, #c0392b); justify-content: flex-start; padding-left: 8px; }
+        .bar.moderate-pos { background: linear-gradient(90deg, #f39c12, #e67e22); }
+        .bar.moderate-neg { background: linear-gradient(90deg, #e67e22, #d35400); }
+        .bar.incomplete { background: repeating-linear-gradient(45deg, #95a5a6, #95a5a6 10px, #7f8c8d 10px, #7f8c8d 20px); opacity: 0.7; }
+        .value { width: 80px; text-align: right; font-family: monospace; font-size: 12px; }
+        .stats { background: #ecf0f1; padding: 15px; border-radius: 4px; margin: 20px 0; }
+        .warning { background: #fff3cd; border-left: 4px solid #ffc107; padding: 10px; margin: 10px 0; }
+        .highlight { background: #d4edda; border-left: 4px solid #28a745; padding: 10px; margin: 10px 0; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Model Performance Comparison vs Composite Median Ground Truth</h1>
+        <p><em>Updated with deepseek-r1-qwen3-8b (131k context) results</em></p>
+        
+        <div class="highlight">
+            <strong>NEW:</strong> deepseek-r1-qwen3-8b ranks <strong>3rd</strong> with correlation +0.293 and MAE 0.67.
+            Best performing 8B model, competitive with larger models!
+        </div>
+        
+        <div class="warning">
+            <strong>Note:</strong> nous-hermes-2-mistral-7b-dpo has incomplete data (5/6 articles completed). 
+            Article 1866 failed to score. Results calculated on 5 valid articles only.
+        </div>
+        
+        <div class="stats">
+            <h3>Summary Statistics</h3>
+            <table style="width: 100%; border-collapse: collapse;">
+                <tr><td style="padding: 5px; border-bottom: 1px solid #ddd;">Ground Truth Method:</td><td style="padding: 5px; border-bottom: 1px solid #ddd;">Composite Median (including deepseek)</td></tr>
+                <tr><td style="padding: 5px; border-bottom: 1px solid #ddd;">Ground Truth:</td><td style="padding: 5px; border-bottom: 1px solid #ddd;">[7.0, 7.0, 7.0, 8.0, 7.0, 7.0]</td></tr>
+                <tr><td style="padding: 5px; border-bottom: 1px solid #ddd;">Best Correlation:</td><td style="padding: 5px; border-bottom: 1px solid #ddd;">Claude Sonnet 3.5 (+0.800)</td></tr>
+                <tr><td style="padding: 5px;">Total Models:</td><td style="padding: 5px;">9 models tested</td></tr>
+            </table>
+        </div>
+
+        <h2>1. Correlation with Composite Median</h2>
+        <div class="chart" id="correlation"></div>
+
+        <h2>2. Mean Absolute Error (Lower is Better)</h2>
+        <div class="chart" id="mae"></div>
+
+        <h2>3. Combined Score (Correlation - MAE/10)</h2>
+        <div class="chart" id="combined"></div>
+    </div>
+
+    <script>
+        const models = ["Claude 3.5", "qwen2.5-32b", "Deepseek-R1", "gpt-oss-20b", "qwen2-7b", "CodeLlama-7b", "GPT4o", "Nous-Hermes", "Mistral-7b"];
+        const correlations = [0.8, 0.447, 0.293, 0.329, 0.0, 0.0, -0.07, -0.503, -0.759];
+        const mae = [0.5, 0.5, 0.67, 3.67, 0.83, 0.83, 2.0, 2.8, 0.67];
+        const combined = [0.75, 0.397, 0.226, -0.038, -0.083, -0.083, -0.27, -0.783, -0.826];
+        const isIncomplete = [false, false, false, false, false, false, false, true, false];
+
+        function getBarClass(val, incomplete) {
+            if (incomplete) return 'incomplete';
+            if (val > 0.5) return 'positive';
+            if (val > 0) return 'moderate-pos';
+            if (val > -0.5) return 'moderate-neg';
+            return 'negative';
+        }
+
+        function createChart(containerId, values, labels, maxVal, minVal, incomplete) {
+            const container = document.getElementById(containerId);
+            const range = maxVal - minVal;
+            
+            values.forEach((val, idx) => {
+                const percentage = val < 0 
+                    ? Math.abs((val - minVal) / range) * 50
+                    : 50 + ((val - 0) / (maxVal - 0)) * 50;
+                
+                const barClass = getBarClass(val, incomplete[idx]);
+                const align = val < 0 ? 'flex-start' : 'flex-end';
+                const padding = val < 0 ? 'padding-left: 8px' : 'padding-right: 8px';
+                const displayVal = val.toFixed(3);
+                const incompleteNote = incomplete[idx] ? ' ⚠️ (5/6 articles)' : '';
+                
+                container.insertAdjacentHTML('beforeend', `
+                    <div class="bar-container">
+                        <div class="label">${labels[idx]}${incompleteNote}</div>
+                        <div class="bar-wrapper">
+                            <div class="bar ${barClass}" style="width: ${Math.abs(percentage - 50) * 2}%; ${val < 0 ? 'margin-left: auto;' : ''} justify-content: ${align}; ${padding};">
+                                ${displayVal}
+                            </div>
+                        </div>
+                        <div class="value">${displayVal}</div>
+                    </div>
+                `);
+            });
+        }
+
+        // Correlation chart
+        createChart('correlation', correlations, models, 1.0, -1.0, isIncomplete);
+
+        // MAE chart
+        const maeMax = Math.max(...mae);
+        mae.forEach((val, idx) => {
+            const container = document.getElementById('mae');
+            const inverted = maeMax - val;
+            const percentage = (inverted / maeMax) * 100;
+            const barClass = isIncomplete[idx] ? 'incomplete' : (val < 1.0 ? 'positive' : val < 2.0 ? 'moderate-pos' : 'moderate-neg');
+            const incompleteNote = isIncomplete[idx] ? ' ⚠️ (5/6 articles)' : '';
+            
+            container.insertAdjacentHTML('beforeend', `
+                <div class="bar-container">
+                    <div class="label">${models[idx]}${incompleteNote}</div>
+                    <div class="bar-wrapper">
+                        <div class="bar ${barClass}" style="width: ${percentage}%;">
+                            ${val.toFixed(2)}
+                        </div>
+                    </div>
+                    <div class="value">${val.toFixed(2)}</div>
+                </div>
+            `);
+        });
+
+        // Combined chart
+        const combinedMax = Math.max(...combined);
+        const combinedMin = Math.min(...combined);
+        createChart('combined', combined, models, combinedMax, combinedMin, isIncomplete);
+    </script>
+</body>
+</html>
