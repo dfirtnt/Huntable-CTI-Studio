@@ -510,7 +510,30 @@ Return JSON array only, no markdown formatting."""
             
             # Canonicalize provider before calling (chatgpt -> openai, etc.)
             canonicalized_provider = llm_service._canonicalize_requested_provider(provider)
+            # Resolve model metadata for attribution
+            try:
+                resolved_model_name = llm_service._get_model_name(canonicalized_provider)
+                resolved_model_display = llm_service._build_model_display(
+                    canonicalized_provider,
+                    resolved_model_name,
+                    provider,
+                )
+            except Exception:
+                resolved_model_name = canonicalized_provider
+                resolved_model_display = canonicalized_provider
             
+            # Capture model details for attribution
+            provider_name = canonicalized_provider
+            model_name = None
+            if canonicalized_provider == "lmstudio":
+                model_name = llm_service.lmstudio_model
+            elif canonicalized_provider == "openai":
+                model_name = "gpt-4o-mini"
+            elif canonicalized_provider == "anthropic":
+                model_name = "claude-sonnet-4-5"
+            elif canonicalized_provider == "ollama":
+                model_name = llm_service.ollama_model
+
             # Call LLM with timeout
             import asyncio
             try:
@@ -540,6 +563,11 @@ Return JSON array only, no markdown formatting."""
                             top_candidates[idx]['similarity'] = float(score_data.get('similarity', top_candidates[idx]['similarity']))
                             top_candidates[idx]['llm_explanation'] = score_data.get('explanation', 'No explanation provided')
                             top_candidates[idx]['similarity_method'] = 'llm_reranked'
+                            top_candidates[idx]['llm_model'] = resolved_model_display
+                            if provider_name:
+                                top_candidates[idx]['llm_provider'] = provider_name
+                            if model_name:
+                                top_candidates[idx]['llm_model'] = model_name
                     
                     # Sort by LLM similarity
                     top_candidates.sort(key=lambda x: x.get('similarity', 0), reverse=True)

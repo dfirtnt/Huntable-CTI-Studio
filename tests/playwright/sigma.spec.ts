@@ -50,6 +50,47 @@ test.describe('SIGMA generation (LMStudio)', () => {
     const errorToast = page.locator('text=Error: Failed to fetch');
     await expect(errorToast).toHaveCount(0);
   });
+
+  test('UI: Similar Rules shows LMStudio attribution (provider and model)', async ({ page }) => {
+    test.setTimeout(240_000);
+    // Set Settings to lmstudio before page scripts run
+    await page.addInitScript(() => {
+      localStorage.setItem('ctiScraperSettings', JSON.stringify({
+        aiModel: 'lmstudio',
+        aiTemperature: '0.2'
+      }));
+    });
+
+    await page.goto(`${BASE}/articles/${ARTICLE_ID}`);
+
+    // Open assistant and show rules (use existing if present)
+    const assistantBtn = page.getByRole('button', { name: '🤖 AL/ML Assistant' });
+    await assistantBtn.click();
+    const displaySigmaBtn = page.getByRole('button', { name: /Display SIGMA Rules|Generate SIGMA Rules/ });
+    await displaySigmaBtn.click();
+
+    // If not generated yet, a regenerate may be required; handle presence of "Regenerate"
+    const regenBtn = page.getByRole('button', { name: '🔄 Regenerate' });
+    if (await regenBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
+      await regenBtn.click();
+      const analyzeBtn = page.getByRole('button', { name: 'Analyze' });
+      await analyzeBtn.click();
+      // Wait for completion banner
+      await page.waitForSelector('text=SIGMA Rules Complete!', { timeout: 120_000 });
+    }
+
+    // Trigger similar rules search (first run)
+    const checkSimilar = page.locator('#checkSimilarRulesBtn');
+    await expect(checkSimilar).toBeVisible({ timeout: 20_000 });
+    await checkSimilar.click();
+
+    // Wait for Similar Rules modal
+    await page.waitForSelector('text=Similar Rules in SigmaHQ Repository', { timeout: 120_000 });
+
+    // Expect LMStudio attribution to appear when reranked by LLM
+    const attribution = page.locator('text=Analysis by: lmstudio');
+    await expect(attribution).toBeVisible({ timeout: 120_000 });
+  });
 });
 
 
