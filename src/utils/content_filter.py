@@ -113,13 +113,17 @@ class ContentFilter:
         
     def _has_perfect_keywords(self, text: str) -> bool:
         """Check if text contains any perfect discriminators using Hunt Scoring system."""
-        from .content import ThreatHuntingScorer
-        
-        # Use Hunt Scoring system to check for perfect discriminators
-        hunt_result = ThreatHuntingScorer.score_threat_hunting_content("Content Filter Analysis", text)
-        perfect_matches = hunt_result.get('perfect_keyword_matches', [])
-        
-        return len(perfect_matches) > 0
+        try:
+            from .content import ThreatHuntingScorer
+            
+            # Use Hunt Scoring system to check for perfect discriminators
+            hunt_result = ThreatHuntingScorer.score_threat_hunting_content("Content Filter Analysis", text)
+            perfect_matches = hunt_result.get('perfect_keyword_matches', [])
+            
+            return len(perfect_matches) > 0
+        except Exception as e:
+            logger.warning(f"Error checking perfect keywords: {e}, falling back to pattern-based only")
+            return False
     
     
     def _load_pattern_rules(self) -> Dict[str, List[str]]:

@@ -2827,6 +2827,22 @@ Please provide a detailed analysis based on the article content and the user's s
         const settings = JSON.parse(localStorage.getItem('ctiScraperSettings') || '{}');
         const aiModel = settings.aiModel || 'chatgpt';
         
+        // Get current LMStudio model name if using LMStudio
+        let lmstudioModelName = null;
+        if (aiModel === 'lmstudio') {
+            try {
+                const lmstudioResponse = await fetch('/api/lmstudio-models');
+                if (lmstudioResponse.ok) {
+                    const lmstudioData = await lmstudioResponse.json();
+                    if (lmstudioData.success && lmstudioData.models && lmstudioData.models.length > 0) {
+                        lmstudioModelName = lmstudioData.models[0];
+                    }
+                }
+            } catch (error) {
+                console.log('Failed to fetch LMStudio model name:', error);
+            }
+        }
+        
         // Check content size limits
         const contentLength = {{ article.content|length if article.content else 0 }};
         const contentLimit = aiModel === 'chatgpt' ? {{ chatgpt_content_limit }} : 
@@ -2835,7 +2851,9 @@ Please provide a detailed analysis based on the article content and the user's s
         if (contentLength > contentLimit) {
             const modelName = aiModel === 'chatgpt' ? 'ChatGPT' : 
                             aiModel === 'anthropic' ? 'Claude' : 
-                            aiModel === 'tinyllama' ? 'TinyLlama' : 'Llama';
+                            aiModel === 'tinyllama' ? 'TinyLlama' :
+                            aiModel === 'lmstudio' ? (lmstudioModelName || 'LMStudio') :
+                            aiModel === 'ollama' ? 'Ollama' : 'LLM';
             showNotification(`Article too large for ${modelName}. Content: ${contentLength.toLocaleString()} chars, limit: ${contentLimit.toLocaleString()} chars.`, 'warning');
             return;
         }
@@ -2847,6 +2865,11 @@ Please provide a detailed analysis based on the article content and the user's s
         // Get threat hunting score for SIGMA warning
         const threatHuntingScore = {{ article.article_metadata.get('threat_hunting_score', 0) if article.article_metadata and article.article_metadata.get('threat_hunting_score') else 0 }};
         const showSigmaWarning = isChosen && threatHuntingScore < 65;
+        
+        // Check if content would pass content filter for Extract Observables
+        // Gate based on threat hunting score (similar to content filter logic)
+        const minHuntScoreForObservables = 30;  // Minimum score to pass content filter
+        const canExtractObservables = threatHuntingScore >= minHuntScoreForObservables;
         
         // Fetch fresh data from API to get current state
         let hasSigmaRules = {{ 'true' if article.article_metadata and article.article_metadata.get('sigma_rules') else 'false' }};
@@ -2895,6 +2918,22 @@ Please provide a detailed analysis based on the article content and the user's s
             (aiModel === 'chatgpt' ? 'Rank with GPT4o' : 
              aiModel === 'anthropic' ? 'Rank with Claude' : 'Rank with LLM');
         
+        // Build model display text
+        let modelDisplayText = '';
+        if (aiModel === 'chatgpt') {
+            modelDisplayText = 'ChatGPT (OpenAI)';
+        } else if (aiModel === 'anthropic') {
+            modelDisplayText = 'Claude (Anthropic)';
+        } else if (aiModel === 'tinyllama') {
+            modelDisplayText = 'TinyLlama (Local Ollama)';
+        } else if (aiModel === 'ollama') {
+            modelDisplayText = 'Ollama (Local)';
+        } else if (aiModel === 'lmstudio') {
+            modelDisplayText = lmstudioModelName ? `LMStudio → ${lmstudioModelName}` : 'LMStudio (Local)';
+        } else {
+            modelDisplayText = 'LLM (Local)';
+        }
+        
         modal.innerHTML = `
             <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
                 <div class="mt-3 text-center">
@@ -2918,6 +2957,15 @@ Please provide a detailed analysis based on the article content and the user's s
                             <span class="mr-2">🔍</span>
                             ${hasIOCs ? 'Display IOCs' : 'Extract IOCs'}
                         </button>
+                        
+                        <button onclick="generateAIAnalysis('observables')" 
+                                class="w-full inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md transition-colors ${canExtractObservables ? 'text-white bg-teal-600 hover:bg-teal-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500' : 'text-gray-400 bg-gray-300 cursor-not-allowed'}"
+                                ${!canExtractObservables ? 'disabled' : ''}
+                                title="${canExtractObservables ? 'Extract IOCs and behavioral observables from this article' : 'Article content did not pass content filter. Requires threat hunting score >= ' + minHuntScoreForObservables + '. Current score: ' + threatHuntingScore}">
+                            <span class="mr-2">🎯</span>
+                            Extract Observables
+                        </button>
+                        ${!canExtractObservables ? '<div class="text-xs text-gray-500 text-center mt-1">⚠️ Content filter check failed (score: ' + threatHuntingScore + '/100)</div>' : ''}
                         
                         <button onclick="generateAIAnalysis('ranking')" 
                                 class="w-full inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors">
@@ -2943,15 +2991,30 @@ Please provide a detailed analysis based on the article content and the user's s
                         </button>
                     </div>
                     
-                    <div class="mt-4 p-2 bg-gray-50 rounded text-xs text-gray-600">
-                        Using: ${aiModel === 'chatgpt' ? 'ChatGPT (OpenAI)' : 
-                               aiModel === 'anthropic' ? 'Claude (Anthropic)' : 
-                               aiModel === 'tinyllama' ? 'TinyLlama (Local)' : 'Llama (Local)'}
+                    <div class="mt-4 p-2 bg-gray-50 rounded text-xs text-gray-600" id="aiModelDisplay">
+                        Using: ${modelDisplayText}
                     </div>
                 </div>
             </div>
         `;
         document.body.appendChild(modal);
+        
+        // If LMStudio and model name wasn't fetched yet, update it asynchronously
+        if (aiModel === 'lmstudio' && !lmstudioModelName) {
+            fetch('/api/lmstudio-models')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success && data.models && data.models.length > 0) {
+                        const modelDisplay = document.getElementById('aiModelDisplay');
+                        if (modelDisplay) {
+                            modelDisplay.textContent = `Using: LMStudio → ${data.models[0]}`;
+                        }
+                    }
+                })
+                .catch(error => {
+                    console.log('Failed to fetch LMStudio model name:', error);
+                });
+        }
     }
     
     function closeAIAssistantModal() {
@@ -3019,6 +3082,17 @@ Please provide a detailed analysis based on the article content and the user's s
                 if (!confirmed) {
                     return;
                 }
+            }
+        }
+        
+        // Check if Extract Observables is allowed (content filter gate)
+        if (type === 'observables') {
+            const threatHuntingScore = {{ article.article_metadata.get('threat_hunting_score', 0) if article.article_metadata and article.article_metadata.get('threat_hunting_score') else 0 }};
+            const minHuntScoreForObservables = 30;
+            
+            if (threatHuntingScore < minHuntScoreForObservables) {
+                showNotification(`Article content did not pass content filter. Requires threat hunting score >= ${minHuntScoreForObservables}. Current score: ${threatHuntingScore}/100.`, 'error');
+                return;
             }
         }
         
@@ -3119,8 +3193,8 @@ Please provide a detailed analysis based on the article content and the user's s
         const operationData = {
             id: operationId,
             type: type,
-            typeText: type === 'sigma' ? 'SIGMA Rules' : type === 'ranking' ? (aiModel === 'chatgpt' ? 'GPT4o Ranking' : 'Local AI Ranking') : 'IOCs',
-            typeIcon: type === 'sigma' ? '🔍' : type === 'ranking' ? '📊' : '🔍',
+            typeText: type === 'sigma' ? 'SIGMA Rules' : type === 'ranking' ? (aiModel === 'chatgpt' ? 'GPT4o Ranking' : 'Local AI Ranking') : type === 'observables' ? 'Observables' : 'IOCs',
+            typeIcon: type === 'sigma' ? '🔍' : type === 'ranking' ? '📊' : type === 'observables' ? '🎯' : '🔍',
             articleId: articleId,
             articleTitle: {{ article.title | tojson }},
             startedAt: Date.now(),
@@ -3175,7 +3249,7 @@ Please provide a detailed analysis based on the article content and the user's s
                         </svg>
                     </div>
                     <h3 class="text-lg font-medium text-gray-900 mt-4">${typeIcon} ${type === 'sigma' ? 'Generating' : type === 'ranking' ? 'Generating' : 'Extracting'} ${typeText}...</h3>
-                    <p class="text-sm text-gray-500 mt-2">${type === 'sigma' ? 'Creating detection rules' : type === 'ranking' ? (aiModel === 'chatgpt' ? 'Analyzing content with GPT-4o' : 'Analyzing content with local AI') : 'Extracting indicators of compromise'} - this may take a few moments.</p>
+                    <p class="text-sm text-gray-500 mt-2">${type === 'sigma' ? 'Creating detection rules' : type === 'ranking' ? (aiModel === 'chatgpt' ? 'Analyzing content with GPT-4o' : 'Analyzing content with local AI') : type === 'observables' ? 'Extracting IOCs and behavioral observables' : 'Extracting indicators of compromise'} - this may take a few moments.</p>
                     <p class="text-xs text-gray-400 mt-3">💡 Press <kbd class="px-1 py-0.5 bg-gray-200 rounded text-xs">ESC</kbd> to leave while generation continues</p>
                 </div>
             </div>
@@ -3190,7 +3264,7 @@ Please provide a detailed analysis based on the article content and the user's s
             });
             
             // Create the fetch promise
-            const endpoint = type === 'sigma' ? 'generate-sigma' : type === 'ranking' ? 'rank-with-gpt4o' : 'extract-iocs';
+            const endpoint = type === 'sigma' ? 'generate-sigma' : type === 'ranking' ? 'rank-with-gpt4o' : type === 'observables' ? 'extract-observables' : 'extract-iocs';
             
             // Prepare request body
             const requestBody = {
@@ -3234,9 +3308,9 @@ Please provide a detailed analysis based on the article content and the user's s
             }
             
             // Add optimization options for ranking, sigma, and IOC extraction with LLM validation
-            // Only show optimization dialog for cloud models to prevent UI hanging
+            // Show optimization dialog for cloud models (for all features) and for IOC extraction with LLM validation (all models)
             const shouldShowOptimization = (type === 'ranking' || type === 'sigma' || 
-                (type === 'iocs' && useLLMValidation && ['chatgpt', 'anthropic'].includes(aiModel)));
+                (type === 'iocs' && useLLMValidation));
             
             console.log('shouldShowOptimization:', shouldShowOptimization, 'type:', type, 'useLLMValidation:', useLLMValidation, 'aiModel:', aiModel);
             
@@ -3347,6 +3421,9 @@ Please provide a detailed analysis based on the article content and the user's s
 
                     // Automatically show the new rules
                     setTimeout(() => showSigmaRulesModal(data.rules, data), 500);
+                } else if (type === 'observables' && data.extraction) {
+                    // Automatically show the extracted observables
+                    setTimeout(() => showObservablesModal(data.extraction, data), 500);
                 }
             } else {
                 const error = await response.json();
@@ -4567,6 +4644,117 @@ Please provide a detailed analysis based on the article content and the user's s
         }
     }
     
+    function showObservablesModal(extractionData, data) {
+        // Remove any existing modal
+        closeObservablesModal();
+        
+        const modal = document.createElement('div');
+        modal.id = 'observablesModal';
+        modal.className = 'fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50';
+        
+        // Add click outside to close
+        modal.addEventListener('click', function(e) {
+            if (e.target === modal) {
+                closeObservablesModal();
+            }
+        });
+        
+        // Add ESC key to close
+        const handleEsc = function(e) {
+            if (e.key === 'Escape') {
+                closeObservablesModal();
+                document.removeEventListener('keydown', handleEsc);
+            }
+        };
+        document.addEventListener('keydown', handleEsc);
+        
+        const metadata = extractionData?.metadata || {};
+        const atomicCount = metadata.atomic_count || 0;
+        const behavioralCount = metadata.behavioral_count || 0;
+        const totalCount = metadata.observable_count || 0;
+        
+        const atomicIOCs = extractionData?.atomic_iocs || {};
+        const behavioralObs = extractionData?.behavioral_observables || {};
+        
+        modal.innerHTML = `
+            <div class="relative top-10 mx-auto p-5 border w-11/12 max-w-6xl shadow-lg rounded-md bg-white">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-lg font-medium text-gray-900">🎯 Extracted Observables</h3>
+                    <button onclick="closeObservablesModal()" class="text-gray-400 hover:text-gray-600">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </button>
+                </div>
+                
+                <div class="mb-4 grid grid-cols-3 gap-4">
+                    <div class="bg-blue-50 p-3 rounded border border-blue-200">
+                        <div class="text-sm text-blue-600 font-medium">Atomic IOCs</div>
+                        <div class="text-2xl font-bold text-blue-900">${atomicCount}</div>
+                    </div>
+                    <div class="bg-green-50 p-3 rounded border border-green-200">
+                        <div class="text-sm text-green-600 font-medium">Behavioral</div>
+                        <div class="text-2xl font-bold text-green-900">${behavioralCount}</div>
+                    </div>
+                    <div class="bg-purple-50 p-3 rounded border border-purple-200">
+                        <div class="text-sm text-purple-600 font-medium">Total</div>
+                        <div class="text-2xl font-bold text-purple-900">${totalCount}</div>
+                    </div>
+                </div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="bg-white border rounded-lg p-4">
+                        <h4 class="font-medium text-gray-900 mb-3 text-blue-600">📌 Atomic IOCs</h4>
+                        ${Object.keys(atomicIOCs).filter(k => atomicIOCs[k] && atomicIOCs[k].length > 0).length > 0 ? `
+                        <div class="space-y-3 max-h-96 overflow-y-auto">
+                            ${Object.entries(atomicIOCs).filter(([k, v]) => v && v.length > 0).map(([category, items]) => `
+                            <div class="mb-4">
+                                <h5 class="font-medium text-gray-700 mb-2 capitalize text-sm">${category.replace(/_/g, ' ')} (${items.length})</h5>
+                                <ul class="text-sm text-gray-700 space-y-1">
+                                    ${items.slice(0, 10).map(item => `<li class="font-mono text-xs bg-gray-50 px-2 py-1 rounded break-all">${item}</li>`).join('')}
+                                    ${items.length > 10 ? `<li class="text-xs text-gray-500 italic">... and ${items.length - 10} more</li>` : ''}
+                                </ul>
+                            </div>
+                            `).join('')}
+                        </div>
+                        ` : '<p class="text-gray-500 text-sm">No atomic IOCs found</p>'}
+                    </div>
+                    
+                    <div class="bg-white border rounded-lg p-4">
+                        <h4 class="font-medium text-gray-900 mb-3 text-green-600">⚙️ Behavioral Observables</h4>
+                        ${Object.keys(behavioralObs).filter(k => behavioralObs[k] && behavioralObs[k].length > 0).length > 0 ? `
+                        <div class="space-y-3 max-h-96 overflow-y-auto">
+                            ${Object.entries(behavioralObs).filter(([k, v]) => v && v.length > 0).map(([category, items]) => `
+                            <div class="mb-4">
+                                <h5 class="font-medium text-gray-700 mb-2 capitalize text-sm">${category.replace(/_/g, ' ')} (${items.length})</h5>
+                                <ul class="text-sm text-gray-700 space-y-1">
+                                    ${items.slice(0, 10).map(item => `<li class="font-mono text-xs bg-gray-50 px-2 py-1 rounded break-all">${item}</li>`).join('')}
+                                    ${items.length > 10 ? `<li class="text-xs text-gray-500 italic">... and ${items.length - 10} more</li>` : ''}
+                                </ul>
+                            </div>
+                            `).join('')}
+                        </div>
+                        ` : '<p class="text-gray-500 text-sm">No behavioral observables found</p>'}
+                    </div>
+                </div>
+                
+                <div class="mt-4 flex justify-end">
+                    <button onclick="closeObservablesModal()" class="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700">
+                        Close
+                    </button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+    }
+    
+    function closeObservablesModal() {
+        const modal = document.getElementById('observablesModal');
+        if (modal) {
+            modal.remove();
+        }
+    }
+    
     function showIOCsModal(iocsJson, data) {
         // Remove any existing modal
         closeIOCsModal();
@@ -4725,7 +4913,7 @@ Please provide a detailed analysis based on the article content and the user's s
                                 </svg>
                                 <div class="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-50" style="width: 280px; white-space: normal;">
                                     <div>
-                                        <strong>LLM Validation:</strong> Uses AI to validate and categorize IOCs, removing false positives and improving accuracy. Requires API key.
+                                        <strong>LLM Validation:</strong> Uses AI to validate and categorize IOCs, removing false positives and improving accuracy. API key required only for cloud models (OpenAI, Anthropic); local models (LMStudio, Ollama) work without API keys.
                                     </div>
                                     <div class="absolute top-full left-1/2 transform -translate-x-1/2 border-4 border-transparent border-t-gray-900"></div>
                                 </div>

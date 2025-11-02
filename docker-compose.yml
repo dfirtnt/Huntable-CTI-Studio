@@ -69,6 +69,8 @@ services:
       - LMSTUDIO_MODEL=${LMSTUDIO_MODEL:-deepseek-r1-qwen3-8b}
       - LMSTUDIO_EMBEDDING_URL=${LMSTUDIO_EMBEDDING_URL:-http://host.docker.internal:1234/v1/embeddings}
       - LMSTUDIO_EMBEDDING_MODEL=${LMSTUDIO_EMBEDDING_MODEL:-text-embedding-e5-base-v2}
+      - LANGSMITH_API_KEY=${LANGSMITH_API_KEY}
+      - LANGGRAPH_SERVER_URL=${LANGGRAPH_SERVER_URL:-http://localhost:2024}
       - TZ=America/New_York
     ports:
       - "8001:8001"

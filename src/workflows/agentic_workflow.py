@@ -15,6 +15,7 @@ import json
 import yaml
 from typing import Dict, Any, Optional, TypedDict
 from datetime import datetime
+from pathlib import Path
 
 from langgraph.graph import StateGraph, END
 from sqlalchemy.orm import Session
@@ -94,13 +95,21 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
             if not article:
                 raise ValueError("Article not found in state")
             
+            # Validate article content
+            if not article.content or len(article.content.strip()) == 0:
+                raise ValueError(f"Article {article.id} has no content to filter")
+            
             # Use least aggressive filter (min_confidence=0.9)
-            filter_result = content_filter.filter_content(
-                article.content,
-                min_confidence=0.9,  # Least aggressive
-                hunt_score=article.article_metadata.get('threat_hunting_score', 0) if article.article_metadata else 0,
-                article_id=article.id
-            )
+            try:
+                filter_result = content_filter.filter_content(
+                    article.content,
+                    min_confidence=0.9,  # Least aggressive
+                    hunt_score=article.article_metadata.get('threat_hunting_score', 0) if article.article_metadata else 0,
+                    article_id=article.id
+                )
+            except Exception as filter_error:
+                logger.error(f"[Workflow {state['execution_id']}] ContentFilter error: {filter_error}", exc_info=True)
+                raise ValueError(f"ContentFilter failed: {filter_error}") from filter_error
             
             # Update execution record
             execution = db_session.query(AgenticWorkflowExecutionTable).filter(
@@ -109,10 +118,16 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
             
             if execution:
                 execution.current_step = 'junk_filter'
+                # Calculate chunks kept (total chunks - removed chunks)
+                total_chunks = (len(article.content) // 1000) + 1  # Rough estimate
+                chunks_removed = len(filter_result.removed_chunks) if filter_result.removed_chunks else 0
+                chunks_kept = total_chunks - chunks_removed if chunks_removed > 0 else total_chunks
+                
                 execution.junk_filter_result = {
                     'filtered_length': len(filter_result.filtered_content) if filter_result.filtered_content else 0,
                     'original_length': len(article.content),
-                    'chunks_kept': len(filter_result.removed_chunks) if filter_result.removed_chunks else 0,
+                    'chunks_kept': chunks_kept,
+                    'chunks_removed': chunks_removed,
                     'is_huntable': filter_result.is_huntable,
                     'confidence': filter_result.confidence
                 }
@@ -126,11 +141,20 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
             }
             
         except Exception as e:
-            logger.error(f"[Workflow {state['execution_id']}] Junk filter error: {e}")
+            logger.error(f"[Workflow {state['execution_id']}] Junk filter error: {e}", exc_info=True)
+            # Update execution with error
+            execution = db_session.query(AgenticWorkflowExecutionTable).filter(
+                AgenticWorkflowExecutionTable.id == state['execution_id']
+            ).first()
+            if execution:
+                execution.status = 'failed'
+                execution.current_step = 'junk_filter'
+                db_session.commit()
             return {
                 **state,
                 'error': str(e),
-                'current_step': 'junk_filter'
+                'current_step': 'junk_filter',
+                'status': 'failed'
             }
     
     async def rank_article_node(state: WorkflowState) -> WorkflowState:
@@ -209,12 +233,14 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                 raise ValueError("Article not found in state")
             
             # Extract behaviors using ExtractAgent prompt
-            extract_file_path = "src/prompts/ExtractAgent"
+            # Use relative path that works both in Docker and local
+            prompt_file = Path(__file__).parent.parent / "prompts" / "ExtractAgent"
+            extract_agent_prompt_path = str(prompt_file)
             extraction_result = await llm_service.extract_behaviors(
                 content=filtered_content,
                 title=article.title,
                 url=article.canonical_url or "",
-                prompt_file_path=extract_file_path
+                prompt_file_path=extract_agent_prompt_path
             )
             
             discrete_count = extraction_result.get('discrete_huntables_count', 0)

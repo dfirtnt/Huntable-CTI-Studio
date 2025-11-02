@@ -106,13 +106,13 @@ class HybridIOCExtractor:
                 'registry_key': [], 'file_path': [], 'mutex': [], 'named_pipe': []
             }
     
-    async def validate_with_llm(self, raw_iocs: Dict[str, List[str]], filtered_content: str, api_key: str, ai_model: str = 'chatgpt') -> tuple[Dict[str, List[str]], str, str]:
+    async def validate_with_llm(self, raw_iocs: Dict[str, List[str]], content: str, api_key: str, ai_model: str = 'chatgpt') -> tuple[Dict[str, List[str]], str, str]:
         """
-        Validate and categorize IOCs using LLM with filtered content.
+        Validate and categorize IOCs using LLM with content.
         
         Args:
             raw_iocs: Raw IOCs extracted by iocextract
-            filtered_content: High-value content chunks filtered by content filter
+            content: Article content (already filtered at API endpoint level if LLM validation enabled)
             api_key: API key (optional for local models)
             ai_model: AI model to use ('chatgpt', 'anthropic', 'lmstudio', 'ollama', 'tinyllama')
             
@@ -139,8 +139,8 @@ Rules:
 Raw IOCs extracted:
 {json.dumps(raw_iocs, indent=2)}
 
-High-value content context (filtered for relevance):
-{filtered_content[:3000]}...
+Article content context:
+{content}
 
 Output format (return ONLY this JSON structure):
 {{
@@ -291,27 +291,20 @@ Output format (return ONLY this JSON structure):
         
         if self.use_llm_validation and raw_count > 0:
             try:
-                # Filter content to get high-value chunks
-                from .content_filter import ContentFilter
-                content_filter = ContentFilter()
-                filter_result = content_filter.filter_content(content)
+                # Use full content for LLM validation (no truncation limit)
+                # Content filtering is handled at the API endpoint level when LLM validation is enabled
+                # This allows the full filtered content to be sent for better validation context
+                validated_iocs, prompt, response = await self.validate_with_llm(raw_iocs, content, api_key, ai_model)
+                final_iocs = validated_iocs
+                extraction_method = 'hybrid'
+                confidence = 0.95  # Higher confidence with LLM validation
+                logger.info(f"Hybrid extraction completed: {raw_count} raw IOCs -> {sum(len(v) for v in validated_iocs.values())} validated IOCs")
                 
-                if filter_result.is_huntable and filter_result.filtered_content:
-                    validated_iocs, prompt, response = await self.validate_with_llm(raw_iocs, filter_result.filtered_content, api_key, ai_model)
-                    final_iocs = validated_iocs
-                    extraction_method = 'hybrid'
-                    confidence = 0.95  # Higher confidence with LLM validation
-                    logger.info(f"Hybrid extraction completed: {raw_count} raw IOCs -> {sum(len(v) for v in validated_iocs.values())} validated IOCs")
-                    logger.info(f"Content filtering: {filter_result.cost_savings:.1%} cost savings, {len(filter_result.removed_chunks)} chunks removed")
-                    
-                    # Store prompt and response in metadata
-                    llm_metadata = {
-                        'prompt': prompt,
-                        'response': response
-                    }
-                else:
-                    logger.info("No huntable content found, using iocextract results only")
-                    llm_metadata = {}
+                # Store prompt and response in metadata
+                llm_metadata = {
+                    'prompt': prompt,
+                    'response': response
+                }
                     
             except Exception as e:
                 logger.warning(f"LLM validation failed, using iocextract results: {e}")

@@ -13,15 +13,18 @@ Analyze this threat intelligence article for SIGMA detection rule potential.
 - 4-6: Some technical patterns but limited
 - 1-3: Strategic content, minimal patterns, or only atomic IOCs
 
-## Output Format
+## Output Format (CRITICAL: Score must come FIRST)
 
-SIGMA HUNTABILITY SCORE: [1-10]
+Your response MUST start with: SIGMA HUNTABILITY SCORE: [1-10]
 
+Then provide reasoning, technical details, and detection opportunities.
+
+Example:
+SIGMA HUNTABILITY SCORE: 8
+
+REASONING: [Your reasoning process here...]
 TECHNICAL DETAILS: [List patterns, not atomic IOCs]
-
 DETECTION OPPORTUNITIES: [What can be detected]
-
-REASONING: [Why this score - note if only atomic IOCs]
 
 ## Article
 
