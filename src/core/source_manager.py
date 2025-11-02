@@ -235,7 +235,8 @@ class SourceConfigLoader:
             if 'content_selector' in source_data:
                 config_dict['content_selector'] = source_data['content_selector']
 
-        config = SourceConfig.model_validate(config_dict or {})
+        # Config should be passed as dict, not SourceConfig object
+        config = config_dict or {}
         
         return SourceCreate(
             identifier=identifier,
