@@ -10,14 +10,21 @@
         .chart { margin: 30px 0; }
         .bar-container { display: flex; align-items: center; margin: 10px 0; }
         .label { width: 200px; font-weight: bold; font-size: 12px; }
-        .bar-wrapper { flex: 1; position: relative; height: 30px; background: #ecf0f1; border-radius: 4px; overflow: hidden; }
-        .bar { height: 100%; display: flex; align-items: center; justify-content: flex-end; padding-right: 8px; color: white; font-weight: bold; font-size: 11px; transition: width 0.3s; }
+        .bar-wrapper { flex: 1; position: relative; height: 30px; background: #ecf0f1; border-radius: 4px; overflow: visible; border-left: 1px solid #bdc3c7; }
+        .bar-wrapper.diverging::before { content: ''; position: absolute; left: 50%; top: 0; bottom: 0; width: 2px; background: #34495e; z-index: 1; }
+        .bar { height: 100%; position: absolute; display: flex; align-items: center; justify-content: flex-end; padding-right: 8px; color: white; font-weight: bold; font-size: 11px; transition: width 0.3s; }
         .bar.positive { background: linear-gradient(90deg, #2ecc71, #27ae60); }
         .bar.negative { background: linear-gradient(90deg, #e74c3c, #c0392b); justify-content: flex-start; padding-left: 8px; }
         .bar.moderate-pos { background: linear-gradient(90deg, #f39c12, #e67e22); }
         .bar.moderate-neg { background: linear-gradient(90deg, #e67e22, #d35400); }
         .bar.incomplete { background: repeating-linear-gradient(45deg, #95a5a6, #95a5a6 10px, #7f8c8d 10px, #7f8c8d 20px); opacity: 0.7; }
         .value { width: 80px; text-align: right; font-family: monospace; font-size: 12px; }
+        .mae-axis { position: relative; height: 20px; border-top: 1px solid #34495e; margin-bottom: 5px; }
+        .axis-tick { position: absolute; top: -15px; font-size: 10px; color: #7f8c8d; transform: translateX(-50%); }
+        .mae-bar-wrapper { position: relative; }
+        .mae-reference-line { position: absolute; top: 0; width: 1px; background: #95a5a6; opacity: 0.5; z-index: 0; pointer-events: none; height: 100%; }
+        #mae-bars { position: relative; }
+        #combined-bars { position: relative; }
         .stats { background: #ecf0f1; padding: 15px; border-radius: 4px; margin: 20px 0; }
         .warning { background: #fff3cd; border-left: 4px solid #ffc107; padding: 10px; margin: 10px 0; }
         .highlight { background: #d4edda; border-left: 4px solid #28a745; padding: 10px; margin: 10px 0; }
@@ -48,14 +55,41 @@
             </table>
         </div>
 
-        <h2>1. Correlation with Composite Median</h2>
+        <h2>1. Correlation with Composite Median (Diverging from 0)</h2>
+        <div style="margin-bottom: 10px; font-size: 11px; color: #7f8c8d;">
+            <span style="float: left;">← Negative (Disagrees)</span>
+            <span style="float: right;">Positive (Agrees) →</span>
+            <span style="display: block; text-align: center;">0 (No correlation)</span>
+        </div>
         <div class="chart" id="correlation"></div>
 
         <h2>2. Mean Absolute Error (Lower is Better)</h2>
-        <div class="chart" id="mae"></div>
+        <p style="font-size: 12px; color: #7f8c8d; margin-top: -10px; margin-bottom: 15px;">
+            Mean absolute deviation from composite median (lower = closer agreement)
+        </p>
+        <div class="chart" id="mae">
+            <div class="mae-axis">
+                <div class="axis-tick" style="left: 0%;">0</div>
+                <div class="axis-tick" style="left: 25%;">1</div>
+                <div class="axis-tick" style="left: 50%;">2</div>
+                <div class="axis-tick" style="left: 75%;">3</div>
+                <div class="axis-tick" style="left: 100%;">4</div>
+            </div>
+            <div id="mae-bars"></div>
+        </div>
 
         <h2>3. Combined Score (Correlation - MAE/10)</h2>
-        <div class="chart" id="combined"></div>
+        <p style="font-size: 12px; color: #7f8c8d; margin-top: -10px; margin-bottom: 15px;">
+            Combined Score = Correlation − (MAE / 10)
+        </p>
+        <div style="margin-bottom: 10px; font-size: 11px; color: #7f8c8d;">
+            <span style="float: left;">← Negative (Poor)</span>
+            <span style="float: right;">Positive (Good) →</span>
+            <span style="display: block; text-align: center;">0 (Baseline)</span>
+        </div>
+        <div class="chart" id="combined">
+            <div id="combined-bars"></div>
+        </div>
     </div>
 
     <script>
@@ -78,21 +112,40 @@
             const range = maxVal - minVal;
             
             values.forEach((val, idx) => {
-                const percentage = val < 0 
-                    ? Math.abs((val - minVal) / range) * 50
-                    : 50 + ((val - 0) / (maxVal - 0)) * 50;
+                // True diverging: 0 at center (50%), negative extends left, positive extends right
+                // Percentage represents how far from 0 (center) to max/min
+                let percentage;
+                if (val === 0) {
+                    percentage = 0;
+                } else if (val < 0) {
+                    // Negative: 0 to minVal maps to 0% to 50% width, extending left from center
+                    percentage = (Math.abs(val) / Math.abs(minVal)) * 50;
+                } else {
+                    // Positive: 0 to maxVal maps to 0% to 50% width, extending right from center
+                    percentage = (val / maxVal) * 50;
+                }
                 
                 const barClass = getBarClass(val, incomplete[idx]);
-                const align = val < 0 ? 'flex-start' : 'flex-end';
-                const padding = val < 0 ? 'padding-left: 8px' : 'padding-right: 8px';
+                const align = val < 0 ? 'flex-start' : val > 0 ? 'flex-end' : 'center';
+                const padding = val < 0 ? 'padding-left: 8px' : val > 0 ? 'padding-right: 8px' : 'padding: 0 8px';
                 const displayVal = val.toFixed(3);
                 const incompleteNote = incomplete[idx] ? ' ⚠️ (5/6 articles)' : '';
                 
+                // For negative values, bar starts at center and extends left
+                // For positive values, bar starts at center and extends right
+                // Use left positioning for proper alignment
+                const barStyle = val < 0 
+                    ? `left: calc(50% - ${percentage}%); width: ${percentage}%;`
+                    : val > 0
+                    ? `left: 50%; width: ${percentage}%;`
+                    : `left: calc(50% - 2%); width: 4%;`; // Tiny bar for zero
+                
+                const wrapperClass = containerId === 'correlation' ? 'bar-wrapper diverging' : 'bar-wrapper';
                 container.insertAdjacentHTML('beforeend', `
                     <div class="bar-container">
                         <div class="label">${labels[idx]}${incompleteNote}</div>
-                        <div class="bar-wrapper">
-                            <div class="bar ${barClass}" style="width: ${Math.abs(percentage - 50) * 2}%; ${val < 0 ? 'margin-left: auto;' : ''} justify-content: ${align}; ${padding};">
+                        <div class="${wrapperClass}" style="position: relative;">
+                            <div class="bar ${barClass}" style="${barStyle}; justify-content: ${align}; ${padding};">
                                 ${displayVal}
                             </div>
                         </div>
@@ -102,35 +155,103 @@
             });
         }
 
-        // Correlation chart
+        // Correlation chart with diverging axis
         createChart('correlation', correlations, models, 1.0, -1.0, isIncomplete);
 
-        // MAE chart
-        const maeMax = Math.max(...mae);
-        mae.forEach((val, idx) => {
-            const container = document.getElementById('mae');
-            const inverted = maeMax - val;
-            const percentage = (inverted / maeMax) * 100;
-            const barClass = isIncomplete[idx] ? 'incomplete' : (val < 1.0 ? 'positive' : val < 2.0 ? 'moderate-pos' : 'moderate-neg');
-            const incompleteNote = isIncomplete[idx] ? ' ⚠️ (5/6 articles)' : '';
+        // MAE chart - sorted ascending (best to worst), proper scale 0-4, color gradient
+        const maeData = mae.map((val, idx) => ({
+            value: val,
+            model: models[idx],
+            incomplete: isIncomplete[idx],
+            incompleteNote: isIncomplete[idx] ? ' ⚠️ (5/6 articles)' : ''
+        })).sort((a, b) => a.value - b.value); // Sort ascending (lower is better)
+        
+        const maeMax = 4.0; // Fixed scale 0-4
+        
+        const container = document.getElementById('mae');
+        const barsContainer = document.getElementById('mae-bars');
+        
+        // Helper function for color gradient based on MAE value
+        function getMAEColor(val) {
+            if (val <= 0.5) return '#2ecc71'; // Green (best)
+            if (val <= 1.0) return '#27ae60';
+            if (val <= 1.5) return '#f39c12'; // Yellow
+            if (val <= 2.5) return '#e67e22'; // Orange
+            return '#e74c3c'; // Red (worst)
+        }
+        
+        maeData.forEach((item, idx) => {
+            const percentage = (item.value / maeMax) * 100;
+            const bgColor = item.incomplete ? '#95a5a6' : getMAEColor(item.value);
+            const textColor = item.value > 2.0 ? 'white' : 'white'; // White text for readability
             
-            container.insertAdjacentHTML('beforeend', `
+            barsContainer.insertAdjacentHTML('beforeend', `
                 <div class="bar-container">
-                    <div class="label">${models[idx]}${incompleteNote}</div>
-                    <div class="bar-wrapper">
-                        <div class="bar ${barClass}" style="width: ${percentage}%;">
-                            ${val.toFixed(2)}
+                    <div class="label">${item.model}${item.incompleteNote}</div>
+                    <div class="bar-wrapper" style="overflow: hidden; position: relative;">
+                        <div class="bar" style="width: ${percentage}%; background: ${bgColor}; justify-content: flex-end; padding-right: 8px; color: ${textColor}; font-weight: bold; position: relative;">
+                            ${item.value.toFixed(1)}
                         </div>
                     </div>
-                    <div class="value">${val.toFixed(2)}</div>
                 </div>
             `);
         });
 
-        // Combined chart
-        const combinedMax = Math.max(...combined);
-        const combinedMin = Math.min(...combined);
-        createChart('combined', combined, models, combinedMax, combinedMin, isIncomplete);
+        // Combined chart - diverging axis, sorted descending, color gradient
+        const combinedData = combined.map((val, idx) => ({
+            value: val,
+            model: models[idx],
+            incomplete: isIncomplete[idx],
+            incompleteNote: isIncomplete[idx] ? ' ⚠️ (5/6 articles)' : ''
+        })).sort((a, b) => b.value - a.value); // Sort descending (best to worst)
+        
+        // Determine symmetric scale (centered at 0)
+        const absMax = Math.max(Math.abs(Math.max(...combined)), Math.abs(Math.min(...combined)));
+        const scaleMax = Math.ceil(absMax * 1.1); // Add 10% padding, round up
+        
+        // Helper function for diverging color palette (green → orange → red centered at 0)
+        function getCombinedColor(val) {
+            if (val >= 0.5) return '#2ecc71'; // Green (best positive)
+            if (val >= 0.2) return '#27ae60'; // Dark green
+            if (val >= 0) return '#f39c12'; // Yellow/orange (weak positive)
+            if (val >= -0.2) return '#e67e22'; // Orange (weak negative)
+            if (val >= -0.5) return '#d35400'; // Dark orange (moderate negative)
+            return '#e74c3c'; // Red (strong negative)
+        }
+        
+        const combinedContainer = document.getElementById('combined-bars');
+        
+        combinedData.forEach((item) => {
+            // Calculate percentage from center (0)
+            let percentage;
+            if (item.value === 0) {
+                percentage = 0;
+            } else if (item.value < 0) {
+                // Negative: extends left from center
+                percentage = (Math.abs(item.value) / scaleMax) * 50;
+            } else {
+                // Positive: extends right from center
+                percentage = (item.value / scaleMax) * 50;
+            }
+            
+            const bgColor = item.incomplete ? '#95a5a6' : getCombinedColor(item.value);
+            const barStyle = item.value < 0
+                ? `left: calc(50% - ${percentage}%); width: ${percentage}%; justify-content: flex-start; padding-left: 8px;`
+                : item.value > 0
+                ? `left: 50%; width: ${percentage}%; justify-content: flex-end; padding-right: 8px;`
+                : `left: calc(50% - 2%); width: 4%; justify-content: center; padding: 0 8px;`;
+            
+            combinedContainer.insertAdjacentHTML('beforeend', `
+                <div class="bar-container">
+                    <div class="label">${item.model}${item.incompleteNote}</div>
+                    <div class="bar-wrapper diverging" style="position: relative;">
+                        <div class="bar" style="${barStyle}; background: ${bgColor}; color: white; font-weight: bold; position: absolute;">
+                            ${item.value.toFixed(2)}
+                        </div>
+                    </div>
+                </div>
+            `);
+        });
     </script>
 </body>
 </html>
