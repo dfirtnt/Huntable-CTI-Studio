@@ -129,6 +129,15 @@ async def api_pdf_upload(file: UploadFile = File(...)):
                 score = threat_hunting_result.get("threat_hunting_score", 0)
                 logger.info("PDF processed successfully: Article ID %s, Score: %s", article_id, score)
 
+                # Check if workflow should be triggered
+                try:
+                    if score >= 97.0:  # Threshold check
+                        from src.worker.celery_app import trigger_agentic_workflow
+                        trigger_agentic_workflow.delay(article_id)
+                        logger.info(f"Triggered agentic workflow for PDF article {article_id} (hunt_score: {score})")
+                except Exception as e:
+                    logger.warning(f"Failed to trigger workflow for PDF article {article_id}: {e}")
+
             except Exception as exc:  # noqa: BLE001
                 logger.warning("Failed to generate threat hunting score for PDF: %s", exc)
 

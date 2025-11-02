@@ -1,0 +1,193 @@
+{% extends "base.html" %}
+
+{% block title %}Agentic Workflow Configuration - Huntable CTI Scraper{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+    <div class="mb-8">
+        <h1 class="text-3xl font-bold text-gray-900 dark:text-white mb-2">🤖 Agentic Workflow Configuration</h1>
+        <p class="text-gray-600 dark:text-gray-400">Configure automatic workflow parameters for high-score article processing</p>
+    </div>
+
+    <!-- Configuration Form -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mb-8">
+        <form id="workflowConfigForm" class="space-y-6">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <!-- Min Hunt Score -->
+                <div>
+                    <label for="minHuntScore" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        Minimum Hunt Score
+                    </label>
+                    <input type="number" 
+                           id="minHuntScore" 
+                           name="min_hunt_score"
+                           min="0" 
+                           max="100" 
+                           step="0.1"
+                           class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white">
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Articles with score ≥ this will trigger workflow (default: 97.0)</p>
+                </div>
+
+                <!-- Ranking Threshold -->
+                <div>
+                    <label for="rankingThreshold" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        Ranking Threshold
+                    </label>
+                    <input type="number" 
+                           id="rankingThreshold" 
+                           name="ranking_threshold"
+                           min="0" 
+                           max="10" 
+                           step="0.1"
+                           class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white">
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Minimum LLM ranking (1-10) to continue workflow (default: 6.0)</p>
+                </div>
+
+                <!-- Similarity Threshold -->
+                <div>
+                    <label for="similarityThreshold" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        Similarity Threshold
+                    </label>
+                    <input type="number" 
+                           id="similarityThreshold" 
+                           name="similarity_threshold"
+                           min="0" 
+                           max="1" 
+                           step="0.05"
+                           class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white">
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Max similarity (0-1) to queue rule (default: 0.5)</p>
+                </div>
+            </div>
+
+            <!-- Description -->
+            <div>
+                <label for="description" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Description
+                </label>
+                <textarea id="description" 
+                          name="description"
+                          rows="2"
+                          class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white"
+                          placeholder="Optional description for this configuration version"></textarea>
+            </div>
+
+            <!-- Current Config Display -->
+            <div id="currentConfig" class="bg-gray-50 dark:bg-gray-900 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+                <p class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Current Configuration:</p>
+                <div id="configDisplay" class="text-sm text-gray-600 dark:text-gray-400">
+                    Loading...
+                </div>
+            </div>
+
+            <!-- Buttons -->
+            <div class="flex justify-end space-x-4">
+                <button type="button" 
+                        onclick="loadConfig()" 
+                        class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                    Reset
+                </button>
+                <button type="submit" 
+                        class="px-6 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-md transition-colors font-medium">
+                    Save Configuration
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Workflow Overview -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+        <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">📊 Workflow Overview</h2>
+        <div class="grid grid-cols-1 md:grid-cols-6 gap-4">
+            <div class="text-center p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                <div class="text-2xl font-bold text-blue-600 dark:text-blue-400">0</div>
+                <div class="text-xs text-gray-600 dark:text-gray-400 mt-1">Junk Filter</div>
+            </div>
+            <div class="text-center p-4 bg-green-50 dark:bg-green-900/20 rounded-lg">
+                <div class="text-2xl font-bold text-green-600 dark:text-green-400">1</div>
+                <div class="text-xs text-gray-600 dark:text-gray-400 mt-1">LLM Ranking</div>
+            </div>
+            <div class="text-center p-4 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg">
+                <div class="text-2xl font-bold text-yellow-600 dark:text-yellow-400">2</div>
+                <div class="text-xs text-gray-600 dark:text-gray-400 mt-1">Extract Agent</div>
+            </div>
+            <div class="text-center p-4 bg-orange-50 dark:bg-orange-900/20 rounded-lg">
+                <div class="text-2xl font-bold text-orange-600 dark:text-orange-400">3</div>
+                <div class="text-xs text-gray-600 dark:text-gray-400 mt-1">Generate SIGMA</div>
+            </div>
+            <div class="text-center p-4 bg-pink-50 dark:bg-pink-900/20 rounded-lg">
+                <div class="text-2xl font-bold text-pink-600 dark:text-pink-400">4</div>
+                <div class="text-xs text-gray-600 dark:text-gray-400 mt-1">Similarity Search</div>
+            </div>
+            <div class="text-center p-4 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
+                <div class="text-2xl font-bold text-purple-600 dark:text-purple-400">5</div>
+                <div class="text-xs text-gray-600 dark:text-gray-400 mt-1">Queue</div>
+            </div>
+        </div>
+        <p class="text-sm text-gray-600 dark:text-gray-400 mt-4">
+            Workflow automatically processes articles with hunt scores meeting the threshold through 6 steps.
+        </p>
+    </div>
+</div>
+
+<script>
+let currentConfig = null;
+
+async function loadConfig() {
+    try {
+        const response = await fetch('/api/workflow/config');
+        if (response.ok) {
+            currentConfig = await response.json();
+            document.getElementById('minHuntScore').value = currentConfig.min_hunt_score;
+            document.getElementById('rankingThreshold').value = currentConfig.ranking_threshold;
+            document.getElementById('similarityThreshold').value = currentConfig.similarity_threshold;
+            document.getElementById('description').value = currentConfig.description || '';
+            
+            document.getElementById('configDisplay').innerHTML = `
+                <div class="grid grid-cols-3 gap-4">
+                    <div><strong>Min Hunt Score:</strong> ${currentConfig.min_hunt_score}</div>
+                    <div><strong>Ranking Threshold:</strong> ${currentConfig.ranking_threshold}</div>
+                    <div><strong>Similarity Threshold:</strong> ${currentConfig.similarity_threshold}</div>
+                    <div class="col-span-3"><strong>Version:</strong> ${currentConfig.version} | <strong>Active:</strong> ${currentConfig.is_active ? 'Yes' : 'No'}</div>
+                </div>
+            `;
+        }
+    } catch (error) {
+        console.error('Error loading config:', error);
+    }
+}
+
+document.getElementById('workflowConfigForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    const formData = {
+        min_hunt_score: parseFloat(document.getElementById('minHuntScore').value),
+        ranking_threshold: parseFloat(document.getElementById('rankingThreshold').value),
+        similarity_threshold: parseFloat(document.getElementById('similarityThreshold').value),
+        description: document.getElementById('description').value
+    };
+    
+    try {
+        const response = await fetch('/api/workflow/config', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(formData)
+        });
+        
+        if (response.ok) {
+            alert('Configuration updated successfully!');
+            await loadConfig();
+        } else {
+            const error = await response.json();
+            alert('Error updating configuration: ' + (error.detail || 'Unknown error'));
+        }
+    } catch (error) {
+        console.error('Error saving config:', error);
+        alert('Error saving configuration');
+    }
+});
+
+// Load config on page load
+loadConfig();
+</script>
+{% endblock %}
+

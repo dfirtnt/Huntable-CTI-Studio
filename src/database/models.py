@@ -433,3 +433,107 @@ class AppSettingsTable(Base):
 
     def __repr__(self):
         return f"<AppSettings(key='{self.key}', value='{self.value[:50] if self.value else None}...')>"
+
+
+class AgenticWorkflowConfigTable(Base):
+    """Database table for agentic workflow configuration settings."""
+    
+    __tablename__ = 'agentic_workflow_config'
+    
+    id = Column(Integer, primary_key=True, index=True)
+    
+    # Configuration parameters
+    min_hunt_score = Column(Float, nullable=False, default=97.0)
+    ranking_threshold = Column(Float, nullable=False, default=6.0)
+    similarity_threshold = Column(Float, nullable=False, default=0.5)
+    
+    # Versioning and audit
+    version = Column(Integer, nullable=False, default=1)
+    is_active = Column(Boolean, nullable=False, default=True, index=True)
+    description = Column(Text, nullable=True)
+    
+    # Timestamps
+    created_at = Column(DateTime, nullable=False, default=func.now())
+    updated_at = Column(DateTime, nullable=False, default=func.now(), onupdate=func.now())
+    
+    def __repr__(self):
+        return f"<AgenticWorkflowConfig(id={self.id}, min_hunt_score={self.min_hunt_score}, is_active={self.is_active})>"
+
+
+class AgenticWorkflowExecutionTable(Base):
+    """Database table for tracking agentic workflow executions."""
+    
+    __tablename__ = 'agentic_workflow_executions'
+    
+    id = Column(Integer, primary_key=True, index=True)
+    article_id = Column(Integer, ForeignKey('articles.id', ondelete='CASCADE'), nullable=False, index=True)
+    
+    # Execution state
+    status = Column(String(50), nullable=False, default='pending', index=True)  # pending, running, completed, failed
+    current_step = Column(String(50), nullable=True)  # junk_filter, rank_article, extract_agent, generate_sigma, similarity_search, promote_to_queue
+    config_snapshot = Column(JSONB, nullable=True)  # Snapshot of config used for this execution
+    
+    # Step results (stored as JSONB for flexibility)
+    junk_filter_result = Column(JSONB, nullable=True)
+    ranking_score = Column(Float, nullable=True)
+    extraction_result = Column(JSONB, nullable=True)
+    sigma_rules = Column(JSONB, nullable=True)  # Array of generated rules
+    similarity_results = Column(JSONB, nullable=True)
+    
+    # Error handling
+    error_message = Column(Text, nullable=True)
+    error_log = Column(JSONB, nullable=True)  # Detailed error logs per step
+    retry_count = Column(Integer, nullable=False, default=0)
+    
+    # Timestamps
+    started_at = Column(DateTime, nullable=True)
+    completed_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, nullable=False, default=func.now(), index=True)
+    updated_at = Column(DateTime, nullable=False, default=func.now(), onupdate=func.now())
+    
+    # Relationships
+    article = relationship("ArticleTable", backref="workflow_executions")
+    
+    def __repr__(self):
+        return f"<AgenticWorkflowExecution(id={self.id}, article_id={self.article_id}, status='{self.status}', step='{self.current_step}')>"
+
+
+class SigmaRuleQueueTable(Base):
+    """Database table for queuing SIGMA rules pending human review and PR submission."""
+    
+    __tablename__ = 'sigma_rule_queue'
+    
+    id = Column(Integer, primary_key=True, index=True)
+    article_id = Column(Integer, ForeignKey('articles.id', ondelete='CASCADE'), nullable=False, index=True)
+    workflow_execution_id = Column(Integer, ForeignKey('agentic_workflow_executions.id', ondelete='CASCADE'), nullable=True, index=True)
+    
+    # Rule data
+    rule_yaml = Column(Text, nullable=False)
+    rule_metadata = Column(JSONB, nullable=True)  # Extracted title, description, tags, etc.
+    
+    # Similarity results
+    similarity_scores = Column(JSONB, nullable=True)  # Array of {rule_id, similarity, title} objects
+    max_similarity = Column(Float, nullable=True)
+    
+    # Queue status
+    status = Column(String(50), nullable=False, default='pending', index=True)  # pending, approved, rejected, submitted
+    reviewed_by = Column(String(255), nullable=True)
+    review_notes = Column(Text, nullable=True)
+    
+    # PR submission tracking
+    pr_submitted = Column(Boolean, nullable=False, default=False)
+    pr_url = Column(Text, nullable=True)
+    pr_repository = Column(String(255), nullable=True)  # e.g., 'SigmaHQ/sigma'
+    
+    # Timestamps
+    created_at = Column(DateTime, nullable=False, default=func.now(), index=True)
+    reviewed_at = Column(DateTime, nullable=True)
+    submitted_at = Column(DateTime, nullable=True)
+    updated_at = Column(DateTime, nullable=False, default=func.now(), onupdate=func.now())
+    
+    # Relationships
+    article = relationship("ArticleTable", backref="queued_sigma_rules")
+    workflow_execution = relationship("AgenticWorkflowExecutionTable", backref="queued_rules")
+    
+    def __repr__(self):
+        return f"<SigmaRuleQueue(id={self.id}, article_id={self.article_id}, status='{self.status}')>"

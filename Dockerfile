@@ -40,6 +40,9 @@ RUN curl -fsSL https://download.docker.com/linux/debian/gpg | gpg --dearmor -o /
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
+# Ensure langgraph-cli is available system-wide
+RUN pip install --no-cache-dir "langgraph-cli[inmem]"
+
 # Update pip and setuptools to fix security vulnerabilities
 RUN pip install --upgrade pip==25.2 setuptools==78.1.1
 

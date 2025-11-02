@@ -65,3 +65,9 @@ openai>=1.0.0  # Official OpenAI client
 tiktoken>=0.5.0  # Token counting utilities
 sentence-transformers>=2.2.2  # For semantic embeddings
 pgvector>=0.4.0  # PostgreSQL vector extension support
+
+# Agentic workflow
+langgraph>=0.2.0  # LangGraph for agentic workflow orchestration
+langgraph-checkpoint>=0.2.0  # LangGraph checkpointing for state persistence
+langgraph-checkpoint-postgres>=0.2.0  # PostgreSQL checkpoint backend for LangGraph
+langgraph-cli>=0.4.0  # LangGraph CLI for HTTP server

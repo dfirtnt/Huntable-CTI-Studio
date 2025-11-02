@@ -66,7 +66,7 @@ services:
       - ANTHROPIC_CONTENT_LIMIT=1000000
       - CHATGPT_API_KEY=${CHATGPT_API_KEY}
       - LMSTUDIO_API_URL=${LMSTUDIO_API_URL:-http://host.docker.internal:1234/v1}
-      - LMSTUDIO_MODEL=${LMSTUDIO_MODEL:-meta-llama-3-8b-instruct}
+      - LMSTUDIO_MODEL=${LMSTUDIO_MODEL:-deepseek-r1-qwen3-8b}
       - LMSTUDIO_EMBEDDING_URL=${LMSTUDIO_EMBEDDING_URL:-http://host.docker.internal:1234/v1/embeddings}
       - LMSTUDIO_EMBEDDING_MODEL=${LMSTUDIO_EMBEDDING_MODEL:-text-embedding-e5-base-v2}
       - TZ=America/New_York
@@ -83,6 +83,7 @@ services:
       - ./scripts:/app/scripts
       - ./allure-results:/app/allure-results
       - ./test-results:/app/test-results
+      - ./langgraph.json:/app/langgraph.json
       - /var/run/docker.sock:/var/run/docker.sock
       - /var/db/timezone/zoneinfo/America/New_York:/etc/localtime:ro
     depends_on:
@@ -112,7 +113,7 @@ services:
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - CHATGPT_API_KEY=${CHATGPT_API_KEY}
       - LMSTUDIO_API_URL=${LMSTUDIO_API_URL:-http://host.docker.internal:1234/v1}
-      - LMSTUDIO_MODEL=${LMSTUDIO_MODEL:-meta-llama-3-8b-instruct}
+      - LMSTUDIO_MODEL=${LMSTUDIO_MODEL:-deepseek-r1-qwen3-8b}
       - LMSTUDIO_EMBEDDING_URL=${LMSTUDIO_EMBEDDING_URL:-http://host.docker.internal:1234/v1/embeddings}
       - LMSTUDIO_EMBEDDING_MODEL=${LMSTUDIO_EMBEDDING_MODEL:-text-embedding-e5-base-v2}
     volumes:
@@ -136,6 +137,52 @@ services:
     command: celery -A src.worker.celery_app worker --loglevel=debug
     healthcheck:
       test: ["CMD-SHELL", "celery -A src.worker.celery_app inspect ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  # LangGraph Server for Agent Chat UI Debugging
+  langgraph-server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: cti_langgraph
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://cti_user:${POSTGRES_PASSWORD}@postgres:5432/cti_scraper
+      - REDIS_URL=redis://redis:6379/0
+      - ENVIRONMENT=development
+      - LOG_LEVEL=DEBUG
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - CHATGPT_API_KEY=${CHATGPT_API_KEY}
+      - LMSTUDIO_API_URL=${LMSTUDIO_API_URL:-http://host.docker.internal:1234/v1}
+      - LMSTUDIO_MODEL=${LMSTUDIO_MODEL:-deepseek-r1-qwen3-8b}
+      - LMSTUDIO_EMBEDDING_URL=${LMSTUDIO_EMBEDDING_URL:-http://host.docker.internal:1234/v1/embeddings}
+      - LMSTUDIO_EMBEDDING_MODEL=${LMSTUDIO_EMBEDDING_MODEL:-text-embedding-e5-base-v2}
+      - LANGGRAPH_PORT=${LANGGRAPH_PORT:-2024}
+      - LANGSMITH_API_KEY=${LANGSMITH_API_KEY}
+      - LANGSMITH_TRACING=true
+      - TZ=America/New_York
+    ports:
+      - "${LANGGRAPH_PORT:-2024}:2024"
+    volumes:
+      - ./src:/app/src
+      - ./config:/app/config
+      - ./langgraph.json:/app/langgraph.json
+      - ./logs:/app/logs
+    working_dir: /app
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - cti_network
+    restart: unless-stopped
+    command: langgraph dev --port 2024 --host 0.0.0.0
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:2024/health || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3

@@ -1,0 +1,869 @@
+{% extends "base.html" %}
+
+{% block title %}Agentic Workflow - Huntable CTI Scraper{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+    <div class="mb-8">
+        <h1 class="text-3xl font-bold text-gray-900 dark:text-white mb-2">🤖 Agentic Workflow</h1>
+        <p class="text-gray-600 dark:text-gray-400">Manage automatic workflow processing for high-score articles</p>
+    </div>
+
+    <!-- Tab Navigation -->
+    <div class="border-b border-gray-200 dark:border-gray-700 mb-6">
+        <nav class="-mb-px flex space-x-8">
+            <button onclick="switchTab('config')" id="tab-config" class="tab-button border-b-2 border-purple-500 py-4 px-1 text-sm font-medium text-purple-600 dark:text-purple-400">
+                ⚙️ Configuration
+            </button>
+            <button onclick="switchTab('executions')" id="tab-executions" class="tab-button border-b-2 border-transparent py-4 px-1 text-sm font-medium text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300">
+                🔄 Executions
+            </button>
+            <button onclick="switchTab('queue')" id="tab-queue" class="tab-button border-b-2 border-transparent py-4 px-1 text-sm font-medium text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300">
+                📥 SIGMA Queue
+            </button>
+        </nav>
+    </div>
+
+    <!-- Configuration Tab -->
+    <div id="tab-content-config" class="tab-content">
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mb-8">
+            <form id="workflowConfigForm" class="space-y-6">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <!-- Min Hunt Score -->
+                    <div>
+                        <label for="minHuntScore" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                            Minimum Hunt Score
+                        </label>
+                        <input type="number" 
+                               id="minHuntScore" 
+                               name="min_hunt_score"
+                               min="0" 
+                               max="100" 
+                               step="0.1"
+                               class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white">
+                        <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Articles with score ≥ this will trigger workflow</p>
+                    </div>
+
+                    <!-- Ranking Threshold -->
+                    <div>
+                        <label for="rankingThreshold" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                            Ranking Threshold
+                        </label>
+                        <input type="number" 
+                               id="rankingThreshold" 
+                               name="ranking_threshold"
+                               min="0" 
+                               max="10" 
+                               step="0.1"
+                               class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white">
+                        <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Minimum LLM ranking (1-10) to continue workflow</p>
+                    </div>
+
+                    <!-- Similarity Threshold -->
+                    <div>
+                        <label for="similarityThreshold" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                            Similarity Threshold
+                        </label>
+                        <input type="number" 
+                               id="similarityThreshold" 
+                               name="similarity_threshold"
+                               min="0" 
+                               max="1" 
+                               step="0.05"
+                               class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white">
+                        <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Max similarity (0-1) to queue rule</p>
+                    </div>
+                </div>
+
+                <!-- Description -->
+                <div>
+                    <label for="description" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        Description
+                    </label>
+                    <textarea id="description" 
+                              name="description"
+                              rows="2"
+                              class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white"
+                              placeholder="Optional description for this configuration version"></textarea>
+                </div>
+
+                <!-- Current Config Display -->
+                <div id="currentConfig" class="bg-gray-50 dark:bg-gray-900 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+                    <p class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Current Configuration:</p>
+                    <div id="configDisplay" class="text-sm text-gray-600 dark:text-gray-400">
+                        Loading...
+                    </div>
+                </div>
+
+                <!-- Buttons -->
+                <div class="flex justify-end space-x-4">
+                    <button type="button" 
+                            onclick="loadConfig()" 
+                            class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                        Reset
+                    </button>
+                    <button type="submit" 
+                            class="px-6 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-md transition-colors font-medium">
+                        Save Configuration
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Workflow Overview -->
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+            <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">📊 Workflow Overview</h2>
+            <div class="grid grid-cols-1 md:grid-cols-6 gap-4">
+                <div class="text-center p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                    <div class="text-2xl font-bold text-blue-600 dark:text-blue-400">0</div>
+                    <div class="text-xs text-gray-600 dark:text-gray-400 mt-1">Junk Filter</div>
+                </div>
+                <div class="text-center p-4 bg-green-50 dark:bg-green-900/20 rounded-lg">
+                    <div class="text-2xl font-bold text-green-600 dark:text-green-400">1</div>
+                    <div class="text-xs text-gray-600 dark:text-gray-400 mt-1">LLM Ranking</div>
+                </div>
+                <div class="text-center p-4 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg">
+                    <div class="text-2xl font-bold text-yellow-600 dark:text-yellow-400">2</div>
+                    <div class="text-xs text-gray-600 dark:text-gray-400 mt-1">Extract Agent</div>
+                </div>
+                <div class="text-center p-4 bg-orange-50 dark:bg-orange-900/20 rounded-lg">
+                    <div class="text-2xl font-bold text-orange-600 dark:text-orange-400">3</div>
+                    <div class="text-xs text-gray-600 dark:text-gray-400 mt-1">Generate SIGMA</div>
+                </div>
+                <div class="text-center p-4 bg-pink-50 dark:bg-pink-900/20 rounded-lg">
+                    <div class="text-2xl font-bold text-pink-600 dark:text-pink-400">4</div>
+                    <div class="text-xs text-gray-600 dark:text-gray-400 mt-1">Similarity Search</div>
+                </div>
+                <div class="text-center p-4 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
+                    <div class="text-2xl font-bold text-purple-600 dark:text-purple-400">5</div>
+                    <div class="text-xs text-gray-600 dark:text-gray-400 mt-1">Queue</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Executions Tab -->
+    <div id="tab-content-executions" class="tab-content hidden">
+        <div class="flex items-center justify-between mb-6">
+            <div class="flex space-x-4">
+                <button onclick="refreshExecutions()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors">
+                    🔄 Refresh
+                </button>
+                <select id="statusFilter" onchange="filterExecutions()" class="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-700 dark:text-white">
+                    <option value="">All Status</option>
+                    <option value="pending">Pending</option>
+                    <option value="running">Running</option>
+                    <option value="completed">Completed</option>
+                    <option value="failed">Failed</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- Workflow Visualization -->
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mb-6">
+            <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">🔀 LangGraph Workflow State Machine</h2>
+            <div id="workflowVisualization" class="relative bg-gray-50 dark:bg-gray-900 rounded-lg p-4">
+                <svg viewBox="0 0 900 350" class="w-full h-auto">
+                    <defs>
+                        <marker id="arrowhead" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+                            <polygon points="0 0, 10 3, 0 6" fill="#6b7280"/>
+                        </marker>
+                        <filter id="glow">
+                            <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+                            <feMerge>
+                                <feMergeNode in="coloredBlur"/>
+                                <feMergeNode in="SourceGraphic"/>
+                            </feMerge>
+                        </filter>
+                    </defs>
+                    
+                    <!-- Edges/Arrows -->
+                    <g stroke="#6b7280" stroke-width="2" fill="none" marker-end="url(#arrowhead)">
+                        <line x1="150" y1="175" x2="250" y2="175"/>
+                        <line x1="350" y1="175" x2="420" y2="175"/>
+                        <line x1="440" y1="165" x2="540" y2="100"/>
+                        <text x="490" y="130" fill="#10b981" font-size="10">Score ≥ 6</text>
+                        <line x1="640" y1="125" x2="740" y2="125"/>
+                        <line x1="790" y1="155" x2="790" y2="220"/>
+                        <line x1="540" y1="250" x2="440" y2="250"/>
+                        <line x1="340" y1="250" x2="200" y2="300" stroke-dasharray="3,3"/>
+                        <line x1="200" y1="300" x2="900" y2="300" stroke-dasharray="3,3"/>
+                        <line x1="440" y1="185" x2="440" y2="300" stroke-dasharray="5,5"/>
+                        <line x1="440" y1="300" x2="900" y2="300" stroke-dasharray="5,5"/>
+                        <text x="670" y="295" fill="#ef4444" font-size="10">Score &lt; 6 → End</text>
+                    </g>
+                    
+                    <!-- Nodes -->
+                    <g id="workflowNodes">
+                        <rect x="50" y="145" width="100" height="60" rx="8" fill="#3b82f6" class="workflow-node" data-step="junk_filter"/>
+                        <text x="100" y="165" text-anchor="middle" fill="white" font-weight="bold" font-size="11">Step 0</text>
+                        <text x="100" y="185" text-anchor="middle" fill="white" font-size="10">Junk Filter</text>
+                        
+                        <rect x="250" y="145" width="100" height="60" rx="8" fill="#10b981" class="workflow-node" data-step="rank_article"/>
+                        <text x="300" y="165" text-anchor="middle" fill="white" font-weight="bold" font-size="11">Step 1</text>
+                        <text x="300" y="185" text-anchor="middle" fill="white" font-size="10">LLM Rank</text>
+                        
+                        <polygon points="420,175 460,155 460,195 420,215" fill="#f59e0b" stroke="#92400e" stroke-width="2"/>
+                        <text x="440" y="178" text-anchor="middle" fill="white" font-weight="bold" font-size="9">≥6?</text>
+                        
+                        <rect x="540" y="70" width="100" height="60" rx="8" fill="#f59e0b" class="workflow-node" data-step="extract_agent"/>
+                        <text x="590" y="90" text-anchor="middle" fill="white" font-weight="bold" font-size="11">Step 2</text>
+                        <text x="590" y="110" text-anchor="middle" fill="white" font-size="10">Extract</text>
+                        
+                        <rect x="740" y="95" width="100" height="60" rx="8" fill="#ef4444" class="workflow-node" data-step="generate_sigma"/>
+                        <text x="790" y="115" text-anchor="middle" fill="white" font-weight="bold" font-size="11">Step 3</text>
+                        <text x="790" y="135" text-anchor="middle" fill="white" font-size="10">Generate</text>
+                        <text x="790" y="150" text-anchor="middle" fill="white" font-size="10">SIGMA</text>
+                        
+                        <rect x="540" y="220" width="100" height="60" rx="8" fill="#ec4899" class="workflow-node" data-step="similarity_search"/>
+                        <text x="590" y="240" text-anchor="middle" fill="white" font-weight="bold" font-size="11">Step 4</text>
+                        <text x="590" y="260" text-anchor="middle" fill="white" font-size="10">Similarity</text>
+                        
+                        <rect x="340" y="220" width="100" height="60" rx="8" fill="#8b5cf6" class="workflow-node" data-step="promote_to_queue"/>
+                        <text x="390" y="240" text-anchor="middle" fill="white" font-weight="bold" font-size="11">Step 5</text>
+                        <text x="390" y="260" text-anchor="middle" fill="white" font-size="10">Queue</text>
+                        
+                        <circle cx="900" cy="300" r="25" fill="#6b7280"/>
+                        <text x="900" y="306" text-anchor="middle" fill="white" font-weight="bold" font-size="12">END</text>
+                    </g>
+                </svg>
+            </div>
+        </div>
+
+        <!-- Statistics -->
+        <div id="executionStats" class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+            <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+                <div class="text-sm text-gray-600 dark:text-gray-400">Total Executions</div>
+                <div class="text-2xl font-bold text-gray-900 dark:text-white" id="totalExecutions">-</div>
+            </div>
+            <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+                <div class="text-sm text-gray-600 dark:text-gray-400">Running</div>
+                <div class="text-2xl font-bold text-blue-600 dark:text-blue-400" id="runningExecutions">-</div>
+            </div>
+            <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+                <div class="text-sm text-gray-600 dark:text-gray-400">Completed</div>
+                <div class="text-2xl font-bold text-green-600 dark:text-green-400" id="completedExecutions">-</div>
+            </div>
+            <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+                <div class="text-sm text-gray-600 dark:text-gray-400">Failed</div>
+                <div class="text-2xl font-bold text-red-600 dark:text-red-400" id="failedExecutions">-</div>
+            </div>
+        </div>
+
+        <!-- Executions Table -->
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg overflow-hidden">
+            <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                <thead class="bg-gray-50 dark:bg-gray-900">
+                    <tr>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">ID</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Article</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Status</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Current Step</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Ranking Score</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Created</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="executionsTableBody" class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                    <tr>
+                        <td colspan="7" class="px-6 py-4 text-center text-gray-500 dark:text-gray-400">Loading...</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Execution Detail Modal -->
+        <div id="executionModal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+            <div class="relative top-20 mx-auto p-5 border w-11/12 md:w-3/4 lg:w-1/2 shadow-lg rounded-md bg-white dark:bg-gray-800">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-xl font-bold text-gray-900 dark:text-white">Execution Details</h3>
+                    <button onclick="closeModal()" class="text-gray-400 hover:text-gray-600">✕</button>
+                </div>
+                <div id="executionDetailContent" class="space-y-4 max-h-96 overflow-y-auto">
+                    <!-- Content loaded dynamically -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Queue Tab -->
+    <div id="tab-content-queue" class="tab-content hidden">
+        <div class="flex items-center justify-between mb-6">
+            <div class="flex space-x-4">
+                <button onclick="loadQueue()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors">
+                    🔄 Refresh
+                </button>
+                <select id="queueStatusFilter" onchange="filterQueue()" class="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-700 dark:text-white">
+                    <option value="">All Status</option>
+                    <option value="pending">Pending</option>
+                    <option value="approved">Approved</option>
+                    <option value="rejected">Rejected</option>
+                    <option value="submitted">Submitted</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- Queue Statistics -->
+        <div id="queueStats" class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+            <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+                <div class="text-sm text-gray-600 dark:text-gray-400">Pending Review</div>
+                <div class="text-2xl font-bold text-yellow-600 dark:text-yellow-400" id="pendingCount">-</div>
+            </div>
+            <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+                <div class="text-sm text-gray-600 dark:text-gray-400">Approved</div>
+                <div class="text-2xl font-bold text-green-600 dark:text-green-400" id="approvedCount">-</div>
+            </div>
+            <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+                <div class="text-sm text-gray-600 dark:text-gray-400">Rejected</div>
+                <div class="text-2xl font-bold text-red-600 dark:text-red-400" id="rejectedCount">-</div>
+            </div>
+            <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+                <div class="text-sm text-gray-600 dark:text-gray-400">Submitted</div>
+                <div class="text-2xl font-bold text-purple-600 dark:text-purple-400" id="submittedCount">-</div>
+            </div>
+        </div>
+
+        <!-- Queue Table -->
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg overflow-hidden">
+            <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                <thead class="bg-gray-50 dark:bg-gray-900">
+                    <tr>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">ID</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Article</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Rule Title</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Max Similarity</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Status</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Created</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="queueTableBody" class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                    <tr>
+                        <td colspan="7" class="px-6 py-4 text-center text-gray-500 dark:text-gray-400">Loading...</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Rule Preview Modal -->
+        <div id="ruleModal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+            <div class="relative top-10 mx-auto p-5 border w-11/12 md:w-4/5 lg:w-3/4 shadow-lg rounded-md bg-white dark:bg-gray-800 max-h-[90vh]">
+                <div class="flex justify-between items-center mb-4 sticky top-0 bg-white dark:bg-gray-800 pb-2 border-b">
+                    <h3 class="text-xl font-bold text-gray-900 dark:text-white">SIGMA Rule Preview</h3>
+                    <button onclick="closeRuleModal()" class="text-gray-400 hover:text-gray-600">✕</button>
+                </div>
+                <div class="space-y-4 max-h-[70vh] overflow-y-auto">
+                    <div id="rulePreviewContent">
+                        <!-- Content loaded dynamically -->
+                    </div>
+                    <div class="flex space-x-4 pt-4 border-t sticky bottom-0 bg-white dark:bg-gray-800">
+                        <button onclick="approveRule(currentRuleId)" class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md">
+                            ✅ Approve
+                        </button>
+                        <button onclick="rejectRule(currentRuleId)" class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md">
+                            ❌ Reject
+                        </button>
+                        <button onclick="closeRuleModal()" class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md">
+                            Cancel
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Tab Management
+let currentTab = 'config';
+
+function switchTab(tab) {
+    currentTab = tab;
+    
+    // Update URL hash
+    window.location.hash = tab;
+    
+    // Hide all tab contents
+    document.querySelectorAll('.tab-content').forEach(content => {
+        content.classList.add('hidden');
+    });
+    
+    // Remove active state from all tabs
+    document.querySelectorAll('.tab-button').forEach(btn => {
+        btn.classList.remove('border-purple-500', 'text-purple-600', 'dark:text-purple-400');
+        btn.classList.add('border-transparent', 'text-gray-500', 'dark:text-gray-400');
+    });
+    
+    // Show selected tab content
+    document.getElementById(`tab-content-${tab}`).classList.remove('hidden');
+    
+    // Activate selected tab button
+    const activeBtn = document.getElementById(`tab-${tab}`);
+    activeBtn.classList.remove('border-transparent', 'text-gray-500', 'dark:text-gray-400');
+    activeBtn.classList.add('border-purple-500', 'text-purple-600', 'dark:text-purple-400');
+    
+    // Load data for active tab
+    if (tab === 'config') {
+        loadConfig();
+    } else if (tab === 'executions') {
+        loadExecutions();
+    } else if (tab === 'queue') {
+        loadQueue();
+    }
+}
+
+// Configuration Functions
+let currentConfig = null;
+
+async function loadConfig() {
+    try {
+        const response = await fetch('/api/workflow/config');
+        if (response.ok) {
+            currentConfig = await response.json();
+            document.getElementById('minHuntScore').value = currentConfig.min_hunt_score;
+            document.getElementById('rankingThreshold').value = currentConfig.ranking_threshold;
+            document.getElementById('similarityThreshold').value = currentConfig.similarity_threshold;
+            document.getElementById('description').value = currentConfig.description || '';
+            
+            document.getElementById('configDisplay').innerHTML = `
+                <div class="grid grid-cols-3 gap-4">
+                    <div><strong>Min Hunt Score:</strong> ${currentConfig.min_hunt_score}</div>
+                    <div><strong>Ranking Threshold:</strong> ${currentConfig.ranking_threshold}</div>
+                    <div><strong>Similarity Threshold:</strong> ${currentConfig.similarity_threshold}</div>
+                    <div class="col-span-3"><strong>Version:</strong> ${currentConfig.version} | <strong>Active:</strong> ${currentConfig.is_active ? 'Yes' : 'No'}</div>
+                </div>
+            `;
+        }
+    } catch (error) {
+        console.error('Error loading config:', error);
+    }
+}
+
+document.getElementById('workflowConfigForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    const formData = {
+        min_hunt_score: parseFloat(document.getElementById('minHuntScore').value),
+        ranking_threshold: parseFloat(document.getElementById('rankingThreshold').value),
+        similarity_threshold: parseFloat(document.getElementById('similarityThreshold').value),
+        description: document.getElementById('description').value
+    };
+    
+    try {
+        const response = await fetch('/api/workflow/config', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(formData)
+        });
+        
+        if (response.ok) {
+            alert('Configuration updated successfully!');
+            await loadConfig();
+        } else {
+            const error = await response.json();
+            alert('Error updating configuration: ' + (error.detail || 'Unknown error'));
+        }
+    } catch (error) {
+        console.error('Error saving config:', error);
+        alert('Error saving configuration');
+    }
+});
+
+// Execution Functions
+let executions = [];
+
+function getStatusBadge(status) {
+    const badges = {
+        'pending': '<span class="px-2 py-1 text-xs rounded-full bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200">Pending</span>',
+        'running': '<span class="px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-800 dark:bg-blue-900 dark:bg-blue-200">Running</span>',
+        'completed': '<span class="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:bg-green-200">Completed</span>',
+        'failed': '<span class="px-2 py-1 text-xs rounded-full bg-red-100 text-red-800 dark:bg-red-900 dark:bg-red-200">Failed</span>'
+    };
+    return badges[status] || '<span class="px-2 py-1 text-xs rounded-full bg-gray-100 text-gray-800">' + status + '</span>';
+}
+
+function getStepBadge(step) {
+    const steps = {
+        'junk_filter': '🔍 Filter',
+        'rank_article': '📊 Rank',
+        'extract_agent': '🔬 Extract',
+        'generate_sigma': '⚡ SIGMA',
+        'similarity_search': '🔎 Similarity',
+        'promote_to_queue': '📥 Queue'
+    };
+    return steps[step] || step || '-';
+}
+
+function highlightCurrentStep(step) {
+    document.querySelectorAll('.workflow-node').forEach(node => {
+        node.style.filter = 'none';
+        node.style.stroke = 'none';
+        node.style.strokeWidth = '0';
+    });
+    
+    if (step) {
+        const node = document.querySelector(`[data-step="${step}"]`);
+        if (node) {
+            node.style.filter = 'url(#glow)';
+            node.style.stroke = '#fbbf24';
+            node.style.strokeWidth = '3';
+        }
+    }
+}
+
+async function loadExecutions() {
+    try {
+        const statusFilter = document.getElementById('statusFilter').value;
+        const url = statusFilter ? `/api/workflow/executions?status=${statusFilter}` : '/api/workflow/executions';
+        
+        const response = await fetch(url);
+        if (response.ok) {
+            executions = await response.json();
+            renderExecutions();
+            updateStats();
+        }
+    } catch (error) {
+        console.error('Error loading executions:', error);
+    }
+}
+
+function renderExecutions() {
+    const tbody = document.getElementById('executionsTableBody');
+    
+    if (executions.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" class="px-6 py-4 text-center text-gray-500">No executions found</td></tr>';
+        return;
+    }
+    
+    tbody.innerHTML = executions.map(exec => `
+        <tr class="hover:bg-gray-50 dark:hover:bg-gray-700">
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">${exec.id}</td>
+            <td class="px-6 py-4 text-sm">
+                <a href="/articles/${exec.article_id}" class="text-purple-600 hover:text-purple-800 dark:text-purple-400">
+                    ${exec.article_title || 'Article ' + exec.article_id}
+                </a>
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap">${getStatusBadge(exec.status)}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">${getStepBadge(exec.current_step)}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
+                ${exec.ranking_score ? exec.ranking_score.toFixed(1) : '-'}
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                ${new Date(exec.created_at).toLocaleString('en-US', { timeZone: 'America/New_York', dateStyle: 'short', timeStyle: 'short' })}
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm">
+                <button onclick="viewExecution(${exec.id})" class="text-blue-600 hover:text-blue-800 dark:text-blue-400 mr-2">View</button>
+                <button onclick="debugInAgentChat(${exec.id})" class="text-purple-600 hover:text-purple-800 dark:text-purple-400 mr-2" title="Debug in Agent Chat UI">🔍 Debug</button>
+                ${exec.status === 'failed' ? `<button onclick="retryExecution(${exec.id})" class="text-green-600 hover:text-green-800 dark:text-green-400">Retry</button>` : ''}
+            </td>
+        </tr>
+    `).join('');
+}
+
+function updateStats() {
+    const stats = {
+        total: executions.length,
+        running: executions.filter(e => e.status === 'running').length,
+        completed: executions.filter(e => e.status === 'completed').length,
+        failed: executions.filter(e => e.status === 'failed').length
+    };
+    
+    document.getElementById('totalExecutions').textContent = stats.total;
+    document.getElementById('runningExecutions').textContent = stats.running;
+    document.getElementById('completedExecutions').textContent = stats.completed;
+    document.getElementById('failedExecutions').textContent = stats.failed;
+}
+
+async function viewExecution(executionId) {
+    try {
+        const response = await fetch(`/api/workflow/executions/${executionId}`);
+        if (response.ok) {
+            const exec = await response.json();
+            
+            highlightCurrentStep(exec.current_step);
+            
+            const content = `
+                <div class="space-y-4">
+                    <div><strong>Execution ID:</strong> ${exec.id}</div>
+                    <div><strong>Article:</strong> <a href="/articles/${exec.article_id}" class="text-purple-600">${exec.article_title}</a></div>
+                    <div><strong>Status:</strong> ${getStatusBadge(exec.status)}</div>
+                    <div><strong>Current Step:</strong> ${getStepBadge(exec.current_step)}</div>
+                    ${exec.ranking_score ? `<div><strong>Ranking Score:</strong> ${exec.ranking_score.toFixed(1)}/10</div>` : ''}
+                    ${exec.error_message ? `<div class="bg-red-50 dark:bg-red-900/20 p-3 rounded"><strong>Error:</strong> ${exec.error_message}</div>` : ''}
+                    ${exec.sigma_rules ? `<div><strong>SIGMA Rules Generated:</strong> ${exec.sigma_rules.length}</div>` : ''}
+                    ${exec.extraction_result ? `<div><strong>Discrete Huntables:</strong> ${exec.extraction_result.discrete_huntables_count || 0}</div>` : ''}
+                    <div><strong>Created:</strong> ${new Date(exec.created_at).toLocaleString('en-US', { timeZone: 'America/New_York', dateStyle: 'short', timeStyle: 'short' })}</div>
+                    ${exec.completed_at ? `<div><strong>Completed:</strong> ${new Date(exec.completed_at).toLocaleString('en-US', { timeZone: 'America/New_York', dateStyle: 'short', timeStyle: 'short' })}</div>` : ''}
+                </div>
+            `;
+            
+            document.getElementById('executionDetailContent').innerHTML = content;
+            document.getElementById('executionModal').classList.remove('hidden');
+        }
+    } catch (error) {
+        console.error('Error loading execution details:', error);
+    }
+}
+
+async function retryExecution(executionId) {
+    if (!confirm('Retry this failed execution?')) return;
+    
+    try {
+        const response = await fetch(`/api/workflow/executions/${executionId}/retry`, { method: 'POST' });
+        if (response.ok) {
+            alert('Retry initiated successfully');
+            await loadExecutions();
+        } else {
+            alert('Error retrying execution');
+        }
+    } catch (error) {
+        console.error('Error retrying execution:', error);
+        alert('Error retrying execution');
+    }
+}
+
+async function debugInAgentChat(executionId) {
+    try {
+        // Get LangGraph server URL and thread info
+        const response = await fetch(`/api/workflow/executions/${executionId}/debug-info`);
+        if (response.ok) {
+            const info = await response.json();
+            const agentChatUrl = info.agent_chat_url;
+            
+            if (agentChatUrl) {
+                // Open Agent Chat UI in new tab with pre-configured connection
+                window.open(agentChatUrl, '_blank');
+            } else {
+                alert('Agent Chat UI not configured. Please start LangGraph server and configure LANGGRAPH_SERVER_URL.');
+            }
+        } else {
+            const error = await response.json();
+            alert('Error getting debug info: ' + (error.detail || 'Unknown error'));
+        }
+    } catch (error) {
+        console.error('Error opening Agent Chat UI:', error);
+        alert('Error opening Agent Chat UI. Make sure LangGraph server is running.');
+    }
+}
+
+function closeModal() {
+    document.getElementById('executionModal').classList.add('hidden');
+}
+
+function filterExecutions() {
+    loadExecutions();
+}
+
+function refreshExecutions() {
+    loadExecutions();
+}
+
+// Queue Functions
+let queue = [];
+let currentRuleId = null;
+
+function getQueueStatusBadge(status) {
+    const badges = {
+        'pending': '<span class="px-2 py-1 text-xs rounded-full bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200">Pending</span>',
+        'approved': '<span class="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:bg-green-200">Approved</span>',
+        'rejected': '<span class="px-2 py-1 text-xs rounded-full bg-red-100 text-red-800 dark:bg-red-900 dark:bg-red-200">Rejected</span>',
+        'submitted': '<span class="px-2 py-1 text-xs rounded-full bg-purple-100 text-purple-800 dark:bg-purple-900 dark:bg-purple-200">Submitted</span>'
+    };
+    return badges[status] || '<span class="px-2 py-1 text-xs rounded-full bg-gray-100 text-gray-800">' + status + '</span>';
+}
+
+async function loadQueue() {
+    try {
+        const statusFilter = document.getElementById('queueStatusFilter').value;
+        const url = statusFilter ? `/api/sigma-queue/list?status=${statusFilter}` : '/api/sigma-queue/list';
+        
+        const response = await fetch(url);
+        if (response.ok) {
+            queue = await response.json();
+            renderQueue();
+            updateQueueStats();
+        }
+    } catch (error) {
+        console.error('Error loading queue:', error);
+    }
+}
+
+function renderQueue() {
+    const tbody = document.getElementById('queueTableBody');
+    
+    if (queue.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" class="px-6 py-4 text-center text-gray-500">No queued rules found</td></tr>';
+        return;
+    }
+    
+    tbody.innerHTML = queue.map(rule => {
+        const metadata = rule.rule_metadata || {};
+        const title = metadata.title || 'Untitled Rule';
+        
+        return `
+            <tr class="hover:bg-gray-50 dark:hover:bg-gray-700">
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">${rule.id}</td>
+                <td class="px-6 py-4 text-sm">
+                    <a href="/articles/${rule.article_id}" class="text-purple-600 hover:text-purple-800 dark:text-purple-400">
+                        ${rule.article_title || 'Article ' + rule.article_id}
+                    </a>
+                </td>
+                <td class="px-6 py-4 text-sm text-gray-900 dark:text-white">${title}</td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                    ${rule.max_similarity ? (rule.max_similarity * 100).toFixed(1) + '%' : '-'}
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap">${getQueueStatusBadge(rule.status)}</td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                    ${new Date(rule.created_at).toLocaleString('en-US', { timeZone: 'America/New_York', dateStyle: 'short', timeStyle: 'short' })}
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm">
+                    <button onclick="previewRule(${rule.id})" class="text-blue-600 hover:text-blue-800 dark:text-blue-400 mr-2">Preview</button>
+                    ${rule.status === 'pending' ? `
+                        <button onclick="approveRule(${rule.id})" class="text-green-600 hover:text-green-800 dark:text-green-400 mr-2">Approve</button>
+                        <button onclick="rejectRule(${rule.id})" class="text-red-600 hover:text-red-800 dark:text-red-400">Reject</button>
+                    ` : ''}
+                </td>
+            </tr>
+        `;
+    }).join('');
+}
+
+function updateQueueStats() {
+    const stats = {
+        pending: queue.filter(r => r.status === 'pending').length,
+        approved: queue.filter(r => r.status === 'approved').length,
+        rejected: queue.filter(r => r.status === 'rejected').length,
+        submitted: queue.filter(r => r.status === 'submitted').length
+    };
+    
+    document.getElementById('pendingCount').textContent = stats.pending;
+    document.getElementById('approvedCount').textContent = stats.approved;
+    document.getElementById('rejectedCount').textContent = stats.rejected;
+    document.getElementById('submittedCount').textContent = stats.submitted;
+}
+
+function previewRule(ruleId) {
+    const rule = queue.find(r => r.id === ruleId);
+    if (!rule) return;
+    
+    currentRuleId = ruleId;
+    
+    const metadata = rule.rule_metadata || {};
+    const similarityScores = rule.similarity_scores || [];
+    
+    let similarRulesHtml = '';
+    if (similarityScores.length > 0) {
+        similarRulesHtml = `
+            <div class="mt-4">
+                <h4 class="font-semibold mb-2">Similar Existing Rules:</h4>
+                <ul class="list-disc list-inside space-y-1">
+                    ${similarityScores.slice(0, 5).map(s => `
+                        <li>${s.title || s.rule_id} (${(s.similarity * 100).toFixed(1)}% similar)</li>
+                    `).join('')}
+                </ul>
+            </div>
+        `;
+    }
+    
+    const content = `
+        <div class="space-y-4">
+            <div><strong>Rule ID:</strong> ${rule.id}</div>
+            <div><strong>Article:</strong> <a href="/articles/${rule.article_id}" class="text-purple-600">${rule.article_title || 'Article ' + rule.article_id}</a></div>
+            <div><strong>Max Similarity:</strong> ${rule.max_similarity ? (rule.max_similarity * 100).toFixed(1) + '%' : 'N/A'}</div>
+            ${similarRulesHtml}
+            <div class="mt-4">
+                <h4 class="font-semibold mb-2">Rule YAML:</h4>
+                <pre class="bg-gray-100 dark:bg-gray-900 p-4 rounded overflow-x-auto text-xs"><code>${escapeHtml(rule.rule_yaml)}</code></pre>
+            </div>
+        </div>
+    `;
+    
+    document.getElementById('rulePreviewContent').innerHTML = content;
+    document.getElementById('ruleModal').classList.remove('hidden');
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+async function approveRule(ruleId) {
+    if (!confirm('Approve this rule for PR submission?')) return;
+    
+    try {
+        const response = await fetch(`/api/sigma-queue/${ruleId}/approve`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status: 'approved' })
+        });
+        
+        if (response.ok) {
+            alert('Rule approved successfully');
+            closeRuleModal();
+            await loadQueue();
+        } else {
+            const error = await response.json();
+            alert('Error approving rule: ' + (error.detail || 'Unknown error'));
+        }
+    } catch (error) {
+        console.error('Error approving rule:', error);
+        alert('Error approving rule');
+    }
+}
+
+async function rejectRule(ruleId) {
+    const notes = prompt('Rejection reason (optional):');
+    
+    try {
+        const url = new URL(`/api/sigma-queue/${ruleId}/reject`, window.location.origin);
+        if (notes) {
+            url.searchParams.append('review_notes', notes);
+        }
+        
+        const response = await fetch(url, {
+            method: 'POST'
+        });
+        
+        if (response.ok) {
+            alert('Rule rejected');
+            closeRuleModal();
+            await loadQueue();
+        } else {
+            const error = await response.json();
+            alert('Error rejecting rule: ' + (error.detail || 'Unknown error'));
+        }
+    } catch (error) {
+        console.error('Error rejecting rule:', error);
+        alert('Error rejecting rule');
+    }
+}
+
+function closeRuleModal() {
+    document.getElementById('ruleModal').classList.add('hidden');
+    currentRuleId = null;
+}
+
+function filterQueue() {
+    loadQueue();
+}
+
+// Initialize: Check URL hash for tab, default to config
+const hash = window.location.hash.replace('#', '');
+if (hash && ['config', 'executions', 'queue'].includes(hash)) {
+    switchTab(hash);
+} else {
+    switchTab('config');
+}
+
+// Auto-refresh active tab
+setInterval(() => {
+    if (currentTab === 'executions') {
+        loadExecutions();
+    } else if (currentTab === 'queue') {
+        loadQueue();
+    }
+}, currentTab === 'executions' ? 10000 : 30000);
+</script>
+{% endblock %}
+

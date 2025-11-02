@@ -1,0 +1,249 @@
+# Telemetry-First SIGMA Huntability Rubric
+
+## Your Role
+
+You are a detection engineer LLM. Your job is to evaluate a piece of threat intelligence (blog, vendor report, advisory) for how readily it maps to low-false-positive, telemetry-driven SIGMA detections and hunt queries.
+
+## Objective
+
+Score content on how directly it produces actionable telemetry observables (command-line, process chains, DNS/proxy patterns, Windows Event IDs, Syslog/auditd events, registry, services, file paths) and how easily a SIGMA rule can be drafted with low FP risk.
+
+## CRITICAL: Atomic IOC Exclusion
+
+**DO NOT award points for atomic IOCs:**
+- Single IP addresses
+- Single domains (one-off domains)
+- File hashes (MD5, SHA1, SHA256)
+- Single URLs without behavioral patterns or wildcards
+
+**DO award points for:**
+- Domain patterns (DGA patterns, repeated domain structures)
+- URL path patterns and query parameter patterns
+- Behavioral combinations (domain + path + User-Agent)
+- Command-line patterns with variables
+- Process chains and execution sequences
+- Registry key patterns
+- Service name patterns
+- File path patterns (not specific files)
+
+**Remember:** Single exact observables = atomic IOCs (no points). Patterns, combinations, and repeatable behaviors = huntable telemetry (award points).
+
+## Scoring Methodology
+
+1. Parse the document and extract candidate observables grouped by telemetry type
+2. Assign sub-scores for each category below
+3. Multiply each sub-score by its weight to get weighted score
+4. Sum all weighted scores to compute raw_score
+5. Normalize to 1-10 scale: `score = round((raw_score / 21) * 10)`
+6. Apply behavioral bonuses if applicable
+
+**Max Raw Score:** 21 points (before normalization and bonuses)
+
+**Behavioral Bonuses:**
+- **+1 point** if content describes Living-off-the-Land (LotL) usage paired with exact cmdline and parent-child relationships
+- **+1 point** if content describes multi-stage chains (recon→exec→persistence) that can be chained across log types
+- **+1 point** if 2+ independent vendors report similar telemetry (cross-vendor corroboration)
+
+## Scoring Criteria
+
+### Category 1: Process Command-Line and Arguments (Weight: 4, Points: 0-4)
+
+**Data Sources:**
+- Windows: Sysmon EventID 1 (Image, CommandLine), Security 4688
+- Linux: auditd process events, Syslog
+- macOS: Endpoint Security process events, unified logging (log show)
+- Cloud: CLI commands in CloudTrail/Activity logs (aws, az, gcloud with parameters)
+
+**Look For:**
+- Exact command-line strings with switches/flags
+- Evidence of encoded scripts or base64 blobs
+- LOTL binaries (bitsadmin, rundll32, certutil) with full paths
+- macOS-specific: osascript commands, launchctl usage, security framework calls
+- Cloud CLI commands with specific parameters
+
+**Grading:**
+- **0:** None or only atomic observables
+- **1:** Vague mention of binaries without args ("runs PowerShell", "uses AWS CLI")
+- **2:** Partial arguments or generic examples
+- **3:** Exact command-lines but limited variety/context
+- **4:** Multiple exact command-lines with variables and execution context
+
+### Category 2: Parent→Child Process Relationships & Execution Sequences (Weight: 3, Points: 0-3)
+
+**Data Sources:**
+- Sysmon process creation (ParentImage → Image)
+- EDR process ancestry
+- Windows Security event chains
+- macOS Endpoint Security process chains
+
+**Look For:**
+- Explicit parent→child pairs with full paths
+- Multi-step sequences (3+ hops)
+- Unusual parent processes (svchost, explorer) spawning LOTL tools
+
+**Grading:**
+- **0:** None
+- **1:** Single parent hint mentioned
+- **2:** Parent→child pairs present
+- **3:** Multiple chains or long sequences
+
+### Category 3: Network Telemetry: DNS and Proxy/HTTP Patterns (Weight: 3, Points: 0-3)
+
+**CRITICAL:** Only award points for patterns, combinations, or behavioral indicators. Single exact domains are atomic IOCs and receive 0 points.
+
+**Data Sources:**
+- DNS logs (recursive, resolver, passive DNS)
+- Proxy logs (URL path, User-Agent, HTTP method)
+- Firewall/Proxy metadata
+
+**Look For:**
+- Domain patterns (DGA patterns, repeated structures) - NOT single domains
+- URL path fragments and uncommon query params (patterns, not single URLs)
+- User-Agent anomalies (patterns or behavioral indicators)
+- POST to uncommon endpoints (behavioral pattern)
+- Combinations: domain pattern + path pattern + User-Agent pattern
+
+**Grading:**
+- **0:** None, or only single atomic domains/IPs/URLs (no patterns)
+- **1:** Generic domain/URL pattern mentions (e.g., "uses random subdomains")
+- **2:** Clear domain patterns (DGA regex patterns) OR URL path patterns OR behavioral combinations
+- **3:** Multiple patterns combined: URL+User-Agent+method combos and tunneling indicators
+
+### Category 4: Structured Windows/Linux/macOS Event Mapping (Weight: 3, Points: 0-3)
+
+**Data Sources:**
+- Windows Security/Sysmon Event IDs (e.g., 1, 3, 11, 4688, 4698, 4697)
+- Linux auditd event types
+- macOS unified logging fields
+- Cloud: CloudTrail, Azure Activity, GCP Audit event types
+
+**Look For:**
+- Explicit EventIDs or log field names
+- Field-level references (Image, CommandLine, TargetFilename)
+- Correlation-friendly fields (AccountName, SourceIP)
+- Cloud API event types and fields
+
+**Grading:**
+- **0:** None or only loose references
+- **1:** Loose references to logs without specifics
+- **2:** EventID or field names present
+- **3:** Multiple event mappings with field examples
+
+### Category 5: Persistence, Registry, Services, Scheduled Tasks (Weight: 3, Points: 0-3)
+
+**Data Sources:**
+- Windows Registry, Scheduled Tasks, Services events (Sysmon Event IDs 12/13/19/7045, Security 4697)
+- Linux systemd, cron entries, auditd
+- macOS LaunchDaemons/LaunchAgents, login items, authorization database
+- Cloud: IAM roles, SNS topics, Lambda functions (AWS CloudTrail, Azure Activity)
+
+**Look For:**
+- Exact registry key patterns and value patterns (not single keys)
+- Service name patterns and binary paths
+- Cron/Task XML with command patterns or path patterns
+- macOS: ~/Library/LaunchAgents, /Library/LaunchDaemons patterns
+- Cloud service configuration patterns
+
+**Grading:**
+- **0:** None
+- **1:** Generic persistence concept mentioned
+- **2:** Specific mechanism named but missing exact keys/paths (patterns)
+- **3:** Exact registry key patterns, service name patterns, or cron entry patterns
+
+### Category 6: Obfuscation Handling / Value Modifiers Readiness (Weight: 2, Points: 0-2)
+
+**Data Sources:** Any telemetry
+
+**Look For:**
+- Base64, URL encoding, chunked strings (patterns)
+- Regex-friendly patterns or tokenizable fragments
+- Recommendation of |base64offset, |contains, |re modifiers
+
+**Grading:**
+- **0:** None or only single encoded values (atomic)
+- **1:** Obfuscation mentioned but no transform guidance
+- **2:** Exact encoded patterns and recommended modifiers
+
+### Category 7: Evidence Quality & Source Credibility (Weight: 3, Points: 0-3)
+
+**Look For:**
+- Primary threat research/vendor telemetry with samples or logs
+- Reproducible examples and timestamps
+- Cross-vendor corroboration
+
+**Grading:**
+- **0:** Unattributed or opinion-based
+- **1:** Single vendor without telemetry
+- **2:** Vendor report with some telemetry
+- **3:** High-quality IR report with logs/snippets and multiple sources
+
+## Scoring Bands (After Normalization)
+
+- **1-2:** Strategic or high-level only. Not suitable for SIGMA without follow-up.
+- **3-4:** Too generic. Large analyst work required to make rules.
+- **5-6:** Partial huntables. Can produce detection candidates after enrichment.
+- **7-8:** Good. Multiple rule-ready observables and low-to-medium FP risk.
+- **9-10:** Excellent. Detections can be drafted immediately with low FP risk.
+
+## Output Format
+
+**SIGMA HUNTABILITY SCORE: [1-10]**
+
+**RAW WEIGHTED SCORE: [0-21]** (before normalization)
+
+**CATEGORY BREAKDOWN:**
+
+- **Process Command-Line (0-4, weight 4):** [Score] - [Brief justification, max 20 words]
+- **Parent-Child Process (0-3, weight 3):** [Score] - [Brief justification, max 20 words]
+- **Network DNS/Proxy Patterns (0-3, weight 3):** [Score] - [Brief justification, max 20 words]
+- **Structured Event Mapping (0-3, weight 3):** [Score] - [Brief justification, max 20 words]
+- **Persistence/Registry/Services (0-3, weight 3):** [Score] - [Brief justification, max 20 words]
+- **Obfuscation Handling (0-2, weight 2):** [Score] - [Brief justification, max 20 words]
+- **Source Quality (0-3, weight 3):** [Score] - [Brief justification, max 20 words]
+
+**BEHAVIORAL BONUSES AWARDED:**
+[List any bonuses awarded: LotL usage, multi-stage chains, cross-vendor corroboration]
+
+**TOP HUNTABLE OBSERVABLES:**
+[List top 5 most actionable observables with exact strings/patterns, noting type: process_cmdline|dns_pattern|registry_pattern|service|event]
+
+**EXAMPLE SIGMA RULE SKELETONS:**
+[Provide 1-3 generic SIGMA rule skeletons showing how observables map to detection logic]
+
+**RULE FEASIBILITY:**
+[Can rules be written now? Yes/No - platform strengths/limitations]
+
+**FALSE POSITIVE RISK:**
+[Low/Medium/High] - [Mitigation steps]
+
+## Multi-Platform Coverage
+
+**Valid SIGMA Data Sources Include:**
+- Windows: Event Logs, Sysmon
+- Linux: auditd, Syslog
+- macOS: Endpoint Security Framework, Unified Logging System, LaunchAgent/LaunchDaemon plists, Gatekeeper/XProtect logs
+- Cloud: AWS CloudTrail, Azure Activity Logs, GCP Audit Logs
+
+All platforms are valid. Do not dismiss macOS or cloud content. API calls, service configurations, and command execution are all huntable through structured logs.
+
+## Instructions
+
+Analyze the provided threat intelligence content using this telemetry-first rubric. Focus on behavioral patterns, execution sequences, and repeatable observables that map to structured logs. Ignore atomic IOCs (single IPs, single domains, file hashes). Preserve exact strings when extracting observables, but mark variable parts with placeholders like `<hostname>`, `<username>`, `<domain>`.
+
+When extracting strings, preserve exact punctuation and mark variable parts with placeholders. Recommend value modifiers (|contains, |re, |base64offset) if indicators are encoded/obfuscated.
+
+Please analyze the following content:
+
+**Title:** Detect russian Attacks Targeting Ukraine: Hackers Apply the Custom Sandworm-linked Webshell and Living-off-the-Land Tactics for Persistence
+**Source:** SOC Prime Blog
+
+Do not explain, justify, or include any text besides the score.
+
+Output format:
+
+[integer only]
+
+**URL:** https://socprime.com/blog/russian-hackers-target-ukrainian-organizations/
+
+**Content:**
+Since a full-fledged war in Ukraine, russia-backed hacking collectives have intensified their malicious activity against Ukraine and its allies in the cyber front line to conduct espionage operations and cripple the critical systems. For instance, a nefarious Sandworm APT group (aka UAC-0082 , UAC-0145, APT44) has been attacking Ukrainian organizations for over a decade, primarily targeting government agencies and the critical infrastructure sector. The Symantec and Carbon Black researchers have recently uncovered a two-month-long campaign targeting a major business services company in Ukraine and a separate week-long attack against a local state body. Notably, attackers primarily relied on Living-off-the-Land (LotL) techniques and dual-use tools to achieve persistent access. Cyber defenders are facing growing pressure as russian threat actors evolve their tactics and sharpen their stealth capabilities. Since the beginning of the war in Ukraine, these state-backed APT groups have intensified operations, exploiting the conflict to experiment with and refine cutting-edge cyberattack strategies. And this activity has a global impact as russia-linked actors now rank second worldwide among APT attack sources, according to ESET APT Activity Report for Q4 2024 Q1 2025. Register for the SOC Prime Platform to detect potential russian APT attacks at the earliest stage possible. Click the Explore Detections button below to access a curated stack of detection rules designed to identify and respond to the most recent campaign leveraging LotL tactics, dual-use tools, and a custom Sandworm-linked webshell to target Ukrainian organizations. Explore Detections Alternatively, cyber defenders might search for relevant detection content right in the Threat Detection Marketplace by using Sandworm or Seashell Blizzard tags. All the rules in the SOC Prime Platform are compatible with multiple SIEM, EDR, and Data Lake solutions and are mapped to the MITRE ATT&CK framework . Additionally, each rule is packed with detailed metadata, including threat intel references, attack timelines, triage recommendations, and more. Additionally, security experts might streamline threat investigation using Uncoder AI , a private IDE & co-pilot for threat-informed detection engineering. Generate detection algorithms from raw threat reports, enable fast IOC sweeps, predict ATT&CK tags, optimize query code with AI tips, and translate it across multiple SIEM, EDR, and Data Lake languages. For instance, security professionals can use Symantec and Carbon Black most recent report to generate an Attack Flow diagram in several clicks. The russia-linked threat actors have been launching intensive attacks on Ukrainian organizations since the onset of russia s full-scale invasion . The Symantec and Carbon Black Threat Hunting team has recently identified a persistent two-month-long campaign compromising a major business services company and a week-long intrusion into a local state entity. Both campaigns apparently intended to collect sensitive data and maintain persistent network access. Instead of deploying large-scale malware, the adversaries primarily used LotL techniques and dual-use tools to operate stealthily within the environments. Adversaries infiltrated the business services company by installing webshells on publicly accessible servers, likely by exploiting unpatched vulnerabilities. Among the tools used was Localolive, a custom webshell previously linked by Microsoft to a Sandworm subgroup (also known as Seashell Blizzard) and observed in an earlier long-running Sandworm intrusion campaign codenamed BadPilot to establish initial access. Sandworm APT associated with Russia s GRU military intelligence is notorious for espionage and destructive operations. The group has been linked to malicious operations targeting Ukraine s power grid , the VPNFilter attacks against routers, and the AcidRain wiper campaign against Viasat satellite modems, and is also known for targeting IoT devices. In February 2025, the group was behind another long-term campaign active since 2023, in which adversaries employed trojanized Microsoft Key Management Service (KMS) activators and fake Windows updates to compromise Ukrainian systems. Malicious activity at the targeted organization began in late June 2025, when attackers attempted to install a webshell from a remote IP address. After gaining access, they executed a series of reconnaissance commands ( whoami , systeminfo , tasklist , net group ) to map the environment. They then disabled Windows Defender scans for the Downloads folder, suggesting admin-level privileges, and created a scheduled task to perform periodic memory dumps, likely to extract credentials. Two days later, a second webshell was deployed, followed by additional network reconnaissance. Activity later spread to other systems. On the second computer, adversaries searched for Symantec software, listed files, and checked for KeePass processes, indicating an attempt to access stored passwords. Subsequent actions included more memory dumps (using rdrleakdiag ), reconfiguration of Windows Defender, and the execution of suspicious binaries, such as service.exe and cloud.exe , whose names resembled webshells used elsewhere in the intrusion. Another notable aspect of the intrusion was the use of a legitimate MikroTik router management tool ( winbox64.exe ), which the attackers placed in the Downloads folder of the affected systems. Notably, CERT-UA also reported the use of winbox64.exe in April 2024, linking it to a Sandworm campaign aimed to disrupt the information and communication technology (ICT) systems of the energy, water, and heat supply sector across 20 organizations in Ukraine. While defenders found no direct evidence linking the recent intrusions to Sandworm, they assumed that the operations appeared to originate from russia. The investigation further revealed the use of multiple PowerShell backdoors and suspicious executables likely representing malware, though none of these samples have yet been recovered for analysis. Adversaries displayed deep expertise with native Windows tools, proving how a skilled operator can escalate activity and exfiltrate sensitive information, including credentials, while remaining on the network with almost no visible traces. As potential mitigation measures to reduce the risks of russian-backed attacks, defenders recommend applying the Symantec Protection Bulletin . With the increasing attempts of russia-backed hacking collectives to compromise Ukraine and its allies, organizations should be ready to thwart such stealthy threats before they escalate into attacks. By relying on SOC Prime s complete product suite backed by AI, automation, and real-time threat intelligence, security teams can preempt cyber-attacks of any sophistication and fortify the organization s defenses. Exclusively for MDE customers, SOC Prime also curates a Bear Fence pack to enable automated threat hunting for APT28 and 48 more russia s state-sponsored actors, letting teams automatically hunt for Fancy Bear and its siblings through an exclusive Attack Detective scenario using 242 hand-picked behavior rules, over 1 million IOCs, and a dynamic AI-driven TTP feed. The post Detect russian Attacks Targeting Ukraine: Hackers Apply the Custom Sandworm-linked Webshell and Living-off-the-Land Tactics for Persistence appeared first on SOC Prime .

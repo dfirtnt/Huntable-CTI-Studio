@@ -778,6 +778,17 @@ class AsyncDatabaseManager:
                 await session.refresh(new_article)
                 
                 logger.info(f"Created article with deduplication: {article.title}")
+                
+                # Check if workflow should be triggered
+                try:
+                    hunt_score = new_article.article_metadata.get('threat_hunting_score', 0) if new_article.article_metadata else 0
+                    if hunt_score >= 97.0:  # Threshold check
+                        from src.worker.celery_app import trigger_agentic_workflow
+                        trigger_agentic_workflow.delay(new_article.id)
+                        logger.info(f"Triggered agentic workflow for article {new_article.id} (hunt_score: {hunt_score})")
+                except Exception as e:
+                    logger.warning(f"Failed to trigger workflow for article {new_article.id}: {e}")
+                
                 return self._db_article_to_model(new_article)
                 
         except Exception as e:
