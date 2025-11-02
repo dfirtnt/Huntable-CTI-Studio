@@ -435,6 +435,46 @@ def check_source(self, source_identifier: str):
 
 
 @celery_app.task(bind=True, max_retries=3)
+def trigger_agentic_workflow(self, article_id: int):
+    """Trigger agentic workflow for an article with high hunt score."""
+    try:
+        import asyncio
+        from src.database.manager import DatabaseManager
+        from src.workflows.agentic_workflow import run_workflow
+        
+        async def run_workflow_execution():
+            """Run the actual workflow execution."""
+            try:
+                db_manager = DatabaseManager()
+                db_session = db_manager.get_session()
+                
+                try:
+                    result = await run_workflow(article_id, db_session)
+                    logger.info(f"Agentic workflow completed for article {article_id}: {result.get('success', False)}")
+                    return result
+                finally:
+                    db_session.close()
+                    
+            except Exception as e:
+                logger.error(f"Error running agentic workflow for article {article_id}: {e}")
+                raise
+        
+        # Run async workflow
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            result = loop.run_until_complete(run_workflow_execution())
+            return result
+        finally:
+            loop.close()
+            
+    except Exception as exc:
+        logger.error(f"Agentic workflow task failed for article {article_id}: {exc}")
+        # Retry with exponential backoff
+        raise self.retry(exc=exc, countdown=60 * (2 ** self.request.retries))
+
+
+@celery_app.task(bind=True, max_retries=3)
 def generate_article_embedding(self, article_id: int):
     """Generate embedding for a single article."""
     try:

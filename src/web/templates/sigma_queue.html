@@ -1,0 +1,289 @@
+{% extends "base.html" %}
+
+{% block title %}SIGMA Rule Queue - Huntable CTI Scraper{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+    <div class="mb-8">
+        <div class="flex items-center justify-between">
+            <div>
+                <h1 class="text-3xl font-bold text-gray-900 dark:text-white mb-2">📥 SIGMA Rule Queue</h1>
+                <p class="text-gray-600 dark:text-gray-400">Review and manage SIGMA rules pending PR submission</p>
+            </div>
+            <div class="flex space-x-4">
+                <button onclick="loadQueue()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors">
+                    🔄 Refresh
+                </button>
+                <select id="statusFilter" onchange="filterQueue()" class="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-700 dark:text-white">
+                    <option value="">All Status</option>
+                    <option value="pending">Pending</option>
+                    <option value="approved">Approved</option>
+                    <option value="rejected">Rejected</option>
+                    <option value="submitted">Submitted</option>
+                </select>
+            </div>
+        </div>
+    </div>
+
+    <!-- Queue Statistics -->
+    <div id="queueStats" class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+            <div class="text-sm text-gray-600 dark:text-gray-400">Pending Review</div>
+            <div class="text-2xl font-bold text-yellow-600 dark:text-yellow-400" id="pendingCount">-</div>
+        </div>
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+            <div class="text-sm text-gray-600 dark:text-gray-400">Approved</div>
+            <div class="text-2xl font-bold text-green-600 dark:text-green-400" id="approvedCount">-</div>
+        </div>
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+            <div class="text-sm text-gray-600 dark:text-gray-400">Rejected</div>
+            <div class="text-2xl font-bold text-red-600 dark:text-red-400" id="rejectedCount">-</div>
+        </div>
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+            <div class="text-sm text-gray-600 dark:text-gray-400">Submitted</div>
+            <div class="text-2xl font-bold text-purple-600 dark:text-purple-400" id="submittedCount">-</div>
+        </div>
+    </div>
+
+    <!-- Queue Table -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg overflow-hidden">
+        <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+            <thead class="bg-gray-50 dark:bg-gray-900">
+                <tr>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">ID</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Article</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Rule Title</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Max Similarity</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Status</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Created</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Actions</th>
+                </tr>
+            </thead>
+            <tbody id="queueTableBody" class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                <tr>
+                    <td colspan="7" class="px-6 py-4 text-center text-gray-500 dark:text-gray-400">Loading...</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Rule Preview Modal -->
+    <div id="ruleModal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+        <div class="relative top-10 mx-auto p-5 border w-11/12 md:w-4/5 lg:w-3/4 shadow-lg rounded-md bg-white dark:bg-gray-800 max-h-[90vh]">
+            <div class="flex justify-between items-center mb-4 sticky top-0 bg-white dark:bg-gray-800 pb-2 border-b">
+                <h3 class="text-xl font-bold text-gray-900 dark:text-white">SIGMA Rule Preview</h3>
+                <button onclick="closeRuleModal()" class="text-gray-400 hover:text-gray-600">✕</button>
+            </div>
+            <div class="space-y-4 max-h-[70vh] overflow-y-auto">
+                <div id="rulePreviewContent">
+                    <!-- Content loaded dynamically -->
+                </div>
+                <div class="flex space-x-4 pt-4 border-t sticky bottom-0 bg-white dark:bg-gray-800">
+                    <button onclick="approveRule(currentRuleId)" class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md">
+                        ✅ Approve
+                    </button>
+                    <button onclick="rejectRule(currentRuleId)" class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md">
+                        ❌ Reject
+                    </button>
+                    <button onclick="closeRuleModal()" class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md">
+                        Cancel
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let queue = [];
+let currentRuleId = null;
+
+function getStatusBadge(status) {
+    const badges = {
+        'pending': '<span class="px-2 py-1 text-xs rounded-full bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200">Pending</span>',
+        'approved': '<span class="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:bg-green-200">Approved</span>',
+        'rejected': '<span class="px-2 py-1 text-xs rounded-full bg-red-100 text-red-800 dark:bg-red-900 dark:bg-red-200">Rejected</span>',
+        'submitted': '<span class="px-2 py-1 text-xs rounded-full bg-purple-100 text-purple-800 dark:bg-purple-900 dark:bg-purple-200">Submitted</span>'
+    };
+    return badges[status] || '<span class="px-2 py-1 text-xs rounded-full bg-gray-100 text-gray-800">' + status + '</span>';
+}
+
+async function loadQueue() {
+    try {
+        const statusFilter = document.getElementById('statusFilter').value;
+        const url = statusFilter ? `/api/sigma-queue/list?status=${statusFilter}` : '/api/sigma-queue/list';
+        
+        const response = await fetch(url);
+        if (response.ok) {
+            queue = await response.json();
+            renderQueue();
+            updateStats();
+        }
+    } catch (error) {
+        console.error('Error loading queue:', error);
+    }
+}
+
+function renderQueue() {
+    const tbody = document.getElementById('queueTableBody');
+    
+    if (queue.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" class="px-6 py-4 text-center text-gray-500">No queued rules found</td></tr>';
+        return;
+    }
+    
+    tbody.innerHTML = queue.map(rule => {
+        const metadata = rule.rule_metadata || {};
+        const title = metadata.title || 'Untitled Rule';
+        
+        return `
+            <tr class="hover:bg-gray-50 dark:hover:bg-gray-700">
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">${rule.id}</td>
+                <td class="px-6 py-4 text-sm">
+                    <a href="/articles/${rule.article_id}" class="text-purple-600 hover:text-purple-800 dark:text-purple-400">
+                        ${rule.article_title || 'Article ' + rule.article_id}
+                    </a>
+                </td>
+                <td class="px-6 py-4 text-sm text-gray-900 dark:text-white">${title}</td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                    ${rule.max_similarity ? (rule.max_similarity * 100).toFixed(1) + '%' : '-'}
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap">${getStatusBadge(rule.status)}</td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                    ${new Date(rule.created_at).toLocaleString()}
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm">
+                    <button onclick="previewRule(${rule.id})" class="text-blue-600 hover:text-blue-800 dark:text-blue-400 mr-2">Preview</button>
+                    ${rule.status === 'pending' ? `
+                        <button onclick="approveRule(${rule.id})" class="text-green-600 hover:text-green-800 dark:text-green-400 mr-2">Approve</button>
+                        <button onclick="rejectRule(${rule.id})" class="text-red-600 hover:text-red-800 dark:text-red-400">Reject</button>
+                    ` : ''}
+                </td>
+            </tr>
+        `;
+    }).join('');
+}
+
+function updateStats() {
+    const stats = {
+        pending: queue.filter(r => r.status === 'pending').length,
+        approved: queue.filter(r => r.status === 'approved').length,
+        rejected: queue.filter(r => r.status === 'rejected').length,
+        submitted: queue.filter(r => r.status === 'submitted').length
+    };
+    
+    document.getElementById('pendingCount').textContent = stats.pending;
+    document.getElementById('approvedCount').textContent = stats.approved;
+    document.getElementById('rejectedCount').textContent = stats.rejected;
+    document.getElementById('submittedCount').textContent = stats.submitted;
+}
+
+function previewRule(ruleId) {
+    const rule = queue.find(r => r.id === ruleId);
+    if (!rule) return;
+    
+    currentRuleId = ruleId;
+    
+    const metadata = rule.rule_metadata || {};
+    const similarityScores = rule.similarity_scores || [];
+    
+    let similarRulesHtml = '';
+    if (similarityScores.length > 0) {
+        similarRulesHtml = `
+            <div class="mt-4">
+                <h4 class="font-semibold mb-2">Similar Existing Rules:</h4>
+                <ul class="list-disc list-inside space-y-1">
+                    ${similarityScores.slice(0, 5).map(s => `
+                        <li>${s.title || s.rule_id} (${(s.similarity * 100).toFixed(1)}% similar)</li>
+                    `).join('')}
+                </ul>
+            </div>
+        `;
+    }
+    
+    const content = `
+        <div class="space-y-4">
+            <div><strong>Rule ID:</strong> ${rule.id}</div>
+            <div><strong>Article:</strong> <a href="/articles/${rule.article_id}" class="text-purple-600">${rule.article_title || 'Article ' + rule.article_id}</a></div>
+            <div><strong>Max Similarity:</strong> ${rule.max_similarity ? (rule.max_similarity * 100).toFixed(1) + '%' : 'N/A'}</div>
+            ${similarRulesHtml}
+            <div class="mt-4">
+                <h4 class="font-semibold mb-2">Rule YAML:</h4>
+                <pre class="bg-gray-100 dark:bg-gray-900 p-4 rounded overflow-x-auto text-xs"><code>${escapeHtml(rule.rule_yaml)}</code></pre>
+            </div>
+        </div>
+    `;
+    
+    document.getElementById('rulePreviewContent').innerHTML = content;
+    document.getElementById('ruleModal').classList.remove('hidden');
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+async function approveRule(ruleId) {
+    if (!confirm('Approve this rule for PR submission?')) return;
+    
+    try {
+        const response = await fetch(`/api/sigma-queue/${ruleId}/approve`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status: 'approved' })
+        });
+        
+        if (response.ok) {
+            alert('Rule approved successfully');
+            closeRuleModal();
+            await loadQueue();
+        } else {
+            alert('Error approving rule');
+        }
+    } catch (error) {
+        console.error('Error approving rule:', error);
+        alert('Error approving rule');
+    }
+}
+
+async function rejectRule(ruleId) {
+    const notes = prompt('Rejection reason (optional):');
+    
+    try {
+        const response = await fetch(`/api/sigma-queue/${ruleId}/reject`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ review_notes: notes || null })
+        });
+        
+        if (response.ok) {
+            alert('Rule rejected');
+            closeRuleModal();
+            await loadQueue();
+        } else {
+            alert('Error rejecting rule');
+        }
+    } catch (error) {
+        console.error('Error rejecting rule:', error);
+        alert('Error rejecting rule');
+    }
+}
+
+function closeRuleModal() {
+    document.getElementById('ruleModal').classList.add('hidden');
+    currentRuleId = null;
+}
+
+function filterQueue() {
+    loadQueue();
+}
+
+// Auto-refresh every 30 seconds
+setInterval(loadQueue, 30000);
+
+// Load on page load
+loadQueue();
+</script>
+{% endblock %}
+

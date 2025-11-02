@@ -12,7 +12,7 @@ from collections import defaultdict
 
 LMSTUDIO_URL = os.getenv("LMSTUDIO_API_URL", "http://localhost:1234/v1")
 # Using fastest 7B model for testing - change this to your preferred fast model
-LMSTUDIO_MODEL = os.getenv("LMSTUDIO_MODEL", "qwen/qwen2.5-coder-32b")  # 32B model - ensure context length is set high
+LMSTUDIO_MODEL = os.getenv("LMSTUDIO_MODEL", "meta-llama-3.1-8b-instruct")  # LLaMA 3.1 8B Instruct
 # Results file name based on model
 MODEL_NAME_FOR_FILE = LMSTUDIO_MODEL.replace("/", "-").replace("_", "-")
 RESULTS_FILE = f"lmstudio_scores_{MODEL_NAME_FOR_FILE}.json"
@@ -71,6 +71,21 @@ async def score_article(article_id, title, source, url, content, max_retries=3):
     for attempt in range(max_retries):
         async with httpx.AsyncClient() as client:
             try:
+                # LLaMA 3.1 models work better with system/user message separation
+                # Split prompt into system (rubric) and user (article content)
+                if 'llama-3.1' in LMSTUDIO_MODEL.lower() or 'llama3.1' in LMSTUDIO_MODEL.lower():
+                    # Extract rubric instructions (first part) and article content (second part)
+                    prompt_parts = full_prompt.split('**Title:**')
+                    system_msg = prompt_parts[0].strip() if len(prompt_parts) > 1 else "You are a detection engineer. Score threat intelligence articles 1-10 for SIGMA huntability."
+                    user_msg = '**Title:**' + prompt_parts[1] if len(prompt_parts) > 1 else full_prompt
+                    
+                    messages = [
+                        {"role": "system", "content": system_msg},
+                        {"role": "user", "content": user_msg}
+                    ]
+                else:
+                    messages = [{"role": "user", "content": full_prompt}]
+                
                 response = await client.post(
                     f"{LMSTUDIO_URL}/chat/completions",
                     headers={
@@ -78,17 +93,11 @@ async def score_article(article_id, title, source, url, content, max_retries=3):
                     },
                     json={
                         "model": LMSTUDIO_MODEL,
-                        "messages": [
-                            {
-                                "role": "user",
-                                "content": full_prompt
-                            }
-                        ],
-                        "max_tokens": 2000,  # Match chat UI default
+                        "messages": messages,
                         "temperature": TEMPERATURE,
-                        "top_p": TOP_P
-                        # Removed seed - may cause deterministic newline behavior
-                        # Chat UI doesn't use seed, matches working behavior
+                        "top_p": TOP_P,
+                        "max_tokens": 10000  # Manual test shows ~4000 tokens, allow room for full response
+                        # Chat UI uses high default; explicit high value ensures model completes naturally
                     },
                     timeout=300.0  # Longer timeout for local models
                 )
@@ -116,14 +125,36 @@ async def score_article(article_id, title, source, url, content, max_retries=3):
                 choice = result['choices'][0]
                 message = choice.get('message', {})
                 raw_content = message.get('content', '')
+                
+                # Manual test shows: gpt-oss-20b outputs full response to 'content' field with "**SIGMA HUNTABILITY SCORE:** 6"
+                # Finish reason should be 'stop' (not 'length') when max_tokens is omitted
                 score_text = raw_content.strip()
+                
+                # If content is empty, try reasoning field as fallback (shouldn't happen with correct config)
+                if not score_text and 'reasoning' in message:
+                    reasoning = message.get('reasoning', '')
+                    reasoning_end = reasoning[-100:] if len(reasoning) > 100 else reasoning
+                    print(f"Article {article_id}: Content empty (unexpected), checking reasoning end: {repr(reasoning_end)}")
+                    
+                    final_score_match = re.search(r'(?:final\s+)?(?:score|answer|rating)[:\s=]+(\d+)', reasoning_end, re.IGNORECASE)
+                    if final_score_match:
+                        score = int(final_score_match.group(1))
+                        if 1 <= score <= 10:
+                            score_text = str(score)
+                            print(f"  ✓ Found final score {score} at end of reasoning")
+                    elif re.match(r'^\s*(\d+)\s*$', reasoning_end.strip()):
+                        score = int(reasoning_end.strip())
+                        if 1 <= score <= 10:
+                            score_text = str(score)
+                            print(f"  ✓ Found lone digit {score} at end of reasoning")
                 
                 # Check if response is empty or only newlines
                 if not score_text:
                     print(f"Article {article_id}: Empty or newline-only response (attempt {attempt + 1})")
                     print(f"  Finish reason: {choice.get('finish_reason', 'unknown')}")
                     print(f"  Usage: {usage}")
-                    print(f"  Raw content (first 100 chars): {repr(raw_content[:100])}")
+                    print(f"  Raw content (first 200 chars): {repr(raw_content[:200])}")
+                    print(f"  Raw content hex (first 100 bytes): {raw_content[:100].encode('utf-8').hex()}")
                     
                     # Try extracting score from raw content even if it's mostly newlines
                     score_from_raw = extract_score(raw_content)
@@ -131,6 +162,11 @@ async def score_article(article_id, title, source, url, content, max_retries=3):
                         print(f"  ✓ Found score {score_from_raw} despite newlines")
                         score_text = str(score_from_raw)  # Use found score
                     else:
+                        # Try looking for any digit in the raw response (before strip)
+                        digit_match = re.search(r'\d', raw_content)
+                        if digit_match:
+                            print(f"  ⚠️ Found digit '{digit_match.group()}' but not in valid score format")
+                            print(f"  Full raw: {repr(raw_content)}")
                         if attempt < max_retries - 1:
                             await asyncio.sleep(2)
                             continue
@@ -317,8 +353,13 @@ async def main():
     
     for run in range(1, 6):
         batch = await run_batch(run)
+        # Reload results after each batch (in case articles completed mid-batch)
+        all_results = load_results()
         if batch:
             for article_id, scores in batch.items():
+                # Ensure article exists in all_results (may have been saved but not in initial load)
+                if str(article_id) not in all_results:
+                    all_results[str(article_id)] = []
                 if isinstance(scores, list):
                     all_results[str(article_id)].extend(scores)
                 else:

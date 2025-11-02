@@ -27,7 +27,7 @@ class LLMGenerationService:
         
         # LMStudio configuration
         self.lmstudio_url = os.getenv("LMSTUDIO_API_URL", "http://host.docker.internal:1234/v1")
-        self.lmstudio_model = os.getenv("LMSTUDIO_MODEL", "meta-llama-3.1-8b-instruct")
+        self.lmstudio_model = os.getenv("LMSTUDIO_MODEL", "deepseek-r1-qwen3-8b")
         
         logger.info("Initialized LLM Generation Service")
     
