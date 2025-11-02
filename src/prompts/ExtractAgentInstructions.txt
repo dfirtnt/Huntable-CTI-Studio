@@ -1,0 +1,13 @@
+Title: {title}
+
+URL: {url}
+
+Content:
+
+{content}
+
+Extract telemetry-aware attacker behaviors and observables.
+
+{prompt_config}
+
+CRITICAL: Output your response as a valid JSON object only. Begin with {{{{ and end with }}}}. Do not include reasoning, explanations, or markdown outside the JSON object.

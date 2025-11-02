@@ -905,7 +905,7 @@ async def api_rank_with_gpt4o(article_id: int, request: Request):
                     raise HTTPException(status_code=500, detail=f"Failed to get ranking from TinyLlama: {str(e)}")
         elif ai_model == 'lmstudio':
             # Use LMStudio API with recommended settings
-            lmstudio_model = os.getenv("LMSTUDIO_MODEL", "llama-3.2-1b-instruct")
+            lmstudio_model = await _get_current_lmstudio_model()
             lmstudio_settings = _get_lmstudio_settings()
             
             payload = {
@@ -1332,6 +1332,77 @@ async def api_gpt4o_rank_optimized(article_id: int, request: Request):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.post("/{article_id}/extract-observables")
+async def api_extract_observables(article_id: int):
+    """Extract observables (IOCs and behavioral indicators) from an article using Extract Observables model."""
+    try:
+        from src.services.llm_service import LLMService
+        from pathlib import Path
+        
+        # Get the article
+        article = await async_db_manager.get_article(article_id)
+        if not article:
+            raise HTTPException(status_code=404, detail="Article not found")
+        
+        # Initialize LLM service
+        llm_service = LLMService()
+        
+        # Get prompt file path
+        prompt_file = Path(__file__).parent.parent.parent / "prompts" / "ExtractObservables"
+        if not prompt_file.exists():
+            raise HTTPException(status_code=500, detail="ExtractObservables prompt file not found")
+        
+        # Filter content if needed (use least aggressive filter)
+        from src.utils.content_filter import ContentFilter
+        content_filter = ContentFilter()
+        filter_result = content_filter.filter_content(
+            article.content,
+            min_confidence=0.9,
+            hunt_score=article.article_metadata.get('threat_hunting_score', 0) if article.article_metadata else 0,
+            article_id=article.id
+        )
+        
+        # Check if content passed filter (has huntable content)
+        if not filter_result.is_huntable:
+            raise HTTPException(
+                status_code=400, 
+                detail="Article content did not pass content filter. No huntable content detected."
+            )
+        
+        # Check if filtered content is empty or too short
+        filtered_content = filter_result.filtered_content or article.content
+        if not filtered_content or len(filtered_content.strip()) < 100:
+            raise HTTPException(
+                status_code=400,
+                detail="Article content has insufficient huntable content after filtering."
+            )
+        
+        # Extract observables using Extract Observables model
+        extraction_result = await llm_service.extract_observables(
+            content=filtered_content,
+            title=article.title,
+            url=article.canonical_url or "",
+            prompt_file_path=str(prompt_file)
+        )
+        
+        return {
+            "success": True,
+            "article_id": article_id,
+            "extraction": extraction_result,
+            "metadata": {
+                "atomic_count": extraction_result.get("metadata", {}).get("atomic_count", 0),
+                "behavioral_count": extraction_result.get("metadata", {}).get("behavioral_count", 0),
+                "total_observables": extraction_result.get("metadata", {}).get("observable_count", 0)
+            }
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error extracting observables: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to extract observables: {str(e)}")
+
+
 @router.post("/{article_id}/extract-iocs")
 async def api_extract_iocs(article_id: int, request: Request):
     """Extract IOCs (Indicators of Compromise) from an article using AI."""
@@ -1369,11 +1440,40 @@ async def api_extract_iocs(article_id: int, request: Request):
         if use_llm_validation:
             logger.info(f"LLM validation enabled for {ai_model} model")
         
+        # Apply content filtering only when LLM validation is enabled
+        # This reduces costs by filtering out non-huntable content before sending to LLM
+        content_to_use = article.content
+        filter_metadata = {}
+        if use_llm_validation:
+            from src.utils.content_filter import ContentFilter
+            content_filter = ContentFilter()
+            filter_result = content_filter.filter_content(
+                article.content,
+                min_confidence=0.9,  # Use least aggressive filter (similar to Extract Observables)
+                hunt_score=article.article_metadata.get('threat_hunting_score', 0) if article.article_metadata else 0,
+                article_id=article.id
+            )
+            
+            # Use filtered content if available and huntable, otherwise use original
+            if filter_result.is_huntable and filter_result.filtered_content:
+                content_to_use = filter_result.filtered_content
+                filter_metadata = {
+                    'content_filtering': {
+                        'enabled': True,
+                        'cost_savings': filter_result.cost_savings,
+                        'chunks_removed': len(filter_result.removed_chunks) if filter_result.removed_chunks else 0,
+                        'min_confidence': 0.9
+                    }
+                }
+                logger.info(f"Content filtering applied: {filter_result.cost_savings:.1%} cost savings, {len(filter_result.removed_chunks) if filter_result.removed_chunks else 0} chunks removed")
+            else:
+                logger.info("Content filter did not find huntable content, using original content for LLM validation")
+        
         extractor = HybridIOCExtractor(use_llm_validation=effective_llm_validation)
         
-        # Extract IOCs from the article content
+        # Extract IOCs from the article content (filtered if LLM validation is enabled)
         result = await extractor.extract_iocs(
-            content=article.content,
+            content=content_to_use,
             api_key=api_key,
             ai_model=ai_model  # Pass AI model to extractor
         )
@@ -1392,7 +1492,8 @@ async def api_extract_iocs(article_id: int, request: Request):
                 'processing_time': result.processing_time,
                 'raw_count': result.raw_count,
                 'validated_count': result.validated_count,
-                'metadata': result.metadata  # Store prompt and response
+                'metadata': result.metadata,  # Store prompt and response
+                **filter_metadata  # Include content filtering metadata if applied
             }
             
             # Update the article in the database
@@ -1603,7 +1704,7 @@ async def api_generate_sigma(article_id: int, request: Request):
 
         # For LMStudio, set context window size based on model
         if ai_model == 'lmstudio':
-            lmstudio_model_name = os.getenv("LMSTUDIO_MODEL", "llama-3.2-1b-instruct")
+            lmstudio_model_name = await _get_current_lmstudio_model()
 
             # Determine context window based on model
             # Reserve: 500 tokens for prompt template + 800 tokens for output + 200 safety margin = 1500 tokens overhead
@@ -2687,7 +2788,7 @@ Please provide a detailed analysis based on the article content and the user's r
                 model_name = 'tinyllama'
         elif ai_model == 'lmstudio':
             # Use LMStudio API
-            lmstudio_model = os.getenv("LMSTUDIO_MODEL", "llama-3.2-1b-instruct")
+            lmstudio_model = await _get_current_lmstudio_model()
 
             lmstudio_settings = _get_lmstudio_settings()
             payload = {

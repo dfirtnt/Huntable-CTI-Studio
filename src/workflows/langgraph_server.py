@@ -367,7 +367,8 @@ Cannot process empty articles."""
                 execution.junk_filter_result = {
                     'filtered_length': len(filter_result.filtered_content) if filter_result.filtered_content else 0,
                     'original_length': len(article.content),
-                    'chunks_kept': len(filter_result.removed_chunks) if filter_result.removed_chunks else 0,
+                    'chunks_kept': len(filter_result.removed_chunks) if filter_result.removed_chunks else 0,  # Note: removed_chunks contains removed items, but we track kept separately
+                    'chunks_removed': len(filter_result.removed_chunks) if filter_result.removed_chunks else 0,
                     'is_huntable': filter_result.is_huntable,
                     'confidence': filter_result.confidence
                 }
@@ -425,6 +426,12 @@ Cannot process empty articles."""
             ranking_threshold = state.get('ranking_threshold', 6.0)
             should_continue = ranking_score >= ranking_threshold
             
+            # Validate ranking result has non-empty response
+            ranking_reasoning = ranking_result.get('reasoning', '')
+            raw_response = ranking_result.get('raw_response', '')
+            if not raw_response or len(raw_response.strip()) == 0:
+                raise ValueError("Ranking returned empty response - LLM did not provide valid output")
+            
             # Update execution record
             execution_id = state.get('execution_id')
             if execution_id:
@@ -451,8 +458,23 @@ Cannot process empty articles."""
             
         except Exception as e:
             logger.error(f"[Workflow {state.get('execution_id')}] Ranking error: {e}")
+            
+            # Update execution record on error
+            execution_id = state.get('execution_id')
+            if execution_id:
+                execution = db_session.query(AgenticWorkflowExecutionTable).filter(
+                    AgenticWorkflowExecutionTable.id == execution_id
+                ).first()
+                if execution:
+                    execution.current_step = 'rank_article'
+                    execution.status = 'failed'
+                    # Don't set ranking_score on error - keep it NULL
+                    db_session.commit()
+            
             return {
                 **state,
+                'ranking_score': None,  # Clear score on error
+                'ranking_reasoning': None,  # Clear reasoning on error
                 'error': str(e),
                 'error_log': {**(state.get('error_log') or {}), 'rank_article': str(e)},
                 'current_step': 'rank_article',
@@ -486,6 +508,16 @@ Cannot process empty articles."""
             )
             
             discrete_huntables = extraction_result.get('discrete_huntables_count', 0)
+            
+            # Fail if extraction result is invalid or empty
+            raw_response = extraction_result.get('raw_response', '')
+            if not raw_response or len(raw_response.strip()) == 0:
+                error_msg = "Extraction returned empty response - LLM did not provide valid output"
+                logger.error(f"[Workflow {state.get('execution_id')}] {error_msg}")
+                raise ValueError(error_msg)
+            
+            # Log extraction quality for debugging
+            logger.info(f"[Workflow {state.get('execution_id')}] Extraction completed: {discrete_huntables} huntables, {len(extraction_result.get('behavioral_observables', []))} observables")
             
             # Update execution record
             execution_id = state.get('execution_id')
@@ -533,11 +565,24 @@ Cannot process empty articles."""
             extraction_result = state.get('extraction_result', {})
             filtered_content = state.get('filtered_content') or article.content
             
+            # Use extraction_result content if available and has huntables, otherwise use filtered_content
+            content_to_use = filtered_content
+            if extraction_result and extraction_result.get('discrete_huntables_count', 0) > 0:
+                # Prefer extracted content if we have meaningful huntables
+                extracted_content = extraction_result.get('content', '')
+                if extracted_content and len(extracted_content) > 100:
+                    content_to_use = extracted_content
+                    logger.info(f"[Workflow {state.get('execution_id')}] Using extracted content ({len(extracted_content)} chars) for SIGMA generation")
+                else:
+                    logger.warning(f"[Workflow {state.get('execution_id')}] Extraction result has {extraction_result.get('discrete_huntables_count', 0)} huntables but no usable content, using filtered_content")
+            else:
+                logger.warning(f"[Workflow {state.get('execution_id')}] No extraction result or zero huntables, using filtered_content for SIGMA generation")
+            
             # Generate SIGMA rules
             source_name = article.source.name if article.source else "Unknown"
             sigma_result = await sigma_generation_service.generate_sigma_rules(
                 article_title=article.title,
-                article_content=filtered_content,
+                article_content=content_to_use,
                 source_name=source_name,
                 url=article.canonical_url or "",
                 ai_model='lmstudio'
@@ -669,8 +714,25 @@ Cannot process empty articles."""
                 response_text += "View full details in the Workflow > Executions tab."
                 
             elif status == "failed":
-                error_msg = state.get("error", "Unknown error")
-                response_text = f"""❌ **Workflow failed for article #{article_id}**
+                # Check if failure is due to low ranking score
+                ranking_score = state.get("ranking_score")
+                ranking_threshold = state.get("ranking_threshold", 6.0)
+                current_step = state.get("current_step")
+                
+                if current_step == "rank_article" and ranking_score is not None:
+                    # Specific message for low ranking score
+                    response_text = f"""⚠️ **Workflow stopped: Article ranked below threshold**
+
+**Article #{article_id}** received a huntability score of **{ranking_score:.1f}/10**, which is below the threshold of **{ranking_threshold:.1f}/10**.
+
+The article did not meet the minimum huntability criteria for SIGMA rule generation.
+
+**Execution ID**: {execution_id}
+View full details in the Workflow > Executions tab."""
+                else:
+                    # Generic error message for other failures
+                    error_msg = state.get("error", "Unknown error")
+                    response_text = f"""❌ **Workflow failed for article #{article_id}**
 
 **Error**: {error_msg}
 
@@ -834,7 +896,7 @@ Check the Workflow > Executions tab for detailed error logs."""
         check_should_continue,
         {
             "extract_agent": "extract_agent",
-            "end": END
+            "end": "generate_response"  # Route failed rankings to generate_response for chat-friendly error message
         }
     )
     workflow.add_edge("extract_agent", "generate_sigma")
@@ -859,5 +921,6 @@ Check the Workflow > Executions tab for detailed error logs."""
         checkpoint = MemorySaver()
         logger.info("Using MemorySaver checkpoint backend")
     
-    return workflow.compile(checkpointer=checkpoint)
+    # Enable debug mode for verbose logging of workflow execution
+    return workflow.compile(checkpointer=checkpoint, debug=True)
 

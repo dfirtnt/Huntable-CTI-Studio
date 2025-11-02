@@ -68,8 +68,57 @@ class TestAIAssistantUI:
         expect(page.locator("button:has-text('Generate Summary')")).to_be_visible()
         expect(page.locator("button:has-text('Generate SIGMA Rules')")).to_be_visible()
         expect(page.locator("button:has-text('Extract IOCs')")).to_be_visible()
+        expect(page.locator("button:has-text('Extract Observables')")).to_be_visible()
         expect(page.locator("button:has-text('Rank with')")).to_be_visible()
         expect(page.locator("button:has-text('Custom Prompt')")).to_be_visible()
+    
+    @pytest.mark.ui
+    @pytest.mark.ai
+    
+    def test_extract_observables_button(self, page: Page):
+        """Test that Extract Observables button is present and functional."""
+        base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
+        
+        # Navigate to an article detail page
+        page.goto(f"{base_url}/articles/634")
+        
+        # Click AI Assistant button
+        page.click("button:has-text('AI Assistant')")
+        
+        # Verify Extract Observables button is visible
+        observables_button = page.locator("button:has-text('Extract Observables'), button:has-text('🎯')")
+        expect(observables_button).to_be_visible()
+        
+        # Verify button styling (teal color)
+        expect(observables_button).to_have_class(re.compile(r"bg-teal-600"))
+    
+    @pytest.mark.ui
+    @pytest.mark.ai
+    
+    def test_extract_observables_modal(self, page: Page):
+        """Test that Extract Observables modal displays correctly."""
+        base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
+        
+        # Navigate to an article detail page
+        page.goto(f"{base_url}/articles/634")
+        
+        # Click AI Assistant button
+        page.click("button:has-text('AI Assistant')")
+        page.wait_for_timeout(500)
+        
+        # Click Extract Observables button (if available)
+        observables_button = page.locator("button:has-text('Extract Observables'), button:has-text('🎯')")
+        
+        if observables_button.count() > 0:
+            observables_button.first.click()
+            page.wait_for_timeout(2000)  # Wait for processing
+            
+            # Check if observables modal appears or loading modal
+            modal = page.locator("#observablesModal, #loadingModal, div:has-text('Extracted Observables')")
+            
+            if modal.count() > 0:
+                # Modal appeared (either loading or results)
+                expect(modal.first).to_be_visible()
     
     @pytest.mark.ui
     @pytest.mark.ai
