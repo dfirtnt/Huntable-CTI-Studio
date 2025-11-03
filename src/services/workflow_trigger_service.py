@@ -69,10 +69,11 @@ class WorkflowTriggerService:
             # Get hunt score from article metadata
             hunt_score = article.article_metadata.get('threat_hunting_score', 0) if article.article_metadata else 0
             
-            # Check if score meets threshold
+            # Hunt score threshold check is DISABLED - all articles can enter workflow
+            # Log for visibility but don't block
             if hunt_score < config.min_hunt_score:
-                logger.debug(f"Article {article.id} hunt score {hunt_score} below threshold {config.min_hunt_score}")
-                return False
+                logger.debug(f"Article {article.id} hunt score {hunt_score} below threshold {config.min_hunt_score} (threshold check disabled, allowing anyway)")
+            # Threshold check disabled - removed: if hunt_score < config.min_hunt_score: return False
             
             # Check if workflow already running or completed for this article
             existing_execution = self.db.query(AgenticWorkflowExecutionTable).filter(

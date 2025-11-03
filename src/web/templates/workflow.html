@@ -31,8 +31,17 @@
                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                     <!-- Min Hunt Score -->
                     <div>
-                        <label for="minHuntScore" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        <label for="minHuntScore" class="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                             Minimum Hunt Score
+                            <span class="text-xs text-gray-400 dark:text-gray-500 bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded">DISABLED</span>
+                            <button type="button" 
+                                    onclick="showHelp('minHuntScore')"
+                                    class="text-blue-500 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 focus:outline-none"
+                                    title="Help">
+                                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/>
+                                </svg>
+                            </button>
                         </label>
                         <input type="number" 
                                id="minHuntScore" 
@@ -40,14 +49,23 @@
                                min="0" 
                                max="100" 
                                step="0.1"
-                               class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white">
-                        <p class="text-xs text-gray-500 dark:text-gray-300 mt-1">Articles with score ≥ this will trigger workflow</p>
+                               disabled
+                               class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-gray-100 dark:bg-gray-900 text-gray-500 dark:text-gray-400 cursor-not-allowed opacity-60">
+                        <p class="text-xs text-gray-400 dark:text-gray-500 mt-1 italic">Threshold check disabled - all articles enter workflow regardless of score</p>
                     </div>
 
                     <!-- Junk Filter Threshold -->
                     <div>
-                        <label for="junkFilterThreshold" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        <label for="junkFilterThreshold" class="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                             Junk Filter Threshold
+                            <button type="button" 
+                                    onclick="showHelp('junkFilterThreshold')"
+                                    class="text-blue-500 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 focus:outline-none"
+                                    title="Help">
+                                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/>
+                                </svg>
+                            </button>
                         </label>
                         <input type="number" 
                                id="junkFilterThreshold" 
@@ -55,14 +73,25 @@
                                min="0" 
                                max="1" 
                                step="0.05"
+                               required
+                               oninput="validateThreshold(this, 0, 1)"
                                class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white">
                         <p class="text-xs text-gray-500 dark:text-gray-300 mt-1">Min confidence (0-1) for content filtering</p>
+                        <p id="junkFilterThreshold-error" class="text-xs text-red-500 dark:text-red-400 mt-1 hidden"></p>
                     </div>
 
                     <!-- Ranking Threshold -->
                     <div>
-                        <label for="rankingThreshold" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        <label for="rankingThreshold" class="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                             Ranking Threshold
+                            <button type="button" 
+                                    onclick="showHelp('rankingThreshold')"
+                                    class="text-blue-500 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 focus:outline-none"
+                                    title="Help">
+                                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/>
+                                </svg>
+                            </button>
                         </label>
                         <input type="number" 
                                id="rankingThreshold" 
@@ -70,14 +99,25 @@
                                min="0" 
                                max="10" 
                                step="0.1"
+                               required
+                               oninput="validateThreshold(this, 0, 10)"
                                class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white">
-                        <p class="text-xs text-gray-500 dark:text-gray-300 mt-1">Minimum LLM ranking (1-10) to continue workflow</p>
+                        <p class="text-xs text-gray-500 dark:text-gray-300 mt-1">Minimum LLM ranking (0-10) to continue workflow</p>
+                        <p id="rankingThreshold-error" class="text-xs text-red-500 dark:text-red-400 mt-1 hidden"></p>
                     </div>
 
                     <!-- Similarity Threshold -->
                     <div>
-                        <label for="similarityThreshold" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        <label for="similarityThreshold" class="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                             Similarity Threshold
+                            <button type="button" 
+                                    onclick="showHelp('similarityThreshold')"
+                                    class="text-blue-500 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 focus:outline-none"
+                                    title="Help">
+                                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/>
+                                </svg>
+                            </button>
                         </label>
                         <input type="number" 
                                id="similarityThreshold" 
@@ -85,8 +125,11 @@
                                min="0" 
                                max="1" 
                                step="0.05"
+                               required
+                               oninput="validateThreshold(this, 0, 1)"
                                class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white">
                         <p class="text-xs text-gray-500 dark:text-gray-300 mt-1">Max similarity (0-1) to queue rule</p>
+                        <p id="similarityThreshold-error" class="text-xs text-red-500 dark:text-red-400 mt-1 hidden"></p>
                     </div>
                 </div>
 
@@ -165,7 +208,7 @@
                     🔄 Refresh
                 </button>
                 <select id="statusFilter" onchange="filterExecutions()" class="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-700 dark:text-white">
-                    <option value="">All Status</option>
+                    <option value="">All Statuses</option>
                     <option value="pending">Pending</option>
                     <option value="running">Running</option>
                     <option value="completed">Completed</option>
@@ -454,7 +497,8 @@ async function loadConfig() {
         const response = await fetch('/api/workflow/config');
         if (response.ok) {
             currentConfig = await response.json();
-            document.getElementById('minHuntScore').value = currentConfig.min_hunt_score;
+            // Set to 97.0 for display (field is disabled)
+            document.getElementById('minHuntScore').value = currentConfig.min_hunt_score || 97.0;
             document.getElementById('junkFilterThreshold').value = currentConfig.junk_filter_threshold;
             document.getElementById('rankingThreshold').value = currentConfig.ranking_threshold;
             document.getElementById('similarityThreshold').value = currentConfig.similarity_threshold;
@@ -466,6 +510,7 @@ async function loadConfig() {
                     <div><strong>Junk Filter:</strong> ${currentConfig.junk_filter_threshold}</div>
                     <div><strong>Ranking Threshold:</strong> ${currentConfig.ranking_threshold}</div>
                     <div><strong>Similarity Threshold:</strong> ${currentConfig.similarity_threshold}</div>
+                    <div class="col-span-4"><strong>Description:</strong> ${currentConfig.description || '(none)'}</div>
                     <div class="col-span-4"><strong>Version:</strong> ${currentConfig.version} | <strong>Active:</strong> ${currentConfig.is_active ? 'Yes' : 'No'}</div>
                 </div>
             `;
@@ -475,8 +520,51 @@ async function loadConfig() {
     }
 }
 
+// Validation function for thresholds
+function validateThreshold(input, min, max) {
+    const value = parseFloat(input.value);
+    const errorElement = document.getElementById(input.id + '-error');
+    
+    // Clear previous error
+    if (errorElement) {
+        errorElement.classList.add('hidden');
+        input.classList.remove('border-red-500', 'dark:border-red-500');
+    }
+    
+    // Validate
+    if (isNaN(value)) {
+        if (errorElement) {
+            errorElement.textContent = 'Please enter a valid number';
+            errorElement.classList.remove('hidden');
+            input.classList.add('border-red-500', 'dark:border-red-500');
+        }
+        return false;
+    }
+    
+    if (value < min || value > max) {
+        if (errorElement) {
+            errorElement.textContent = `Value must be between ${min} and ${max}`;
+            errorElement.classList.remove('hidden');
+            input.classList.add('border-red-500', 'dark:border-red-500');
+        }
+        return false;
+    }
+    
+    return true;
+}
+
 document.getElementById('workflowConfigForm').addEventListener('submit', async (e) => {
     e.preventDefault();
+    
+    // Validate all thresholds before submission
+    const junkFilterValid = validateThreshold(document.getElementById('junkFilterThreshold'), 0, 1);
+    const rankingValid = validateThreshold(document.getElementById('rankingThreshold'), 0, 10);
+    const similarityValid = validateThreshold(document.getElementById('similarityThreshold'), 0, 1);
+    
+    if (!junkFilterValid || !rankingValid || !similarityValid) {
+        alert('Please fix the validation errors before saving.');
+        return;
+    }
     
     const formData = {
         min_hunt_score: parseFloat(document.getElementById('minHuntScore').value),
@@ -952,6 +1040,125 @@ setInterval(() => {
         loadQueue();
     }
 }, currentTab === 'executions' ? 10000 : 30000);
+
+// Help modal function
+function showHelp(fieldName) {
+    const helpTexts = {
+        'minHuntScore': {
+            title: 'Minimum Hunt Score (DISABLED)',
+            content: `<div class="mb-3 p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded">
+                        <p class="text-sm font-semibold text-yellow-800 dark:text-yellow-200">⚠️ This threshold check is currently DISABLED</p>
+                        <p class="text-sm text-yellow-700 dark:text-yellow-300 mt-1">All articles enter the workflow regardless of hunt score.</p>
+                      </div>
+                      <p class="mb-2"><strong>Range:</strong> 0.0 - 100.0</p>
+                      <p class="mb-2"><strong>Default:</strong> 97.0</p>
+                      <p class="mb-2"><strong>Description:</strong></p>
+                      <p class="mb-2">This is the ML model's threat hunting score threshold. <strong>When enabled</strong>, articles with a hunt score greater than or equal to this value will automatically trigger the agentic workflow.</p>
+                      <p class="mb-2"><strong>How it works (when enabled):</strong></p>
+                      <ul class="list-disc list-inside mb-2 space-y-1">
+                          <li>Articles are scored by the ML model (0-100 scale)</li>
+                          <li>Only articles with score ≥ this threshold enter the workflow</li>
+                          <li>Higher values = fewer articles processed (more selective)</li>
+                          <li>Lower values = more articles processed (less selective)</li>
+                      </ul>
+                      <p class="text-sm text-gray-600 dark:text-gray-400"><strong>Recommended:</strong> 95.0-99.0 for production (high quality), 85.0-95.0 for testing (more volume)</p>`
+        },
+        'junkFilterThreshold': {
+            title: 'Junk Filter Threshold',
+            content: `<p class="mb-2"><strong>Range:</strong> 0.0 - 1.0</p>
+                      <p class="mb-2"><strong>Default:</strong> 0.8</p>
+                      <p class="mb-2"><strong>Description:</strong></p>
+                      <p class="mb-2">Minimum confidence level for content filtering. Higher values mean stricter filtering (more content removed), lower values mean more lenient filtering.</p>
+                      <p class="mb-2"><strong>How it works:</strong></p>
+                      <ul class="list-disc list-inside mb-2 space-y-1">
+                          <li>Content is analyzed for junk/noise patterns</li>
+                          <li>Confidence score (0.0-1.0) indicates how likely content is junk</li>
+                          <li>Content with confidence ≥ threshold is kept</li>
+                          <li>Content with confidence < threshold is filtered out</li>
+                      </ul>
+                      <p class="text-sm text-gray-600 dark:text-gray-400"><strong>Recommended:</strong> 0.7-0.9 (0.8 is balanced). Higher = stricter (less junk), Lower = more lenient (more content passes)</p>`
+        },
+        'rankingThreshold': {
+            title: 'Ranking Threshold',
+            content: `<p class="mb-2"><strong>Range:</strong> 0.0 - 10.0</p>
+                      <p class="mb-2"><strong>Default:</strong> 6.0</p>
+                      <p class="mb-2"><strong>Description:</strong></p>
+                      <p class="mb-2">The minimum LLM ranking score (1-10 scale) required for an article to continue through the workflow. If the LLM ranks an article below this threshold, the workflow stops.</p>
+                      <p class="mb-2"><strong>How it works:</strong></p>
+                      <ul class="list-disc list-inside mb-2 space-y-1">
+                          <li>After junk filtering, the LLM evaluates the article's huntability</li>
+                          <li>LLM returns a score from 1-10 (10 = highly huntable)</li>
+                          <li>If score < threshold: workflow stops (not huntable enough)</li>
+                          <li>If score ≥ threshold: workflow continues to extraction</li>
+                      </ul>
+                      <p class="text-sm text-gray-600 dark:text-gray-400"><strong>Recommended:</strong> 5.0-7.0 (6.0 is balanced). Lower = more lenient, Higher = more strict</p>`
+        },
+        'similarityThreshold': {
+            title: 'Similarity Threshold',
+            content: `<p class="mb-2"><strong>Range:</strong> 0.0 - 1.0</p>
+                      <p class="mb-2"><strong>Default:</strong> 0.5</p>
+                      <p class="mb-2"><strong>Description:</strong></p>
+                      <p class="mb-2">Maximum cosine similarity allowed for queueing SIGMA rules. Rules with similarity above this threshold are considered duplicates and won't be queued.</p>
+                      <p class="mb-2"><strong>How it works:</strong></p>
+                      <ul class="list-disc list-inside mb-2 space-y-1">
+                          <li>After generating a SIGMA rule, the system searches for similar existing rules</li>
+                          <li>Similarity is measured using cosine similarity (0.0 = no match, 1.0 = identical)</li>
+                          <li>If similarity > threshold: rule is NOT queued (duplicate detected)</li>
+                          <li>If similarity ≤ threshold: rule is queued (unique enough)</li>
+                      </ul>
+                      <p class="text-sm text-gray-600 dark:text-gray-400"><strong>Recommended:</strong> 0.4-0.6 (0.5 is balanced). Lower = stricter (fewer duplicates), Higher = more lenient (more rules queued)</p>`
+        }
+    };
+    
+    const help = helpTexts[fieldName];
+    if (!help) return;
+    
+    // Create modal
+    const modal = document.createElement('div');
+    modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
+    modal.innerHTML = `
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+            <div class="p-6">
+                <div class="flex justify-between items-start mb-4">
+                    <h3 class="text-xl font-semibold text-gray-900 dark:text-white">${help.title}</h3>
+                    <button onclick="this.closest('.fixed').remove()" 
+                            class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 focus:outline-none">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                        </svg>
+                    </button>
+                </div>
+                <div class="text-gray-700 dark:text-gray-300 prose prose-sm dark:prose-invert max-w-none">
+                    ${help.content}
+                </div>
+                <div class="mt-6 flex justify-end">
+                    <button onclick="this.closest('.fixed').remove()" 
+                            class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-md transition-colors">
+                        Close
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+    
+    // Close on outside click
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) {
+            modal.remove();
+        }
+    });
+    
+    // Close on Escape key
+    const handleEscape = (e) => {
+        if (e.key === 'Escape') {
+            modal.remove();
+            document.removeEventListener('keydown', handleEscape);
+        }
+    };
+    document.addEventListener('keydown', handleEscape);
+}
 </script>
 {% endblock %}
 

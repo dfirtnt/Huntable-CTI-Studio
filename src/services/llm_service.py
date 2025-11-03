@@ -32,14 +32,18 @@ class LLMService:
         default_model = os.getenv("LMSTUDIO_MODEL", "mistralai/mistral-7b-instruct-v0.3")
         
         # Per-operation model configuration
-        # Falls back to LMSTUDIO_MODEL if not specified, then to default
         # Handle empty strings from docker-compose (empty string means "not set")
         self.lmstudio_model = default_model  # Keep for backward compatibility
         rank_model = os.getenv("LMSTUDIO_MODEL_RANK", "").strip()
         extract_model = os.getenv("LMSTUDIO_MODEL_EXTRACT", "").strip()
         sigma_model = os.getenv("LMSTUDIO_MODEL_SIGMA", "").strip()
         
-        self.model_rank = rank_model if rank_model else default_model
+        # No fallback for ranking - must be explicitly set
+        if not rank_model:
+            raise ValueError("LMSTUDIO_MODEL_RANK must be set. No fallback to default model.")
+        self.model_rank = rank_model
+        
+        # Extract and SIGMA still fall back to default
         self.model_extract = extract_model if extract_model else default_model
         self.model_sigma = sigma_model if sigma_model else default_model
         

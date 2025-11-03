@@ -355,13 +355,13 @@ async def retry_workflow_execution(request: Request, execution_id: int, use_lang
             else:
                 # Direct Celery execution (default)
                 trigger_agentic_workflow.delay(execution.article_id)
-                
-                return {
-                    "success": True,
-                    "message": f"Retry initiated for execution {execution_id}",
+            
+            return {
+                "success": True,
+                "message": f"Retry initiated for execution {execution_id}",
                     "new_execution_id": new_execution.id,
                     "via_langgraph_server": False
-                }
+            }
         finally:
             db_session.close()
             
@@ -432,9 +432,9 @@ async def get_workflow_debug_info(request: Request, execution_id: int):
                     agent_chat_url = (
                         f"https://smith.langchain.com/studio/"
                         f"?baseUrl={langgraph_server_url}"
-                        f"&thread={thread_id}"
-                        f"&graph=agentic_workflow"
-                    )
+                    f"&thread={thread_id}"
+                    f"&graph=agentic_workflow"
+                )
                     instructions = (
                         "Opening LangSmith Studio. Important notes:\n"
                         "• Traces only appear if executions ran through the LangGraph server\n"
@@ -551,14 +551,10 @@ async def trigger_workflow_for_article(request: Request, article_id: int, use_la
                     "via_langgraph_server": False
                 }
             else:
-                # Check why it failed
+                # Check why it failed (hunt score threshold check is DISABLED)
                 article = db_session.query(ArticleTable).filter(ArticleTable.id == article_id).first()
                 if not article:
                     raise HTTPException(status_code=404, detail=f"Article {article_id} not found")
-                
-                hunt_score = article.article_metadata.get('threat_hunting_score', 0) if article.article_metadata else 0
-                config = trigger_service.get_active_config()
-                min_score = config.min_hunt_score if config else 97.0
                 
                 # Check if already has active execution
                 existing_execution = db_session.query(AgenticWorkflowExecutionTable).filter(
@@ -572,9 +568,11 @@ async def trigger_workflow_for_article(request: Request, article_id: int, use_la
                         detail=f"Article {article_id} already has an active workflow execution (ID: {existing_execution.id})"
                     )
                 
+                # Should not reach here if trigger_workflow logic is correct
+                # But if it does, it's not a hunt score issue (threshold check disabled)
                 raise HTTPException(
                     status_code=400,
-                    detail=f"Article {article_id} hunt score ({hunt_score}) is below threshold ({min_score})"
+                    detail=f"Failed to trigger workflow for article {article_id} (unknown reason)"
                 )
         finally:
             db_session.close()

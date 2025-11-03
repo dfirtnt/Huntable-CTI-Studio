@@ -33,9 +33,9 @@ class WorkflowConfigResponse(BaseModel):
 class WorkflowConfigUpdate(BaseModel):
     """Request model for updating workflow configuration."""
     min_hunt_score: Optional[float] = Field(None, ge=0.0, le=100.0)
-    ranking_threshold: Optional[float] = Field(None, ge=0.0, le=10.0)
-    similarity_threshold: Optional[float] = Field(None, ge=0.0, le=1.0)
-    junk_filter_threshold: Optional[float] = Field(None, ge=0.0, le=1.0)
+    ranking_threshold: Optional[float] = Field(None, ge=0.0, le=10.0, description="Must be between 0.0 and 10.0")
+    similarity_threshold: Optional[float] = Field(None, ge=0.0, le=1.0, description="Must be between 0.0 and 1.0")
+    junk_filter_threshold: Optional[float] = Field(None, ge=0.0, le=1.0, description="Must be between 0.0 and 1.0")
     description: Optional[str] = None
 
 
@@ -107,12 +107,24 @@ async def update_workflow_config(request: Request, config_update: WorkflowConfig
             else:
                 new_version = 1
             
+            # Validate thresholds
+            ranking_threshold = config_update.ranking_threshold if config_update.ranking_threshold is not None else (current_config.ranking_threshold if current_config else 6.0)
+            similarity_threshold = config_update.similarity_threshold if config_update.similarity_threshold is not None else (current_config.similarity_threshold if current_config else 0.5)
+            junk_filter_threshold = config_update.junk_filter_threshold if config_update.junk_filter_threshold is not None else (current_config.junk_filter_threshold if current_config else 0.8)
+            
+            if not (0.0 <= ranking_threshold <= 10.0):
+                raise HTTPException(status_code=400, detail=f"Ranking threshold must be between 0.0 and 10.0, got {ranking_threshold}")
+            if not (0.0 <= similarity_threshold <= 1.0):
+                raise HTTPException(status_code=400, detail=f"Similarity threshold must be between 0.0 and 1.0, got {similarity_threshold}")
+            if not (0.0 <= junk_filter_threshold <= 1.0):
+                raise HTTPException(status_code=400, detail=f"Junk filter threshold must be between 0.0 and 1.0, got {junk_filter_threshold}")
+            
             # Create new config version
             new_config = AgenticWorkflowConfigTable(
                 min_hunt_score=config_update.min_hunt_score if config_update.min_hunt_score is not None else (current_config.min_hunt_score if current_config else 97.0),
-                ranking_threshold=config_update.ranking_threshold if config_update.ranking_threshold is not None else (current_config.ranking_threshold if current_config else 6.0),
-                similarity_threshold=config_update.similarity_threshold if config_update.similarity_threshold is not None else (current_config.similarity_threshold if current_config else 0.5),
-                junk_filter_threshold=config_update.junk_filter_threshold if config_update.junk_filter_threshold is not None else (current_config.junk_filter_threshold if current_config else 0.8),
+                ranking_threshold=ranking_threshold,
+                similarity_threshold=similarity_threshold,
+                junk_filter_threshold=junk_filter_threshold,
                 version=new_version,
                 is_active=True,
                 description=config_update.description or (current_config.description if current_config else "Updated configuration")
