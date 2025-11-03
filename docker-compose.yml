@@ -67,7 +67,7 @@ services:
       - CHATGPT_API_KEY=${CHATGPT_API_KEY}
       - LMSTUDIO_API_URL=${LMSTUDIO_API_URL:-http://host.docker.internal:1234/v1}
       - LMSTUDIO_MODEL=deepseek/deepseek-r1-0528-qwen3-8b
-      - LMSTUDIO_MODEL_RANK=${LMSTUDIO_MODEL_RANK}
+      - LMSTUDIO_MODEL_RANK=qwen/qwen3-4b-2507
       - LMSTUDIO_MODEL_EXTRACT=${LMSTUDIO_MODEL_EXTRACT:-qwen/qwen3-4b-2507}
       - LMSTUDIO_MODEL_SIGMA=${LMSTUDIO_MODEL_SIGMA:-qwen/qwen3-4b-2507}
       - LMSTUDIO_EMBEDDING_URL=${LMSTUDIO_EMBEDDING_URL:-http://host.docker.internal:1234/v1/embeddings}
@@ -119,7 +119,7 @@ services:
       - CHATGPT_API_KEY=${CHATGPT_API_KEY}
       - LMSTUDIO_API_URL=${LMSTUDIO_API_URL:-http://host.docker.internal:1234/v1}
       - LMSTUDIO_MODEL=deepseek/deepseek-r1-0528-qwen3-8b
-      - LMSTUDIO_MODEL_RANK=${LMSTUDIO_MODEL_RANK}
+      - LMSTUDIO_MODEL_RANK=qwen/qwen3-4b-2507
       - LMSTUDIO_MODEL_EXTRACT=${LMSTUDIO_MODEL_EXTRACT:-qwen/qwen3-4b-2507}
       - LMSTUDIO_MODEL_SIGMA=${LMSTUDIO_MODEL_SIGMA:-qwen/qwen3-4b-2507}
       - LMSTUDIO_EMBEDDING_URL=${LMSTUDIO_EMBEDDING_URL:-http://host.docker.internal:1234/v1/embeddings}
@@ -168,7 +168,7 @@ services:
       - CHATGPT_API_KEY=${CHATGPT_API_KEY}
       - LMSTUDIO_API_URL=${LMSTUDIO_API_URL:-http://host.docker.internal:1234/v1}
       - LMSTUDIO_MODEL=deepseek/deepseek-r1-0528-qwen3-8b
-      - LMSTUDIO_MODEL_RANK=${LMSTUDIO_MODEL_RANK}
+      - LMSTUDIO_MODEL_RANK=qwen/qwen3-4b-2507
       - LMSTUDIO_MODEL_EXTRACT=${LMSTUDIO_MODEL_EXTRACT:-qwen/qwen3-4b-2507}
       - LMSTUDIO_MODEL_SIGMA=${LMSTUDIO_MODEL_SIGMA:-qwen/qwen3-4b-2507}
       - LMSTUDIO_EMBEDDING_URL=${LMSTUDIO_EMBEDDING_URL:-http://host.docker.internal:1234/v1/embeddings}

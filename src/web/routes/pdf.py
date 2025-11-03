@@ -130,11 +130,12 @@ async def api_pdf_upload(file: UploadFile = File(...)):
                 logger.info("PDF processed successfully: Article ID %s, Score: %s", article_id, score)
 
                 # Check if workflow should be triggered
+                # Hunt score threshold check is DISABLED - all articles can enter workflow
                 try:
-                    if score >= 97.0:  # Threshold check
-                        from src.worker.celery_app import trigger_agentic_workflow
-                        trigger_agentic_workflow.delay(article_id)
-                        logger.info(f"Triggered agentic workflow for PDF article {article_id} (hunt_score: {score})")
+                    # Threshold check disabled - always trigger workflow regardless of score
+                    from src.worker.celery_app import trigger_agentic_workflow
+                    trigger_agentic_workflow.delay(article_id)
+                    logger.info(f"Triggered agentic workflow for PDF article {article_id} (hunt_score: {score}, threshold check disabled)")
                 except Exception as e:
                     logger.warning(f"Failed to trigger workflow for PDF article {article_id}: {e}")
 
