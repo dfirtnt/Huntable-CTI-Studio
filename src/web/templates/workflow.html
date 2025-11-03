@@ -6,7 +6,7 @@
 <div class="container mx-auto px-4 py-8">
     <div class="mb-8">
         <h1 class="text-3xl font-bold text-gray-900 dark:text-white mb-2">🤖 Agentic Workflow</h1>
-        <p class="text-gray-600 dark:text-gray-400">Manage automatic workflow processing for high-score articles</p>
+        <p class="text-gray-600 dark:text-gray-300">Manage automatic workflow processing for high-score articles</p>
     </div>
 
     <!-- Tab Navigation -->
@@ -15,10 +15,10 @@
             <button onclick="switchTab('config')" id="tab-config" class="tab-button border-b-2 border-purple-500 py-4 px-1 text-sm font-medium text-purple-600 dark:text-purple-400">
                 ⚙️ Configuration
             </button>
-            <button onclick="switchTab('executions')" id="tab-executions" class="tab-button border-b-2 border-transparent py-4 px-1 text-sm font-medium text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300">
+            <button onclick="switchTab('executions')" id="tab-executions" class="tab-button border-b-2 border-transparent py-4 px-1 text-sm font-medium text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-300 dark:hover:text-gray-200">
                 🔄 Executions
             </button>
-            <button onclick="switchTab('queue')" id="tab-queue" class="tab-button border-b-2 border-transparent py-4 px-1 text-sm font-medium text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300">
+            <button onclick="switchTab('queue')" id="tab-queue" class="tab-button border-b-2 border-transparent py-4 px-1 text-sm font-medium text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-300 dark:hover:text-gray-200">
                 📥 SIGMA Queue
             </button>
         </nav>
@@ -28,7 +28,7 @@
     <div id="tab-content-config" class="tab-content">
         <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mb-8">
             <form id="workflowConfigForm" class="space-y-6">
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                     <!-- Min Hunt Score -->
                     <div>
                         <label for="minHuntScore" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -41,7 +41,22 @@
                                max="100" 
                                step="0.1"
                                class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white">
-                        <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Articles with score ≥ this will trigger workflow</p>
+                        <p class="text-xs text-gray-500 dark:text-gray-300 mt-1">Articles with score ≥ this will trigger workflow</p>
+                    </div>
+
+                    <!-- Junk Filter Threshold -->
+                    <div>
+                        <label for="junkFilterThreshold" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                            Junk Filter Threshold
+                        </label>
+                        <input type="number" 
+                               id="junkFilterThreshold" 
+                               name="junk_filter_threshold"
+                               min="0" 
+                               max="1" 
+                               step="0.05"
+                               class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white">
+                        <p class="text-xs text-gray-500 dark:text-gray-300 mt-1">Min confidence (0-1) for content filtering</p>
                     </div>
 
                     <!-- Ranking Threshold -->
@@ -56,7 +71,7 @@
                                max="10" 
                                step="0.1"
                                class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white">
-                        <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Minimum LLM ranking (1-10) to continue workflow</p>
+                        <p class="text-xs text-gray-500 dark:text-gray-300 mt-1">Minimum LLM ranking (1-10) to continue workflow</p>
                     </div>
 
                     <!-- Similarity Threshold -->
@@ -71,7 +86,7 @@
                                max="1" 
                                step="0.05"
                                class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white">
-                        <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Max similarity (0-1) to queue rule</p>
+                        <p class="text-xs text-gray-500 dark:text-gray-300 mt-1">Max similarity (0-1) to queue rule</p>
                     </div>
                 </div>
 
@@ -90,7 +105,7 @@
                 <!-- Current Config Display -->
                 <div id="currentConfig" class="bg-gray-50 dark:bg-gray-900 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
                     <p class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Current Configuration:</p>
-                    <div id="configDisplay" class="text-sm text-gray-600 dark:text-gray-400">
+                    <div id="configDisplay" class="text-sm text-gray-600 dark:text-gray-300">
                         Loading...
                     </div>
                 </div>
@@ -116,27 +131,27 @@
             <div class="grid grid-cols-1 md:grid-cols-6 gap-4">
                 <div class="text-center p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
                     <div class="text-2xl font-bold text-blue-600 dark:text-blue-400">0</div>
-                    <div class="text-xs text-gray-600 dark:text-gray-400 mt-1">Junk Filter</div>
+                    <div class="text-xs text-gray-600 dark:text-gray-300 mt-1">Junk Filter</div>
                 </div>
                 <div class="text-center p-4 bg-green-50 dark:bg-green-900/20 rounded-lg">
                     <div class="text-2xl font-bold text-green-600 dark:text-green-400">1</div>
-                    <div class="text-xs text-gray-600 dark:text-gray-400 mt-1">LLM Ranking</div>
+                    <div class="text-xs text-gray-600 dark:text-gray-300 mt-1">LLM Ranking</div>
                 </div>
                 <div class="text-center p-4 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg">
                     <div class="text-2xl font-bold text-yellow-600 dark:text-yellow-400">2</div>
-                    <div class="text-xs text-gray-600 dark:text-gray-400 mt-1">Extract Agent</div>
+                    <div class="text-xs text-gray-600 dark:text-gray-300 mt-1">Extract Agent</div>
                 </div>
                 <div class="text-center p-4 bg-orange-50 dark:bg-orange-900/20 rounded-lg">
                     <div class="text-2xl font-bold text-orange-600 dark:text-orange-400">3</div>
-                    <div class="text-xs text-gray-600 dark:text-gray-400 mt-1">Generate SIGMA</div>
+                    <div class="text-xs text-gray-600 dark:text-gray-300 mt-1">Generate SIGMA</div>
                 </div>
                 <div class="text-center p-4 bg-pink-50 dark:bg-pink-900/20 rounded-lg">
                     <div class="text-2xl font-bold text-pink-600 dark:text-pink-400">4</div>
-                    <div class="text-xs text-gray-600 dark:text-gray-400 mt-1">Similarity Search</div>
+                    <div class="text-xs text-gray-600 dark:text-gray-300 mt-1">Similarity Search</div>
                 </div>
                 <div class="text-center p-4 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
                     <div class="text-2xl font-bold text-purple-600 dark:text-purple-400">5</div>
-                    <div class="text-xs text-gray-600 dark:text-gray-400 mt-1">Queue</div>
+                    <div class="text-xs text-gray-600 dark:text-gray-300 mt-1">Queue</div>
                 </div>
             </div>
         </div>
@@ -160,9 +175,13 @@
         </div>
 
         <!-- Workflow Visualization -->
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mb-6">
-            <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">🔀 LangGraph Workflow State Machine</h2>
-            <div id="workflowVisualization" class="relative bg-gray-50 dark:bg-gray-900 rounded-lg p-4">
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg mb-6">
+            <button onclick="toggleWorkflowVisualization()" class="w-full flex items-center justify-between p-6 text-left hover:bg-gray-50 dark:hover:bg-gray-700 rounded-t-lg transition-colors">
+                <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100">🔀 LangGraph Workflow State Machine</h2>
+                <span id="workflowVizToggle" class="text-gray-700 dark:text-gray-200 text-lg font-medium transform transition-transform">▼</span>
+            </button>
+            <div id="workflowVisualization" class="hidden p-6 pt-0">
+                <div class="relative bg-gray-50 dark:bg-gray-950 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
                 <svg viewBox="0 0 900 350" class="w-full h-auto">
                     <defs>
                         <marker id="arrowhead" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
@@ -227,6 +246,7 @@
                         <text x="900" y="306" text-anchor="middle" fill="white" font-weight="bold" font-size="12">END</text>
                     </g>
                 </svg>
+                </div>
             </div>
         </div>
 
@@ -255,18 +275,18 @@
             <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                 <thead class="bg-gray-50 dark:bg-gray-900">
                     <tr>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">ID</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Article</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Status</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Current Step</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Ranking Score</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Created</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Actions</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">ID</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Article</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Status</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Current Step</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Ranking Score</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Created</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Actions</th>
                     </tr>
                 </thead>
                 <tbody id="executionsTableBody" class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                     <tr>
-                        <td colspan="7" class="px-6 py-4 text-center text-gray-500 dark:text-gray-400">Loading...</td>
+                        <td colspan="7" class="px-6 py-4 text-center text-gray-500 dark:text-gray-300">Loading...</td>
                     </tr>
                 </tbody>
             </table>
@@ -306,19 +326,19 @@
         <!-- Queue Statistics -->
         <div id="queueStats" class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
             <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
-                <div class="text-sm text-gray-600 dark:text-gray-400">Pending Review</div>
+                <div class="text-sm text-gray-600 dark:text-gray-300">Pending Review</div>
                 <div class="text-2xl font-bold text-yellow-600 dark:text-yellow-400" id="pendingCount">-</div>
             </div>
             <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
-                <div class="text-sm text-gray-600 dark:text-gray-400">Approved</div>
+                <div class="text-sm text-gray-600 dark:text-gray-300">Approved</div>
                 <div class="text-2xl font-bold text-green-600 dark:text-green-400" id="approvedCount">-</div>
             </div>
             <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
-                <div class="text-sm text-gray-600 dark:text-gray-400">Rejected</div>
+                <div class="text-sm text-gray-600 dark:text-gray-300">Rejected</div>
                 <div class="text-2xl font-bold text-red-600 dark:text-red-400" id="rejectedCount">-</div>
             </div>
             <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
-                <div class="text-sm text-gray-600 dark:text-gray-400">Submitted</div>
+                <div class="text-sm text-gray-600 dark:text-gray-300">Submitted</div>
                 <div class="text-2xl font-bold text-purple-600 dark:text-purple-400" id="submittedCount">-</div>
             </div>
         </div>
@@ -328,18 +348,18 @@
             <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                 <thead class="bg-gray-50 dark:bg-gray-900">
                     <tr>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">ID</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Article</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Rule Title</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Max Similarity</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Status</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Created</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Actions</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">ID</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Article</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Rule Title</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Max Similarity</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Status</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Created</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Actions</th>
                     </tr>
                 </thead>
                 <tbody id="queueTableBody" class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                     <tr>
-                        <td colspan="7" class="px-6 py-4 text-center text-gray-500 dark:text-gray-400">Loading...</td>
+                        <td colspan="7" class="px-6 py-4 text-center text-gray-500 dark:text-gray-300">Loading...</td>
                     </tr>
                 </tbody>
             </table>
@@ -374,6 +394,20 @@
 </div>
 
 <script>
+// Helper function to parse UTC timestamp and convert to local time
+function parseUTCDate(timestamp) {
+    // If timestamp ends with 'Z', it's already UTC
+    if (timestamp.endsWith('Z')) {
+        return new Date(timestamp);
+    }
+    // If timestamp has timezone offset (like +00:00 or -05:00), use as-is
+    if (timestamp.match(/[+-]\d{2}:\d{2}$/)) {
+        return new Date(timestamp);
+    }
+    // Otherwise, treat as UTC by appending 'Z'
+    return new Date(timestamp + 'Z');
+}
+
 // Tab Management
 let currentTab = 'config';
 
@@ -391,7 +425,7 @@ function switchTab(tab) {
     // Remove active state from all tabs
     document.querySelectorAll('.tab-button').forEach(btn => {
         btn.classList.remove('border-purple-500', 'text-purple-600', 'dark:text-purple-400');
-        btn.classList.add('border-transparent', 'text-gray-500', 'dark:text-gray-400');
+        btn.classList.add('border-transparent', 'text-gray-500', 'dark:text-gray-300');
     });
     
     // Show selected tab content
@@ -399,7 +433,7 @@ function switchTab(tab) {
     
     // Activate selected tab button
     const activeBtn = document.getElementById(`tab-${tab}`);
-    activeBtn.classList.remove('border-transparent', 'text-gray-500', 'dark:text-gray-400');
+        activeBtn.classList.remove('border-transparent', 'text-gray-500', 'dark:text-gray-300');
     activeBtn.classList.add('border-purple-500', 'text-purple-600', 'dark:text-purple-400');
     
     // Load data for active tab
@@ -421,16 +455,18 @@ async function loadConfig() {
         if (response.ok) {
             currentConfig = await response.json();
             document.getElementById('minHuntScore').value = currentConfig.min_hunt_score;
+            document.getElementById('junkFilterThreshold').value = currentConfig.junk_filter_threshold;
             document.getElementById('rankingThreshold').value = currentConfig.ranking_threshold;
             document.getElementById('similarityThreshold').value = currentConfig.similarity_threshold;
             document.getElementById('description').value = currentConfig.description || '';
             
             document.getElementById('configDisplay').innerHTML = `
-                <div class="grid grid-cols-3 gap-4">
+                <div class="grid grid-cols-4 gap-4">
                     <div><strong>Min Hunt Score:</strong> ${currentConfig.min_hunt_score}</div>
+                    <div><strong>Junk Filter:</strong> ${currentConfig.junk_filter_threshold}</div>
                     <div><strong>Ranking Threshold:</strong> ${currentConfig.ranking_threshold}</div>
                     <div><strong>Similarity Threshold:</strong> ${currentConfig.similarity_threshold}</div>
-                    <div class="col-span-3"><strong>Version:</strong> ${currentConfig.version} | <strong>Active:</strong> ${currentConfig.is_active ? 'Yes' : 'No'}</div>
+                    <div class="col-span-4"><strong>Version:</strong> ${currentConfig.version} | <strong>Active:</strong> ${currentConfig.is_active ? 'Yes' : 'No'}</div>
                 </div>
             `;
         }
@@ -444,6 +480,7 @@ document.getElementById('workflowConfigForm').addEventListener('submit', async (
     
     const formData = {
         min_hunt_score: parseFloat(document.getElementById('minHuntScore').value),
+        junk_filter_threshold: parseFloat(document.getElementById('junkFilterThreshold').value),
         ranking_threshold: parseFloat(document.getElementById('rankingThreshold').value),
         similarity_threshold: parseFloat(document.getElementById('similarityThreshold').value),
         description: document.getElementById('description').value
@@ -544,17 +581,20 @@ function renderExecutions() {
                 </a>
             </td>
             <td class="px-6 py-4 whitespace-nowrap">${getStatusBadge(exec.status)}</td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">${getStepBadge(exec.current_step)}</td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">${getStepBadge(exec.current_step)}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
                 ${exec.ranking_score ? exec.ranking_score.toFixed(1) : '-'}
             </td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                ${new Date(exec.created_at).toLocaleString('en-US', { timeZone: 'America/New_York', dateStyle: 'short', timeStyle: 'short' })}
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">
+                ${parseUTCDate(exec.created_at).toLocaleString('en-US', { dateStyle: 'short', timeStyle: 'short' })}
             </td>
             <td class="px-6 py-4 whitespace-nowrap text-sm">
                 <button onclick="viewExecution(${exec.id})" class="text-blue-600 hover:text-blue-800 dark:text-blue-400 mr-2">View</button>
-                <button onclick="debugInAgentChat(${exec.id})" class="text-purple-600 hover:text-purple-800 dark:text-purple-400 mr-2" title="Debug in Agent Chat UI">🔍 Debug</button>
-                ${exec.status === 'failed' ? `<button onclick="retryExecution(${exec.id})" class="text-green-600 hover:text-green-800 dark:text-green-400">Retry</button>` : ''}
+                <button onclick="debugInAgentChat(${exec.id})" class="text-purple-600 hover:text-purple-800 dark:text-purple-400 mr-2" title="Open in LangSmith Studio. Note: Traces only exist if execution ran through LangGraph server (not Celery). Use 'View' for database details.">🔍 Debug</button>
+                ${exec.status === 'failed' ? `
+                    <button onclick="retryExecution(${exec.id}, false)" class="text-green-600 hover:text-green-800 dark:text-green-400 mr-2" title="Retry via Celery (fast, no traces)">Retry</button>
+                    <button onclick="retryExecution(${exec.id}, true)" class="text-purple-600 hover:text-purple-800 dark:text-purple-400" title="Retry via LangGraph Server (creates traces in LangSmith)">Retry (Trace)</button>
+                ` : ''}
             </td>
         </tr>
     `).join('');
@@ -583,17 +623,17 @@ async function viewExecution(executionId) {
             highlightCurrentStep(exec.current_step);
             
             const content = `
-                <div class="space-y-4">
-                    <div><strong>Execution ID:</strong> ${exec.id}</div>
-                    <div><strong>Article:</strong> <a href="/articles/${exec.article_id}" class="text-purple-600">${exec.article_title}</a></div>
-                    <div><strong>Status:</strong> ${getStatusBadge(exec.status)}</div>
-                    <div><strong>Current Step:</strong> ${getStepBadge(exec.current_step)}</div>
-                    ${exec.ranking_score ? `<div><strong>Ranking Score:</strong> ${exec.ranking_score.toFixed(1)}/10</div>` : ''}
-                    ${exec.error_message ? `<div class="bg-red-50 dark:bg-red-900/20 p-3 rounded"><strong>Error:</strong> ${exec.error_message}</div>` : ''}
-                    ${exec.sigma_rules ? `<div><strong>SIGMA Rules Generated:</strong> ${exec.sigma_rules.length}</div>` : ''}
-                    ${exec.extraction_result ? `<div><strong>Discrete Huntables:</strong> ${exec.extraction_result.discrete_huntables_count || 0}</div>` : ''}
-                    <div><strong>Created:</strong> ${new Date(exec.created_at).toLocaleString('en-US', { timeZone: 'America/New_York', dateStyle: 'short', timeStyle: 'short' })}</div>
-                    ${exec.completed_at ? `<div><strong>Completed:</strong> ${new Date(exec.completed_at).toLocaleString('en-US', { timeZone: 'America/New_York', dateStyle: 'short', timeStyle: 'short' })}</div>` : ''}
+                <div class="space-y-4 text-gray-900 dark:text-gray-200">
+                    <div><strong class="text-gray-900 dark:text-gray-100">Execution ID:</strong> <span class="text-gray-700 dark:text-gray-300">${exec.id}</span></div>
+                    <div><strong class="text-gray-900 dark:text-gray-100">Article:</strong> <a href="/articles/${exec.article_id}" class="text-purple-600 dark:text-purple-400 hover:text-purple-800 dark:hover:text-purple-300">${exec.article_title}</a></div>
+                    <div><strong class="text-gray-900 dark:text-gray-100">Status:</strong> ${getStatusBadge(exec.status)}</div>
+                    <div><strong class="text-gray-900 dark:text-gray-100">Current Step:</strong> <span class="text-gray-700 dark:text-gray-300">${getStepBadge(exec.current_step)}</span></div>
+                    ${exec.ranking_score ? `<div><strong class="text-gray-900 dark:text-gray-100">Ranking Score:</strong> <span class="text-gray-700 dark:text-gray-300">${exec.ranking_score.toFixed(1)}/10</span></div>` : ''}
+                    ${exec.error_message ? `<div class="bg-red-50 dark:bg-red-900/20 p-3 rounded"><strong class="text-gray-900 dark:text-gray-100">Error:</strong> <span class="text-gray-700 dark:text-gray-300">${exec.error_message}</span></div>` : ''}
+                    ${exec.sigma_rules ? `<div><strong class="text-gray-900 dark:text-gray-100">SIGMA Rules Generated:</strong> <span class="text-gray-700 dark:text-gray-300">${exec.sigma_rules.length}</span></div>` : ''}
+                    ${exec.extraction_result ? `<div><strong class="text-gray-900 dark:text-gray-100">Discrete Huntables:</strong> <span class="text-gray-700 dark:text-gray-300">${exec.extraction_result.discrete_huntables_count || 0}</span></div>` : ''}
+                    <div><strong class="text-gray-900 dark:text-gray-100">Created:</strong> <span class="text-gray-700 dark:text-gray-300">${parseUTCDate(exec.created_at).toLocaleString('en-US', { dateStyle: 'short', timeStyle: 'short' })}</span></div>
+                    ${exec.completed_at ? `<div><strong class="text-gray-900 dark:text-gray-100">Completed:</strong> <span class="text-gray-700 dark:text-gray-300">${parseUTCDate(exec.completed_at).toLocaleString('en-US', { dateStyle: 'short', timeStyle: 'short' })}</span></div>` : ''}
                 </div>
             `;
             
@@ -605,16 +645,28 @@ async function viewExecution(executionId) {
     }
 }
 
-async function retryExecution(executionId) {
-    if (!confirm('Retry this failed execution?')) return;
+async function retryExecution(executionId, useLangGraphServer = false) {
+    const mode = useLangGraphServer ? 'LangGraph Server (creates traces)' : 'Celery (fast, no traces)';
+    if (!confirm(`Retry execution ${executionId} via ${mode}?`)) return;
     
     try {
-        const response = await fetch(`/api/workflow/executions/${executionId}/retry`, { method: 'POST' });
+        const url = `/api/workflow/executions/${executionId}/retry?use_langgraph_server=${useLangGraphServer}`;
+        const response = await fetch(url, { method: 'POST' });
+        
         if (response.ok) {
-            alert('Retry initiated successfully');
+            const result = await response.json();
+            if (result.via_langgraph_server) {
+                alert('✅ Retry initiated via LangGraph Server\n\n' +
+                      'This will create traces in LangSmith Studio.\n' +
+                      'Click "Debug" button to view after execution starts.');
+            } else {
+                alert('Retry initiated via Celery (fast, no traces)');
+            }
             await loadExecutions();
         } else {
-            alert('Error retrying execution');
+            const error = await response.json();
+            const errorMsg = error.detail || 'Unknown error';
+            alert('❌ Error retrying execution:\n\n' + errorMsg);
         }
     } catch (error) {
         console.error('Error retrying execution:', error);
@@ -631,6 +683,29 @@ async function debugInAgentChat(executionId) {
             const agentChatUrl = info.agent_chat_url;
             
             if (agentChatUrl) {
+                // Show instructions if using LangSmith
+                if (info.uses_langsmith && info.instructions) {
+                    const instructions = info.instructions.split('\n').map(line => line.trim()).filter(line => line);
+                    const message = instructions.join('\n\n');
+                    console.log('Debug Instructions:', message);
+                    
+                    // Show a helpful message before opening
+                    const confirmed = confirm(
+                        `Opening LangSmith Studio for execution #${executionId}.\n\n` +
+                        `⚠️ Note: Traces only appear if the execution ran through the LangGraph server.\n` +
+                        `Most executions run via Celery, so traces may not exist.\n\n` +
+                        `If no traces appear:\n` +
+                        `• Use the "View" button to see execution details from the database\n` +
+                        `• Only executions through LangGraph server create traces\n\n` +
+                        `Click OK to open LangSmith Studio, or Cancel to view full instructions.`
+                    );
+                    
+                    if (!confirmed) {
+                        console.log('Full instructions:', info.instructions);
+                        return;
+                    }
+                }
+                
                 // Open Agent Chat UI in new tab with pre-configured connection
                 window.open(agentChatUrl, '_blank');
             } else {
@@ -656,6 +731,19 @@ function filterExecutions() {
 
 function refreshExecutions() {
     loadExecutions();
+}
+
+function toggleWorkflowVisualization() {
+    const viz = document.getElementById('workflowVisualization');
+    const toggle = document.getElementById('workflowVizToggle');
+    
+    if (viz.classList.contains('hidden')) {
+        viz.classList.remove('hidden');
+        toggle.textContent = '▲';
+    } else {
+        viz.classList.add('hidden');
+        toggle.textContent = '▼';
+    }
 }
 
 // Queue Functions
@@ -709,12 +797,12 @@ function renderQueue() {
                     </a>
                 </td>
                 <td class="px-6 py-4 text-sm text-gray-900 dark:text-white">${title}</td>
-                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">
                     ${rule.max_similarity ? (rule.max_similarity * 100).toFixed(1) + '%' : '-'}
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap">${getQueueStatusBadge(rule.status)}</td>
-                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                    ${new Date(rule.created_at).toLocaleString('en-US', { timeZone: 'America/New_York', dateStyle: 'short', timeStyle: 'short' })}
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">
+                    ${parseUTCDate(rule.created_at).toLocaleString('en-US', { dateStyle: 'short', timeStyle: 'short' })}
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm">
                     <button onclick="previewRule(${rule.id})" class="text-blue-600 hover:text-blue-800 dark:text-blue-400 mr-2">Preview</button>
@@ -755,8 +843,8 @@ function previewRule(ruleId) {
     if (similarityScores.length > 0) {
         similarRulesHtml = `
             <div class="mt-4">
-                <h4 class="font-semibold mb-2">Similar Existing Rules:</h4>
-                <ul class="list-disc list-inside space-y-1">
+                <h4 class="font-semibold mb-2 text-gray-600 dark:text-gray-300">Similar Existing Rules:</h4>
+                <ul class="list-disc list-inside space-y-1 text-gray-600 dark:text-gray-300">
                     ${similarityScores.slice(0, 5).map(s => `
                         <li>${s.title || s.rule_id} (${(s.similarity * 100).toFixed(1)}% similar)</li>
                     `).join('')}
@@ -766,14 +854,14 @@ function previewRule(ruleId) {
     }
     
     const content = `
-        <div class="space-y-4">
+        <div class="space-y-4 text-gray-600 dark:text-gray-300">
             <div><strong>Rule ID:</strong> ${rule.id}</div>
             <div><strong>Article:</strong> <a href="/articles/${rule.article_id}" class="text-purple-600">${rule.article_title || 'Article ' + rule.article_id}</a></div>
             <div><strong>Max Similarity:</strong> ${rule.max_similarity ? (rule.max_similarity * 100).toFixed(1) + '%' : 'N/A'}</div>
             ${similarRulesHtml}
             <div class="mt-4">
                 <h4 class="font-semibold mb-2">Rule YAML:</h4>
-                <pre class="bg-gray-100 dark:bg-gray-900 p-4 rounded overflow-x-auto text-xs"><code>${escapeHtml(rule.rule_yaml)}</code></pre>
+                <pre class="bg-gray-100 dark:bg-gray-900 p-4 rounded overflow-x-auto text-xs text-gray-600 dark:text-gray-300"><code>${escapeHtml(rule.rule_yaml)}</code></pre>
             </div>
         </div>
     `;

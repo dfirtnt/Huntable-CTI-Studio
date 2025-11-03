@@ -87,7 +87,7 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
     # Define workflow nodes
     
     def junk_filter_node(state: WorkflowState) -> WorkflowState:
-        """Step 0: Filter content using least aggressive junk filter."""
+        """Step 0: Filter content using conservative junk filter."""
         try:
             logger.info(f"[Workflow {state['execution_id']}] Step 0: Junk Filter")
             
@@ -99,11 +99,14 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
             if not article.content or len(article.content.strip()) == 0:
                 raise ValueError(f"Article {article.id} has no content to filter")
             
-            # Use least aggressive filter (min_confidence=0.9)
+            # Get junk filter threshold from config
+            junk_filter_threshold = state['config'].get('junk_filter_threshold', 0.8) if state.get('config') else 0.8
+            
+            # Use configured filter threshold
             try:
                 filter_result = content_filter.filter_content(
                     article.content,
-                    min_confidence=0.9,  # Least aggressive
+                    min_confidence=junk_filter_threshold,
                     hunt_score=article.article_metadata.get('threat_hunting_score', 0) if article.article_metadata else 0,
                     article_id=article.id
                 )
@@ -555,11 +558,13 @@ async def run_workflow(article_id: int, db_session: Session) -> Dict[str, Any]:
         config = {
             'min_hunt_score': config_obj.min_hunt_score if config_obj else 97.0,
             'ranking_threshold': config_obj.ranking_threshold if config_obj else 6.0,
-            'similarity_threshold': config_obj.similarity_threshold if config_obj else 0.5
+            'similarity_threshold': config_obj.similarity_threshold if config_obj else 0.5,
+            'junk_filter_threshold': config_obj.junk_filter_threshold if config_obj else 0.8
         } if config_obj else {
             'min_hunt_score': 97.0,
             'ranking_threshold': 6.0,
-            'similarity_threshold': 0.5
+            'similarity_threshold': 0.5,
+            'junk_filter_threshold': 0.8
         }
         
         # Initialize state

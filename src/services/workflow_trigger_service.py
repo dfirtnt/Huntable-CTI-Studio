@@ -36,6 +36,7 @@ class WorkflowTriggerService:
                     min_hunt_score=97.0,
                     ranking_threshold=6.0,
                     similarity_threshold=0.5,
+                    junk_filter_threshold=0.8,
                     version=1,
                     is_active=True,
                     description="Default configuration"
@@ -117,6 +118,7 @@ class WorkflowTriggerService:
                     'min_hunt_score': config.min_hunt_score,
                     'ranking_threshold': config.ranking_threshold,
                     'similarity_threshold': config.similarity_threshold,
+                    'junk_filter_threshold': config.junk_filter_threshold,
                     'config_id': config.id,
                     'config_version': config.version
                 } if config else None

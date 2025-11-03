@@ -7,6 +7,7 @@ speed and accuracy.
 
 import logging
 import json
+import asyncio
 from typing import Dict, List, Optional, Any
 from dataclasses import dataclass
 import iocextract
@@ -106,7 +107,7 @@ class HybridIOCExtractor:
                 'registry_key': [], 'file_path': [], 'mutex': [], 'named_pipe': []
             }
     
-    async def validate_with_llm(self, raw_iocs: Dict[str, List[str]], content: str, api_key: str, ai_model: str = 'chatgpt') -> tuple[Dict[str, List[str]], str, str]:
+    async def validate_with_llm(self, raw_iocs: Dict[str, List[str]], content: str, api_key: str, ai_model: str = 'chatgpt', cancellation_event: Optional[asyncio.Event] = None) -> tuple[Dict[str, List[str]], str, str]:
         """
         Validate and categorize IOCs using LLM with content.
         
@@ -156,7 +157,8 @@ Output format (return ONLY this JSON structure):
 }}"""
 
             # Route to appropriate API based on model
-            async with httpx.AsyncClient() as client:
+            client = httpx.AsyncClient()
+            try:
                 if ai_model == 'lmstudio':
                     # Use LMStudio API with recommended settings
                     lmstudio_url = os.getenv("LMSTUDIO_API_URL", "http://host.docker.internal:1234/v1")
@@ -186,14 +188,75 @@ Output format (return ONLY this JSON structure):
                     if seed is not None:
                         payload["seed"] = seed
                     
-                    response = await client.post(
-                        f"{lmstudio_url}/chat/completions",
-                        headers={
-                            "Content-Type": "application/json"
-                        },
-                        json=payload,
-                        timeout=120.0
-                    )
+                    # Check for cancellation before making the request
+                    if cancellation_event and cancellation_event.is_set():
+                        raise asyncio.CancelledError("IOC validation cancelled by client")
+                    
+                    # Create the request task
+                    async def make_request():
+                        return await client.post(
+                            f"{lmstudio_url}/chat/completions",
+                            headers={
+                                "Content-Type": "application/json"
+                            },
+                            json=payload,
+                            timeout=120.0
+                        )
+                    
+                    request_task = asyncio.create_task(make_request())
+                    
+                    # Monitor for cancellation while waiting for response
+                    if cancellation_event:
+                        async def wait_for_cancellation():
+                            await cancellation_event.wait()
+                        
+                        cancellation_task = asyncio.create_task(wait_for_cancellation())
+                        
+                        # Wait for either request completion or cancellation
+                        done, pending = await asyncio.wait(
+                            [request_task, cancellation_task],
+                            return_when=asyncio.FIRST_COMPLETED
+                        )
+                        
+                        # Check which task completed
+                        if cancellation_task in done:
+                            # Cancellation occurred - cancel the request task and close the client
+                            if not request_task.done():
+                                request_task.cancel()
+                                # Explicitly close the client connection to stop the underlying HTTP request
+                                try:
+                                    await client.aclose()
+                                except Exception:
+                                    pass
+                                try:
+                                    await request_task
+                                except (asyncio.CancelledError, httpx.RequestError, httpx.ConnectError):
+                                    pass
+                            # Cancel the cancellation task cleanup
+                            try:
+                                cancellation_task.cancel()
+                                await cancellation_task
+                            except asyncio.CancelledError:
+                                pass
+                            raise asyncio.CancelledError("IOC validation cancelled by client")
+                        
+                        # Request completed first - cancel the cancellation monitor
+                        if not cancellation_task.done():
+                            cancellation_task.cancel()
+                            try:
+                                await cancellation_task
+                            except asyncio.CancelledError:
+                                pass
+                        
+                        # Get the response from the completed request task
+                        response = await request_task
+                    else:
+                        # No cancellation support, just await the request
+                        response = await request_task
+                    
+                    # Check for cancellation after the request
+                    if cancellation_event and cancellation_event.is_set():
+                        raise asyncio.CancelledError("IOC validation cancelled by client")
                 elif ai_model in ['ollama', 'tinyllama']:
                     # Use Ollama API
                     ollama_url = os.getenv('LLM_API_URL', 'http://cti_ollama:11434')
@@ -260,12 +323,18 @@ Output format (return ONLY this JSON structure):
                 except json.JSONDecodeError as e:
                     logger.error(f"Failed to parse LLM validation response: {e}")
                     raise Exception(f"Failed to parse LLM validation response: {e}")
+            finally:
+                # Ensure client is closed
+                try:
+                    await client.aclose()
+                except Exception:
+                    pass
                     
         except Exception as e:
             logger.error(f"Error in LLM validation: {e}")
             raise  # Re-raise the exception so the caller can handle it
     
-    async def extract_iocs(self, content: str, api_key: Optional[str] = None, ai_model: str = 'chatgpt') -> IOCExtractionResult:
+    async def extract_iocs(self, content: str, api_key: Optional[str] = None, ai_model: str = 'chatgpt', cancellation_event: Optional[asyncio.Event] = None) -> IOCExtractionResult:
         """
         Extract IOCs using hybrid approach.
         
@@ -294,7 +363,15 @@ Output format (return ONLY this JSON structure):
                 # Use full content for LLM validation (no truncation limit)
                 # Content filtering is handled at the API endpoint level when LLM validation is enabled
                 # This allows the full filtered content to be sent for better validation context
-                validated_iocs, prompt, response = await self.validate_with_llm(raw_iocs, content, api_key, ai_model)
+                # Check for cancellation before LLM validation
+                if cancellation_event and cancellation_event.is_set():
+                    raise asyncio.CancelledError("IOC extraction cancelled by client")
+                
+                validated_iocs, prompt, response = await self.validate_with_llm(raw_iocs, content, api_key, ai_model, cancellation_event)
+                
+                # Check for cancellation after LLM validation
+                if cancellation_event and cancellation_event.is_set():
+                    raise asyncio.CancelledError("IOC extraction cancelled by client")
                 final_iocs = validated_iocs
                 extraction_method = 'hybrid'
                 confidence = 0.95  # Higher confidence with LLM validation

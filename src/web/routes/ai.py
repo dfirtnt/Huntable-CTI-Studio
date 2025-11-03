@@ -1333,7 +1333,7 @@ async def api_gpt4o_rank_optimized(article_id: int, request: Request):
 
 
 @router.post("/{article_id}/extract-observables")
-async def api_extract_observables(article_id: int):
+async def api_extract_observables(article_id: int, request: Request):
     """Extract observables (IOCs and behavioral indicators) from an article using Extract Observables model."""
     try:
         from src.services.llm_service import LLMService
@@ -1344,6 +1344,12 @@ async def api_extract_observables(article_id: int):
         if not article:
             raise HTTPException(status_code=404, detail="Article not found")
         
+        # Get request body to check for optimization options
+        body = await request.json()
+        optimization_options = body.get('optimization_options', {})
+        use_filtering = optimization_options.get('useFiltering', True)
+        min_confidence = float(optimization_options.get('minConfidence', 0.8)) if use_filtering else 1.0
+        
         # Initialize LLM service
         llm_service = LLMService()
         
@@ -1352,15 +1358,24 @@ async def api_extract_observables(article_id: int):
         if not prompt_file.exists():
             raise HTTPException(status_code=500, detail="ExtractObservables prompt file not found")
         
-        # Filter content if needed (use least aggressive filter)
+        # Filter content if filtering is enabled
         from src.utils.content_filter import ContentFilter
         content_filter = ContentFilter()
-        filter_result = content_filter.filter_content(
-            article.content,
-            min_confidence=0.9,
-            hunt_score=article.article_metadata.get('threat_hunting_score', 0) if article.article_metadata else 0,
-            article_id=article.id
-        )
+        
+        if use_filtering:
+            filter_result = content_filter.filter_content(
+                article.content,
+                min_confidence=min_confidence,
+                hunt_score=article.article_metadata.get('threat_hunting_score', 0) if article.article_metadata else 0,
+                article_id=article.id
+            )
+        else:
+            # No filtering - use original content
+            filter_result = type('FilterResult', (), {
+                'is_huntable': True,
+                'filtered_content': article.content,
+                'removed_chunks': []
+            })()
         
         # Check if content passed filter (has huntable content)
         if not filter_result.is_huntable:
@@ -1377,24 +1392,87 @@ async def api_extract_observables(article_id: int):
                 detail="Article content has insufficient huntable content after filtering."
             )
         
-        # Extract observables using Extract Observables model
-        extraction_result = await llm_service.extract_observables(
-            content=filtered_content,
-            title=article.title,
-            url=article.canonical_url or "",
-            prompt_file_path=str(prompt_file)
-        )
+        # Create a cancellation event
+        cancellation_event = asyncio.Event()
         
-        return {
-            "success": True,
-            "article_id": article_id,
-            "extraction": extraction_result,
-            "metadata": {
-                "atomic_count": extraction_result.get("metadata", {}).get("atomic_count", 0),
-                "behavioral_count": extraction_result.get("metadata", {}).get("behavioral_count", 0),
-                "total_observables": extraction_result.get("metadata", {}).get("observable_count", 0)
+        # Start monitoring client disconnection in background
+        async def monitor_disconnection():
+            # Only check for disconnection periodically, and be more careful about false positives
+            while True:
+                await asyncio.sleep(1.0)  # Check every 1 second (less aggressive)
+                try:
+                    # Check if client disconnected - only use property check, avoid callable check
+                    # which can cause false positives
+                    if hasattr(request, 'is_disconnected'):
+                        # Only check the property, not as a callable
+                        is_disconnected = request.is_disconnected
+                        if isinstance(is_disconnected, bool) and is_disconnected:
+                            logger.info(f"Client disconnected, cancelling observables extraction for article {article_id}")
+                            cancellation_event.set()
+                            break
+                except Exception as e:
+                    # Don't cancel on exceptions checking disconnection - just log and continue
+                    logger.debug(f"Error checking disconnection status: {e}")
+                    # Don't break - continue monitoring
+        
+        monitor_task = asyncio.create_task(monitor_disconnection())
+        
+        try:
+            # Extract observables using Extract Observables model with cancellation support
+            extraction_task = asyncio.create_task(
+                llm_service.extract_observables(
+                    content=filtered_content,
+                    title=article.title,
+                    url=article.canonical_url or "",
+                    prompt_file_path=str(prompt_file),
+                    cancellation_event=cancellation_event
+                )
+            )
+            
+            # Wait for either completion or cancellation
+            done, pending = await asyncio.wait(
+                [extraction_task, monitor_task],
+                return_when=asyncio.FIRST_COMPLETED
+            )
+            
+            # Cancel remaining tasks
+            for task in pending:
+                task.cancel()
+                try:
+                    await task
+                except asyncio.CancelledError:
+                    pass
+            
+            # Check if cancellation was requested
+            if cancellation_event.is_set():
+                logger.info(f"Observables extraction cancelled for article {article_id}")
+                raise HTTPException(status_code=499, detail="Client cancelled the request")
+            
+            # Get the result
+            extraction_result = await extraction_task
+            
+            return {
+                "success": True,
+                "article_id": article_id,
+                "extraction": extraction_result,
+                "metadata": {
+                    "atomic_count": extraction_result.get("metadata", {}).get("atomic_count", 0),
+                    "behavioral_count": extraction_result.get("metadata", {}).get("behavioral_count", 0),
+                    "total_observables": extraction_result.get("metadata", {}).get("observable_count", 0)
+                }
             }
-        }
+            
+        except asyncio.CancelledError:
+            logger.info(f"Observables extraction task cancelled for article {article_id}")
+            raise HTTPException(status_code=499, detail="Client cancelled the request")
+        finally:
+            # Clean up monitor task
+            if not monitor_task.done():
+                monitor_task.cancel()
+                try:
+                    await monitor_task
+                except asyncio.CancelledError:
+                    pass
         
     except HTTPException:
         raise
@@ -1469,51 +1547,114 @@ async def api_extract_iocs(article_id: int, request: Request):
             else:
                 logger.info("Content filter did not find huntable content, using original content for LLM validation")
         
-        extractor = HybridIOCExtractor(use_llm_validation=effective_llm_validation)
+        # Create a cancellation event
+        cancellation_event = asyncio.Event()
         
-        # Extract IOCs from the article content (filtered if LLM validation is enabled)
-        result = await extractor.extract_iocs(
-            content=content_to_use,
-            api_key=api_key,
-            ai_model=ai_model  # Pass AI model to extractor
-        )
+        # Start monitoring client disconnection in background
+        async def monitor_disconnection():
+            # Only check for disconnection periodically, and be more careful about false positives
+            while True:
+                await asyncio.sleep(1.0)  # Check every 1 second (less aggressive)
+                try:
+                    # Check if client disconnected - only use property check, avoid callable check
+                    # which can cause false positives
+                    if hasattr(request, 'is_disconnected'):
+                        # Only check the property, not as a callable
+                        is_disconnected = request.is_disconnected
+                        if isinstance(is_disconnected, bool) and is_disconnected:
+                            logger.info(f"Client disconnected, cancelling IOCs extraction for article {article_id}")
+                            cancellation_event.set()
+                            break
+                except Exception as e:
+                    # Don't cancel on exceptions checking disconnection - just log and continue
+                    logger.debug(f"Error checking disconnection status: {e}")
+                    # Don't break - continue monitoring
         
-        # Update article metadata with extracted IOCs
-        if result.iocs and len(result.iocs) > 0:
-            # Get current metadata and merge with new IOCs data
-            current_metadata = article.article_metadata or {}
-            current_metadata['extracted_iocs'] = {
-                'iocs': result.iocs,
-                'extraction_method': result.extraction_method,
-                'confidence': result.confidence,
-                'extracted_at': datetime.now().isoformat(),
-                'ai_model': ai_model,
-                'use_llm_validation': result.extraction_method == 'hybrid',  # Store actual validation status
-                'processing_time': result.processing_time,
-                'raw_count': result.raw_count,
-                'validated_count': result.validated_count,
-                'metadata': result.metadata,  # Store prompt and response
-                **filter_metadata  # Include content filtering metadata if applied
+        monitor_task = asyncio.create_task(monitor_disconnection())
+        
+        try:
+            extractor = HybridIOCExtractor(use_llm_validation=effective_llm_validation)
+            
+            # Extract IOCs from the article content (filtered if LLM validation is enabled)
+            extraction_task = asyncio.create_task(
+                extractor.extract_iocs(
+                    content=content_to_use,
+                    api_key=api_key,
+                    ai_model=ai_model,  # Pass AI model to extractor
+                    cancellation_event=cancellation_event  # Pass cancellation event
+                )
+            )
+            
+            # Wait for either completion or cancellation
+            done, pending = await asyncio.wait(
+                [extraction_task, monitor_task],
+                return_when=asyncio.FIRST_COMPLETED
+            )
+            
+            # Cancel remaining tasks
+            for task in pending:
+                task.cancel()
+                try:
+                    await task
+                except asyncio.CancelledError:
+                    pass
+            
+            # Check if cancellation was requested
+            if cancellation_event.is_set():
+                logger.info(f"IOCs extraction cancelled for article {article_id}")
+                raise HTTPException(status_code=499, detail="Client cancelled the request")
+            
+            # Get the result
+            result = await extraction_task
+            
+            # Update article metadata with extracted IOCs
+            if result.iocs and len(result.iocs) > 0:
+                # Get current metadata and merge with new IOCs data
+                current_metadata = article.article_metadata or {}
+                current_metadata['extracted_iocs'] = {
+                    'iocs': result.iocs,
+                    'extraction_method': result.extraction_method,
+                    'confidence': result.confidence,
+                    'extracted_at': datetime.now().isoformat(),
+                    'ai_model': ai_model,
+                    'use_llm_validation': result.extraction_method == 'hybrid',  # Store actual validation status
+                    'processing_time': result.processing_time,
+                    'raw_count': result.raw_count,
+                    'validated_count': result.validated_count,
+                    'metadata': result.metadata,  # Store prompt and response
+                    **filter_metadata  # Include content filtering metadata if applied
+                }
+                
+                # Update the article in the database
+                from src.models.article import ArticleUpdate
+                update_data = ArticleUpdate(article_metadata=current_metadata)
+                await async_db_manager.update_article(article_id, update_data)
+            
+            return {
+                "success": len(result.iocs) > 0,
+                "iocs": result.iocs,
+                "method": result.extraction_method,
+                "confidence": result.confidence,
+                "processing_time": result.processing_time,
+                "raw_count": result.raw_count,
+                "validated_count": result.validated_count,
+                "debug_info": result.metadata if debug_mode else None,
+                "llm_prompt": result.metadata.get('prompt') if result.metadata else None,
+                "llm_response": result.metadata.get('response') if result.metadata else None,
+                "error": None if len(result.iocs) > 0 else "No IOCs found"
             }
             
-            # Update the article in the database
-            from src.models.article import ArticleUpdate
-            update_data = ArticleUpdate(article_metadata=current_metadata)
-            await async_db_manager.update_article(article_id, update_data)
-        
-        return {
-            "success": len(result.iocs) > 0,
-            "iocs": result.iocs,
-            "method": result.extraction_method,
-            "confidence": result.confidence,
-            "processing_time": result.processing_time,
-            "raw_count": result.raw_count,
-            "validated_count": result.validated_count,
-            "debug_info": result.metadata if debug_mode else None,
-            "llm_prompt": result.metadata.get('prompt') if result.metadata else None,
-            "llm_response": result.metadata.get('response') if result.metadata else None,
-            "error": None if len(result.iocs) > 0 else "No IOCs found"
-        }
+        except asyncio.CancelledError:
+            logger.info(f"IOCs extraction task cancelled for article {article_id}")
+            raise HTTPException(status_code=499, detail="Client cancelled the request")
+        finally:
+            # Clean up monitor task
+            if not monitor_task.done():
+                monitor_task.cancel()
+                try:
+                    await monitor_task
+                except asyncio.CancelledError:
+                    pass
         
     except HTTPException:
         raise
