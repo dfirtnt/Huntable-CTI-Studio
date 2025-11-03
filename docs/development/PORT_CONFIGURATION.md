@@ -42,9 +42,9 @@ ports:
 ```
 
 **Access URLs:**
-- Application: `http://localhost:8001`
-- Health Check: `http://localhost:8001/health`
-- API: `http://localhost:8001/api/articles`
+- Application: `http://localhost:8002`
+- Health Check: `http://localhost:8002/health`
+- API: `http://localhost:8002/api/articles`
 
 ### **3. Environment Variable Configuration**
 ```bash

@@ -4,7 +4,7 @@ This document provides a comprehensive list of all API endpoints available in th
 
 ## Overview
 
-The CTI Scraper provides **128 API endpoints** across multiple categories:
+The CTI Scraper provides **133 API endpoints** across multiple categories:
 - **Health & Monitoring**: 8 endpoints
 - **Web Pages**: 15 endpoints
 - **Sources Management**: 10 endpoints  
@@ -16,6 +16,7 @@ The CTI Scraper provides **128 API endpoints** across multiple categories:
 - **Jobs & Tasks**: 7 endpoints
 - **Metrics & Dashboard**: 20 endpoints
 - **Backup Management**: 3 endpoints
+- **Workflow Execution**: 5 endpoints
 - **ML vs Hunt Comparison**: 5 endpoints
 - **Embeddings & ML**: 3 endpoints
 - **File Upload**: 1 endpoint
@@ -78,6 +79,23 @@ The CTI Scraper provides **128 API endpoints** across multiple categories:
 - `POST /api/backup/create` - Create a new system backup
 - `GET /api/backup/list` - List all available backups with sizes
 - `GET /api/backup/status` - Get backup system status and statistics
+
+## Workflow Execution Endpoints
+
+### Agentic Workflow Operations
+- `GET /api/workflow/executions` - List workflow executions with filtering
+  - **Query Parameters**:
+    - `article_id` (optional): Filter by article ID
+    - `status` (optional): Filter by execution status
+    - `limit` (default: 50): Maximum number of results
+- `GET /api/workflow/executions/{execution_id}` - Get detailed workflow execution information
+  - **Response**: Includes execution status, step results, ranking score, and error logs
+- `POST /api/workflow/executions/{execution_id}/retry` - Retry a failed workflow execution
+- `GET /api/workflow/executions/{execution_id}/debug-info` - Get debug information for workflow execution
+  - **Response**: Detailed debug data including LangGraph trace links and execution state
+- `POST /api/workflow/articles/{article_id}/trigger` - Manually trigger agentic workflow for an article
+  - **Query Parameters**:
+    - `use_langgraph_server` (default: false): If true, uses LangGraph server API (creates traces). If false, uses direct Celery execution (no traces, faster).
 
 ## Sources Management Endpoints
 
