@@ -9,7 +9,7 @@
 ## Precedence Rules
 1. **User safety** overrides autonomy (file deletion, secrets).
 2. **Verification** before reporting success. ALWAYS use Playwright, DevTools, or similar to verify UI fixes and changes before saying it is working. 
-3. **Max retries**: 5 attempts, then report 🚧.
+3. **Max retries**: 7 attempts, then report 🚧.
 
 #Style Rules. No hype or hyperbole.
 1. NEVER say things like "Your new system is production ready"
@@ -20,7 +20,7 @@
 - **Read before write**. Re-read after write.
 - **System-wide planning**: account for dependencies.
 - **Autonomous correction** up to 5 retries, else escalate.
-- **Extreme Ownership**: Keep testing until verified success. Always use strong verification. When applicable, always use Playwright and/or DevTools to make sure. 
+- **Extreme Ownership**: Keep testing until verified success with Playwright and/or DevTools to make sure. 
 - **Status**: ✅ success | ⚠️ self-corrected | 🚧 blocker.
 
 ## Environment
@@ -80,6 +80,5 @@
   - Debugging strategies and troubleshooting
   - CTIScraper-specific test scenarios
   - Performance optimization and quality assurance
-- **CI/CD**: GitHub Actions.
 - **Artifacts**: save videos, traces, reports.
 - **Key areas**: source mgmt, article processing, API, UI, perf, accessibility.

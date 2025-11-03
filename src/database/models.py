@@ -446,6 +446,7 @@ class AgenticWorkflowConfigTable(Base):
     min_hunt_score = Column(Float, nullable=False, default=97.0)
     ranking_threshold = Column(Float, nullable=False, default=6.0)
     similarity_threshold = Column(Float, nullable=False, default=0.5)
+    junk_filter_threshold = Column(Float, nullable=False, default=0.8)  # min_confidence for junk filter (0.0-1.0)
     
     # Versioning and audit
     version = Column(Integer, nullable=False, default=1)

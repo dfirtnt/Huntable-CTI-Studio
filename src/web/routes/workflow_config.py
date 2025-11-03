@@ -22,6 +22,7 @@ class WorkflowConfigResponse(BaseModel):
     min_hunt_score: float
     ranking_threshold: float
     similarity_threshold: float
+    junk_filter_threshold: float
     version: int
     is_active: bool
     description: Optional[str]
@@ -34,6 +35,7 @@ class WorkflowConfigUpdate(BaseModel):
     min_hunt_score: Optional[float] = Field(None, ge=0.0, le=100.0)
     ranking_threshold: Optional[float] = Field(None, ge=0.0, le=10.0)
     similarity_threshold: Optional[float] = Field(None, ge=0.0, le=1.0)
+    junk_filter_threshold: Optional[float] = Field(None, ge=0.0, le=1.0)
     description: Optional[str] = None
 
 
@@ -57,6 +59,7 @@ async def get_workflow_config(request: Request):
                     min_hunt_score=97.0,
                     ranking_threshold=6.0,
                     similarity_threshold=0.5,
+                    junk_filter_threshold=0.8,
                     version=1,
                     is_active=True,
                     description="Default configuration"
@@ -70,6 +73,7 @@ async def get_workflow_config(request: Request):
                 min_hunt_score=config.min_hunt_score,
                 ranking_threshold=config.ranking_threshold,
                 similarity_threshold=config.similarity_threshold,
+                junk_filter_threshold=config.junk_filter_threshold,
                 version=config.version,
                 is_active=config.is_active,
                 description=config.description,
@@ -108,6 +112,7 @@ async def update_workflow_config(request: Request, config_update: WorkflowConfig
                 min_hunt_score=config_update.min_hunt_score if config_update.min_hunt_score is not None else (current_config.min_hunt_score if current_config else 97.0),
                 ranking_threshold=config_update.ranking_threshold if config_update.ranking_threshold is not None else (current_config.ranking_threshold if current_config else 6.0),
                 similarity_threshold=config_update.similarity_threshold if config_update.similarity_threshold is not None else (current_config.similarity_threshold if current_config else 0.5),
+                junk_filter_threshold=config_update.junk_filter_threshold if config_update.junk_filter_threshold is not None else (current_config.junk_filter_threshold if current_config else 0.8),
                 version=new_version,
                 is_active=True,
                 description=config_update.description or (current_config.description if current_config else "Updated configuration")
@@ -124,6 +129,7 @@ async def update_workflow_config(request: Request, config_update: WorkflowConfig
                 min_hunt_score=new_config.min_hunt_score,
                 ranking_threshold=new_config.ranking_threshold,
                 similarity_threshold=new_config.similarity_threshold,
+                junk_filter_threshold=new_config.junk_filter_threshold,
                 version=new_config.version,
                 is_active=new_config.is_active,
                 description=new_config.description,

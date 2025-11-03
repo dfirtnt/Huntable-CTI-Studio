@@ -57,6 +57,16 @@ Quantization (Q4_K_M, Q6_K, Q8_0) must be set in LMStudio UI when loading the mo
 ### Context Length
 **Context length cannot be set remotely via the OpenAI-compatible HTTP API.** The context window must be configured when loading the model in LMStudio UI or CLI:
 
+**Automated (Recommended):**
+- Use the provided script to load with correct context length:
+  ```bash
+  ./scripts/load_lmstudio_model.sh
+  ```
+  - Reads `LMSTUDIO_MODEL` and `LMSTUDIO_MAX_CONTEXT` from `.env`
+  - Automatically loads model with specified context length
+  - Run this after starting LMStudio server, or add to startup sequence
+
+**Manual Options:**
 - **In LMStudio UI**: 
   1. Load your model in LMStudio
   2. Go to the **Context** tab in the right panel

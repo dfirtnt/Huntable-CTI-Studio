@@ -95,7 +95,9 @@ def create_exposable_workflow():
     # Initialize services (shared across nodes)
     content_filter = ContentFilter()
     llm_service = LLMService()
-    rag_service = RAGService()
+    logger.info(f"LLMService initialized in workflow - Models: rank={llm_service.model_rank}, extract={llm_service.model_extract}, sigma={llm_service.model_sigma}")
+    logger.info(f"LLMStudio URL: {llm_service.lmstudio_url}")
+    # RAGService lazy-loaded in similarity_search_node to avoid loading embedding models at startup
     sigma_generation_service = SigmaGenerationService()
     
     def parse_input_node(state: ExposableWorkflowState) -> ExposableWorkflowState:
@@ -271,6 +273,7 @@ Cannot process empty articles."""
                         'min_hunt_score': config.min_hunt_score if config else 97.0,
                         'ranking_threshold': config.ranking_threshold if config else 6.0,
                         'similarity_threshold': config.similarity_threshold if config else 0.5,
+                        'junk_filter_threshold': config.junk_filter_threshold if config else 0.8,
                     } if config else None
                 )
                 db_session.add(execution)
@@ -283,6 +286,7 @@ Cannot process empty articles."""
                 min_score = state.get("min_hunt_score") or (config.min_hunt_score if config else 97.0)
                 rank_threshold = state.get("ranking_threshold") or (config.ranking_threshold if config else 6.0)
                 sim_threshold = state.get("similarity_threshold") or (config.similarity_threshold if config else 0.5)
+                junk_filter_threshold = state.get("junk_filter_threshold") or (config.junk_filter_threshold if config else 0.8)
                 
                 return {
                     **state,
@@ -291,6 +295,7 @@ Cannot process empty articles."""
                     "min_hunt_score": min_score,
                     "ranking_threshold": rank_threshold,
                     "similarity_threshold": sim_threshold,
+                    "junk_filter_threshold": junk_filter_threshold,
                     "status": "pending",
                     "current_step": "parse_input",
                     "should_continue": True,
@@ -321,7 +326,7 @@ Cannot process empty articles."""
             }
     
     def junk_filter_node(state: ExposableWorkflowState) -> ExposableWorkflowState:
-        """Step 0: Filter content using least aggressive junk filter."""
+        """Step 0: Filter content using conservative junk filter."""
         db_session = get_db_session()
         try:
             logger.info(f"[Workflow {state.get('execution_id')}] Step 0: Junk Filter")
@@ -331,10 +336,13 @@ Cannot process empty articles."""
             if not article:
                 raise ValueError(f"Article {article_id} not found")
             
-            # Use least aggressive filter (min_confidence=0.9)
+            # Get junk filter threshold from state or config
+            junk_filter_threshold = state.get('junk_filter_threshold', 0.8)
+            
+            # Use configured filter threshold
             filter_result = content_filter.filter_content(
                 article.content,
-                min_confidence=0.9,  # Least aggressive
+                min_confidence=junk_filter_threshold,
                 hunt_score=article.article_metadata.get('threat_hunting_score', 0) if article.article_metadata else 0,
                 article_id=article.id
             )
@@ -354,7 +362,8 @@ Cannot process empty articles."""
                     config_snapshot={
                         'min_hunt_score': state.get('min_hunt_score', 97.0),
                         'ranking_threshold': state.get('ranking_threshold', 6.0),
-                        'similarity_threshold': state.get('similarity_threshold', 0.5)
+                        'similarity_threshold': state.get('similarity_threshold', 0.5),
+                        'junk_filter_threshold': state.get('junk_filter_threshold', 0.8)
                     }
                 )
                 db_session.add(execution)
@@ -628,13 +637,17 @@ Cannot process empty articles."""
         try:
             logger.info(f"[Workflow {state.get('execution_id')}] Step 4: Similarity Search")
             
+            # Lazy-load RAGService only when similarity search runs (to avoid loading embedding models at startup)
+            rag_service = RAGService()
+            
             sigma_rules = state.get('sigma_rules', [])
             similarity_results = []
             
             for rule in sigma_rules:
-                rule_yaml = yaml.dump(rule, default_flow_style=False, sort_keys=False)
+                # Create query from rule title and description (as used in agentic_workflow.py)
+                query_text = f"{rule.get('title', '')} {rule.get('description', '')}"
                 similar = await rag_service.find_similar_sigma_rules(
-                    rule_yaml=rule_yaml,
+                    query=query_text,
                     top_k=10
                 )
                 similarity_results.append({

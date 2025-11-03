@@ -223,9 +223,10 @@ Output ONLY valid YAML starting with "title:"."""
     
     async def _call_lmstudio_for_sigma(self, prompt: str) -> str:
         """Call LMStudio API for SIGMA generation."""
-        payload = {
-            "model": self.llm_service.lmstudio_model,
-            "messages": [
+        # Use SIGMA-specific model
+        model_name = self.llm_service.model_sigma
+        
+        messages = [
                 {
                     "role": "system",
                     "content": "You are a SIGMA rule creation expert. Output ONLY valid YAML starting with 'title:'. Use exact 2-space indentation. logsource and detection must be nested dictionaries. No markdown, no explanations."
@@ -234,7 +235,14 @@ Output ONLY valid YAML starting with "title:"."""
                     "role": "user",
                     "content": prompt
                 }
-            ],
+        ]
+        
+        # Convert system messages for models that don't support them (e.g., Mistral)
+        messages = self.llm_service._convert_messages_for_model(messages, model_name)
+        
+        payload = {
+            "model": model_name,
+            "messages": messages,
             "max_tokens": 800,
             "temperature": self.llm_service.temperature,
             "top_p": self.llm_service.top_p,
@@ -245,7 +253,7 @@ Output ONLY valid YAML starting with "title:"."""
         
         result = await self.llm_service._post_lmstudio_chat(
             payload,
-            model_name=self.llm_service.lmstudio_model,
+            model_name=model_name,
             timeout=300.0,
             failure_context="Failed to generate SIGMA rules from LMStudio"
         )

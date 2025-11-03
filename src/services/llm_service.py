@@ -15,8 +15,9 @@ from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
-# LM Studio context limits (default to 4096 if not configured properly)
-MAX_CONTEXT_TOKENS = int(os.getenv("LMSTUDIO_MAX_CONTEXT", "4096"))
+# LM Studio context limits (default to 32768 for reasoning models, 4096 for others)
+# Reasoning models need large context windows for both reasoning and output
+MAX_CONTEXT_TOKENS = int(os.getenv("LMSTUDIO_MAX_CONTEXT", "32768"))
 PROMPT_OVERHEAD_TOKENS = 500  # Reserve for prompt templates, system messages, etc.
 
 
@@ -26,14 +27,76 @@ class LLMService:
     def __init__(self):
         """Initialize LLM service with LMStudio configuration."""
         self.lmstudio_url = os.getenv("LMSTUDIO_API_URL", "http://host.docker.internal:1234/v1")
-        self.lmstudio_model = os.getenv("LMSTUDIO_MODEL", "deepseek-r1-qwen3-8b")
         
-        # Recommended settings for Deepseek-R1
-        self.temperature = float(os.getenv("LMSTUDIO_TEMPERATURE", "0.15"))
+        # Default model (fallback for backward compatibility)
+        default_model = os.getenv("LMSTUDIO_MODEL", "mistralai/mistral-7b-instruct-v0.3")
+        
+        # Per-operation model configuration
+        # Falls back to LMSTUDIO_MODEL if not specified, then to default
+        # Handle empty strings from docker-compose (empty string means "not set")
+        self.lmstudio_model = default_model  # Keep for backward compatibility
+        rank_model = os.getenv("LMSTUDIO_MODEL_RANK", "").strip()
+        extract_model = os.getenv("LMSTUDIO_MODEL_EXTRACT", "").strip()
+        sigma_model = os.getenv("LMSTUDIO_MODEL_SIGMA", "").strip()
+        
+        self.model_rank = rank_model if rank_model else default_model
+        self.model_extract = extract_model if extract_model else default_model
+        self.model_sigma = sigma_model if sigma_model else default_model
+        
+        # Detect if model requires system message conversion (Mistral models don't support system role)
+        self._needs_system_conversion = self._model_needs_system_conversion(default_model)
+        
+        # Recommended settings for reasoning models (temperature/top_p work well for structured output)
+        self.temperature = float(os.getenv("LMSTUDIO_TEMPERATURE", "0.2"))
         self.top_p = float(os.getenv("LMSTUDIO_TOP_P", "0.9"))
         self.seed = int(os.getenv("LMSTUDIO_SEED", "42")) if os.getenv("LMSTUDIO_SEED") else None
         
-        logger.info(f"Initialized LLMService with model: {self.lmstudio_model}")
+        logger.info(f"Initialized LLMService - Models: rank={self.model_rank}, extract={self.model_extract}, sigma={self.model_sigma}")
+    
+    def _model_needs_system_conversion(self, model_name: str) -> bool:
+        """Check if model requires system message conversion (e.g., Mistral models)."""
+        model_lower = model_name.lower()
+        # Mistral models and some others don't support system role in LM Studio
+        # Qwen models support system role, so no conversion needed
+        return any(x in model_lower for x in ['mistral', 'mixtral']) and 'qwen' not in model_lower
+    
+    def _convert_messages_for_model(self, messages: list, model_name: str) -> list:
+        """Convert system messages to user messages for models that don't support system role."""
+        if not self._model_needs_system_conversion(model_name):
+            return messages
+        
+        # For Mistral, convert system to user message using instruction format
+        converted = []
+        system_content = None
+        
+        # Collect system message
+        for msg in messages:
+            if msg.get("role") == "system":
+                system_content = msg['content']
+                break
+        
+        # Get user messages (should only be one)
+        user_messages = [msg for msg in messages if msg.get("role") != "system"]
+        
+        if system_content and user_messages:
+            # For Mistral, use direct instruction format without system role wrapper
+            # Merge into a single user message with clear task separation
+            user_content = user_messages[0]['content']
+            # Only prepend system if it's not already integrated into the prompt
+            if not user_content.startswith("Task:") and not user_content.startswith("You are"):
+                # For ranking/extraction prompts that already have structure, just use user content
+                # System role instructions are usually redundant
+                converted = user_messages
+            else:
+                # Combine with clear separator
+                converted = [{
+                    "role": "user",
+                    "content": f"{system_content}\n\n{user_content}"
+                }]
+        else:
+            converted = messages if not any(m.get("role") == "system" for m in messages) else user_messages
+        
+        return converted
     
     @staticmethod
     def _read_file_sync(file_path: str) -> str:
@@ -115,6 +178,7 @@ class LLMService:
         model_name: str,
         timeout: float = 300.0,
         failure_context: str = "LLM API call failed",
+        cancellation_event: Optional[asyncio.Event] = None,
     ) -> Dict[str, Any]:
         """
         Call LMStudio /chat/completions with automatic fallback handling.
@@ -135,20 +199,83 @@ class LLMService:
         lmstudio_urls = self._lmstudio_url_candidates()
         last_error_detail = ""
         
-        async with httpx.AsyncClient(timeout=httpx.Timeout(timeout, connect=10.0)) as client:
+        logger.info(f"LMStudio URL candidates for {failure_context}: {lmstudio_urls}")
+        
+        # Check for cancellation before starting
+        if cancellation_event and cancellation_event.is_set():
+            raise asyncio.CancelledError("Request cancelled by client")
+        
+        async def make_request(client: httpx.AsyncClient, url: str) -> httpx.Response:
+            """Make the HTTP request as a cancellable task."""
+            return await client.post(
+                f"{url}/chat/completions",
+                headers={"Content-Type": "application/json"},
+                json=payload,
+                timeout=httpx.Timeout(timeout, connect=30.0, read=timeout),
+            )
+        
+        # Use longer connect timeout to allow DNS resolution and connection establishment
+        connect_timeout = 30.0  # Increased from 10.0 to handle Docker networking
+        client = httpx.AsyncClient(timeout=httpx.Timeout(timeout, connect=connect_timeout))
+        try:
             for idx, lmstudio_url in enumerate(lmstudio_urls):
+                # Check for cancellation before each attempt
+                if cancellation_event and cancellation_event.is_set():
+                    raise asyncio.CancelledError("Request cancelled by client")
+                
                 logger.info(
                     f"Attempting LMStudio at {lmstudio_url} with model {model_name} "
                     f"({failure_context}) attempt {idx + 1}/{len(lmstudio_urls)}"
                 )
+                logger.debug(f"Request payload preview: model={payload.get('model')}, messages_count={len(payload.get('messages', []))}, max_tokens={payload.get('max_tokens')}")
                 try:
-                    # Use shorter connect timeout to fail fast if service is down
-                    response = await client.post(
-                        f"{lmstudio_url}/chat/completions",
-                        headers={"Content-Type": "application/json"},
-                        json=payload,
-                        timeout=httpx.Timeout(timeout, connect=10.0, read=timeout),
-                    )
+                    # Make request
+                    request_task = asyncio.create_task(make_request(client, lmstudio_url))
+                    
+                    # Monitor for cancellation while waiting for response
+                    if cancellation_event:
+                        # Create a task that waits for cancellation
+                        async def wait_for_cancellation():
+                            if cancellation_event:
+                                await cancellation_event.wait()
+                        
+                        cancellation_task = asyncio.create_task(wait_for_cancellation())
+                        
+                        # Wait for either request completion or cancellation
+                        done, pending = await asyncio.wait(
+                            [request_task, cancellation_task],
+                            return_when=asyncio.FIRST_COMPLETED
+                        )
+                        
+                        # Cancel pending tasks
+                        for task in pending:
+                            task.cancel()
+                            try:
+                                await task
+                            except asyncio.CancelledError:
+                                pass
+                        
+                        # Check if cancellation occurred
+                        if cancellation_event.is_set():
+                            # Cancel the request task and close the client to stop the HTTP request
+                            if not request_task.done():
+                                request_task.cancel()
+                                # Explicitly close the client connection to stop the underlying HTTP request
+                                try:
+                                    await client.aclose()
+                                except Exception:
+                                    pass
+                                try:
+                                    await request_task
+                                except (asyncio.CancelledError, httpx.RequestError, httpx.ConnectError):
+                                    pass
+                            raise asyncio.CancelledError("Request cancelled by client")
+                        
+                        # Get the response
+                        response = await request_task
+                    else:
+                        # No cancellation support, just await the request
+                        response = await request_task
                     
                     if response.status_code == 200:
                         return response.json()
@@ -171,21 +298,31 @@ class LLMService:
                     
                 except httpx.ConnectError as e:
                     last_error_detail = f"Connection error: {str(e)}"
-                    logger.warning(f"LMStudio at {lmstudio_url} connection failed: {e}")
+                    logger.error(f"LMStudio at {lmstudio_url} connection failed: {type(e).__name__}: {e}")
                     # Don't retry on connection errors - try next URL immediately
                     if idx == len(lmstudio_urls) - 1:
                         raise RuntimeError(
                             f"{failure_context}: Cannot connect to LMStudio service. "
+                            f"Tried URLs: {lmstudio_urls}. Last error: {str(e)}. "
                             f"Verify LMStudio is running and accessible at {lmstudio_url}"
                         )
                     # Continue to next URL candidate
                     continue
                     
+                except asyncio.CancelledError:
+                    # Re-raise cancellation errors
+                    raise
                 except Exception as e:
                     last_error_detail = str(e)
                     logger.error(f"LMStudio API request failed at {lmstudio_url}: {e}")
                     if idx == len(lmstudio_urls) - 1:
                         raise RuntimeError(f"{failure_context}: {str(e)}")
+        finally:
+            # Ensure client is closed
+            try:
+                await client.aclose()
+            except Exception:
+                pass
         
         raise RuntimeError(f"{failure_context}: All LMStudio URLs failed. Last error: {last_error_detail}")
     
@@ -272,9 +409,20 @@ Score the article from 1-10 for SIGMA rule generation potential. Consider:
             content=truncated_content
         )
         
-        payload = {
-            "model": self.lmstudio_model,
-            "messages": [
+        # Use ranking-specific model
+        model_name = self.model_rank
+        
+        # For Mistral, use direct instruction format without separate system message
+        if self._model_needs_system_conversion(model_name):
+            # Single user message with integrated instructions
+            messages = [
+                {
+                    "role": "user",
+                    "content": prompt_text
+                }
+            ]
+        else:
+            messages = [
                 {
                     "role": "system",
                     "content": "You are a cybersecurity detection engineer. Score threat intelligence articles 1-10 for SIGMA huntability. Output only a score and brief reasoning."
@@ -283,8 +431,17 @@ Score the article from 1-10 for SIGMA rule generation potential. Consider:
                     "role": "user",
                     "content": prompt_text
                 }
-            ],
-            "max_tokens": 800,  # Increased for Deepseek-R1 reasoning format
+            ]
+        
+        # For reasoning models (deepseek-r1), need much higher max_tokens
+        # Reasoning can use 1000-2000 tokens, final answer needs ~100 tokens
+        is_reasoning_model = 'r1' in model_name.lower() or 'reasoning' in model_name.lower()
+        max_output_tokens = 2500 if is_reasoning_model else 800
+        
+        payload = {
+            "model": model_name,
+            "messages": messages,
+            "max_tokens": max_output_tokens,
             "temperature": self.temperature,
             "top_p": self.top_p,
         }
@@ -292,11 +449,16 @@ Score the article from 1-10 for SIGMA rule generation potential. Consider:
         if self.seed is not None:
             payload["seed"] = self.seed
         
+        logger.info(f"Ranking request: max_tokens={max_output_tokens} (reasoning_model={is_reasoning_model})")
+        
         try:
+            # Reasoning models need longer timeouts - they generate extensive reasoning + answer
+            ranking_timeout = 180.0 if is_reasoning_model else 60.0
+            
             result = await self._post_lmstudio_chat(
                 payload,
-                model_name=self.lmstudio_model,
-                timeout=60.0,  # Reduced from 120s - fail faster if service is down
+                model_name=model_name,
+                timeout=ranking_timeout,
                 failure_context="Failed to rank article"
             )
             
@@ -304,22 +466,51 @@ Score the article from 1-10 for SIGMA rule generation potential. Consider:
             message = result['choices'][0]['message']
             response_text = message.get('content', '') or message.get('reasoning_content', '')
             
+            # Check if response was truncated due to token limit
+            finish_reason = result['choices'][0].get('finish_reason', '')
+            if finish_reason == 'length':
+                logger.warning(f"Ranking response was truncated (finish_reason=length). Used {result.get('usage', {}).get('completion_tokens', 0)} tokens. max_tokens={max_output_tokens} may need to be increased.")
+            
             # Fail if response is empty
             if not response_text or len(response_text.strip()) == 0:
                 logger.error("LLM returned empty response for ranking")
                 raise ValueError("LLM returned empty response for ranking. Check LMStudio is responding correctly.")
             
-            logger.info(f"Ranking response received: {len(response_text)} chars")
+            logger.info(f"Ranking response received: {len(response_text)} chars (finish_reason={finish_reason})")
             
-            # Parse score from response
+            # Parse score from response - look for "SIGMA HUNTABILITY SCORE: X" pattern first
             import re
-            score_match = re.search(r'(\d+(?:\.\d+)?)', response_text)
+            score = None
+            
+            # Try multiple patterns, searching entire response (not just first 200 chars)
+            # Pattern 1: "SIGMA HUNTABILITY SCORE: X" (exact format)
+            score_match = re.search(r'SIGMA\s+HUNTABILITY\s+SCORE[:\s]+(\d+(?:\.\d+)?)', response_text, re.IGNORECASE)
             if score_match:
                 score = float(score_match.group(1))
-                score = max(1.0, min(10.0, score))  # Clamp to 1-10
             else:
-                logger.error(f"Could not parse score from LLM response: {response_text[:200]}")
-                raise ValueError(f"LLM ranking response could not be parsed. Response: {response_text[:200]}")
+                # Pattern 2: "Score: X" or "**Score:** X"
+                score_match = re.search(r'(?:^|\n|^|\*|#)\s*Score[:\s#*]+\s*(\d+(?:\.\d+)?)', response_text, re.IGNORECASE | re.MULTILINE)
+                if score_match:
+                    score = float(score_match.group(1))
+                else:
+                    # Pattern 3: Look for numbers 1-10 in the last 500 chars (where final answer usually is)
+                    # Reasoning models often put the score at the end after reasoning
+                    tail_text = response_text[-500:] if len(response_text) > 500 else response_text
+                    score_match = re.search(r'\b([1-9]|10)(?:\.\d+)?\b', tail_text)
+                    if score_match:
+                        score = float(score_match.group(1))
+            
+            if score is not None:
+                score = max(1.0, min(10.0, score))  # Clamp to 1-10
+                logger.info(f"Parsed ranking score: {score}/10")
+            else:
+                # If truncated and no score found, provide helpful error
+                if finish_reason == 'length':
+                    error_msg = f"Ranking response was truncated and no score found. Response length: {len(response_text)} chars. Try increasing max_tokens (current: {max_output_tokens}). Response preview: {response_text[-300:]}"
+                else:
+                    error_msg = f"Could not parse score from LLM response. Response: {response_text[:500]}"
+                logger.error(error_msg)
+                raise ValueError(error_msg)
             
             return {
                 'score': score,
@@ -365,12 +556,19 @@ Score the article from 1-10 for SIGMA rule generation potential. Consider:
         
         instructions_template = await asyncio.to_thread(self._read_file_sync, str(instructions_path))
         
+        # Use extraction-specific model
+        model_name = self.model_extract
+        
         # Truncate content to fit within context limits
-        # Reserve space for prompt, system message, instructions, and 4000 token response
+        # For reasoning models (deepseek-r1), need much higher max_tokens (reasoning + JSON)
+        # Reasoning can use 3000-4000 tokens, JSON needs 2000-3000 tokens
+        is_reasoning_model = 'r1' in model_name.lower() or 'reasoning' in model_name.lower()
+        max_output_tokens = 10000 if is_reasoning_model else 4000
+        
         truncated_content = self._truncate_content(
             content,
             max_context_tokens=MAX_CONTEXT_TOKENS,
-            max_output_tokens=4000,
+            max_output_tokens=max_output_tokens,
             prompt_overhead=PROMPT_OVERHEAD_TOKENS + 500  # Extra for instructions JSON
         )
         
@@ -389,9 +587,7 @@ Score the article from 1-10 for SIGMA rule generation potential. Consider:
             prompt_config=prompt_config_json
         )
         
-        payload = {
-            "model": self.lmstudio_model,
-            "messages": [
+        messages = [
                 {
                     "role": "system",
                     "content": prompt_config.get("role", "You are a detection engineer LLM.")
@@ -400,8 +596,15 @@ Score the article from 1-10 for SIGMA rule generation potential. Consider:
                     "role": "user",
                     "content": user_prompt
                 }
-            ],
-            "max_tokens": 4000,
+        ]
+        
+        # Convert system messages for models that don't support them
+        messages = self._convert_messages_for_model(messages, model_name)
+        
+        payload = {
+            "model": model_name,
+            "messages": messages,
+            "max_tokens": max_output_tokens,
             "temperature": self.temperature,
             "top_p": self.top_p,
         }
@@ -409,11 +612,17 @@ Score the article from 1-10 for SIGMA rule generation potential. Consider:
         if self.seed is not None:
             payload["seed"] = self.seed
         
+        logger.info(f"Extract behaviors request: max_tokens={max_output_tokens} (reasoning_model={is_reasoning_model})")
+        
         try:
+            # Reasoning models need much longer timeouts - they generate extensive reasoning + JSON
+            # With 10000 max_tokens and reasoning, can take 5-10 minutes
+            extraction_timeout = 600.0 if is_reasoning_model else 180.0
+            
             result = await self._post_lmstudio_chat(
                 payload,
-                model_name=self.lmstudio_model,
-                timeout=180.0,  # Reduced from 300s - fail faster if service is down
+                model_name=model_name,
+                timeout=extraction_timeout,
                 failure_context="Failed to extract behaviors"
             )
             
@@ -422,6 +631,13 @@ Score the article from 1-10 for SIGMA rule generation potential. Consider:
             message = result['choices'][0]['message']
             content_text = message.get('content', '')
             reasoning_text = message.get('reasoning_content', '')
+            
+            # Check for token limit hit
+            finish_reason = result['choices'][0].get('finish_reason', '')
+            if finish_reason == 'length':
+                logger.error(f"Token limit hit! Used {result.get('usage', {}).get('completion_tokens', 0)} completion tokens. "
+                           f"Content: {len(content_text)} chars, Reasoning: {len(reasoning_text)} chars. "
+                           f"max_tokens={max_output_tokens} may be too low for reasoning model.")
             
             # Prefer content if it looks like JSON, otherwise check reasoning_content
             # Deepseek-R1 might put JSON in either field
@@ -434,6 +650,8 @@ Score the article from 1-10 for SIGMA rule generation potential. Consider:
             else:
                 # Fallback: use content first, then reasoning
                 response_text = content_text or reasoning_text
+                if finish_reason == 'length':
+                    logger.error(f"Token limit hit and no JSON found. Check max_tokens setting (current: {max_output_tokens})")
                 logger.warning(f"Neither field looks like JSON. Using content ({len(content_text)} chars) or reasoning ({len(reasoning_text)} chars)")
             
             # Log response for debugging
@@ -547,7 +765,8 @@ Score the article from 1-10 for SIGMA rule generation potential. Consider:
         content: str,
         title: str,
         url: str,
-        prompt_file_path: str
+        prompt_file_path: str,
+        cancellation_event: Optional[asyncio.Event] = None
     ) -> Dict[str, Any]:
         """
         Extract observables (IOCs and behavioral indicators) using ExtractObservables prompt.
@@ -595,11 +814,12 @@ Extract all IOCs and observables (atomic indicators and behavioral patterns).
 
 {json.dumps(prompt_config, indent=2)}
 
-CRITICAL: Output your response as a valid JSON object only. Begin with {{ and end with }}. Do not include reasoning, explanations, or markdown outside the JSON object."""
+CRITICAL: If you are a reasoning model, you may include reasoning text, but you MUST end your response with a valid JSON object. The JSON object must contain the extracted observables following the output_format structure exactly (with atomic_iocs, behavioral_observables, and metadata fields). Begin the JSON object with {{ and end with }}. If no observables are found, still output the complete JSON structure with empty arrays."""
         
-        payload = {
-            "model": self.lmstudio_model,
-            "messages": [
+        # Use extract model for observable extraction (backward compatible with extract_behaviors)
+        model_name = self.model_extract
+        
+        messages = [
                 {
                     "role": "system",
                     "content": prompt_config.get("role", "You are a cybersecurity analyst specializing in IOC and observable extraction.")
@@ -608,7 +828,14 @@ CRITICAL: Output your response as a valid JSON object only. Begin with {{ and en
                     "role": "user",
                     "content": user_prompt
                 }
-            ],
+        ]
+        
+        # Convert system messages for models that don't support them
+        messages = self._convert_messages_for_model(messages, model_name)
+        
+        payload = {
+            "model": model_name,
+            "messages": messages,
             "max_tokens": 4000,
             "temperature": self.temperature,
             "top_p": self.top_p,
@@ -618,15 +845,41 @@ CRITICAL: Output your response as a valid JSON object only. Begin with {{ and en
             payload["seed"] = self.seed
         
         try:
+            # Check for cancellation before making the request
+            if cancellation_event and cancellation_event.is_set():
+                raise asyncio.CancelledError("Extraction cancelled by client")
+            
             result = await self._post_lmstudio_chat(
                 payload,
-                model_name=self.lmstudio_model,
+                model_name=model_name,
                 timeout=180.0,
-                failure_context="Failed to extract observables"
+                failure_context="Failed to extract observables",
+                cancellation_event=cancellation_event
             )
             
+            # Check for cancellation after the request
+            if cancellation_event and cancellation_event.is_set():
+                raise asyncio.CancelledError("Extraction cancelled by client")
+            
+            # Deepseek-R1: check both content and reasoning_content
+            # Often the final answer is in 'content' while reasoning is in 'reasoning_content'
             message = result['choices'][0]['message']
-            response_text = message.get('content', '') or message.get('reasoning_content', '')
+            content_text = message.get('content', '')
+            reasoning_text = message.get('reasoning_content', '')
+            
+            # Prefer content if it looks like JSON, otherwise check reasoning_content
+            # Deepseek-R1 might put JSON in either field
+            if content_text and (content_text.strip().startswith('{') or 'atomic_iocs' in content_text or 'behavioral_observables' in content_text):
+                response_text = content_text
+                logger.info("Using 'content' field for observable extraction (looks like JSON)")
+            elif reasoning_text and (reasoning_text.strip().startswith('{') or 'atomic_iocs' in reasoning_text or 'behavioral_observables' in reasoning_text):
+                response_text = reasoning_text
+                logger.info("Using 'reasoning_content' field for observable extraction (looks like JSON)")
+            else:
+                # Fallback: combine both or use whichever is available
+                # Reasoning models may put reasoning in reasoning_content and JSON in content, or combine them
+                response_text = content_text + '\n\n' + reasoning_text if (content_text and reasoning_text) else (content_text or reasoning_text)
+                logger.info(f"Combining or using available fields. Content: {len(content_text)} chars, Reasoning: {len(reasoning_text)} chars")
             
             if not response_text or len(response_text.strip()) == 0:
                 logger.error("LLM returned empty response for observable extraction")
@@ -635,13 +888,19 @@ CRITICAL: Output your response as a valid JSON object only. Begin with {{ and en
             logger.info(f"Observable extraction response received: {len(response_text)} chars")
             
             # Parse JSON from response (reuse same logic as extract_behaviors)
+            # Deepseek-R1 may provide reasoning, then JSON at the end
+            # Strategy: Look for JSON at the end of the response first, then fallback to anywhere
             try:
                 json_text = None
                 
+                # First, try to extract JSON from markdown code fences (```json ... ``` or ``` ... ```)
                 code_fence_match = re.search(r'```(?:json)?\s*\n(.*?)\n```', response_text, re.DOTALL)
                 if code_fence_match:
                     json_text = code_fence_match.group(1).strip()
+                    logger.info("Extracted JSON from markdown code fence")
                 else:
+                    # Look for JSON object at the END of response (most likely after reasoning)
+                    # Strategy: Find ALL potential JSON objects, then take the one with expected keys from the end
                     json_candidates = []
                     search_pos = 0
                     while True:
@@ -649,6 +908,7 @@ CRITICAL: Output your response as a valid JSON object only. Begin with {{ and en
                         if open_pos == -1:
                             break
                         
+                        # Try to find matching closing brace
                         brace_count = 0
                         json_end = -1
                         for i in range(open_pos, len(response_text)):
@@ -662,8 +922,10 @@ CRITICAL: Output your response as a valid JSON object only. Begin with {{ and en
                         
                         if json_end != -1:
                             candidate_json = response_text[open_pos:json_end]
+                            # Try to parse it to validate it's valid JSON
                             try:
                                 candidate_data = json.loads(candidate_json)
+                                # Check if it has expected root-level keys (not a nested object)
                                 expected_keys = ['atomic_iocs', 'behavioral_observables', 'metadata']
                                 if any(key in candidate_data for key in expected_keys):
                                     json_candidates.append((open_pos, json_end, len(candidate_json), candidate_data))
@@ -673,13 +935,22 @@ CRITICAL: Output your response as a valid JSON object only. Begin with {{ and en
                         search_pos = open_pos + 1
                     
                     if json_candidates:
+                        # Prefer candidates with expected keys, and prefer those from the end of the response
+                        # (reasoning models typically output JSON after reasoning)
                         root_candidates = [c for c in json_candidates if any(k in c[3] for k in ['atomic_iocs', 'behavioral_observables', 'metadata'])]
                         if root_candidates:
-                            _, _, _, root_data = max(root_candidates, key=lambda x: x[2])
+                            # Prefer the one closest to the end (highest open_pos), but also consider size
+                            # Sort by position (descending) first, then by size (descending)
+                            root_candidates.sort(key=lambda x: (x[0], x[2]), reverse=True)
+                            _, _, _, root_data = root_candidates[0]
                             json_text = json.dumps(root_data)
+                            logger.info(f"Extracted root JSON object from position {root_candidates[0][0]} (near end of response)")
                         else:
-                            _, _, _, largest_data = max(json_candidates, key=lambda x: x[2])
+                            # Fallback to largest candidate, preferring later in response
+                            json_candidates.sort(key=lambda x: (x[0], x[2]), reverse=True)
+                            _, _, _, largest_data = json_candidates[0]
                             json_text = json.dumps(largest_data)
+                            logger.info(f"Extracted largest JSON object from position {json_candidates[0][0]} (fallback)")
                     else:
                         raise ValueError("No valid JSON found in response")
                 
@@ -706,7 +977,10 @@ CRITICAL: Output your response as a valid JSON object only. Begin with {{ and en
                 extracted['metadata']['behavioral_count'] = behavioral_count
                 extracted['metadata']['url'] = url
                 
-                logger.info(f"Parsed observable extraction result: {atomic_count} atomic IOCs, {behavioral_count} behavioral observables")
+                if atomic_count == 0 and behavioral_count == 0:
+                    logger.warning(f"No observables extracted from article. Raw response length: {len(response_text)} chars. First 500 chars: {response_text[:500]}")
+                else:
+                    logger.info(f"Parsed observable extraction result: {atomic_count} atomic IOCs, {behavioral_count} behavioral observables")
                 
             except (json.JSONDecodeError, ValueError) as e:
                 logger.warning(f"Could not parse JSON from observable extraction response: {e}. Using fallback.")

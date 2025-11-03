@@ -3222,18 +3222,38 @@ Please provide a detailed analysis based on the article content and the user's s
         // Track if request has started
         let requestStarted = false;
         
+        // Create AbortController for cancellation
+        const abortController = new AbortController();
+        let isCancelled = false;
+        
+        // Cancel handler function
+        const handleCancel = function() {
+            if (requestStarted && !isCancelled) {
+                isCancelled = true;
+                abortController.abort();
+                markOperationComplete(operationId, 'cancelled');
+                showNotification(`${typeText} ${type === 'sigma' ? 'generation' : type === 'ranking' ? 'generation' : 'extraction'} cancelled`, 'info');
+            }
+            const modal = document.getElementById('loadingModal');
+            if (modal && modal.parentNode) {
+                modal.remove();
+            }
+            document.removeEventListener('keydown', handleEsc);
+        };
+        
         // Add ESC key handler to close loading modal
         const handleEsc = function(e) {
             if (e.key === 'Escape') {
-                const modal = document.getElementById('loadingModal');
-                if (modal && modal.parentNode) {
-                    modal.remove();
-                }
-                document.removeEventListener('keydown', handleEsc);
-                
-                // Only show background message if request actually started
                 if (requestStarted) {
-                    showNotification('AI generation continues in the background. You can return to this article later to view the results.', 'info');
+                    // If request started, treat ESC as cancel
+                    handleCancel();
+                } else {
+                    // If request hasn't started, just close modal
+                    const modal = document.getElementById('loadingModal');
+                    if (modal && modal.parentNode) {
+                        modal.remove();
+                    }
+                    document.removeEventListener('keydown', handleEsc);
                 }
             }
         };
@@ -3250,11 +3270,22 @@ Please provide a detailed analysis based on the article content and the user's s
                     </div>
                     <h3 class="text-lg font-medium text-gray-900 mt-4">${typeIcon} ${type === 'sigma' ? 'Generating' : type === 'ranking' ? 'Generating' : 'Extracting'} ${typeText}...</h3>
                     <p class="text-sm text-gray-500 mt-2">${type === 'sigma' ? 'Creating detection rules' : type === 'ranking' ? (aiModel === 'chatgpt' ? 'Analyzing content with GPT-4o' : 'Analyzing content with local AI') : type === 'observables' ? 'Extracting IOCs and behavioral observables' : 'Extracting indicators of compromise'} - this may take a few moments.</p>
-                    <p class="text-xs text-gray-400 mt-3">💡 Press <kbd class="px-1 py-0.5 bg-gray-200 rounded text-xs">ESC</kbd> to leave while generation continues</p>
+                    <div class="mt-4 flex justify-center">
+                        <button id="cancelBtn" class="px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500">
+                            Cancel
+                        </button>
+                    </div>
+                    <p class="text-xs text-gray-400 mt-3">💡 Press <kbd class="px-1 py-0.5 bg-gray-200 rounded text-xs">ESC</kbd> to cancel</p>
                 </div>
             </div>
         `;
         document.body.appendChild(loadingModal);
+        
+        // Wire up cancel button
+        const cancelBtn = loadingModal.querySelector('#cancelBtn');
+        if (cancelBtn) {
+            cancelBtn.addEventListener('click', handleCancel);
+        }
         
         try {
             // Create a timeout promise - longer for LLM operations
@@ -3307,9 +3338,9 @@ Please provide a detailed analysis based on the article content and the user's s
                 requestBody.author_name = sigmaAuthor;
             }
             
-            // Add optimization options for ranking, sigma, and IOC extraction with LLM validation
+            // Add optimization options for ranking, sigma, observables, and IOC extraction with LLM validation
             // Show optimization dialog for cloud models (for all features) and for IOC extraction with LLM validation (all models)
-            const shouldShowOptimization = (type === 'ranking' || type === 'sigma' || 
+            const shouldShowOptimization = (type === 'ranking' || type === 'sigma' || type === 'observables' || 
                 (type === 'iocs' && useLLMValidation));
             
             console.log('shouldShowOptimization:', shouldShowOptimization, 'type:', type, 'useLLMValidation:', useLLMValidation, 'aiModel:', aiModel);
@@ -3318,7 +3349,7 @@ Please provide a detailed analysis based on the article content and the user's s
                 console.log('Showing optimization dialog...');
                 const optimizationOptions = await showOptimizationDialog();
                 if (!optimizationOptions) {
-                    // User cancelled - clean up and return
+                    // User dismissed the modal (ESC or Cancel) - clean up and return
                     const loadingModal = document.getElementById('loadingModal');
                     if (loadingModal && loadingModal.parentNode) {
                         loadingModal.remove();
@@ -3383,7 +3414,8 @@ Please provide a detailed analysis based on the article content and the user's s
             const fetchPromise = fetch(`/api/articles/{{ article.id }}/${endpoint}`, {
                 method: 'POST',
                 headers: fetchHeaders,
-                body: JSON.stringify(requestBody)
+                body: JSON.stringify(requestBody),
+                signal: abortController.signal
             });
             
             // Mark request as started
@@ -3432,6 +3464,10 @@ Please provide a detailed analysis based on the article content and the user's s
                 showNotification(`${typeText} ${type === 'sigma' ? 'generation' : type === 'ranking' ? 'generation' : 'extraction'} failed: ${error.detail}`, 'error');
             }
         } catch (error) {
+            // Don't show error if request was cancelled
+            if (isCancelled || error.name === 'AbortError') {
+                return; // Already handled in handleCancel
+            }
             console.log('Caught error:', error);
             markOperationComplete(operationId, 'failed');
             if (error.message.includes('timed out')) {
@@ -3684,14 +3720,14 @@ Please provide a detailed analysis based on the article content and the user's s
                 });
             });
             
-            // Handle escape key
+            // Handle escape key - just dismisses/closes the modal
             const handleEscape = (e) => {
                 if (e.key === 'Escape') {
                     if (modal && modal.parentNode) {
                         modal.remove();
                     }
                     document.removeEventListener('keydown', handleEscape);
-                    resolve(null);
+                    resolve(null); // Returns null to indicate modal was dismissed
                 }
             };
             document.addEventListener('keydown', handleEscape);
@@ -3923,18 +3959,37 @@ Please provide a detailed analysis based on the article content and the user's s
         // Track if request has started
         let requestStarted = false;
         
+        // Create AbortController for cancellation
+        const abortController = new AbortController();
+        let isCancelled = false;
+        
+        // Cancel handler function
+        const handleCancel = function() {
+            if (requestStarted && !isCancelled) {
+                isCancelled = true;
+                abortController.abort();
+                showNotification('Custom prompt generation cancelled', 'info');
+            }
+            const modal = document.getElementById('loadingModal');
+            if (modal && modal.parentNode) {
+                modal.remove();
+            }
+            document.removeEventListener('keydown', handleEsc);
+        };
+        
         // Add ESC key handler to close loading modal
         const handleEsc = function(e) {
             if (e.key === 'Escape') {
-                const modal = document.getElementById('loadingModal');
-                if (modal && modal.parentNode) {
-                    modal.remove();
-                }
-                document.removeEventListener('keydown', handleEsc);
-                
-                // Only show background message if request actually started
                 if (requestStarted) {
-                    showNotification('Custom prompt generation continues in the background. You can return to this article later to view the results.', 'info');
+                    // If request started, treat ESC as cancel
+                    handleCancel();
+                } else {
+                    // If request hasn't started, just close modal
+                    const modal = document.getElementById('loadingModal');
+                    if (modal && modal.parentNode) {
+                        modal.remove();
+                    }
+                    document.removeEventListener('keydown', handleEsc);
                 }
             }
         };
@@ -3951,11 +4006,22 @@ Please provide a detailed analysis based on the article content and the user's s
                     </div>
                     <h3 class="text-lg font-medium text-gray-900 mt-4">🤖 Processing Custom Request...</h3>
                     <p class="text-sm text-gray-500 mt-2">This may take a few moments.</p>
-                    <p class="text-xs text-gray-400 mt-3">💡 Press <kbd class="px-1 py-0.5 bg-gray-200 rounded text-xs">ESC</kbd> to leave while generation continues</p>
+                    <div class="mt-4 flex justify-center">
+                        <button id="cancelBtnCustom" class="px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500">
+                            Cancel
+                        </button>
+                    </div>
+                    <p class="text-xs text-gray-400 mt-3">💡 Press <kbd class="px-1 py-0.5 bg-gray-200 rounded text-xs">ESC</kbd> to cancel</p>
                 </div>
             </div>
         `;
         document.body.appendChild(loadingModal);
+        
+        // Wire up cancel button
+        const cancelBtn = loadingModal.querySelector('#cancelBtnCustom');
+        if (cancelBtn) {
+            cancelBtn.addEventListener('click', handleCancel);
+        }
         
         try {
             // Create a timeout promise - longer for LLM operations
@@ -3981,7 +4047,8 @@ Please provide a detailed analysis based on the article content and the user's s
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify(customPromptBody)
+                body: JSON.stringify(customPromptBody),
+                signal: abortController.signal
             });
             
             // Mark request as started
@@ -3998,6 +4065,10 @@ Please provide a detailed analysis based on the article content and the user's s
                 showNotification(`Custom prompt failed: ${error.detail}`, 'error');
             }
         } catch (error) {
+            // Don't show error if request was cancelled
+            if (isCancelled || error.name === 'AbortError') {
+                return; // Already handled in handleCancel
+            }
             if (error.message.includes('timed out')) {
                 const timeoutMsg = aiModel === 'chatgpt' ? '60 seconds' : '200 seconds';
                 showNotification(`Custom prompt timed out after ${timeoutMsg}. Try using a different model or check your settings.`, 'error');

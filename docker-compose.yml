@@ -66,11 +66,14 @@ services:
       - ANTHROPIC_CONTENT_LIMIT=1000000
       - CHATGPT_API_KEY=${CHATGPT_API_KEY}
       - LMSTUDIO_API_URL=${LMSTUDIO_API_URL:-http://host.docker.internal:1234/v1}
-      - LMSTUDIO_MODEL=${LMSTUDIO_MODEL:-deepseek-r1-qwen3-8b}
+      - LMSTUDIO_MODEL=deepseek/deepseek-r1-0528-qwen3-8b
+      - LMSTUDIO_MODEL_RANK=${LMSTUDIO_MODEL_RANK}
+      - LMSTUDIO_MODEL_EXTRACT=${LMSTUDIO_MODEL_EXTRACT:-qwen/qwen3-4b-2507}
+      - LMSTUDIO_MODEL_SIGMA=${LMSTUDIO_MODEL_SIGMA:-qwen/qwen3-4b-2507}
       - LMSTUDIO_EMBEDDING_URL=${LMSTUDIO_EMBEDDING_URL:-http://host.docker.internal:1234/v1/embeddings}
       - LMSTUDIO_EMBEDDING_MODEL=${LMSTUDIO_EMBEDDING_MODEL:-text-embedding-e5-base-v2}
       - LANGSMITH_API_KEY=${LANGSMITH_API_KEY}
-      - LANGGRAPH_SERVER_URL=${LANGGRAPH_SERVER_URL:-http://localhost:2024}
+      - LANGGRAPH_SERVER_URL=${LANGGRAPH_SERVER_URL:-http://langgraph-server:2024}
       - TZ=America/New_York
     ports:
       - "8001:8001"
@@ -115,7 +118,10 @@ services:
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - CHATGPT_API_KEY=${CHATGPT_API_KEY}
       - LMSTUDIO_API_URL=${LMSTUDIO_API_URL:-http://host.docker.internal:1234/v1}
-      - LMSTUDIO_MODEL=${LMSTUDIO_MODEL:-deepseek-r1-qwen3-8b}
+      - LMSTUDIO_MODEL=deepseek/deepseek-r1-0528-qwen3-8b
+      - LMSTUDIO_MODEL_RANK=${LMSTUDIO_MODEL_RANK}
+      - LMSTUDIO_MODEL_EXTRACT=${LMSTUDIO_MODEL_EXTRACT:-qwen/qwen3-4b-2507}
+      - LMSTUDIO_MODEL_SIGMA=${LMSTUDIO_MODEL_SIGMA:-qwen/qwen3-4b-2507}
       - LMSTUDIO_EMBEDDING_URL=${LMSTUDIO_EMBEDDING_URL:-http://host.docker.internal:1234/v1/embeddings}
       - LMSTUDIO_EMBEDDING_MODEL=${LMSTUDIO_EMBEDDING_MODEL:-text-embedding-e5-base-v2}
     volumes:
@@ -161,7 +167,10 @@ services:
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
       - CHATGPT_API_KEY=${CHATGPT_API_KEY}
       - LMSTUDIO_API_URL=${LMSTUDIO_API_URL:-http://host.docker.internal:1234/v1}
-      - LMSTUDIO_MODEL=${LMSTUDIO_MODEL:-deepseek-r1-qwen3-8b}
+      - LMSTUDIO_MODEL=deepseek/deepseek-r1-0528-qwen3-8b
+      - LMSTUDIO_MODEL_RANK=${LMSTUDIO_MODEL_RANK}
+      - LMSTUDIO_MODEL_EXTRACT=${LMSTUDIO_MODEL_EXTRACT:-qwen/qwen3-4b-2507}
+      - LMSTUDIO_MODEL_SIGMA=${LMSTUDIO_MODEL_SIGMA:-qwen/qwen3-4b-2507}
       - LMSTUDIO_EMBEDDING_URL=${LMSTUDIO_EMBEDDING_URL:-http://host.docker.internal:1234/v1/embeddings}
       - LMSTUDIO_EMBEDDING_MODEL=${LMSTUDIO_EMBEDDING_MODEL:-text-embedding-e5-base-v2}
       - LANGGRAPH_PORT=${LANGGRAPH_PORT:-2024}
@@ -184,7 +193,7 @@ services:
     restart: unless-stopped
     command: langgraph dev --port 2024 --host 0.0.0.0
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:2024/health || exit 1"]
+      test: ["CMD-SHELL", "curl -f http://localhost:2024/assistants || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3
