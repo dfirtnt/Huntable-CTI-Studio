@@ -380,7 +380,14 @@
                     </div>
                 </div>
             </div>
-            <div class="prose max-w-none">
+            <div class="prose max-w-none relative">
+                <button onclick="copyArticleContentToClipboard()" 
+                        class="absolute top-4 right-4 p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 z-10"
+                        title="Copy article content">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
+                    </svg>
+                </button>
                 <div id="article-content" class="whitespace-pre-wrap text-base text-black font-mono leading-relaxed select-text bg-gray-50 dark:bg-gray-950 p-6 rounded-lg border-2 border-gray-300 dark:border-gray-600 shadow-inner">{{ article.content|highlight_keywords(article.article_metadata)|safe }}</div>
             </div>
         </div>
@@ -2664,6 +2671,35 @@ Please provide a detailed analysis based on the article content and the user's s
         
         // Store the current classification in localStorage for the AL/ML Assistant modal
         localStorage.setItem('currentArticleClassification', category);
+    }
+    
+    // Copy article content to clipboard (for detail page)
+    function copyArticleContentToClipboard() {
+        try {
+            const contentElement = document.getElementById('article-content');
+            if (!contentElement) {
+                showNotification('Article content element not found', 'error');
+                return;
+            }
+            
+            // Get the text content, stripping HTML tags
+            const textContent = contentElement.innerText || contentElement.textContent || '';
+            
+            if (!textContent.trim()) {
+                showNotification('Article has no content to copy', 'error');
+                return;
+            }
+            
+            navigator.clipboard.writeText(textContent).then(() => {
+                showNotification('Article content copied to clipboard!', 'success');
+            }).catch(error => {
+                console.error('Error copying to clipboard:', error);
+                showNotification('Failed to copy article content', 'error');
+            });
+        } catch (error) {
+            console.error('Error copying article content:', error);
+            showNotification('Failed to copy article content', 'error');
+        }
     }
     
     function showNotification(message, type) {
