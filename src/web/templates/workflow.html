@@ -1116,7 +1116,7 @@ async function viewExecution(executionId) {
                 const behObsCount = exec.extraction_result.behavioral_observables?.length || 0;
                 const detQueryCount = exec.extraction_result.detection_queries?.length || 0;
                 const observablesDetails = obsCount > 0 ? `<details class="mt-2 w-full">
-                            <summary class="cursor-pointer text-xs text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100">View Observables</summary>
+                            <summary class="cursor-pointer text-xs text-gray-700 dark:text-white hover:text-gray-900 dark:hover:text-gray-100">View Observables</summary>
                             <div class="mt-2 w-full max-h-48 overflow-y-auto bg-gray-50 dark:bg-gray-900 rounded p-2 border text-xs font-mono">
                                 <ol class="list-decimal list-inside space-y-1 text-gray-900 dark:text-white">
                                     ${exec.extraction_result.observable_list.map(obs => `<li class="break-all">${obs}</li>`).join('')}
@@ -1180,8 +1180,8 @@ async function viewExecution(executionId) {
                 if (conversationLog && conversationLog.length > 0) {
                     conversationHtml = `<div class="mt-3 border-t pt-3 border-gray-200 dark:border-gray-700">
                         <details class="w-full">
-                            <summary class="cursor-pointer text-sm font-semibold text-gray-900 dark:text-gray-300 hover:text-gray-700 dark:hover:text-gray-100 mb-2 flex items-center justify-between">
-                                <span>🔄 LLM ↔ pySigma Conversation Log (${conversationLog.length} attempt${conversationLog.length !== 1 ? 's' : ''})</span>
+                            <summary class="cursor-pointer text-sm font-semibold text-gray-900 dark:text-white hover:text-gray-700 dark:hover:text-gray-100 mb-2 flex items-center justify-between">
+                                <span class="text-gray-900 dark:text-white">🔄 LLM ↔ pySigma Conversation Log (${conversationLog.length} attempt${conversationLog.length !== 1 ? 's' : ''})</span>
                                 <button onclick="event.stopPropagation(); toggleLogFullscreen('log-${exec.id}', 'log-btn-${exec.id}')" id="log-btn-${exec.id}" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300" title="Toggle log fullscreen">
                                     <svg id="log-fullscreen-icon-${exec.id}" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"/>
@@ -1277,7 +1277,7 @@ async function viewExecution(executionId) {
                 }
                 
                 const rulesDetails = exec.sigma_rules.length > 0 ? `<details class="mt-2 w-full">
-                            <summary class="cursor-pointer text-xs text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100">View Rules</summary>
+                            <summary class="cursor-pointer text-xs text-gray-700 dark:text-white hover:text-gray-900 dark:hover:text-gray-100">View Rules</summary>
                             <div class="mt-2 w-full max-h-48 overflow-y-auto bg-gray-50 dark:bg-gray-900 rounded p-2 border text-xs">
                                 ${exec.sigma_rules.map((rule, idx) => `
                                     <div class="mb-2 p-2 bg-white dark:bg-gray-800 rounded border">
