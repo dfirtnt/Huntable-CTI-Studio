@@ -831,14 +831,14 @@ function showPromptHistoryModal(agentName, versions) {
                                 ${v.change_description ? ` | ${v.change_description}` : ''}
                             </div>
                             ${v.instructions ? `
-                                <div class="mb-2">
-                                    <div class="text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Instructions:</div>
-                                    <div class="text-xs font-mono bg-gray-100 dark:bg-gray-900 p-2 rounded whitespace-pre-wrap max-h-32 overflow-y-auto">${escapeHtml(v.instructions)}</div>
+                                <div class="mb-4">
+                                    <div class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Instructions:</div>
+                                    <div class="text-sm font-mono bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 p-3 rounded-md whitespace-pre-wrap break-words max-h-96 overflow-y-auto text-gray-800 dark:text-gray-200 leading-relaxed">${escapeHtml(v.instructions)}</div>
                                 </div>
                             ` : ''}
                             <div>
-                                <div class="text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Prompt:</div>
-                                <div class="text-xs font-mono bg-gray-100 dark:bg-gray-900 p-2 rounded whitespace-pre-wrap max-h-64 overflow-y-auto">${escapeHtml(v.prompt)}</div>
+                                <div class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Prompt:</div>
+                                <div class="text-sm font-mono bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 p-3 rounded-md whitespace-pre-wrap break-words max-h-96 overflow-y-auto text-gray-800 dark:text-gray-200 leading-relaxed">${escapeHtml(v.prompt)}</div>
                             </div>
                         </div>
                     `).join('')

@@ -5,7 +5,7 @@ All notable changes to CTI Scraper will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [4.0.0 "Kepler"] - 2025-11-04
 
 ### Added
 - **Agent Prompt Version Control**: Complete version control system for agent prompts with history tracking and rollback
@@ -16,10 +16,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Change descriptions optional field when saving prompt updates
   - Database table `agent_prompt_versions` tracks all prompt changes with workflow config version linking
   - API endpoints: `/api/workflow/config/prompts/{agent_name}/versions` (GET), `/api/workflow/config/prompts/{agent_name}/rollback` (POST)
+- **Database Schema Migration**: Migration script to fix `agent_prompt_versions` table schema alignment with SQLAlchemy model
+  - Renamed columns: `prompt_text` → `prompt`, `version_number` → `version`, `config_version_id` → `workflow_config_version`
+  - Added missing `instructions` column for ExtractAgent instructions template support
+  - Updated column types and indexes to match model expectations
 
 ### Changed
 - **Workflow Config UI**: Enhanced agent prompts section with edit/view toggle and version history access
 - **Prompt Update API**: Now saves version history automatically on each prompt update
+- **Version History Modal**: Improved text readability with larger font sizes, better contrast, and enhanced formatting
+  - Font size increased from `text-xs` to `text-sm`
+  - Added borders and improved padding for better visual separation
+  - Increased max height for better content visibility
+  - Enhanced line spacing and word wrapping
+
+### Fixed
+- **Database Schema Mismatch**: Fixed `agent_prompt_versions` table column names to match SQLAlchemy model
+- **Version History Display**: Improved readability of prompt and instructions text in version history modal
+- **Database Migration**: Created migration script `20250130_fix_agent_prompt_versions_schema.sql` for schema alignment
+
+### Technical Details
+- **Database Migration**: PostgreSQL migration script updates table schema while preserving existing data
+- **Version Control**: Each prompt update creates a new version linked to workflow config version
+- **UI Improvements**: Enhanced modal display with better typography and spacing
 
 ## [3.0.0 "Copernicus"] - 2025-01-28
 

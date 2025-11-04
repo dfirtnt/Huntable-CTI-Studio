@@ -13,7 +13,7 @@ CTI Scraper uses a combination of semantic versioning and moon crater names for 
 
 ## Current Version
 
-**v3.0.0 "Copernicus"** - Current stable release
+**v4.0.0 "Kepler"** - Current stable release
 
 ## Moon Crater Naming System
 
@@ -48,11 +48,12 @@ Moon craters are named by the International Astronomical Union (IAU) to honor:
 - **Significance**: One of the most prominent and visible craters on the moon
 - **Features**: Major architectural rewrite with PostgreSQL, async support, Docker containerization
 
-### Future Versions
-
-**v4.0.0 "Kepler"** - Future major version
+### v4.0.0 "Kepler" (2025-11-04)
 - **Named After**: Johannes Kepler, known for planetary motion laws
 - **Significance**: Represents precision and mathematical understanding
+- **Features**: Agent prompt version control system, database schema improvements, enhanced workflow configuration UI
+
+### Future Versions
 
 ## Version Naming Convention
 
