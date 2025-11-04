@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Agent Prompt Version Control**: Complete version control system for agent prompts with history tracking and rollback
+  - Prompts are viewable and editable from workflow config page (`/workflow#config`)
+  - Prompts start as read-only with Edit button to enable editing
+  - Version history modal shows all previous versions with timestamps and change descriptions
+  - Rollback functionality to restore any previous prompt version
+  - Change descriptions optional field when saving prompt updates
+  - Database table `agent_prompt_versions` tracks all prompt changes with workflow config version linking
+  - API endpoints: `/api/workflow/config/prompts/{agent_name}/versions` (GET), `/api/workflow/config/prompts/{agent_name}/rollback` (POST)
+
+### Changed
+- **Workflow Config UI**: Enhanced agent prompts section with edit/view toggle and version history access
+- **Prompt Update API**: Now saves version history automatically on each prompt update
+
 ## [3.0.0 "Copernicus"] - 2025-01-28
 
 ### Added

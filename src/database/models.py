@@ -453,6 +453,9 @@ class AgenticWorkflowConfigTable(Base):
     is_active = Column(Boolean, nullable=False, default=True, index=True)
     description = Column(Text, nullable=True)
     
+    # Agent prompts (JSONB: {agent_name: {prompt: "...", instructions: "..."}})
+    agent_prompts = Column(JSONB, nullable=True)
+    
     # Timestamps
     created_at = Column(DateTime, nullable=False, default=func.now())
     updated_at = Column(DateTime, nullable=False, default=func.now(), onupdate=func.now())
@@ -538,3 +541,26 @@ class SigmaRuleQueueTable(Base):
     
     def __repr__(self):
         return f"<SigmaRuleQueue(id={self.id}, article_id={self.article_id}, status='{self.status}')>"
+
+
+class AgentPromptVersionTable(Base):
+    """Database table for version control of agent prompts."""
+    
+    __tablename__ = 'agent_prompt_versions'
+    
+    id = Column(Integer, primary_key=True, index=True)
+    agent_name = Column(String(255), nullable=False, index=True)
+    prompt = Column(Text, nullable=False)
+    instructions = Column(Text, nullable=True)
+    version = Column(Integer, nullable=False, index=True)
+    workflow_config_version = Column(Integer, nullable=False, index=True)  # Links to AgenticWorkflowConfigTable.version
+    
+    # Change tracking
+    change_description = Column(Text, nullable=True)  # Optional description of changes
+    changed_by = Column(String(255), nullable=True)  # Future: user who made the change
+    
+    # Timestamps
+    created_at = Column(DateTime, nullable=False, default=func.now(), index=True)
+    
+    def __repr__(self):
+        return f"<AgentPromptVersion(id={self.id}, agent_name='{self.agent_name}', version={self.version})>"
