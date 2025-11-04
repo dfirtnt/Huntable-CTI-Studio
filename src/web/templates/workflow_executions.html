@@ -118,27 +118,27 @@
             <div class="mt-4 grid grid-cols-6 gap-2 text-xs">
                 <div class="flex items-center space-x-2">
                     <div class="w-4 h-4 bg-blue-500 rounded"></div>
-                    <span>Filter</span>
+                    <span class="text-gray-900 dark:text-white">Filter</span>
                 </div>
                 <div class="flex items-center space-x-2">
                     <div class="w-4 h-4 bg-green-500 rounded"></div>
-                    <span>Rank</span>
+                    <span class="text-gray-900 dark:text-white">Rank</span>
                 </div>
                 <div class="flex items-center space-x-2">
                     <div class="w-4 h-4 bg-yellow-500 rounded"></div>
-                    <span>Extract</span>
+                    <span class="text-gray-900 dark:text-white">Extract</span>
                 </div>
                 <div class="flex items-center space-x-2">
                     <div class="w-4 h-4 bg-red-500 rounded"></div>
-                    <span>SIGMA</span>
+                    <span class="text-gray-900 dark:text-white">SIGMA</span>
                 </div>
                 <div class="flex items-center space-x-2">
                     <div class="w-4 h-4 bg-pink-500 rounded"></div>
-                    <span>Similarity</span>
+                    <span class="text-gray-900 dark:text-white">Similarity</span>
                 </div>
                 <div class="flex items-center space-x-2">
                     <div class="w-4 h-4 bg-purple-500 rounded"></div>
-                    <span>Queue</span>
+                    <span class="text-gray-900 dark:text-white">Queue</span>
                 </div>
             </div>
         </div>
@@ -272,9 +272,10 @@ async function loadExecutions() {
         
         const response = await fetch(url);
         if (response.ok) {
-            executions = await response.json();
+            const data = await response.json();
+            executions = data.executions || data; // Support both old and new format
             renderExecutions();
-            updateStats();
+            updateStats(data);
         }
     } catch (error) {
         console.error('Error loading executions:', error);
@@ -285,7 +286,7 @@ function renderExecutions() {
     const tbody = document.getElementById('executionsTableBody');
     
     if (executions.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="7" class="px-6 py-4 text-center text-gray-500">No executions found</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="7" class="px-6 py-4 text-center text-gray-500 dark:text-gray-300">No executions found</td></tr>';
         return;
     }
     
@@ -293,7 +294,7 @@ function renderExecutions() {
         <tr class="hover:bg-gray-50 dark:hover:bg-gray-700">
             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">${exec.id}</td>
             <td class="px-6 py-4 text-sm">
-                <a href="/articles/${exec.article_id}" class="text-purple-600 hover:text-purple-800 dark:text-purple-400">
+                <a href="/articles/${exec.article_id}" class="text-purple-600 hover:text-purple-800 dark:text-white dark:hover:text-gray-300">
                     ${exec.article_title || 'Article ' + exec.article_id}
                 </a>
             </td>
@@ -306,19 +307,20 @@ function renderExecutions() {
                 ${new Date(exec.created_at).toLocaleString()}
             </td>
             <td class="px-6 py-4 whitespace-nowrap text-sm">
-                <button onclick="viewExecution(${exec.id})" class="text-blue-600 hover:text-blue-900 dark:text-blue-400 mr-2">View</button>
-                ${exec.status === 'failed' ? `<button onclick="retryExecution(${exec.id})" class="text-green-600 hover:text-green-900 dark:text-green-400">Retry</button>` : ''}
+                <button onclick="viewExecution(${exec.id})" class="text-blue-600 hover:text-blue-900 dark:text-white dark:hover:text-gray-300 mr-2">View</button>
+                ${exec.status === 'failed' ? `<button onclick="retryExecution(${exec.id})" class="text-green-600 hover:text-green-900 dark:text-white dark:hover:text-gray-300">Retry</button>` : ''}
             </td>
         </tr>
     `).join('');
 }
 
-function updateStats() {
+function updateStats(data) {
+    // Use accurate counts from API response if available, otherwise calculate from filtered array
     const stats = {
-        total: executions.length,
-        running: executions.filter(e => e.status === 'running').length,
-        completed: executions.filter(e => e.status === 'completed').length,
-        failed: executions.filter(e => e.status === 'failed').length
+        total: data?.total !== undefined ? data.total : executions.length,
+        running: data?.running !== undefined ? data.running : executions.filter(e => e.status === 'running').length,
+        completed: data?.completed !== undefined ? data.completed : executions.filter(e => e.status === 'completed').length,
+        failed: data?.failed !== undefined ? data.failed : executions.filter(e => e.status === 'failed').length
     };
     
     document.getElementById('totalExecutions').textContent = stats.total;
@@ -373,12 +375,12 @@ async function viewExecution(executionId) {
             const config = exec.config_snapshot || {};
             
             const content = `
-                <div class="space-y-4 text-gray-900 dark:text-gray-200">
+                <div class="space-y-4 text-gray-900 dark:text-white">
                     <!-- Header Info -->
                     <div class="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg border border-blue-200 dark:border-blue-800">
                         <div class="grid grid-cols-2 gap-4 text-sm">
                             <div><strong class="text-gray-900 dark:text-white">Execution ID:</strong> ${exec.id}</div>
-                            <div><strong class="text-gray-900 dark:text-white">Article:</strong> <a href="/articles/${exec.article_id}" class="text-purple-600 dark:text-purple-400 hover:underline">${exec.article_title || 'Article ' + exec.article_id}</a></div>
+                            <div><strong class="text-gray-900 dark:text-white">Article:</strong> <a href="/articles/${exec.article_id}" class="text-purple-600 dark:text-white hover:underline">${exec.article_title || 'Article ' + exec.article_id}</a></div>
                             <div><strong class="text-gray-900 dark:text-white">Status:</strong> ${getStatusBadge(exec.status)}</div>
                             <div><strong class="text-gray-900 dark:text-white">Current Step:</strong> ${getStepBadge(exec.current_step)}</div>
                             <div><strong class="text-gray-900 dark:text-white">Created:</strong> ${new Date(exec.created_at).toLocaleString()}</div>
@@ -466,18 +468,18 @@ async function viewExecution(executionId) {
                                     </div>
                                     ${exec.extraction_result.observable_list && exec.extraction_result.observable_list.length > 0 ? `
                                         <details class="mt-2">
-                                            <summary class="cursor-pointer text-sm text-purple-600 dark:text-purple-400 hover:underline">View ${exec.extraction_result.observable_list.length} Observables</summary>
+                                            <summary class="cursor-pointer text-sm text-purple-600 dark:text-white hover:underline">View ${exec.extraction_result.observable_list.length} Observables</summary>
                                             <div class="mt-2 max-h-64 overflow-y-auto">
                                                 <ol class="list-decimal list-inside space-y-1 text-xs font-mono bg-gray-50 dark:bg-gray-900 p-3 rounded border border-gray-200 dark:border-gray-700">
                                                     ${exec.extraction_result.observable_list.slice(0, 20).map((obs, idx) => `<li class="text-gray-700 dark:text-gray-300 break-all">${obs.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</li>`).join('')}
-                                                    ${exec.extraction_result.observable_list.length > 20 ? `<li class="text-gray-500">... and ${exec.extraction_result.observable_list.length - 20} more</li>` : ''}
+                                                    ${exec.extraction_result.observable_list.length > 20 ? `<li class="text-gray-500 dark:text-gray-300">... and ${exec.extraction_result.observable_list.length - 20} more</li>` : ''}
                                                 </ol>
                                             </div>
                                         </details>
                                     ` : ''}
                                     ${exec.extraction_result.raw_response ? `
                                         <details class="mt-2">
-                                            <summary class="cursor-pointer text-sm text-blue-600 dark:text-blue-400 hover:underline">View Raw LLM Response</summary>
+                                            <summary class="cursor-pointer text-sm text-blue-600 dark:text-white hover:underline">View Raw LLM Response</summary>
                                             <div class="mt-2">${formatText(exec.extraction_result.raw_response, 1000)}</div>
                                         </details>
                                     ` : ''}
@@ -507,11 +509,11 @@ async function viewExecution(executionId) {
                                     </div>
                                     ${exec.sigma_rules.slice(0, 3).map((rule, idx) => `
                                         <details class="mt-2">
-                                            <summary class="cursor-pointer text-sm text-purple-600 dark:text-purple-400 hover:underline">Rule ${idx + 1}: ${rule.title || 'Untitled'}</summary>
+                                            <summary class="cursor-pointer text-sm text-purple-600 dark:text-white hover:underline">Rule ${idx + 1}: ${rule.title || 'Untitled'}</summary>
                                             <div class="mt-2">${formatJSON(rule)}</div>
                                         </details>
                                     `).join('')}
-                                    ${exec.sigma_rules.length > 3 ? `<div class="text-sm text-gray-500 mt-2">... and ${exec.sigma_rules.length - 3} more rules</div>` : ''}
+                                    ${exec.sigma_rules.length > 3 ? `<div class="text-sm text-gray-500 dark:text-gray-300 mt-2">... and ${exec.sigma_rules.length - 3} more rules</div>` : ''}
                                 ` : '<span class="text-gray-400">No SIGMA rules generated</span>'}
                             </div>
                         </div>
@@ -563,7 +565,7 @@ async function viewExecution(executionId) {
                                 <strong class="text-gray-900 dark:text-white">Outputs:</strong>
                                 <div class="mt-1 text-sm">
                                     <div>• Rules Queued: ${exec.similarity_results ? exec.similarity_results.filter(r => (r.max_similarity || 0) < (config.similarity_threshold || 0.5)).length : 0}</div>
-                                    <div>• Check <a href="/workflow#queue" class="text-purple-600 dark:text-purple-400 hover:underline">SIGMA Queue</a> for queued rules</div>
+                                    <div>• Check <a href="/workflow#queue" class="text-purple-600 dark:text-white hover:underline">SIGMA Queue</a> for queued rules</div>
                                 </div>
                             </div>
                         </div>

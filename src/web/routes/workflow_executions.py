@@ -43,27 +43,51 @@ class ExecutionDetailResponse(ExecutionResponse):
     error_log: Optional[Dict[str, Any]]
 
 
-@router.get("/executions", response_model=List[ExecutionResponse])
+class ExecutionListResponse(BaseModel):
+    """Response model for execution list with counts."""
+    executions: List[ExecutionResponse]
+    total: int
+    running: int
+    completed: int
+    failed: int
+    pending: int
+
+
+@router.get("/executions", response_model=ExecutionListResponse)
 async def list_workflow_executions(
     request: Request,
     article_id: Optional[int] = None,
     status: Optional[str] = None,
     limit: int = 50
 ):
-    """List workflow executions."""
+    """List workflow executions with accurate counts."""
     try:
         db_manager = DatabaseManager()
         db_session = db_manager.get_session()
         
         try:
+            # Base query for counting (no filters applied)
+            base_query = db_session.query(AgenticWorkflowExecutionTable)
+            
+            # Filtered query for results
             query = db_session.query(AgenticWorkflowExecutionTable)
             
             if article_id:
                 query = query.filter(AgenticWorkflowExecutionTable.article_id == article_id)
+                base_query = base_query.filter(AgenticWorkflowExecutionTable.article_id == article_id)
             
             if status:
                 query = query.filter(AgenticWorkflowExecutionTable.status == status)
+                # Don't filter base_query by status for counts
             
+            # Get total counts (before status filter)
+            total = base_query.count()
+            running = base_query.filter(AgenticWorkflowExecutionTable.status == 'running').count()
+            completed = base_query.filter(AgenticWorkflowExecutionTable.status == 'completed').count()
+            failed = base_query.filter(AgenticWorkflowExecutionTable.status == 'failed').count()
+            pending = base_query.filter(AgenticWorkflowExecutionTable.status == 'pending').count()
+            
+            # Get filtered executions
             executions = query.order_by(AgenticWorkflowExecutionTable.created_at.desc()).limit(limit).all()
             
             result = []
@@ -87,7 +111,14 @@ async def list_workflow_executions(
                     updated_at=execution.updated_at.isoformat()
                 ))
             
-            return result
+            return ExecutionListResponse(
+                executions=result,
+                total=total,
+                running=running,
+                completed=completed,
+                failed=failed,
+                pending=pending
+            )
         finally:
             db_session.close()
             
@@ -104,12 +135,17 @@ async def get_workflow_execution(request: Request, execution_id: int):
         db_session = db_manager.get_session()
         
         try:
+            # Query with fresh session to ensure we get latest data
             execution = db_session.query(AgenticWorkflowExecutionTable).filter(
                 AgenticWorkflowExecutionTable.id == execution_id
             ).first()
             
             if not execution:
                 raise HTTPException(status_code=404, detail="Workflow execution not found")
+            
+            # Explicitly expire and refresh to bypass any session cache
+            db_session.expire(execution)
+            db_session.refresh(execution)
             
             # Get article title
             article = db_session.query(ArticleTable).filter(ArticleTable.id == execution.article_id).first()
