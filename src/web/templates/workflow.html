@@ -1115,24 +1115,75 @@ async function viewExecution(executionId) {
                 const obsCount = exec.extraction_result.observable_list?.length || 0;
                 const behObsCount = exec.extraction_result.behavioral_observables?.length || 0;
                 const detQueryCount = exec.extraction_result.detection_queries?.length || 0;
-                const observablesDetails = obsCount > 0 ? `<details class="mt-2 w-full">
-                            <summary class="cursor-pointer text-xs !text-white dark:!text-white hover:text-gray-900 dark:hover:text-gray-100" style="color: white !important;">View Observables</summary>
+                const discreteHuntablesCount = exec.extraction_result.discrete_huntables_count || 0;
+                
+                // Build expandable sections for all findings
+                const detailsSections = [];
+                
+                // Observable List
+                if (obsCount > 0) {
+                    detailsSections.push(`<details class="mt-2 w-full">
+                            <summary class="cursor-pointer text-xs !text-white dark:!text-white hover:text-gray-900 dark:hover:text-gray-100" style="color: white !important;">View Observable List (${obsCount} items)</summary>
                             <div class="mt-2 w-full max-h-48 overflow-y-auto bg-gray-50 dark:bg-gray-900 rounded p-2 border text-xs font-mono">
                                 <ol class="list-decimal list-inside space-y-1 text-gray-900 dark:text-white">
                                     ${exec.extraction_result.observable_list.map(obs => `<li class="break-all">${obs}</li>`).join('')}
                                 </ol>
                             </div>
-                        </details>` : '';
+                        </details>`);
+                }
+                
+                // Behavioral Observables
+                if (behObsCount > 0) {
+                    const behObs = Array.isArray(exec.extraction_result.behavioral_observables) ? exec.extraction_result.behavioral_observables : [];
+                    detailsSections.push(`<details class="mt-2 w-full">
+                            <summary class="cursor-pointer text-xs !text-white dark:!text-white hover:text-gray-900 dark:hover:text-gray-100" style="color: white !important;">View Behavioral Observables (${behObsCount} items)</summary>
+                            <div class="mt-2 w-full max-h-48 overflow-y-auto bg-gray-50 dark:bg-gray-900 rounded p-2 border text-xs font-mono">
+                                <ol class="list-decimal list-inside space-y-1 text-gray-900 dark:text-white">
+                                    ${behObs.map((obs, idx) => {
+                                        const obsText = typeof obs === 'string' ? obs : (obs.observable || obs.command_line || obs.value || JSON.stringify(obs));
+                                        return `<li class="break-all">${obsText}</li>`;
+                                    }).join('')}
+                                </ol>
+                            </div>
+                        </details>`);
+                }
+                
+                // Detection Queries
+                if (detQueryCount > 0) {
+                    const detQueries = Array.isArray(exec.extraction_result.detection_queries) ? exec.extraction_result.detection_queries : [];
+                    detailsSections.push(`<details class="mt-2 w-full">
+                            <summary class="cursor-pointer text-xs !text-white dark:!text-white hover:text-gray-900 dark:hover:text-gray-100" style="color: white !important;">View Detection Queries (${detQueryCount} items)</summary>
+                            <div class="mt-2 w-full max-h-48 overflow-y-auto bg-gray-50 dark:bg-gray-900 rounded p-2 border text-xs font-mono">
+                                <ol class="list-decimal list-inside space-y-1 text-gray-900 dark:text-white">
+                                    ${detQueries.map((query, idx) => {
+                                        const queryText = typeof query === 'string' ? query : (query.query || query.text || JSON.stringify(query));
+                                        return `<li class="break-all">${queryText}</li>`;
+                                    }).join('')}
+                                </ol>
+                            </div>
+                        </details>`);
+                }
+                
+                // Discrete Huntables content (if available)
+                if (exec.extraction_result.content && discreteHuntablesCount > 0) {
+                    detailsSections.push(`<details class="mt-2 w-full">
+                            <summary class="cursor-pointer text-xs !text-white dark:!text-white hover:text-gray-900 dark:hover:text-gray-100" style="color: white !important;">View Discrete Huntables Content</summary>
+                            <div class="mt-2 w-full max-h-48 overflow-y-auto bg-gray-50 dark:bg-gray-900 rounded p-2 border text-xs font-mono text-gray-900 dark:text-white whitespace-pre-wrap break-words">
+                                ${exec.extraction_result.content}
+                            </div>
+                        </details>`);
+                }
+                
                 steps.push({
                     name: 'Step 2: Extract Agent',
                     input: `Filtered content + Article title + URL`,
                     output: `<div class="space-y-1 text-gray-700 dark:text-gray-300">
-                        <div><strong>Discrete Huntables:</strong> ${exec.extraction_result.discrete_huntables_count || 0}</div>
+                        <div><strong>Discrete Huntables:</strong> ${discreteHuntablesCount}</div>
                         <div><strong>Observable List:</strong> ${obsCount} items</div>
                         <div><strong>Behavioral Observables:</strong> ${behObsCount} items</div>
                         <div><strong>Detection Queries:</strong> ${detQueryCount} items</div>
                     </div>`,
-                    details: observablesDetails
+                    details: detailsSections.join('')
                 });
             }
             
