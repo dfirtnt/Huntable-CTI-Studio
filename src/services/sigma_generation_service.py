@@ -13,6 +13,7 @@ from src.utils.prompt_loader import format_prompt
 from src.services.sigma_validator import validate_sigma_rule, clean_sigma_rule
 from src.services.llm_service import LLMService
 from src.utils.gpt4o_optimizer import optimize_article_content
+from src.utils.langfuse_client import trace_llm_call, log_llm_completion, log_llm_error
 
 logger = logging.getLogger(__name__)
 
@@ -33,7 +34,9 @@ class SigmaGenerationService:
         ai_model: str = 'lmstudio',
         api_key: Optional[str] = None,
         max_attempts: int = 3,
-        min_confidence: float = 0.7
+        min_confidence: float = 0.7,
+        execution_id: Optional[int] = None,
+        article_id: Optional[int] = None
     ) -> Dict[str, Any]:
         """
         Generate SIGMA rules from article content.
@@ -139,7 +142,7 @@ Output ONLY valid YAML starting with "title:"."""
                 
                 # Call LLM API
                 if ai_model == 'lmstudio':
-                    sigma_response = await self._call_lmstudio_for_sigma(current_prompt)
+                    sigma_response = await self._call_lmstudio_for_sigma(current_prompt, execution_id=execution_id, article_id=article_id)
                 else:
                     sigma_response = await self._call_openai_for_sigma(current_prompt, api_key)
                 
@@ -221,7 +224,7 @@ Output ONLY valid YAML starting with "title:"."""
                 'errors': str(e)
             }
     
-    async def _call_lmstudio_for_sigma(self, prompt: str) -> str:
+    async def _call_lmstudio_for_sigma(self, prompt: str, execution_id: Optional[int] = None, article_id: Optional[int] = None) -> str:
         """Call LMStudio API for SIGMA generation."""
         # Use SIGMA-specific model
         model_name = self.llm_service.model_sigma
@@ -251,14 +254,48 @@ Output ONLY valid YAML starting with "title:"."""
         if self.llm_service.seed is not None:
             payload["seed"] = self.llm_service.seed
         
-        result = await self.llm_service._post_lmstudio_chat(
-            payload,
-            model_name=model_name,
-            timeout=300.0,
-            failure_context="Failed to generate SIGMA rules from LMStudio"
-        )
-        
-        return result['choices'][0]['message']['content']
+        # Trace LLM call with LangFuse
+        with trace_llm_call(
+            name="generate_sigma",
+            model=model_name,
+            execution_id=execution_id,
+            article_id=article_id,
+            metadata={
+                "prompt_length": len(prompt),
+                "max_tokens": 800
+            }
+        ) as generation:
+            try:
+                result = await self.llm_service._post_lmstudio_chat(
+                    payload,
+                    model_name=model_name,
+                    timeout=300.0,
+                    failure_context="Failed to generate SIGMA rules from LMStudio"
+                )
+                
+                output = result['choices'][0]['message']['content']
+                usage = result.get('usage', {})
+                
+                # Log completion to LangFuse
+                log_llm_completion(
+                    generation,
+                    input_messages=messages,
+                    output=output,
+                    usage={
+                        "prompt_tokens": usage.get('prompt_tokens', 0),
+                        "completion_tokens": usage.get('completion_tokens', 0),
+                        "total_tokens": usage.get('total_tokens', 0)
+                    },
+                    metadata={
+                        "output_length": len(output),
+                        "finish_reason": result['choices'][0].get('finish_reason', '')
+                    }
+                )
+                
+                return output
+            except Exception as e:
+                log_llm_error(generation, e)
+                raise
     
     async def _call_openai_for_sigma(self, prompt: str, api_key: str) -> str:
         """Call OpenAI API for SIGMA generation."""

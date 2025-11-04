@@ -28,6 +28,7 @@ from src.utils.content_filter import ContentFilter
 from src.services.llm_service import LLMService
 from src.services.rag_service import RAGService
 from src.services.workflow_trigger_service import WorkflowTriggerService
+from src.utils.langfuse_client import trace_workflow_execution, log_workflow_step
 
 logger = logging.getLogger(__name__)
 
@@ -171,6 +172,15 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
             if not article:
                 raise ValueError("Article not found in state")
             
+            # Update execution record BEFORE calling LLM (so status is accurate during long-running LLM call)
+            execution = db_session.query(AgenticWorkflowExecutionTable).filter(
+                AgenticWorkflowExecutionTable.id == state['execution_id']
+            ).first()
+            
+            if execution:
+                execution.current_step = 'rank_article'
+                db_session.commit()
+            
             # Get source name
             source_name = article.source.name if article.source else "Unknown"
             
@@ -186,13 +196,8 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
             ranking_threshold = state['config'].get('ranking_threshold', 6.0) if state.get('config') else 6.0
             should_continue = ranking_score >= ranking_threshold
             
-            # Update execution record
-            execution = db_session.query(AgenticWorkflowExecutionTable).filter(
-                AgenticWorkflowExecutionTable.id == state['execution_id']
-            ).first()
-            
+            # Update execution record with ranking results
             if execution:
-                execution.current_step = 'rank_article'
                 execution.ranking_score = ranking_score
                 execution.status = 'failed' if not should_continue else 'running'
                 db_session.commit()
@@ -235,6 +240,15 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
             if not article:
                 raise ValueError("Article not found in state")
             
+            # Update execution record BEFORE calling LLM
+            execution = db_session.query(AgenticWorkflowExecutionTable).filter(
+                AgenticWorkflowExecutionTable.id == state['execution_id']
+            ).first()
+            
+            if execution:
+                execution.current_step = 'extract_agent'
+                db_session.commit()
+            
             # Extract behaviors using ExtractAgent prompt
             # Use relative path that works both in Docker and local
             prompt_file = Path(__file__).parent.parent / "prompts" / "ExtractAgent"
@@ -248,13 +262,8 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
             
             discrete_count = extraction_result.get('discrete_huntables_count', 0)
             
-            # Update execution record
-            execution = db_session.query(AgenticWorkflowExecutionTable).filter(
-                AgenticWorkflowExecutionTable.id == state['execution_id']
-            ).first()
-            
+            # Update execution record with extraction results
             if execution:
-                execution.current_step = 'extract_agent'
                 execution.extraction_result = extraction_result
                 db_session.commit()
             
@@ -288,6 +297,15 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
             if not article:
                 raise ValueError("Article not found in state")
             
+            # Update execution record BEFORE calling LLM
+            execution = db_session.query(AgenticWorkflowExecutionTable).filter(
+                AgenticWorkflowExecutionTable.id == state['execution_id']
+            ).first()
+            
+            if execution:
+                execution.current_step = 'generate_sigma'
+                db_session.commit()
+            
             # Get source name
             source_name = article.source.name if article.source else "Unknown"
             
@@ -300,18 +318,15 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                 url=article.canonical_url or "",
                 ai_model='lmstudio',  # Use Deepseek-R1 via LMStudio
                 max_attempts=3,
-                min_confidence=0.9  # Use high confidence for filtered content
+                min_confidence=0.9,  # Use high confidence for filtered content
+                execution_id=state['execution_id'],
+                article_id=state['article_id']
             )
             
             sigma_rules = generation_result.get('rules', [])
             
-            # Update execution record
-            execution = db_session.query(AgenticWorkflowExecutionTable).filter(
-                AgenticWorkflowExecutionTable.id == state['execution_id']
-            ).first()
-            
+            # Update execution record with SIGMA results
             if execution:
-                execution.current_step = 'generate_sigma'
                 execution.sigma_rules = sigma_rules
                 db_session.commit()
             
@@ -593,9 +608,30 @@ async def run_workflow(article_id: int, db_session: Session) -> Dict[str, Any]:
             'current_step': 'junk_filter'
         }
         
-        # Create and run workflow
-        workflow_graph = create_agentic_workflow(db_session)
-        final_state = await workflow_graph.ainvoke(initial_state)
+        # Set execution context for LLM service tracing
+        llm_service = LLMService()
+        llm_service._current_execution_id = execution.id
+        llm_service._current_article_id = article_id
+        
+        # Create and run workflow with LangFuse tracing
+        with trace_workflow_execution(execution_id=execution.id, article_id=article_id) as trace:
+            workflow_graph = create_agentic_workflow(db_session)
+            final_state = await workflow_graph.ainvoke(initial_state)
+            
+            # Log workflow completion
+            if trace:
+                log_workflow_step(
+                    trace,
+                    "workflow_completed",
+                    step_result={
+                        "success": final_state.get('error') is None,
+                        "ranking_score": final_state.get('ranking_score'),
+                        "sigma_rules_count": len(final_state.get('sigma_rules', [])),
+                        "queued_rules_count": len(final_state.get('queued_rules', []))
+                    },
+                    error=None if final_state.get('error') is None else Exception(final_state.get('error')),
+                    metadata={"final_step": final_state.get('current_step')}
+                )
         
         return {
             'success': final_state.get('error') is None,

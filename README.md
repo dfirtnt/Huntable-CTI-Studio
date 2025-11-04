@@ -1,4 +1,4 @@
-# CTI Scraper v3.0.0 "Copernicus"
+# CTI Scraper v4.0.0 "Kepler"
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python Version](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://python.org)
