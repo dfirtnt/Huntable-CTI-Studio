@@ -636,10 +636,18 @@ function refreshExecutions() {
 }
 
 function openExecuteModal() {
-    document.getElementById('executeModal').classList.remove('hidden');
-    document.getElementById('articleIdInput').value = '';
+    const modal = document.getElementById('executeModal');
+    const input = document.getElementById('articleIdInput');
+    
+    modal.classList.remove('hidden');
+    input.value = '';
     document.getElementById('executeError').classList.add('hidden');
-    document.getElementById('articleIdInput').focus();
+    
+    // Use setTimeout to ensure focus happens after modal is visible
+    setTimeout(() => {
+        input.focus();
+        input.select();
+    }, 10);
 }
 
 function closeExecuteModal() {
