@@ -275,6 +275,26 @@ function closeRuleModal() {
     currentRuleId = null;
 }
 
+// Close modal when clicking outside
+const ruleModal = document.getElementById('ruleModal');
+if (ruleModal) {
+    ruleModal.addEventListener('click', function(e) {
+        if (e.target === this) {
+            closeRuleModal();
+        }
+    });
+}
+
+// Close modal with ESC key
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+        const modal = document.getElementById('ruleModal');
+        if (modal && !modal.classList.contains('hidden')) {
+            closeRuleModal();
+        }
+    }
+});
+
 function filterQueue() {
     loadQueue();
 }

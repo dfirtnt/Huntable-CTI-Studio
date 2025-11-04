@@ -154,6 +154,15 @@ async function showOptimizationDialog() {
         
         document.body.appendChild(modal);
         
+        // Close modal when clicking outside
+        modal.addEventListener('click', function(e) {
+            if (e.target === modal) {
+                document.body.removeChild(modal);
+                document.removeEventListener('keydown', handleEscape);
+                resolve(null);
+            }
+        });
+        
         // Handle checkbox change
         const useFilteringCheckbox = modal.querySelector('#useFiltering');
         const confidenceSection = modal.querySelector('#confidenceSection');
@@ -165,6 +174,7 @@ async function showOptimizationDialog() {
         // Handle button clicks
         modal.querySelector('#cancelBtn').addEventListener('click', () => {
             document.body.removeChild(modal);
+            document.removeEventListener('keydown', handleEscape);
             resolve(null);
         });
         
@@ -173,6 +183,7 @@ async function showOptimizationDialog() {
             const minConfidence = parseFloat(modal.querySelector('#minConfidence').value);
             
             document.body.removeChild(modal);
+            document.removeEventListener('keydown', handleEscape);
             resolve({
                 useFiltering,
                 minConfidence

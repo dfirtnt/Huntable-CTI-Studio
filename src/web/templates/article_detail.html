@@ -3277,6 +3277,13 @@ Please provide a detailed analysis based on the article content and the user's s
             document.removeEventListener('keydown', handleEsc);
         };
         
+        // Close modal when clicking outside
+        loadingModal.addEventListener('click', function(e) {
+            if (e.target === loadingModal) {
+                handleCancel();
+            }
+        });
+        
         // Add ESC key handler to close loading modal
         const handleEsc = function(e) {
             if (e.key === 'Escape') {
@@ -4012,6 +4019,13 @@ Please provide a detailed analysis based on the article content and the user's s
             }
             document.removeEventListener('keydown', handleEsc);
         };
+        
+        // Close modal when clicking outside
+        loadingModal.addEventListener('click', function(e) {
+            if (e.target === loadingModal) {
+                handleCancel();
+            }
+        });
         
         // Add ESC key handler to close loading modal
         const handleEsc = function(e) {
@@ -6288,6 +6302,18 @@ ${JSON.stringify(rule.logsource, null, 2)}
         `;
         document.body.appendChild(loadingModal);
         
+        // Close modal when clicking outside
+        loadingModal.addEventListener('click', function(e) {
+            if (e.target === loadingModal) {
+                const modal = document.getElementById('chunkDebugLoadingModal');
+                if (modal && modal.parentNode) {
+                    modal.remove();
+                }
+                document.removeEventListener('keydown', handleEsc);
+                showNotification('Chunk debug analysis cancelled', 'info');
+            }
+        });
+        
         // Add ESC key handler to close loading modal
         const handleEsc = function(e) {
             if (e.key === 'Escape') {
@@ -7514,6 +7540,28 @@ ${JSON.stringify(rule.logsource, null, 2)}
         
         // Add modal to page
         document.body.insertAdjacentHTML('beforeend', modalHTML);
+        
+        // Close modal when clicking outside
+        const comparisonModal = document.getElementById('comparisonModal');
+        if (comparisonModal) {
+            comparisonModal.addEventListener('click', function(e) {
+                if (e.target === comparisonModal) {
+                    closeComparisonModal();
+                }
+            });
+        }
+        
+        // Add ESC key handler to close comparison modal
+        const handleEsc = function(e) {
+            if (e.key === 'Escape') {
+                const modal = document.getElementById('comparisonModal');
+                if (modal) {
+                    closeComparisonModal();
+                    document.removeEventListener('keydown', handleEsc);
+                }
+            }
+        };
+        document.addEventListener('keydown', handleEsc);
     }
     
     function closeComparisonModal() {
@@ -7668,6 +7716,28 @@ ${JSON.stringify(rule.logsource, null, 2)}
         
         // Add modal to page
         document.body.insertAdjacentHTML('beforeend', modalHTML);
+        
+        // Close modal when clicking outside
+        const feedbackComparisonModal = document.getElementById('feedbackComparisonModal');
+        if (feedbackComparisonModal) {
+            feedbackComparisonModal.addEventListener('click', function(e) {
+                if (e.target === feedbackComparisonModal) {
+                    closeFeedbackComparisonModal();
+                }
+            });
+        }
+        
+        // Add ESC key handler to close feedback comparison modal
+        const handleEsc = function(e) {
+            if (e.key === 'Escape') {
+                const modal = document.getElementById('feedbackComparisonModal');
+                if (modal) {
+                    closeFeedbackComparisonModal();
+                    document.removeEventListener('keydown', handleEsc);
+                }
+            }
+        };
+        document.addEventListener('keydown', handleEsc);
     }
     
     function closeFeedbackComparisonModal() {
