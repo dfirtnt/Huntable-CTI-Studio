@@ -63,7 +63,12 @@
 
         <!-- 4. High-Score Articles -->
         <div class="bg-gray-800 text-gray-100 p-6 rounded-2xl shadow-lg md:col-span-2">
-            <h3 class="text-lg font-semibold mb-4">High-Score Articles</h3>
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-semibold">High-Score Articles (Last 7 Days)</h3>
+                <button onclick="copyArticleUrls()" class="bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-lg transition-colors text-sm font-medium">
+                    📋 Copy URLs
+                </button>
+            </div>
             <div id="high-score-articles-container" class="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 
                 
@@ -209,6 +214,8 @@
             const topArticlesContainer = document.getElementById("high-score-articles-container");
             if (topArticlesContainer && data.top_articles) {
                 topArticlesContainer.innerHTML = "";
+                // Store articles globally for copy function
+                window.currentTopArticles = data.top_articles;
                 data.top_articles.forEach(article => {
                     let badgeColor = "bg-gray-600";
                     let scoreColor = "text-yellow-400";
@@ -229,7 +236,7 @@
                             <span class="text-lg font-mono font-bold ${scoreColor}">${article.hunt_score || 0}</span>
                         </div>
                         <h4 class="font-semibold text-base mb-2 leading-tight">${article.title || "Untitled"}</h4>
-                        <p class="text-sm text-gray-400 leading-relaxed">Click to view article details</p>
+                        <p class="text-sm text-gray-400 leading-relaxed">Publication date: ${article.published_at || "Unknown"}</p>
                     `;
                     topArticlesContainer.appendChild(card);
                 });
@@ -242,6 +249,44 @@
     }
     // Expose for base.html auto-refresh
     window.loadDashboardData = loadDashboardData;
+
+    // Copy article URLs to clipboard
+    function copyArticleUrls() {
+        if (!window.currentTopArticles || window.currentTopArticles.length === 0) {
+            alert('No articles to copy');
+            return;
+        }
+        
+        const urls = window.currentTopArticles
+            .map(article => article.url)
+            .filter(url => url) // Remove empty URLs
+            .join('\n');
+        
+        if (!urls) {
+            alert('No URLs found in articles');
+            return;
+        }
+        
+        navigator.clipboard.writeText(urls).then(() => {
+            // Show temporary feedback
+            const button = document.querySelector('button[onclick="copyArticleUrls()"]');
+            if (button) {
+                const originalText = button.textContent;
+                button.textContent = '✓ Copied!';
+                button.classList.add('bg-green-600');
+                button.classList.remove('bg-blue-600');
+                setTimeout(() => {
+                    button.textContent = originalText;
+                    button.classList.remove('bg-green-600');
+                    button.classList.add('bg-blue-600');
+                }, 2000);
+            }
+        }).catch(err => {
+            console.error('Failed to copy URLs:', err);
+            alert('Failed to copy URLs to clipboard');
+        });
+    }
+    window.copyArticleUrls = copyArticleUrls;
 
     // Initialize charts and start polling (robust to timing/CDN)
     function initCharts() {
