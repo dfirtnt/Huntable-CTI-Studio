@@ -5,9 +5,66 @@
 
 set -e
 
-# Check if Docker is running
-if ! docker info > /dev/null 2>&1; then
-    echo "❌ Docker is not running. Please start Docker Desktop first."
+# Function to check and start Docker on macOS
+ensure_docker_running() {
+    local max_wait=300  # 5 minutes max wait
+    local wait_interval=5
+    local elapsed=0
+    
+    # Ensure PATH includes common directories for cron
+    export PATH="/usr/local/bin:/usr/bin:/bin:$PATH"
+    
+    # Check if Docker is already running
+    if docker info > /dev/null 2>&1; then
+        return 0
+    fi
+    
+    # Try to start Docker Desktop on macOS
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        echo "⚠️  Docker is not running. Attempting to start Docker Desktop..."
+        
+        # Try to start Docker Desktop (works even from cron if user is logged in)
+        if [ -d "/Applications/Docker.app" ]; then
+            /usr/bin/open -a Docker 2>/dev/null || true
+        elif [ -d "/Applications/Docker Desktop.app" ]; then
+            /usr/bin/open -a "Docker Desktop" 2>/dev/null || true
+        else
+            echo "⚠️  Docker Desktop not found in standard location. Please start it manually."
+            # Try to find Docker Desktop in other locations
+            local docker_path=$(mdfind "kMDItemKind == 'Application' && kMDItemDisplayName == 'Docker Desktop'" 2>/dev/null | head -1)
+            if [ -n "$docker_path" ]; then
+                /usr/bin/open -a "$docker_path" 2>/dev/null || true
+            fi
+        fi
+        
+        # Wait for Docker to become available
+        echo "⏳ Waiting for Docker to start (max 5 minutes)..."
+        while [ $elapsed -lt $max_wait ]; do
+            if docker info > /dev/null 2>&1; then
+                echo "✅ Docker is now running"
+                # Additional wait for containers to be ready
+                sleep 10
+                return 0
+            fi
+            sleep $wait_interval
+            elapsed=$((elapsed + wait_interval))
+            if [ $((elapsed % 30)) -eq 0 ]; then
+                echo "⏳ Still waiting for Docker... (${elapsed}s elapsed)"
+            fi
+        done
+        
+        echo "❌ Docker failed to start within ${max_wait} seconds"
+        echo "⚠️  Note: Docker Desktop may require user login or manual start on macOS"
+        return 1
+    else
+        echo "❌ Docker is not running. Please start Docker first."
+        return 1
+    fi
+}
+
+# Ensure Docker is running before proceeding
+if ! ensure_docker_running; then
+    echo "❌ Cannot proceed without Docker. Exiting."
     exit 1
 fi
 
