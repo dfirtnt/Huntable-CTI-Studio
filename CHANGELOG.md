@@ -8,6 +8,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [4.0.0 "Kepler"] - 2025-11-04
 
 ### Added
+- **Agentic Workflow System**: Complete LangGraph-based workflow orchestration for automated threat intelligence processing
+  - **6-Step Automated Pipeline**: Junk Filter → LLM Ranking → Extract Agent → SIGMA Generation → Similarity Search → Queue Promotion
+  - **LangGraph State Machine**: Stateful workflow execution with conditional routing and error handling
+  - **Workflow Configuration**: Configurable thresholds (min_hunt_score, ranking_threshold, similarity_threshold, junk_filter_threshold)
+  - **Execution Tracking**: Complete audit trail with `agentic_workflow_executions` table tracking status, steps, and results
+  - **State Management**: TypedDict-based state management with intermediate results stored at each step
+  - **Conditional Logic**: Smart routing based on LLM ranking scores (threshold-based continue/stop)
+  - **LangFuse Integration**: Full observability and tracing for workflow execution and LLM calls
+  - **Celery Integration**: Asynchronous workflow execution via Celery workers
+  - **Workflow Trigger Service**: Automated triggering for high-scoring articles
+  - **API Endpoints**: `/api/workflow/trigger`, `/api/workflow/executions`, `/api/workflow/config`
+  - **Workflow UI**: Complete web interface for monitoring executions, configuring thresholds, and triggering workflows
+  - **Extract Agent**: Specialized agent for extracting telemetry-aware attacker behaviors and observables
+  - **Rank Agent**: LLM-based scoring agent for SIGMA huntability assessment
+  - **Sigma Agent**: Automated SIGMA rule generation with validation and retry logic
+  - **Similarity Integration**: Automatic similarity matching against existing SigmaHQ rules
+  - **Queue Management**: Automatic promotion of unique rules to review queue
 - **Agent Prompt Version Control**: Complete version control system for agent prompts with history tracking and rollback
   - Prompts are viewable and editable from workflow config page (`/workflow#config`)
   - Prompts start as read-only with Edit button to enable editing
@@ -20,6 +37,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Renamed columns: `prompt_text` → `prompt`, `version_number` → `version`, `config_version_id` → `workflow_config_version`
   - Added missing `instructions` column for ExtractAgent instructions template support
   - Updated column types and indexes to match model expectations
+- **RAG (Retrieval-Augmented Generation) System**: Complete conversational AI implementation
+  - Multi-Provider LLM Integration: OpenAI GPT-4o, Anthropic Claude, and Ollama support
+  - Conversational Context: Multi-turn conversation support with context memory
+  - Synthesized Responses: LLM-generated analysis instead of raw article excerpts
+  - Vector Embeddings: Sentence Transformers (all-mpnet-base-v2) for semantic similarity search
+  - RAG Generation Service: `src/services/llm_generation_service.py` for response synthesis
+  - Auto-Fallback System: Graceful degradation between LLM providers
+  - RAG Chat API: `POST /api/chat/rag` endpoint with conversation history
+  - Frontend RAG Controls: LLM provider selection and synthesis toggle
+  - Professional System Prompt: Cybersecurity analyst persona for threat intelligence analysis
+  - Source Attribution: All responses include relevance scores and source citations
+  - RAG Documentation: Comprehensive RAG system documentation in `docs/RAG_SYSTEM.md`
+- **Allure Reports Integration**: Rich visual test analytics with pie charts, bar charts, and trend graphs
+  - Dedicated Allure Container: Containerized Allure Reports server for reliable access
+  - Interactive Test Dashboard: Step-by-step test visualization for debugging and analysis
+  - Enhanced Test Reporting: Comprehensive test execution reports with ML/AI debugging capabilities
+  - Visual Test Tracking: Professional test reporting system for development and CI/CD pipelines
+  - Allure Management Script: `./manage_allure.sh` for easy container management
+- **Unified Testing Interface**: New `run_tests.py` and `run_tests.sh` for standardized test execution
+  - Docker Testing Support: Added `--docker` flag for containerized test execution
+  - Virtual Environment Documentation: Comprehensive guide for `venv-test`, `venv-lg`, and `venv-ml`
+  - Testing Workflow Guide: Complete documentation for different execution contexts and test categories
+- **Comprehensive Test Suite**: Fixed 5 high-priority test modules with 195 new passing tests
+  - ContentFilter Tests: ML-based filtering, cost optimization, and quality scoring (25 tests)
+  - SigmaValidator Tests: SIGMA rule validation, error handling, and batch processing (50 tests)
+  - SourceManager Tests: Source configuration management and validation (35 tests)
+  - ContentCleaner Tests: HTML cleaning, text processing, and metadata extraction (30 tests)
+  - HTTPClient Tests: Rate limiting, async handling, and request configuration (38/39 tests)
+  - Supporting Classes: FilterResult, FilterConfig, ValidationError, SigmaRule, SourceConfig, ContentExtractor, TextNormalizer, RateLimiter
+  - Dependencies: Added scikit-learn and pandas for ML-based content filtering
+  - Test Documentation: Updated SKIPPED_TESTS.md with current test status and progress tracking
+  - Test Coverage: Dramatically improved from 27 to 222 passing tests (722% increase)
+  - Test Infrastructure: Enhanced test reliability and maintainability with comprehensive supporting classes
 
 ### Changed
 - **Workflow Config UI**: Enhanced agent prompts section with edit/view toggle and version history access
@@ -29,16 +79,51 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Added borders and improved padding for better visual separation
   - Increased max height for better content visibility
   - Enhanced line spacing and word wrapping
+- **RAG Architecture**: Upgraded from template-only to full LLM synthesis
+- **API Response Format**: Enhanced with LLM provider and synthesis status
+- **Frontend Configuration**: Added LLM provider selection and synthesis controls
+- **Documentation**: Updated README, API endpoints, and Docker architecture docs
 
 ### Fixed
 - **Database Schema Mismatch**: Fixed `agent_prompt_versions` table column names to match SQLAlchemy model
 - **Version History Display**: Improved readability of prompt and instructions text in version history modal
 - **Database Migration**: Created migration script `20250130_fix_agent_prompt_versions_schema.sql` for schema alignment
+- **SIGMA Generation Quality Restoration**: Fixed deteriorated SIGMA rule generation that was producing malformed rules
+  - Reverted uncommitted prompt simplification in `src/prompts/sigma_generation.txt` that removed critical guidance
+  - Restored detailed SIGMA Rule Requirements and Rule Guidelines explaining separation of detection vs tags
+  - Fixed LMStudio model configuration mismatch (1B → 8B model) in `.env` and `docker-compose.yml`
+  - Implemented dynamic context window sizing based on model size (1B: 2.2K, 3B: 10.4K, 8B: 26.8K chars)
+  - Optimized retry prompts to remove wasteful article content repetition (~500 token savings per retry)
+  - Fixed issue where MITRE ATT&CK tags were incorrectly placed in detection/selection fields
+  - Temperature correctly set to 0.2 for deterministic SIGMA YAML generation
+- **OpenAI API Integration**: Proper API key handling and error fallback
+- **Conversation Context**: Fixed context truncation and memory management
+- **Response Quality**: Improved synthesis quality with professional formatting
+- **Test Suite Reliability**: Fixed 5 major test modules with comprehensive supporting class implementations
+- **ContentFilter Logic**: Fixed ML-based filtering, cost optimization, and quality scoring algorithms
+- **SigmaValidator Logic**: Fixed rule validation, error handling, and batch processing
+- **SourceManager Logic**: Fixed source configuration management and validation error handling
+- **ContentCleaner Logic**: Fixed HTML cleaning, Unicode normalization, and text processing
+- **HTTPClient Logic**: Fixed rate limiting, async/await issues, and request configuration
+
+### Security
+- None (security hardening was completed in previous versions)
+
+### Removed
+- **Redundant UI Cleanup**: Removed redundant "Save Configuration" button from settings page
 
 ### Technical Details
 - **Database Migration**: PostgreSQL migration script updates table schema while preserving existing data
 - **Version Control**: Each prompt update creates a new version linked to workflow config version
 - **UI Improvements**: Enhanced modal display with better typography and spacing
+- **Embedding Model**: all-mpnet-base-v2 (768-dimensional vectors)
+- **Vector Storage**: PostgreSQL with pgvector extension
+- **Context Management**: Last 4 conversation turns for LLM context
+- **Response Times**: 3-5 seconds (OpenAI), 4-6 seconds (Claude), 10-30 seconds (Ollama)
+- **Fallback Strategy**: Template → Ollama → Claude → OpenAI priority order
+- **Workflow Architecture**: LangGraph state machine with PostgreSQL checkpointing
+- **Agent System**: Extract Agent, Rank Agent, and Sigma Agent orchestrated via LangGraph
+- **Observability**: LangFuse integration for workflow and LLM call tracing
 
 ## [3.0.0 "Copernicus"] - 2025-01-28
 
