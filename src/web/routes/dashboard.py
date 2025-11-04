@@ -194,10 +194,14 @@ async def api_dashboard_data():
                 SELECT 
                     id,
                     title,
-                    article_metadata
+                    article_metadata,
+                    published_at,
+                    canonical_url
                 FROM articles 
                 WHERE article_metadata->>'threat_hunting_score' IS NOT NULL
-                ORDER BY (article_metadata->>'threat_hunting_score')::float DESC
+                  AND (article_metadata->>'threat_hunting_score')::float > 50
+                  AND created_at >= NOW() - INTERVAL '7 days'
+                ORDER BY published_at DESC
                 LIMIT 10
                 """
             )
@@ -211,12 +215,22 @@ async def api_dashboard_data():
             training_category = metadata.get("training_category")
             classification = training_category.capitalize() if training_category else "Unclassified"
 
+            # Format publication date
+            published_at_str = "Unknown"
+            if db_article.published_at:
+                if isinstance(db_article.published_at, datetime):
+                    published_at_str = db_article.published_at.strftime("%Y-%m-%d")
+                else:
+                    published_at_str = str(db_article.published_at)[:10]
+
             top_articles.append(
                 {
                     "id": db_article.id,
                     "title": db_article.title[:100] if db_article.title else "Untitled",
                     "hunt_score": round(hunt_score, 1),
                     "classification": classification,
+                    "published_at": published_at_str,
+                    "url": db_article.canonical_url,
                 }
             )
 
