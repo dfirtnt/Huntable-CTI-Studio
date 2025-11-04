@@ -1116,7 +1116,7 @@ async function viewExecution(executionId) {
                 const behObsCount = exec.extraction_result.behavioral_observables?.length || 0;
                 const detQueryCount = exec.extraction_result.detection_queries?.length || 0;
                 const observablesDetails = obsCount > 0 ? `<details class="mt-2 w-full">
-                            <summary class="cursor-pointer text-xs text-gray-700 dark:text-white hover:text-gray-900 dark:hover:text-gray-100">View Observables</summary>
+                            <summary class="cursor-pointer text-xs !text-white dark:!text-white hover:text-gray-900 dark:hover:text-gray-100" style="color: white !important;">View Observables</summary>
                             <div class="mt-2 w-full max-h-48 overflow-y-auto bg-gray-50 dark:bg-gray-900 rounded p-2 border text-xs font-mono">
                                 <ol class="list-decimal list-inside space-y-1 text-gray-900 dark:text-white">
                                     ${exec.extraction_result.observable_list.map(obs => `<li class="break-all">${obs}</li>`).join('')}
@@ -1154,7 +1154,7 @@ async function viewExecution(executionId) {
                             <div><strong>Total Attempts:</strong> ${totalAttempts}</div>
                             ${validationResults.length > 0 ? `
                                 <details class="mt-1">
-                                    <summary class="cursor-pointer text-xs text-gray-700 dark:text-white">View ${validationResults.length} validation result(s)</summary>
+                                    <summary class="cursor-pointer text-xs !text-white dark:!text-white" style="color: white !important;">View ${validationResults.length} validation result(s)</summary>
                                     <div class="mt-1 space-y-1 font-mono text-xs text-gray-900 dark:text-white">
                                         ${validationResults.map((vr, idx) => `
                                             <div class="p-1 bg-white dark:bg-gray-800 rounded">
