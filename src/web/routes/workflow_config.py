@@ -192,6 +192,15 @@ async def get_agent_prompts(request: Request):
             if not config:
                 raise HTTPException(status_code=404, detail="No active workflow configuration found")
             
+            # Get model names from environment
+            import os
+            default_model = os.getenv("LMSTUDIO_MODEL", "mistralai/mistral-7b-instruct-v0.3")
+            rank_model_env = os.getenv("LMSTUDIO_MODEL_RANK", "").strip()
+            # RankAgent requires explicit model (no fallback in service)
+            rank_model = rank_model_env if rank_model_env else "[Not configured - requires LMSTUDIO_MODEL_RANK]"
+            extract_model = os.getenv("LMSTUDIO_MODEL_EXTRACT", "").strip() or default_model
+            sigma_model = os.getenv("LMSTUDIO_MODEL_SIGMA", "").strip() or default_model
+            
             # Load default prompts from files if not in database
             from pathlib import Path
             prompts_dir = Path(__file__).parent.parent.parent / "prompts"
@@ -208,7 +217,8 @@ async def get_agent_prompts(request: Request):
                     extract_instructions = f.read()
                 default_prompts["ExtractAgent"] = {
                     "prompt": extract_prompt,
-                    "instructions": extract_instructions
+                    "instructions": extract_instructions,
+                    "model": extract_model
                 }
             
             # RankAgent
@@ -218,7 +228,8 @@ async def get_agent_prompts(request: Request):
                     rank_prompt = f.read()
                 default_prompts["RankAgent"] = {
                     "prompt": rank_prompt,
-                    "instructions": ""
+                    "instructions": "",
+                    "model": rank_model
                 }
             
             # SigmaAgent
@@ -228,12 +239,26 @@ async def get_agent_prompts(request: Request):
                     sigma_prompt = f.read()
                 default_prompts["SigmaAgent"] = {
                     "prompt": sigma_prompt,
-                    "instructions": ""
+                    "instructions": "",
+                    "model": sigma_model
                 }
             
             # Merge database prompts with defaults (database takes precedence)
             if config.agent_prompts:
                 for agent_name, prompt_data in config.agent_prompts.items():
+                    # Preserve model info if not in database prompt data
+                    if agent_name in default_prompts and "model" not in prompt_data:
+                        prompt_data["model"] = default_prompts[agent_name].get("model", default_model)
+                    elif agent_name not in default_prompts:
+                        # Add model info for agents not in defaults
+                        if agent_name == "ExtractAgent":
+                            prompt_data["model"] = extract_model
+                        elif agent_name == "RankAgent":
+                            prompt_data["model"] = rank_model
+                        elif agent_name == "SigmaAgent":
+                            prompt_data["model"] = sigma_model
+                        else:
+                            prompt_data["model"] = default_model
                     default_prompts[agent_name] = prompt_data
             
             return {"prompts": default_prompts}

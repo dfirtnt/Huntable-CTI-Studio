@@ -660,13 +660,17 @@ function renderAgentPrompts() {
         const promptData = agentPrompts[agentName];
         const prompt = promptData.prompt || '';
         const instructions = promptData.instructions || '';
+        const model = promptData.model || 'Not configured';
         const agentId = agentName.toLowerCase().replace(/\s+/g, '-');
         const isEditing = editingPrompts[agentName] || false;
         
         return `
             <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
                 <div class="flex items-center justify-between mb-3">
-                    <h4 class="text-md font-semibold text-gray-900 dark:text-white">${agentName}</h4>
+                    <div>
+                        <h4 class="text-md font-semibold text-gray-900 dark:text-white">${agentName}</h4>
+                        <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Model: <span class="font-mono">${escapeHtml(model)}</span></p>
+                    </div>
                     <div class="flex gap-2">
                         ${isEditing ? `
                             <button onclick="cancelEditPrompt('${agentName}')" 
