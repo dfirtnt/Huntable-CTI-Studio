@@ -429,7 +429,7 @@ async function viewExecution(executionId) {
                                 <div class="mt-1 text-sm">
                                     <div>• Article Title: ${exec.article_title || 'N/A'}</div>
                                     <div>• Filtered Content: ${exec.junk_filter_result?.filtered_length || 0} chars</div>
-                                    <div>• Threshold: ${config.ranking_threshold || 6.0}</div>
+                                    <div>• Threshold: ${config.ranking_threshold ?? 6.0}</div>
                                 </div>
                             </div>
                             <div>
@@ -437,8 +437,8 @@ async function viewExecution(executionId) {
                                 ${exec.ranking_score ? `
                                     <div class="mt-1 text-sm">
                                         <div>• Ranking Score: <strong>${exec.ranking_score.toFixed(1)}/10</strong></div>
-                                        <div>• Threshold: ${config.ranking_threshold || 6.0}/10</div>
-                                        <div>• Decision: ${exec.ranking_score >= (config.ranking_threshold || 6.0) ? '✅ Continue' : '❌ Stop'}</div>
+                                        <div>• Threshold: ${(config.ranking_threshold ?? 6.0).toFixed(1)}/10</div>
+                                        <div>• Decision: ${exec.ranking_score >= (config.ranking_threshold ?? 6.0) ? '✅ Continue' : '❌ Stop'}</div>
                                     </div>
                                     ${exec.ranking_reasoning ? `
                                         <details class="mt-3 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">

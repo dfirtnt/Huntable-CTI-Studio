@@ -12,6 +12,14 @@ from dataclasses import dataclass
 
 logger = logging.getLogger(__name__)
 
+# Try to import brotli for manual decompression if httpx doesn't handle it
+try:
+    import brotli  # type: ignore
+    BROTLI_AVAILABLE = True
+except ImportError:
+    BROTLI_AVAILABLE = False
+    logger.debug("brotli library not available - brotli-compressed responses may not decompress automatically")
+
 
 @dataclass
 class RequestConfig:
@@ -261,10 +269,58 @@ class HTTPClient:
                         if not response_headers:
                             response_headers = {}
                     
+                    # httpx automatically decompresses content when accessing response.text
+                    # For XML content (sitemaps), always use response.text to ensure decompression
+                    response_content = response.content
+                    # Read content-type from response.headers directly (not from dict)
+                    content_type_header = response.headers.get('content-type', '') if hasattr(response.headers, 'get') else response_headers.get('content-type', '')
+                    content_encoding_header = response.headers.get('content-encoding', '') if hasattr(response.headers, 'get') else response_headers.get('content-encoding', '')
+                    
+                    # Log for debugging
+                    if 'xml' in content_type_header.lower() or 'sitemap' in url.lower():
+                        logger.debug(f"XML/sitemap detected - content-type: {content_type_header}, encoding: {content_encoding_header}")
+                    
+                    # For XML/sitemap content, httpx automatically decompresses when accessing response.text
+                    # We should use response.text (already decompressed) instead of response.content (may be compressed)
+                    if 'xml' in content_type_header.lower() or 'application/xml' in content_type_header.lower() or 'sitemap' in url.lower():
+                        try:
+                            # httpx automatically decompresses brotli/gzip when accessing response.text
+                            decompressed_text = response.text
+                            # Verify it's actually decompressed
+                            if decompressed_text.startswith('<?xml') or '<urlset' in decompressed_text[:500] or '<sitemapindex' in decompressed_text[:500]:
+                                response_content = decompressed_text.encode(response.encoding or 'utf-8')
+                                logger.debug(f"Successfully decompressed XML via httpx - content length: {len(response_content)}")
+                            else:
+                                # Still looks compressed, try manual decompression as fallback
+                                logger.warning(f"Response.text appears still compressed for {url}, trying manual decompression")
+                                if content_encoding_header.lower() == 'br' and BROTLI_AVAILABLE:
+                                    try:
+                                        decompressed_bytes = brotli.decompress(response.content)
+                                        decompressed_text = decompressed_bytes.decode(response.encoding or 'utf-8')
+                                        if decompressed_text.startswith('<?xml') or '<urlset' in decompressed_text[:500]:
+                                            response_content = decompressed_text.encode(response.encoding or 'utf-8')
+                                            logger.debug(f"Manually decompressed brotli XML - content length: {len(response_content)}")
+                                        else:
+                                            response_content = response.content
+                                    except Exception as decomp_error:
+                                        logger.warning(f"Manual brotli decompression failed: {decomp_error}")
+                                        response_content = response.content
+                                else:
+                                    response_content = response.content
+                        except Exception as e:
+                            logger.warning(f"Failed to use response.text for XML: {e}, falling back to content")
+                            response_content = response.content
+                    elif content_encoding_header.lower() in ('gzip', 'br', 'deflate'):
+                        # For other compressed content, use response.text to ensure decompression
+                        try:
+                            response_content = response.text.encode(response.encoding or 'utf-8')
+                        except Exception:
+                            response_content = response.content
+                    
                     return Response(
                         status_code=response.status_code,
                         headers=response_headers,
-                        content=response.content,
+                        content=response_content,
                         url=str(response.url),
                         elapsed=elapsed,
                         encoding=response.encoding or 'utf-8'

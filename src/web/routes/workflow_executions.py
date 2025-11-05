@@ -7,7 +7,8 @@ from typing import List, Dict, Any, Optional
 from fastapi import APIRouter, HTTPException, Request, Query
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
-from datetime import datetime
+from sqlalchemy import or_, and_
+from datetime import datetime, timedelta
 
 from src.database.manager import DatabaseManager
 from src.database.models import AgenticWorkflowExecutionTable, ArticleTable, AppSettingsTable
@@ -198,6 +199,74 @@ async def get_workflow_execution(request: Request, execution_id: int):
         raise
     except Exception as e:
         logger.error(f"Error getting workflow execution: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/executions/cleanup-stale")
+async def cleanup_stale_executions(
+    request: Request,
+    max_age_hours: int = Query(1, description="Maximum age in hours for running executions to be considered stale")
+):
+    """
+    Mark stale running executions as failed.
+    
+    Finds all executions with status='running' that are older than max_age_hours
+    and marks them as failed with an appropriate error message.
+    """
+    try:
+        db_manager = DatabaseManager()
+        db_session = db_manager.get_session()
+        
+        try:
+            # Calculate cutoff time
+            cutoff_time = datetime.utcnow() - timedelta(hours=max_age_hours)
+            
+            # Find stale running executions
+            # Use started_at if available, otherwise fall back to created_at
+            stale_executions = db_session.query(AgenticWorkflowExecutionTable).filter(
+                AgenticWorkflowExecutionTable.status == 'running'
+            ).filter(
+                or_(
+                    and_(
+                        AgenticWorkflowExecutionTable.started_at.isnot(None),
+                        AgenticWorkflowExecutionTable.started_at < cutoff_time
+                    ),
+                    and_(
+                        AgenticWorkflowExecutionTable.started_at.is_(None),
+                        AgenticWorkflowExecutionTable.created_at < cutoff_time
+                    )
+                )
+            ).all()
+            
+            count = 0
+            for execution in stale_executions:
+                execution.status = 'failed'
+                execution.error_message = (
+                    execution.error_message or 
+                    f"Execution marked as failed due to timeout (running for more than {max_age_hours} hour(s))"
+                )
+                execution.completed_at = datetime.utcnow()
+                count += 1
+            
+            if count > 0:
+                db_session.commit()
+                logger.info(f"Marked {count} stale execution(s) as failed")
+                return {
+                    "success": True,
+                    "message": f"Marked {count} stale execution(s) as failed",
+                    "count": count
+                }
+            else:
+                return {
+                    "success": True,
+                    "message": "No stale executions found",
+                    "count": 0
+                }
+        finally:
+            db_session.close()
+            
+    except Exception as e:
+        logger.error(f"Error cleaning up stale executions: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -509,18 +578,15 @@ async def get_workflow_debug_info(request: Request, execution_id: int):
                 langfuse_host = langfuse_host.rstrip('/') if langfuse_host else "https://cloud.langfuse.com"
                 
                 # Langfuse trace URL format:
-                # - Try direct trace first: {host}/project/{project_id}/traces/{trace_id}
-                # - Fallback to search by session_id if trace doesn't exist: {host}/project/{project_id}/traces?sessionId={session_id}
+                # Use search by session_id instead of direct trace link, since traces may not exist
+                # if execution ran via Celery (no tracing). Search URL will show any traces for that session.
                 session_id = f"workflow_exec_{execution_id}"
                 if langfuse_project_id:
-                    # Use project-specific URL format
-                    # First try direct trace link, but note that trace might not exist if execution didn't run with Langfuse tracing
-                    agent_chat_url = f"{langfuse_host}/project/{langfuse_project_id}/traces/{trace_id}"
-                    # Alternative: Search by session_id (uncomment if direct trace doesn't work)
-                    # agent_chat_url = f"{langfuse_host}/project/{langfuse_project_id}/traces?sessionId={session_id}"
+                    # Use project-specific URL format - search by session_id
+                    agent_chat_url = f"{langfuse_host}/project/{langfuse_project_id}/traces?sessionId={session_id}"
                 else:
-                    # Fallback to direct trace format (may require project ID in some Langfuse instances)
-                    agent_chat_url = f"{langfuse_host}/traces/{trace_id}"
+                    # Fallback to search format without project ID
+                    agent_chat_url = f"{langfuse_host}/traces?sessionId={session_id}"
                 
                 logger.info(f"🔗 Generated Langfuse URL: {agent_chat_url}")
                 logger.info(f"   Note: Trace may not exist if execution #{execution_id} didn't run with Langfuse tracing enabled")

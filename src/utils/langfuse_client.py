@@ -108,7 +108,10 @@ def is_langfuse_enabled() -> bool:
 @contextmanager
 def trace_workflow_execution(execution_id: int, article_id: int, user_id: Optional[str] = None, session_id: Optional[str] = None):
     """
-    Context manager for tracing a workflow execution.
+    Context manager for tracing a workflow execution with session support.
+    
+    Uses Langfuse sessions to group all observations (traces, spans, generations) 
+    for a workflow execution together. This enables session replay and session-level metrics.
     
     Args:
         execution_id: The workflow execution ID
@@ -116,10 +119,11 @@ def trace_workflow_execution(execution_id: int, article_id: int, user_id: Option
         user_id: Optional user ID (defaults to article_id)
         session_id: Optional session ID (defaults to execution_id). 
                    Sessions group related traces together in LangFuse.
+                   Must be ≤200 characters (US-ASCII).
     
     Usage:
         with trace_workflow_execution(execution_id=123, article_id=456) as trace:
-            # Workflow code here
+            # Workflow code here - all child observations automatically inherit session_id
             trace.update(metadata={"step": "junk_filter"})
     """
     global _active_trace_id
@@ -128,53 +132,78 @@ def trace_workflow_execution(execution_id: int, article_id: int, user_id: Option
         yield None
         return
     
-    span = None
+    span_context = None
     try:
         client = get_langfuse_client()
         # Use execution_id as session_id by default to group all traces for this execution
+        # Session ID must be ≤200 characters (US-ASCII)
         session_id = session_id or f"workflow_exec_{execution_id}"
+        
+        # Validate session_id length (Langfuse requirement)
+        if len(session_id) > 200:
+            logger.warning(f"Session ID too long ({len(session_id)} chars), truncating to 200")
+            session_id = session_id[:200]
+        
         trace_id = f"workflow_exec_{execution_id}"
         
-        # Create root span using start_span (LangFuse v3 API)
+        # Create root span using start_as_current_span (LangFuse v3 API)
+        # This creates a trace automatically with the session_id in trace_context
         # Use trace_context for user_id and session_id
         from langfuse.types import TraceContext
         
         trace_context = TraceContext(
             user_id=user_id or f"article_{article_id}",
-            session_id=session_id
+            session_id=session_id,
+            trace_id=trace_id  # Explicitly set trace_id so all observations are linked
         )
         
-        span = client.start_span(
-            name=f"agentic_workflow_execution_{execution_id}",
-            trace_context=trace_context,
-            metadata={
-                "execution_id": execution_id,
-                "article_id": article_id,
-                "workflow_type": "agentic_workflow"
-            }
-        )
+        # Use propagate_attributes to ensure all child observations inherit session_id
+        # This is the recommended way to propagate session_id according to Langfuse docs
+        from langfuse import propagate_attributes
         
-        # Store trace ID from the span for child spans/generations
-        _active_trace_id = getattr(span, 'trace_id', None) or trace_id
-        
-        try:
-            yield span
-        finally:
-            # End the span
-            if span:
+        # Use start_as_current_span which creates a trace automatically
+        # The trace_context with session_id ensures the trace is part of the session
+        # Wrap in propagate_attributes to ensure session_id propagates to all child observations
+        with propagate_attributes(session_id=session_id):
+            span_context = client.start_as_current_span(
+                name=f"agentic_workflow_execution_{execution_id}",
+                trace_context=trace_context,
+                metadata={
+                    "execution_id": execution_id,
+                    "article_id": article_id,
+                    "workflow_type": "agentic_workflow"
+                },
+                end_on_exit=False  # Manual control for better exception handling
+            )
+            span = span_context.__enter__()
+            
+            # Store trace ID from the span for child spans/generations
+            _active_trace_id = getattr(span, 'trace_id', None) or trace_id
+            
+            try:
+                yield span
+            finally:
+                # Always end the span and flush, even if exceptions occurred
                 try:
-                    span.end()
+                    if span_context:
+                        span_context.__exit__(None, None, None)
+                except Exception as exit_error:
+                    logger.error(f"Error exiting LangFuse span: {exit_error}")
+                
+                # Flush after span ends
+                try:
                     client.flush()
-                    logger.debug(f"LangFuse trace flushed for workflow execution {execution_id}")
+                    logger.debug(f"LangFuse trace flushed for workflow execution {execution_id} (session: {session_id})")
                 except Exception as flush_error:
                     logger.error(f"Error flushing LangFuse trace: {flush_error}")
-            _active_trace_id = None
+                _active_trace_id = None
     except Exception as e:
         logger.error(f"Error creating LangFuse trace: {e}")
-        if span:
+        # Ensure span is closed if it was opened
+        if span_context:
             try:
-                span.end()
-            except:
+                span_context.__exit__(type(e), e, e.__traceback__)
+            except Exception:
                 pass
         _active_trace_id = None
         yield None
@@ -191,12 +220,15 @@ def trace_llm_call(
     metadata: Optional[Dict[str, Any]] = None
 ):
     """
-    Context manager for tracing an LLM call.
+    Context manager for tracing an LLM call with session support.
+    
+    Automatically links to the workflow execution session if execution_id is provided.
+    Uses propagate_attributes to ensure session_id is inherited by child observations.
     
     Args:
         name: Name of the LLM call (e.g., "rank_article")
         model: Model name
-        execution_id: Optional workflow execution ID
+        execution_id: Optional workflow execution ID (used to auto-link to session)
         article_id: Optional article ID
         trace_id: Optional trace ID to link to existing trace
         session_id: Optional session ID (defaults to execution_id-based session if execution_id provided)
@@ -205,7 +237,7 @@ def trace_llm_call(
     Usage:
         with trace_llm_call("rank_article", model="deepseek-r1", execution_id=123) as generation:
             result = await llm_service.rank_article(...)
-            generation.end(output=result)
+            log_llm_completion(generation, messages, result)
     """
     global _active_trace_id
     
@@ -222,6 +254,11 @@ def trace_llm_call(
         if not resolved_session_id and execution_id:
             # Automatically link to the workflow execution session
             resolved_session_id = f"workflow_exec_{execution_id}"
+        
+        # Validate session_id length (Langfuse requirement)
+        if resolved_session_id and len(resolved_session_id) > 200:
+            logger.warning(f"Session ID too long ({len(resolved_session_id)} chars), truncating to 200")
+            resolved_session_id = resolved_session_id[:200]
         
         # Use provided trace_id, or get from active trace, or create from execution_id
         resolved_trace_id = trace_id
@@ -256,14 +293,23 @@ def trace_llm_call(
         
         generation = client.start_generation(**generation_kwargs)
         
+        # Use propagate_attributes to ensure child observations inherit session_id
+        # This is particularly useful if the generation creates nested spans/generations
+        from langfuse import propagate_attributes
+        
         try:
-            yield generation
+            if resolved_session_id:
+                # Wrap in propagate_attributes to ensure session_id propagates to child observations
+                with propagate_attributes(session_id=resolved_session_id):
+                    yield generation
+            else:
+                yield generation
         finally:
             # Explicitly flush to ensure traces are sent
             if generation:
                 try:
                     client.flush()
-                    logger.debug(f"LangFuse generation flushed for {name}")
+                    logger.debug(f"LangFuse generation flushed for {name} (session: {resolved_session_id})")
                 except Exception as flush_error:
                     logger.error(f"Error flushing LangFuse generation: {flush_error}")
         
@@ -363,7 +409,9 @@ def log_workflow_step(
     metadata: Optional[Dict[str, Any]] = None
 ):
     """
-    Log a workflow step to LangFuse trace.
+    Log a workflow step to LangFuse trace with session support.
+    
+    Creates a child span that automatically inherits the session_id from the parent trace.
     
     Args:
         trace: LangFuse span object from trace_workflow_execution
@@ -393,9 +441,18 @@ def log_workflow_step(
         }
         
         # Link to parent trace if trace has a trace_id
+        # Also inherit session_id from parent trace context
         trace_id = getattr(trace, 'trace_id', None)
+        session_id = getattr(trace, 'session_id', None)
+        
+        trace_context_kwargs = {}
         if trace_id:
-            span_kwargs["trace_context"] = TraceContext(trace_id=trace_id)
+            trace_context_kwargs["trace_id"] = trace_id
+        if session_id:
+            trace_context_kwargs["session_id"] = session_id
+        
+        if trace_context_kwargs:
+            span_kwargs["trace_context"] = TraceContext(**trace_context_kwargs)
         
         span = client.start_span(**span_kwargs)
         

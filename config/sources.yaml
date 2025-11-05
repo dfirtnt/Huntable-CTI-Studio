@@ -89,7 +89,7 @@ sources:
           - listing:
               urls: ["https://www.vmray.com/blog/"]
               max_pages: 5
-              post_link_selector: 'a[href*="/blog/"]'
+              post_link_selector: 'a[href*="/blog/"][href!="/blog/"][href!="https://www.vmray.com/blog/"]:not([href*="?e-page"]):not([href*="feed"])'
       extract:
         prefer_jsonld: true
         title_selectors: ["h1", "meta[property='og:title']::attr(content)"]
@@ -833,8 +833,11 @@ sources:
       rss_only: false  # Force web scraping since no RSS
       discovery:
         strategies:
-          - sitemap:
-              urls: ["https://www.splunk.com/sitemap.xml"]
+          - listing:
+              urls: ["https://www.splunk.com/en_us/blog/security.html"]
+              max_pages: 10
+              post_link_selector: 'a[href*="/blog/security/"][href!="/blog/security.html"]:not([href*="?p="])'
+              next_selector: 'a[href*="/blog/security.html?p="]'
       extract:
         prefer_jsonld: true
         title_selectors: ["h1", "meta[property='og:title']::attr(content)", ".blog-post-title"]

@@ -697,6 +697,7 @@ async def api_test_langfuse_connection(request: Request):
             # Try to initialize Langfuse client
             try:
                 from langfuse import Langfuse
+                from langfuse.types import TraceContext
                 
                 langfuse_client = Langfuse(
                     public_key=public_key,
@@ -706,21 +707,24 @@ async def api_test_langfuse_connection(request: Request):
                     flush_interval=1.0
                 )
                 
-                # Send a test trace/generation
-                test_trace = langfuse_client.trace(
+                # Send a test trace/generation using correct Langfuse API
+                test_span = langfuse_client.start_span(
                     name="langfuse_connection_test",
                     metadata={"test": True, "timestamp": datetime.now().isoformat()}
                 )
                 
-                test_generation = langfuse_client.generation(
-                    trace_id=test_trace.id,
+                test_generation = langfuse_client.start_generation(
                     name="test_generation",
                     model="test",
-                    model_parameters={"temperature": 0.1}
+                    model_parameters={"temperature": 0.1},
+                    trace_context=TraceContext(trace_id=test_span.trace_id)
                 )
                 
-                test_generation.end(output="Connection test successful")
-                test_trace.end()
+                # Update generation with output, then end it
+                test_generation.update(output="Connection test successful")
+                test_generation.end()
+                
+                test_span.end()
                 
                 # Flush to ensure it's sent
                 langfuse_client.flush()
@@ -730,16 +734,17 @@ async def api_test_langfuse_connection(request: Request):
                     "message": f"Langfuse connection successful! Host: {host}, Project ID: {project_id or 'default'}"
                 }
                 
-            except ImportError:
+            except ImportError as e:
+                logger.error(f"Langfuse ImportError: {e}")
                 return {
                     "valid": False,
-                    "message": "Langfuse Python package not installed. Install with: pip install langfuse"
+                    "message": f"Langfuse Python package not installed. Install with: pip install langfuse. Error: {str(e)}"
                 }
             except Exception as e:
-                logger.error(f"Langfuse connection test error: {e}")
+                logger.error(f"Langfuse connection test error: {type(e).__name__}: {e}")
                 return {
                     "valid": False,
-                    "message": f"Langfuse connection failed: {str(e)}"
+                    "message": f"Langfuse connection failed: {type(e).__name__}: {str(e)}"
                 }
                 
     except Exception as e:

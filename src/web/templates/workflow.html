@@ -1313,8 +1313,8 @@ async function viewExecution(executionId) {
                     inputDetails: filteredContentDetails,
                     output: `<div class="space-y-1 text-gray-700 dark:text-gray-300">
                         <div><strong>Ranking Score:</strong> ${exec.ranking_score.toFixed(1)}/10</div>
-                        <div><strong>Threshold:</strong> ${exec.config_snapshot?.ranking_threshold || 6.0}/10</div>
-                        <div><strong>Decision:</strong> ${exec.ranking_score >= (exec.config_snapshot?.ranking_threshold || 6.0) ? '✅ Continue' : '❌ Stop'}</div>
+                        <div><strong>Threshold:</strong> ${(exec.config_snapshot?.ranking_threshold ?? 6.0).toFixed(1)}/10</div>
+                        <div><strong>Decision:</strong> ${exec.ranking_score >= (exec.config_snapshot?.ranking_threshold ?? 6.0) ? '✅ Continue' : '❌ Stop'}</div>
                     </div>`,
                     details: rankingDetails
                 });

@@ -194,7 +194,9 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                 title=article.title,
                 content=filtered_content,
                 source=source_name,
-                url=article.canonical_url or ""
+                url=article.canonical_url or "",
+                execution_id=state['execution_id'],
+                article_id=article.id
             )
             
             ranking_score = ranking_result['score']
@@ -339,7 +341,9 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                 title=article.title,
                 url=article.canonical_url or "",
                 prompt_config_dict=prompt_config_dict,
-                instructions_template_str=instructions_template_str
+                instructions_template_str=instructions_template_str,
+                execution_id=state['execution_id'],
+                article_id=article.id
             )
             
             discrete_count = extraction_result.get('discrete_huntables_count', 0)
