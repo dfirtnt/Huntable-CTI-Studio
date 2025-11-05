@@ -27,23 +27,35 @@ MIN_CONTEXT_LENGTH_THRESHOLD = int(os.getenv("LMSTUDIO_MIN_CONTEXT_THRESHOLD", "
 class LLMService:
     """Service for LLM API calls using Deepseek-R1 via LMStudio."""
     
-    def __init__(self):
-        """Initialize LLM service with LMStudio configuration."""
+    def __init__(self, config_models: Optional[Dict[str, str]] = None):
+        """
+        Initialize LLM service with LMStudio configuration.
+        
+        Args:
+            config_models: Optional dict of agent models from workflow config.
+                          Format: {"RankAgent": "model_name", "ExtractAgent": "...", "SigmaAgent": "..."}
+                          If provided, these override environment variables.
+        """
         self.lmstudio_url = os.getenv("LMSTUDIO_API_URL", "http://host.docker.internal:1234/v1")
         
         # Default model (fallback for backward compatibility)
         default_model = os.getenv("LMSTUDIO_MODEL", "mistralai/mistral-7b-instruct-v0.3")
         
         # Per-operation model configuration
+        # Priority: config_models > environment variables > default
+        config_models = config_models or {}
+        
         # Handle empty strings from docker-compose (empty string means "not set")
         self.lmstudio_model = default_model  # Keep for backward compatibility
-        rank_model = os.getenv("LMSTUDIO_MODEL_RANK", "").strip()
-        extract_model = os.getenv("LMSTUDIO_MODEL_EXTRACT", "").strip()
-        sigma_model = os.getenv("LMSTUDIO_MODEL_SIGMA", "").strip()
         
-        # No fallback for ranking - must be explicitly set
+        # Get models from config first, then env vars, then defaults
+        rank_model = config_models.get("RankAgent") or os.getenv("LMSTUDIO_MODEL_RANK", "").strip()
+        extract_model = config_models.get("ExtractAgent") or os.getenv("LMSTUDIO_MODEL_EXTRACT", "").strip()
+        sigma_model = config_models.get("SigmaAgent") or os.getenv("LMSTUDIO_MODEL_SIGMA", "").strip()
+        
+        # No fallback for ranking - must be explicitly set in config or env
         if not rank_model:
-            raise ValueError("LMSTUDIO_MODEL_RANK must be set. No fallback to default model.")
+            raise ValueError("RankAgent model must be set in workflow config (agent_models.RankAgent) or LMSTUDIO_MODEL_RANK environment variable. No fallback to default model.")
         self.model_rank = rank_model
         
         # Extract and SIGMA still fall back to default
@@ -58,7 +70,8 @@ class LLMService:
         self.top_p = float(os.getenv("LMSTUDIO_TOP_P", "0.9"))
         self.seed = int(os.getenv("LMSTUDIO_SEED", "42")) if os.getenv("LMSTUDIO_SEED") else None
         
-        logger.info(f"Initialized LLMService - Models: rank={self.model_rank}, extract={self.model_extract}, sigma={self.model_sigma}")
+        model_source = "config" if config_models else "environment"
+        logger.info(f"Initialized LLMService ({model_source}) - Models: rank={self.model_rank}, extract={self.model_extract}, sigma={self.model_sigma}")
     
     def _model_needs_system_conversion(self, model_name: str) -> bool:
         """Check if model requires system message conversion (e.g., Mistral models)."""
@@ -805,10 +818,10 @@ Score the article from 1-10 for SIGMA rule generation potential. Consider:
             
             # Prefer content if it looks like JSON, otherwise check reasoning_content
             # Deepseek-R1 might put JSON in either field
-            if content_text and (content_text.strip().startswith('{') or 'behavioral_observables' in content_text):
+            if content_text and (content_text.strip().startswith('{') or 'behavioral_observables' in content_text or 'observables' in content_text):
                 response_text = content_text
                 logger.info("Using 'content' field for extraction (looks like JSON)")
-            elif reasoning_text and (reasoning_text.strip().startswith('{') or 'behavioral_observables' in reasoning_text):
+            elif reasoning_text and (reasoning_text.strip().startswith('{') or 'behavioral_observables' in reasoning_text or 'observables' in reasoning_text):
                 response_text = reasoning_text
                 logger.info("Using 'reasoning_content' field for extraction (looks like JSON)")
             else:
@@ -868,7 +881,7 @@ Score the article from 1-10 for SIGMA rule generation potential. Consider:
                             try:
                                 candidate_data = json.loads(candidate_json)
                                 # Check if it has expected root-level keys (not a nested object)
-                                if any(key in candidate_data for key in ['behavioral_observables', 'detection_queries', 'url', 'content', 'discrete_huntables_count']):
+                                if any(key in candidate_data for key in ['behavioral_observables', 'detection_queries', 'observables', 'summary', 'url', 'content', 'discrete_huntables_count']):
                                     json_candidates.append((open_pos, json_end, len(candidate_json), candidate_data))
                             except json.JSONDecodeError:
                                 pass
@@ -877,7 +890,7 @@ Score the article from 1-10 for SIGMA rule generation potential. Consider:
                     
                     if json_candidates:
                         # Prefer the one with expected keys, then largest, then last
-                        root_candidates = [c for c in json_candidates if any(k in c[3] for k in ['behavioral_observables', 'url', 'content'])]
+                        root_candidates = [c for c in json_candidates if any(k in c[3] for k in ['behavioral_observables', 'observables', 'summary', 'url', 'content'])]
                         if root_candidates:
                             # Take the largest root-level candidate
                             _, _, _, root_data = max(root_candidates, key=lambda x: x[2])
@@ -897,23 +910,49 @@ Score the article from 1-10 for SIGMA rule generation potential. Consider:
                 # Ensure required fields exist
                 if 'raw_response' not in extracted:
                     extracted['raw_response'] = response_text
-                    
-                # Validate discrete_huntables_count is present and is a number
-                if 'discrete_huntables_count' not in extracted:
-                    logger.warning("discrete_huntables_count missing from extraction, defaulting to 0")
-                    extracted['discrete_huntables_count'] = 0
-                elif not isinstance(extracted['discrete_huntables_count'], (int, float)):
-                    logger.warning(f"discrete_huntables_count is not a number: {extracted['discrete_huntables_count']}, defaulting to 0")
-                    extracted['discrete_huntables_count'] = 0
                 
-                logger.info(f"Parsed extraction result: {len(extracted.get('behavioral_observables', []))} observables, {extracted.get('discrete_huntables_count', 0)} huntables")
+                # Validate and normalize new format (observables + summary)
+                if 'observables' in extracted and 'summary' in extracted:
+                    # New format: ensure structure is correct
+                    observables = extracted.get('observables', [])
+                    summary = extracted.get('summary', {})
+                    
+                    # Ensure observables is a list
+                    if not isinstance(observables, list):
+                        logger.warning("observables is not a list, converting to empty list")
+                        observables = []
+                    
+                    # Set discrete_huntables_count from summary.count
+                    discrete_huntables_count = summary.get('count', len(observables))
+                    if not isinstance(discrete_huntables_count, (int, float)):
+                        logger.warning(f"summary.count is not a number: {discrete_huntables_count}, defaulting to {len(observables)}")
+                        discrete_huntables_count = len(observables)
+                    
+                    # Ensure summary has required fields
+                    if 'source_url' not in summary:
+                        summary['source_url'] = url
+                    if 'platforms_detected' not in summary:
+                        summary['platforms_detected'] = []
+                    
+                    # Update extracted with normalized values
+                    extracted['observables'] = observables
+                    extracted['summary'] = summary
+                    extracted['discrete_huntables_count'] = discrete_huntables_count
+                    extracted['url'] = summary.get('source_url', url)
+                    
+                    logger.info(f"Parsed extraction result (new format): {len(observables)} observables, {discrete_huntables_count} huntables")
+                else:
+                    # Missing required fields
+                    raise ValueError("Extraction result must contain 'observables' array and 'summary' object matching the prompt format")
             except (json.JSONDecodeError, ValueError) as e:
                 logger.warning(f"Could not parse JSON from extraction response: {e}. Using fallback. Response preview: {response_text[:200]}")
                 extracted = {
-                    "behavioral_observables": [],
-                    "detection_queries": [],
-                    "url": url,
-                    "content": content[:1000],
+                    "observables": [],
+                    "summary": {
+                        "count": 0,
+                        "source_url": url,
+                        "platforms_detected": []
+                    },
                     "discrete_huntables_count": 0,
                     "raw_response": response_text
                 }

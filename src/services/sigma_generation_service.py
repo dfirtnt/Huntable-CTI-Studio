@@ -21,9 +21,16 @@ logger = logging.getLogger(__name__)
 class SigmaGenerationService:
     """Service for generating SIGMA rules from articles."""
     
-    def __init__(self):
-        """Initialize SIGMA generation service."""
-        self.llm_service = LLMService()
+    def __init__(self, config_models: Optional[Dict[str, str]] = None):
+        """
+        Initialize SIGMA generation service.
+        
+        Args:
+            config_models: Optional dict of agent models from workflow config.
+                          Format: {"RankAgent": "model_name", "ExtractAgent": "...", "SigmaAgent": "..."}
+                          If provided, these override environment variables.
+        """
+        self.llm_service = LLMService(config_models=config_models)
     
     async def generate_sigma_rules(
         self,

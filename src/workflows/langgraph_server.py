@@ -94,11 +94,9 @@ def create_exposable_workflow():
     """
     # Initialize services (shared across nodes)
     content_filter = ContentFilter()
-    llm_service = LLMService()
-    logger.info(f"LLMService initialized in workflow - Models: rank={llm_service.model_rank}, extract={llm_service.model_extract}, sigma={llm_service.model_sigma}")
-    logger.info(f"LLMStudio URL: {llm_service.lmstudio_url}")
+    # LLMService and SigmaGenerationService will be initialized per-node with config models
+    logger.info(f"LLMStudio URL: {os.getenv('LMSTUDIO_API_URL', 'http://host.docker.internal:1234/v1')}")
     # RAGService lazy-loaded in similarity_search_node to avoid loading embedding models at startup
-    sigma_generation_service = SigmaGenerationService()
     
     def parse_input_node(state: ExposableWorkflowState) -> ExposableWorkflowState:
         """Parse chat input and initialize workflow state."""
@@ -265,6 +263,9 @@ Cannot process empty articles."""
                         "current_step": "parse_input"
                     }
                 
+                # Get agent models from config
+                agent_models = config.agent_models if config else None
+                
                 # Create new execution
                 execution = AgenticWorkflowExecutionTable(
                     article_id=article_id,
@@ -274,6 +275,7 @@ Cannot process empty articles."""
                         'ranking_threshold': config.ranking_threshold if config else 6.0,
                         'similarity_threshold': config.similarity_threshold if config else 0.5,
                         'junk_filter_threshold': config.junk_filter_threshold if config else 0.8,
+                        'agent_models': agent_models
                     } if config else None
                 )
                 db_session.add(execution)
@@ -354,6 +356,11 @@ Cannot process empty articles."""
                     AgenticWorkflowExecutionTable.id == execution_id
                 ).first()
             else:
+                # Get agent models from config
+                trigger_service = WorkflowTriggerService(db_session)
+                config_obj = trigger_service.get_active_config()
+                agent_models = config_obj.agent_models if config_obj else None
+                
                 # Create new execution
                 execution = AgenticWorkflowExecutionTable(
                     article_id=article_id,
@@ -363,7 +370,8 @@ Cannot process empty articles."""
                         'min_hunt_score': state.get('min_hunt_score', 97.0),
                         'ranking_threshold': state.get('ranking_threshold', 6.0),
                         'similarity_threshold': state.get('similarity_threshold', 0.5),
-                        'junk_filter_threshold': state.get('junk_filter_threshold', 0.8)
+                        'junk_filter_threshold': state.get('junk_filter_threshold', 0.8),
+                        'agent_models': agent_models
                     }
                 )
                 db_session.add(execution)
@@ -416,6 +424,12 @@ Cannot process empty articles."""
                 raise ValueError(f"Article {article_id} not found")
             
             filtered_content = state.get('filtered_content') or article.content
+            
+            # Get config models for LLMService
+            trigger_service = WorkflowTriggerService(db_session)
+            config_obj = trigger_service.get_active_config()
+            agent_models = config_obj.agent_models if config_obj else None
+            llm_service = LLMService(config_models=agent_models)
             
             # Get source name
             source_name = article.source.name if article.source else "Unknown"
@@ -579,6 +593,10 @@ Cannot process empty articles."""
             
             logger.info(f"[Workflow {state.get('execution_id')}] Using database ExtractAgent prompt (config version {config_obj.version})")
             
+            # Get config models for LLMService
+            agent_models = config_obj.agent_models if config_obj else None
+            llm_service = LLMService(config_models=agent_models)
+            
             # Use database prompt
             extraction_result = await llm_service.extract_behaviors(
                 content=filtered_content,
@@ -598,7 +616,7 @@ Cannot process empty articles."""
                 raise ValueError(error_msg)
             
             # Log extraction quality for debugging
-            logger.info(f"[Workflow {state.get('execution_id')}] Extraction completed: {discrete_huntables} huntables, {len(extraction_result.get('behavioral_observables', []))} observables")
+            logger.info(f"[Workflow {state.get('execution_id')}] Extraction completed: {discrete_huntables} huntables, {len(extraction_result.get('observables', []))} observables")
             
             # Update execution record
             execution_id = state.get('execution_id')
@@ -659,9 +677,15 @@ Cannot process empty articles."""
             else:
                 logger.warning(f"[Workflow {state.get('execution_id')}] No extraction result or zero huntables, using filtered_content for SIGMA generation")
             
+            # Get config models for SigmaGenerationService
+            trigger_service = WorkflowTriggerService(db_session)
+            config_obj = trigger_service.get_active_config()
+            agent_models = config_obj.agent_models if config_obj else None
+            
             # Generate SIGMA rules
             source_name = article.source.name if article.source else "Unknown"
-            sigma_result = await sigma_generation_service.generate_sigma_rules(
+            sigma_service = SigmaGenerationService(config_models=agent_models)
+            sigma_result = await sigma_service.generate_sigma_rules(
                 article_title=article.title,
                 article_content=content_to_use,
                 source_name=source_name,

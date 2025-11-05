@@ -472,19 +472,29 @@ async function viewExecution(executionId) {
                                 <strong class="text-gray-900 dark:text-white">Outputs:</strong>
                                 ${exec.extraction_result ? `
                                     <div class="mt-1 text-sm">
-                                        <div>• Discrete Huntables: <strong>${exec.extraction_result.discrete_huntables_count || 0}</strong></div>
-                                        <div>• Observables: ${exec.extraction_result.observable_list?.length || 0}</div>
-                                        <div>• Behavioral Observables: ${exec.extraction_result.behavioral_observables?.length || 0}</div>
-                                        <div>• Detection Queries: ${exec.extraction_result.detection_queries?.length || 0}</div>
+                                        <div>• Discrete Huntables: <strong>${exec.extraction_result.discrete_huntables_count || exec.extraction_result.summary?.count || 0}</strong></div>
+                                        <div>• Observables: ${exec.extraction_result.observables?.length || 0}</div>
+                                        ${exec.extraction_result.summary?.platforms_detected && exec.extraction_result.summary.platforms_detected.length > 0 ? `<div>• Platforms: ${exec.extraction_result.summary.platforms_detected.join(', ')}</div>` : ''}
                                     </div>
-                                    ${exec.extraction_result.observable_list && exec.extraction_result.observable_list.length > 0 ? `
+                                    ${exec.extraction_result.observables && exec.extraction_result.observables.length > 0 ? `
                                         <details class="mt-2">
-                                            <summary class="cursor-pointer text-sm text-purple-600 dark:text-white hover:underline">View ${exec.extraction_result.observable_list.length} Observables</summary>
+                                            <summary class="cursor-pointer text-sm text-purple-600 dark:text-white hover:underline">View ${exec.extraction_result.observables.length} Observables</summary>
                                             <div class="mt-2 max-h-64 overflow-y-auto">
-                                                <ol class="list-decimal list-inside space-y-1 text-xs font-mono bg-gray-50 dark:bg-gray-900 p-3 rounded border border-gray-200 dark:border-gray-700">
-                                                    ${exec.extraction_result.observable_list.slice(0, 20).map((obs, idx) => `<li class="text-gray-700 dark:text-gray-300 break-all">${obs.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</li>`).join('')}
-                                                    ${exec.extraction_result.observable_list.length > 20 ? `<li class="text-gray-500 dark:text-gray-300">... and ${exec.extraction_result.observable_list.length - 20} more</li>` : ''}
-                                                </ol>
+                                                <div class="space-y-2 text-xs bg-gray-50 dark:bg-gray-900 p-3 rounded border border-gray-200 dark:border-gray-700">
+                                                    ${exec.extraction_result.observables.slice(0, 20).map((obs, idx) => {
+                                                        const type = obs.type || 'Unknown';
+                                                        const value = obs.value || '';
+                                                        const platform = obs.platform || '';
+                                                        const sourceContext = obs.source_context || '';
+                                                        return `<div class="border-b border-gray-300 dark:border-gray-600 pb-2">
+                                                            <div class="font-semibold text-gray-900 dark:text-white">${idx + 1}. ${type}</div>
+                                                            <div class="text-gray-700 dark:text-gray-300 break-all">${value.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</div>
+                                                            ${platform ? `<div class="text-gray-600 dark:text-gray-400">Platform: ${platform}</div>` : ''}
+                                                            ${sourceContext ? `<div class="text-gray-600 dark:text-gray-400 italic">Context: ${sourceContext}</div>` : ''}
+                                                        </div>`;
+                                                    }).join('')}
+                                                    ${exec.extraction_result.observables.length > 20 ? `<div class="text-gray-500 dark:text-gray-300">... and ${exec.extraction_result.observables.length - 20} more</div>` : ''}
+                                                </div>
                                             </div>
                                         </details>
                                     ` : ''}

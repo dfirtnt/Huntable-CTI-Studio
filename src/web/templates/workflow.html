@@ -192,6 +192,17 @@
                               placeholder="Optional description for this configuration version"></textarea>
                 </div>
 
+                <!-- Agent Models Section -->
+                <div class="border-t border-gray-200 dark:border-gray-700 pt-6 mt-6">
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Agent Models</h3>
+                    <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">Configure LMStudio models for each agent (overrides Settings page environment variables)</p>
+                    
+                    <div id="agentModelsContainer" class="space-y-4">
+                        <!-- Models will be loaded here -->
+                        <div class="text-center text-gray-500 dark:text-gray-400 py-4">Loading agent models...</div>
+                    </div>
+                </div>
+
                 <!-- Agent Prompts Section -->
                 <div class="border-t border-gray-200 dark:border-gray-700 pt-6 mt-6">
                     <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Agent Prompts</h3>
@@ -599,6 +610,7 @@ function switchTab(tab) {
 // Configuration Functions
 let currentConfig = null;
 let agentPrompts = {};
+let agentModels = {};
 
 async function loadConfig() {
     try {
@@ -611,6 +623,10 @@ async function loadConfig() {
             document.getElementById('rankingThreshold').value = currentConfig.ranking_threshold;
             document.getElementById('similarityThreshold').value = currentConfig.similarity_threshold;
             document.getElementById('description').value = currentConfig.description || '';
+            
+            // Load agent models from config
+            agentModels = currentConfig.agent_models || {};
+            renderAgentModels();
             
             document.getElementById('configDisplay').innerHTML = `
                 <div class="grid grid-cols-4 gap-4">
@@ -628,6 +644,111 @@ async function loadConfig() {
         await loadAgentPrompts();
     } catch (error) {
         console.error('Error loading config:', error);
+    }
+}
+
+function renderAgentModels() {
+    const container = document.getElementById('agentModelsContainer');
+    
+    const agents = ['RankAgent', 'ExtractAgent', 'SigmaAgent'];
+    const agentLabels = {
+        'RankAgent': 'Rank Agent',
+        'ExtractAgent': 'Extract Agent',
+        'SigmaAgent': 'Sigma Agent'
+    };
+    
+    container.innerHTML = agents.map(agentName => {
+        const currentModel = agentModels[agentName] || '';
+        const agentId = agentName.toLowerCase().replace(/\s+/g, '-');
+        
+        return `
+            <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+                <div class="flex items-center justify-between mb-2">
+                    <label for="${agentId}-model" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                        ${agentLabels[agentName] || agentName}
+                    </label>
+                </div>
+                <select id="${agentId}-model" 
+                        name="agent_models[${agentName}]"
+                        class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-sm">
+                    <option value="">-- Select model --</option>
+                    <!-- Options will be populated by loadLMStudioModels() -->
+                </select>
+                <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    ${agentName === 'RankAgent' ? 'Required' : 'Optional - falls back to environment variable if empty'}
+                </p>
+            </div>
+        `;
+    }).join('');
+    
+    // Load and populate models
+    loadLMStudioModels();
+}
+
+async function loadLMStudioModels() {
+    try {
+        const response = await fetch('/api/lmstudio-models');
+        const data = await response.json();
+        
+        if (data.success && data.models && data.models.length > 0) {
+            const agents = ['RankAgent', 'ExtractAgent', 'SigmaAgent'];
+            
+            agents.forEach(agentName => {
+                const agentId = agentName.toLowerCase().replace(/\s+/g, '-');
+                const select = document.getElementById(`${agentId}-model`);
+                if (!select) return;
+                
+                // Get current model from config
+                const currentModel = agentModels[agentName] || '';
+                
+                // Clear existing options except the placeholder
+                select.innerHTML = '<option value="">-- Select model --</option>';
+                
+                // Add all available models
+                data.models.forEach(model => {
+                    const option = document.createElement('option');
+                    option.value = model;
+                    option.textContent = model;
+                    if (model === currentModel) {
+                        option.selected = true;
+                    }
+                    select.appendChild(option);
+                });
+                
+                // If current model is not in the list, add it as an option
+                if (currentModel && !data.models.includes(currentModel)) {
+                    const option = document.createElement('option');
+                    option.value = currentModel;
+                    option.textContent = `${currentModel} (not available)`;
+                    option.selected = true;
+                    option.style.color = 'orange';
+                    select.appendChild(option);
+                }
+            });
+        } else {
+            // Show error message
+            const container = document.getElementById('agentModelsContainer');
+            container.innerHTML = `
+                <div class="bg-yellow-50 dark:bg-yellow-900/20 rounded-lg p-4 border border-yellow-200 dark:border-yellow-700">
+                    <p class="text-sm text-yellow-800 dark:text-yellow-300">
+                        ⚠️ Could not load LMStudio models: ${data.message || 'Unknown error'}
+                    </p>
+                    <p class="text-xs text-yellow-600 dark:text-yellow-400 mt-2">
+                        Make sure LMStudio is running and accessible at the configured URL.
+                    </p>
+                </div>
+            `;
+        }
+    } catch (error) {
+        console.error('Error loading LMStudio models:', error);
+        const container = document.getElementById('agentModelsContainer');
+        container.innerHTML = `
+            <div class="bg-red-50 dark:bg-red-900/20 rounded-lg p-4 border border-red-200 dark:border-red-700">
+                <p class="text-sm text-red-800 dark:text-red-300">
+                    ❌ Error loading LMStudio models: ${error.message}
+                </p>
+            </div>
+        `;
     }
 }
 
@@ -939,8 +1060,29 @@ document.getElementById('workflowConfigForm').addEventListener('submit', async (
         junk_filter_threshold: parseFloat(document.getElementById('junkFilterThreshold').value),
         ranking_threshold: parseFloat(document.getElementById('rankingThreshold').value),
         similarity_threshold: parseFloat(document.getElementById('similarityThreshold').value),
-        description: document.getElementById('description').value
+        description: document.getElementById('description').value,
+        agent_models: {
+            RankAgent: document.getElementById('rankagent-model').value.trim() || null,
+            ExtractAgent: document.getElementById('extractagent-model').value.trim() || null,
+            SigmaAgent: document.getElementById('sigmaagent-model').value.trim() || null
+        }
     };
+    
+    // Validate RankAgent model is set
+    if (!formData.agent_models.RankAgent) {
+        alert('Rank Agent model is required. Please select a model from the dropdown.');
+        document.getElementById('rankagent-model').focus();
+        return;
+    }
+    
+    // Remove null values from agent_models
+    const cleanedAgentModels = {};
+    for (const [key, value] of Object.entries(formData.agent_models)) {
+        if (value !== null && value !== '') {
+            cleanedAgentModels[key] = value;
+        }
+    }
+    formData.agent_models = Object.keys(cleanedAgentModels).length > 0 ? cleanedAgentModels : null;
     
     try {
         const response = await fetch('/api/workflow/config', {
@@ -1080,6 +1222,31 @@ async function viewExecution(executionId) {
         if (response.ok) {
             const exec = await response.json();
             
+            // Fetch active config to get agent_models if not in config_snapshot
+            let activeConfig = null;
+            try {
+                const configResponse = await fetch('/api/workflow/config');
+                if (configResponse.ok) {
+                    activeConfig = await configResponse.json();
+                }
+            } catch (e) {
+                console.warn('Could not fetch active config:', e);
+            }
+            
+            // Helper function to get model name
+            const getModel = (agentName) => {
+                // First try config_snapshot
+                if (exec.config_snapshot?.agent_models?.[agentName]) {
+                    return exec.config_snapshot.agent_models[agentName];
+                }
+                // Then try active config
+                if (activeConfig?.agent_models?.[agentName]) {
+                    return activeConfig.agent_models[agentName];
+                }
+                // Fallback to environment
+                return 'From environment';
+            };
+            
             highlightCurrentStep(exec.current_step);
             
             // Build step-by-step inputs/outputs
@@ -1130,6 +1297,9 @@ async function viewExecution(executionId) {
                     </div>
                 </details>` : '';
                 
+                // Get model used for ranking
+                const rankModel = getModel('RankAgent');
+                
                 steps.push({
                     name: 'Step 1: LLM Ranking',
                     input: `<div class="space-y-1">
@@ -1138,6 +1308,7 @@ async function viewExecution(executionId) {
                         <div>• Article URL: ${exec.article_url || 'N/A'}</div>
                         <div>• Source metadata</div>
                         <div>• RankAgent prompt from workflow config</div>
+                        <div>• Model: <span class="font-mono text-xs">${rankModel}</span></div>
                     </div>`,
                     inputDetails: filteredContentDetails,
                     output: `<div class="space-y-1 text-gray-700 dark:text-gray-300">
@@ -1151,54 +1322,47 @@ async function viewExecution(executionId) {
             
             // Step 2: Extract Agent
             if (exec.extraction_result) {
-                const obsCount = exec.extraction_result.observable_list?.length || 0;
-                const behObsCount = exec.extraction_result.behavioral_observables?.length || 0;
-                const detQueryCount = exec.extraction_result.detection_queries?.length || 0;
-                const discreteHuntablesCount = exec.extraction_result.discrete_huntables_count || 0;
+                const observables = exec.extraction_result.observables || [];
+                const summary = exec.extraction_result.summary || {};
+                const discreteHuntablesCount = exec.extraction_result.discrete_huntables_count || summary.count || 0;
+                const obsCount = observables.length;
                 
                 // Build expandable sections for all findings
                 const detailsSections = [];
                 
-                // Observable List
+                // Observables (new format)
                 if (obsCount > 0) {
                     detailsSections.push(`<details class="mt-2 w-full">
-                            <summary class="cursor-pointer text-xs !text-white dark:!text-white hover:text-gray-900 dark:hover:text-gray-100" style="color: white !important;">View Observable List (${obsCount} items)</summary>
-                            <div class="mt-2 w-full max-h-48 overflow-y-auto bg-gray-50 dark:bg-gray-900 rounded p-2 border text-xs font-mono">
-                                <ol class="list-decimal list-inside space-y-1 text-gray-900 dark:text-white">
-                                    ${exec.extraction_result.observable_list.map(obs => `<li class="break-all">${obs}</li>`).join('')}
-                                </ol>
+                            <summary class="cursor-pointer text-xs !text-white dark:!text-white hover:text-gray-900 dark:hover:text-gray-100" style="color: white !important;">View Observables (${obsCount} items)</summary>
+                            <div class="mt-2 w-full max-h-96 overflow-y-auto bg-gray-50 dark:bg-gray-900 rounded p-2 border text-xs">
+                                <div class="space-y-3">
+                                    ${observables.map((obs, idx) => {
+                                        const type = obs.type || 'Unknown';
+                                        const value = obs.value || '';
+                                        const platform = obs.platform || 'Unknown';
+                                        const sourceContext = obs.source_context || '';
+                                        return `<div class="border-b border-gray-300 dark:border-gray-600 pb-2">
+                                            <div class="font-semibold text-gray-900 dark:text-white">${idx + 1}. ${type}</div>
+                                            <div class="text-gray-700 dark:text-gray-300 mt-1 break-all">${value}</div>
+                                            ${platform !== 'Unknown' ? `<div class="text-gray-600 dark:text-gray-400 mt-1">Platform: ${platform}</div>` : ''}
+                                            ${sourceContext ? `<div class="text-gray-600 dark:text-gray-400 mt-1 italic">Context: ${sourceContext}</div>` : ''}
+                                        </div>`;
+                                    }).join('')}
+                                </div>
                             </div>
                         </details>`);
                 }
                 
-                // Behavioral Observables
-                if (behObsCount > 0) {
-                    const behObs = Array.isArray(exec.extraction_result.behavioral_observables) ? exec.extraction_result.behavioral_observables : [];
+                // Summary
+                if (summary && (summary.count !== undefined || summary.platforms_detected || summary.source_url)) {
                     detailsSections.push(`<details class="mt-2 w-full">
-                            <summary class="cursor-pointer text-xs !text-white dark:!text-white hover:text-gray-900 dark:hover:text-gray-100" style="color: white !important;">View Behavioral Observables (${behObsCount} items)</summary>
-                            <div class="mt-2 w-full max-h-48 overflow-y-auto bg-gray-50 dark:bg-gray-900 rounded p-2 border text-xs font-mono">
-                                <ol class="list-decimal list-inside space-y-1 text-gray-900 dark:text-white">
-                                    ${behObs.map((obs, idx) => {
-                                        const obsText = typeof obs === 'string' ? obs : (obs.observable || obs.command_line || obs.value || JSON.stringify(obs));
-                                        return `<li class="break-all">${obsText}</li>`;
-                                    }).join('')}
-                                </ol>
-                            </div>
-                        </details>`);
-                }
-                
-                // Detection Queries
-                if (detQueryCount > 0) {
-                    const detQueries = Array.isArray(exec.extraction_result.detection_queries) ? exec.extraction_result.detection_queries : [];
-                    detailsSections.push(`<details class="mt-2 w-full">
-                            <summary class="cursor-pointer text-xs !text-white dark:!text-white hover:text-gray-900 dark:hover:text-gray-100" style="color: white !important;">View Detection Queries (${detQueryCount} items)</summary>
-                            <div class="mt-2 w-full max-h-48 overflow-y-auto bg-gray-50 dark:bg-gray-900 rounded p-2 border text-xs font-mono">
-                                <ol class="list-decimal list-inside space-y-1 text-gray-900 dark:text-white">
-                                    ${detQueries.map((query, idx) => {
-                                        const queryText = typeof query === 'string' ? query : (query.query || query.text || JSON.stringify(query));
-                                        return `<li class="break-all">${queryText}</li>`;
-                                    }).join('')}
-                                </ol>
+                            <summary class="cursor-pointer text-xs !text-white dark:!text-white hover:text-gray-900 dark:hover:text-gray-100" style="color: white !important;">View Summary</summary>
+                            <div class="mt-2 w-full bg-gray-50 dark:bg-gray-900 rounded p-2 border text-xs">
+                                <div class="space-y-2 text-gray-900 dark:text-white">
+                                    ${summary.count !== undefined ? `<div><strong>Count:</strong> ${summary.count}</div>` : ''}
+                                    ${summary.source_url ? `<div><strong>Source URL:</strong> <a href="${summary.source_url}" target="_blank" class="text-blue-600 dark:text-blue-400 hover:underline">${summary.source_url}</a></div>` : ''}
+                                    ${summary.platforms_detected && summary.platforms_detected.length > 0 ? `<div><strong>Platforms Detected:</strong> ${summary.platforms_detected.join(', ')}</div>` : ''}
+                                </div>
                             </div>
                         </details>`);
                 }
@@ -1234,6 +1398,9 @@ async function viewExecution(executionId) {
                     </div>
                 </details>` : '';
                 
+                // Get model used for extraction
+                const extractModel = getModel('ExtractAgent');
+                
                 steps.push({
                     name: 'Step 2: Extract Agent',
                     input: `<div class="space-y-1">
@@ -1241,13 +1408,13 @@ async function viewExecution(executionId) {
                         <div>• Article title: "${exec.article_title || 'N/A'}"</div>
                         <div>• Article URL: ${exec.article_url || 'N/A'}</div>
                         <div>• ExtractAgent prompt from workflow config</div>
+                        <div>• Model: <span class="font-mono text-xs">${extractModel}</span></div>
                     </div>`,
                     inputDetails: extractInputDetails,
                     output: `<div class="space-y-1 text-gray-700 dark:text-gray-300">
                         <div><strong>Discrete Huntables:</strong> ${discreteHuntablesCount}</div>
-                        <div><strong>Observable List:</strong> ${obsCount} items</div>
-                        <div><strong>Behavioral Observables:</strong> ${behObsCount} items</div>
-                        <div><strong>Detection Queries:</strong> ${detQueryCount} items</div>
+                        <div><strong>Observables:</strong> ${obsCount} items</div>
+                        ${summary.platforms_detected && summary.platforms_detected.length > 0 ? `<div><strong>Platforms:</strong> ${summary.platforms_detected.join(', ')}</div>` : ''}
                     </div>`,
                     details: detailsSections.join('')
                 });
@@ -1415,13 +1582,17 @@ async function viewExecution(executionId) {
                     </div>
                 </details>` : '';
                 
+                // Get model used for SIGMA generation
+                const sigmaModel = getModel('SigmaAgent');
+                
                 steps.push({
                     name: 'Step 3: Generate SIGMA',
                     input: `<div class="space-y-1">
                         <div>• Extracted huntables: ${exec.extraction_result ? (exec.extraction_result.discrete_huntables_count || 0) : 0}</div>
-                        <div>• Behavioral observables: ${exec.extraction_result ? (exec.extraction_result.behavioral_observables?.length || 0) : 0}</div>
+                        <div>• Observables: ${exec.extraction_result ? (exec.extraction_result.observables?.length || 0) : 0}</div>
                         <div>• Article title: "${exec.article_title || 'N/A'}"</div>
                         <div>• SigmaAgent prompt from workflow config</div>
+                        <div>• Model: <span class="font-mono text-xs">${sigmaModel}</span></div>
                     </div>`,
                     inputDetails: extractContentDetails,
                     output: `<div class="space-y-1 text-gray-700 dark:text-gray-300">

@@ -28,6 +28,7 @@ class WorkflowConfigResponse(BaseModel):
     is_active: bool
     description: Optional[str]
     agent_prompts: Optional[Dict[str, Any]] = None
+    agent_models: Optional[Dict[str, str]] = None
     created_at: str
     updated_at: str
 
@@ -40,6 +41,7 @@ class WorkflowConfigUpdate(BaseModel):
     junk_filter_threshold: Optional[float] = Field(None, ge=0.0, le=1.0, description="Must be between 0.0 and 1.0")
     description: Optional[str] = None
     agent_prompts: Optional[Dict[str, Any]] = None
+    agent_models: Optional[Dict[str, str]] = None
 
 
 class AgentPromptUpdate(BaseModel):
@@ -94,6 +96,7 @@ async def get_workflow_config(request: Request):
                 is_active=config.is_active,
                 description=config.description,
                 agent_prompts=config.agent_prompts,
+                agent_models=config.agent_models,
                 created_at=config.created_at.isoformat(),
                 updated_at=config.updated_at.isoformat()
             )
@@ -145,7 +148,8 @@ async def update_workflow_config(request: Request, config_update: WorkflowConfig
                 version=new_version,
                 is_active=True,
                 description=config_update.description or (current_config.description if current_config else "Updated configuration"),
-                agent_prompts=config_update.agent_prompts if config_update.agent_prompts is not None else (current_config.agent_prompts if current_config else None)
+                agent_prompts=config_update.agent_prompts if config_update.agent_prompts is not None else (current_config.agent_prompts if current_config else None),
+                agent_models=config_update.agent_models if config_update.agent_models is not None else (current_config.agent_models if current_config else None)
             )
             
             db_session.add(new_config)
@@ -164,6 +168,7 @@ async def update_workflow_config(request: Request, config_update: WorkflowConfig
                 is_active=new_config.is_active,
                 description=new_config.description,
                 agent_prompts=new_config.agent_prompts,
+                agent_models=new_config.agent_models,
                 created_at=new_config.created_at.isoformat(),
                 updated_at=new_config.updated_at.isoformat()
             )
@@ -192,14 +197,18 @@ async def get_agent_prompts(request: Request):
             if not config:
                 raise HTTPException(status_code=404, detail="No active workflow configuration found")
             
-            # Get model names from environment
+            # Get model names from config first, then fall back to environment
             import os
             default_model = os.getenv("LMSTUDIO_MODEL", "mistralai/mistral-7b-instruct-v0.3")
             rank_model_env = os.getenv("LMSTUDIO_MODEL_RANK", "").strip()
-            # RankAgent requires explicit model (no fallback in service)
-            rank_model = rank_model_env if rank_model_env else "[Not configured - requires LMSTUDIO_MODEL_RANK]"
-            extract_model = os.getenv("LMSTUDIO_MODEL_EXTRACT", "").strip() or default_model
-            sigma_model = os.getenv("LMSTUDIO_MODEL_SIGMA", "").strip() or default_model
+            extract_model_env = os.getenv("LMSTUDIO_MODEL_EXTRACT", "").strip()
+            sigma_model_env = os.getenv("LMSTUDIO_MODEL_SIGMA", "").strip()
+            
+            # Use config models if available, otherwise fall back to env vars
+            agent_models = config.agent_models or {}
+            rank_model = agent_models.get("RankAgent") or rank_model_env or "[Not configured - requires LMSTUDIO_MODEL_RANK]"
+            extract_model = agent_models.get("ExtractAgent") or extract_model_env or default_model
+            sigma_model = agent_models.get("SigmaAgent") or sigma_model_env or default_model
             
             # Load default prompts from files if not in database
             from pathlib import Path

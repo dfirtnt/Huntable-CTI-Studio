@@ -456,6 +456,10 @@ class AgenticWorkflowConfigTable(Base):
     # Agent prompts (JSONB: {agent_name: {prompt: "...", instructions: "..."}})
     agent_prompts = Column(JSONB, nullable=True)
     
+    # Agent models (JSONB: {agent_name: "model_name"})
+    # e.g., {"RankAgent": "deepseek/deepseek-r1", "ExtractAgent": "...", "SigmaAgent": "..."}
+    agent_models = Column(JSONB, nullable=True)
+    
     # Timestamps
     created_at = Column(DateTime, nullable=False, default=func.now())
     updated_at = Column(DateTime, nullable=False, default=func.now(), onupdate=func.now())
