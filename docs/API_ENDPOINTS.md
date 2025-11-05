@@ -245,7 +245,6 @@ Use `full_analysis=true` when analysts click **Finish Full Analysis** in the UI;
 - `GET /health-checks` - Health checks monitoring page
 - `GET /chat` - RAG chat interface page
 - `GET /jobs` - Jobs monitoring page
-- `GET /help` - Help page
 - `GET /pdf-upload` - PDF upload page
 - `GET /analytics` - Analytics page
 - `GET /analytics/scraper-metrics` - Scraper metrics page

@@ -494,14 +494,6 @@ async def jobs_page(request: Request):
     )
 
 
-@router.get("/help", response_class=HTMLResponse)
-async def help_page(request: Request):
-    """Help and documentation page."""
-    return templates.TemplateResponse(
-        "help.html", {"request": request, "environment": ENVIRONMENT}
-    )
-
-
 @router.get("/ml-hunt-comparison", response_class=HTMLResponse)
 async def ml_hunt_comparison_page(request: Request):
     """ML vs Hunt scoring comparison page."""
