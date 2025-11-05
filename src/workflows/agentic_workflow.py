@@ -199,7 +199,9 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
             # Update execution record with ranking results
             if execution:
                 execution.ranking_score = ranking_score
-                execution.status = 'failed' if not should_continue else 'running'
+                execution.current_step = 'rank_article'
+                # Don't mark as failed if below threshold - this is a normal threshold stop, not an error
+                # The conditional edge will handle stopping the workflow
                 db_session.commit()
             
             logger.info(f"[Workflow {state['execution_id']}] Ranking: {ranking_score}/10 (threshold: {ranking_threshold}), continue: {should_continue}")
@@ -278,6 +280,15 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
             
         except Exception as e:
             logger.error(f"[Workflow {state['execution_id']}] Extraction error: {e}")
+            execution = db_session.query(AgenticWorkflowExecutionTable).filter(
+                AgenticWorkflowExecutionTable.id == state['execution_id']
+            ).first()
+            if execution:
+                execution.status = 'failed'
+                execution.error_message = str(e)
+                execution.current_step = 'extract_agent'
+                db_session.commit()
+            
             return {
                 **state,
                 'error': str(e),
@@ -324,10 +335,39 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
             )
             
             sigma_rules = generation_result.get('rules', [])
+            sigma_errors = generation_result.get('errors')
+            sigma_metadata = generation_result.get('metadata', {})
             
             # Update execution record with SIGMA results
             if execution:
                 execution.sigma_rules = sigma_rules
+                
+                # Check if SIGMA validation failed (no valid rules generated)
+                # Check both errors field and metadata validation results
+                validation_failed = (
+                    not sigma_rules and sigma_errors
+                ) or (
+                    sigma_metadata.get('valid_rules', 0) == 0 and 
+                    sigma_metadata.get('validation_results') and
+                    not any(r.get('is_valid', False) for r in sigma_metadata.get('validation_results', []))
+                )
+                
+                if validation_failed:
+                    error_msg = sigma_errors or "SIGMA validation failed: No valid rules generated after all attempts"
+                    execution.status = 'failed'
+                    execution.error_message = error_msg
+                    execution.current_step = 'generate_sigma'
+                    db_session.commit()
+                    logger.error(f"[Workflow {state['execution_id']}] SIGMA validation failed: {error_msg}")
+                    
+                    return {
+                        **state,
+                        'sigma_rules': [],
+                        'error': error_msg,
+                        'current_step': 'generate_sigma',
+                        'should_continue': False
+                    }
+                
                 db_session.commit()
             
             logger.info(f"[Workflow {state['execution_id']}] Generated {len(sigma_rules)} SIGMA rules")
@@ -351,13 +391,35 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
             return {
                 **state,
                 'error': str(e),
-                'current_step': 'generate_sigma'
+                'current_step': 'generate_sigma',
+                'should_continue': False
             }
+    
+    def check_sigma_generation(state: WorkflowState) -> str:
+        """Check if SIGMA generation succeeded or if workflow should stop."""
+        # Only stop if there's an actual error (SIGMA validation failure)
+        # Don't stop for threshold-based stops (those are handled by rank_article check)
+        if state.get('error'):
+            logger.warning(f"[Workflow {state.get('execution_id')}] SIGMA generation failed with error, stopping workflow")
+            return "end"
+        # Continue to similarity search if no error
+        logger.info(f"[Workflow {state.get('execution_id')}] SIGMA generation succeeded, continuing to similarity search")
+        return "similarity_search"
     
     async def similarity_search_node(state: WorkflowState) -> WorkflowState:
         """Step 4: Search for similar SIGMA rules."""
         try:
             logger.info(f"[Workflow {state['execution_id']}] Step 4: Similarity Search")
+            
+            # Check if workflow already failed (e.g., SIGMA validation failed)
+            if state.get('error'):
+                logger.warning(f"[Workflow {state['execution_id']}] Workflow has error, skipping similarity search")
+                return {
+                    **state,
+                    'similarity_results': [],
+                    'max_similarity': 1.0,
+                    'current_step': state.get('current_step', 'similarity_search')
+                }
             
             sigma_rules = state.get('sigma_rules', [])
             if not sigma_rules:
@@ -402,7 +464,9 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
             ).first()
             
             if execution:
-                execution.current_step = 'similarity_search'
+                # Only update current_step if workflow didn't fail earlier
+                if execution.status != 'failed':
+                    execution.current_step = 'similarity_search'
                 execution.similarity_results = similarity_results
                 db_session.commit()
             
@@ -417,6 +481,15 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
             
         except Exception as e:
             logger.error(f"[Workflow {state['execution_id']}] Similarity search error: {e}")
+            execution = db_session.query(AgenticWorkflowExecutionTable).filter(
+                AgenticWorkflowExecutionTable.id == state['execution_id']
+            ).first()
+            if execution:
+                execution.status = 'failed'
+                execution.error_message = str(e)
+                execution.current_step = 'similarity_search'
+                db_session.commit()
+            
             return {
                 **state,
                 'error': str(e),
@@ -427,6 +500,23 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
         """Step 5: Promote rules to queue if similarity is low."""
         try:
             logger.info(f"[Workflow {state['execution_id']}] Step 5: Promote to Queue")
+            
+            # Check if workflow already failed - should not reach here if conditional edge works correctly
+            if state.get('error'):
+                logger.warning(f"[Workflow {state['execution_id']}] Workflow has error, skipping queue promotion")
+                execution = db_session.query(AgenticWorkflowExecutionTable).filter(
+                    AgenticWorkflowExecutionTable.id == state['execution_id']
+                ).first()
+                if execution and execution.status != 'failed':
+                    execution.status = 'failed'
+                    execution.error_message = state.get('error')
+                    execution.current_step = state.get('current_step', 'generate_sigma')
+                    db_session.commit()
+                return {
+                    **state,
+                    'queued_rules': [],
+                    'current_step': state.get('current_step', 'generate_sigma')
+                }
             
             sigma_rules = state.get('sigma_rules', [])
             similarity_results = state.get('similarity_results', [])
@@ -478,9 +568,13 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
             ).first()
             
             if execution:
-                execution.current_step = 'promote_to_queue'
-                execution.status = 'completed'
-                execution.completed_at = datetime.utcnow()
+                # Only update current_step if workflow didn't fail earlier
+                if execution.status != 'failed':
+                    execution.current_step = 'promote_to_queue'
+                    execution.status = 'completed'
+                    execution.completed_at = datetime.utcnow()
+                # If failed, preserve the failed step (e.g., 'generate_sigma')
+                
                 db_session.commit()
             
             return {
@@ -497,6 +591,7 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
             if execution:
                 execution.status = 'failed'
                 execution.error_message = str(e)
+                execution.current_step = 'promote_to_queue'
                 db_session.commit()
             
             return {
@@ -535,7 +630,14 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
         }
     )
     workflow.add_edge("extract_agent", "generate_sigma")
-    workflow.add_edge("generate_sigma", "similarity_search")
+    workflow.add_conditional_edges(
+        "generate_sigma",
+        check_sigma_generation,
+        {
+            "similarity_search": "similarity_search",
+            "end": END
+        }
+    )
     workflow.add_edge("similarity_search", "promote_to_queue")
     workflow.add_edge("promote_to_queue", END)
     
@@ -632,6 +734,45 @@ async def run_workflow(article_id: int, db_session: Session) -> Dict[str, Any]:
                     error=None if final_state.get('error') is None else Exception(final_state.get('error')),
                     metadata={"final_step": final_state.get('current_step')}
                 )
+        
+        # Ensure execution status matches final state
+        # Refresh execution from database to get latest status
+        db_session.refresh(execution)
+        execution = db_session.query(AgenticWorkflowExecutionTable).filter(
+            AgenticWorkflowExecutionTable.id == execution.id
+        ).first()
+        
+        if execution:
+            # Determine final status based on final state
+            # Only mark as failed if there's an actual error (not threshold stops)
+            has_error = final_state.get('error') is not None
+            
+            if has_error:
+                # Actual error occurred - mark as failed
+                if execution.status != 'failed':
+                    execution.status = 'failed'
+                    execution.error_message = final_state.get('error')
+                    execution.current_step = final_state.get('current_step', 'generate_sigma')
+                    db_session.commit()
+                    logger.warning(f"[Workflow {execution.id}] Marked as 'failed' due to error: {final_state.get('error')}")
+                else:
+                    # Already failed, just ensure current_step is correct
+                    if not execution.current_step or execution.current_step == 'promote_to_queue':
+                        execution.current_step = final_state.get('current_step', 'generate_sigma')
+                        db_session.commit()
+            elif execution.status == 'running':
+                # No error - mark as completed (even if stopped by thresholds)
+                execution.status = 'completed'
+                execution.completed_at = datetime.utcnow()
+                execution.current_step = final_state.get('current_step', 'rank_article')
+                db_session.commit()
+                logger.info(f"[Workflow {execution.id}] Marked as 'completed' - workflow finished normally")
+            elif execution.status == 'failed':
+                # Already marked as failed - ensure current_step is correct
+                if not execution.current_step or execution.current_step == 'promote_to_queue':
+                    execution.current_step = final_state.get('current_step', 'generate_sigma')
+                    db_session.commit()
+                    logger.info(f"[Workflow {execution.id}] Updated current_step to {execution.current_step} for failed execution")
         
         return {
             'success': final_state.get('error') is None,

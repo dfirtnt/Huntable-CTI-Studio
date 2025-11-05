@@ -598,6 +598,8 @@ Cannot process empty articles."""
             )
             
             sigma_rules = sigma_result.get('rules', [])
+            sigma_errors = sigma_result.get('errors')
+            sigma_metadata = sigma_result.get('metadata', {})
             
             # Update execution record
             execution_id = state.get('execution_id')
@@ -609,6 +611,33 @@ Cannot process empty articles."""
                 if execution:
                     execution.current_step = 'generate_sigma'
                     execution.sigma_rules = sigma_rules
+                    
+                    # Check if SIGMA validation failed (no valid rules generated)
+                    # Check both errors field and metadata validation results
+                    validation_failed = (
+                        not sigma_rules and sigma_errors
+                    ) or (
+                        sigma_metadata.get('valid_rules', 0) == 0 and 
+                        sigma_metadata.get('validation_results') and
+                        not any(r.get('is_valid', False) for r in sigma_metadata.get('validation_results', []))
+                    )
+                    
+                    if validation_failed:
+                        error_msg = sigma_errors or "SIGMA validation failed: No valid rules generated after all attempts"
+                        execution.status = 'failed'
+                        execution.error_message = error_msg
+                        db_session.commit()
+                        logger.error(f"[Workflow {execution_id}] SIGMA validation failed: {error_msg}")
+                        
+                        return {
+                            **state,
+                            'sigma_rules': [],
+                            'error': error_msg,
+                            'error_log': {**(state.get('error_log') or {}), 'generate_sigma': error_msg},
+                            'current_step': 'generate_sigma',
+                            'status': 'failed'
+                        }
+                    
                     db_session.commit()
             
             return {
@@ -636,6 +665,17 @@ Cannot process empty articles."""
         db_session = get_db_session()
         try:
             logger.info(f"[Workflow {state.get('execution_id')}] Step 4: Similarity Search")
+            
+            # Check if workflow already failed (e.g., SIGMA validation failed)
+            if state.get('error'):
+                logger.warning(f"[Workflow {state.get('execution_id')}] Workflow has error, skipping similarity search")
+                return {
+                    **state,
+                    'similarity_results': [],
+                    'max_similarity': 1.0,
+                    'current_step': state.get('current_step', 'similarity_search'),
+                    'status': state.get('status', 'failed')
+                }
             
             # Lazy-load RAGService only when similarity search runs (to avoid loading embedding models at startup)
             rag_service = RAGService()
@@ -665,7 +705,9 @@ Cannot process empty articles."""
                 ).first()
                 
                 if execution:
-                    execution.current_step = 'similarity_search'
+                    # Only update current_step if workflow didn't fail earlier
+                    if execution.status != 'failed':
+                        execution.current_step = 'similarity_search'
                     execution.similarity_results = similarity_results
                     db_session.commit()
             
@@ -829,9 +871,13 @@ Check the Workflow > Executions tab for detailed error logs."""
                 ).first()
                 
                 if execution:
-                    execution.current_step = 'promote_to_queue'
-                    execution.status = 'completed'
-                    execution.completed_at = datetime.utcnow()
+                    # Only update current_step and status if workflow didn't fail earlier
+                    if execution.status != 'failed':
+                        execution.current_step = 'promote_to_queue'
+                        execution.status = 'completed'
+                        execution.completed_at = datetime.utcnow()
+                    # If failed, preserve the failed step (e.g., 'generate_sigma')
+                    
                     db_session.commit()
             
             return {
@@ -912,8 +958,26 @@ Check the Workflow > Executions tab for detailed error logs."""
             "end": "generate_response"  # Route failed rankings to generate_response for chat-friendly error message
         }
     )
+    def check_sigma_generation(state: ExposableWorkflowState) -> str:
+        """Check if SIGMA generation succeeded or if workflow should stop."""
+        # Stop if there's an error
+        if state.get('error'):
+            return "generate_response"  # Route to generate_response for error message
+        # Stop if status is failed
+        if state.get('status') == 'failed':
+            return "generate_response"
+        # Otherwise continue to similarity search
+        return "similarity_search"
+    
     workflow.add_edge("extract_agent", "generate_sigma")
-    workflow.add_edge("generate_sigma", "similarity_search")
+    workflow.add_conditional_edges(
+        "generate_sigma",
+        check_sigma_generation,
+        {
+            "similarity_search": "similarity_search",
+            "generate_response": "generate_response"
+        }
+    )
     workflow.add_edge("similarity_search", "promote_to_queue")
     workflow.add_edge("promote_to_queue", "generate_response")
     workflow.add_edge("generate_response", END)
