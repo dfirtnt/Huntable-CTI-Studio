@@ -412,6 +412,78 @@
                     <p class="text-sm text-gray-500 mt-1">Required for Claude analysis functionality</p>
                 </div>
                 
+                <!-- Langfuse API Keys -->
+                <div id="langfuseApiKeySection" class="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Langfuse Configuration</h3>
+                    
+                    <!-- Langfuse Public Key -->
+                    <div class="mb-4">
+                        <label for="langfusePublicKey" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                            Langfuse Public Key
+                        </label>
+                        <div class="relative">
+                            <input type="password" 
+                                   id="langfusePublicKey" 
+                                   placeholder="pk-..." 
+                                   class="w-full px-3 py-2 pr-10 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white">
+                            <button type="button" 
+                                    id="toggleLangfusePublicKey" 
+                                    class="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+                                <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                                </svg>
+                            </button>
+                        </div>
+                        <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Required for Langfuse observability and tracing</p>
+                    </div>
+                    
+                    <!-- Langfuse Secret Key -->
+                    <div class="mb-4">
+                        <label for="langfuseSecretKey" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                            Langfuse Secret Key
+                        </label>
+                        <div class="relative">
+                            <input type="password" 
+                                   id="langfuseSecretKey" 
+                                   placeholder="sk-..." 
+                                   class="w-full px-3 py-2 pr-10 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white">
+                            <button type="button" 
+                                    id="toggleLangfuseSecretKey" 
+                                    class="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+                                <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Langfuse Host -->
+                    <div class="mb-4">
+                        <label for="langfuseHost" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                            Langfuse Host URL
+                        </label>
+                        <input type="text" 
+                               id="langfuseHost" 
+                               placeholder="https://cloud.langfuse.com" 
+                               class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white">
+                        <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Optional: Defaults to https://cloud.langfuse.com</p>
+                    </div>
+                    
+                    <!-- Langfuse Project ID -->
+                    <div class="mb-4">
+                        <label for="langfuseProjectId" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                            Langfuse Project ID
+                        </label>
+                        <input type="text" 
+                               id="langfuseProjectId" 
+                               placeholder="cmhk4f8nr02m9ad07cq29m3be" 
+                               class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white">
+                        <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Optional: Found in your Langfuse URL (e.g., https://us.cloud.langfuse.com/project/{project_id}/traces)</p>
+                    </div>
+                </div>
+                
                 <!-- Test API Key Button -->
                 <div>
                     <button id="testApiKey" 
@@ -459,6 +531,16 @@
         const anthropicApiKey = settings.anthropicApiKey || '';
         document.getElementById('anthropicApiKey').value = anthropicApiKey;
         
+        // Set Langfuse API keys
+        const langfusePublicKey = settings.langfusePublicKey || '';
+        document.getElementById('langfusePublicKey').value = langfusePublicKey;
+        const langfuseSecretKey = settings.langfuseSecretKey || '';
+        document.getElementById('langfuseSecretKey').value = langfuseSecretKey;
+        const langfuseHost = settings.langfuseHost || '';
+        document.getElementById('langfuseHost').value = langfuseHost;
+        const langfuseProjectId = settings.langfuseProjectId || '';
+        document.getElementById('langfuseProjectId').value = langfuseProjectId;
+        
         // Set AI model
         const aiModel = settings.aiModel || 'chatgpt';
         document.getElementById('aiModel').value = aiModel;
@@ -488,7 +570,13 @@
         const apiSection = document.getElementById('apiConfigurationSection');
         const openaiSection = document.getElementById('openaiApiKeySection');
         const anthropicSection = document.getElementById('anthropicApiKeySection');
+        const langfuseSection = document.getElementById('langfuseApiKeySection');
         const testApiKeyBtn = document.getElementById('testApiKey');
+        
+        // Langfuse section is always visible (independent of AI model)
+        if (langfuseSection) {
+            langfuseSection.style.display = 'block';
+        }
         
         if (aiModel === 'chatgpt' || aiModel === 'anthropic') {
             apiSection.style.display = 'block';
@@ -503,20 +591,35 @@
                 anthropicSection.style.display = 'block';
                 testApiKeyBtn.textContent = '🧪 Test Anthropic API Key';
             }
+            if (testApiKeyBtn) {
+                testApiKeyBtn.style.display = 'inline-flex';
+            }
         } else if (aiModel === 'ollama' || aiModel === 'tinyllama') {
             // Show API section for Ollama models but hide API key inputs
             apiSection.style.display = 'block';
             openaiSection.style.display = 'none';
             anthropicSection.style.display = 'none';
             testApiKeyBtn.textContent = aiModel === 'tinyllama' ? '🧪 Test TinyLlama Connection' : '🧪 Test Ollama Connection';
+            if (testApiKeyBtn) {
+                testApiKeyBtn.style.display = 'inline-flex';
+            }
         } else if (aiModel === 'lmstudio') {
             // Show API section for LMStudio but hide API key inputs
             apiSection.style.display = 'block';
             openaiSection.style.display = 'none';
             anthropicSection.style.display = 'none';
             testApiKeyBtn.textContent = '🧪 Test LMStudio Connection';
+            if (testApiKeyBtn) {
+                testApiKeyBtn.style.display = 'inline-flex';
+            }
         } else {
-            apiSection.style.display = 'none';
+            // Show API section for Langfuse even if no AI model selected
+            apiSection.style.display = 'block';
+            openaiSection.style.display = 'none';
+            anthropicSection.style.display = 'none';
+            if (testApiKeyBtn) {
+                testApiKeyBtn.style.display = 'none';
+            }
         }
 
         // Show/hide LMStudio model selection dropdown
@@ -637,6 +740,10 @@
             // Only save non-empty keys (preserve existing if field is empty)
             openaiApiKey: openaiKeyInput || '',
             anthropicApiKey: anthropicKeyInput || '',
+            langfusePublicKey: document.getElementById('langfusePublicKey').value.trim() || '',
+            langfuseSecretKey: document.getElementById('langfuseSecretKey').value.trim() || '',
+            langfuseHost: document.getElementById('langfuseHost').value.trim() || '',
+            langfuseProjectId: document.getElementById('langfuseProjectId').value.trim() || '',
             aiModel: aiModelInput,
             aiTemperature: document.getElementById('aiTemperature').value,
             sigmaAuthor: document.getElementById('sigmaAuthor').value,
@@ -661,6 +768,38 @@
         };
 
         localStorage.setItem('ctiScraperSettings', JSON.stringify(settings));
+
+        // Save Langfuse keys to backend API
+        try {
+            const langfuseUpdates = [];
+            if (document.getElementById('langfusePublicKey').value.trim()) {
+                langfuseUpdates.push({ key: 'LANGFUSE_PUBLIC_KEY', value: document.getElementById('langfusePublicKey').value.trim() });
+            }
+            if (document.getElementById('langfuseSecretKey').value.trim()) {
+                langfuseUpdates.push({ key: 'LANGFUSE_SECRET_KEY', value: document.getElementById('langfuseSecretKey').value.trim() });
+            }
+            if (document.getElementById('langfuseHost').value.trim()) {
+                langfuseUpdates.push({ key: 'LANGFUSE_HOST', value: document.getElementById('langfuseHost').value.trim() });
+            }
+            if (document.getElementById('langfuseProjectId').value.trim()) {
+                langfuseUpdates.push({ key: 'LANGFUSE_PROJECT_ID', value: document.getElementById('langfuseProjectId').value.trim() });
+            }
+            
+            for (const update of langfuseUpdates) {
+                await fetch('/api/settings', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(update)
+                });
+            }
+            if (langfuseUpdates.length > 0) {
+                console.log('✅ Langfuse keys saved to database');
+            }
+        } catch (error) {
+            console.error('❌ Error saving Langfuse keys:', error);
+        }
 
         // Save LMStudio model to database (if selected and changed)
         if (aiModelInput === 'lmstudio' && lmstudioModelInput) {
@@ -886,6 +1025,46 @@
         }
     }
     
+    // Toggle Langfuse Public Key visibility
+    function toggleLangfusePublicKeyVisibility() {
+        const input = document.getElementById('langfusePublicKey');
+        const button = document.getElementById('toggleLangfusePublicKey');
+        const icon = button.querySelector('svg');
+        
+        if (input.type === 'password') {
+            input.type = 'text';
+            icon.innerHTML = `
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.878 9.878L3 3m6.878 6.878L21 21"></path>
+            `;
+        } else {
+            input.type = 'password';
+            icon.innerHTML = `
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+            `;
+        }
+    }
+    
+    // Toggle Langfuse Secret Key visibility
+    function toggleLangfuseSecretKeyVisibility() {
+        const input = document.getElementById('langfuseSecretKey');
+        const button = document.getElementById('toggleLangfuseSecretKey');
+        const icon = button.querySelector('svg');
+        
+        if (input.type === 'password') {
+            input.type = 'text';
+            icon.innerHTML = `
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.878 9.878L3 3m6.878 6.878L21 21"></path>
+            `;
+        } else {
+            input.type = 'password';
+            icon.innerHTML = `
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+            `;
+        }
+    }
+    
     // Toggle functions
     function setToggleState(toggleId, enabled) {
         const toggle = document.getElementById(toggleId);
@@ -958,6 +1137,16 @@
         // Anthropic API key visibility toggle
         document.getElementById('toggleAnthropicApiKey').addEventListener('click', function() {
             toggleAnthropicApiKeyVisibility();
+        });
+        
+        // Langfuse Public Key visibility toggle
+        document.getElementById('toggleLangfusePublicKey').addEventListener('click', function() {
+            toggleLangfusePublicKeyVisibility();
+        });
+        
+        // Langfuse Secret Key visibility toggle
+        document.getElementById('toggleLangfuseSecretKey').addEventListener('click', function() {
+            toggleLangfuseSecretKeyVisibility();
         });
         
         // Test API key button

@@ -451,6 +451,7 @@ Cannot process empty articles."""
                 if execution:
                     execution.current_step = 'rank_article'
                     execution.ranking_score = ranking_score
+                    execution.ranking_reasoning = ranking_reasoning  # Store full reasoning
                     execution.status = 'failed' if not should_continue else 'running'
                     db_session.commit()
             

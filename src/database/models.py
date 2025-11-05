@@ -480,6 +480,7 @@ class AgenticWorkflowExecutionTable(Base):
     # Step results (stored as JSONB for flexibility)
     junk_filter_result = Column(JSONB, nullable=True)
     ranking_score = Column(Float, nullable=True)
+    ranking_reasoning = Column(Text, nullable=True)  # Full LLM reasoning response
     extraction_result = Column(JSONB, nullable=True)
     sigma_rules = Column(JSONB, nullable=True)  # Array of generated rules
     similarity_results = Column(JSONB, nullable=True)

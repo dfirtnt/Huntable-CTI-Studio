@@ -210,7 +210,7 @@
                            id="useLangGraphServer" 
                            class="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded">
                     <label for="useLangGraphServer" class="ml-2 block text-sm text-gray-700 dark:text-gray-300">
-                        Use LangGraph Server (creates traces in LangSmith)
+                        Use LangGraph Server (creates traces in Langfuse)
                     </label>
                 </div>
                 <div id="executeError" class="hidden bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md p-3 text-sm text-red-700 dark:text-red-400"></div>
@@ -437,8 +437,19 @@ async function viewExecution(executionId) {
                                 ${exec.ranking_score ? `
                                     <div class="mt-1 text-sm">
                                         <div>• Ranking Score: <strong>${exec.ranking_score.toFixed(1)}/10</strong></div>
-                                        <div>• Should Continue: ${exec.ranking_score >= (config.ranking_threshold || 6.0) ? '✅ Yes' : '❌ No'}</div>
+                                        <div>• Threshold: ${config.ranking_threshold || 6.0}/10</div>
+                                        <div>• Decision: ${exec.ranking_score >= (config.ranking_threshold || 6.0) ? '✅ Continue' : '❌ Stop'}</div>
                                     </div>
+                                    ${exec.ranking_reasoning ? `
+                                        <details class="mt-3 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+                                            <summary class="bg-gray-50 dark:bg-gray-700/50 px-3 py-2 cursor-pointer text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">
+                                                💭 Reasoning
+                                            </summary>
+                                            <div class="p-3 bg-white dark:bg-gray-800">
+                                                <pre class="text-xs text-gray-700 dark:text-gray-300 whitespace-pre-wrap font-mono">${exec.ranking_reasoning}</pre>
+                                            </div>
+                                        </details>
+                                    ` : ''}
                                 ` : '<span class="text-gray-400">No results</span>'}
                             </div>
                         </div>
@@ -683,7 +694,7 @@ async function executeWorkflow() {
             if (result.via_langgraph_server) {
                 alert('✅ Workflow executed via LangGraph Server\n\n' +
                       `Execution ID: ${result.execution_id}\n` +
-                      'This will create traces in LangSmith Studio.');
+                      'This will create traces in Langfuse.');
             } else {
                 alert('✅ Workflow execution started\n\n' +
                       `Execution ID: ${result.execution_id}\n` +
