@@ -104,6 +104,16 @@
                 </div>
                 {% endif %}
                 
+                <!-- Trigger Workflow Button -->
+                <div class="mb-4">
+                    <button onclick="triggerWorkflowForArticle({{ article.id }})" 
+                            id="triggerWorkflowBtn"
+                            class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 dark:bg-green-500 dark:hover:bg-green-600 transition-colors">
+                        <span class="mr-2">⚡</span>
+                        <span id="triggerWorkflowBtnText">Send to Workflow</span>
+                    </button>
+                </div>
+                
                 <!-- Delete Article Button -->
                 <div class="mb-4">
                     <button onclick="deleteArticle({{ article.id }})" 
@@ -5919,6 +5929,75 @@ ${JSON.stringify(rule.logsource, null, 2)}
                 console.error('Error:', error);
                 alert('Failed to delete article: ' + error.message);
             });
+        }
+    }
+    
+    async function triggerWorkflowForArticle(articleId) {
+        const btn = document.getElementById('triggerWorkflowBtn');
+        const btnText = document.getElementById('triggerWorkflowBtnText');
+        
+        // Disable button and show loading state
+        if (btn) {
+            btn.disabled = true;
+            btn.classList.add('opacity-50', 'cursor-not-allowed');
+        }
+        if (btnText) {
+            btnText.textContent = 'Triggering...';
+        }
+        
+        try {
+            showNotification('Triggering workflow...', 'info');
+            
+            const response = await fetch(`/api/workflow/articles/${articleId}/trigger?use_langgraph_server=false`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            });
+            
+            if (response.ok) {
+                const data = await response.json();
+                const message = `Workflow triggered successfully! Execution ID: ${data.execution_id || 'N/A'}`;
+                showNotification(message, 'success');
+                
+                // Redirect to workflow executions page
+                window.location.href = '/workflow#executions';
+            } else {
+                let errorData;
+                try {
+                    errorData = await response.json();
+                } catch (e) {
+                    errorData = { detail: `HTTP ${response.status}: ${response.statusText}` };
+                }
+                
+                const errorMessage = errorData.detail || errorData.message || 'Failed to trigger workflow';
+                showNotification(`Error: ${errorMessage}`, 'error');
+                
+                // If there's an existing execution, offer to view it
+                if (errorMessage.includes('already has an active workflow execution')) {
+                    const execIdMatch = errorMessage.match(/execution \(ID: (\d+)\)/);
+                    if (execIdMatch) {
+                        const execId = execIdMatch[1];
+                        setTimeout(() => {
+                            if (confirm(`${errorMessage}\n\nWould you like to view the existing execution?`)) {
+                                window.location.href = `/workflow#executions`;
+                            }
+                        }, 100);
+                    }
+                }
+            }
+        } catch (error) {
+            console.error('Error triggering workflow:', error);
+            showNotification(`Error: ${error.message}`, 'error');
+        } finally {
+            // Re-enable button
+            if (btn) {
+                btn.disabled = false;
+                btn.classList.remove('opacity-50', 'cursor-not-allowed');
+            }
+            if (btnText) {
+                btnText.textContent = 'Send to Workflow';
+            }
         }
     }
     
