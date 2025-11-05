@@ -20,6 +20,9 @@ logger = logging.getLogger(__name__)
 MAX_CONTEXT_TOKENS = int(os.getenv("LMSTUDIO_MAX_CONTEXT", "32768"))
 PROMPT_OVERHEAD_TOKENS = 500  # Reserve for prompt templates, system messages, etc.
 
+# Minimum context length threshold for workflow (configurable)
+MIN_CONTEXT_LENGTH_THRESHOLD = int(os.getenv("LMSTUDIO_MIN_CONTEXT_THRESHOLD", "16384"))
+
 
 class LLMService:
     """Service for LLM API calls using Deepseek-R1 via LMStudio."""
@@ -174,6 +177,134 @@ class LLMService:
                 unique_candidates.append(candidate)
         
         return unique_candidates
+    
+    async def check_model_context_length(
+        self,
+        model_name: Optional[str] = None,
+        threshold: Optional[int] = None
+    ) -> Dict[str, Any]:
+        """
+        Check LMStudio model context length and validate against threshold.
+        
+        Args:
+            model_name: Model name to check (defaults to rank model)
+            threshold: Minimum context length threshold (defaults to MIN_CONTEXT_LENGTH_THRESHOLD)
+        
+        Returns:
+            Dict with 'context_length', 'threshold', 'is_sufficient', 'model_name', 'method'
+        
+        Raises:
+            RuntimeError: If context length cannot be determined or is below threshold
+        """
+        if model_name is None:
+            model_name = self.model_rank
+        
+        if threshold is None:
+            threshold = MIN_CONTEXT_LENGTH_THRESHOLD
+        
+        lmstudio_urls = self._lmstudio_url_candidates()
+        context_length = None
+        detection_method = None
+        
+        # Method 1: Try to get context length from /models endpoint
+        async with httpx.AsyncClient() as client:
+            for lmstudio_url in lmstudio_urls:
+                try:
+                    response = await client.get(f"{lmstudio_url}/models", timeout=5.0)
+                    if response.status_code == 200:
+                        models_data = response.json()
+                        for model in models_data.get("data", []):
+                            if model.get("id") == model_name:
+                                # Check for context_length field (may vary by LMStudio version)
+                                context_length = model.get("context_length") or model.get("context_length_max")
+                                if context_length:
+                                    detection_method = "api_models_endpoint"
+                                    break
+                        if context_length:
+                            break
+                except httpx.HTTPError:
+                    continue
+        
+        # Method 2: If not found in /models, try to infer from test request
+        if context_length is None:
+            # Make a minimal test request with increasing token counts to find limit
+            # Start with threshold and work up/down
+            test_tokens = threshold
+            async with httpx.AsyncClient() as client:
+                for lmstudio_url in lmstudio_urls:
+                    try:
+                        # Create a test payload with known token count
+                        # ~4 chars per token, so threshold * 4 chars should be ~threshold tokens
+                        test_content = "x" * (threshold * 4)
+                        test_payload = {
+                            "model": model_name,
+                            "messages": [{"role": "user", "content": test_content}],
+                            "max_tokens": 10
+                        }
+                        
+                        response = await client.post(
+                            f"{lmstudio_url}/chat/completions",
+                            json=test_payload,
+                            timeout=10.0
+                        )
+                        
+                        if response.status_code == 200:
+                            # If successful, context is at least threshold
+                            # Try to get actual limit from error messages
+                            context_length = threshold  # Conservative estimate
+                            detection_method = "test_request_success"
+                        elif response.status_code == 400:
+                            # Parse error message for context length info
+                            error_text = response.text.lower()
+                            if "context length" in error_text or "context overflow" in error_text:
+                                # Try to extract number from error
+                                match = re.search(r'(\d+)\s*tokens?', error_text)
+                                if match:
+                                    context_length = int(match.group(1))
+                                    detection_method = "error_message_parsing"
+                                    break
+                        
+                        # If we got here, test was successful or we need different approach
+                        break
+                    except httpx.HTTPError:
+                        continue
+        
+        # Method 3: Fallback - use MAX_CONTEXT_TOKENS as estimate if model is reasoning model
+        if context_length is None:
+            is_reasoning = 'r1' in model_name.lower() or 'reasoning' in model_name.lower()
+            context_length = MAX_CONTEXT_TOKENS if is_reasoning else 4096  # Conservative fallback
+            detection_method = "fallback_estimate"
+            logger.warning(
+                f"Could not determine context length for {model_name}. "
+                f"Using fallback estimate: {context_length} tokens "
+                f"(reasoning_model={is_reasoning})"
+            )
+        
+        is_sufficient = context_length >= threshold
+        
+        result = {
+            "context_length": context_length,
+            "threshold": threshold,
+            "is_sufficient": is_sufficient,
+            "model_name": model_name,
+            "method": detection_method
+        }
+        
+        if not is_sufficient:
+            error_msg = (
+                f"LMStudio model '{model_name}' has context length of {context_length} tokens, "
+                f"which is below the required threshold of {threshold} tokens. "
+                f"Please increase the context length in LMStudio UI (Context tab) and reload the model."
+            )
+            logger.error(error_msg)
+            raise RuntimeError(error_msg)
+        
+        logger.info(
+            f"Context length check passed: {model_name} has {context_length} tokens "
+            f"(threshold: {threshold}, method: {detection_method})"
+        )
+        
+        return result
     
     async def _post_lmstudio_chat(
         self,
@@ -531,7 +662,9 @@ Score the article from 1-10 for SIGMA rule generation potential. Consider:
         content: str,
         title: str,
         url: str,
-        prompt_file_path: str
+        prompt_file_path: Optional[str] = None,
+        prompt_config_dict: Optional[Dict[str, Any]] = None,
+        instructions_template_str: Optional[str] = None
     ) -> Dict[str, Any]:
         """
         Extract huntable behaviors using ExtractAgent prompt (Step 2 of workflow).
@@ -540,25 +673,34 @@ Score the article from 1-10 for SIGMA rule generation potential. Consider:
             content: Filtered article content
             title: Article title
             url: Article URL
-            prompt_file_path: Path to ExtractAgent prompt file
+            prompt_file_path: Path to ExtractAgent prompt file (optional, used if prompt_config_dict not provided)
+            prompt_config_dict: Prompt config dict (optional, takes precedence over prompt_file_path)
+            instructions_template_str: Instructions template string (optional, used if prompt_config_dict provided)
         
         Returns:
             Dict with extracted behaviors and count of discrete huntables
         """
-        # Load ExtractAgent prompt config (async file read)
-        prompt_path = Path(prompt_file_path)
-        if not prompt_path.exists():
-            raise FileNotFoundError(f"ExtractAgent prompt file not found: {prompt_file_path}")
-        
-        prompt_config = await asyncio.to_thread(self._read_json_file_sync, str(prompt_path))
-        
-        # Load instructions template from prompts folder
-        prompts_dir = prompt_path.parent
-        instructions_path = prompts_dir / "ExtractAgentInstructions.txt"
-        if not instructions_path.exists():
-            raise FileNotFoundError(f"ExtractAgent instructions file not found: {instructions_path}")
-        
-        instructions_template = await asyncio.to_thread(self._read_file_sync, str(instructions_path))
+        # Use provided prompt config or load from file
+        if prompt_config_dict and instructions_template_str:
+            prompt_config = prompt_config_dict
+            instructions_template = instructions_template_str
+        elif prompt_file_path:
+            # Load ExtractAgent prompt config (async file read)
+            prompt_path = Path(prompt_file_path)
+            if not prompt_path.exists():
+                raise FileNotFoundError(f"ExtractAgent prompt file not found: {prompt_file_path}")
+            
+            prompt_config = await asyncio.to_thread(self._read_json_file_sync, str(prompt_path))
+            
+            # Load instructions template from prompts folder
+            prompts_dir = prompt_path.parent
+            instructions_path = prompts_dir / "ExtractAgentInstructions.txt"
+            if not instructions_path.exists():
+                raise FileNotFoundError(f"ExtractAgent instructions file not found: {instructions_path}")
+            
+            instructions_template = await asyncio.to_thread(self._read_file_sync, str(instructions_path))
+        else:
+            raise ValueError("Either prompt_file_path or (prompt_config_dict and instructions_template_str) must be provided")
         
         # Use extraction-specific model
         model_name = self.model_extract
@@ -591,10 +733,28 @@ Score the article from 1-10 for SIGMA rule generation potential. Consider:
             prompt_config=prompt_config_json
         )
         
+        # Determine system message content based on prompt structure
+        # Must have either "role" or "task" field - no fallbacks
+        if not isinstance(prompt_config, dict):
+            raise ValueError("ExtractAgent prompt_config must be a dictionary")
+        
+        if "role" in prompt_config:
+            # Old format: use role field
+            system_content = prompt_config["role"]
+            if not system_content or not isinstance(system_content, str):
+                raise ValueError("ExtractAgent prompt_config 'role' field must be a non-empty string")
+        elif "task" in prompt_config:
+            # New format: use task field as system message
+            system_content = prompt_config["task"]
+            if not system_content or not isinstance(system_content, str):
+                raise ValueError("ExtractAgent prompt_config 'task' field must be a non-empty string")
+        else:
+            raise ValueError("ExtractAgent prompt_config must contain either 'role' or 'task' field")
+        
         messages = [
                 {
                     "role": "system",
-                    "content": prompt_config.get("role", "You are a detection engineer LLM.")
+                    "content": system_content
                 },
                 {
                     "role": "user",

@@ -83,13 +83,20 @@ sources:
         crawl_delay: 1.0
       min_content_length: 1500
       title_filter_keywords: ["webinar", "training", "careers", "job posting"]
+      rss_only: false  # Enable web scraping fallback when RSS feed is empty
+      discovery:
+        strategies:
+          - listing:
+              urls: ["https://www.vmray.com/blog/"]
+              max_pages: 5
+              post_link_selector: 'a[href*="/blog/"]'
       extract:
         prefer_jsonld: true
         title_selectors: ["h1", "meta[property='og:title']::attr(content)"]
         date_selectors: 
           - "meta[property='article:published_time']::attr(content)"
           - "time[datetime]::attr(datetime)"
-        body_selectors: ["article", "main", ".content", ".post-content"]
+        body_selectors: ["article", "main", ".content", ".post-content", ".entry-content"]
         author_selectors: ["meta[name='author']::attr(content)", ".author-name"]
     description: "Advanced malware analysis, detection engineering, and actionable threat intelligence"
 
@@ -553,6 +560,7 @@ sources:
     config:
       allow: ["securityweek.com"]
       post_url_regex: ["^https://www\\.securityweek\\.com/.*"]
+      rss_only: false  # Enable web scraping fallback
       extract:
         prefer_jsonld: true
         title_selectors: ["h1", "meta[property='og:title']::attr(content)"]
@@ -741,16 +749,16 @@ sources:
         author_selectors: ["meta[name='author']::attr(content)", ".author-name", ".post-author"]
     description: "In-depth security research and vulnerability analysis - updated to new Assetnote location with modern discovery"
 
-  # NCSC UK
+  # NCSC UK (No RSS - Web Scraping Only)
   - id: "ncsc_uk"
     name: "NCSC UK"
     url: "https://www.ncsc.gov.uk/news"
-    rss_url: "https://www.ncsc.gov.uk/rss.xml"  # Updated to working feed URL
+    rss_url: null  # RSS feed not available - web scraping only
     check_frequency: 3600  # 1 hour
     active: true
     config:
       allow: ["ncsc.gov.uk"]
-      post_url_regex: ["^https://www\\.ncsc\\.gov\\.uk/news/.*"]
+      post_url_regex: ["^https://www\\.ncsc\\.gov\\.uk/(news|section)/.*"]
       robots:
         enabled: true
         user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
@@ -759,6 +767,11 @@ sources:
         crawl_delay: 4.0
       min_content_length: 2000
       title_filter_keywords: ["webinar", "training", "careers", "job posting", "event"]
+      rss_only: false  # Force web scraping since no RSS
+      discovery:
+        strategies:
+          - sitemap:
+              urls: ["https://www.ncsc.gov.uk/sitemap.xml"]
       extract:
         prefer_jsonld: true
         title_selectors: ["h1", "meta[property='og:title']::attr(content)"]
@@ -768,7 +781,7 @@ sources:
         body_selectors: ["article", "main", ".content", ".post-content", ".news-content"]
         author_selectors: ["meta[name='author']::attr(content)", ".author-name"]
       min_content_length: 2000
-    description: "UK National Cyber Security Centre official advisories and guidance"
+    description: "UK National Cyber Security Centre official advisories and guidance (Web scraping only - RSS feed unavailable)"
 
   # US-CERT
   - id: "us_cert"
@@ -818,6 +831,10 @@ sources:
       min_content_length: 2000
       title_filter_keywords: ["webinar", "training", "careers", "job posting", "event", "product news"]
       rss_only: false  # Force web scraping since no RSS
+      discovery:
+        strategies:
+          - sitemap:
+              urls: ["https://www.splunk.com/sitemap.xml"]
       extract:
         prefer_jsonld: true
         title_selectors: ["h1", "meta[property='og:title']::attr(content)", ".blog-post-title"]

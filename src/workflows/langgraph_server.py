@@ -507,14 +507,85 @@ Cannot process empty articles."""
             filtered_content = state.get('filtered_content') or article.content
             
             # Extract behaviors using ExtractAgent prompt
-            # Use relative path that works both in Docker and local
-            prompt_file = Path(__file__).parent.parent / "prompts" / "ExtractAgent"
-            extract_agent_prompt_path = str(prompt_file)
+            # Must use database prompt from config - no fallback
+            trigger_service = WorkflowTriggerService(db_session)
+            config_obj = trigger_service.get_active_config()
+            if not config_obj:
+                raise ValueError("No active workflow configuration found")
+            
+            if not config_obj.agent_prompts or "ExtractAgent" not in config_obj.agent_prompts:
+                raise ValueError(f"ExtractAgent prompt not found in workflow config (version {config_obj.version}). Please configure it in the workflow settings.")
+            
+            agent_prompt_data = config_obj.agent_prompts["ExtractAgent"]
+            
+            # Parse prompt JSON (stored as string in database)
+            prompt_config_dict = None
+            if isinstance(agent_prompt_data.get("prompt"), str):
+                prompt_str = agent_prompt_data["prompt"].strip()
+                try:
+                    prompt_config_dict = json.loads(prompt_str)
+                    # Handle nested JSON structure if present
+                    if isinstance(prompt_config_dict, dict) and len(prompt_config_dict) == 1:
+                        # If it's a dict with one key, might be nested - try unwrapping
+                        first_value = next(iter(prompt_config_dict.values()))
+                        if isinstance(first_value, dict):
+                            prompt_config_dict = first_value
+                        elif isinstance(first_value, str):
+                            # Try parsing the inner string as JSON
+                            try:
+                                prompt_config_dict = json.loads(first_value)
+                            except:
+                                pass
+                except json.JSONDecodeError as e:
+                    # Try to fix double-wrapped JSON (starts with "{\n  {" or "{{")
+                    # Find the second opening brace and extract from there
+                    if prompt_str.startswith('{\n  {') or prompt_str.startswith('{{'):
+                        # Find the second opening brace
+                        second_brace_idx = prompt_str.find('{', 1)
+                        if second_brace_idx > 0:
+                            # Extract from second brace to matching closing brace
+                            brace_count = 0
+                            for i in range(second_brace_idx, len(prompt_str)):
+                                if prompt_str[i] == '{':
+                                    brace_count += 1
+                                elif prompt_str[i] == '}':
+                                    brace_count -= 1
+                                    if brace_count == 0:
+                                        # Found matching closing brace
+                                        inner_json = prompt_str[second_brace_idx:i + 1]
+                                        try:
+                                            prompt_config_dict = json.loads(inner_json)
+                                            logger.info(f"[Workflow {state.get('execution_id')}] Successfully unwrapped double-wrapped JSON prompt")
+                                            break
+                                        except json.JSONDecodeError as e2:
+                                            raise ValueError(f"Failed to parse unwrapped prompt JSON: {e2}")
+                            if prompt_config_dict is None:
+                                raise ValueError(f"Failed to parse ExtractAgent prompt JSON: {e}")
+                        else:
+                            raise ValueError(f"Failed to parse ExtractAgent prompt JSON: {e}")
+                    else:
+                        raise ValueError(f"Failed to parse ExtractAgent prompt JSON: {e}")
+            elif isinstance(agent_prompt_data.get("prompt"), dict):
+                prompt_config_dict = agent_prompt_data["prompt"]
+            else:
+                raise ValueError("ExtractAgent prompt is not in valid format (expected string or dict)")
+            
+            instructions_template_str = agent_prompt_data.get("instructions")
+            if not instructions_template_str:
+                raise ValueError("ExtractAgent instructions template not found in workflow config")
+            
+            if not prompt_config_dict:
+                raise ValueError("ExtractAgent prompt config is empty")
+            
+            logger.info(f"[Workflow {state.get('execution_id')}] Using database ExtractAgent prompt (config version {config_obj.version})")
+            
+            # Use database prompt
             extraction_result = await llm_service.extract_behaviors(
                 content=filtered_content,
                 title=article.title,
                 url=article.canonical_url or "",
-                prompt_file_path=extract_agent_prompt_path
+                prompt_config_dict=prompt_config_dict,
+                instructions_template_str=instructions_template_str
             )
             
             discrete_huntables = extraction_result.get('discrete_huntables_count', 0)
@@ -602,6 +673,16 @@ Cannot process empty articles."""
             sigma_errors = sigma_result.get('errors')
             sigma_metadata = sigma_result.get('metadata', {})
             
+            # Store detailed error info in error_log for debugging
+            error_log_entry = None
+            if sigma_metadata.get('validation_results'):
+                error_log_entry = {
+                    'errors': sigma_errors,
+                    'total_attempts': sigma_metadata.get('total_attempts', 0),
+                    'validation_results': sigma_metadata.get('validation_results', []),
+                    'conversation_log': sigma_metadata.get('conversation_log', []) if 'conversation_log' in sigma_metadata else None
+                }
+            
             # Update execution record
             execution_id = state.get('execution_id')
             if execution_id:
@@ -627,17 +708,14 @@ Cannot process empty articles."""
                         error_msg = sigma_errors or "SIGMA validation failed: No valid rules generated after all attempts"
                         execution.status = 'failed'
                         execution.error_message = error_msg
+                        if error_log_entry:
+                            execution.error_log = {**(execution.error_log or {}), 'generate_sigma': error_log_entry}
                         db_session.commit()
                         logger.error(f"[Workflow {execution_id}] SIGMA validation failed: {error_msg}")
                         
-                        return {
-                            **state,
-                            'sigma_rules': [],
-                            'error': error_msg,
-                            'error_log': {**(state.get('error_log') or {}), 'generate_sigma': error_msg},
-                            'current_step': 'generate_sigma',
-                            'status': 'failed'
-                        }
+                        # CRITICAL: Raise exception to force workflow stop
+                        # LangGraph will catch this and stop execution, preventing routing issues
+                        raise ValueError(f"SIGMA validation failed: {error_msg}")
                     
                     db_session.commit()
             
@@ -668,20 +746,58 @@ Cannot process empty articles."""
             logger.info(f"[Workflow {state.get('execution_id')}] Step 4: Similarity Search")
             
             # Check if workflow already failed (e.g., SIGMA validation failed)
-            if state.get('error'):
-                logger.warning(f"[Workflow {state.get('execution_id')}] Workflow has error, skipping similarity search")
+            if state.get('error') or state.get('status') == 'failed':
+                logger.warning(f"[Workflow {state.get('execution_id')}] Workflow has error/failed status, skipping similarity search")
+                execution_id = state.get('execution_id')
+                if execution_id:
+                    execution = db_session.query(AgenticWorkflowExecutionTable).filter(
+                        AgenticWorkflowExecutionTable.id == execution_id
+                    ).first()
+                    if execution and execution.status != 'failed':
+                        execution.status = 'failed'
+                        execution.current_step = state.get('current_step', 'generate_sigma')
+                        execution.error_message = execution.error_message or state.get('error') or "SIGMA generation failed"
+                        db_session.commit()
+                
                 return {
                     **state,
                     'similarity_results': [],
                     'max_similarity': 1.0,
-                    'current_step': state.get('current_step', 'similarity_search'),
-                    'status': state.get('status', 'failed')
+                    'current_step': state.get('current_step', 'generate_sigma'),
+                    'status': 'failed'
                 }
             
             # Lazy-load RAGService only when similarity search runs (to avoid loading embedding models at startup)
             rag_service = RAGService()
             
             sigma_rules = state.get('sigma_rules', [])
+            
+            # CRITICAL: If no rules were generated, this is a failure, not a success
+            if not sigma_rules or len(sigma_rules) == 0:
+                error_msg = "No SIGMA rules to search: SIGMA generation failed or produced no valid rules"
+                logger.error(f"[Workflow {state.get('execution_id')}] {error_msg}")
+                
+                execution_id = state.get('execution_id')
+                if execution_id:
+                    execution = db_session.query(AgenticWorkflowExecutionTable).filter(
+                        AgenticWorkflowExecutionTable.id == execution_id
+                    ).first()
+                    if execution:
+                        execution.status = 'failed'
+                        execution.current_step = 'generate_sigma'  # Point back to where failure occurred
+                        execution.error_message = execution.error_message or error_msg
+                        db_session.commit()
+                
+                return {
+                    **state,
+                    'similarity_results': [],
+                    'max_similarity': 1.0,
+                    'error': error_msg,
+                    'error_log': {**(state.get('error_log') or {}), 'similarity_search': error_msg},
+                    'current_step': 'generate_sigma',
+                    'status': 'failed'
+                }
+            
             similarity_results = []
             
             for rule in sigma_rules:
@@ -822,6 +938,27 @@ Check the Workflow > Executions tab for detailed error logs."""
         try:
             logger.info(f"[Workflow {state.get('execution_id')}] Step 5: Promote to Queue")
             
+            # CRITICAL: Stop early if workflow already failed (e.g., SIGMA validation failed)
+            if state.get('error') or state.get('status') == 'failed':
+                logger.warning(f"[Workflow {state.get('execution_id')}] Workflow has error/failed status, skipping queue promotion")
+                execution_id = state.get('execution_id')
+                if execution_id:
+                    execution = db_session.query(AgenticWorkflowExecutionTable).filter(
+                        AgenticWorkflowExecutionTable.id == execution_id
+                    ).first()
+                    if execution and execution.status != 'failed':
+                        execution.status = 'failed'
+                        execution.current_step = state.get('current_step', 'promote_to_queue')
+                        execution.error_message = execution.error_message or state.get('error') or "Workflow failed before queue promotion"
+                        db_session.commit()
+                
+                return {
+                    **state,
+                    'queued_rules': [],
+                    'current_step': state.get('current_step', 'promote_to_queue'),
+                    'status': 'failed'
+                }
+            
             article_id = state['article_id']
             article = db_session.query(ArticleTable).filter(ArticleTable.id == article_id).first()
             if not article:
@@ -830,6 +967,31 @@ Check the Workflow > Executions tab for detailed error logs."""
             sigma_rules = state.get('sigma_rules', [])
             similarity_results = state.get('similarity_results', [])
             similarity_threshold = state.get('similarity_threshold', 0.5)
+            
+            # CRITICAL: If no rules were generated, this is a failure, not a success
+            if not sigma_rules or len(sigma_rules) == 0:
+                error_msg = "No SIGMA rules to queue: SIGMA generation failed or produced no valid rules"
+                logger.error(f"[Workflow {state.get('execution_id')}] {error_msg}")
+                
+                execution_id = state.get('execution_id')
+                if execution_id:
+                    execution = db_session.query(AgenticWorkflowExecutionTable).filter(
+                        AgenticWorkflowExecutionTable.id == execution_id
+                    ).first()
+                    if execution:
+                        execution.status = 'failed'
+                        execution.current_step = 'generate_sigma'  # Point back to where failure occurred
+                        execution.error_message = execution.error_message or error_msg
+                        db_session.commit()
+                
+                return {
+                    **state,
+                    'queued_rules': [],
+                    'error': error_msg,
+                    'error_log': {**(state.get('error_log') or {}), 'promote_to_queue': error_msg},
+                    'current_step': 'generate_sigma',
+                    'status': 'failed'
+                }
             
             queued_rules = []
             
@@ -961,13 +1123,54 @@ Check the Workflow > Executions tab for detailed error logs."""
     )
     def check_sigma_generation(state: ExposableWorkflowState) -> str:
         """Check if SIGMA generation succeeded or if workflow should stop."""
+        execution_id = state.get('execution_id')
+        
+        # DEBUG: Log the state we're seeing
+        logger.info(f"[Workflow {execution_id}] Routing check - State keys: {list(state.keys())}")
+        logger.info(f"[Workflow {execution_id}] Routing check - sigma_rules: {state.get('sigma_rules')}, error: {state.get('error')}, status: {state.get('status')}")
+        
         # Stop if there's an error
         if state.get('error'):
+            logger.warning(f"[Workflow {execution_id}] Routing to generate_response due to error: {state.get('error')}")
             return "generate_response"  # Route to generate_response for error message
+        
         # Stop if status is failed
         if state.get('status') == 'failed':
+            logger.warning(f"[Workflow {execution_id}] Routing to generate_response due to failed status")
             return "generate_response"
+        
+        # CRITICAL: Check if no rules were generated
+        # Handle both [] and None cases
+        sigma_rules = state.get('sigma_rules')
+        has_no_rules = (
+            sigma_rules is None or 
+            (isinstance(sigma_rules, list) and len(sigma_rules) == 0)
+        )
+        
+        if has_no_rules:
+            logger.warning(f"[Workflow {execution_id}] Routing to generate_response: No SIGMA rules generated (sigma_rules={sigma_rules})")
+            # Also check database as fallback - if DB shows no rules, definitely fail
+            try:
+                db_session = get_db_session()
+                try:
+                    if execution_id:
+                        execution = db_session.query(AgenticWorkflowExecutionTable).filter(
+                            AgenticWorkflowExecutionTable.id == execution_id
+                        ).first()
+                        if execution:
+                            db_rules = execution.sigma_rules or []
+                            if len(db_rules) == 0 and execution.error_log and 'generate_sigma' in execution.error_log:
+                                logger.error(f"[Workflow {execution_id}] Database confirms no rules + error_log exists, routing to generate_response")
+                                return "generate_response"
+                finally:
+                    db_session.close()
+            except Exception as e:
+                logger.warning(f"[Workflow {execution_id}] Error checking database in routing: {e}")
+            
+            return "generate_response"
+        
         # Otherwise continue to similarity search
+        logger.info(f"[Workflow {execution_id}] Routing to similarity_search: {len(sigma_rules)} rules found")
         return "similarity_search"
     
     workflow.add_edge("extract_agent", "generate_sigma")

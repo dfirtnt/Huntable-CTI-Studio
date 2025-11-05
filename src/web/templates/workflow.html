@@ -1087,9 +1087,20 @@ async function viewExecution(executionId) {
             
             // Step 0: Junk Filter
             if (exec.junk_filter_result) {
+                const originalContentPreview = exec.article_content_preview || '';
+                const contentInputDetails = exec.article_content ? `<details class="mt-2 w-full">
+                    <summary class="cursor-pointer text-xs text-gray-700 dark:text-white hover:text-gray-900 dark:hover:text-gray-100">View Original Article Content</summary>
+                    <div class="mt-2 w-full max-h-96 overflow-y-auto bg-gray-50 dark:bg-gray-900 rounded p-2 border text-xs font-mono text-gray-900 dark:text-white whitespace-pre-wrap break-words">
+                        ${exec.article_content.replace(/</g, '&lt;').replace(/>/g, '&gt;')}
+                    </div>
+                </details>` : '';
+                
                 steps.push({
                     name: 'Step 0: Junk Filter',
-                    input: `Article content (${exec.junk_filter_result.original_length || 0} chars)`,
+                    input: `<div class="space-y-1">
+                        <div>• Article content: ${exec.junk_filter_result.original_length || 0} chars</div>
+                    </div>`,
+                    inputDetails: contentInputDetails,
                     output: `<div class="space-y-1 text-gray-700 dark:text-gray-300">
                         <div><strong>Filtered:</strong> ${exec.junk_filter_result.is_huntable ? 'Yes' : 'No'}</div>
                         <div><strong>Confidence:</strong> ${(exec.junk_filter_result.confidence || 0).toFixed(2)}</div>
@@ -1103,14 +1114,38 @@ async function viewExecution(executionId) {
             
             // Step 1: Rank Article
             if (exec.ranking_score !== null && exec.ranking_score !== undefined) {
+                const rankingDetails = exec.ranking_reasoning ? `<details class="mt-2 w-full">
+                    <summary class="cursor-pointer text-xs text-gray-700 dark:text-white hover:text-gray-900 dark:hover:text-gray-100">View Ranking Reasoning (Full LLM Output)</summary>
+                    <div class="mt-2 w-full max-h-96 overflow-y-auto bg-gray-50 dark:bg-gray-900 rounded p-2 border text-xs font-mono text-gray-900 dark:text-white whitespace-pre-wrap break-words">
+                        ${exec.ranking_reasoning.substring(0, 5000)}${exec.ranking_reasoning.length > 5000 ? '\n\n... (truncated)' : ''}
+                    </div>
+                </details>` : '';
+                
+                // Show filtered content that was sent to ranking agent
+                const filteredContentLength = exec.junk_filter_result?.filtered_length || exec.article_content?.length || 0;
+                const filteredContentDetails = exec.article_content ? `<details class="mt-2 w-full">
+                    <summary class="cursor-pointer text-xs text-gray-700 dark:text-white hover:text-gray-900 dark:hover:text-gray-100">View Filtered Content Sent to Rank Agent (${filteredContentLength} chars)</summary>
+                    <div class="mt-2 w-full max-h-96 overflow-y-auto bg-gray-50 dark:bg-gray-900 rounded p-2 border text-xs font-mono text-gray-900 dark:text-white whitespace-pre-wrap break-words">
+                        ${exec.article_content.replace(/</g, '&lt;').replace(/>/g, '&gt;')}
+                    </div>
+                </details>` : '';
+                
                 steps.push({
                     name: 'Step 1: LLM Ranking',
-                    input: `Filtered content + Article metadata (title, source, URL)`,
+                    input: `<div class="space-y-1">
+                        <div>• Filtered article content (${filteredContentLength} chars)</div>
+                        <div>• Article title: "${exec.article_title || 'N/A'}"</div>
+                        <div>• Article URL: ${exec.article_url || 'N/A'}</div>
+                        <div>• Source metadata</div>
+                        <div>• RankAgent prompt from workflow config</div>
+                    </div>`,
+                    inputDetails: filteredContentDetails,
                     output: `<div class="space-y-1 text-gray-700 dark:text-gray-300">
                         <div><strong>Ranking Score:</strong> ${exec.ranking_score.toFixed(1)}/10</div>
                         <div><strong>Threshold:</strong> ${exec.config_snapshot?.ranking_threshold || 6.0}/10</div>
                         <div><strong>Decision:</strong> ${exec.ranking_score >= (exec.config_snapshot?.ranking_threshold || 6.0) ? '✅ Continue' : '❌ Stop'}</div>
-                    </div>`
+                    </div>`,
+                    details: rankingDetails
                 });
             }
             
@@ -1178,9 +1213,36 @@ async function viewExecution(executionId) {
                         </details>`);
                 }
                 
+                // Raw LLM Response (if available)
+                if (exec.extraction_result.raw_response) {
+                    const rawResponse = String(exec.extraction_result.raw_response);
+                    const truncatedResponse = rawResponse.length > 1000 ? rawResponse.substring(0, 1000) + '...' : rawResponse;
+                    detailsSections.push(`<details class="mt-2 w-full">
+                            <summary class="cursor-pointer text-xs !text-white dark:!text-white hover:text-gray-900 dark:hover:text-gray-100" style="color: white !important;">View Raw LLM Response</summary>
+                            <div class="mt-2 w-full max-h-96 overflow-y-auto bg-gray-50 dark:bg-gray-900 rounded p-2 border text-xs font-mono text-gray-900 dark:text-white whitespace-pre-wrap break-words">
+                                ${rawResponse.replace(/</g, '&lt;').replace(/>/g, '&gt;')}
+                            </div>
+                        </details>`);
+                }
+                
+                // Show filtered content that was sent to extraction agent
+                const extractInputContentLength = exec.junk_filter_result?.filtered_length || exec.article_content?.length || 0;
+                const extractInputDetails = exec.article_content && exec.article_content.length > 0 ? `<details class="mt-2 w-full">
+                    <summary class="cursor-pointer text-xs text-gray-700 dark:text-white hover:text-gray-900 dark:hover:text-gray-100">View Filtered Content Sent to Extract Agent (${extractInputContentLength} chars)</summary>
+                    <div class="mt-2 w-full max-h-96 overflow-y-auto bg-gray-50 dark:bg-gray-900 rounded p-2 border text-xs font-mono text-gray-900 dark:text-white whitespace-pre-wrap break-words">
+                        ${String(exec.article_content).replace(/</g, '&lt;').replace(/>/g, '&gt;')}
+                    </div>
+                </details>` : '';
+                
                 steps.push({
                     name: 'Step 2: Extract Agent',
-                    input: `Filtered content + Article title + URL`,
+                    input: `<div class="space-y-1">
+                        <div>• Filtered article content (${extractInputContentLength} chars)</div>
+                        <div>• Article title: "${exec.article_title || 'N/A'}"</div>
+                        <div>• Article URL: ${exec.article_url || 'N/A'}</div>
+                        <div>• ExtractAgent prompt from workflow config</div>
+                    </div>`,
+                    inputDetails: extractInputDetails,
                     output: `<div class="space-y-1 text-gray-700 dark:text-gray-300">
                         <div><strong>Discrete Huntables:</strong> ${discreteHuntablesCount}</div>
                         <div><strong>Observable List:</strong> ${obsCount} items</div>
@@ -1343,12 +1405,29 @@ async function viewExecution(executionId) {
                             </div>
                         </details>` : '';
                 const step3Details = (rulesDetails + conversationHtml).trim();
+                
+                // Show extracted content that was sent to SIGMA generation
+                const extractContentForSigma = exec.extraction_result?.content || '';
+                const extractContentDetails = extractContentForSigma ? `<details class="mt-2 w-full">
+                    <summary class="cursor-pointer text-xs text-gray-700 dark:text-white hover:text-gray-900 dark:hover:text-gray-100">View Extracted Content Sent to SIGMA Agent</summary>
+                    <div class="mt-2 w-full max-h-96 overflow-y-auto bg-gray-50 dark:bg-gray-900 rounded p-2 border text-xs font-mono text-gray-900 dark:text-white whitespace-pre-wrap break-words">
+                        ${extractContentForSigma.replace(/</g, '&lt;').replace(/>/g, '&gt;')}
+                    </div>
+                </details>` : '';
+                
                 steps.push({
                     name: 'Step 3: Generate SIGMA',
-                    input: exec.extraction_result ? `Extracted content (${exec.extraction_result.discrete_huntables_count || 0} huntables)` : 'Filtered content',
+                    input: `<div class="space-y-1">
+                        <div>• Extracted huntables: ${exec.extraction_result ? (exec.extraction_result.discrete_huntables_count || 0) : 0}</div>
+                        <div>• Behavioral observables: ${exec.extraction_result ? (exec.extraction_result.behavioral_observables?.length || 0) : 0}</div>
+                        <div>• Article title: "${exec.article_title || 'N/A'}"</div>
+                        <div>• SigmaAgent prompt from workflow config</div>
+                    </div>`,
+                    inputDetails: extractContentDetails,
                     output: `<div class="space-y-1 text-gray-700 dark:text-gray-300">
                         <div><strong>Rules Generated:</strong> ${exec.sigma_rules.length}</div>
                         ${exec.sigma_rules.length === 0 ? `<div class="text-orange-600 dark:text-orange-400">⚠️ No rules generated</div>${errorDetails}` : ''}
+                        ${exec.sigma_rules.length > 0 ? `<div class="text-green-600 dark:text-green-400">✅ ${exec.sigma_rules.length} rule(s) generated successfully</div>` : ''}
                     </div>`,
                     details: step3Details
                 });
@@ -1357,15 +1436,45 @@ async function viewExecution(executionId) {
             // Step 4: Similarity Search
             if (exec.similarity_results !== null && exec.similarity_results !== undefined && Array.isArray(exec.similarity_results)) {
                 const maxSim = exec.similarity_results.length > 0 ? exec.similarity_results.reduce((max, r) => Math.max(max, r.max_similarity || 0), 0) : 0;
+                const similarityDetails = exec.similarity_results.length > 0 ? `<details class="mt-2 w-full">
+                    <summary class="cursor-pointer text-xs text-gray-700 dark:text-white hover:text-gray-900 dark:hover:text-gray-100">View Similarity Results</summary>
+                    <div class="mt-2 w-full max-h-48 overflow-y-auto bg-gray-50 dark:bg-gray-900 rounded p-2 border text-xs">
+                        ${exec.similarity_results.map((result, idx) => `
+                            <div class="mb-2 p-2 bg-white dark:bg-gray-800 rounded border">
+                                <div><strong>Rule:</strong> ${result.rule_title || `Rule ${idx + 1}`}</div>
+                                <div><strong>Max Similarity:</strong> ${((result.max_similarity || 0) * 100).toFixed(1)}%</div>
+                                <div><strong>Similar Rules Found:</strong> ${result.similar_rules?.length || 0}</div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </details>` : '';
+                
+                // Show SIGMA rules that were searched
+                const sigmaRulesForSearch = exec.sigma_rules && exec.sigma_rules.length > 0 ? exec.sigma_rules.map((rule, idx) => 
+                    `Rule ${idx + 1}: ${rule.title || 'Untitled'}` + (rule.description ? `\n${rule.description.substring(0, 200)}...` : '')
+                ).join('\n\n') : '';
+                const sigmaRulesInputDetails = sigmaRulesForSearch ? `<details class="mt-2 w-full">
+                    <summary class="cursor-pointer text-xs text-gray-700 dark:text-white hover:text-gray-900 dark:hover:text-gray-100">View SIGMA Rules Sent to Similarity Search</summary>
+                    <div class="mt-2 w-full max-h-96 overflow-y-auto bg-gray-50 dark:bg-gray-900 rounded p-2 border text-xs font-mono text-gray-900 dark:text-white whitespace-pre-wrap break-words">
+                        ${sigmaRulesForSearch.replace(/</g, '&lt;').replace(/>/g, '&gt;')}
+                    </div>
+                </details>` : '';
+                
                 steps.push({
                     name: 'Step 4: Similarity Search',
-                    input: `${exec.sigma_rules?.length || 0} generated SIGMA rules`,
+                    input: `<div class="space-y-1">
+                        <div>• Generated SIGMA rules: ${exec.sigma_rules?.length || 0}</div>
+                        <div>• Similarity threshold: ${(exec.config_snapshot?.similarity_threshold || 0.5) * 100}%</div>
+                        <div>• RAG embedding search</div>
+                    </div>`,
+                    inputDetails: sigmaRulesInputDetails,
                     output: `<div class="space-y-1 text-gray-700 dark:text-gray-300">
                         <div><strong>Rules Searched:</strong> ${exec.similarity_results.length}</div>
                         <div><strong>Max Similarity:</strong> ${(maxSim * 100).toFixed(1)}%</div>
                         <div><strong>Threshold:</strong> ${(exec.config_snapshot?.similarity_threshold || 0.5) * 100}%</div>
                         <div><strong>Decision:</strong> ${maxSim >= (exec.config_snapshot?.similarity_threshold || 0.5) ? '⚠️ Similar rules found' : '✅ Low similarity'}</div>
-                    </div>`
+                    </div>`,
+                    details: similarityDetails
                 });
             } else if (exec.sigma_rules && exec.sigma_rules.length === 0) {
                 steps.push({
@@ -1376,12 +1485,28 @@ async function viewExecution(executionId) {
             }
             
             // Step 5: Promote to Queue
+            const queuedCount = exec.queued_rules_count || 0;
+            const queueDetails = queuedCount > 0 ? `<details class="mt-2 w-full">
+                <summary class="cursor-pointer text-xs text-gray-700 dark:text-white hover:text-gray-900 dark:hover:text-gray-100">View Queued Rules</summary>
+                <div class="mt-2 w-full max-h-48 overflow-y-auto bg-gray-50 dark:bg-gray-900 rounded p-2 border text-xs">
+                    <div class="text-gray-700 dark:text-gray-300">${queuedCount} rule(s) queued for review</div>
+                </div>
+            </details>` : '';
+            
             steps.push({
                 name: 'Step 5: Promote to Queue',
-                input: exec.sigma_rules ? `${exec.sigma_rules.length} rules with similarity results` : 'No rules to queue',
+                input: `<div class="space-y-1">
+                    <div>• Generated rules: ${exec.sigma_rules?.length || 0}</div>
+                    <div>• Similarity results: ${exec.similarity_results?.length || 0}</div>
+                    <div>• Similarity threshold: ${(exec.config_snapshot?.similarity_threshold || 0.5) * 100}%</div>
+                </div>`,
                 output: exec.sigma_rules && exec.sigma_rules.length > 0 ? 
-                    '<div>Rules queued based on similarity threshold</div>' : 
-                    '<div class="text-orange-600 dark:text-orange-400">⚠️ No rules queued (no rules generated or all above similarity threshold)</div>'
+                    `<div class="space-y-1 text-gray-700 dark:text-gray-300">
+                        <div><strong>Rules Queued:</strong> ${queuedCount}</div>
+                        ${queuedCount === 0 ? '<div class="text-orange-600 dark:text-orange-400">⚠️ No rules queued (all above similarity threshold)</div>' : '<div class="text-green-600 dark:text-green-400">✅ Rules queued for review</div>'}
+                    </div>` : 
+                    '<div class="text-orange-600 dark:text-orange-400">⚠️ No rules queued (no rules generated)</div>',
+                details: queueDetails
             });
             
             const content = `
@@ -1406,6 +1531,7 @@ async function viewExecution(executionId) {
                                         <div>
                                             <div class="text-xs text-gray-600 dark:text-gray-400 mb-1">INPUT:</div>
                                             <div class="text-gray-700 dark:text-gray-300">${step.input}</div>
+                                            ${step.inputDetails || ''}
                                         </div>
                                         <div>
                                             <div class="text-xs text-gray-600 dark:text-gray-400 mb-1">OUTPUT:</div>

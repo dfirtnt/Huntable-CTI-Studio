@@ -128,11 +128,30 @@ class URLDiscovery:
                 
                 soup = BeautifulSoup(response.text, 'xml')
                 
-                # Extract URLs from sitemap
+                # Extract URLs from sitemap (handle namespaces)
+                # BeautifulSoup's XML parser should handle namespaces, but try multiple approaches
+                discovered_count = 0
                 for loc in soup.find_all('loc'):
                     url = loc.get_text().strip()
                     if url:
                         urls.add(normalize_url(url))
+                        discovered_count += 1
+                
+                # If no URLs found, try CSS selector approach
+                if discovered_count == 0:
+                    logger.debug(f"No URLs found with find_all('loc'), trying alternative parsing for {sitemap_url}")
+                    # Try selecting all 'loc' elements regardless of namespace
+                    for elem in soup.select('loc'):
+                        url = elem.get_text().strip()
+                        if url:
+                            urls.add(normalize_url(url))
+                
+                logger.debug(f"Discovered {len(urls)} URLs from sitemap {sitemap_url}")
+                
+                # Log a sample of discovered URLs for debugging
+                if urls:
+                    sample_urls = list(urls)[:5]
+                    logger.info(f"Sample URLs from sitemap {sitemap_url}: {sample_urls}")
                 
                 # Handle sitemap index files
                 for sitemap in soup.find_all('sitemap'):
@@ -168,17 +187,47 @@ class URLDiscovery:
         allowed_domains = scope_config.get('allow', []) if isinstance(scope_config, dict) else []
         post_url_patterns = scope_config.get('post_url_regex', []) if isinstance(scope_config, dict) else []
         
+        logger.info(f"Filtering {len(urls)} URLs for {source.name}: allowed_domains={allowed_domains}, patterns={post_url_patterns}")
+        
+        # Log first few URLs for debugging
+        if urls:
+            logger.info(f"Sample URLs to filter: {list(urls)[:3]}")
+        
         for url in urls:
             try:
                 # Check domain allowlist
                 if allowed_domains:
                     domain = urlparse(url).netloc.lower()
                     if not any(allowed_domain in domain for allowed_domain in allowed_domains):
+                        logger.debug(f"URL {url} filtered out by domain check")
                         continue
                 
                 # Check URL patterns
                 if post_url_patterns:
-                    if not any(re.match(pattern, url) for pattern in post_url_patterns):
+                    matched = False
+                    for pattern in post_url_patterns:
+                        try:
+                            # Handle escaped backslashes in patterns (from JSON storage)
+                            # Pattern stored in DB as: "\\\\\\.\" -> when read from JSON becomes "\\\."
+                            # Need to convert \\\. to \. (escaped dot for regex)
+                            # Replace double backslash + dot: \\\. -> \.
+                            pattern_normalized = pattern.replace('\\\\.', '\\.')
+                            # Use re.compile to properly handle the pattern
+                            compiled_pattern = re.compile(pattern_normalized)
+                            if compiled_pattern.match(url):
+                                matched = True
+                                logger.info(f"✅ URL {url} matched pattern {pattern_normalized}")
+                                break
+                            else:
+                                # Log first non-match for debugging
+                                if not matched and len([u for u in urls if u == url]) == 1:  # First occurrence
+                                    logger.debug(f"❌ URL {url} did NOT match pattern {pattern_normalized} (compiled: {compiled_pattern.pattern})")
+                        except re.error as e:
+                            logger.warning(f"Invalid regex pattern '{pattern}' for {source.name}: {e}")
+                            continue
+                    
+                    if not matched:
+                        logger.debug(f"URL {url} filtered out by pattern check (patterns: {post_url_patterns})")
                         continue
                 
                 filtered.append(url)
@@ -187,6 +236,7 @@ class URLDiscovery:
                 logger.debug(f"Error filtering URL {url}: {e}")
                 continue
         
+        logger.debug(f"Filtered to {len(filtered)} URLs for {source.name}")
         return filtered
 
 

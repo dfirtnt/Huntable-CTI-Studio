@@ -22,6 +22,7 @@ class ExecutionResponse(BaseModel):
     id: int
     article_id: int
     article_title: Optional[str]
+    article_url: Optional[str]
     status: str
     current_step: Optional[str]
     ranking_score: Optional[float]
@@ -42,6 +43,9 @@ class ExecutionDetailResponse(ExecutionResponse):
     sigma_rules: Optional[List[Dict[str, Any]]]
     similarity_results: Optional[List[Dict[str, Any]]]
     error_log: Optional[Dict[str, Any]]
+    queued_rules_count: Optional[int] = 0
+    article_content: Optional[str] = None  # Full article content for showing inputs
+    article_content_preview: Optional[str] = None  # Preview (first 500 chars)
 
 
 class ExecutionListResponse(BaseModel):
@@ -100,6 +104,7 @@ async def list_workflow_executions(
                     id=execution.id,
                     article_id=execution.article_id,
                     article_title=article.title if article else None,
+                    article_url=article.canonical_url if article else None,
                     status=execution.status,
                     current_step=execution.current_step,
                     ranking_score=execution.ranking_score,
@@ -148,13 +153,24 @@ async def get_workflow_execution(request: Request, execution_id: int):
             db_session.expire(execution)
             db_session.refresh(execution)
             
-            # Get article title
+            # Get article title and URL
             article = db_session.query(ArticleTable).filter(ArticleTable.id == execution.article_id).first()
+            
+            # Count queued rules for this execution
+            from src.database.models import SigmaRuleQueueTable
+            queued_count = db_session.query(SigmaRuleQueueTable).filter(
+                SigmaRuleQueueTable.workflow_execution_id == execution.id
+            ).count()
+            
+            # Get article content for displaying inputs
+            article_content = article.content if article else None
+            article_content_preview = article_content[:500] + '...' if article_content and len(article_content) > 500 else article_content
             
             return ExecutionDetailResponse(
                 id=execution.id,
                 article_id=execution.article_id,
                 article_title=article.title if article else None,
+                article_url=article.canonical_url if article else None,
                 status=execution.status,
                 current_step=execution.current_step,
                 ranking_score=execution.ranking_score,
@@ -170,7 +186,10 @@ async def get_workflow_execution(request: Request, execution_id: int):
                 extraction_result=execution.extraction_result,
                 sigma_rules=execution.sigma_rules,
                 similarity_results=execution.similarity_results,
-                error_log=execution.error_log
+                error_log=execution.error_log,
+                queued_rules_count=queued_count,
+                article_content=article_content,
+                article_content_preview=article_content_preview
             )
         finally:
             db_session.close()

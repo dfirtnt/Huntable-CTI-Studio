@@ -49,7 +49,7 @@ class ContentFetcher:
     
     def __init__(
         self,
-        user_agent: str = "ThreatIntelAggregator/1.0",
+        user_agent: str = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
         timeout: float = 30.0,
         max_concurrent: int = 5,
         rate_limit_delay: float = 1.0
