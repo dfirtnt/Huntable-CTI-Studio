@@ -644,6 +644,106 @@ async def api_test_lmstudio_connection(request: Request):
         raise HTTPException(status_code=503, detail="Cannot connect to LMStudio service")
     except Exception as e:
         logger.error(f"LMStudio connection test error: {e}")
+        raise HTTPException(status_code=500, detail=f"LMStudio connection test failed: {str(e)}")
+
+
+@test_router.post("/test-langfuse-connection")
+async def api_test_langfuse_connection(request: Request):
+    """Test Langfuse connection and configuration."""
+    try:
+        from sqlalchemy import select
+        from src.database.models import AppSettingsTable
+        
+        async with async_db_manager.get_session() as session:
+            # Get Langfuse settings from database (same priority as debug endpoint)
+            async def _get_langfuse_setting(key: str, env_key: str, default: Optional[str] = None) -> Optional[str]:
+                """Get Langfuse setting from database first, then fall back to environment variable."""
+                # Check database setting first
+                try:
+                    result = await session.execute(
+                        select(AppSettingsTable).where(AppSettingsTable.key == key)
+                    )
+                    setting = result.scalar_one_or_none()
+                    if setting and setting.value:
+                        return setting.value
+                except Exception as e:
+                    logger.warning(f"Could not fetch {key} from database: {e}")
+                
+                # Fall back to environment variable
+                env_value = os.getenv(env_key)
+                if env_value:
+                    return env_value
+                
+                return default
+            
+            public_key = await _get_langfuse_setting("LANGFUSE_PUBLIC_KEY", "LANGFUSE_PUBLIC_KEY")
+            secret_key = await _get_langfuse_setting("LANGFUSE_SECRET_KEY", "LANGFUSE_SECRET_KEY")
+            host = await _get_langfuse_setting("LANGFUSE_HOST", "LANGFUSE_HOST", "https://cloud.langfuse.com")
+            project_id = await _get_langfuse_setting("LANGFUSE_PROJECT_ID", "LANGFUSE_PROJECT_ID")
+            
+            # Validate required settings
+            if not public_key:
+                return {
+                    "valid": False,
+                    "message": "Langfuse Public Key is required. Please configure it in Settings."
+                }
+            
+            if not secret_key:
+                return {
+                    "valid": False,
+                    "message": "Langfuse Secret Key is required. Please configure it in Settings."
+                }
+            
+            # Try to initialize Langfuse client
+            try:
+                from langfuse import Langfuse
+                
+                langfuse_client = Langfuse(
+                    public_key=public_key,
+                    secret_key=secret_key,
+                    host=host,
+                    flush_at=1,
+                    flush_interval=1.0
+                )
+                
+                # Send a test trace/generation
+                test_trace = langfuse_client.trace(
+                    name="langfuse_connection_test",
+                    metadata={"test": True, "timestamp": datetime.now().isoformat()}
+                )
+                
+                test_generation = langfuse_client.generation(
+                    trace_id=test_trace.id,
+                    name="test_generation",
+                    model="test",
+                    model_parameters={"temperature": 0.1}
+                )
+                
+                test_generation.end(output="Connection test successful")
+                test_trace.end()
+                
+                # Flush to ensure it's sent
+                langfuse_client.flush()
+                
+                return {
+                    "valid": True,
+                    "message": f"Langfuse connection successful! Host: {host}, Project ID: {project_id or 'default'}"
+                }
+                
+            except ImportError:
+                return {
+                    "valid": False,
+                    "message": "Langfuse Python package not installed. Install with: pip install langfuse"
+                }
+            except Exception as e:
+                logger.error(f"Langfuse connection test error: {e}")
+                return {
+                    "valid": False,
+                    "message": f"Langfuse connection failed: {str(e)}"
+                }
+                
+    except Exception as e:
+        logger.error(f"Langfuse connection test error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 

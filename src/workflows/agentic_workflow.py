@@ -253,14 +253,84 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                 db_session.commit()
             
             # Extract behaviors using ExtractAgent prompt
-            # Use relative path that works both in Docker and local
-            prompt_file = Path(__file__).parent.parent / "prompts" / "ExtractAgent"
-            extract_agent_prompt_path = str(prompt_file)
+            # Must use database prompt from config - no fallback
+            config_obj = trigger_service.get_active_config()
+            if not config_obj:
+                raise ValueError("No active workflow configuration found")
+            
+            if not config_obj.agent_prompts or "ExtractAgent" not in config_obj.agent_prompts:
+                raise ValueError(f"ExtractAgent prompt not found in workflow config (version {config_obj.version}). Please configure it in the workflow settings.")
+            
+            agent_prompt_data = config_obj.agent_prompts["ExtractAgent"]
+            
+            # Parse prompt JSON (stored as string in database)
+            prompt_config_dict = None
+            if isinstance(agent_prompt_data.get("prompt"), str):
+                prompt_str = agent_prompt_data["prompt"].strip()
+                try:
+                    prompt_config_dict = json.loads(prompt_str)
+                    # Handle nested JSON structure if present
+                    if isinstance(prompt_config_dict, dict) and len(prompt_config_dict) == 1:
+                        # If it's a dict with one key, might be nested - try unwrapping
+                        first_value = next(iter(prompt_config_dict.values()))
+                        if isinstance(first_value, dict):
+                            prompt_config_dict = first_value
+                        elif isinstance(first_value, str):
+                            # Try parsing the inner string as JSON
+                            try:
+                                prompt_config_dict = json.loads(first_value)
+                            except:
+                                pass
+                except json.JSONDecodeError as e:
+                    # Try to fix double-wrapped JSON (starts with "{\n  {" or "{{")
+                    # Find the second opening brace and extract from there
+                    if prompt_str.startswith('{\n  {') or prompt_str.startswith('{{'):
+                        # Find the second opening brace
+                        second_brace_idx = prompt_str.find('{', 1)
+                        if second_brace_idx > 0:
+                            # Extract from second brace to matching closing brace
+                            brace_count = 0
+                            for i in range(second_brace_idx, len(prompt_str)):
+                                if prompt_str[i] == '{':
+                                    brace_count += 1
+                                elif prompt_str[i] == '}':
+                                    brace_count -= 1
+                                    if brace_count == 0:
+                                        # Found matching closing brace
+                                        inner_json = prompt_str[second_brace_idx:i + 1]
+                                        try:
+                                            prompt_config_dict = json.loads(inner_json)
+                                            logger.info(f"[Workflow {state['execution_id']}] Successfully unwrapped double-wrapped JSON prompt")
+                                            break
+                                        except json.JSONDecodeError as e2:
+                                            raise ValueError(f"Failed to parse unwrapped prompt JSON: {e2}")
+                            if prompt_config_dict is None:
+                                raise ValueError(f"Failed to parse ExtractAgent prompt JSON: {e}")
+                        else:
+                            raise ValueError(f"Failed to parse ExtractAgent prompt JSON: {e}")
+                    else:
+                        raise ValueError(f"Failed to parse ExtractAgent prompt JSON: {e}")
+            elif isinstance(agent_prompt_data.get("prompt"), dict):
+                prompt_config_dict = agent_prompt_data["prompt"]
+            else:
+                raise ValueError("ExtractAgent prompt is not in valid format (expected string or dict)")
+            
+            instructions_template_str = agent_prompt_data.get("instructions")
+            if not instructions_template_str:
+                raise ValueError("ExtractAgent instructions template not found in workflow config")
+            
+            if not prompt_config_dict:
+                raise ValueError("ExtractAgent prompt config is empty")
+            
+            logger.info(f"[Workflow {state['execution_id']}] Using database ExtractAgent prompt (config version {config_obj.version})")
+            
+            # Use database prompt
             extraction_result = await llm_service.extract_behaviors(
                 content=filtered_content,
                 title=article.title,
                 url=article.canonical_url or "",
-                prompt_file_path=extract_agent_prompt_path
+                prompt_config_dict=prompt_config_dict,
+                instructions_template_str=instructions_template_str
             )
             
             discrete_count = extraction_result.get('discrete_huntables_count', 0)
@@ -715,6 +785,22 @@ async def run_workflow(article_id: int, db_session: Session) -> Dict[str, Any]:
         llm_service = LLMService()
         llm_service._current_execution_id = execution.id
         llm_service._current_article_id = article_id
+        
+        # Check context length before starting workflow
+        try:
+            context_check = await llm_service.check_model_context_length()
+            logger.info(
+                f"Context length validation passed for workflow execution {execution.id}: "
+                f"{context_check['context_length']} tokens (threshold: {context_check['threshold']})"
+            )
+        except RuntimeError as e:
+            # Update execution status to failed with context length error
+            execution.status = 'failed'
+            execution.error_message = str(e)
+            execution.current_step = 'context_length_check'
+            db_session.commit()
+            logger.error(f"Workflow execution {execution.id} failed context length check: {e}")
+            raise
         
         # Create and run workflow with LangFuse tracing
         with trace_workflow_execution(execution_id=execution.id, article_id=article_id) as trace:

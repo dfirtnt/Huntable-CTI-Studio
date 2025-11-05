@@ -21,13 +21,46 @@ class RequestConfig:
     retry_delay: float = 1.0
     follow_redirects: bool = True
     verify_ssl: bool = True
-    user_agent: str = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36"
+    user_agent: str = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
     headers: Optional[Dict[str, str]] = None
     
     def __post_init__(self):
         """Post-initialization to set default values."""
         if self.headers is None:
             self.headers = {}
+    
+    def get_browser_headers(self, url: Optional[str] = None) -> Dict[str, str]:
+        """Get browser-like headers to bypass anti-bot detection."""
+        headers = {
+            'User-Agent': self.user_agent,
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
+            'Accept-Language': 'en-US,en;q=0.9',
+            'Accept-Encoding': 'gzip, deflate, br',
+            'DNT': '1',
+            'Connection': 'keep-alive',
+            'Upgrade-Insecure-Requests': '1',
+            'Sec-Fetch-Dest': 'document',
+            'Sec-Fetch-Mode': 'navigate',
+            'Sec-Fetch-Site': 'none',
+            'Sec-Fetch-User': '?1',
+            'Sec-Ch-Ua': '"Google Chrome";v="131", "Chromium";v="131", "Not A(Brand";v="24"',
+            'Sec-Ch-Ua-Mobile': '?0',
+            'Sec-Ch-Ua-Platform': '"macOS"',
+            'Cache-Control': 'max-age=0',
+        }
+        
+        # Add Referer if URL is provided
+        if url:
+            try:
+                from urllib.parse import urlparse
+                parsed = urlparse(url)
+                headers['Referer'] = f"{parsed.scheme}://{parsed.netloc}/"
+            except Exception:
+                pass
+        
+        # Merge with custom headers
+        headers.update(self.headers)
+        return headers
     
     def to_dict(self) -> Dict:
         """Convert config to dictionary."""
@@ -158,7 +191,7 @@ class HTTPClient:
         
         Args:
             url: URL to fetch
-            headers: Optional HTTP headers
+            headers: Optional HTTP headers (will be merged with default browser headers)
             params: Optional query parameters
             source_id: Optional source identifier for tracking (unused, for compatibility)
             use_conditional: Optional flag for conditional requests (unused, for compatibility)
@@ -169,6 +202,14 @@ class HTTPClient:
             raise ValueError("URL cannot be empty")
         if not url.startswith(('http://', 'https://')):
             raise ValueError("URL must start with http:// or https://")
+        
+        # Build browser-like headers and merge with provided headers
+        default_headers = self.config.get_browser_headers(url)
+        if headers:
+            # Merge: provided headers override defaults
+            merged_headers = {**default_headers, **headers}
+        else:
+            merged_headers = default_headers
             
         start_time = time.time()
         self._request_count += 1
@@ -183,7 +224,7 @@ class HTTPClient:
                 async with httpx.AsyncClient(timeout=self.config.timeout) as client:
                     response = await client.get(
                         url,
-                        headers=headers,
+                        headers=merged_headers,
                         params=params,
                         follow_redirects=self.config.follow_redirects
                     )
@@ -240,6 +281,13 @@ class HTTPClient:
     
     async def post(self, url: str, data: Optional[Dict] = None, json: Optional[Dict] = None, headers: Optional[Dict[str, str]] = None) -> Response:
         """Make a POST request."""
+        # Build browser-like headers and merge with provided headers
+        default_headers = self.config.get_browser_headers(url)
+        if headers:
+            merged_headers = {**default_headers, **headers}
+        else:
+            merged_headers = default_headers
+        
         start_time = time.time()
         self._request_count += 1
         
@@ -253,7 +301,7 @@ class HTTPClient:
                     url,
                     data=data,
                     json=json,
-                    headers=headers,
+                    headers=merged_headers,
                     follow_redirects=self.config.follow_redirects
                 )
                 
@@ -292,6 +340,13 @@ class HTTPClient:
     
     async def put(self, url: str, data: Optional[Dict] = None, json: Optional[Dict] = None, headers: Optional[Dict[str, str]] = None) -> Response:
         """Make a PUT request."""
+        # Build browser-like headers and merge with provided headers
+        default_headers = self.config.get_browser_headers(url)
+        if headers:
+            merged_headers = {**default_headers, **headers}
+        else:
+            merged_headers = default_headers
+        
         start_time = time.time()
         self._request_count += 1
         
@@ -305,7 +360,7 @@ class HTTPClient:
                     url,
                     data=data,
                     json=json,
-                    headers=headers,
+                    headers=merged_headers,
                     follow_redirects=self.config.follow_redirects
                 )
                 
@@ -344,6 +399,13 @@ class HTTPClient:
 
     async def delete(self, url: str, headers: Optional[Dict[str, str]] = None) -> Response:
         """Make a DELETE request."""
+        # Build browser-like headers and merge with provided headers
+        default_headers = self.config.get_browser_headers(url)
+        if headers:
+            merged_headers = {**default_headers, **headers}
+        else:
+            merged_headers = default_headers
+        
         start_time = time.time()
         self._request_count += 1
         
@@ -355,7 +417,7 @@ class HTTPClient:
             async with httpx.AsyncClient(timeout=self.config.timeout) as client:
                 response = await client.delete(
                     url,
-                    headers=headers,
+                    headers=merged_headers,
                     follow_redirects=self.config.follow_redirects
                 )
                 
@@ -394,6 +456,13 @@ class HTTPClient:
     
     async def head(self, url: str, headers: Optional[Dict[str, str]] = None) -> Response:
         """Make a HEAD request."""
+        # Build browser-like headers and merge with provided headers
+        default_headers = self.config.get_browser_headers(url)
+        if headers:
+            merged_headers = {**default_headers, **headers}
+        else:
+            merged_headers = default_headers
+        
         start_time = time.time()
         self._request_count += 1
         
@@ -405,7 +474,7 @@ class HTTPClient:
             async with httpx.AsyncClient(timeout=self.config.timeout) as client:
                 response = await client.head(
                     url,
-                    headers=headers,
+                    headers=merged_headers,
                     follow_redirects=self.config.follow_redirects
                 )
                 

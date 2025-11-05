@@ -482,6 +482,15 @@
                                class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white">
                         <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Optional: Found in your Langfuse URL (e.g., https://us.cloud.langfuse.com/project/{project_id}/traces)</p>
                     </div>
+                    
+                    <!-- Langfuse Test Button -->
+                    <div class="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
+                        <button id="testLangfuseConnection" 
+                                class="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 text-sm font-medium rounded-md text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
+                            🧪 Test Langfuse Connection
+                        </button>
+                        <span id="langfuseTestStatus" class="ml-3 text-sm"></span>
+                    </div>
                 </div>
                 
                 <!-- Test API Key Button -->
@@ -517,8 +526,8 @@
 
 {% block scripts %}
 <script>
-    // Load settings from localStorage
-    function loadSettings() {
+    // Load settings from localStorage and database
+    async function loadSettings() {
         const settings = JSON.parse(localStorage.getItem('ctiScraperSettings') || '{}');
         
         
@@ -531,15 +540,8 @@
         const anthropicApiKey = settings.anthropicApiKey || '';
         document.getElementById('anthropicApiKey').value = anthropicApiKey;
         
-        // Set Langfuse API keys
-        const langfusePublicKey = settings.langfusePublicKey || '';
-        document.getElementById('langfusePublicKey').value = langfusePublicKey;
-        const langfuseSecretKey = settings.langfuseSecretKey || '';
-        document.getElementById('langfuseSecretKey').value = langfuseSecretKey;
-        const langfuseHost = settings.langfuseHost || '';
-        document.getElementById('langfuseHost').value = langfuseHost;
-        const langfuseProjectId = settings.langfuseProjectId || '';
-        document.getElementById('langfuseProjectId').value = langfuseProjectId;
+        // Load Langfuse settings from database (priority over localStorage)
+        await loadLangfuseSettings();
         
         // Set AI model
         const aiModel = settings.aiModel || 'chatgpt';
@@ -562,6 +564,71 @@
         
         // Update API Configuration section visibility
         updateApiConfigurationVisibility();
+    }
+    
+    // Load Langfuse settings from database (with localStorage fallback)
+    async function loadLangfuseSettings() {
+        const settings = JSON.parse(localStorage.getItem('ctiScraperSettings') || '{}');
+        
+        // Langfuse Public Key - check database first
+        try {
+            const response = await fetch('/api/settings/LANGFUSE_PUBLIC_KEY');
+            const data = await response.json();
+            if (data.success && data.exists && data.value) {
+                document.getElementById('langfusePublicKey').value = data.value;
+            } else {
+                // Fallback to localStorage
+                document.getElementById('langfusePublicKey').value = settings.langfusePublicKey || '';
+            }
+        } catch (error) {
+            console.log('Could not fetch LANGFUSE_PUBLIC_KEY from database:', error);
+            document.getElementById('langfusePublicKey').value = settings.langfusePublicKey || '';
+        }
+        
+        // Langfuse Secret Key - check database first
+        try {
+            const response = await fetch('/api/settings/LANGFUSE_SECRET_KEY');
+            const data = await response.json();
+            if (data.success && data.exists && data.value) {
+                document.getElementById('langfuseSecretKey').value = data.value;
+            } else {
+                // Fallback to localStorage
+                document.getElementById('langfuseSecretKey').value = settings.langfuseSecretKey || '';
+            }
+        } catch (error) {
+            console.log('Could not fetch LANGFUSE_SECRET_KEY from database:', error);
+            document.getElementById('langfuseSecretKey').value = settings.langfuseSecretKey || '';
+        }
+        
+        // Langfuse Host - check database first
+        try {
+            const response = await fetch('/api/settings/LANGFUSE_HOST');
+            const data = await response.json();
+            if (data.success && data.exists && data.value) {
+                document.getElementById('langfuseHost').value = data.value;
+            } else {
+                // Fallback to localStorage or default
+                document.getElementById('langfuseHost').value = settings.langfuseHost || 'https://cloud.langfuse.com';
+            }
+        } catch (error) {
+            console.log('Could not fetch LANGFUSE_HOST from database:', error);
+            document.getElementById('langfuseHost').value = settings.langfuseHost || 'https://cloud.langfuse.com';
+        }
+        
+        // Langfuse Project ID - check database first
+        try {
+            const response = await fetch('/api/settings/LANGFUSE_PROJECT_ID');
+            const data = await response.json();
+            if (data.success && data.exists && data.value) {
+                document.getElementById('langfuseProjectId').value = data.value;
+            } else {
+                // Fallback to localStorage
+                document.getElementById('langfuseProjectId').value = settings.langfuseProjectId || '';
+            }
+        } catch (error) {
+            console.log('Could not fetch LANGFUSE_PROJECT_ID from database:', error);
+            document.getElementById('langfuseProjectId').value = settings.langfuseProjectId || '';
+        }
     }
     
     // Update API Configuration section visibility based on AI model selection
@@ -771,34 +838,33 @@
 
         // Save Langfuse keys to backend API
         try {
-            const langfuseUpdates = [];
-            if (document.getElementById('langfusePublicKey').value.trim()) {
-                langfuseUpdates.push({ key: 'LANGFUSE_PUBLIC_KEY', value: document.getElementById('langfusePublicKey').value.trim() });
-            }
-            if (document.getElementById('langfuseSecretKey').value.trim()) {
-                langfuseUpdates.push({ key: 'LANGFUSE_SECRET_KEY', value: document.getElementById('langfuseSecretKey').value.trim() });
-            }
-            if (document.getElementById('langfuseHost').value.trim()) {
-                langfuseUpdates.push({ key: 'LANGFUSE_HOST', value: document.getElementById('langfuseHost').value.trim() });
-            }
-            if (document.getElementById('langfuseProjectId').value.trim()) {
-                langfuseUpdates.push({ key: 'LANGFUSE_PROJECT_ID', value: document.getElementById('langfuseProjectId').value.trim() });
-            }
+            const langfuseSettings = [
+                { key: 'LANGFUSE_PUBLIC_KEY', value: document.getElementById('langfusePublicKey').value.trim() },
+                { key: 'LANGFUSE_SECRET_KEY', value: document.getElementById('langfuseSecretKey').value.trim() },
+                { key: 'LANGFUSE_HOST', value: document.getElementById('langfuseHost').value.trim() },
+                { key: 'LANGFUSE_PROJECT_ID', value: document.getElementById('langfuseProjectId').value.trim() }
+            ];
             
-            for (const update of langfuseUpdates) {
-                await fetch('/api/settings', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify(update)
-                });
+            for (const setting of langfuseSettings) {
+                if (setting.value) {
+                    // Save non-empty value to database
+                    await fetch('/api/settings', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify(setting)
+                    });
+                } else {
+                    // Delete empty value from database (revert to environment variable)
+                    await fetch(`/api/settings/${setting.key}`, {
+                        method: 'DELETE'
+                    });
+                }
             }
-            if (langfuseUpdates.length > 0) {
-                console.log('✅ Langfuse keys saved to database');
-            }
+            console.log('✅ Langfuse settings saved to database');
         } catch (error) {
-            console.error('❌ Error saving Langfuse keys:', error);
+            console.error('❌ Error saving Langfuse settings:', error);
         }
 
         // Save LMStudio model to database (if selected and changed)
@@ -985,6 +1051,50 @@
         }
     }
     
+    // Test Langfuse connection
+    async function testLangfuseConnection() {
+        const statusElement = document.getElementById('langfuseTestStatus');
+        const testButton = document.getElementById('testLangfuseConnection');
+        
+        // Disable button and show loading
+        testButton.disabled = true;
+        testButton.textContent = '🧪 Testing...';
+        statusElement.textContent = '⏳ Testing Langfuse connection...';
+        statusElement.className = 'ml-3 text-sm text-gray-600 dark:text-gray-400';
+        
+        try {
+            const response = await fetch('/api/test-langfuse-connection', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({})
+            });
+            
+            if (response.ok) {
+                const result = await response.json();
+                if (result.valid) {
+                    statusElement.textContent = `✅ ${result.message}`;
+                    statusElement.className = 'ml-3 text-sm text-green-600 dark:text-green-400';
+                } else {
+                    statusElement.textContent = `❌ ${result.message}`;
+                    statusElement.className = 'ml-3 text-sm text-red-600 dark:text-red-400';
+                }
+            } else {
+                const error = await response.json();
+                statusElement.textContent = `❌ ${error.detail || 'Connection test failed'}`;
+                statusElement.className = 'ml-3 text-sm text-red-600 dark:text-red-400';
+            }
+        } catch (error) {
+            statusElement.textContent = '❌ Network error - please try again';
+            statusElement.className = 'ml-3 text-sm text-red-600 dark:text-red-400';
+        } finally {
+            // Re-enable button
+            testButton.disabled = false;
+            testButton.textContent = '🧪 Test Langfuse Connection';
+        }
+    }
+    
     // Toggle API key visibility
     function toggleApiKeyVisibility() {
         const input = document.getElementById('openaiApiKey');
@@ -1152,6 +1262,11 @@
         // Test API key button
         document.getElementById('testApiKey').addEventListener('click', function() {
             testApiKey();
+        });
+        
+        // Test Langfuse connection button
+        document.getElementById('testLangfuseConnection').addEventListener('click', function() {
+            testLangfuseConnection();
         });
         
         

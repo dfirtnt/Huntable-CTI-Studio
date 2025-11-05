@@ -58,7 +58,7 @@ class SourceSyncService:
                     url=config.url,
                     rss_url=config.rss_url,
                     active=config.active,
-                    config=config.config.model_dump(exclude_none=True) if config.config else {},
+                    config=config.config if isinstance(config.config, dict) else (config.config.model_dump(exclude_none=True) if config.config else {}),
                 )
 
                 synced = await self.db_manager.update_source(existing.id, update_data)
