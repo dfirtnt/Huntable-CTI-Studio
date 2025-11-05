@@ -13,6 +13,8 @@ import asyncio
 from typing import Dict, Any, Optional
 from pathlib import Path
 
+from src.utils.langfuse_client import trace_llm_call, log_llm_completion, log_llm_error
+
 logger = logging.getLogger(__name__)
 
 # LM Studio context limits (default to 32768 for reasoning models, 4096 for others)
@@ -480,7 +482,9 @@ class LLMService:
         content: str,
         source: str,
         url: str,
-        prompt_template_path: Optional[str] = None
+        prompt_template_path: Optional[str] = None,
+        execution_id: Optional[int] = None,
+        article_id: Optional[int] = None
     ) -> Dict[str, Any]:
         """
         Rank an article using LLM (Step 1 of workflow).
@@ -599,76 +603,110 @@ Score the article from 1-10 for SIGMA rule generation potential. Consider:
         
         logger.info(f"Ranking request: max_tokens={max_output_tokens} (reasoning_model={is_reasoning_model})")
         
-        try:
-            # Reasoning models need longer timeouts - they generate extensive reasoning + answer
-            ranking_timeout = 180.0 if is_reasoning_model else 60.0
+        # Trace LLM call with Langfuse
+        with trace_llm_call(
+            name="rank_article",
+            model=model_name,
+            execution_id=execution_id,
+            article_id=article_id,
+            metadata={
+                "prompt_length": len(prompt_text),
+                "max_tokens": max_output_tokens,
+                "title": title,
+                "source": source
+            }
+        ) as generation:
+            try:
+                # Reasoning models need longer timeouts - they generate extensive reasoning + answer
+                ranking_timeout = 180.0 if is_reasoning_model else 60.0
+                
+                result = await self._post_lmstudio_chat(
+                    payload,
+                    model_name=model_name,
+                    timeout=ranking_timeout,
+                    failure_context="Failed to rank article"
+                )
+                
+                # Deepseek-R1 returns reasoning in 'reasoning_content', fallback to 'content'
+                message = result['choices'][0]['message']
+                response_text = message.get('content', '') or message.get('reasoning_content', '')
             
-            result = await self._post_lmstudio_chat(
-                payload,
-                model_name=model_name,
-                timeout=ranking_timeout,
-                failure_context="Failed to rank article"
-            )
-            
-            # Deepseek-R1 returns reasoning in 'reasoning_content', fallback to 'content'
-            message = result['choices'][0]['message']
-            response_text = message.get('content', '') or message.get('reasoning_content', '')
-            
-            # Check if response was truncated due to token limit
-            finish_reason = result['choices'][0].get('finish_reason', '')
-            if finish_reason == 'length':
-                logger.warning(f"Ranking response was truncated (finish_reason=length). Used {result.get('usage', {}).get('completion_tokens', 0)} tokens. max_tokens={max_output_tokens} may need to be increased.")
-            
-            # Fail if response is empty
-            if not response_text or len(response_text.strip()) == 0:
-                logger.error("LLM returned empty response for ranking")
-                raise ValueError("LLM returned empty response for ranking. Check LMStudio is responding correctly.")
-            
-            logger.info(f"Ranking response received: {len(response_text)} chars (finish_reason={finish_reason})")
-            
-            # Parse score from response - look for "SIGMA HUNTABILITY SCORE: X" pattern first
-            import re
-            score = None
-            
-            # Try multiple patterns, searching entire response (not just first 200 chars)
-            # Pattern 1: "SIGMA HUNTABILITY SCORE: X" (exact format)
-            score_match = re.search(r'SIGMA\s+HUNTABILITY\s+SCORE[:\s]+(\d+(?:\.\d+)?)', response_text, re.IGNORECASE)
-            if score_match:
-                score = float(score_match.group(1))
-            else:
-                # Pattern 2: "Score: X" or "**Score:** X"
-                score_match = re.search(r'(?:^|\n|^|\*|#)\s*Score[:\s#*]+\s*(\d+(?:\.\d+)?)', response_text, re.IGNORECASE | re.MULTILINE)
+                # Check if response was truncated due to token limit
+                finish_reason = result['choices'][0].get('finish_reason', '')
+                if finish_reason == 'length':
+                    logger.warning(f"Ranking response was truncated (finish_reason=length). Used {result.get('usage', {}).get('completion_tokens', 0)} tokens. max_tokens={max_output_tokens} may need to be increased.")
+                
+                # Fail if response is empty
+                if not response_text or len(response_text.strip()) == 0:
+                    logger.error("LLM returned empty response for ranking")
+                    raise ValueError("LLM returned empty response for ranking. Check LMStudio is responding correctly.")
+                
+                logger.info(f"Ranking response received: {len(response_text)} chars (finish_reason={finish_reason})")
+                
+                # Parse score from response - look for "SIGMA HUNTABILITY SCORE: X" pattern first
+                import re
+                score = None
+                
+                # Try multiple patterns, searching entire response (not just first 200 chars)
+                # Pattern 1: "SIGMA HUNTABILITY SCORE: X" (exact format)
+                score_match = re.search(r'SIGMA\s+HUNTABILITY\s+SCORE[:\s]+(\d+(?:\.\d+)?)', response_text, re.IGNORECASE)
                 if score_match:
                     score = float(score_match.group(1))
                 else:
-                    # Pattern 3: Look for numbers 1-10 in the last 500 chars (where final answer usually is)
-                    # Reasoning models often put the score at the end after reasoning
-                    tail_text = response_text[-500:] if len(response_text) > 500 else response_text
-                    score_match = re.search(r'\b([1-9]|10)(?:\.\d+)?\b', tail_text)
+                    # Pattern 2: "Score: X" or "**Score:** X"
+                    score_match = re.search(r'(?:^|\n|^|\*|#)\s*Score[:\s#*]+\s*(\d+(?:\.\d+)?)', response_text, re.IGNORECASE | re.MULTILINE)
                     if score_match:
                         score = float(score_match.group(1))
-            
-            if score is not None:
-                score = max(1.0, min(10.0, score))  # Clamp to 1-10
-                logger.info(f"Parsed ranking score: {score}/10")
-            else:
-                # If truncated and no score found, provide helpful error
-                if finish_reason == 'length':
-                    error_msg = f"Ranking response was truncated and no score found. Response length: {len(response_text)} chars. Try increasing max_tokens (current: {max_output_tokens}). Response preview: {response_text[-300:]}"
+                    else:
+                        # Pattern 3: Look for numbers 1-10 in the last 500 chars (where final answer usually is)
+                        # Reasoning models often put the score at the end after reasoning
+                        tail_text = response_text[-500:] if len(response_text) > 500 else response_text
+                        score_match = re.search(r'\b([1-9]|10)(?:\.\d+)?\b', tail_text)
+                        if score_match:
+                            score = float(score_match.group(1))
+                
+                if score is not None:
+                    score = max(1.0, min(10.0, score))  # Clamp to 1-10
+                    logger.info(f"Parsed ranking score: {score}/10")
                 else:
-                    error_msg = f"Could not parse score from LLM response. Response: {response_text[:500]}"
-                logger.error(error_msg)
-                raise ValueError(error_msg)
-            
-            return {
-                'score': score,
-                'reasoning': response_text.strip(),
-                'raw_response': response_text
-            }
-            
-        except Exception as e:
-            logger.error(f"Error ranking article: {e}")
-            raise
+                    # If truncated and no score found, provide helpful error
+                    if finish_reason == 'length':
+                        error_msg = f"Ranking response was truncated and no score found. Response length: {len(response_text)} chars. Try increasing max_tokens (current: {max_output_tokens}). Response preview: {response_text[-300:]}"
+                    else:
+                        error_msg = f"Could not parse score from LLM response. Response: {response_text[:500]}"
+                    logger.error(error_msg)
+                    log_llm_error(generation, ValueError(error_msg))
+                    raise ValueError(error_msg)
+                
+                # Log completion to Langfuse
+                usage = result.get('usage', {})
+                log_llm_completion(
+                    generation,
+                    input_messages=messages,
+                    output=response_text.strip(),
+                    usage={
+                        "prompt_tokens": usage.get('prompt_tokens', 0),
+                        "completion_tokens": usage.get('completion_tokens', 0),
+                        "total_tokens": usage.get('total_tokens', 0)
+                    },
+                    metadata={
+                        "score": score,
+                        "finish_reason": finish_reason,
+                        "response_length": len(response_text)
+                    }
+                )
+                
+                return {
+                    'score': score,
+                    'reasoning': response_text.strip(),
+                    'raw_response': response_text
+                }
+                
+            except Exception as e:
+                logger.error(f"Error ranking article: {e}")
+                if generation:
+                    log_llm_error(generation, e)
+                raise
     
     async def extract_behaviors(
         self,
@@ -677,7 +715,9 @@ Score the article from 1-10 for SIGMA rule generation potential. Consider:
         url: str,
         prompt_file_path: Optional[str] = None,
         prompt_config_dict: Optional[Dict[str, Any]] = None,
-        instructions_template_str: Optional[str] = None
+        instructions_template_str: Optional[str] = None,
+        execution_id: Optional[int] = None,
+        article_id: Optional[int] = None
     ) -> Dict[str, Any]:
         """
         Extract huntable behaviors using ExtractAgent prompt (Step 2 of workflow).
@@ -791,177 +831,211 @@ Score the article from 1-10 for SIGMA rule generation potential. Consider:
         
         logger.info(f"Extract behaviors request: max_tokens={max_output_tokens} (reasoning_model={is_reasoning_model})")
         
-        try:
-            # Reasoning models need much longer timeouts - they generate extensive reasoning + JSON
-            # With 10000 max_tokens and reasoning, can take 5-10 minutes
-            extraction_timeout = 600.0 if is_reasoning_model else 180.0
-            
-            result = await self._post_lmstudio_chat(
-                payload,
-                model_name=model_name,
-                timeout=extraction_timeout,
-                failure_context="Failed to extract behaviors"
-            )
-            
-            # Deepseek-R1: check both content and reasoning_content
-            # Often the final answer is in 'content' while reasoning is in 'reasoning_content'
-            message = result['choices'][0]['message']
-            content_text = message.get('content', '')
-            reasoning_text = message.get('reasoning_content', '')
-            
-            # Check for token limit hit
-            finish_reason = result['choices'][0].get('finish_reason', '')
-            if finish_reason == 'length':
-                logger.error(f"Token limit hit! Used {result.get('usage', {}).get('completion_tokens', 0)} completion tokens. "
-                           f"Content: {len(content_text)} chars, Reasoning: {len(reasoning_text)} chars. "
-                           f"max_tokens={max_output_tokens} may be too low for reasoning model.")
-            
-            # Prefer content if it looks like JSON, otherwise check reasoning_content
-            # Deepseek-R1 might put JSON in either field
-            if content_text and (content_text.strip().startswith('{') or 'behavioral_observables' in content_text or 'observables' in content_text):
-                response_text = content_text
-                logger.info("Using 'content' field for extraction (looks like JSON)")
-            elif reasoning_text and (reasoning_text.strip().startswith('{') or 'behavioral_observables' in reasoning_text or 'observables' in reasoning_text):
-                response_text = reasoning_text
-                logger.info("Using 'reasoning_content' field for extraction (looks like JSON)")
-            else:
-                # Fallback: use content first, then reasoning
-                response_text = content_text or reasoning_text
-                if finish_reason == 'length':
-                    logger.error(f"Token limit hit and no JSON found. Check max_tokens setting (current: {max_output_tokens})")
-                logger.warning(f"Neither field looks like JSON. Using content ({len(content_text)} chars) or reasoning ({len(reasoning_text)} chars)")
-            
-            # Log response for debugging
-            if not response_text or len(response_text.strip()) == 0:
-                logger.error("LLM returned empty response for extraction")
-                raise ValueError("LLM returned empty response. Check LMStudio is responding correctly.")
-            
-            logger.info(f"Extraction response received: {len(response_text)} chars")
-            
-            # Try to parse JSON from response
+        # Trace LLM call with Langfuse
+        with trace_llm_call(
+            name="extract_behaviors",
+            model=model_name,
+            execution_id=execution_id,
+            article_id=article_id,
+            metadata={
+                "prompt_length": len(user_prompt),
+                "max_tokens": max_output_tokens,
+                "title": title,
+                "has_reasoning": is_reasoning_model
+            }
+        ) as generation:
             try:
-                # Deepseek-R1 may provide reasoning, then JSON at the end
-                # Strategy: Look for JSON at the end of the response first, then fallback to anywhere
+                # Reasoning models need much longer timeouts - they generate extensive reasoning + JSON
+                # With 10000 max_tokens and reasoning, can take 5-10 minutes
+                extraction_timeout = 600.0 if is_reasoning_model else 180.0
                 
-                json_text = None
+                result = await self._post_lmstudio_chat(
+                    payload,
+                    model_name=model_name,
+                    timeout=extraction_timeout,
+                    failure_context="Failed to extract behaviors"
+                )
                 
-                # First, try to extract JSON from markdown code fences (```json ... ``` or ``` ... ```)
-                code_fence_match = re.search(r'```(?:json)?\s*\n(.*?)\n```', response_text, re.DOTALL)
-                if code_fence_match:
-                    json_text = code_fence_match.group(1).strip()
-                    logger.info("Extracted JSON from markdown code fence")
+                # Deepseek-R1: check both content and reasoning_content
+                # Often the final answer is in 'content' while reasoning is in 'reasoning_content'
+                message = result['choices'][0]['message']
+                content_text = message.get('content', '')
+                reasoning_text = message.get('reasoning_content', '')
+                
+                # Check for token limit hit
+                finish_reason = result['choices'][0].get('finish_reason', '')
+                if finish_reason == 'length':
+                    logger.error(f"Token limit hit! Used {result.get('usage', {}).get('completion_tokens', 0)} completion tokens. "
+                               f"Content: {len(content_text)} chars, Reasoning: {len(reasoning_text)} chars. "
+                               f"max_tokens={max_output_tokens} may be too low for reasoning model.")
+                
+                # Prefer content if it looks like JSON, otherwise check reasoning_content
+                # Deepseek-R1 might put JSON in either field
+                if content_text and (content_text.strip().startswith('{') or 'behavioral_observables' in content_text or 'observables' in content_text):
+                    response_text = content_text
+                    logger.info("Using 'content' field for extraction (looks like JSON)")
+                elif reasoning_text and (reasoning_text.strip().startswith('{') or 'behavioral_observables' in reasoning_text or 'observables' in reasoning_text):
+                    response_text = reasoning_text
+                    logger.info("Using 'reasoning_content' field for extraction (looks like JSON)")
                 else:
-                    # Look for JSON object at the END of response (most likely after reasoning)
-                    # Strategy: Find ALL potential JSON objects, then take the largest/root one
-                    # This handles cases where reasoning contains nested JSON examples
+                    # Fallback: use content first, then reasoning
+                    response_text = content_text or reasoning_text
+                    if finish_reason == 'length':
+                        logger.error(f"Token limit hit and no JSON found. Check max_tokens setting (current: {max_output_tokens})")
+                    logger.warning(f"Neither field looks like JSON. Using content ({len(content_text)} chars) or reasoning ({len(reasoning_text)} chars)")
+                
+                # Log response for debugging
+                if not response_text or len(response_text.strip()) == 0:
+                    logger.error("LLM returned empty response for extraction")
+                    raise ValueError("LLM returned empty response. Check LMStudio is responding correctly.")
+                
+                logger.info(f"Extraction response received: {len(response_text)} chars")
+                
+                # Try to parse JSON from response
+                try:
+                    # Deepseek-R1 may provide reasoning, then JSON at the end
+                    # Strategy: Look for JSON at the end of the response first, then fallback to anywhere
                     
-                    # Find all potential JSON object start positions
-                    json_candidates = []
-                    search_pos = 0
-                    while True:
-                        open_pos = response_text.find('{', search_pos)
-                        if open_pos == -1:
-                            break
-                        
-                        # Try to find matching closing brace
-                        brace_count = 0
-                        json_end = -1
-                        for i in range(open_pos, len(response_text)):
-                            if response_text[i] == '{':
-                                brace_count += 1
-                            elif response_text[i] == '}':
-                                brace_count -= 1
-                                if brace_count == 0:
-                                    json_end = i + 1
-                                    break
-                        
-                        if json_end != -1:
-                            candidate_json = response_text[open_pos:json_end]
-                            # Try to parse it to validate it's valid JSON
-                            try:
-                                candidate_data = json.loads(candidate_json)
-                                # Check if it has expected root-level keys (not a nested object)
-                                if any(key in candidate_data for key in ['behavioral_observables', 'detection_queries', 'observables', 'summary', 'url', 'content', 'discrete_huntables_count']):
-                                    json_candidates.append((open_pos, json_end, len(candidate_json), candidate_data))
-                            except json.JSONDecodeError:
-                                pass
-                        
-                        search_pos = open_pos + 1
+                    json_text = None
                     
-                    if json_candidates:
-                        # Prefer the one with expected keys, then largest, then last
-                        root_candidates = [c for c in json_candidates if any(k in c[3] for k in ['behavioral_observables', 'observables', 'summary', 'url', 'content'])]
-                        if root_candidates:
-                            # Take the largest root-level candidate
-                            _, _, _, root_data = max(root_candidates, key=lambda x: x[2])
-                            json_text = json.dumps(root_data)  # Re-serialize to get clean JSON
-                            logger.info("Extracted root JSON object from end of response")
-                        else:
-                            # Fallback to largest candidate
-                            _, _, _, largest_data = max(json_candidates, key=lambda x: x[2])
-                            json_text = json.dumps(largest_data)
-                            logger.info("Extracted largest JSON object from response")
+                    # First, try to extract JSON from markdown code fences (```json ... ``` or ``` ... ```)
+                    code_fence_match = re.search(r'```(?:json)?\s*\n(.*?)\n```', response_text, re.DOTALL)
+                    if code_fence_match:
+                        json_text = code_fence_match.group(1).strip()
+                        logger.info("Extracted JSON from markdown code fence")
                     else:
-                        raise ValueError("No valid JSON found in response")
+                        # Look for JSON object at the END of response (most likely after reasoning)
+                        # Strategy: Find ALL potential JSON objects, then take the largest/root one
+                        # This handles cases where reasoning contains nested JSON examples
+                        
+                        # Find all potential JSON object start positions
+                        json_candidates = []
+                        search_pos = 0
+                        while True:
+                            open_pos = response_text.find('{', search_pos)
+                            if open_pos == -1:
+                                break
+                            
+                            # Try to find matching closing brace
+                            brace_count = 0
+                            json_end = -1
+                            for i in range(open_pos, len(response_text)):
+                                if response_text[i] == '{':
+                                    brace_count += 1
+                                elif response_text[i] == '}':
+                                    brace_count -= 1
+                                    if brace_count == 0:
+                                        json_end = i + 1
+                                        break
+                            
+                            if json_end != -1:
+                                candidate_json = response_text[open_pos:json_end]
+                                # Try to parse it to validate it's valid JSON
+                                try:
+                                    candidate_data = json.loads(candidate_json)
+                                    # Check if it has expected root-level keys (not a nested object)
+                                    if any(key in candidate_data for key in ['behavioral_observables', 'detection_queries', 'observables', 'summary', 'url', 'content', 'discrete_huntables_count']):
+                                        json_candidates.append((open_pos, json_end, len(candidate_json), candidate_data))
+                                except json.JSONDecodeError:
+                                    pass
+                            
+                            search_pos = open_pos + 1
+                        
+                        if json_candidates:
+                            # Prefer the one with expected keys, then largest, then last
+                            root_candidates = [c for c in json_candidates if any(k in c[3] for k in ['behavioral_observables', 'observables', 'summary', 'url', 'content'])]
+                            if root_candidates:
+                                # Take the largest root-level candidate
+                                _, _, _, root_data = max(root_candidates, key=lambda x: x[2])
+                                json_text = json.dumps(root_data)  # Re-serialize to get clean JSON
+                                logger.info("Extracted root JSON object from end of response")
+                            else:
+                                # Fallback to largest candidate
+                                _, _, _, largest_data = max(json_candidates, key=lambda x: x[2])
+                                json_text = json.dumps(largest_data)
+                                logger.info("Extracted largest JSON object from response")
+                        else:
+                            raise ValueError("No valid JSON found in response")
+                    
+                    # Parse JSON
+                    extracted = json.loads(json_text)
+                    
+                    # Ensure required fields exist
+                    if 'raw_response' not in extracted:
+                        extracted['raw_response'] = response_text
+                    
+                    # Validate and normalize new format (observables + summary)
+                    if 'observables' in extracted and 'summary' in extracted:
+                        # New format: ensure structure is correct
+                        observables = extracted.get('observables', [])
+                        summary = extracted.get('summary', {})
+                        
+                        # Ensure observables is a list
+                        if not isinstance(observables, list):
+                            logger.warning("observables is not a list, converting to empty list")
+                            observables = []
+                        
+                        # Set discrete_huntables_count from summary.count
+                        discrete_huntables_count = summary.get('count', len(observables))
+                        if not isinstance(discrete_huntables_count, (int, float)):
+                            logger.warning(f"summary.count is not a number: {discrete_huntables_count}, defaulting to {len(observables)}")
+                            discrete_huntables_count = len(observables)
+                        
+                        # Ensure summary has required fields
+                        if 'source_url' not in summary:
+                            summary['source_url'] = url
+                        if 'platforms_detected' not in summary:
+                            summary['platforms_detected'] = []
+                        
+                        # Update extracted with normalized values
+                        extracted['observables'] = observables
+                        extracted['summary'] = summary
+                        extracted['discrete_huntables_count'] = discrete_huntables_count
+                        extracted['url'] = summary.get('source_url', url)
+                        
+                        logger.info(f"Parsed extraction result (new format): {len(observables)} observables, {discrete_huntables_count} huntables")
+                    else:
+                        # Missing required fields
+                        raise ValueError("Extraction result must contain 'observables' array and 'summary' object matching the prompt format")
+                except (json.JSONDecodeError, ValueError) as e:
+                    logger.warning(f"Could not parse JSON from extraction response: {e}. Using fallback. Response preview: {response_text[:200]}")
+                    extracted = {
+                        "observables": [],
+                        "summary": {
+                            "count": 0,
+                            "source_url": url,
+                            "platforms_detected": []
+                        },
+                        "discrete_huntables_count": 0,
+                        "raw_response": response_text
+                    }
                 
-                # Parse JSON
-                extracted = json.loads(json_text)
-                
-                # Ensure required fields exist
-                if 'raw_response' not in extracted:
-                    extracted['raw_response'] = response_text
-                
-                # Validate and normalize new format (observables + summary)
-                if 'observables' in extracted and 'summary' in extracted:
-                    # New format: ensure structure is correct
-                    observables = extracted.get('observables', [])
-                    summary = extracted.get('summary', {})
-                    
-                    # Ensure observables is a list
-                    if not isinstance(observables, list):
-                        logger.warning("observables is not a list, converting to empty list")
-                        observables = []
-                    
-                    # Set discrete_huntables_count from summary.count
-                    discrete_huntables_count = summary.get('count', len(observables))
-                    if not isinstance(discrete_huntables_count, (int, float)):
-                        logger.warning(f"summary.count is not a number: {discrete_huntables_count}, defaulting to {len(observables)}")
-                        discrete_huntables_count = len(observables)
-                    
-                    # Ensure summary has required fields
-                    if 'source_url' not in summary:
-                        summary['source_url'] = url
-                    if 'platforms_detected' not in summary:
-                        summary['platforms_detected'] = []
-                    
-                    # Update extracted with normalized values
-                    extracted['observables'] = observables
-                    extracted['summary'] = summary
-                    extracted['discrete_huntables_count'] = discrete_huntables_count
-                    extracted['url'] = summary.get('source_url', url)
-                    
-                    logger.info(f"Parsed extraction result (new format): {len(observables)} observables, {discrete_huntables_count} huntables")
-                else:
-                    # Missing required fields
-                    raise ValueError("Extraction result must contain 'observables' array and 'summary' object matching the prompt format")
-            except (json.JSONDecodeError, ValueError) as e:
-                logger.warning(f"Could not parse JSON from extraction response: {e}. Using fallback. Response preview: {response_text[:200]}")
-                extracted = {
-                    "observables": [],
-                    "summary": {
-                        "count": 0,
-                        "source_url": url,
-                        "platforms_detected": []
+                # Log completion to Langfuse
+                usage = result.get('usage', {})
+                log_llm_completion(
+                    generation,
+                    input_messages=messages,
+                    output=response_text.strip(),
+                    usage={
+                        "prompt_tokens": usage.get('prompt_tokens', 0),
+                        "completion_tokens": usage.get('completion_tokens', 0),
+                        "total_tokens": usage.get('total_tokens', 0)
                     },
-                    "discrete_huntables_count": 0,
-                    "raw_response": response_text
-                }
-            
-            return extracted
-            
-        except Exception as e:
-            logger.error(f"Error extracting behaviors: {e}")
-            raise
+                    metadata={
+                        "discrete_huntables_count": extracted.get('discrete_huntables_count', 0),
+                        "finish_reason": finish_reason,
+                        "response_length": len(response_text),
+                        "has_json": bool(json_text) if 'json_text' in locals() else False
+                    }
+                )
+                
+                return extracted
+                
+            except Exception as e:
+                logger.error(f"Error extracting behaviors: {e}")
+                if generation:
+                    log_llm_error(generation, e)
+                raise
     
     async def extract_observables(
         self,

@@ -131,20 +131,37 @@ class URLDiscovery:
                 # Extract URLs from sitemap (handle namespaces)
                 # BeautifulSoup's XML parser should handle namespaces, but try multiple approaches
                 discovered_count = 0
+                
+                # Try standard find_all first
                 for loc in soup.find_all('loc'):
                     url = loc.get_text().strip()
                     if url:
                         urls.add(normalize_url(url))
                         discovered_count += 1
                 
-                # If no URLs found, try CSS selector approach
+                # If no URLs found, try namespace-aware search
                 if discovered_count == 0:
-                    logger.debug(f"No URLs found with find_all('loc'), trying alternative parsing for {sitemap_url}")
-                    # Try selecting all 'loc' elements regardless of namespace
-                    for elem in soup.select('loc'):
-                        url = elem.get_text().strip()
+                    logger.debug(f"No URLs found with find_all('loc'), trying namespace-aware parsing for {sitemap_url}")
+                    # Try with explicit namespace
+                    for loc in soup.find_all('loc', recursive=True):
+                        url = loc.get_text().strip()
                         if url:
                             urls.add(normalize_url(url))
+                            discovered_count += 1
+                
+                # If still no URLs, try regex-based extraction as fallback
+                if discovered_count == 0:
+                    logger.debug(f"No URLs found with BeautifulSoup, trying regex fallback for {sitemap_url}")
+                    logger.debug(f"Response text length: {len(response.text)}, first 500 chars: {response.text[:500]}")
+                    import re
+                    loc_pattern = r'<loc>(.*?)</loc>'
+                    matches = re.findall(loc_pattern, response.text)
+                    logger.debug(f"Regex found {len(matches)} matches")
+                    for url in matches:
+                        url = url.strip()
+                        if url:
+                            urls.add(normalize_url(url))
+                            discovered_count += 1
                 
                 logger.debug(f"Discovered {len(urls)} URLs from sitemap {sitemap_url}")
                 
@@ -392,7 +409,8 @@ class ModernScraper:
 
         # Configure robots.txt settings if available
         if isinstance(source.config, dict) and 'robots' in source.config:
-            self.http_client.configure_source_robots(source.identifier, source.config['robots'])
+            if hasattr(self.http_client, 'configure_source_robots'):
+                self.http_client.configure_source_robots(source.identifier, source.config['robots'])
 
         # Phase 1: URL Discovery
         urls = await self.url_discovery.discover_urls(source)
@@ -636,7 +654,8 @@ class LegacyScraper:
 
         # Configure robots.txt settings if available
         if isinstance(source.config, dict) and 'robots' in source.config:
-            self.http_client.configure_source_robots(source.identifier, source.config['robots'])
+            if hasattr(self.http_client, 'configure_source_robots'):
+                self.http_client.configure_source_robots(source.identifier, source.config['robots'])
 
         content_selector = getattr(source.config, 'content_selector', 'article')
         
