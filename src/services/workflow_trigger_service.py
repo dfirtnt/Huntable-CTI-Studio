@@ -120,6 +120,7 @@ class WorkflowTriggerService:
                     'ranking_threshold': config.ranking_threshold,
                     'similarity_threshold': config.similarity_threshold,
                     'junk_filter_threshold': config.junk_filter_threshold,
+                    'agent_models': config.agent_models,
                     'config_id': config.id,
                     'config_version': config.version
                 } if config else None

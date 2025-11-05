@@ -81,7 +81,7 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
     
     # Initialize services
     content_filter = ContentFilter()
-    llm_service = LLMService()
+    # LLMService will be initialized per-node with config models
     rag_service = RAGService()
     trigger_service = WorkflowTriggerService(db_session)
     
@@ -180,6 +180,11 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
             if execution:
                 execution.current_step = 'rank_article'
                 db_session.commit()
+            
+            # Get config models for LLMService
+            config_obj = trigger_service.get_active_config()
+            agent_models = config_obj.agent_models if config_obj else None
+            llm_service = LLMService(config_models=agent_models)
             
             # Get source name
             source_name = article.source.name if article.source else "Unknown"
@@ -324,6 +329,10 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
             
             logger.info(f"[Workflow {state['execution_id']}] Using database ExtractAgent prompt (config version {config_obj.version})")
             
+            # Get config models for LLMService
+            agent_models = config_obj.agent_models if config_obj else None
+            llm_service = LLMService(config_models=agent_models)
+            
             # Use database prompt
             extraction_result = await llm_service.extract_behaviors(
                 content=filtered_content,
@@ -388,11 +397,15 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                 execution.current_step = 'generate_sigma'
                 db_session.commit()
             
+            # Get config models for SigmaGenerationService
+            config_obj = trigger_service.get_active_config()
+            agent_models = config_obj.agent_models if config_obj else None
+            
             # Get source name
             source_name = article.source.name if article.source else "Unknown"
             
             # Generate SIGMA rules using service
-            sigma_service = SigmaGenerationService()
+            sigma_service = SigmaGenerationService(config_models=agent_models)
             generation_result = await sigma_service.generate_sigma_rules(
                 article_title=article.title,
                 article_content=filtered_content,
@@ -781,8 +794,12 @@ async def run_workflow(article_id: int, db_session: Session) -> Dict[str, Any]:
             'current_step': 'junk_filter'
         }
         
+        # Get config models for context check (use config if available, otherwise env vars)
+        config_obj = trigger_service.get_active_config()
+        agent_models = config_obj.agent_models if config_obj else None
+        
         # Set execution context for LLM service tracing
-        llm_service = LLMService()
+        llm_service = LLMService(config_models=agent_models)
         llm_service._current_execution_id = execution.id
         llm_service._current_article_id = article_id
         
