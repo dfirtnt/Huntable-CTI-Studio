@@ -199,6 +199,7 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
             # Update execution record with ranking results
             if execution:
                 execution.ranking_score = ranking_score
+                execution.ranking_reasoning = ranking_result.get('reasoning', '')  # Store full reasoning
                 execution.current_step = 'rank_article'
                 # Don't mark as failed if below threshold - this is a normal threshold stop, not an error
                 # The conditional edge will handle stopping the workflow

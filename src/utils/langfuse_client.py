@@ -20,6 +20,43 @@ _langfuse_enabled = False
 _active_trace_id: Optional[str] = None
 
 
+def _get_langfuse_setting(key: str, env_key: str, default: Optional[str] = None) -> Optional[str]:
+    """Get Langfuse setting from database first, then fall back to environment variable.
+    
+    Priority: database setting > environment variable > default
+    """
+    # Check database setting first (highest priority - user preference from UI)
+    try:
+        from src.database.manager import DatabaseManager
+        db_manager = DatabaseManager()
+        db_session = db_manager.get_session()
+        
+        try:
+            from src.database.models import AppSettingsTable
+            setting = db_session.query(AppSettingsTable).filter(
+                AppSettingsTable.key == key
+            ).first()
+            
+            if setting and setting.value:
+                logger.debug(f"Using {key} from database setting")
+                return setting.value
+        except Exception as e:
+            logger.debug(f"Could not fetch {key} from database: {e}")
+        finally:
+            db_session.close()
+    except Exception as e:
+        logger.debug(f"Could not access database for {key}: {e}")
+    
+    # Fall back to environment variable (second priority)
+    env_value = os.getenv(env_key)
+    if env_value:
+        logger.debug(f"Using {env_key} from environment")
+        return env_value
+    
+    # Return default if provided
+    return default
+
+
 def get_langfuse_client():
     """Get or initialize LangFuse client."""
     global _langfuse_client, _langfuse_enabled
@@ -27,10 +64,10 @@ def get_langfuse_client():
     if _langfuse_client is not None:
         return _langfuse_client
     
-    # Check if LangFuse is enabled via environment variables
-    public_key = os.getenv("LANGFUSE_PUBLIC_KEY")
-    secret_key = os.getenv("LANGFUSE_SECRET_KEY")
-    host = os.getenv("LANGFUSE_HOST", "https://cloud.langfuse.com")
+    # Check if LangFuse is enabled - check database settings first, then environment variables
+    public_key = _get_langfuse_setting("LANGFUSE_PUBLIC_KEY", "LANGFUSE_PUBLIC_KEY")
+    secret_key = _get_langfuse_setting("LANGFUSE_SECRET_KEY", "LANGFUSE_SECRET_KEY")
+    host = _get_langfuse_setting("LANGFUSE_HOST", "LANGFUSE_HOST", "https://cloud.langfuse.com")
     
     if not public_key or not secret_key:
         logger.info("LangFuse not configured (missing LANGFUSE_PUBLIC_KEY or LANGFUSE_SECRET_KEY). Monitoring disabled.")

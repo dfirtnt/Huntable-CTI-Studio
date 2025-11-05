@@ -68,8 +68,9 @@ class SigmaGenerationService:
                 content_to_analyze = article_content
                 logger.warning("Content optimization failed, using original content")
             
-            # Load SIGMA generation prompt
-            sigma_prompt = format_prompt(
+            # Load SIGMA generation prompt (async to avoid blocking)
+            from src.utils.prompt_loader import format_prompt_async
+            sigma_prompt = await format_prompt_async(
                 "sigma_generation",
                 title=article_title,
                 source=source_name,

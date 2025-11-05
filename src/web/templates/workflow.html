@@ -668,7 +668,7 @@ function renderAgentPrompts() {
             <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
                 <div class="flex items-center justify-between mb-3">
                     <div>
-                        <h4 class="text-md font-semibold text-gray-900 dark:text-white">${agentName}</h4>
+                    <h4 class="text-md font-semibold text-gray-900 dark:text-white">${agentName}</h4>
                         <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Model: <span class="font-mono">${escapeHtml(model)}</span></p>
                     </div>
                     <div class="flex gap-2">
@@ -1050,10 +1050,10 @@ function renderExecutions() {
             </td>
             <td class="px-6 py-4 whitespace-nowrap text-sm">
                 <button onclick="viewExecution(${exec.id})" class="text-blue-600 hover:text-blue-800 dark:text-blue-400 mr-2">View</button>
-                <button onclick="debugInAgentChat(${exec.id})" class="text-purple-600 hover:text-purple-800 dark:text-purple-400 mr-2" title="Open in LangSmith Studio. Note: Traces only exist if execution ran through LangGraph server (not Celery). Use 'View' for database details.">🔍 Debug</button>
+                <button onclick="debugInAgentChat(${exec.id})" class="text-purple-600 hover:text-purple-800 dark:text-purple-400 mr-2" title="Open in Langfuse. Note: Traces only exist if execution ran with Langfuse tracing enabled. Use 'View' for database details.">🔍 Debug</button>
                 ${exec.status === 'failed' ? `
                     <button onclick="retryExecution(${exec.id}, false)" class="text-green-600 hover:text-green-800 dark:text-green-400 mr-2" title="Retry via Celery (fast, no traces)">Retry</button>
-                    <button onclick="retryExecution(${exec.id}, true)" class="text-purple-600 hover:text-purple-800 dark:text-purple-400" title="Retry via LangGraph Server (creates traces in LangSmith)">Retry (Trace)</button>
+                    <button onclick="retryExecution(${exec.id}, true)" class="text-purple-600 hover:text-purple-800 dark:text-purple-400" title="Retry via LangGraph Server (creates traces in Langfuse)">Retry (Trace)</button>
                 ` : ''}
             </td>
         </tr>
@@ -1440,7 +1440,7 @@ async function retryExecution(executionId, useLangGraphServer = false) {
             const result = await response.json();
             if (result.via_langgraph_server) {
                 alert('✅ Retry initiated via LangGraph Server\n\n' +
-                      'This will create traces in LangSmith Studio.\n' +
+                      'This will create traces in Langfuse.\n' +
                       'Click "Debug" button to view after execution starts.');
             } else {
                 alert('Retry initiated via Celery (fast, no traces)');
@@ -1466,7 +1466,7 @@ async function debugInAgentChat(executionId) {
             const agentChatUrl = info.agent_chat_url;
             
             if (agentChatUrl) {
-                // Show instructions if using LangSmith
+                // Show instructions if using Langfuse
                 if (info.uses_langsmith && info.instructions) {
                     const instructions = info.instructions.split('\n').map(line => line.trim()).filter(line => line);
                     const message = instructions.join('\n\n');
@@ -1474,13 +1474,13 @@ async function debugInAgentChat(executionId) {
                     
                     // Show a helpful message before opening
                     const confirmed = confirm(
-                        `Opening LangSmith Studio for execution #${executionId}.\n\n` +
-                        `⚠️ Note: Traces only appear if the execution ran through the LangGraph server.\n` +
+                        `Opening Langfuse for execution #${executionId}.\n\n` +
+                        `⚠️ Note: Traces only appear if the execution ran with Langfuse tracing enabled.\n` +
                         `Most executions run via Celery, so traces may not exist.\n\n` +
                         `If no traces appear:\n` +
                         `• Use the "View" button to see execution details from the database\n` +
-                        `• Only executions through LangGraph server create traces\n\n` +
-                        `Click OK to open LangSmith Studio, or Cancel to view full instructions.`
+                        `• Only executions with Langfuse tracing enabled create traces\n\n` +
+                        `Click OK to open Langfuse, or Cancel to view full instructions.`
                     );
                     
                     if (!confirmed) {
@@ -1489,7 +1489,7 @@ async function debugInAgentChat(executionId) {
                     }
                 }
                 
-                // Open Agent Chat UI in new tab with pre-configured connection
+                // Open Langfuse in new tab
                 window.open(agentChatUrl, '_blank');
             } else {
                 alert('Agent Chat UI not configured. Please start LangGraph server and configure LANGGRAPH_SERVER_URL.');

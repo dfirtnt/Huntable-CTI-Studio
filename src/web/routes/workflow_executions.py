@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 from datetime import datetime
 
 from src.database.manager import DatabaseManager
-from src.database.models import AgenticWorkflowExecutionTable, ArticleTable
+from src.database.models import AgenticWorkflowExecutionTable, ArticleTable, AppSettingsTable
 
 logger = logging.getLogger(__name__)
 
@@ -36,6 +36,7 @@ class ExecutionResponse(BaseModel):
 
 class ExecutionDetailResponse(ExecutionResponse):
     """Detailed response with step results."""
+    ranking_reasoning: Optional[str]
     junk_filter_result: Optional[Dict[str, Any]]
     extraction_result: Optional[Dict[str, Any]]
     sigma_rules: Optional[List[Dict[str, Any]]]
@@ -157,6 +158,7 @@ async def get_workflow_execution(request: Request, execution_id: int):
                 status=execution.status,
                 current_step=execution.current_step,
                 ranking_score=execution.ranking_score,
+                ranking_reasoning=execution.ranking_reasoning,
                 config_snapshot=execution.config_snapshot,
                 error_message=execution.error_message,
                 retry_count=execution.retry_count,
@@ -223,30 +225,48 @@ async def _trigger_via_langgraph_server(article_id: int, execution_id: int, lang
             }
             
             # Call LangGraph server API
+            # LangGraph server requires thread IDs to be UUIDs, not strings
+            import uuid
+            langgraph_thread_id = str(uuid.uuid4())
+            
             async with httpx.AsyncClient(timeout=60.0) as client:
-                # LangGraph server expects assistant_id as UUID, but graph name works for creating threads
-                # First, try to get/create thread, then submit run
-                # Format: POST /threads/{thread_id}/runs (simpler format that works with graph names)
+                # Format input according to ExposableWorkflowState - use direct input, not nested
+                # The workflow expects article_id, execution_id, etc. at top level
+                workflow_input = {
+                    "article_id": article_id,
+                    "execution_id": execution_id,
+                    "min_hunt_score": config['min_hunt_score'],
+                    "ranking_threshold": config['ranking_threshold'],
+                    "similarity_threshold": config['similarity_threshold'],
+                    "current_step": "junk_filter",
+                    "status": "running"
+                }
                 
-                # Try alternative endpoint format that accepts graph names
-                # LangGraph dev server may support graph name directly in threads endpoint
+                # LangGraph dev server requires two-step process:
+                # Step 1: POST /threads to create thread
+                # Step 2: POST /threads/{thread_id}/runs to submit workflow run
                 try:
-                    # Try: POST /threads/{thread_id}/runs with assistant_id in body
-                    # LangGraph expects the input to match the workflow state format
-                    url = f"{langgraph_server_url}/threads/{thread_id}/runs"
+                    # Step 1: Create thread
+                    create_thread_url = f"{langgraph_server_url}/threads"
+                    create_response = await client.post(
+                        create_thread_url,
+                        json={
+                            "assistant_id": "agentic_workflow"
+                        }
+                    )
                     
-                    # Format input according to ExposableWorkflowState - use direct input, not nested
-                    # The workflow expects article_id, execution_id, etc. at top level
-                    workflow_input = {
-                        "article_id": article_id,
-                        "execution_id": execution_id,
-                        "min_hunt_score": config['min_hunt_score'],
-                        "ranking_threshold": config['ranking_threshold'],
-                        "similarity_threshold": config['similarity_threshold'],
-                        "current_step": "junk_filter",
-                        "status": "running"
-                    }
+                    if create_response.status_code not in [200, 201]:
+                        logger.warning(f"Thread creation returned {create_response.status_code}: {create_response.text[:200]}")
+                        return False
                     
+                    thread_data = create_response.json()
+                    # Extract thread_id from response
+                    if isinstance(thread_data, dict):
+                        langgraph_thread_id = thread_data.get('thread_id') or thread_data.get('id') or langgraph_thread_id
+                    logger.info(f"Created LangGraph thread: {langgraph_thread_id}")
+                    
+                    # Step 2: Submit run to thread
+                    url = f"{langgraph_server_url}/threads/{langgraph_thread_id}/runs"
                     response = await client.post(
                         url,
                         json={
@@ -257,12 +277,13 @@ async def _trigger_via_langgraph_server(article_id: int, execution_id: int, lang
                     )
                     
                     if response.status_code in [200, 201]:
-                        logger.info(f"Workflow triggered via LangGraph server for execution {execution_id}")
+                        run_data = response.json()
+                        run_id = run_data.get('run_id') if isinstance(run_data, dict) else None
+                        logger.info(f"Workflow triggered via LangGraph server for execution {execution_id}, thread {langgraph_thread_id}, run {run_id}")
                         return True
-                    
-                    # Fallback: Try with assistant_id in URL (UUID format may be required)
-                    # If that fails, try the original format
-                    logger.info(f"First attempt returned {response.status_code}, trying alternative format")
+                    else:
+                        logger.warning(f"Run submission returned {response.status_code}: {response.text[:200]}")
+                        return False
                     
                 except httpx.ConnectError:
                     logger.warning(f"Cannot connect to LangGraph server at {langgraph_server_url}")
@@ -270,27 +291,6 @@ async def _trigger_via_langgraph_server(article_id: int, execution_id: int, lang
                 except httpx.TimeoutException:
                     logger.warning(f"Timeout connecting to LangGraph server at {langgraph_server_url}")
                     return False
-                except Exception as e:
-                    logger.warning(f"Error with alternative endpoint format: {e}")
-                
-                # Fallback: Try original format in case it works with different version
-                try:
-                    url = f"{langgraph_server_url}/assistants/agentic_workflow/threads/{thread_id}/runs"
-                    response = await client.post(
-                        url,
-                        json={
-                            "input": initial_state,
-                            "stream": False
-                        }
-                    )
-                    
-                    if response.status_code in [200, 201]:
-                        logger.info(f"Workflow triggered via LangGraph server for execution {execution_id}")
-                        return True
-                    else:
-                        logger.warning(f"LangGraph server returned {response.status_code}: {response.text}")
-                        return False
-                        
                 except Exception as e:
                     logger.error(f"Error triggering via LangGraph server: {e}")
                     return False
@@ -408,6 +408,40 @@ async def retry_workflow_execution(request: Request, execution_id: int, use_lang
         raise HTTPException(status_code=500, detail=str(e))
 
 
+def _get_langfuse_setting(db_session: Session, key: str, env_key: str, default: Optional[str] = None) -> Optional[str]:
+    """Get Langfuse setting from database first, then fall back to environment variable.
+    
+    Priority: database setting > environment variable > default
+    """
+    # Check database setting first (highest priority - user preference from UI)
+    try:
+        setting = db_session.query(AppSettingsTable).filter(
+            AppSettingsTable.key == key
+        ).first()
+        
+        if setting and setting.value:
+            logger.info(f"✅ Using {key} from database setting (value length: {len(setting.value)})")
+            return setting.value
+        else:
+            logger.debug(f"⚠️ No database setting found for {key}")
+    except Exception as e:
+        logger.warning(f"❌ Could not fetch {key} from database: {e}")
+    
+    # Fall back to environment variable (second priority)
+    import os
+    env_value = os.getenv(env_key)
+    if env_value:
+        logger.info(f"✅ Using {env_key} from environment (value length: {len(env_value)})")
+        return env_value
+    else:
+        logger.debug(f"⚠️ No environment variable found for {env_key}")
+    
+    # Return default if provided
+    if default:
+        logger.debug(f"📝 Using default value for {key}: {default}")
+    return default
+
+
 @router.get("/executions/{execution_id}/debug-info")
 async def get_workflow_debug_info(request: Request, execution_id: int):
     """Get debug information for opening execution in Agent Chat UI."""
@@ -427,63 +461,89 @@ async def get_workflow_debug_info(request: Request, execution_id: int):
             # Get LangGraph server URL from environment or config
             langgraph_server_url = os.getenv("LANGGRAPH_SERVER_URL", "http://localhost:2024")
             
-            # Check if LangSmith is configured (preferred for debugging)
-            langsmith_api_key = os.getenv("LANGSMITH_API_KEY")
-            thread_id = f"workflow_exec_{execution_id}"
+            # Check if Langfuse is configured (preferred for debugging)
+            # Priority: database setting > environment variable > default
+            langfuse_host = _get_langfuse_setting(
+                db_session, 
+                "LANGFUSE_HOST", 
+                "LANGFUSE_HOST", 
+                "https://cloud.langfuse.com"
+            )
+            langfuse_public_key = _get_langfuse_setting(
+                db_session,
+                "LANGFUSE_PUBLIC_KEY",
+                "LANGFUSE_PUBLIC_KEY"
+            )
+            langfuse_project_id = _get_langfuse_setting(
+                db_session,
+                "LANGFUSE_PROJECT_ID",
+                "LANGFUSE_PROJECT_ID"
+            )
+            trace_id = f"workflow_exec_{execution_id}"
             
-            if langsmith_api_key:
-                # Use LangSmith Studio (free Developer plan available)
-                # For localhost, LangSmith Studio may have CORS issues
-                # Format: https://smith.langchain.com/studio/?baseUrl={server_url}&thread={thread_id}&graph={graph_id}
+            # Debug logging
+            logger.debug(f"Langfuse debug info - host: {langfuse_host}, public_key present: {bool(langfuse_public_key)}, project_id: {langfuse_project_id}, trace_id: {trace_id}")
+            
+            if langfuse_public_key:
+                # Use Langfuse for debugging
+                # Normalize host URL (remove trailing slash)
+                langfuse_host = langfuse_host.rstrip('/') if langfuse_host else "https://cloud.langfuse.com"
                 
-                # Check if server URL is localhost - may need ngrok or local access
-                if "localhost" in langgraph_server_url or "127.0.0.1" in langgraph_server_url:
-                    # For localhost, ensure we use localhost (not 0.0.0.0) for browser access
-                    local_url = langgraph_server_url.replace("0.0.0.0", "localhost").replace("127.0.0.1", "localhost")
-                    
-                    agent_chat_url = (
-                        f"https://smith.langchain.com/studio/"
-                        f"?baseUrl={local_url}"
-                        f"&thread={thread_id}"
-                        f"&graph=agentic_workflow"
-                    )
-                    instructions = (
-                        "Opening LangSmith Studio with local server.\n\n"
-                        "✅ LOCALHOST ACCESS:\n"
-                        "• Using: http://localhost:2024\n"
-                        "• Make sure LangGraph server is running: docker-compose ps langgraph-server\n"
-                        "• Use Chrome or Firefox (Safari blocks HTTP localhost)\n\n"
-                        "⚠️ IF YOU SEE 'Failed to fetch':\n"
-                        "• Browser may block cross-origin requests to localhost\n"
-                        "• Try Chrome/Firefox instead of Safari\n"
-                        "• Verify server is running: curl http://localhost:2024/assistants\n"
-                        "• Traces only exist if execution ran via LangGraph server (not Celery)\n\n"
-                        "ALTERNATIVES:\n"
-                        "• Use ngrok for public tunnel: ngrok http 2024\n"
-                        "• Use local Agent Chat UI: cd cti-agent-chat && pnpm dev\n"
-                        "• View database details with 'View' button instead"
-                    )
+                # Langfuse trace URL format:
+                # - Try direct trace first: {host}/project/{project_id}/traces/{trace_id}
+                # - Fallback to search by session_id if trace doesn't exist: {host}/project/{project_id}/traces?sessionId={session_id}
+                session_id = f"workflow_exec_{execution_id}"
+                if langfuse_project_id:
+                    # Use project-specific URL format
+                    # First try direct trace link, but note that trace might not exist if execution didn't run with Langfuse tracing
+                    agent_chat_url = f"{langfuse_host}/project/{langfuse_project_id}/traces/{trace_id}"
+                    # Alternative: Search by session_id (uncomment if direct trace doesn't work)
+                    # agent_chat_url = f"{langfuse_host}/project/{langfuse_project_id}/traces?sessionId={session_id}"
                 else:
-                    # Public URL should work
-                    agent_chat_url = (
-                        f"https://smith.langchain.com/studio/"
-                        f"?baseUrl={langgraph_server_url}"
-                    f"&thread={thread_id}"
-                    f"&graph=agentic_workflow"
-                )
+                    # Fallback to direct trace format (may require project ID in some Langfuse instances)
+                    agent_chat_url = f"{langfuse_host}/traces/{trace_id}"
+                
+                logger.info(f"🔗 Generated Langfuse URL: {agent_chat_url}")
+                logger.info(f"   Note: Trace may not exist if execution #{execution_id} didn't run with Langfuse tracing enabled")
+                
+                # Check if using localhost Langfuse
+                if "localhost" in langfuse_host or "127.0.0.1" in langfuse_host:
                     instructions = (
-                        "Opening LangSmith Studio. Important notes:\n"
-                        "• Traces only appear if executions ran through the LangGraph server\n"
-                        "• Most executions run directly via Celery/Python, so traces may not exist\n"
-                        "• If no traces appear, the execution wasn't captured in LangSmith"
-                    )
+                        "Opening Langfuse for execution #{}.\n\n"
+                        "✅ LOCALHOST ACCESS:\n"
+                        "• Using: {}\n"
+                        "• Make sure Langfuse is running\n"
+                        "• Traces are created automatically when workflows execute\n\n"
+                        "⚠️ NOTE:\n"
+                        "• Traces only appear if execution ran with Langfuse tracing enabled\n"
+                        "• Use the 'View' button to see execution details from the database\n"
+                    ).format(execution_id, langfuse_host)
+                else:
+                    instructions = (
+                        "Opening Langfuse for execution #{}.\n\n"
+                        "⚠️ IMPORTANT NOTES:\n"
+                        "• Traces only appear if the execution ran with Langfuse tracing enabled\n"
+                        "• Most executions run via Celery (fast, no traces)\n"
+                        "• Only executions via 'Retry (Trace)' button create Langfuse traces\n\n"
+                        "If trace not found:\n"
+                        "• Use the 'View' button to see execution details from the database\n"
+                        "• Use 'Retry (Trace)' button to create a new execution with tracing\n"
+                        "• Check Langfuse traces list for any traces with session 'workflow_exec_{}'"
+                    ).format(execution_id, execution_id)
             else:
                 # Fallback to open-source Agent Chat UI
+                logger.warning(
+                    f"⚠️ Langfuse not configured for execution {execution_id}. "
+                    f"Host: {langfuse_host}, Public Key: {'present' if langfuse_public_key else 'missing'}. "
+                    f"Falling back to Agent Chat UI. "
+                    f"Configure Langfuse in Settings page or set LANGFUSE_PUBLIC_KEY/LANGFUSE_SECRET_KEY in environment."
+                )
                 agent_chat_base = os.getenv("AGENT_CHAT_UI_URL", "https://chat.langchain.com")
+                thread_id = f"workflow_exec_{execution_id}"
                 agent_chat_url = f"{agent_chat_base}/?graph=agentic_workflow&thread={thread_id}&server={langgraph_server_url}"
                 instructions = (
-                    "Opening Agent Chat UI. Note: LangSmith Studio is preferred for debugging. "
-                    "Set LANGSMITH_API_KEY in .env to use LangSmith Studio (free Developer plan available)."
+                    "Opening Agent Chat UI. Note: Langfuse is preferred for debugging. "
+                    "Configure Langfuse API keys in the Settings page to use Langfuse tracing."
                 )
             
             return {
@@ -491,10 +551,10 @@ async def get_workflow_debug_info(request: Request, execution_id: int):
                 "article_id": execution.article_id,
                 "langgraph_server_url": langgraph_server_url,
                 "agent_chat_url": agent_chat_url,
-                "thread_id": thread_id,
+                "thread_id": trace_id,
                 "graph_id": "agentic_workflow",
                 "instructions": instructions,
-                "uses_langsmith": bool(langsmith_api_key)
+                "uses_langsmith": bool(langfuse_public_key)  # Keep field name for backwards compatibility
             }
         finally:
             db_session.close()

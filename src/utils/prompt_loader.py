@@ -31,7 +31,7 @@ class PromptLoader:
     
     def load_prompt(self, prompt_name: str) -> str:
         """
-        Load a prompt from a text file.
+        Load a prompt from a text file (synchronous).
         
         Args:
             prompt_name: Name of the prompt file (without .txt extension)
@@ -59,9 +59,44 @@ class PromptLoader:
             logger.error(f"Error loading prompt {prompt_name}: {e}")
             raise
     
+    async def load_prompt_async(self, prompt_name: str) -> str:
+        """
+        Load a prompt from a text file (async, non-blocking).
+        
+        Args:
+            prompt_name: Name of the prompt file (without .txt extension)
+            
+        Returns:
+            The prompt content as a string
+            
+        Raises:
+            FileNotFoundError: If the prompt file doesn't exist
+        """
+        if prompt_name in self._prompt_cache:
+            return self._prompt_cache[prompt_name]
+        
+        prompt_file = self.prompts_dir / f"{prompt_name}.txt"
+        
+        if not prompt_file.exists():
+            raise FileNotFoundError(f"Prompt file {prompt_file} not found")
+        
+        try:
+            import asyncio
+            
+            def _read_file():
+                with open(prompt_file, 'r', encoding='utf-8') as f:
+                    return f.read().strip()
+            
+            content = await asyncio.to_thread(_read_file)
+            self._prompt_cache[prompt_name] = content
+            return content
+        except Exception as e:
+            logger.error(f"Error loading prompt {prompt_name}: {e}")
+            raise
+    
     def format_prompt(self, prompt_name: str, **kwargs: Any) -> str:
         """
-        Load and format a prompt with the given parameters.
+        Load and format a prompt with the given parameters (synchronous).
         
         Args:
             prompt_name: Name of the prompt file (without .txt extension)
@@ -71,6 +106,28 @@ class PromptLoader:
             The formatted prompt string
         """
         prompt_template = self.load_prompt(prompt_name)
+        
+        try:
+            return prompt_template.format(**kwargs)
+        except KeyError as e:
+            logger.error(f"Missing parameter {e} for prompt {prompt_name}")
+            raise
+        except Exception as e:
+            logger.error(f"Error formatting prompt {prompt_name}: {e}")
+            raise
+    
+    async def format_prompt_async(self, prompt_name: str, **kwargs: Any) -> str:
+        """
+        Load and format a prompt with the given parameters (async, non-blocking).
+        
+        Args:
+            prompt_name: Name of the prompt file (without .txt extension)
+            **kwargs: Parameters to format into the prompt
+            
+        Returns:
+            The formatted prompt string
+        """
+        prompt_template = await self.load_prompt_async(prompt_name)
         
         try:
             return prompt_template.format(**kwargs)
@@ -104,12 +161,20 @@ prompt_loader = PromptLoader()
 
 # Convenience functions
 def load_prompt(prompt_name: str) -> str:
-    """Load a prompt by name."""
+    """Load a prompt by name (synchronous)."""
     return prompt_loader.load_prompt(prompt_name)
 
 def format_prompt(prompt_name: str, **kwargs: Any) -> str:
-    """Load and format a prompt with parameters."""
+    """Load and format a prompt with parameters (synchronous)."""
     return prompt_loader.format_prompt(prompt_name, **kwargs)
+
+async def load_prompt_async(prompt_name: str) -> str:
+    """Load a prompt by name (async, non-blocking)."""
+    return await prompt_loader.load_prompt_async(prompt_name)
+
+async def format_prompt_async(prompt_name: str, **kwargs: Any) -> str:
+    """Load and format a prompt with parameters (async, non-blocking)."""
+    return await prompt_loader.format_prompt_async(prompt_name, **kwargs)
 
 def get_available_prompts() -> list[str]:
     """Get list of available prompts."""
