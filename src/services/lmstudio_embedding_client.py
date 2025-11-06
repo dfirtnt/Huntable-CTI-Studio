@@ -17,16 +17,19 @@ logger = logging.getLogger(__name__)
 class LMStudioEmbeddingClient:
     """Client for generating embeddings via LM Studio API."""
     
-    def __init__(self):
+    def __init__(self, model: Optional[str] = None):
         """
         Initialize the LM Studio embedding client.
         
+        Args:
+            model: Optional model name to use. If not provided, reads from environment variable.
+        
         Reads configuration from environment variables:
         - LMSTUDIO_EMBEDDING_URL: API endpoint URL
-        - LMSTUDIO_EMBEDDING_MODEL: Model name to use
+        - LMSTUDIO_EMBEDDING_MODEL: Model name to use (if model parameter not provided)
         """
         self.url = os.getenv("LMSTUDIO_EMBEDDING_URL", "http://localhost:1234/v1/embeddings")
-        self.model = os.getenv("LMSTUDIO_EMBEDDING_MODEL", "text-embedding-e5-base-v2")
+        self.model = model or os.getenv("LMSTUDIO_EMBEDDING_MODEL", "text-embedding-e5-base-v2")
         self.timeout = 60  # 60 second timeout for embeddings
         self.max_retries = 3
         self.retry_delay = 1  # seconds

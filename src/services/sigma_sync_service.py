@@ -260,7 +260,7 @@ class SigmaSyncService:
     def create_title_embedding_text(self, rule_data: Dict) -> str:
         """Create embedding text for title section."""
         title = rule_data.get('title', '')
-        return f"Title: {title}" if title else ""
+        return title if title else ""
     
     def create_description_embedding_text(self, rule_data: Dict) -> str:
         """Create embedding text for description section."""
@@ -378,6 +378,27 @@ class SigmaSyncService:
         
         return ' '.join(parts) if parts else ""
     
+    def create_signature_embedding_text(self, rule_data: Dict) -> str:
+        """Create combined embedding text for logsource and detection (signature)."""
+        parts = []
+        
+        # Add logsource
+        logsource_text = self.create_logsource_embedding_text(rule_data)
+        if logsource_text:
+            parts.append(logsource_text)
+        
+        # Add detection structure
+        detection_structure_text = self.create_detection_structure_embedding_text(rule_data)
+        if detection_structure_text:
+            parts.append(detection_structure_text)
+        
+        # Add detection fields
+        detection_fields_text = self.create_detection_fields_embedding_text(rule_data)
+        if detection_fields_text:
+            parts.append(detection_fields_text)
+        
+        return ' '.join(parts) if parts else ""
+    
     def create_section_embeddings_text(self, rule_data: Dict) -> Dict[str, str]:
         """
         Generate separate embedding text for each section.
@@ -392,9 +413,7 @@ class SigmaSyncService:
             'title': self.create_title_embedding_text(rule_data),
             'description': self.create_description_embedding_text(rule_data),
             'tags': self.create_tags_embedding_text(rule_data),
-            'logsource': self.create_logsource_embedding_text(rule_data),
-            'detection_structure': self.create_detection_structure_embedding_text(rule_data),
-            'detection_fields': self.create_detection_fields_embedding_text(rule_data)
+            'signature': self.create_signature_embedding_text(rule_data)
         }
     
     def get_existing_rule_ids(self, db_session) -> set:
@@ -486,24 +505,24 @@ class SigmaSyncService:
                     section_texts['title'],
                     section_texts['description'],
                     section_texts['tags'],
-                    section_texts['logsource'],
-                    section_texts['detection_structure'],
-                    section_texts['detection_fields']
+                    section_texts['signature']
                 ]
                 
                 section_embeddings = embedding_service.generate_embeddings_batch(section_texts_list)
                 
                 # Handle cases where batch might return fewer embeddings than expected
-                # Ensure we have exactly 6 embeddings (empty strings will still generate embeddings)
-                while len(section_embeddings) < 6:
+                while len(section_embeddings) < 4:
                     section_embeddings.append([0.0] * 768)  # Zero vector for missing sections
                 
                 title_emb = section_embeddings[0] if section_embeddings[0] and len(section_embeddings[0]) == 768 else None
                 description_emb = section_embeddings[1] if section_embeddings[1] and len(section_embeddings[1]) == 768 else None
                 tags_emb = section_embeddings[2] if section_embeddings[2] and len(section_embeddings[2]) == 768 else None
-                logsource_emb = section_embeddings[3] if section_embeddings[3] and len(section_embeddings[3]) == 768 else None
-                detection_structure_emb = section_embeddings[4] if section_embeddings[4] and len(section_embeddings[4]) == 768 else None
-                detection_fields_emb = section_embeddings[5] if section_embeddings[5] and len(section_embeddings[5]) == 768 else None
+                signature_emb = section_embeddings[3] if section_embeddings[3] and len(section_embeddings[3]) == 768 else None
+                
+                # For backward compatibility, store signature in all three fields
+                logsource_emb = signature_emb
+                detection_structure_emb = signature_emb
+                detection_fields_emb = signature_emb
                 
                 # Store model name for tracking
                 embedding_model_name = "intfloat/e5-base-v2"

@@ -501,3 +501,17 @@ async def ml_hunt_comparison_page(request: Request):
         "ml_hunt_comparison.html", {"request": request, "environment": ENVIRONMENT}
     )
 
+
+@router.get("/sigma-ab-test", response_class=HTMLResponse)
+async def sigma_ab_test_page(request: Request):
+    """SIGMA rule A/B testing interface."""
+    try:
+        return templates.TemplateResponse("sigma_ab_test.html", {"request": request})
+    except Exception as exc:
+        logger.error("SIGMA A/B test page error: %s", exc)
+        return templates.TemplateResponse(
+            "error.html",
+            {"request": request, "error": str(exc)},
+            status_code=500,
+        )
+

@@ -351,7 +351,7 @@ function highlightCurrentStep(step) {
 
 function formatJSON(obj) {
     if (!obj) return '<span class="text-gray-400">null</span>';
-    return '<pre class="bg-gray-50 dark:bg-gray-900 p-3 rounded text-xs overflow-x-auto border border-gray-200 dark:border-gray-700">' + 
+    return '<pre class="bg-gray-50 dark:bg-gray-900 p-3 rounded text-xs overflow-x-auto border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300">' + 
            JSON.stringify(obj, null, 2).replace(/</g, '&lt;').replace(/>/g, '&gt;') + 
            '</pre>';
 }
@@ -359,7 +359,7 @@ function formatJSON(obj) {
 function formatText(text, maxLength = 500) {
     if (!text) return '<span class="text-gray-400">null</span>';
     const truncated = text.length > maxLength ? text.substring(0, maxLength) + '...' : text;
-    return '<pre class="bg-gray-50 dark:bg-gray-900 p-3 rounded text-xs overflow-x-auto border border-gray-200 dark:border-gray-700 whitespace-pre-wrap break-words">' + 
+    return '<pre class="bg-gray-50 dark:bg-gray-900 p-3 rounded text-xs overflow-x-auto border border-gray-200 dark:border-gray-700 whitespace-pre-wrap break-words text-gray-700 dark:text-gray-300">' + 
            truncated.replace(/</g, '&lt;').replace(/>/g, '&gt;') + 
            '</pre>';
 }
@@ -529,20 +529,218 @@ async function viewExecution(executionId) {
                                     <div class="mt-1 text-sm">
                                         <div>• SIGMA Rules Generated: <strong>${exec.sigma_rules.length}</strong></div>
                                     </div>
-                                    ${exec.sigma_rules.slice(0, 3).map((rule, idx) => `
+                                    ${exec.sigma_rules.map((rule, idx) => {
+                                        const ruleTitle = rule.title || 'Untitled';
+                                        const ruleDescription = rule.description || '';
+                                        const ruleDetection = rule.detection || {};
+                                        const ruleLogsource = rule.logsource || {};
+                                        const ruleTags = rule.tags || [];
+                                        const ruleReferences = rule.references || [];
+                                        const ruleId = rule.id || '';
+                                        const ruleStatus = rule.status || '';
+                                        const ruleLevel = rule.level || '';
+                                        
+                                        return `
+                                        <details class="mt-3 border border-gray-300 dark:border-gray-600 rounded-lg overflow-hidden" ${idx === 0 ? 'open' : ''}>
+                                            <summary class="cursor-pointer bg-gray-50 dark:bg-gray-900/30 px-4 py-3 font-semibold text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-900/50">
+                                                Rule ${idx + 1}: ${ruleTitle}
+                                            </summary>
+                                            <div class="p-4 bg-white dark:bg-gray-800 space-y-4">
+                                                ${ruleDescription ? `
+                                                    <div>
+                                                        <strong class="text-gray-900 dark:text-white text-sm">Description:</strong>
+                                                        <p class="mt-1 text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">${ruleDescription.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</p>
+                                                    </div>
+                                                ` : ''}
+                                                
+                                                ${ruleId ? `
+                                                    <div>
+                                                        <strong class="text-gray-900 dark:text-white text-sm">Rule ID:</strong>
+                                                        <span class="ml-2 text-sm text-gray-600 dark:text-gray-400 font-mono">${ruleId}</span>
+                                                    </div>
+                                                ` : ''}
+                                                
+                                                ${ruleStatus || ruleLevel ? `
+                                                    <div class="flex gap-4">
+                                                        ${ruleStatus ? `
+                                                            <div>
+                                                                <strong class="text-gray-900 dark:text-white text-sm">Status:</strong>
+                                                                <span class="ml-2 text-sm text-gray-600 dark:text-gray-400">${ruleStatus}</span>
+                                                            </div>
+                                                        ` : ''}
+                                                        ${ruleLevel ? `
+                                                            <div>
+                                                                <strong class="text-gray-900 dark:text-white text-sm">Level:</strong>
+                                                                <span class="ml-2 text-sm text-gray-600 dark:text-gray-400">${ruleLevel}</span>
+                                                            </div>
+                                                        ` : ''}
+                                                    </div>
+                                                ` : ''}
+                                                
+                                                ${Object.keys(ruleLogsource).length > 0 ? `
+                                                    <div>
+                                                        <strong class="text-gray-900 dark:text-white text-sm">Log Source:</strong>
+                                                        <pre class="mt-1 bg-gray-50 dark:bg-gray-900 p-3 rounded text-xs overflow-x-auto border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300">${JSON.stringify(ruleLogsource, null, 2).replace(/</g, '&lt;').replace(/>/g, '&gt;')}</pre>
+                                                    </div>
+                                                ` : ''}
+                                                
+                                                ${Object.keys(ruleDetection).length > 0 ? `
+                                                    <div>
+                                                        <strong class="text-gray-900 dark:text-white text-sm">Detection Logic:</strong>
+                                                        <pre class="mt-1 bg-gray-50 dark:bg-gray-900 p-3 rounded text-xs overflow-x-auto border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300">${JSON.stringify(ruleDetection, null, 2).replace(/</g, '&lt;').replace(/>/g, '&gt;')}</pre>
+                                                    </div>
+                                                ` : ''}
+                                                
+                                                ${ruleTags.length > 0 ? `
+                                                    <div>
+                                                        <strong class="text-gray-900 dark:text-white text-sm">Tags:</strong>
+                                                        <div class="mt-1 flex flex-wrap gap-2">
+                                                            ${ruleTags.map(tag => `<span class="px-2 py-1 bg-gray-100 dark:bg-gray-900/30 text-gray-700 dark:text-gray-300 rounded text-xs">${tag}</span>`).join('')}
+                                                        </div>
+                                                    </div>
+                                                ` : ''}
+                                                
+                                                ${ruleReferences.length > 0 ? `
+                                                    <div>
+                                                        <strong class="text-gray-900 dark:text-white text-sm">References:</strong>
+                                                        <ul class="mt-1 list-disc list-inside text-sm text-gray-600 dark:text-gray-400 space-y-1">
+                                                            ${ruleReferences.map(ref => `<li><a href="${ref}" target="_blank" class="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 hover:underline break-all">${ref}</a></li>`).join('')}
+                                                        </ul>
+                                                    </div>
+                                                ` : ''}
+                                                
                                         <details class="mt-2">
-                                            <summary class="cursor-pointer text-sm text-purple-600 dark:text-white hover:underline">Rule ${idx + 1}: ${rule.title || 'Untitled'}</summary>
-                                            <div class="mt-2">${formatJSON(rule)}</div>
+                                                    <summary class="cursor-pointer text-xs text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200">
+                                                        View Full Rule JSON
+                                                    </summary>
+                                                    <pre class="mt-2 bg-gray-50 dark:bg-gray-900 p-3 rounded text-xs overflow-x-auto border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300">${JSON.stringify(rule, null, 2).replace(/</g, '&lt;').replace(/>/g, '&gt;')}</pre>
                                         </details>
-                                    `).join('')}
-                                    ${exec.sigma_rules.length > 3 ? `<div class="text-sm text-gray-500 dark:text-gray-300 mt-2">... and ${exec.sigma_rules.length - 3} more rules</div>` : ''}
+                                            </div>
+                                        </details>
+                                        `;
+                                    }).join('')}
                                 ` : '<span class="text-gray-400">No SIGMA rules generated</span>'}
+                                
+                                ${(() => {
+                                    // Get conversation log and validation results from error_log
+                                    const sigmaErrorLog = exec.error_log?.generate_sigma || exec.error_log?.sigma_generation;
+                                    const conversationLog = sigmaErrorLog?.conversation_log;
+                                    const validationResults = sigmaErrorLog?.validation_results || [];
+                                    const totalAttempts = sigmaErrorLog?.total_attempts || validationResults.length;
+                                    
+                                    if (conversationLog && conversationLog.length > 0) {
+                                        // Full conversation log display - build HTML string
+                                        let html = '<div class="mt-4 border-t pt-4 border-gray-300 dark:border-gray-600"><details class="w-full" open><summary class="cursor-pointer text-sm font-semibold text-gray-900 dark:text-white hover:text-gray-700 dark:hover:text-gray-100 mb-2">🔄 LLM ↔ pySigma Conversation Log (' + conversationLog.length + ' attempt' + (conversationLog.length !== 1 ? 's' : '') + ')</summary>';
+                                        html += '<div class="text-xs text-gray-600 dark:text-gray-400 mb-2 mt-2">Shows the iterative validation process between the LLM and pySigma validator</div>';
+                                        html += '<div class="space-y-3 max-h-96 overflow-y-auto p-3 bg-gray-50 dark:bg-gray-900 rounded border border-gray-200 dark:border-gray-700">';
+                                        
+                                        conversationLog.forEach((entry, idx) => {
+                                            const attempt = entry.attempt || (idx + 1);
+                                            const attemptBadgeColor = idx === conversationLog.length - 1 ? 'bg-green-500' : 'bg-blue-500';
+                                            const attemptIcon = idx === conversationLog.length - 1 ? '✅' : '🔄';
+                                            
+                                            html += '<div class="p-3 bg-white dark:bg-gray-800 rounded-lg border-2 ' + (idx === conversationLog.length - 1 ? 'border-green-300 dark:border-green-700' : 'border-blue-300 dark:border-blue-700') + '">';
+                                            html += '<div class="flex items-center mb-2"><span class="px-2 py-1 rounded text-xs font-semibold text-white ' + attemptBadgeColor + ' mr-2">' + attemptIcon + ' Attempt ' + attempt + '</span>';
+                                            html += entry.all_valid ? '<span class="text-xs text-green-600 dark:text-green-400 font-semibold">All Rules Valid</span>' : '<span class="text-xs text-orange-600 dark:text-orange-400 font-semibold">Has Validation Errors</span>';
+                                            html += '</div>';
+                                            
+                                            // Messages
+                                            const messages = entry.messages || [];
+                                            if (messages.length > 0) {
+                                                html += '<div class="mb-3"><div class="text-xs font-semibold text-gray-700 dark:text-white mb-1">Messages:</div>';
+                                                messages.forEach((msg) => {
+                                                    const role = msg.role || 'user';
+                                                    const content = String(msg.content || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                                                    const roleIcon = role === 'system' ? '⚙️' : '👤';
+                                                    const roleColor = role === 'system' ? 'text-purple-700 dark:text-purple-400' : 'text-blue-700 dark:text-blue-400';
+                                                    html += '<details class="mb-2"><summary class="cursor-pointer text-xs ' + roleColor + ' font-medium">' + roleIcon + ' ' + (role === 'system' ? 'System Prompt' : 'User Prompt') + '</summary>';
+                                                    html += '<pre class="mt-1 p-2 bg-white dark:bg-gray-800 rounded text-xs text-gray-700 dark:text-gray-300 whitespace-pre-wrap break-words border border-gray-200 dark:border-gray-700">' + content + '</pre></details>';
+                                                });
+                                                html += '</div>';
+                                            }
+                                            
+                                            // LLM Response
+                                            const llmResponse = String(entry.llm_response || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                                            if (llmResponse) {
+                                                html += '<details class="mb-2"><summary class="cursor-pointer text-xs text-green-700 dark:text-green-400 font-medium">🤖 LLM Response</summary>';
+                                                html += '<pre class="mt-1 p-2 bg-white dark:bg-gray-800 rounded text-xs text-gray-700 dark:text-gray-300 whitespace-pre-wrap break-words border border-gray-200 dark:border-gray-700">' + llmResponse + '</pre></details>';
+                                            }
+                                            
+                                            // Validation results
+                                            const validation = entry.validation || [];
+                                            if (validation.length > 0) {
+                                                html += '<div class="mb-2"><div class="text-xs font-semibold text-gray-700 dark:text-white mb-1">pySigma Validation:</div>';
+                                                validation.forEach((vr, vrIdx) => {
+                                                    const validationIcon = vr.is_valid ? '✅' : '❌';
+                                                    const validationColor = vr.is_valid ? 'text-green-700 dark:text-green-400' : 'text-red-700 dark:text-red-400';
+                                                    const borderColor = vr.is_valid ? 'border-green-300 dark:border-green-700' : 'border-red-300 dark:border-red-700';
+                                                    html += '<div class="p-2 bg-white dark:bg-gray-800 rounded border ' + borderColor + ' mb-1">';
+                                                    html += '<div class="flex items-center mb-1"><span class="text-xs font-semibold ' + validationColor + '">' + validationIcon + ' Rule ' + (vrIdx + 1) + ': ' + (vr.is_valid ? 'Valid' : 'Invalid') + '</span></div>';
+                                                    if (vr.errors && vr.errors.length > 0) {
+                                                        html += '<div class="text-xs mt-1"><strong class="text-red-700 dark:text-red-400">Errors:</strong><ul class="list-disc list-inside ml-2">';
+                                                        vr.errors.forEach(e => {
+                                                            html += '<li class="text-red-700 dark:text-red-400 text-xs">' + String(e).replace(/</g,'&lt;').replace(/>/g,'&gt;') + '</li>';
+                                                        });
+                                                        html += '</ul></div>';
+                                                    }
+                                                    if (vr.warnings && vr.warnings.length > 0) {
+                                                        html += '<div class="text-xs mt-1"><strong class="text-yellow-700 dark:text-yellow-400">Warnings:</strong><ul class="list-disc list-inside ml-2">';
+                                                        vr.warnings.forEach(w => {
+                                                            html += '<li class="text-yellow-700 dark:text-yellow-400 text-xs">' + String(w).replace(/</g,'&lt;').replace(/>/g,'&gt;') + '</li>';
+                                                        });
+                                                        html += '</ul></div>';
+                                                    }
+                                                    html += '</div>';
+                                                });
+                                                html += '</div>';
+                                            }
+                                            
+                                            html += '</div>';
+                                        });
+                                        
+                                        html += '</div></details></div>';
+                                        return html;
+                                    } else if (validationResults && validationResults.length > 0) {
+                                        // Show validation results summary when no conversation log but validation occurred
+                                        let html = '<div class="mt-4 border-t pt-4 border-gray-300 dark:border-gray-600"><details class="w-full" open><summary class="cursor-pointer text-sm font-semibold text-gray-900 dark:text-white hover:text-gray-700 dark:hover:text-gray-100 mb-2">🔄 pySigma Validation Results (' + validationResults.length + ' attempt' + (validationResults.length !== 1 ? 's' : '') + ')</summary>';
+                                        html += '<div class="text-xs text-gray-600 dark:text-gray-400 mb-2 mt-2">Shows the validation process between the LLM and pySigma validator</div>';
+                                        html += '<div class="space-y-3 max-h-96 overflow-y-auto p-3 bg-gray-50 dark:bg-gray-900 rounded border border-gray-200 dark:border-gray-700">';
+                                        
+                                        validationResults.forEach((vr, idx) => {
+                                            const validationIcon = vr.is_valid ? '✅' : '❌';
+                                            const validationColor = vr.is_valid ? 'text-green-700 dark:text-green-400' : 'text-red-700 dark:text-red-400';
+                                            const borderColor = vr.is_valid ? 'border-green-300 dark:border-green-700' : 'border-red-300 dark:border-red-700';
+                                            html += '<div class="p-3 bg-white dark:bg-gray-800 rounded-lg border-2 ' + borderColor + '">';
+                                            html += '<div class="flex items-center mb-2"><span class="px-2 py-1 rounded text-xs font-semibold text-white ' + (vr.is_valid ? 'bg-green-500' : 'bg-red-500') + ' mr-2">' + validationIcon + ' Attempt ' + (idx + 1) + '</span>';
+                                            html += '<span class="font-semibold ' + validationColor + ' text-xs">' + (vr.is_valid ? 'Valid' : 'Invalid') + '</span></div>';
+                                            if (vr.errors && vr.errors.length > 0) {
+                                                html += '<div class="text-xs mt-2"><strong class="text-red-700 dark:text-red-400">Errors:</strong><ul class="list-disc list-inside ml-2">';
+                                                vr.errors.forEach(e => {
+                                                    html += '<li class="text-red-700 dark:text-red-400 text-xs">' + String(e).replace(/</g,'&lt;').replace(/>/g,'&gt;') + '</li>';
+                                                });
+                                                html += '</ul></div>';
+                                            }
+                                            if (vr.warnings && vr.warnings.length > 0) {
+                                                html += '<div class="text-xs mt-2"><strong class="text-yellow-700 dark:text-yellow-400">Warnings:</strong><ul class="list-disc list-inside ml-2">';
+                                                vr.warnings.forEach(w => {
+                                                    html += '<li class="text-yellow-700 dark:text-yellow-400 text-xs">' + String(w).replace(/</g,'&lt;').replace(/>/g,'&gt;') + '</li>';
+                                                });
+                                                html += '</ul></div>';
+                                            }
+                                            html += '</div>';
+                                        });
+                                        
+                                        html += '</div></details></div>';
+                                        return html;
+                                    }
+                                    return '';
+                                })()}
                             </div>
                         </div>
                     </details>
 
                     <!-- Step 4: Similarity Search -->
-                    <details class="border border-pink-200 dark:border-pink-800 rounded-lg overflow-hidden" ${exec.similarity_results ? 'open' : ''}>
+                    <details class="border border-pink-200 dark:border-pink-800 rounded-lg overflow-hidden" ${exec.similarity_results !== null && exec.similarity_results !== undefined ? 'open' : ''}>
                         <summary class="bg-pink-100 dark:bg-pink-900/40 px-4 py-3 cursor-pointer font-semibold text-gray-900 dark:text-white hover:bg-pink-200 dark:hover:bg-pink-900/60">
                             Step 4: 🔎 Similarity Search
                         </summary>
@@ -556,15 +754,80 @@ async function viewExecution(executionId) {
                             </div>
                             <div>
                                 <strong class="text-gray-900 dark:text-white">Outputs:</strong>
-                                ${exec.similarity_results ? `
+                                ${exec.similarity_results !== null && exec.similarity_results !== undefined ? `
+                                    ${exec.similarity_results.length > 0 ? `
                                     <div class="mt-1 text-sm">
                                         <div>• Results: ${exec.similarity_results.length}</div>
-                                        ${exec.similarity_results.length > 0 ? `
-                                            <div>• Max Similarity: ${Math.max(...exec.similarity_results.map(r => r.max_similarity || 0)).toFixed(3)}</div>
+                                            <div>• Max Similarity: ${(Math.max(...exec.similarity_results.map(r => r.max_similarity || 0)) * 100).toFixed(1)}%</div>
+                                        </div>
+                                        <details class="mt-3 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden" open>
+                                            <summary class="bg-gray-50 dark:bg-gray-700/50 px-3 py-2 cursor-pointer text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">
+                                                🔍 View Similarity Results (${exec.similarity_results.reduce((sum, r) => sum + (r.similar_rules?.length || 0), 0)} similar rules found)
+                                            </summary>
+                                            <div class="p-3 bg-white dark:bg-gray-800 max-h-96 overflow-y-auto space-y-3">
+                                                ${exec.similarity_results.map((result, idx) => `
+                                                    <div class="border border-gray-200 dark:border-gray-700 rounded-lg p-3 bg-gray-50 dark:bg-gray-900">
+                                                        <div class="mb-2">
+                                                            <div class="font-semibold text-gray-900 dark:text-white">Generated Rule ${idx + 1}: ${result.rule_title || 'Untitled'}</div>
+                                                            <div class="text-sm text-gray-600 dark:text-gray-400">Max Similarity: ${((result.max_similarity || 0) * 100).toFixed(1)}%</div>
+                                                            <div class="text-sm text-gray-600 dark:text-gray-400">Similar Rules Found: ${result.similar_rules?.length || 0}</div>
+                                                        </div>
+                                                        ${result.similar_rules && result.similar_rules.length > 0 ? `
+                                                            <div class="mt-2 space-y-2">
+                                                                ${result.similar_rules.map((similarRule, ruleIdx) => `
+                                                                    <div class="border border-gray-300 dark:border-gray-600 rounded p-2 bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer transition-colors" 
+                                                                         onclick="showSimilarRuleDetails(${ruleIdx}, ${idx})" 
+                                                                         data-rule-data='${JSON.stringify(similarRule).replace(/'/g, "&#39;")}'>
+                                                                        <div class="flex items-start justify-between">
+                                                                            <div class="flex-1">
+                                                                                <div class="font-medium text-blue-600 dark:text-blue-400 hover:underline">${similarRule.title || 'Untitled Rule'}</div>
+                                                                                ${similarRule.description ? `<div class="text-xs text-gray-600 dark:text-gray-400 mt-1 line-clamp-2">${similarRule.description.substring(0, 150)}${similarRule.description.length > 150 ? '...' : ''}</div>` : ''}
+                                                                                <div class="flex flex-wrap gap-2 mt-2">
+                                                                                    ${similarRule.rule_id ? `<span class="text-xs px-2 py-1 bg-gray-200 dark:bg-gray-700 rounded text-gray-700 dark:text-gray-300">ID: ${similarRule.rule_id}</span>` : ''}
+                                                                                    ${similarRule.level ? `<span class="text-xs px-2 py-1 bg-purple-100 dark:bg-purple-900 rounded text-purple-700 dark:text-purple-300">Level: ${similarRule.level}</span>` : ''}
+                                                                                    ${similarRule.status ? `<span class="text-xs px-2 py-1 bg-green-100 dark:bg-green-900 rounded text-green-700 dark:text-green-300">${similarRule.status}</span>` : ''}
+                                                                                </div>
+                                                                            </div>
+                                                                            <div class="ml-3 text-right">
+                                                                                <div class="text-lg font-bold text-blue-600 dark:text-blue-400">${((similarRule.similarity || 0) * 100).toFixed(1)}%</div>
+                                                                                <div class="text-xs text-gray-500 dark:text-gray-400">similar</div>
+                                                                            </div>
+                                                                        </div>
+                                                                    </div>
+                                                                `).join('')}
+                                                            </div>
+                                                        ` : `
+                                                            <div class="text-sm text-gray-500 dark:text-gray-400 italic mt-2">No similar rules found above threshold</div>
+                                                        `}
+                                                    </div>
+                                                `).join('')}
+                                            </div>
+                                        </details>
+                                    ` : `
+                                        <div class="mt-1 text-sm">
+                                            <div class="text-green-600 dark:text-green-400">✅ Similarity search completed successfully</div>
+                                            <div>• Results: 0 (no similar rules found)</div>
+                                        </div>
+                                    `}
+                                ` : `
+                                    <div class="mt-1 text-sm">
+                                        <div class="text-orange-600 dark:text-orange-400">⚠️ Similarity search did not run</div>
+                                        ${exec.error_log && exec.error_log.similarity_search ? `
+                                            <div class="mt-2 text-red-600 dark:text-red-400">
+                                                <strong>Error:</strong> ${exec.error_log.similarity_search}
+                                            </div>
                                         ` : ''}
+                                        ${exec.error_message && exec.current_step === 'similarity_search' ? `
+                                            <div class="mt-2 text-red-600 dark:text-red-400">
+                                                <strong>Error:</strong> ${exec.error_message}
                                     </div>
-                                    ${formatJSON(exec.similarity_results)}
-                                ` : '<span class="text-gray-400">No results</span>'}
+                                        ` : `
+                                            <div class="mt-2 text-gray-600 dark:text-gray-400">
+                                                Similarity search step was skipped or did not execute.
+                                            </div>
+                                        `}
+                                    </div>
+                                `}
                             </div>
                         </div>
                     </details>
@@ -586,8 +849,36 @@ async function viewExecution(executionId) {
                             <div>
                                 <strong class="text-gray-900 dark:text-white">Outputs:</strong>
                                 <div class="mt-1 text-sm">
-                                    <div>• Rules Queued: ${exec.similarity_results ? exec.similarity_results.filter(r => (r.max_similarity || 0) < (config.similarity_threshold || 0.5)).length : 0}</div>
-                                    <div>• Check <a href="/workflow#queue" class="text-purple-600 dark:text-white hover:underline">SIGMA Queue</a> for queued rules</div>
+                                    ${exec.queued_rules_count > 0 ? `
+                                        <div>• Rules Queued: <span class="font-semibold text-purple-600 dark:text-purple-400 cursor-pointer hover:underline" onclick="navigateToQueuedRules(${exec.id}, ${JSON.stringify(exec.queued_rule_ids || [])})">${exec.queued_rules_count}</span></div>
+                                        <div class="text-green-600 dark:text-green-400 mt-1">✅ Rules queued for review</div>
+                                        ${exec.queued_rule_ids && exec.queued_rule_ids.length > 0 ? `
+                                            <div class="mt-2 space-y-1">
+                                                ${exec.queued_rule_ids.map((ruleId, idx) => `
+                                                    <div class="text-xs">
+                                                        <a href="/workflow#queue" 
+                                                           onclick="const e = arguments[0] || window.event; e.preventDefault(); e.stopPropagation(); highlightQueuedRule(${ruleId}); return false;" 
+                                                           class="text-purple-600 dark:text-purple-400 hover:underline cursor-pointer">
+                                                            📋 View Queued Rule #${ruleId}
+                                                        </a>
+                                </div>
+                                                `).join('')}
+                                            </div>
+                                        ` : ''}
+                                    ` : exec.similarity_results !== null && exec.similarity_results !== undefined ? `
+                                        <div>• Rules Queued: 0</div>
+                                        ${exec.similarity_results.filter(r => (r.max_similarity || 0) < (config.similarity_threshold || 0.5)).length === 0 ? `
+                                            <div class="text-orange-600 dark:text-orange-400 mt-1">⚠️ No rules queued (all above similarity threshold)</div>
+                                        ` : `
+                                            <div class="text-orange-600 dark:text-orange-400 mt-1">⚠️ No rules queued (unexpected - similarity below threshold but not queued)</div>
+                                        `}
+                                    ` : `
+                                        <div>• Rules Queued: 0</div>
+                                        <div class="text-orange-600 dark:text-orange-400 mt-1">⚠️ No rules queued (similarity search did not run)</div>
+                                    `}
+                                    ${exec.queued_rules_count === 0 ? `
+                                        <div class="mt-1">• Check <a href="/workflow#queue" class="text-purple-600 dark:text-purple-400 hover:underline">SIGMA Queue</a> for queued rules</div>
+                                    ` : ''}
                                 </div>
                             </div>
                         </div>
@@ -762,6 +1053,174 @@ setInterval(loadExecutions, 10000);
 
 // Load on page load
 loadExecutions();
+
+// Show similar rule details in a modal
+function showSimilarRuleDetails(ruleIdx, resultIdx) {
+    const clickedElement = event.currentTarget;
+    const ruleDataStr = clickedElement.getAttribute('data-rule-data');
+    if (!ruleDataStr) return;
+    
+    try {
+        const ruleData = JSON.parse(ruleDataStr.replace(/&#39;/g, "'"));
+        
+        // Remove any existing modal
+        const existingModal = document.getElementById('similarRuleModal');
+        if (existingModal) {
+            existingModal.remove();
+        }
+        
+        // Create modal
+        const modal = document.createElement('div');
+        modal.id = 'similarRuleModal';
+        modal.className = 'fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50';
+        
+        // Format tags
+        const tagsHtml = ruleData.tags && ruleData.tags.length > 0 ? `
+            <div class="mb-4">
+                <h4 class="text-sm font-medium text-gray-900 dark:text-white mb-2">Tags:</h4>
+                <div class="flex flex-wrap gap-2">
+                    ${ruleData.tags.map(tag => 
+                        `<span class="px-3 py-1 bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-300 rounded text-sm">${tag}</span>`
+                    ).join('')}
+                </div>
+            </div>
+        ` : '';
+        
+        // Format detection if available
+        const detectionHtml = ruleData.detection ? `
+            <div class="mb-4">
+                <h4 class="text-sm font-medium text-gray-900 dark:text-white mb-2">Detection Logic:</h4>
+                <pre class="bg-gray-50 dark:bg-gray-900 p-3 rounded text-xs overflow-x-auto border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300">${JSON.stringify(ruleData.detection, null, 2)}</pre>
+            </div>
+        ` : '';
+        
+        // Format logsource if available
+        const logsourceHtml = ruleData.logsource ? `
+            <div class="mb-4">
+                <h4 class="text-sm font-medium text-gray-900 dark:text-white mb-2">Log Source:</h4>
+                <pre class="bg-gray-50 dark:bg-gray-900 p-3 rounded text-xs overflow-x-auto border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300">${JSON.stringify(ruleData.logsource, null, 2)}</pre>
+            </div>
+        ` : '';
+        
+        modal.innerHTML = `
+            <div class="relative top-20 mx-auto p-5 border w-11/12 max-w-4xl shadow-lg rounded-md bg-white dark:bg-gray-800" style="margin-bottom: 50px;">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-lg font-medium text-gray-900 dark:text-white">🔍 Similar Rule Details</h3>
+                    <button onclick="closeSimilarRuleModal()" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </button>
+                </div>
+                
+                <div class="space-y-4 text-gray-700 dark:text-gray-300 max-h-96 overflow-y-auto">
+                    <div>
+                        <h4 class="text-sm font-medium text-gray-900 dark:text-white mb-1">Title:</h4>
+                        <div class="text-base">${ruleData.title || 'Untitled Rule'}</div>
+                    </div>
+                    
+                    ${ruleData.description ? `
+                        <div>
+                            <h4 class="text-sm font-medium text-gray-900 dark:text-white mb-1">Description:</h4>
+                            <div class="text-sm">${ruleData.description}</div>
+                        </div>
+                    ` : ''}
+                    
+                    <div class="grid grid-cols-2 gap-4">
+                        ${ruleData.rule_id ? `
+                            <div>
+                                <h4 class="text-sm font-medium text-gray-900 dark:text-white mb-1">Rule ID:</h4>
+                                <div class="text-sm">${ruleData.rule_id}</div>
+                            </div>
+                        ` : ''}
+                        ${ruleData.level ? `
+                            <div>
+                                <h4 class="text-sm font-medium text-gray-900 dark:text-white mb-1">Level:</h4>
+                                <div class="text-sm"><span class="px-2 py-1 bg-purple-100 dark:bg-purple-900 text-purple-700 dark:text-purple-300 rounded">${ruleData.level}</span></div>
+                            </div>
+                        ` : ''}
+                        ${ruleData.status ? `
+                            <div>
+                                <h4 class="text-sm font-medium text-gray-900 dark:text-white mb-1">Status:</h4>
+                                <div class="text-sm"><span class="px-2 py-1 bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300 rounded">${ruleData.status}</span></div>
+                            </div>
+                        ` : ''}
+                        <div>
+                            <h4 class="text-sm font-medium text-gray-900 dark:text-white mb-1">Similarity:</h4>
+                            <div class="text-sm font-bold text-blue-600 dark:text-blue-400">${((ruleData.similarity || 0) * 100).toFixed(1)}%</div>
+                        </div>
+                    </div>
+                    
+                    ${ruleData.file_path ? `
+                        <div>
+                            <h4 class="text-sm font-medium text-gray-900 dark:text-white mb-1">File Path:</h4>
+                            <div class="text-xs font-mono text-gray-600 dark:text-gray-400">${ruleData.file_path}</div>
+                        </div>
+                    ` : ''}
+                    
+                    ${tagsHtml}
+                    ${logsourceHtml}
+                    ${detectionHtml}
+                </div>
+                
+                <div class="mt-6 flex justify-end">
+                    <button onclick="closeSimilarRuleModal()" 
+                            class="px-4 py-2 bg-gray-300 dark:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-md hover:bg-gray-400 dark:hover:bg-gray-500 transition-colors">
+                        Close
+                    </button>
+                </div>
+            </div>
+        `;
+        
+        // Add click outside to close
+        modal.addEventListener('click', function(e) {
+            if (e.target === modal) {
+                closeSimilarRuleModal();
+            }
+        });
+        
+        // Add ESC key to close
+        const handleEsc = function(e) {
+            if (e.key === 'Escape') {
+                closeSimilarRuleModal();
+                document.removeEventListener('keydown', handleEsc);
+            }
+        };
+        document.addEventListener('keydown', handleEsc);
+        
+        document.body.appendChild(modal);
+    } catch (error) {
+        console.error('Error parsing rule data:', error);
+        alert('Error displaying rule details');
+    }
+}
+
+function closeSimilarRuleModal() {
+    const modal = document.getElementById('similarRuleModal');
+    if (modal) {
+        modal.remove();
+    }
+}
+
+// Navigate to queued rules
+function navigateToQueuedRules(executionId, ruleIds) {
+    if (ruleIds && ruleIds.length > 0) {
+        // Store rule IDs in sessionStorage for the queue page to highlight
+        sessionStorage.setItem('highlightQueuedRules', JSON.stringify(ruleIds));
+        sessionStorage.setItem('highlightExecutionId', executionId.toString());
+        // Navigate to queue page
+        window.location.href = '/workflow#queue';
+    } else {
+        // Fallback to queue page
+        window.location.href = '/workflow#queue';
+    }
+}
+
+// Highlight a specific queued rule (called from link click)
+function highlightQueuedRule(ruleId) {
+    sessionStorage.setItem('highlightQueuedRules', JSON.stringify([ruleId]));
+    window.location.href = '/workflow#queue';
+}
 </script>
 {% endblock %}
 

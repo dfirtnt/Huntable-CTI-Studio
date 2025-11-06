@@ -430,7 +430,7 @@ class SigmaMatchingService:
             logger.error(f"Error getting coverage summary for article {article_id}: {e}")
             return {'covered': 0, 'extend': 0, 'new': 0, 'total': 0}
 
-    async def llm_rerank_matches(self, proposed_rule: Dict[str, Any], candidates: List[Dict[str, Any]], top_k: int = 10, provider: str = "auto") -> List[Dict[str, Any]]:
+    async def llm_rerank_matches(self, proposed_rule: Dict[str, Any], candidates: List[Dict[str, Any]], top_k: int = 10, provider: str = "auto", lmstudio_model: Optional[str] = None) -> List[Dict[str, Any]]:
         """
         Hybrid approach: Use LLM to rerank top candidates from embedding search.
         
@@ -439,6 +439,7 @@ class SigmaMatchingService:
             candidates: List of candidate matches from embedding search (already sorted)
             top_k: Number of top candidates to rerank (default 10)
             provider: LLM provider to use (default "auto" = system-configured)
+            lmstudio_model: Optional LMStudio model name to use (overrides default)
             
         Returns:
             Re-ranked list with updated similarity scores and LLM explanations
@@ -450,6 +451,11 @@ class SigmaMatchingService:
             from src.services.llm_generation_service import LLMGenerationService
             
             llm_service = LLMGenerationService()
+            
+            # Override LMStudio model if specified
+            if lmstudio_model and provider.lower() in ("lmstudio", "auto"):
+                llm_service.lmstudio_model = lmstudio_model
+                logger.debug(f"Using specified LMStudio model: {lmstudio_model}")
             top_candidates = candidates[:top_k]
             
             # Format proposed rule for LLM
@@ -524,15 +530,8 @@ Return JSON array only, no markdown formatting."""
             
             # Capture model details for attribution
             provider_name = canonicalized_provider
-            model_name = None
-            if canonicalized_provider == "lmstudio":
-                model_name = llm_service.lmstudio_model
-            elif canonicalized_provider == "openai":
-                model_name = "gpt-4o-mini"
-            elif canonicalized_provider == "anthropic":
-                model_name = "claude-sonnet-4-5"
-            elif canonicalized_provider == "ollama":
-                model_name = llm_service.ollama_model
+            # Use _get_model_name to get the actual model (reads from database for LMStudio)
+            model_name = llm_service._get_model_name(canonicalized_provider)
 
             # Call LLM with timeout
             import asyncio
