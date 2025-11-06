@@ -231,9 +231,25 @@ class LLMService:
                         for model in models_data.get("data", []):
                             if model.get("id") == model_name:
                                 # Check for context_length field (may vary by LMStudio version)
-                                context_length = model.get("context_length") or model.get("context_length_max")
-                                if context_length:
-                                    detection_method = "api_models_endpoint"
+                                # NOTE: This may return theoretical max, not actual configured length
+                                detected_context = model.get("context_length") or model.get("context_length_max")
+                                if detected_context:
+                                    # If detected context is very large (>65536), it's likely theoretical max
+                                    # LM Studio often configures smaller context lengths in practice
+                                    # Use conservative estimate for large contexts
+                                    if detected_context > 65536:
+                                        logger.warning(
+                                            f"Detected large context length ({detected_context}) for {model_name}. "
+                                            f"This may be theoretical max, not configured length. Using conservative estimate."
+                                        )
+                                        # Use much smaller conservative estimate for very large contexts
+                                        # Reasoning models: cap at 16384, non-reasoning: cap at 8192
+                                        is_reasoning = 'r1' in model_name.lower() or 'reasoning' in model_name.lower()
+                                        context_length = min(16384 if is_reasoning else 8192, detected_context // 16)
+                                        detection_method = "api_models_endpoint_conservative"
+                                    else:
+                                        context_length = detected_context
+                                        detection_method = "api_models_endpoint"
                                     break
                         if context_length:
                             break
@@ -538,28 +554,118 @@ Score the article from 1-10 for SIGMA rule generation potential. Consider:
 
 **SIGMA HUNTABILITY SCORE: [1-10]**"""
         
-        # Truncate content to fit within context limits
-        # Reserve space for prompt, system message, and 200 token response
-        truncated_content = self._truncate_content(
-            content,
-            max_context_tokens=MAX_CONTEXT_TOKENS,
-            max_output_tokens=200,
-            prompt_overhead=PROMPT_OVERHEAD_TOKENS
+        # Get actual model context length to use for truncation
+        # IMPORTANT: LM Studio's configured context may be much smaller than detected/theoretical max
+        # Use very conservative fixed limits to ensure we never exceed actual configured context
+        # Reasoning models: 8192 max, non-reasoning: 4096 max
+        # These are conservative limits that should work with most LM Studio configurations
+        
+        # Determine model used for ranking
+        model_name = self.model_rank
+        if not model_name:
+            raise ValueError("RankAgent model is not configured. Set agent_models.RankAgent or LMSTUDIO_MODEL_RANK.")
+
+        # For reasoning models (deepseek-r1), need higher max_tokens
+        # But keep conservative to avoid exceeding context
+        # Reasoning can use 1000-2000 tokens, final answer needs ~100 tokens
+        is_reasoning_model = 'r1' in model_name.lower() or 'reasoning' in model_name.lower()
+        # Reduce max_output_tokens when using conservative context caps
+        max_output_tokens = 2000 if is_reasoning_model else 600  # Reduced from 2500/800
+        
+        # Use fixed conservative context limits to avoid LM Studio configuration mismatches
+        # CRITICAL: LM Studio's actual configured context is often MUCH smaller than theoretical max
+        # Use very conservative caps that work even if LM Studio is configured with minimal context
+        MAX_SAFE_CONTEXT_REASONING = 4096  # Very conservative cap for reasoning models (works with 4096 or 8192 config)
+        MAX_SAFE_CONTEXT_NORMAL = 2048     # Very conservative cap for normal models (works with 2048 or 4096 config)
+        
+        try:
+            context_check = await self.check_model_context_length(model_name=model_name)
+            detected_length = context_check['context_length']
+        except Exception as e:
+            logger.warning(f"Could not get model context length: {e}")
+            detected_length = 32768  # Fallback
+        
+        # Always use conservative caps regardless of detection
+        # LM Studio's actual configured context is often much smaller than detected/theoretical max
+        if is_reasoning_model:
+            actual_context_length = min(detected_length, MAX_SAFE_CONTEXT_REASONING)
+        else:
+            actual_context_length = min(detected_length, MAX_SAFE_CONTEXT_NORMAL)
+        
+        # Apply additional safety margin (use 75% of the conservative cap - very aggressive)
+        actual_context_length = int(actual_context_length * 0.75)
+        
+        logger.info(
+            f"Using very conservative context length {actual_context_length} for truncation "
+            f"(detected: {detected_length}, reasoning: {is_reasoning_model}, "
+            f"cap: {MAX_SAFE_CONTEXT_REASONING if is_reasoning_model else MAX_SAFE_CONTEXT_NORMAL})"
         )
         
-        if truncated_content != content:
+        # Estimate prompt overhead more accurately
+        # Account for: template text + title + source + URL + system message + formatting
+        base_prompt_tokens = self._estimate_tokens(prompt_template.format(
+            title=title,
+            source=source,
+            url=url,
+            content=""  # Estimate without content first
+        ))
+        # Add system message if present
+        system_message_tokens = 50 if not self._model_needs_system_conversion(model_name) else 0
+        # Add message formatting overhead (~100 tokens for JSON structure, role fields, etc.)
+        message_formatting_overhead = 100
+        # Total prompt overhead (not including content)
+        total_prompt_overhead = base_prompt_tokens + system_message_tokens + message_formatting_overhead
+        
+        # Truncate content to fit within remaining context
+        # Reserve: prompt overhead + output tokens + safety margin (15%)
+        available_tokens = actual_context_length - total_prompt_overhead - max_output_tokens
+        available_tokens = int(available_tokens * 0.85)  # 15% safety margin
+        
+        if available_tokens <= 0:
+            logger.error(f"Available tokens for content is {available_tokens} - prompt overhead too large")
+            available_tokens = 1000  # Minimum fallback
+        
+        content_tokens = self._estimate_tokens(content)
+        if content_tokens <= available_tokens:
+            truncated_content = content
+        else:
+            # Truncate to fit
+            max_chars = available_tokens * 4
+            truncated = content[:max_chars]
+            
+            # Try to truncate at sentence boundary
+            last_period = truncated.rfind(".")
+            last_newline = truncated.rfind("\n")
+            last_boundary = max(last_period, last_newline)
+            
+            if last_boundary > max_chars * 0.8:
+                truncated = truncated[:last_boundary + 1]
+            
+            truncated_content = truncated + "\n\n[Content truncated to fit context window]"
+            
             logger.warning(
-                f"Truncated article content from {self._estimate_tokens(content)} to "
-                f"{self._estimate_tokens(truncated_content)} tokens to fit context window"
+                f"Truncated article content from {content_tokens} to "
+                f"{self._estimate_tokens(truncated_content)} tokens (available: {available_tokens}, "
+                f"prompt overhead: {total_prompt_overhead}, max_output: {max_output_tokens}, "
+                f"context: {actual_context_length})"
             )
         
-        # Format prompt
+        # Format prompt with truncated content
         prompt_text = prompt_template.format(
             title=title,
             source=source,
             url=url,
             content=truncated_content
         )
+        
+        # Final verification: estimate total prompt tokens
+        total_prompt_tokens = self._estimate_tokens(prompt_text) + system_message_tokens + message_formatting_overhead
+        total_tokens_needed = total_prompt_tokens + max_output_tokens
+        if total_tokens_needed > actual_context_length:
+            logger.error(
+                f"WARNING: Total tokens needed ({total_tokens_needed}) exceeds context length ({actual_context_length}). "
+                f"This may cause context overflow errors."
+            )
         
         # Use ranking-specific model
         model_name = self.model_rank
@@ -585,11 +691,6 @@ Score the article from 1-10 for SIGMA rule generation potential. Consider:
                 }
             ]
         
-        # For reasoning models (deepseek-r1), need much higher max_tokens
-        # Reasoning can use 1000-2000 tokens, final answer needs ~100 tokens
-        is_reasoning_model = 'r1' in model_name.lower() or 'reasoning' in model_name.lower()
-        max_output_tokens = 2500 if is_reasoning_model else 800
-        
         payload = {
             "model": model_name,
             "messages": messages,
@@ -613,7 +714,8 @@ Score the article from 1-10 for SIGMA rule generation potential. Consider:
                 "prompt_length": len(prompt_text),
                 "max_tokens": max_output_tokens,
                 "title": title,
-                "source": source
+                "source": source,
+                "messages": messages  # Include messages for input display
             }
         ) as generation:
             try:
@@ -758,33 +860,107 @@ Score the article from 1-10 for SIGMA rule generation potential. Consider:
         # Use extraction-specific model
         model_name = self.model_extract
         
-        # Truncate content to fit within context limits
-        # For reasoning models (deepseek-r1), need much higher max_tokens (reasoning + JSON)
-        # Reasoning can use 3000-4000 tokens, JSON needs 2000-3000 tokens
+        # For reasoning models (deepseek-r1), need higher max_tokens (reasoning + JSON)
+        # But keep conservative to avoid exceeding context
+        # With 3072 context cap and ~1500 prompt overhead, we have ~1500 tokens available
         is_reasoning_model = 'r1' in model_name.lower() or 'reasoning' in model_name.lower()
-        max_output_tokens = 10000 if is_reasoning_model else 4000
+        max_output_tokens = 2000 if is_reasoning_model else 1500  # Further reduced to fit in available context
         
-        truncated_content = self._truncate_content(
-            content,
-            max_context_tokens=MAX_CONTEXT_TOKENS,
-            max_output_tokens=max_output_tokens,
-            prompt_overhead=PROMPT_OVERHEAD_TOKENS + 500  # Extra for instructions JSON
+        # Use fixed conservative context limits to avoid LM Studio configuration mismatches
+        # CRITICAL: LM Studio's actual configured context is often MUCH smaller than theoretical max
+        # Use very conservative caps that work even if LM Studio is configured with minimal context
+        MAX_SAFE_CONTEXT_REASONING = 4096  # Very conservative cap for reasoning models (works with 4096 or 8192 config)
+        MAX_SAFE_CONTEXT_NORMAL = 2048     # Very conservative cap for normal models (works with 2048 or 4096 config)
+        
+        try:
+            context_check = await self.check_model_context_length(model_name=model_name)
+            detected_length = context_check['context_length']
+        except Exception as e:
+            logger.warning(f"Could not get model context length for extraction: {e}")
+            detected_length = 32768  # Fallback
+        
+        # Always use conservative caps regardless of detection
+        # LM Studio's actual configured context is often much smaller than detected/theoretical max
+        if is_reasoning_model:
+            actual_context_length = min(detected_length, MAX_SAFE_CONTEXT_REASONING)
+        else:
+            actual_context_length = min(detected_length, MAX_SAFE_CONTEXT_NORMAL)
+        
+        # Apply additional safety margin (use 75% of the conservative cap - very aggressive)
+        actual_context_length = int(actual_context_length * 0.75)
+        
+        logger.info(
+            f"Using very conservative context length {actual_context_length} for extraction truncation "
+            f"(detected: {detected_length}, reasoning: {is_reasoning_model}, "
+            f"cap: {MAX_SAFE_CONTEXT_REASONING if is_reasoning_model else MAX_SAFE_CONTEXT_NORMAL})"
         )
         
-        if truncated_content != content:
+        # Estimate prompt overhead more accurately
+        # Account for: template text + title + URL + prompt_config JSON + system message + formatting
+        prompt_config_json = json.dumps(prompt_config, indent=2)
+        base_prompt_tokens = self._estimate_tokens(instructions_template.format(
+            title=title,
+            url=url,
+            content="",  # Estimate without content first
+            prompt_config=prompt_config_json
+        ))
+        # Add system message if present
+        system_message_tokens = 50 if not self._model_needs_system_conversion(model_name) else 0
+        # Add message formatting overhead (~100 tokens for JSON structure, role fields, etc.)
+        message_formatting_overhead = 100
+        # Total prompt overhead (not including content)
+        total_prompt_overhead = base_prompt_tokens + system_message_tokens + message_formatting_overhead
+        
+        # Truncate content to fit within remaining context
+        # Reserve: prompt overhead + output tokens + safety margin (15%)
+        available_tokens = actual_context_length - total_prompt_overhead - max_output_tokens
+        available_tokens = int(available_tokens * 0.85)  # 15% safety margin
+        
+        if available_tokens <= 0:
+            logger.error(f"Available tokens for content is {available_tokens} - prompt overhead too large")
+            available_tokens = 1000  # Minimum fallback
+        
+        content_tokens = self._estimate_tokens(content)
+        if content_tokens <= available_tokens:
+            truncated_content = content
+        else:
+            # Truncate to fit
+            max_chars = available_tokens * 4
+            truncated = content[:max_chars]
+            
+            # Try to truncate at sentence boundary
+            last_period = truncated.rfind(".")
+            last_newline = truncated.rfind("\n")
+            last_boundary = max(last_period, last_newline)
+            
+            if last_boundary > max_chars * 0.8:
+                truncated = truncated[:last_boundary + 1]
+            
+            truncated_content = truncated + "\n\n[Content truncated to fit context window]"
+            
             logger.warning(
-                f"Truncated article content from {self._estimate_tokens(content)} to "
-                f"{self._estimate_tokens(truncated_content)} tokens to fit context window"
+                f"Truncated article content from {content_tokens} to "
+                f"{self._estimate_tokens(truncated_content)} tokens (available: {available_tokens}, "
+                f"prompt overhead: {total_prompt_overhead}, max_output: {max_output_tokens}, "
+                f"context: {actual_context_length})"
             )
         
-        # Build user prompt from instructions template
-        prompt_config_json = json.dumps(prompt_config, indent=2)
+        # Build user prompt from instructions template with truncated content
         user_prompt = instructions_template.format(
             title=title,
             url=url,
             content=truncated_content,
             prompt_config=prompt_config_json
         )
+        
+        # Final verification: estimate total prompt tokens
+        total_prompt_tokens = self._estimate_tokens(user_prompt) + system_message_tokens + message_formatting_overhead
+        total_tokens_needed = total_prompt_tokens + max_output_tokens
+        if total_tokens_needed > actual_context_length:
+            logger.error(
+                f"WARNING: Total tokens needed ({total_tokens_needed}) exceeds context length ({actual_context_length}). "
+                f"This may cause context overflow errors."
+            )
         
         # Determine system message content based on prompt structure
         # Must have either "role" or "task" field - no fallbacks
@@ -841,7 +1017,8 @@ Score the article from 1-10 for SIGMA rule generation potential. Consider:
                 "prompt_length": len(user_prompt),
                 "max_tokens": max_output_tokens,
                 "title": title,
-                "has_reasoning": is_reasoning_model
+                "has_reasoning": is_reasoning_model,
+                "messages": messages  # Include messages for input display
             }
         ) as generation:
             try:
@@ -1283,4 +1460,3 @@ CRITICAL: If you are a reasoning model, you may include reasoning text, but you 
         except Exception as e:
             logger.error(f"Error extracting observables: {e}")
             raise
-

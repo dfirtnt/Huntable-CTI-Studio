@@ -5,7 +5,18 @@ Test configuration and fixtures for CTI Scraper tests.
 import os
 import sys
 import pytest
-import pytest_asyncio
+import warnings
+try:
+    import pytest_asyncio
+except ImportError:  # Allow running targeted tests without pytest-asyncio
+    class _PytestAsyncioStub:
+        def fixture(self, *args, **kwargs):
+            return pytest.fixture(*args, **kwargs)
+    pytest_asyncio = _PytestAsyncioStub()
+    warnings.warn(
+        "pytest-asyncio not installed; async fixtures will behave as regular fixtures.",
+        RuntimeWarning,
+    )
 import httpx
 import asyncio
 import tempfile

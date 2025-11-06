@@ -1117,6 +1117,36 @@ function getStatusBadge(status) {
     return badges[status] || '<span class="px-2 py-1 text-xs rounded-full bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-100 font-semibold">' + status + '</span>';
 }
 
+function getTerminationBadge(reason) {
+    if (!reason) {
+        return '';
+    }
+    const badges = {
+        'rank_below_threshold': '<span class="ml-2 px-2 py-1 text-xs rounded-full bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-100 font-semibold">Stopped: Below Threshold</span>',
+        'no_sigma_rules_generated': '<span class="ml-2 px-2 py-1 text-xs rounded-full bg-gray-200 text-gray-700 dark:bg-gray-800 dark:text-gray-200 font-semibold">No SIGMA Rules</span>'
+    };
+    return badges[reason] || `<span class="ml-2 px-2 py-1 text-xs rounded-full bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-200 font-semibold">${reason}</span>`;
+}
+
+function describeTermination(reason, details) {
+    if (!reason) {
+        return '';
+    }
+    const payload = details?.details || {};
+    switch (reason) {
+        case 'rank_below_threshold': {
+            const score = typeof payload.ranking_score === 'number' ? payload.ranking_score.toFixed(1) : payload.ranking_score;
+            const threshold = typeof payload.ranking_threshold === 'number' ? payload.ranking_threshold.toFixed(1) : payload.ranking_threshold;
+            return `Stopped after ranking (score ${score || 'N/A'} vs threshold ${threshold || 'N/A'})`;
+        }
+        case 'no_sigma_rules_generated': {
+            return 'Completed without generating SIGMA rules';
+        }
+        default:
+            return reason;
+    }
+}
+
 function getStepBadge(step) {
     const steps = {
         'junk_filter': '🔍 Filter',
@@ -1182,7 +1212,9 @@ function renderExecutions() {
                     ${exec.article_title || 'Article ' + exec.article_id}
                 </a>
             </td>
-            <td class="px-6 py-4 whitespace-nowrap">${getStatusBadge(exec.status)}</td>
+            <td class="px-6 py-4 whitespace-nowrap">
+                <div class="flex items-center">${getStatusBadge(exec.status)}${getTerminationBadge(exec.termination_reason)}</div>
+            </td>
             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">${getStepBadge(exec.current_step)}</td>
             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
                 ${exec.ranking_score ? exec.ranking_score.toFixed(1) : '-'}
@@ -1315,7 +1347,7 @@ async function viewExecution(executionId) {
                         <div><strong>Ranking Score:</strong> ${exec.ranking_score.toFixed(1)}/10</div>
                         <div><strong>Threshold:</strong> ${(exec.config_snapshot?.ranking_threshold ?? 6.0).toFixed(1)}/10</div>
                         <div><strong>Decision:</strong> ${exec.ranking_score >= (exec.config_snapshot?.ranking_threshold ?? 6.0) ? '✅ Continue' : '❌ Stop'}</div>
-                    </div>`,
+                    </div>${exec.termination_reason === 'rank_below_threshold' ? '<div class="mt-2 text-yellow-600 dark:text-yellow-400">⚠️ Workflow ended after ranking because the huntability score was below the threshold.</div>' : ''}`,
                     details: rankingDetails
                 });
             }
@@ -1716,6 +1748,7 @@ async function viewExecution(executionId) {
                         <div class="text-gray-900 dark:text-gray-300"><strong>Execution ID:</strong> ${exec.id}</div>
                         <div class="text-gray-900 dark:text-gray-300"><strong>Article:</strong> <a href="/articles/${exec.article_id}" class="text-purple-600 hover:text-purple-800 dark:text-purple-400">${exec.article_title}</a></div>
                         <div class="text-gray-900 dark:text-gray-300"><strong>Status:</strong> ${getStatusBadge(exec.status)}</div>
+                        ${exec.termination_reason ? `<div class="text-gray-900 dark:text-gray-300"><strong>Completion Reason:</strong> ${escapeHtml(describeTermination(exec.termination_reason, exec.termination_details))}</div>` : ''}
                         <div class="text-gray-900 dark:text-gray-300"><strong>Current Step:</strong> ${getStepBadge(exec.current_step)}</div>
                         <div class="text-gray-900 dark:text-gray-300"><strong>Created:</strong> ${parseUTCDate(exec.created_at).toLocaleString('en-US', { dateStyle: 'short', timeStyle: 'short' })}</div>
                         ${exec.completed_at ? `<div class="text-gray-900 dark:text-gray-300"><strong>Completed:</strong> ${parseUTCDate(exec.completed_at).toLocaleString('en-US', { dateStyle: 'short', timeStyle: 'short' })}</div>` : ''}
@@ -2410,4 +2443,3 @@ function showHelp(fieldName) {
 }
 </script>
 {% endblock %}
-

@@ -8,7 +8,7 @@ workflow execution, and agent interactions.
 import os
 import logging
 from typing import Optional, Dict, Any
-from contextlib import contextmanager
+from contextlib import AbstractContextManager, contextmanager
 
 logger = logging.getLogger(__name__)
 
@@ -105,108 +105,142 @@ def is_langfuse_enabled() -> bool:
     return client is not None
 
 
-@contextmanager
-def trace_workflow_execution(execution_id: int, article_id: int, user_id: Optional[str] = None, session_id: Optional[str] = None):
+class _LangfuseWorkflowTrace(AbstractContextManager):
+    """Context manager wrapper that shields workflows from LangFuse generator issues."""
+
+    def __init__(
+        self,
+        execution_id: int,
+        article_id: int,
+        user_id: Optional[str] = None,
+        session_id: Optional[str] = None,
+    ) -> None:
+        self.execution_id = execution_id
+        self.article_id = article_id
+        self.user_id = user_id
+        self.session_id = session_id
+
+        self._client = None
+        self._span_cm = None
+        self._span = None
+        self._trace_id_hash = None
+
+    def __enter__(self):
+        global _active_trace_id
+
+        if not is_langfuse_enabled():
+            return None
+
+        try:
+            self._client = get_langfuse_client()
+            if not self._client:
+                return None
+
+            # Ensure session_id satisfies Langfuse constraints
+            session_id = self.session_id or f"workflow_exec_{self.execution_id}"
+            if len(session_id) > 200:
+                logger.warning(
+                    "Session ID too long (%s chars), truncating to 200", len(session_id)
+                )
+                session_id = session_id[:200]
+            self.session_id = session_id
+
+            import hashlib
+
+            self._trace_id_hash = hashlib.md5(
+                f"workflow_exec_{self.execution_id}".encode()
+            ).hexdigest()
+
+            from langfuse.types import TraceContext
+
+            trace_context = TraceContext(
+                user_id=self.user_id or f"article_{self.article_id}",
+                session_id=session_id,
+                trace_id=self._trace_id_hash,
+            )
+
+            self._span_cm = self._client.start_as_current_span(
+                name=f"agentic_workflow_execution_{self.execution_id}",
+                trace_context=trace_context,
+                input={
+                    "execution_id": self.execution_id,
+                    "article_id": self.article_id,
+                    "workflow_type": "agentic_workflow",
+                },
+                metadata={
+                    "execution_id": self.execution_id,
+                    "article_id": self.article_id,
+                    "workflow_type": "agentic_workflow",
+                },
+                end_on_exit=True,
+            )
+
+            self._span = self._span_cm.__enter__()
+            _active_trace_id = getattr(self._span, "trace_id", None) or self._trace_id_hash
+            return self._span
+        except Exception as span_error:
+            logger.error(f"Failed to create LangFuse span: {span_error}")
+            _active_trace_id = None
+            self._span_cm = None
+            self._span = None
+            self._client = None
+            return None
+
+    def __exit__(self, exc_type, exc, tb):
+        global _active_trace_id
+        suppress = False
+
+        if self._span_cm is not None:
+            try:
+                suppress = bool(self._span_cm.__exit__(exc_type, exc, tb))
+            except RuntimeError as exit_error:
+                message = str(exit_error)
+                if "generator didn't stop after throw" in message:
+                    logger.warning(
+                        "LangFuse span raised generator error on exit; continuing without failing workflow."
+                    )
+                    suppress = False
+                else:
+                    raise
+            except Exception as exit_error:
+                logger.error(f"Unexpected error exiting LangFuse span: {exit_error}")
+                suppress = False
+
+        if self._client:
+            try:
+                self._client.flush()
+                if self.session_id:
+                    logger.debug(
+                        "LangFuse trace flushed for workflow execution %s (session: %s)",
+                        self.execution_id,
+                        self.session_id,
+                    )
+            except Exception as flush_error:
+                logger.error(f"Error flushing LangFuse trace: {flush_error}")
+
+        _active_trace_id = None
+        self._span_cm = None
+        self._span = None
+        self._client = None
+
+        return suppress
+
+
+def trace_workflow_execution(
+    execution_id: int,
+    article_id: int,
+    user_id: Optional[str] = None,
+    session_id: Optional[str] = None,
+):
     """
     Context manager for tracing a workflow execution with session support.
-    
-    Uses Langfuse sessions to group all observations (traces, spans, generations) 
-    for a workflow execution together. This enables session replay and session-level metrics.
-    
-    Args:
-        execution_id: The workflow execution ID
-        article_id: The article being processed
-        user_id: Optional user ID (defaults to article_id)
-        session_id: Optional session ID (defaults to execution_id). 
-                   Sessions group related traces together in LangFuse.
-                   Must be ≤200 characters (US-ASCII).
-    
-    Usage:
-        with trace_workflow_execution(execution_id=123, article_id=456) as trace:
-            # Workflow code here - all child observations automatically inherit session_id
-            trace.update(metadata={"step": "junk_filter"})
     """
-    global _active_trace_id
-    
-    if not is_langfuse_enabled():
-        yield None
-        return
-    
-    span_context = None
-    try:
-        client = get_langfuse_client()
-        # Use execution_id as session_id by default to group all traces for this execution
-        # Session ID must be ≤200 characters (US-ASCII)
-        session_id = session_id or f"workflow_exec_{execution_id}"
-        
-        # Validate session_id length (Langfuse requirement)
-        if len(session_id) > 200:
-            logger.warning(f"Session ID too long ({len(session_id)} chars), truncating to 200")
-            session_id = session_id[:200]
-        
-        trace_id = f"workflow_exec_{execution_id}"
-        
-        # Create root span using start_as_current_span (LangFuse v3 API)
-        # This creates a trace automatically with the session_id in trace_context
-        # Use trace_context for user_id and session_id
-        from langfuse.types import TraceContext
-        
-        trace_context = TraceContext(
-            user_id=user_id or f"article_{article_id}",
-            session_id=session_id,
-            trace_id=trace_id  # Explicitly set trace_id so all observations are linked
-        )
-        
-        # Use propagate_attributes to ensure all child observations inherit session_id
-        # This is the recommended way to propagate session_id according to Langfuse docs
-        from langfuse import propagate_attributes
-        
-        # Use start_as_current_span which creates a trace automatically
-        # The trace_context with session_id ensures the trace is part of the session
-        # Wrap in propagate_attributes to ensure session_id propagates to all child observations
-        with propagate_attributes(session_id=session_id):
-            span_context = client.start_as_current_span(
-                name=f"agentic_workflow_execution_{execution_id}",
-                trace_context=trace_context,
-                metadata={
-                    "execution_id": execution_id,
-                    "article_id": article_id,
-                    "workflow_type": "agentic_workflow"
-                },
-                end_on_exit=False  # Manual control for better exception handling
-            )
-            span = span_context.__enter__()
-            
-            # Store trace ID from the span for child spans/generations
-            _active_trace_id = getattr(span, 'trace_id', None) or trace_id
-            
-            try:
-                yield span
-            finally:
-                # Always end the span and flush, even if exceptions occurred
-                try:
-                    if span_context:
-                        span_context.__exit__(None, None, None)
-                except Exception as exit_error:
-                    logger.error(f"Error exiting LangFuse span: {exit_error}")
-                
-                # Flush after span ends
-                try:
-                    client.flush()
-                    logger.debug(f"LangFuse trace flushed for workflow execution {execution_id} (session: {session_id})")
-                except Exception as flush_error:
-                    logger.error(f"Error flushing LangFuse trace: {flush_error}")
-                _active_trace_id = None
-    except Exception as e:
-        logger.error(f"Error creating LangFuse trace: {e}")
-        # Ensure span is closed if it was opened
-        if span_context:
-            try:
-                span_context.__exit__(type(e), e, e.__traceback__)
-            except Exception:
-                pass
-        _active_trace_id = None
-        yield None
+    return _LangfuseWorkflowTrace(
+        execution_id=execution_id,
+        article_id=article_id,
+        user_id=user_id,
+        session_id=session_id,
+    )
 
 
 @contextmanager
@@ -264,16 +298,32 @@ def trace_llm_call(
         resolved_trace_id = trace_id
         if not resolved_trace_id:
             if execution_id:
-                resolved_trace_id = f"workflow_exec_{execution_id}"
+                # Generate deterministic hex trace_id from execution_id
+                import hashlib
+                resolved_trace_id = hashlib.md5(f"workflow_exec_{execution_id}".encode()).hexdigest()
             elif _active_trace_id:
                 resolved_trace_id = _active_trace_id
         
         # Create generation using start_generation (LangFuse v3 API)
         from langfuse.types import TraceContext
         
+        # Convert messages to LangFuse format for input
+        langfuse_input = []
+        if metadata and "messages" in metadata:
+            # If messages are provided in metadata, use them
+            langfuse_input = metadata["messages"]
+        else:
+            # Otherwise create a simple input dict
+            langfuse_input = {
+                "execution_id": execution_id,
+                "article_id": article_id,
+                "model": model
+            }
+        
         generation_kwargs = {
             "name": name,
             "model": model,
+            "input": langfuse_input,
             "metadata": {
                 **(metadata or {}),
                 "execution_id": execution_id,
@@ -293,25 +343,27 @@ def trace_llm_call(
         
         generation = client.start_generation(**generation_kwargs)
         
-        # Use propagate_attributes to ensure child observations inherit session_id
-        # This is particularly useful if the generation creates nested spans/generations
-        from langfuse import propagate_attributes
-        
         try:
-            if resolved_session_id:
-                # Wrap in propagate_attributes to ensure session_id propagates to child observations
-                with propagate_attributes(session_id=resolved_session_id):
-                    yield generation
-            else:
-                yield generation
+            yield generation
         finally:
-            # Explicitly flush to ensure traces are sent
-            if generation:
-                try:
-                    client.flush()
-                    logger.debug(f"LangFuse generation flushed for {name} (session: {resolved_session_id})")
-                except Exception as flush_error:
-                    logger.error(f"Error flushing LangFuse generation: {flush_error}")
+            # Defensive cleanup - catch ALL exceptions to prevent generator protocol issues
+            try:
+                if generation:
+                    try:
+                        generation.end()
+                    except Exception:
+                        # Generation was already ended or ending failed - that's fine
+                        pass
+                    
+                    # Explicitly flush to ensure traces are sent
+                    try:
+                        client.flush()
+                        logger.debug(f"LangFuse generation flushed for {name} (session: {resolved_session_id})")
+                    except Exception as flush_error:
+                        logger.error(f"Error flushing LangFuse generation: {flush_error}")
+            except Exception as cleanup_error:
+                # Catch any exception during cleanup to prevent generator protocol issues
+                logger.debug(f"Exception during generation cleanup (non-critical): {cleanup_error}")
         
     except Exception as e:
         logger.error(f"Error creating LangFuse generation: {e}")
@@ -352,7 +404,9 @@ def log_llm_completion(
         
         # Update generation with completion data
         # Handle usage parameter - LangFuse expects usage_details or individual fields
+        # Set input with messages for proper display in Langfuse UI
         update_kwargs = {
+            "input": langfuse_messages,  # Set input directly for Langfuse UI display
             "output": output,
             "model_parameters": {
                 "messages": langfuse_messages
@@ -383,6 +437,7 @@ def log_llm_error(generation, error: Exception, metadata: Optional[Dict[str, Any
         return
     
     try:
+        # Mark generation as ended so trace_llm_call finally block doesn't try to end it again
         generation.update(
             level="ERROR",
             status_message=str(error),
@@ -433,6 +488,8 @@ def log_workflow_step(
         
         span_kwargs = {
             "name": step_name,
+            "input": step_result if step_result else {},
+            "output": {"error": str(error)} if error else {"success": True},
             "metadata": {
                 **(metadata or {}),
                 "step_result": step_result,

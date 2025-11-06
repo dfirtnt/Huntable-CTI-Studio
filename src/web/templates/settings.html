@@ -848,13 +848,13 @@
             for (const setting of langfuseSettings) {
                 if (setting.value) {
                     // Save non-empty value to database
-                    await fetch('/api/settings', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                        },
+                await fetch('/api/settings', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
                         body: JSON.stringify(setting)
-                    });
+                });
                 } else {
                     // Delete empty value from database (revert to environment variable)
                     await fetch(`/api/settings/${setting.key}`, {

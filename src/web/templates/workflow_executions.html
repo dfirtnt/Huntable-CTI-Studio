@@ -308,7 +308,8 @@ function renderExecutions() {
             </td>
             <td class="px-6 py-4 whitespace-nowrap text-sm">
                 <button onclick="viewExecution(${exec.id})" class="text-blue-600 hover:text-blue-900 dark:text-white dark:hover:text-gray-300 mr-2">View</button>
-                ${exec.status === 'failed' ? `<button onclick="retryExecution(${exec.id})" class="text-green-600 hover:text-green-900 dark:text-white dark:hover:text-gray-300">Retry</button>` : ''}
+                ${exec.status === 'failed' ? `<button onclick="retryExecution(${exec.id})" class="text-green-600 hover:text-green-900 dark:text-white dark:hover:text-gray-300 mr-2">Retry</button>` : ''}
+                ${exec.status === 'running' || exec.status === 'pending' ? `<button onclick="cancelExecution(${exec.id})" class="text-red-600 hover:text-red-900 dark:text-white dark:hover:text-gray-300">Cancel</button>` : ''}
             </td>
         </tr>
     `).join('');
@@ -611,6 +612,25 @@ async function viewExecution(executionId) {
         console.error('Error loading execution details:', error);
         document.getElementById('executionDetailContent').innerHTML = 
             `<div class="text-red-600 dark:text-red-400">Error loading execution details: ${error.message}</div>`;
+    }
+}
+
+async function cancelExecution(executionId) {
+    if (!confirm('Cancel this execution? This will mark it as failed.')) return;
+    
+    try {
+        const response = await fetch(`/api/workflow/executions/${executionId}/cancel`, { method: 'POST' });
+        if (response.ok) {
+            const data = await response.json();
+            alert(data.message || 'Execution cancelled successfully');
+            await loadExecutions();
+        } else {
+            const error = await response.json();
+            alert(error.detail || 'Error cancelling execution');
+        }
+    } catch (error) {
+        console.error('Error cancelling execution:', error);
+        alert('Error cancelling execution: ' + error.message);
     }
 }
 

@@ -93,14 +93,37 @@ class URLDiscovery:
                             full_url = urljoin(current_url, href)
                             urls.add(normalize_url(full_url))
                     
-                    # Find next page
+                    # Find next page - prefer "Next" link, fallback to next page number
                     current_url = None
                     if next_selector:
-                        next_link = soup.select_one(next_selector)
-                        if next_link:
-                            next_href = next_link.get('href')
-                            if next_href:
-                                current_url = urljoin(listing_url, next_href)
+                        # Try to find "Next" link first
+                        next_links = soup.select(next_selector)
+                        for link in next_links:
+                            link_text = link.get_text().strip().lower()
+                            next_href = link.get('href')
+                            if next_href and ('next' in link_text or link_text.isdigit()):
+                                # Make sure it's not the current page
+                                current_page_match = re.search(r'[?&]p=(\d+)', current_url or listing_url)
+                                next_page_match = re.search(r'[?&]p=(\d+)', next_href)
+                                if next_page_match:
+                                    next_page_num = int(next_page_match.group(1))
+                                    if not current_page_match or next_page_num > int(current_page_match.group(1)):
+                                        current_url = urljoin(current_url or listing_url, next_href)
+                                        break
+                                elif 'next' in link_text:
+                                    # "Next" link found, use it
+                                    current_url = urljoin(current_url or listing_url, next_href)
+                                    break
+                        
+                        # If no next link found, try to increment page number
+                        if not current_url:
+                            current_page_match = re.search(r'[?&]p=(\d+)', current_url or listing_url)
+                            if current_page_match:
+                                current_page = int(current_page_match.group(1))
+                                next_page = current_page + 1
+                                base_url = re.sub(r'[?&]p=\d+', '', current_url or listing_url)
+                                separator = '&' if '?' in base_url else '?'
+                                current_url = f"{base_url}{separator}p={next_page}"
                     
                     page_count += 1
                     
@@ -487,7 +510,8 @@ class ModernScraper:
             
             # Ensure we have required fields
             if not article_data.get('title') or not article_data.get('content'):
-                logger.warning(f"Missing required fields for {url}")
+                logger.warning(f"Missing required fields for {url}: title={bool(article_data.get('title'))}, content={bool(article_data.get('content'))}")
+                logger.debug(f"Article data keys: {list(article_data.keys())}")
                 return None
             
             # Validate content
@@ -560,12 +584,65 @@ class ModernScraper:
         for selector in body_selectors:
             content_elem = soup.select_one(selector)
             if content_elem:
-                content_html = str(content_elem)
-                if len(ContentCleaner.html_to_text(content_html).strip()) > 100:
+                # Get text length to verify it's substantial content
+                text_length = len(ContentCleaner.html_to_text(str(content_elem)).strip())
+                if text_length > 100:
+                    content_html = str(content_elem)
+                    logger.debug(f"Found content with selector '{selector}' for {url} ({text_length} chars)")
                     break
         
+        if not content_html:
+            # Fallback: try to find any substantial content block
+            for fallback_selector in ['article', 'main', '[role="main"]', '.content', '.post-content', '.entry-content', '[class*="content"]', '[class*="post"]', '[class*="blog"]']:
+                content_elem = soup.select_one(fallback_selector)
+                if content_elem:
+                    text_length = len(ContentCleaner.html_to_text(str(content_elem)).strip())
+                    if text_length > 500:  # Substantial content
+                        content_html = str(content_elem)
+                        logger.debug(f"Found content with fallback selector '{fallback_selector}' for {url} ({text_length} chars)")
+                        break
+        
+        # Last resort: find content near h1
+        if not content_html:
+            h1_elem = soup.select_one('h1')
+            if h1_elem:
+                # Try to find parent container with substantial content
+                parent = h1_elem.parent
+                for _ in range(5):  # Go up 5 levels
+                    if parent:
+                        text_length = len(ContentCleaner.html_to_text(str(parent)).strip())
+                        if text_length > 500:  # Found substantial content
+                            content_html = str(parent)
+                            logger.debug(f"Found content near h1 for {url} ({text_length} chars)")
+                            break
+                        parent = parent.parent
+        
         if content_html:
-            data['content'] = ContentCleaner.clean_html(content_html)
+            cleaned_content = ContentCleaner.clean_html(content_html)
+            # Check if cleaned content has substantial text
+            text_length = len(cleaned_content.strip())
+            if text_length > 100:
+                data['content'] = cleaned_content
+                logger.debug(f"Successfully extracted content for {url} ({text_length} chars)")
+            else:
+                logger.warning(f"Content too short after cleaning for {url} ({text_length} chars), may be mostly navigation/UI")
+                # Try to find content near h1 as last resort
+                h1_elem = soup.select_one('h1')
+                if h1_elem:
+                    parent = h1_elem.parent
+                    for _ in range(5):
+                        if parent:
+                            parent_html = str(parent)
+                            parent_text = ContentCleaner.html_to_text(parent_html).strip()
+                            if len(parent_text) > 1000:
+                                cleaned_parent = ContentCleaner.clean_html(parent_html)
+                                if len(cleaned_parent.strip()) > 100:
+                                    data['content'] = cleaned_parent
+                                    logger.debug(f"Found content near h1 for {url} ({len(cleaned_parent.strip())} chars)")
+                                    break
+                            parent = parent.parent
+        else:
+            logger.warning(f"No content found for {url} with selectors: {body_selectors}")
         
         # Extract authors
         author_selectors = extract_config.get('author_selectors', []) if isinstance(extract_config, dict) else []

@@ -27,6 +27,11 @@ from src.services.llm_service import LLMService
 from src.services.rag_service import RAGService
 from src.services.sigma_generation_service import SigmaGenerationService
 from src.services.workflow_trigger_service import WorkflowTriggerService
+from src.workflows.status_utils import (
+    mark_execution_completed,
+    TERMINATION_REASON_RANK_THRESHOLD,
+    TERMINATION_REASON_NO_SIGMA_RULES,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -75,6 +80,8 @@ class ExposableWorkflowState(TypedDict, total=False):
     error_log: Optional[Dict[str, Any]]
     current_step: str
     status: str  # pending, running, completed, failed
+    termination_reason: Optional[str]
+    termination_details: Optional[Dict[str, Any]]
 
 
 def get_db_session():
@@ -150,7 +157,9 @@ def create_exposable_workflow():
                     ],
                     "status": "completed",
                     "current_step": "conversational_response",
-                    "article_id": None  # No article processing needed
+                    "article_id": None,  # No article processing needed
+                    "termination_reason": None,
+                    "termination_details": None
                 }
             
             # Priority 1: Direct article_id in state (from API/structured input)
@@ -301,6 +310,8 @@ Cannot process empty articles."""
                     "status": "pending",
                     "current_step": "parse_input",
                     "should_continue": True,
+                    "termination_reason": None,
+                    "termination_details": None,
                     # Initialize with article content (will be filtered in junk_filter_node)
                     "filtered_content": None,  # Will be set by junk_filter_node
                     "junk_filter_result": None,
@@ -397,7 +408,9 @@ Cannot process empty articles."""
                 'filtered_content': filter_result.filtered_content or article.content,
                 'junk_filter_result': execution.junk_filter_result if execution else None,
                 'current_step': 'junk_filter',
-                'status': 'running'
+                'status': 'running',
+                'termination_reason': state.get('termination_reason'),
+                'termination_details': state.get('termination_details')
             }
             
         except Exception as e:
@@ -407,7 +420,9 @@ Cannot process empty articles."""
                 'error': str(e),
                 'error_log': {**(state.get('error_log') or {}), 'junk_filter': str(e)},
                 'current_step': 'junk_filter',
-                'status': 'failed'
+                'status': 'failed',
+                'termination_reason': state.get('termination_reason'),
+                'termination_details': state.get('termination_details')
             }
         finally:
             db_session.close()
@@ -455,6 +470,9 @@ Cannot process empty articles."""
             if not raw_response or len(raw_response.strip()) == 0:
                 raise ValueError("Ranking returned empty response - LLM did not provide valid output")
             
+            termination_reason = state.get('termination_reason')
+            termination_details = state.get('termination_details')
+
             # Update execution record
             execution_id = state.get('execution_id')
             if execution_id:
@@ -466,8 +484,24 @@ Cannot process empty articles."""
                     execution.current_step = 'rank_article'
                     execution.ranking_score = ranking_score
                     execution.ranking_reasoning = ranking_reasoning  # Store full reasoning
-                    execution.status = 'failed' if not should_continue else 'running'
-                    db_session.commit()
+                    if should_continue:
+                        execution.status = 'running'
+                        db_session.commit()
+                    else:
+                        termination_details = {
+                            'ranking_score': ranking_score,
+                            'ranking_threshold': ranking_threshold
+                        }
+                        mark_execution_completed(
+                            execution,
+                            'rank_article',
+                            db_session=db_session,
+                            reason=TERMINATION_REASON_RANK_THRESHOLD,
+                            details=termination_details,
+                            commit=False
+                        )
+                        db_session.commit()
+                        termination_reason = TERMINATION_REASON_RANK_THRESHOLD
             
             logger.info(f"[Workflow {execution_id}] Ranking: {ranking_score}/10 (threshold: {ranking_threshold}), continue: {should_continue}")
             
@@ -477,7 +511,9 @@ Cannot process empty articles."""
                 'ranking_reasoning': ranking_result.get('reasoning'),
                 'should_continue': should_continue,
                 'current_step': 'rank_article',
-                'status': 'failed' if not should_continue else 'running'
+                'status': 'completed' if not should_continue else 'running',
+                'termination_reason': termination_reason,
+                'termination_details': termination_details
             }
             
         except Exception as e:
@@ -502,7 +538,9 @@ Cannot process empty articles."""
                 'error': str(e),
                 'error_log': {**(state.get('error_log') or {}), 'rank_article': str(e)},
                 'current_step': 'rank_article',
-                'status': 'failed'
+                'status': 'failed',
+                'termination_reason': state.get('termination_reason'),
+                'termination_details': state.get('termination_details')
             }
         finally:
             db_session.close()
@@ -635,7 +673,9 @@ Cannot process empty articles."""
                 'extraction_result': extraction_result,
                 'discrete_huntables_count': discrete_huntables,
                 'current_step': 'extract_agent',
-                'status': 'running'
+                'status': 'running',
+                'termination_reason': state.get('termination_reason'),
+                'termination_details': state.get('termination_details')
             }
             
         except Exception as e:
@@ -645,7 +685,9 @@ Cannot process empty articles."""
                 'error': str(e),
                 'error_log': {**(state.get('error_log') or {}), 'extract_agent': str(e)},
                 'current_step': 'extract_agent',
-                'status': 'failed'
+                'status': 'failed',
+                'termination_reason': state.get('termination_reason'),
+                'termination_details': state.get('termination_details')
             }
         finally:
             db_session.close()
@@ -749,7 +791,9 @@ Cannot process empty articles."""
                 **state,
                 'sigma_rules': sigma_rules,
                 'current_step': 'generate_sigma',
-                'status': 'running'
+                'status': 'running',
+                'termination_reason': state.get('termination_reason'),
+                'termination_details': state.get('termination_details')
             }
             
         except Exception as e:
@@ -759,7 +803,9 @@ Cannot process empty articles."""
                 'error': str(e),
                 'error_log': {**(state.get('error_log') or {}), 'generate_sigma': str(e)},
                 'current_step': 'generate_sigma',
-                'status': 'failed'
+                'status': 'failed',
+                'termination_reason': state.get('termination_reason'),
+                'termination_details': state.get('termination_details')
             }
         finally:
             db_session.close()
@@ -790,7 +836,9 @@ Cannot process empty articles."""
                     'similarity_results': [],
                     'max_similarity': 1.0,
                     'current_step': state.get('current_step', 'generate_sigma'),
-                    'status': 'failed'
+                    'status': 'failed',
+                    'termination_reason': state.get('termination_reason'),
+                    'termination_details': state.get('termination_details')
                 }
             
             # Lazy-load RAGService only when similarity search runs (to avoid loading embedding models at startup)
@@ -798,30 +846,16 @@ Cannot process empty articles."""
             
             sigma_rules = state.get('sigma_rules', [])
             
-            # CRITICAL: If no rules were generated, this is a failure, not a success
             if not sigma_rules or len(sigma_rules) == 0:
-                error_msg = "No SIGMA rules to search: SIGMA generation failed or produced no valid rules"
-                logger.error(f"[Workflow {state.get('execution_id')}] {error_msg}")
-                
-                execution_id = state.get('execution_id')
-                if execution_id:
-                    execution = db_session.query(AgenticWorkflowExecutionTable).filter(
-                        AgenticWorkflowExecutionTable.id == execution_id
-                    ).first()
-                    if execution:
-                        execution.status = 'failed'
-                        execution.current_step = 'generate_sigma'  # Point back to where failure occurred
-                        execution.error_message = execution.error_message or error_msg
-                        db_session.commit()
-                
+                logger.info(f"[Workflow {state.get('execution_id')}] No SIGMA rules generated; skipping similarity search")
                 return {
                     **state,
                     'similarity_results': [],
-                    'max_similarity': 1.0,
-                    'error': error_msg,
-                    'error_log': {**(state.get('error_log') or {}), 'similarity_search': error_msg},
-                    'current_step': 'generate_sigma',
-                    'status': 'failed'
+                    'max_similarity': 0.0,
+                    'current_step': 'similarity_search',
+                    'status': state.get('status', 'running'),
+                    'termination_reason': state.get('termination_reason'),
+                    'termination_details': state.get('termination_details')
                 }
             
             similarity_results = []
@@ -859,7 +893,9 @@ Cannot process empty articles."""
                 'similarity_results': similarity_results,
                 'max_similarity': max_sim,
                 'current_step': 'similarity_search',
-                'status': 'running'
+                'status': 'running',
+                'termination_reason': state.get('termination_reason'),
+                'termination_details': state.get('termination_details')
             }
             
         except Exception as e:
@@ -869,7 +905,9 @@ Cannot process empty articles."""
                 'error': str(e),
                 'error_log': {**(state.get('error_log') or {}), 'similarity_search': str(e)},
                 'current_step': 'similarity_search',
-                'status': 'failed'
+                'status': 'failed',
+                'termination_reason': state.get('termination_reason'),
+                'termination_details': state.get('termination_details')
             }
         finally:
             db_session.close()
@@ -880,16 +918,33 @@ Cannot process empty articles."""
             execution_id = state.get("execution_id")
             article_id = state.get("article_id")
             status = state.get("status", "unknown")
+            termination_reason = state.get("termination_reason")
+            termination_details = state.get("termination_details") or {}
             
             if status == "completed":
-                # Build success summary
-                ranking_score = state.get("ranking_score", 0)
-                discrete_count = state.get("discrete_huntables_count", 0)
-                sigma_count = len(state.get("sigma_rules", []))
-                queued_count = len(state.get("queued_rules", []))
-                max_sim = state.get("max_similarity", 0)
-                
-                response_text = f"""✅ **Workflow completed for article #{article_id}**
+                if termination_reason == TERMINATION_REASON_RANK_THRESHOLD:
+                    ranking_score = termination_details.get("ranking_score", state.get("ranking_score", 0))
+                    ranking_threshold = termination_details.get("ranking_threshold", state.get("ranking_threshold", 6.0))
+                    response_text = f"""⚠️ **Workflow completed early: article was below huntability threshold**
+
+**Article #{article_id}** received a huntability score of **{ranking_score:.1f}/10**, below the configured threshold of **{ranking_threshold:.1f}/10**.
+
+The workflow stopped after ranking (no extraction or SIGMA generation was attempted) and marked the execution as completed."""
+                elif termination_reason == TERMINATION_REASON_NO_SIGMA_RULES:
+                    response_text = f"""ℹ️ **Workflow completed without generating SIGMA rules**
+
+No detection rules were produced for **article #{article_id}**. Review extraction output to confirm sufficient huntable behaviors are present before retrying.
+
+The execution finished normally and recorded all intermediate results."""
+                else:
+                    # Build success summary
+                    ranking_score = state.get("ranking_score", 0)
+                    discrete_count = state.get("discrete_huntables_count", 0)
+                    sigma_count = len(state.get("sigma_rules", []))
+                    queued_count = len(state.get("queued_rules", []))
+                    max_sim = state.get("max_similarity", 0)
+                    
+                    response_text = f"""✅ **Workflow completed for article #{article_id}**
 
 **Results:**
 - **Huntability Score**: {ranking_score:.1f}/10
@@ -900,43 +955,27 @@ Cannot process empty articles."""
 
 """
                 
-                if queued_count > 0:
-                    response_text += f"🎯 **{queued_count} new rule(s) queued for human review.**\n\n"
-                    response_text += "You can view and approve them in the Workflow > SIGMA Queue tab.\n"
-                elif sigma_count > 0:
-                    response_text += f"⚠️ All {sigma_count} generated rule(s) were similar to existing rules (similarity > threshold).\n"
-                else:
-                    response_text += "ℹ️ No SIGMA rules were generated.\n"
+                    if queued_count > 0:
+                        response_text += f"🎯 **{queued_count} new rule(s) queued for human review.**\n\n"
+                        response_text += "You can view and approve them in the Workflow > SIGMA Queue tab.\n"
+                    elif sigma_count > 0:
+                        response_text += f"⚠️ All {sigma_count} generated rule(s) were similar to existing rules (similarity > threshold).\n"
+                    else:
+                        response_text += "ℹ️ No SIGMA rules were generated.\n"
                 
                 response_text += f"\n**Execution ID**: {execution_id}\n"
                 response_text += "View full details in the Workflow > Executions tab."
-                
+            
             elif status == "failed":
-                # Check if failure is due to low ranking score
-                ranking_score = state.get("ranking_score")
-                ranking_threshold = state.get("ranking_threshold", 6.0)
-                current_step = state.get("current_step")
-                
-                if current_step == "rank_article" and ranking_score is not None:
-                    # Specific message for low ranking score
-                    response_text = f"""⚠️ **Workflow stopped: Article ranked below threshold**
-
-**Article #{article_id}** received a huntability score of **{ranking_score:.1f}/10**, which is below the threshold of **{ranking_threshold:.1f}/10**.
-
-The article did not meet the minimum huntability criteria for SIGMA rule generation.
-
-**Execution ID**: {execution_id}
-View full details in the Workflow > Executions tab."""
-                else:
-                    # Generic error message for other failures
-                    error_msg = state.get("error", "Unknown error")
-                    response_text = f"""❌ **Workflow failed for article #{article_id}**
+                # Generic error message for failures
+                error_msg = state.get("error", "Unknown error")
+                response_text = f"""❌ **Workflow failed for article #{article_id}**
 
 **Error**: {error_msg}
 
 **Execution ID**: {execution_id}
 Check the Workflow > Executions tab for detailed error logs."""
-                
+            
             else:
                 response_text = f"⏳ Workflow status: {status} for article #{article_id}"
             
@@ -982,7 +1021,9 @@ Check the Workflow > Executions tab for detailed error logs."""
                     **state,
                     'queued_rules': [],
                     'current_step': state.get('current_step', 'promote_to_queue'),
-                    'status': 'failed'
+                    'status': 'failed',
+                    'termination_reason': state.get('termination_reason'),
+                    'termination_details': state.get('termination_details')
                 }
             
             article_id = state['article_id']
@@ -994,30 +1035,15 @@ Check the Workflow > Executions tab for detailed error logs."""
             similarity_results = state.get('similarity_results', [])
             similarity_threshold = state.get('similarity_threshold', 0.5)
             
-            # CRITICAL: If no rules were generated, this is a failure, not a success
+            termination_reason = state.get('termination_reason')
+            termination_details = state.get('termination_details')
+            
             if not sigma_rules or len(sigma_rules) == 0:
-                error_msg = "No SIGMA rules to queue: SIGMA generation failed or produced no valid rules"
-                logger.error(f"[Workflow {state.get('execution_id')}] {error_msg}")
-                
-                execution_id = state.get('execution_id')
-                if execution_id:
-                    execution = db_session.query(AgenticWorkflowExecutionTable).filter(
-                        AgenticWorkflowExecutionTable.id == execution_id
-                    ).first()
-                    if execution:
-                        execution.status = 'failed'
-                        execution.current_step = 'generate_sigma'  # Point back to where failure occurred
-                        execution.error_message = execution.error_message or error_msg
-                        db_session.commit()
-                
-                return {
-                    **state,
-                    'queued_rules': [],
-                    'error': error_msg,
-                    'error_log': {**(state.get('error_log') or {}), 'promote_to_queue': error_msg},
-                    'current_step': 'generate_sigma',
-                    'status': 'failed'
-                }
+                logger.info(f"[Workflow {state.get('execution_id')}] No SIGMA rules generated; completing without queue promotion")
+                if termination_reason is None:
+                    termination_reason = TERMINATION_REASON_NO_SIGMA_RULES
+                if termination_details is None:
+                    termination_details = {'generated_rules': 0}
             
             queued_rules = []
             
@@ -1062,18 +1088,23 @@ Check the Workflow > Executions tab for detailed error logs."""
                 if execution:
                     # Only update current_step and status if workflow didn't fail earlier
                     if execution.status != 'failed':
-                        execution.current_step = 'promote_to_queue'
-                        execution.status = 'completed'
-                        execution.completed_at = datetime.utcnow()
-                    # If failed, preserve the failed step (e.g., 'generate_sigma')
-                    
+                        mark_execution_completed(
+                            execution,
+                            'promote_to_queue',
+                            db_session=db_session,
+                            reason=termination_reason,
+                            details=termination_details,
+                            commit=False
+                        )
                     db_session.commit()
             
             return {
                 **state,
                 'queued_rules': queued_rules,
                 'current_step': 'promote_to_queue',
-                'status': 'completed'
+                'status': 'completed',
+                'termination_reason': termination_reason,
+                'termination_details': termination_details
             }
             
         except Exception as e:
@@ -1093,7 +1124,9 @@ Check the Workflow > Executions tab for detailed error logs."""
                 'error': str(e),
                 'error_log': {**(state.get('error_log') or {}), 'promote_to_queue': str(e)},
                 'current_step': 'promote_to_queue',
-                'status': 'failed'
+                'status': 'failed',
+                'termination_reason': state.get('termination_reason'),
+                'termination_details': state.get('termination_details')
             }
         finally:
             db_session.close()
@@ -1230,4 +1263,3 @@ Check the Workflow > Executions tab for detailed error logs."""
     
     # Enable debug mode for verbose logging of workflow execution
     return workflow.compile(checkpointer=checkpoint, debug=True)
-
