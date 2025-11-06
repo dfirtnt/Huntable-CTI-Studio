@@ -1028,6 +1028,13 @@ class AsyncDatabaseManager:
 
     def _db_source_to_model(self, db_source: SourceTable) -> Source:
         """Convert database source to Pydantic model."""
+        # Handle nested config structure: if config has a 'config' key, use that
+        # Otherwise use config directly
+        source_config = db_source.config if db_source.config else {}
+        if isinstance(source_config, dict) and 'config' in source_config and len(source_config) > 1:
+            # Nested structure: extract the inner config
+            source_config = source_config.get('config', {})
+        
         return Source(
             id=db_source.id,
             identifier=db_source.identifier,
@@ -1037,7 +1044,7 @@ class AsyncDatabaseManager:
             check_frequency=db_source.check_frequency,
             lookback_days=db_source.lookback_days,
             active=db_source.active,
-            config=db_source.config if db_source.config else {},
+            config=source_config,
             last_check=db_source.last_check,
             last_success=db_source.last_success,
             consecutive_failures=db_source.consecutive_failures,

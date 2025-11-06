@@ -311,19 +311,26 @@ class ContentFetcher:
     def _has_modern_config(self, source: Source) -> bool:
         """Check if source has modern scraping configuration."""
         config = source.config
-
+        
+        logger.debug(f"Checking modern config for {source.name}: config type={type(config)}, config keys={list(config.keys()) if isinstance(config, dict) else 'not a dict'}")
+        
         # Check for discovery strategies
         discovery = config.get('discovery', {}) if isinstance(config, dict) else getattr(config, 'discovery', {})
+        logger.debug(f"Discovery config: {discovery}, has strategies: {bool(discovery and discovery.get('strategies'))}")
         if discovery and discovery.get('strategies'):
+            logger.debug(f"Modern config detected via discovery strategies for {source.name}")
             return True
 
         # Check for extraction configuration beyond basic selectors
         extract = config.get('extract', {}) if isinstance(config, dict) else getattr(config, 'extract', {})
+        logger.debug(f"Extract config: {extract}, has selectors: {bool(extract and (extract.get('title_selectors') or extract.get('date_selectors') or extract.get('body_selectors')))}")
         if extract and (extract.get('title_selectors') or
             extract.get('date_selectors') or
             extract.get('body_selectors')):
+            logger.debug(f"Modern config detected via extract selectors for {source.name}")
             return True
 
+        logger.debug(f"No modern config found for {source.name}")
         return False
     
     def _update_stats(self, method: str, article_count: int, response_time: float, success: bool):

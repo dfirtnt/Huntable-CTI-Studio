@@ -302,6 +302,7 @@ Output ONLY valid YAML starting with "title:"."""
                 
                 return output
             except Exception as e:
+                # Log error to LangFuse before re-raising
                 log_llm_error(generation, e)
                 raise
     

@@ -120,6 +120,13 @@ sources:
       # Enhanced filtering for threat intelligence content only
       title_filter_keywords: ["webinar", "training", "careers", "job posting", "event", "podcast", "newsletter"]
       rss_only: false  # Enable web scraping since RSS is blocked
+      discovery:
+        strategies:
+          - listing:
+              urls: ["https://www.group-ib.com/blog/"]
+              max_pages: 5
+              post_link_selector: 'a[href*="/blog/"][href!="/blog/"]:not([href*="?page"]):not([href*="category"]):not([href*="tag"])'
+              next_selector: 'a[href*="?page="]'
       extract:
         prefer_jsonld: true
         title_selectors: ["h1", "meta[property='og:title']::attr(content)"]
@@ -337,7 +344,7 @@ sources:
   - id: "microsoft_defender_endpoint"
     name: "Microsoft Defender for Endpoint Blog"
     url: "https://techcommunity.microsoft.com/category/microsoft-defender-for-endpoint/blog/microsoftdefenderatpblog"
-    rss_url: "https://techcommunity.microsoft.com/gxcuf89792/rss/board?board.id=MicrosoftDefenderATPBlog"
+    rss_url: "https://techcommunity.microsoft.com/t5/Microsoft-Defender-for-Endpoint/bd-p/MicrosoftDefenderATPBlog.rss"
     check_frequency: 1800  # 30 minutes
     active: true
     config:

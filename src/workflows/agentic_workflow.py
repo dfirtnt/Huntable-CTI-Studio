@@ -29,6 +29,11 @@ from src.services.llm_service import LLMService
 from src.services.rag_service import RAGService
 from src.services.workflow_trigger_service import WorkflowTriggerService
 from src.utils.langfuse_client import trace_workflow_execution, log_workflow_step
+from src.workflows.status_utils import (
+    mark_execution_completed,
+    TERMINATION_REASON_RANK_THRESHOLD,
+    TERMINATION_REASON_NO_SIGMA_RULES,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -66,6 +71,9 @@ class WorkflowState(TypedDict):
     # Error handling
     error: Optional[str]
     current_step: str
+    status: Optional[str]
+    termination_reason: Optional[str]
+    termination_details: Optional[Dict[str, Any]]
 
 
 def create_agentic_workflow(db_session: Session) -> StateGraph:
@@ -141,7 +149,10 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                 **state,
                 'filtered_content': filter_result.filtered_content or article.content,
                 'junk_filter_result': execution.junk_filter_result if execution else None,
-                'current_step': 'junk_filter'
+                'current_step': 'junk_filter',
+                'status': state.get('status', 'running'),
+                'termination_reason': state.get('termination_reason'),
+                'termination_details': state.get('termination_details')
             }
             
         except Exception as e:
@@ -158,7 +169,9 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                 **state,
                 'error': str(e),
                 'current_step': 'junk_filter',
-                'status': 'failed'
+                'status': 'failed',
+                'termination_reason': state.get('termination_reason'),
+                'termination_details': state.get('termination_details')
             }
     
     async def rank_article_node(state: WorkflowState) -> WorkflowState:
@@ -203,14 +216,32 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
             ranking_threshold = state['config'].get('ranking_threshold', 6.0) if state.get('config') else 6.0
             should_continue = ranking_score >= ranking_threshold
             
+            termination_reason = state.get('termination_reason')
+            termination_details = state.get('termination_details')
+
             # Update execution record with ranking results
             if execution:
                 execution.ranking_score = ranking_score
                 execution.ranking_reasoning = ranking_result.get('reasoning', '')  # Store full reasoning
                 execution.current_step = 'rank_article'
-                # Don't mark as failed if below threshold - this is a normal threshold stop, not an error
-                # The conditional edge will handle stopping the workflow
-                db_session.commit()
+                if should_continue:
+                    execution.status = 'running'
+                    db_session.commit()
+                else:
+                    termination_details = {
+                        'ranking_score': ranking_score,
+                        'ranking_threshold': ranking_threshold
+                    }
+                    mark_execution_completed(
+                        execution,
+                        'rank_article',
+                        db_session=db_session,
+                        reason=TERMINATION_REASON_RANK_THRESHOLD,
+                        details=termination_details,
+                        commit=False
+                    )
+                    db_session.commit()
+                    termination_reason = TERMINATION_REASON_RANK_THRESHOLD
             
             logger.info(f"[Workflow {state['execution_id']}] Ranking: {ranking_score}/10 (threshold: {ranking_threshold}), continue: {should_continue}")
             
@@ -219,7 +250,10 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                 'ranking_score': ranking_score,
                 'ranking_reasoning': ranking_result.get('reasoning'),
                 'should_continue': should_continue,
-                'current_step': 'rank_article'
+                'current_step': 'rank_article',
+                'status': 'completed' if not should_continue else 'running',
+                'termination_reason': termination_reason,
+                'termination_details': termination_details
             }
             
         except Exception as e:
@@ -236,7 +270,10 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                 **state,
                 'error': str(e),
                 'should_continue': False,
-                'current_step': 'rank_article'
+                'current_step': 'rank_article',
+                'status': 'failed',
+                'termination_reason': state.get('termination_reason'),
+                'termination_details': state.get('termination_details')
             }
     
     async def extract_agent_node(state: WorkflowState) -> WorkflowState:
@@ -359,7 +396,10 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                 **state,
                 'extraction_result': extraction_result,
                 'discrete_huntables_count': discrete_count,
-                'current_step': 'extract_agent'
+                'current_step': 'extract_agent',
+                'status': state.get('status', 'running'),
+                'termination_reason': state.get('termination_reason'),
+                'termination_details': state.get('termination_details')
             }
             
         except Exception as e:
@@ -376,7 +416,10 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
             return {
                 **state,
                 'error': str(e),
-                'current_step': 'extract_agent'
+                'current_step': 'extract_agent',
+                'status': 'failed',
+                'termination_reason': state.get('termination_reason'),
+                'termination_details': state.get('termination_details')
             }
     
     async def generate_sigma_node(state: WorkflowState) -> WorkflowState:
@@ -477,7 +520,10 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
             return {
                 **state,
                 'sigma_rules': sigma_rules,
-                'current_step': 'generate_sigma'
+                'current_step': 'generate_sigma',
+                'status': state.get('status', 'running'),
+                'termination_reason': state.get('termination_reason'),
+                'termination_details': state.get('termination_details')
             }
             
         except Exception as e:
@@ -494,7 +540,10 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                 **state,
                 'error': str(e),
                 'current_step': 'generate_sigma',
-                'should_continue': False
+                'should_continue': False,
+                'status': 'failed',
+                'termination_reason': state.get('termination_reason'),
+                'termination_details': state.get('termination_details')
             }
     
     def check_sigma_generation(state: WorkflowState) -> str:
@@ -516,22 +565,28 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
             # Check if workflow already failed (e.g., SIGMA validation failed)
             if state.get('error'):
                 logger.warning(f"[Workflow {state['execution_id']}] Workflow has error, skipping similarity search")
-                return {
-                    **state,
-                    'similarity_results': [],
-                    'max_similarity': 1.0,
-                    'current_step': state.get('current_step', 'similarity_search')
-                }
+            return {
+                **state,
+                'similarity_results': [],
+                'max_similarity': 1.0,
+                'current_step': state.get('current_step', 'similarity_search'),
+                'status': state.get('status', 'running'),
+                'termination_reason': state.get('termination_reason'),
+                'termination_details': state.get('termination_details')
+            }
             
             sigma_rules = state.get('sigma_rules', [])
             if not sigma_rules:
                 logger.warning(f"[Workflow {state['execution_id']}] No SIGMA rules to search")
-                return {
-                    **state,
-                    'similarity_results': [],
-                    'max_similarity': 0.0,
-                    'current_step': 'similarity_search'
-                }
+            return {
+                **state,
+                'similarity_results': [],
+                'max_similarity': 0.0,
+                'current_step': 'similarity_search',
+                'status': state.get('status', 'running'),
+                'termination_reason': state.get('termination_reason'),
+                'termination_details': state.get('termination_details')
+            }
             
             similarity_results = []
             max_similarity = 0.0
@@ -578,7 +633,10 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                 **state,
                 'similarity_results': similarity_results,
                 'max_similarity': max_similarity,
-                'current_step': 'similarity_search'
+                'current_step': 'similarity_search',
+                'status': state.get('status', 'running'),
+                'termination_reason': state.get('termination_reason'),
+                'termination_details': state.get('termination_details')
             }
             
         except Exception as e:
@@ -595,7 +653,10 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
             return {
                 **state,
                 'error': str(e),
-                'current_step': 'similarity_search'
+                'current_step': 'similarity_search',
+                'status': 'failed',
+                'termination_reason': state.get('termination_reason'),
+                'termination_details': state.get('termination_details')
             }
     
     def promote_to_queue_node(state: WorkflowState) -> WorkflowState:
@@ -617,13 +678,24 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                 return {
                     **state,
                     'queued_rules': [],
-                    'current_step': state.get('current_step', 'generate_sigma')
+                    'current_step': state.get('current_step', 'generate_sigma'),
+                    'status': 'failed',
+                    'termination_reason': state.get('termination_reason'),
+                    'termination_details': state.get('termination_details')
                 }
             
             sigma_rules = state.get('sigma_rules', [])
             similarity_results = state.get('similarity_results', [])
             max_similarity = state.get('max_similarity', 1.0)
             similarity_threshold = state['config'].get('similarity_threshold', 0.5) if state.get('config') else 0.5
+            termination_reason = state.get('termination_reason')
+            termination_details = state.get('termination_details')
+            
+            if not sigma_rules:
+                if termination_reason is None:
+                    termination_reason = TERMINATION_REASON_NO_SIGMA_RULES
+                if termination_details is None:
+                    termination_details = {'generated_rules': 0}
             
             # Only promote if max similarity is below threshold
             if max_similarity >= similarity_threshold:
@@ -672,17 +744,23 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
             if execution:
                 # Only update current_step if workflow didn't fail earlier
                 if execution.status != 'failed':
-                    execution.current_step = 'promote_to_queue'
-                    execution.status = 'completed'
-                    execution.completed_at = datetime.utcnow()
-                # If failed, preserve the failed step (e.g., 'generate_sigma')
-                
+                    mark_execution_completed(
+                        execution,
+                        'promote_to_queue',
+                        db_session=db_session,
+                        reason=termination_reason,
+                        details=termination_details,
+                        commit=False
+                    )
                 db_session.commit()
             
             return {
                 **state,
                 'queued_rules': queued_rules,
-                'current_step': 'promote_to_queue'
+                'current_step': 'promote_to_queue',
+                'status': 'completed',
+                'termination_reason': termination_reason,
+                'termination_details': termination_details
             }
             
         except Exception as e:
@@ -699,7 +777,10 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
             return {
                 **state,
                 'error': str(e),
-                'current_step': 'promote_to_queue'
+                'current_step': 'promote_to_queue',
+                'status': 'failed',
+                'termination_reason': state.get('termination_reason'),
+                'termination_details': state.get('termination_details')
             }
     
     def check_should_continue(state: WorkflowState) -> str:
@@ -809,7 +890,10 @@ async def run_workflow(article_id: int, db_session: Session) -> Dict[str, Any]:
             'max_similarity': None,
             'queued_rules': None,
             'error': None,
-            'current_step': 'junk_filter'
+            'current_step': 'junk_filter',
+            'status': 'running',
+            'termination_reason': None,
+            'termination_details': None
         }
         
         # Get config models for context check (use config if available, otherwise env vars)
@@ -997,4 +1081,3 @@ async def run_workflow(article_id: int, db_session: Session) -> Dict[str, Any]:
         # Only re-raise if it's not a generator/trace error
         if 'generator' not in str(e).lower() and 'trace' not in str(e).lower():
             raise
-

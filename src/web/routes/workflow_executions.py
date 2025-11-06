@@ -12,6 +12,7 @@ from datetime import datetime, timedelta
 
 from src.database.manager import DatabaseManager
 from src.database.models import AgenticWorkflowExecutionTable, ArticleTable, AppSettingsTable
+from src.workflows.status_utils import extract_termination_info
 
 logger = logging.getLogger(__name__)
 
@@ -34,6 +35,8 @@ class ExecutionResponse(BaseModel):
     completed_at: Optional[str]
     created_at: str
     updated_at: str
+    termination_reason: Optional[str] = None
+    termination_details: Optional[Dict[str, Any]] = None
 
 
 class ExecutionDetailResponse(ExecutionResponse):
@@ -100,6 +103,7 @@ async def list_workflow_executions(
             for execution in executions:
                 # Get article title
                 article = db_session.query(ArticleTable).filter(ArticleTable.id == execution.article_id).first()
+                term_reason, term_details = extract_termination_info(execution.error_log)
                 
                 result.append(ExecutionResponse(
                     id=execution.id,
@@ -115,7 +119,9 @@ async def list_workflow_executions(
                     started_at=execution.started_at.isoformat() if execution.started_at else None,
                     completed_at=execution.completed_at.isoformat() if execution.completed_at else None,
                     created_at=execution.created_at.isoformat(),
-                    updated_at=execution.updated_at.isoformat()
+                    updated_at=execution.updated_at.isoformat(),
+                    termination_reason=term_reason,
+                    termination_details=term_details
                 ))
             
             return ExecutionListResponse(
@@ -166,6 +172,7 @@ async def get_workflow_execution(request: Request, execution_id: int):
             # Get article content for displaying inputs
             article_content = article.content if article else None
             article_content_preview = article_content[:500] + '...' if article_content and len(article_content) > 500 else article_content
+            term_reason, term_details = extract_termination_info(execution.error_log)
             
             return ExecutionDetailResponse(
                 id=execution.id,
@@ -190,7 +197,9 @@ async def get_workflow_execution(request: Request, execution_id: int):
                 error_log=execution.error_log,
                 queued_rules_count=queued_count,
                 article_content=article_content,
-                article_content_preview=article_content_preview
+                article_content_preview=article_content_preview,
+                termination_reason=term_reason,
+                termination_details=term_details
             )
         finally:
             db_session.close()
@@ -496,6 +505,56 @@ async def retry_workflow_execution(request: Request, execution_id: int, use_lang
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.post("/executions/{execution_id}/cancel")
+async def cancel_workflow_execution(request: Request, execution_id: int):
+    """
+    Cancel a running or pending workflow execution.
+    
+    Marks the execution as failed with a cancellation message.
+    Note: This only marks the execution as cancelled in the database.
+    The actual Celery task may continue running until it completes or times out.
+    """
+    try:
+        db_manager = DatabaseManager()
+        db_session = db_manager.get_session()
+        
+        try:
+            execution = db_session.query(AgenticWorkflowExecutionTable).filter(
+                AgenticWorkflowExecutionTable.id == execution_id
+            ).first()
+            
+            if not execution:
+                raise HTTPException(status_code=404, detail="Workflow execution not found")
+            
+            if execution.status not in ['running', 'pending']:
+                raise HTTPException(
+                    status_code=400, 
+                    detail=f"Cannot cancel execution with status '{execution.status}'. Only running or pending executions can be cancelled."
+                )
+            
+            # Mark as failed with cancellation message
+            execution.status = 'failed'
+            execution.error_message = f"Execution cancelled by user (was {execution.status})"
+            execution.completed_at = datetime.utcnow()
+            db_session.commit()
+            
+            logger.info(f"Execution {execution_id} cancelled by user")
+            
+            return {
+                "success": True,
+                "message": f"Execution {execution_id} cancelled successfully",
+                "execution_id": execution_id
+            }
+        finally:
+            db_session.close()
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error cancelling workflow execution: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 def _get_langfuse_setting(db_session: Session, key: str, env_key: str, default: Optional[str] = None) -> Optional[str]:
     """Get Langfuse setting from database first, then fall back to environment variable.
     
@@ -763,4 +822,3 @@ async def trigger_workflow_for_article(request: Request, article_id: int, use_la
     except Exception as e:
         logger.error(f"Error triggering workflow for article {article_id}: {e}")
         raise HTTPException(status_code=500, detail=str(e))
-
