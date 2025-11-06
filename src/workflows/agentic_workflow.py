@@ -430,6 +430,20 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
             if execution:
                 execution.sigma_rules = sigma_rules
                 
+                # Store detailed error info in error_log for debugging (even when no errors, for conversation log display)
+                error_log_entry = None
+                if sigma_metadata.get('validation_results'):
+                    error_log_entry = {
+                        'errors': sigma_errors,
+                        'total_attempts': sigma_metadata.get('total_attempts', 0),
+                        'validation_results': sigma_metadata.get('validation_results', []),
+                        'conversation_log': sigma_metadata.get('conversation_log', []) if 'conversation_log' in sigma_metadata else None
+                    }
+                
+                # Always store error_log_entry if validation_results exist (for conversation log display)
+                if error_log_entry:
+                    execution.error_log = {**(execution.error_log or {}), 'generate_sigma': error_log_entry}
+                
                 # Check if SIGMA validation failed (no valid rules generated)
                 # Check both errors field and metadata validation results
                 validation_failed = (
@@ -824,24 +838,71 @@ async def run_workflow(article_id: int, db_session: Session) -> Dict[str, Any]:
             raise
         
         # Create and run workflow with LangFuse tracing
-        with trace_workflow_execution(execution_id=execution.id, article_id=article_id) as trace:
-            workflow_graph = create_agentic_workflow(db_session)
-            final_state = await workflow_graph.ainvoke(initial_state)
-            
-            # Log workflow completion
-            if trace:
-                log_workflow_step(
-                    trace,
-                    "workflow_completed",
-                    step_result={
-                        "success": final_state.get('error') is None,
-                        "ranking_score": final_state.get('ranking_score'),
-                        "sigma_rules_count": len(final_state.get('sigma_rules', [])),
-                        "queued_rules_count": len(final_state.get('queued_rules', []))
-                    },
-                    error=None if final_state.get('error') is None else Exception(final_state.get('error')),
-                    metadata={"final_step": final_state.get('current_step')}
+        workflow_completed = False
+        workflow_error = None
+        final_state = None
+        
+        try:
+            with trace_workflow_execution(execution_id=execution.id, article_id=article_id) as trace:
+                workflow_graph = create_agentic_workflow(db_session)
+                final_state = await workflow_graph.ainvoke(initial_state)
+                
+                # Update trace with final output (non-critical - wrap in try/except)
+                if trace:
+                    try:
+                        trace.update(
+                            output={
+                                "status": "completed" if final_state.get('error') is None else "failed",
+                                "ranking_score": final_state.get('ranking_score'),
+                                "sigma_rules_count": len(final_state.get('sigma_rules', [])),
+                                "queued_rules_count": len(final_state.get('queued_rules', [])),
+                                "final_step": final_state.get('current_step'),
+                                "error": final_state.get('error')
+                            }
+                        )
+                    except Exception as update_error:
+                        logger.debug(f"Could not update trace output: {update_error}")
+                
+                # Log workflow completion (non-critical - wrap in try/except)
+                if trace:
+                    try:
+                        log_workflow_step(
+                            trace,
+                            "workflow_completed",
+                            step_result={
+                                "success": final_state.get('error') is None,
+                                "ranking_score": final_state.get('ranking_score'),
+                                "sigma_rules_count": len(final_state.get('sigma_rules', [])),
+                                "queued_rules_count": len(final_state.get('queued_rules', []))
+                            },
+                            error=None if final_state.get('error') is None else Exception(final_state.get('error')),
+                            metadata={"final_step": final_state.get('current_step')}
+                        )
+                    except Exception as log_error:
+                        logger.debug(f"Could not log workflow step: {log_error}")
+                
+                # Mark workflow as completed if it finished successfully
+                # This MUST happen before trace cleanup to ensure status is set correctly
+                workflow_completed = True
+                workflow_error = final_state.get('error')
+        except Exception as trace_error:
+            # Trace cleanup/operations failed - log but don't fail execution if workflow succeeded
+            if workflow_completed and final_state is not None:
+                logger.warning(
+                    f"Trace cleanup error for execution {execution.id} (workflow completed successfully): {trace_error}"
                 )
+                # Suppress the exception - workflow succeeded, trace cleanup is non-critical
+                # This prevents the outer exception handler from marking execution as failed
+                pass
+            else:
+                # Workflow didn't complete or trace error happened during workflow execution
+                logger.error(f"Trace error during workflow execution {execution.id}: {trace_error}")
+                if final_state is None:
+                    # Workflow never started or failed early - re-raise the exception
+                    raise
+                # Workflow completed but trace cleanup failed - continue to status update
+                # Suppress the exception so outer handler doesn't mark as failed
+                pass
         
         # Ensure execution status matches final state
         # Refresh execution from database to get latest status
@@ -852,17 +913,17 @@ async def run_workflow(article_id: int, db_session: Session) -> Dict[str, Any]:
         
         if execution:
             # Determine final status based on final state
-            # Only mark as failed if there's an actual error (not threshold stops)
-            has_error = final_state.get('error') is not None
+            # Only mark as failed if there's an actual workflow error (not trace cleanup errors)
+            has_error = workflow_error is not None
             
             if has_error:
                 # Actual error occurred - mark as failed
                 if execution.status != 'failed':
                     execution.status = 'failed'
-                    execution.error_message = final_state.get('error')
+                    execution.error_message = workflow_error
                     execution.current_step = final_state.get('current_step', 'generate_sigma')
                     db_session.commit()
-                    logger.warning(f"[Workflow {execution.id}] Marked as 'failed' due to error: {final_state.get('error')}")
+                    logger.warning(f"[Workflow {execution.id}] Marked as 'failed' due to error: {workflow_error}")
                 else:
                     # Already failed, just ensure current_step is correct
                     if not execution.current_step or execution.current_step == 'promote_to_queue':
@@ -878,22 +939,62 @@ async def run_workflow(article_id: int, db_session: Session) -> Dict[str, Any]:
             elif execution.status == 'failed':
                 # Already marked as failed - ensure current_step is correct
                 if not execution.current_step or execution.current_step == 'promote_to_queue':
-                    execution.current_step = final_state.get('current_step', 'generate_sigma')
-                    db_session.commit()
-                    logger.info(f"[Workflow {execution.id}] Updated current_step to {execution.current_step} for failed execution")
+                    if final_state:
+                        execution.current_step = final_state.get('current_step', 'generate_sigma')
+                        db_session.commit()
+                        logger.info(f"[Workflow {execution.id}] Updated current_step to {execution.current_step} for failed execution")
         
         return {
-            'success': final_state.get('error') is None,
+            'success': final_state.get('error') is None if final_state else False,
             'execution_id': execution.id,
             'final_state': final_state,
-            'error': final_state.get('error')
+            'error': final_state.get('error') if final_state else None
         }
         
     except Exception as e:
-        logger.error(f"Workflow execution error for article {article_id}: {e}")
+        # Only mark as failed if this is NOT a trace cleanup error for a completed workflow
+        # Check if execution exists and has sigma_rules (indicating workflow succeeded)
         if execution:
-            execution.status = 'failed'
-            execution.error_message = str(e)
-            db_session.commit()
-        raise
+            # Refresh execution from database to get latest state including sigma_rules
+            db_session.refresh(execution)
+            # Check if workflow actually completed successfully despite the error
+            if execution.sigma_rules and len(execution.sigma_rules) > 0:
+                # Workflow succeeded - don't mark as failed
+                logger.warning(
+                    f"Outer exception handler caught error for execution {execution.id}, "
+                    f"but workflow succeeded (generated {len(execution.sigma_rules)} rules). "
+                    f"Error: {e}. Not marking as failed."
+                )
+                # Update status to completed instead
+                execution.status = 'completed'
+                execution.completed_at = datetime.utcnow()
+                execution.error_message = None
+                db_session.commit()
+                # Don't re-raise - workflow succeeded
+                return
+            else:
+                # Check for generator errors - these often occur during trace cleanup
+                if 'generator didn\'t stop' in str(e).lower() or 'generator' in str(e).lower():
+                    logger.warning(
+                        f"Generator error for execution {execution.id}, "
+                        f"no sigma rules found. Error: {e}"
+                    )
+                    # For generator errors without rules, mark as failed but don't re-raise
+                    execution.status = 'failed'
+                    execution.error_message = str(e)
+                    db_session.commit()
+                    return
+                else:
+                    # Real workflow failure - mark as failed
+                    logger.error(f"Workflow execution error for article {article_id}: {e}")
+                    execution.status = 'failed'
+                    execution.error_message = str(e)
+                    db_session.commit()
+        else:
+            # No execution record - this is a real error
+            logger.error(f"Workflow execution error for article {article_id}: {e}")
+        
+        # Only re-raise if it's not a generator/trace error
+        if 'generator' not in str(e).lower() and 'trace' not in str(e).lower():
+            raise
 

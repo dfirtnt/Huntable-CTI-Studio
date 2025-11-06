@@ -728,12 +728,14 @@ Cannot process empty articles."""
                         not any(r.get('is_valid', False) for r in sigma_metadata.get('validation_results', []))
                     )
                     
+                    # Always store error_log_entry if validation_results exist (for conversation log display)
+                    if error_log_entry:
+                        execution.error_log = {**(execution.error_log or {}), 'generate_sigma': error_log_entry}
+                    
                     if validation_failed:
                         error_msg = sigma_errors or "SIGMA validation failed: No valid rules generated after all attempts"
                         execution.status = 'failed'
                         execution.error_message = error_msg
-                        if error_log_entry:
-                            execution.error_log = {**(execution.error_log or {}), 'generate_sigma': error_log_entry}
                         db_session.commit()
                         logger.error(f"[Workflow {execution_id}] SIGMA validation failed: {error_msg}")
                         
