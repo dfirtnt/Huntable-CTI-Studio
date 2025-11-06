@@ -642,19 +642,18 @@ Return JSON array only, no markdown formatting."""
             section_texts = sync_service.create_section_embeddings_text(proposed_rule)
             
             # Generate embeddings for each section (batch for efficiency)
+            # New format: title, description, tags, signature (4 sections)
             section_texts_list = [
                 section_texts['title'],
                 section_texts['description'],
                 section_texts['tags'],
-                section_texts['logsource'],
-                section_texts['detection_structure'],
-                section_texts['detection_fields']
+                section_texts['signature']
             ]
             
             section_embeddings = self.sigma_embedding_client.generate_embeddings_batch(section_texts_list)
             
             # Handle cases where batch might return fewer embeddings than expected
-            while len(section_embeddings) < 6:
+            while len(section_embeddings) < 4:
                 section_embeddings.append([0.0] * 768)  # Zero vector for missing sections
             
             # Prepare embedding strings for pgvector
@@ -664,13 +663,15 @@ Return JSON array only, no markdown formatting."""
                     return '[' + ','.join(map(str, emb)) + ']'
                 return None
             
+            # For backward compatibility, use signature embedding for all three fields
+            signature_emb = safe_embedding_str(section_embeddings[3], 3)
             embeddings_dict = {
                 'title': safe_embedding_str(section_embeddings[0], 0),
                 'description': safe_embedding_str(section_embeddings[1], 1),
                 'tags': safe_embedding_str(section_embeddings[2], 2),
-                'logsource': safe_embedding_str(section_embeddings[3], 3),
-                'detection_structure': safe_embedding_str(section_embeddings[4], 4),
-                'detection_fields': safe_embedding_str(section_embeddings[5], 5)
+                'logsource': signature_emb,  # Use signature for backward compatibility
+                'detection_structure': signature_emb,  # Use signature for backward compatibility
+                'detection_fields': signature_emb  # Use signature for backward compatibility
             }
 
             # Check if we have section embeddings, fallback to main embedding if not
@@ -832,15 +833,15 @@ Return JSON array only, no markdown formatting."""
                 det_struct_sim = float(row[14]) if row[14] is not None else 0.0
                 det_fields_sim = float(row[15]) if row[15] is not None else 0.0
                 
-                # Weighted similarity: title 4.2%, description 4.2%, tags 4.2%, logsource 10.5%, detection_structure 9.5%, detection_fields 67.4%
-                # detection_fields tripled (was 22.5%, now 67.5% of remaining after rebalancing)
+                # Weighted similarity: title 4.2%, description 4.2%, tags 4.2%, signature 87.4%
+                # Signature combines logsource (10.5%), detection_structure (9.5%), and detection_fields (67.4%)
+                # Since all three use the same signature embedding, we use signature_sim for all
+                signature_sim = logsource_sim  # All three are the same (signature embedding)
                 weighted_sim = (
                     0.042 * title_sim +
                     0.042 * desc_sim +
                     0.042 * tags_sim +
-                    0.105 * logsource_sim +
-                    0.095 * det_struct_sim +
-                    0.674 * det_fields_sim  # Tripled weight - most important for functional similarity
+                    0.874 * signature_sim  # Combined signature weight
                 )
                 
                 matches_raw.append({

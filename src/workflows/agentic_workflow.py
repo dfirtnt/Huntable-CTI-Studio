@@ -28,6 +28,7 @@ from src.utils.content_filter import ContentFilter
 from src.services.llm_service import LLMService
 from src.services.rag_service import RAGService
 from src.services.workflow_trigger_service import WorkflowTriggerService
+from src.services.sigma_matching_service import SigmaMatchingService
 from src.utils.langfuse_client import trace_workflow_execution, log_workflow_step
 from src.workflows.status_utils import (
     mark_execution_completed,
@@ -594,24 +595,27 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
             max_similarity = 0.0
             similarity_threshold = state['config'].get('similarity_threshold', 0.5) if state.get('config') else 0.5
             
-            # Search for similar rules for each generated rule
+            # Initialize SigmaMatchingService for 4-segment weighted similarity search
+            sigma_matching_service = SigmaMatchingService(db_session)
+            
+            # Search for similar rules for each generated rule using 4-segment weighted approach
             for rule in sigma_rules:
-                # Create query text from rule title and description
-                query_text = f"{rule.get('title', '')} {rule.get('description', '')}"
-                
-                # Find similar rules
-                similar_rules = await rag_service.find_similar_sigma_rules(
-                    query=query_text,
-                    top_k=10,
-                    threshold=similarity_threshold
+                # Use compare_proposed_rule_to_embeddings for 4-segment weighted similarity
+                # This uses: title (4.2%), description (4.2%), tags (4.2%), signature (87.4%)
+                similar_rules = sigma_matching_service.compare_proposed_rule_to_embeddings(
+                    proposed_rule=rule,
+                    threshold=0.0  # Get all results, filter by threshold below
                 )
                 
-                rule_similarities = [r['similarity'] for r in similar_rules]
+                # Filter by threshold and limit to top 10
+                filtered_rules = [r for r in similar_rules if r.get('similarity', 0.0) >= similarity_threshold][:10]
+                
+                rule_similarities = [r['similarity'] for r in filtered_rules]
                 rule_max_sim = max(rule_similarities) if rule_similarities else 0.0
                 
                 similarity_results.append({
                     'rule_title': rule.get('title'),
-                    'similar_rules': similar_rules,
+                    'similar_rules': filtered_rules,
                     'max_similarity': rule_max_sim
                 })
                 
