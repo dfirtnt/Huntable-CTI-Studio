@@ -27,6 +27,7 @@ from src.services.llm_service import LLMService
 from src.services.rag_service import RAGService
 from src.services.sigma_generation_service import SigmaGenerationService
 from src.services.workflow_trigger_service import WorkflowTriggerService
+from src.services.sigma_matching_service import SigmaMatchingService
 from src.workflows.status_utils import (
     mark_execution_completed,
     TERMINATION_REASON_RANK_THRESHOLD,
@@ -841,10 +842,11 @@ Cannot process empty articles."""
                     'termination_details': state.get('termination_details')
                 }
             
-            # Lazy-load RAGService only when similarity search runs (to avoid loading embedding models at startup)
-            rag_service = RAGService()
+            # Initialize SigmaMatchingService for 4-segment weighted similarity search
+            sigma_matching_service = SigmaMatchingService(db_session)
             
             sigma_rules = state.get('sigma_rules', [])
+            similarity_threshold = state.get('similarity_threshold', 0.5)
             
             if not sigma_rules or len(sigma_rules) == 0:
                 logger.info(f"[Workflow {state.get('execution_id')}] No SIGMA rules generated; skipping similarity search")
@@ -860,16 +862,22 @@ Cannot process empty articles."""
             
             similarity_results = []
             
+            # Search for similar rules for each generated rule using 4-segment weighted approach
+            # This uses: title (4.2%), description (4.2%), tags (4.2%), signature (87.4%)
             for rule in sigma_rules:
-                # Create query from rule title and description (as used in agentic_workflow.py)
-                query_text = f"{rule.get('title', '')} {rule.get('description', '')}"
-                similar = await rag_service.find_similar_sigma_rules(
-                    query=query_text,
-                    top_k=10
+                # Use compare_proposed_rule_to_embeddings for 4-segment weighted similarity
+                similar = sigma_matching_service.compare_proposed_rule_to_embeddings(
+                    proposed_rule=rule,
+                    threshold=0.0  # Get all results, filter by threshold below
                 )
+                
+                # Filter by threshold and limit to top 10
+                filtered_rules = [r for r in similar if r.get('similarity', 0.0) >= similarity_threshold][:10]
+                
                 similarity_results.append({
-                    'max_similarity': max([s.get('similarity', 0.0) for s in similar], default=0.0),
-                    'similar_rules': similar
+                    'rule_title': rule.get('title'),
+                    'max_similarity': max([s.get('similarity', 0.0) for s in filtered_rules], default=0.0),
+                    'similar_rules': filtered_rules
                 })
             
             max_sim = max([r.get('max_similarity', 0.0) for r in similarity_results], default=0.0)

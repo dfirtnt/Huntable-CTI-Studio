@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from fastapi import FastAPI
 
-from . import actions, analytics, ai, articles, backup, chat, dashboard, debug, embeddings, evaluation, export, feedback, health, metrics, ml_hunt_comparison, models, pages, pdf, search, settings, sources, tasks, scrape, test_scrape, workflow_config, workflow_executions, workflow_ui, sigma_queue, sigma_ab_test
+from . import actions, analytics, ai, articles, backup, chat, dashboard, debug, embeddings, evaluation, export, feedback, health, metrics, ml_hunt_comparison, models, pages, pdf, search, settings, sources, tasks, scrape, test_scrape, workflow_config, workflow_executions, workflow_ui, sigma_queue, sigma_ab_test, sigma_similarity_test
 from .annotations import router as annotation_router
 from ..gpt4o_optimized_endpoint import router as gpt4o_router
 
@@ -54,3 +54,4 @@ def register_routes(app: FastAPI) -> None:
     app.include_router(workflow_ui.router)
     app.include_router(sigma_queue.router)
     app.include_router(sigma_ab_test.router)
+    app.include_router(sigma_similarity_test.router)

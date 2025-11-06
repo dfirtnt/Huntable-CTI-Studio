@@ -265,40 +265,29 @@ class SigmaSyncService:
     def create_description_embedding_text(self, rule_data: Dict) -> str:
         """Create embedding text for description section."""
         description = rule_data.get('description', '')
-        return f"Description: {description}" if description else ""
+        return description if description else ""
     
     def create_tags_embedding_text(self, rule_data: Dict) -> str:
         """Create embedding text for tags section."""
         tags = rule_data.get('tags', [])
         if tags:
-            # Focus on MITRE ATT&CK tags, but include others
-            attack_tags = [t for t in tags if t.startswith('attack.')]
-            other_tags = [t for t in tags if not t.startswith('attack.')]
-            
-            parts = []
-            if attack_tags:
-                parts.append(f"MITRE: {', '.join(attack_tags)}")
-            if other_tags:
-                parts.append(f"Tags: {', '.join(other_tags)}")
-            
-            return ' '.join(parts) if parts else ""
+            # Return tags without prefixes
+            return ', '.join(tags)
         return ""
     
     def create_logsource_embedding_text(self, rule_data: Dict) -> str:
         """Create embedding text for logsource section (normalized to generic format)."""
-        import json
         logsource = rule_data.get('logsource', {})
         if isinstance(logsource, dict) and logsource:
-            # Normalize to generic format (category, product) - ignore service
-            normalized = {
-                'category': logsource.get('category', ''),
-                'product': logsource.get('product', '')
-            }
-            # Keep service if present but de-emphasize
+            # Extract values only (no keys like "product:", "service:", "category:")
+            parts = []
+            if logsource.get('category'):
+                parts.append(logsource['category'])
+            if logsource.get('product'):
+                parts.append(logsource['product'])
             if logsource.get('service'):
-                normalized['service'] = logsource.get('service')
-            logsource_str = json.dumps(normalized, separators=(',', ':'))
-            return f"Logsource: {logsource_str}"
+                parts.append(logsource['service'])
+            return ' '.join(parts) if parts else ""
         return ""
     
     def create_detection_structure_embedding_text(self, rule_data: Dict) -> str:
@@ -313,29 +302,31 @@ class SigmaSyncService:
         
         parts = []
         
-        # Selection information
+        # Selection information (values only, no prefixes)
         if structure['selection_count'] > 0:
-            parts.append(f"Selections: {structure['selection_count']}")
+            parts.append(str(structure['selection_count']))
             if structure['selection_keys']:
-                parts.append(f"Selection keys: {', '.join(sorted(structure['selection_keys']))}")
+                # Remove "selection" prefix from keys if present
+                keys = [k.replace('selection', '').strip() if k.startswith('selection') else k for k in sorted(structure['selection_keys'])]
+                parts.append(', '.join(keys))
         
-        # Nesting depth
+        # Nesting depth (value only)
         if structure['max_nesting_depth'] > 0:
-            parts.append(f"Nesting depth: {structure['max_nesting_depth']}")
+            parts.append(str(structure['max_nesting_depth']))
         
-        # Boolean operators
+        # Boolean operators (values only)
         if structure['boolean_operators']:
             operators = ', '.join(sorted(structure['boolean_operators']))
-            parts.append(f"Operators: {operators}")
+            parts.append(operators)
         
-        # Unrolled condition
+        # Unrolled condition (value only)
         if structure['condition_unrolled']:
-            parts.append(f"Condition: {structure['condition_unrolled']}")
+            parts.append(structure['condition_unrolled'])
         
-        # Modifiers
+        # Modifiers (values only)
         if structure['modifiers']:
             modifiers = ', '.join(sorted(structure['modifiers']))
-            parts.append(f"Modifiers: {modifiers}")
+            parts.append(modifiers)
         
         return ' '.join(parts) if parts else ""
     
@@ -352,14 +343,14 @@ class SigmaSyncService:
         parts = []
         
         # EMPHASIZE VALUES over field names - values are what actually distinguish rules
-        # Values repeated 3x for emphasis
+        # Values repeated 3x for emphasis (no prefix)
         if fields_analysis['normalized_values']:
             values = fields_analysis['normalized_values'][:30]  # Limit to avoid too long strings
             # Repeat values 3x to give them much higher weight than field names
             values_str = ', '.join(values[:15])  # Show first 15 unique values
-            parts.extend([f"Detection values: {values_str}"] * 3)
+            parts.extend([values_str] * 3)
         
-        # Field names (with modifiers) - mentioned once for context
+        # Field names (with modifiers) - mentioned once for context (no prefix)
         if fields_analysis['field_names_with_modifiers']:
             all_fields = []
             for field in fields_analysis['field_names_with_modifiers']:
@@ -369,12 +360,12 @@ class SigmaSyncService:
                 if base_field in fields_analysis['high_signal_fields']:
                     all_fields.append(field)
             
-            parts.append(f"Field names: {', '.join(all_fields)}")
+            parts.append(', '.join(all_fields))
         
-        # High-signal fields emphasis (context only)
+        # High-signal fields emphasis (context only, no prefix)
         if fields_analysis['high_signal_fields']:
             high_signal = ', '.join(set(fields_analysis['high_signal_fields']))
-            parts.append(f"Key fields: {high_signal}")
+            parts.append(high_signal)
         
         return ' '.join(parts) if parts else ""
     

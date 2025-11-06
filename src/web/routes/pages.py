@@ -515,3 +515,17 @@ async def sigma_ab_test_page(request: Request):
             status_code=500,
         )
 
+
+@router.get("/sigma-similarity-test", response_class=HTMLResponse)
+async def sigma_similarity_test_page(request: Request):
+    """SIGMA rule cosine similarity testing interface."""
+    try:
+        return templates.TemplateResponse("sigma_similarity_test.html", {"request": request})
+    except Exception as exc:
+        logger.error("SIGMA similarity test page error: %s", exc)
+        return templates.TemplateResponse(
+            "error.html",
+            {"request": request, "error": str(exc)},
+            status_code=500,
+        )
+
