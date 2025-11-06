@@ -102,6 +102,7 @@ class SigmaGenerationService:
             # Generate rules with retry logic
             validation_results = []
             rules = []
+            conversation_log = []
             
             for attempt in range(max_attempts):
                 logger.info(f"SIGMA generation attempt {attempt + 1}/{max_attempts}")
@@ -149,10 +150,40 @@ Output ONLY valid YAML starting with "title:"."""
                         break
                 
                 # Call LLM API
-                if ai_model == 'lmstudio':
-                    sigma_response = await self._call_lmstudio_for_sigma(current_prompt, execution_id=execution_id, article_id=article_id)
-                else:
-                    sigma_response = await self._call_openai_for_sigma(current_prompt, api_key)
+                try:
+                    if ai_model == 'lmstudio':
+                        sigma_response = await self._call_lmstudio_for_sigma(current_prompt, execution_id=execution_id, article_id=article_id)
+                    else:
+                        sigma_response = await self._call_openai_for_sigma(current_prompt, api_key)
+                    
+                    # Ensure we have a response (even if empty, store it as string)
+                    if sigma_response is None:
+                        sigma_response = ""
+                    else:
+                        sigma_response = str(sigma_response)
+                    
+                    logger.info(f"SIGMA generation attempt {attempt + 1}: Received response ({len(sigma_response)} chars)")
+                except Exception as e:
+                    # Log error in conversation log
+                    logger.error(f"SIGMA generation attempt {attempt + 1} failed: {e}")
+                    conversation_log.append({
+                        'attempt': attempt + 1,
+                        'messages': [
+                            {
+                                'role': 'system',
+                                'content': 'You are a senior cybersecurity detection engineer specializing in SIGMA rule creation.'
+                            },
+                            {
+                                'role': 'user',
+                                'content': current_prompt
+                            }
+                        ],
+                        'llm_response': None,
+                        'validation': [],
+                        'all_valid': False,
+                        'error': str(e)
+                    })
+                    raise
                 
                 # Clean and validate response
                 cleaned_response = clean_sigma_rule(sigma_response)
@@ -160,6 +191,8 @@ Output ONLY valid YAML starting with "title:"."""
                 # Split into individual rules
                 rule_blocks = cleaned_response.split('---')
                 attempt_rules = []
+                attempt_validation_results = []
+                all_valid = True
                 
                 for i, block in enumerate(rule_blocks):
                     block = block.strip()
@@ -180,7 +213,11 @@ Output ONLY valid YAML starting with "title:"."""
                     if validation_result.metadata is None:
                         validation_result.metadata = {}
                     validation_result.metadata['rule_index'] = i + 1
+                    attempt_validation_results.append(validation_result)
                     validation_results.append(validation_result)
+                    
+                    if not validation_result.is_valid:
+                        all_valid = False
                     
                     if validation_result.is_valid:
                         try:
@@ -202,6 +239,35 @@ Output ONLY valid YAML starting with "title:"."""
                                 attempt_rules.append(rule_metadata)
                         except Exception as e:
                             logger.warning(f"Failed to parse validated rule: {e}")
+                            all_valid = False
+                
+                # Store conversation log entry (always store, even if response is empty)
+                conversation_log.append({
+                    'attempt': attempt + 1,
+                    'messages': [
+                        {
+                            'role': 'system',
+                            'content': 'You are a senior cybersecurity detection engineer specializing in SIGMA rule creation.'
+                        },
+                        {
+                            'role': 'user',
+                            'content': current_prompt
+                        }
+                    ],
+                    'llm_response': sigma_response if sigma_response else "",  # Ensure it's always a string, never None
+                    'validation': [
+                        {
+                            'is_valid': r.is_valid,
+                            'errors': r.errors,
+                            'warnings': r.warnings,
+                            'rule_index': r.metadata.get('rule_index') if r.metadata else None
+                        } for r in attempt_validation_results
+                    ],
+                    'all_valid': all_valid,
+                    'error': None
+                })
+                
+                logger.debug(f"Stored conversation log entry for attempt {attempt + 1}: llm_response length={len(sigma_response) if sigma_response else 0}")
                 
                 # If we got valid rules, break
                 if attempt_rules:
@@ -211,7 +277,7 @@ Output ONLY valid YAML starting with "title:"."""
             return {
                 'rules': rules,
                 'metadata': {
-                    'total_attempts': len(validation_results),
+                    'total_attempts': len(conversation_log),
                     'valid_rules': len(rules),
                     'validation_results': [
                         {
@@ -219,7 +285,8 @@ Output ONLY valid YAML starting with "title:"."""
                             'errors': r.errors,
                             'warnings': r.warnings
                         } for r in validation_results
-                    ]
+                    ],
+                    'conversation_log': conversation_log
                 },
                 'errors': None if rules else "No valid SIGMA rules could be generated"
             }
@@ -251,10 +318,15 @@ Output ONLY valid YAML starting with "title:"."""
         # Convert system messages for models that don't support them (e.g., Mistral)
         messages = self.llm_service._convert_messages_for_model(messages, model_name)
         
+        # For reasoning models like Deepseek-R1, need more tokens for reasoning + output
+        # Check if this is a reasoning model (Deepseek-R1, Qwen-R1, etc.)
+        is_reasoning_model = 'r1' in model_name.lower() or 'reasoning' in model_name.lower()
+        max_tokens = 2000 if is_reasoning_model else 800
+        
         payload = {
             "model": model_name,
             "messages": messages,
-            "max_tokens": 800,
+            "max_tokens": max_tokens,
             "temperature": self.llm_service.temperature,
             "top_p": self.llm_service.top_p,
         }
@@ -270,7 +342,7 @@ Output ONLY valid YAML starting with "title:"."""
             article_id=article_id,
             metadata={
                 "prompt_length": len(prompt),
-                "max_tokens": 800
+                "max_tokens": max_tokens
             }
         ) as generation:
             try:
@@ -281,7 +353,45 @@ Output ONLY valid YAML starting with "title:"."""
                     failure_context="Failed to generate SIGMA rules from LMStudio"
                 )
                 
-                output = result['choices'][0]['message']['content']
+                # Deepseek-R1 returns reasoning in 'reasoning_content', fallback to 'content'
+                message = result['choices'][0]['message']
+                content_text = message.get('content', '')
+                reasoning_text = message.get('reasoning_content', '')
+                
+                # For Deepseek-R1: prefer content if it exists and looks like YAML
+                # Otherwise, try to extract YAML from reasoning_content (reasoning models may include answer in reasoning)
+                if content_text and (content_text.strip().startswith('title:') or 'title:' in content_text[:100]):
+                    output = content_text
+                    logger.debug("Using 'content' field for SIGMA generation (contains YAML)")
+                elif reasoning_text:
+                    # Try to extract YAML from reasoning_content
+                    # Look for YAML block starting with 'title:'
+                    import re
+                    yaml_match = re.search(r'(?:^|\n)title:\s*[^\n]+\n(?:[^\n]+\n)*', reasoning_text, re.MULTILINE)
+                    if yaml_match:
+                        # Extract from the YAML start to end of reasoning (or find a reasonable end)
+                        yaml_start = yaml_match.start()
+                        # Try to find a complete YAML block (look for common SIGMA fields)
+                        yaml_block = reasoning_text[yaml_start:]
+                        # If reasoning was truncated, we might not have complete YAML
+                        output = yaml_block
+                        logger.debug("Extracted YAML from 'reasoning_content' field")
+                    else:
+                        # No YAML found in reasoning, use reasoning as-is (might contain partial answer)
+                        output = reasoning_text
+                        logger.debug("Using 'reasoning_content' field for SIGMA generation (no YAML pattern found)")
+                else:
+                    output = content_text or reasoning_text or ""
+                
+                # Check if response was truncated
+                finish_reason = result['choices'][0].get('finish_reason', '')
+                if finish_reason == 'length':
+                    logger.warning(f"SIGMA generation response was truncated (finish_reason=length). Used {result.get('usage', {}).get('completion_tokens', 0)} tokens. max_tokens={max_tokens} may need to be increased.")
+                
+                if not output or len(output.strip()) == 0:
+                    logger.error("LLM returned empty response for SIGMA generation")
+                    raise ValueError("LLM returned empty response for SIGMA generation. Check LMStudio is responding correctly.")
+                
                 usage = result.get('usage', {})
                 
                 # Log completion to LangFuse

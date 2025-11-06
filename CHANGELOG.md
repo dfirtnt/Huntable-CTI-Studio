@@ -5,6 +5,37 @@ All notable changes to CTI Scraper will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- **SIGMA A/B Testing Interface**: Interactive web UI for comparing SIGMA rule similarity search logic
+  - Side-by-side rule comparison with real-time YAML validation
+  - Separate embedding and LLM model selection dropdowns
+  - Detailed similarity breakdown by section (Title, Description, Tags, Signature)
+  - LLM reranking with explanation and model attribution
+  - Semantic overlap analysis showing literal detection value matches
+  - Debug view showing exact embedding text used for comparison
+  - LocalStorage persistence for Rule A and Rule B textareas
+  - Combined Signature segment (logsource + detection) for improved similarity matching
+- **Enhanced SIGMA Similarity Search**: Improved embedding-based similarity calculation
+  - Removed "Title: " prefix from title embeddings to focus on semantic content
+  - Combined logsource and detection into single "Signature" segment (87.4% weight)
+  - Updated similarity weights: Title 4.2%, Description 4.2%, Tags 4.2%, Signature 87.4%
+- **LMStudio Model Selection**: Database-driven model selection for embedding and LLM operations
+  - Embedding model dropdown filtered to only show embedding models
+  - LLM model dropdown filtered to only show chat models
+  - Model selection persists through Settings page configuration
+
+### Changed
+- **SIGMA Title Embeddings**: Removed "Title: " prefix to improve semantic similarity accuracy
+- **SIGMA Section Embeddings**: Combined logsource, detection_structure, and detection_fields into single "Signature" segment
+- **Similarity Calculation**: Updated weights to reflect combined Signature segment
+
+### Fixed
+- **LLM Model Dropdown**: Fixed duplicate ID conflict causing dropdown to stop working
+- **Embedding Model Selection**: Fixed similarity search to use selected embedding model instead of default
+- **LLM Reranking Model**: Fixed to use selected LLM model from dropdown instead of default
+
 ## [4.0.0 "Kepler"] - 2025-11-04
 
 ### Added

@@ -474,18 +474,20 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                 execution.sigma_rules = sigma_rules
                 
                 # Store detailed error info in error_log for debugging (even when no errors, for conversation log display)
-                error_log_entry = None
-                if sigma_metadata.get('validation_results'):
+                # Always store if conversation_log exists OR validation_results exist
+                conversation_log = sigma_metadata.get('conversation_log', [])
+                validation_results = sigma_metadata.get('validation_results', [])
+                
+                # Store if we have conversation_log (even if empty), validation_results, or errors
+                if 'conversation_log' in sigma_metadata or validation_results or sigma_errors:
                     error_log_entry = {
                         'errors': sigma_errors,
-                        'total_attempts': sigma_metadata.get('total_attempts', 0),
-                        'validation_results': sigma_metadata.get('validation_results', []),
-                        'conversation_log': sigma_metadata.get('conversation_log', []) if 'conversation_log' in sigma_metadata else None
+                        'total_attempts': sigma_metadata.get('total_attempts', len(conversation_log) if conversation_log else 0),
+                        'validation_results': validation_results,
+                        'conversation_log': conversation_log if conversation_log else []  # Ensure it's always a list
                     }
-                
-                # Always store error_log_entry if validation_results exist (for conversation log display)
-                if error_log_entry:
                     execution.error_log = {**(execution.error_log or {}), 'generate_sigma': error_log_entry}
+                    logger.debug(f"Stored conversation_log with {len(conversation_log)} entries")
                 
                 # Check if SIGMA validation failed (no valid rules generated)
                 # Check both errors field and metadata validation results
@@ -565,28 +567,28 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
             # Check if workflow already failed (e.g., SIGMA validation failed)
             if state.get('error'):
                 logger.warning(f"[Workflow {state['execution_id']}] Workflow has error, skipping similarity search")
-            return {
-                **state,
-                'similarity_results': [],
-                'max_similarity': 1.0,
-                'current_step': state.get('current_step', 'similarity_search'),
-                'status': state.get('status', 'running'),
-                'termination_reason': state.get('termination_reason'),
-                'termination_details': state.get('termination_details')
-            }
+                return {
+                    **state,
+                    'similarity_results': None,  # None indicates search didn't run
+                    'max_similarity': 1.0,
+                    'current_step': state.get('current_step', 'similarity_search'),
+                    'status': state.get('status', 'running'),
+                    'termination_reason': state.get('termination_reason'),
+                    'termination_details': state.get('termination_details')
+                }
             
             sigma_rules = state.get('sigma_rules', [])
             if not sigma_rules:
                 logger.warning(f"[Workflow {state['execution_id']}] No SIGMA rules to search")
-            return {
-                **state,
-                'similarity_results': [],
-                'max_similarity': 0.0,
-                'current_step': 'similarity_search',
-                'status': state.get('status', 'running'),
-                'termination_reason': state.get('termination_reason'),
-                'termination_details': state.get('termination_details')
-            }
+                return {
+                    **state,
+                    'similarity_results': None,  # None indicates search didn't run
+                    'max_similarity': 0.0,
+                    'current_step': 'similarity_search',
+                    'status': state.get('status', 'running'),
+                    'termination_reason': state.get('termination_reason'),
+                    'termination_details': state.get('termination_details')
+                }
             
             similarity_results = []
             max_similarity = 0.0
@@ -685,8 +687,7 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                 }
             
             sigma_rules = state.get('sigma_rules', [])
-            similarity_results = state.get('similarity_results', [])
-            max_similarity = state.get('max_similarity', 1.0)
+            similarity_results = state.get('similarity_results')
             similarity_threshold = state['config'].get('similarity_threshold', 0.5) if state.get('config') else 0.5
             termination_reason = state.get('termination_reason')
             termination_details = state.get('termination_details')
@@ -697,41 +698,55 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                 if termination_details is None:
                     termination_details = {'generated_rules': 0}
             
-            # Only promote if max similarity is below threshold
-            if max_similarity >= similarity_threshold:
-                logger.info(f"[Workflow {state['execution_id']}] Max similarity {max_similarity:.2f} >= threshold {similarity_threshold}, skipping queue")
+            # Check if similarity search failed or didn't run
+            # Don't queue if similarity search failed (error in state) or didn't run (similarity_results is None)
+            if state.get('error') or similarity_results is None:
+                logger.warning(f"[Workflow {state['execution_id']}] Similarity search failed or didn't run - skipping queue promotion")
                 queued_rules = []
             else:
-                queued_rules = []
-                article = state['article']
+                # Similarity search ran successfully - calculate max_similarity from results
+                if len(similarity_results) > 0:
+                    max_similarity = max([r.get('max_similarity', 0.0) for r in similarity_results], default=0.0)
+                else:
+                    # Similarity search ran successfully but found 0 matches - treat as 0.0 similarity
+                    max_similarity = 0.0
+                    logger.info(f"[Workflow {state['execution_id']}] Similarity search completed with 0 matches - treating as 0.0 similarity")
                 
-                # Queue each rule with low similarity
-                for idx, rule in enumerate(sigma_rules):
-                    rule_similarity = similarity_results[idx] if idx < len(similarity_results) else {'max_similarity': 0.0}
-                    rule_max_sim = rule_similarity.get('max_similarity', 0.0)
+                # Only promote if max similarity is below threshold
+                if max_similarity >= similarity_threshold:
+                    logger.info(f"[Workflow {state['execution_id']}] Max similarity {max_similarity:.2f} >= threshold {similarity_threshold}, skipping queue")
+                    queued_rules = []
+                else:
+                    queued_rules = []
+                    article = state['article']
                     
-                    if rule_max_sim < similarity_threshold:
-                        # Convert rule dict to YAML
-                        rule_yaml = yaml.dump(rule, default_flow_style=False, sort_keys=False)
+                    # Queue each rule with low similarity
+                    for idx, rule in enumerate(sigma_rules):
+                        rule_similarity = similarity_results[idx] if idx < len(similarity_results) else {'max_similarity': 0.0}
+                        rule_max_sim = rule_similarity.get('max_similarity', 0.0)
                         
-                        # Create queue entry
-                        queue_entry = SigmaRuleQueueTable(
-                            article_id=article.id if article else state['article_id'],
-                            workflow_execution_id=state['execution_id'],
-                            rule_yaml=rule_yaml,
-                            rule_metadata={
-                                'title': rule.get('title'),
-                                'description': rule.get('description'),
-                                'tags': rule.get('tags', []),
-                                'level': rule.get('level'),
-                                'status': rule.get('status', 'experimental')
-                            },
-                            similarity_scores=rule_similarity.get('similar_rules', []),
-                            max_similarity=rule_max_sim,
-                            status='pending'
-                        )
-                        db_session.add(queue_entry)
-                        queued_rules.append(queue_entry.id)
+                        if rule_max_sim < similarity_threshold:
+                            # Convert rule dict to YAML
+                            rule_yaml = yaml.dump(rule, default_flow_style=False, sort_keys=False)
+                            
+                            # Create queue entry
+                            queue_entry = SigmaRuleQueueTable(
+                                article_id=article.id if article else state['article_id'],
+                                workflow_execution_id=state['execution_id'],
+                                rule_yaml=rule_yaml,
+                                rule_metadata={
+                                    'title': rule.get('title'),
+                                    'description': rule.get('description'),
+                                    'tags': rule.get('tags', []),
+                                    'level': rule.get('level'),
+                                    'status': rule.get('status', 'experimental')
+                                },
+                                similarity_scores=rule_similarity.get('similar_rules', []),
+                                max_similarity=rule_max_sim,
+                                status='pending'
+                            )
+                            db_session.add(queue_entry)
+                            queued_rules.append(queue_entry.id)
                 
                 db_session.commit()
                 logger.info(f"[Workflow {state['execution_id']}] Queued {len(queued_rules)} rules")

@@ -229,6 +229,25 @@ You analyze retrieved CTI article content and Sigma detection rules to answer us
         if provider == "tinyllama":
             return "tinyllama"
         if provider == "lmstudio":
+            # Try to get from database settings first, fallback to env var
+            try:
+                from src.database.manager import DatabaseManager
+                from src.database.models import AppSettingsTable
+                from sqlalchemy import select
+                
+                db_manager = DatabaseManager()
+                db_session = db_manager.get_session()
+                try:
+                    setting = db_session.execute(
+                        select(AppSettingsTable).where(AppSettingsTable.key == 'lmstudio_model')
+                    ).scalar_one_or_none()
+                    if setting and setting.value:
+                        return setting.value
+                finally:
+                    db_session.close()
+            except Exception as e:
+                logger.debug(f"Could not fetch lmstudio_model from database: {e}, using env var")
+            # Fallback to environment variable or default
             return self.lmstudio_model
         return "template"
 

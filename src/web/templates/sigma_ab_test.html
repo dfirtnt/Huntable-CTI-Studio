@@ -1,0 +1,647 @@
+{% extends "base.html" %}
+
+{% block title %}SIGMA Rule A/B Testing - Huntable CTI Scraper{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+    <div class="mb-8">
+        <h1 class="text-3xl font-bold text-gray-900 dark:text-white mb-2">🧪 SIGMA Rule A/B Testing</h1>
+        <p class="text-gray-600 dark:text-gray-400">Test similarity search logic by comparing pairs of SIGMA rules</p>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+        <!-- Rule A Input -->
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="text-xl font-semibold text-gray-900 dark:text-white">Rule A</h2>
+                <button onclick="loadExample('a')" class="text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400">
+                    📋 Load Example
+                </button>
+            </div>
+            <textarea 
+                id="ruleA" 
+                class="w-full h-96 p-3 border border-gray-300 dark:border-gray-600 rounded-md font-mono text-sm dark:bg-gray-700 dark:text-white"
+                placeholder="Paste SIGMA rule YAML here..."
+            ></textarea>
+            <div id="ruleAValidation" class="mt-2 text-sm"></div>
+        </div>
+
+        <!-- Rule B Input -->
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="text-xl font-semibold text-gray-900 dark:text-white">Rule B</h2>
+                <button onclick="loadExample('b')" class="text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400">
+                    📋 Load Example
+                </button>
+            </div>
+            <textarea 
+                id="ruleB" 
+                class="w-full h-96 p-3 border border-gray-300 dark:border-gray-600 rounded-md font-mono text-sm dark:bg-gray-700 dark:text-white"
+                placeholder="Paste SIGMA rule YAML here..."
+            ></textarea>
+            <div id="ruleBValidation" class="mt-2 text-sm"></div>
+        </div>
+    </div>
+
+    <!-- Options -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mb-6">
+        <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Options</h3>
+        <div class="space-y-4">
+            <div class="flex items-center space-x-6">
+                <label class="flex items-center">
+                    <input type="checkbox" id="useLLMRerank" checked class="mr-2">
+                    <span class="text-gray-700 dark:text-gray-300">Use LLM Reranking</span>
+                </label>
+                <button 
+                    onclick="compareRules(); return false;" 
+                    id="compareBtn"
+                    type="button"
+                    class="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors"
+                >
+                    🔍 Compare Rules
+                </button>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <label class="flex flex-col">
+                    <span class="text-gray-700 dark:text-gray-300 mb-1 text-sm font-medium">Embedding Model (for similarity search):</span>
+                    <select id="embeddingModel" class="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-700 dark:text-white">
+                        <option value="">Loading models...</option>
+                    </select>
+                </label>
+                <label class="flex flex-col">
+                    <span class="text-gray-700 dark:text-gray-300 mb-1 text-sm font-medium">LLM Model (for reranking):</span>
+                    <select id="llmModel" class="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-700 dark:text-white">
+                        <option value="">Loading models...</option>
+                    </select>
+                </label>
+            </div>
+        </div>
+    </div>
+
+    <!-- Results -->
+    <div id="results" class="hidden">
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mb-6">
+            <h3 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">Comparison Results</h3>
+            
+            <!-- Overall Similarity -->
+            <div class="mb-6">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-lg font-semibold text-gray-700 dark:text-gray-300">Overall Similarity</span>
+                    <span id="overallSimilarity" class="text-3xl font-bold text-blue-600 dark:text-blue-400">-</span>
+                </div>
+                <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-4">
+                    <div id="similarityBar" class="bg-blue-600 h-4 rounded-full transition-all duration-500" style="width: 0%"></div>
+                </div>
+            </div>
+
+            <!-- Models Used -->
+            <div id="modelsUsedSection" class="mb-6 hidden">
+                <h4 class="text-md font-semibold text-gray-700 dark:text-gray-300 mb-3">Models Used</h4>
+                <div class="bg-gray-50 dark:bg-gray-900/20 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+                        <div>
+                            <span class="text-gray-600 dark:text-gray-400">Embedding Model:</span>
+                            <span id="usedEmbeddingModel" class="ml-2 font-mono text-gray-900 dark:text-white"></span>
+                        </div>
+                        <div>
+                            <span class="text-gray-600 dark:text-gray-400">LLM Model:</span>
+                            <span id="usedLLMModel" class="ml-2 font-mono text-gray-900 dark:text-white"></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Debug: Embedding Text Used -->
+            <div id="embeddingTextSection" class="mb-6 hidden">
+                <h4 class="text-md font-semibold text-gray-700 dark:text-gray-300 mb-3">🔍 Embedding Text Used (Debug)</h4>
+                <div class="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs font-mono mb-4">
+                        <div>
+                            <div class="text-gray-600 dark:text-gray-400 mb-1 font-semibold">Rule A Title Text:</div>
+                            <div id="ruleATitleText" class="text-gray-900 dark:text-white break-words bg-white dark:bg-gray-800 p-2 rounded max-h-20 overflow-y-auto"></div>
+                        </div>
+                        <div>
+                            <div class="text-gray-600 dark:text-gray-400 mb-1 font-semibold">Rule B Title Text:</div>
+                            <div id="ruleBTitleText" class="text-gray-900 dark:text-white break-words bg-white dark:bg-gray-800 p-2 rounded max-h-20 overflow-y-auto"></div>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs font-mono">
+                        <div>
+                            <div class="text-gray-600 dark:text-gray-400 mb-1 font-semibold">Rule A Signature Text:</div>
+                            <div id="ruleASignatureText" class="text-gray-900 dark:text-white break-words bg-white dark:bg-gray-800 p-2 rounded max-h-32 overflow-y-auto"></div>
+                        </div>
+                        <div>
+                            <div class="text-gray-600 dark:text-gray-400 mb-1 font-semibold">Rule B Signature Text:</div>
+                            <div id="ruleBSignatureText" class="text-gray-900 dark:text-white break-words bg-white dark:bg-gray-800 p-2 rounded max-h-32 overflow-y-auto"></div>
+                        </div>
+                    </div>
+                    <div class="mt-3 text-xs text-gray-600 dark:text-gray-400 italic">
+                        Note: Titles are embedded without prefix. Signature combines logsource and detection (structure + fields).
+                    </div>
+                </div>
+            </div>
+
+            <!-- Similarity Breakdown -->
+            <div class="mb-6">
+                <h4 class="text-md font-semibold text-gray-700 dark:text-gray-300 mb-3">Section Similarity Breakdown</h4>
+                <div class="grid grid-cols-2 md:grid-cols-3 gap-4" id="similarityBreakdown">
+                    <!-- Populated by JavaScript -->
+                </div>
+            </div>
+
+            <!-- LLM Reranking Results -->
+            <div id="llmRerankSection" class="mb-6 hidden">
+                <h4 class="text-md font-semibold text-gray-700 dark:text-gray-300 mb-3">🤖 LLM Reranking</h4>
+                <div class="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4">
+                    <div class="mb-2">
+                        <span class="text-sm text-gray-600 dark:text-gray-400">Model: </span>
+                        <span id="llmRerankModel" class="text-sm font-mono text-gray-900 dark:text-white"></span>
+                    </div>
+                    <div class="mb-2">
+                        <span class="text-sm text-gray-600 dark:text-gray-400">Reranked Similarity: </span>
+                        <span id="llmSimilarity" class="text-sm font-bold text-green-700 dark:text-green-400"></span>
+                    </div>
+                    <div>
+                        <span class="text-sm font-semibold text-gray-700 dark:text-gray-300">Explanation:</span>
+                        <p id="llmExplanation" class="text-sm text-gray-800 dark:text-gray-200 italic mt-1"></p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Semantic Overlap -->
+            <div id="semanticOverlapSection" class="mb-6">
+                <h4 class="text-md font-semibold text-gray-700 dark:text-gray-300 mb-3">Semantic Overlap Analysis</h4>
+                <div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+                    <div class="mb-3">
+                        <span class="text-sm text-gray-600 dark:text-gray-400">Overall Overlap: </span>
+                        <span id="semanticOverlapRatio" class="text-sm font-bold text-blue-700 dark:text-blue-400"></span>
+                    </div>
+                    <div class="mb-3 text-xs text-gray-600 dark:text-gray-400 italic">
+                        Compares literal detection values (process names, file paths, command-line args) extracted from detection logic. 
+                        Zero overlap means the rules detect different attack vectors with no shared indicators.
+                    </div>
+                    <div class="grid grid-cols-2 md:grid-cols-3 gap-2 text-sm mb-3" id="semanticDetails">
+                        <!-- Populated by JavaScript -->
+                    </div>
+                    <details class="mt-3">
+                        <summary class="text-xs text-gray-600 dark:text-gray-400 cursor-pointer hover:text-gray-800 dark:hover:text-gray-200">
+                            Show extracted values (debug)
+                        </summary>
+                        <div class="mt-2 grid grid-cols-1 md:grid-cols-2 gap-3 text-xs font-mono">
+                            <div>
+                                <div class="text-gray-600 dark:text-gray-400 mb-1 font-semibold">Rule A Values:</div>
+                                <div id="ruleAValues" class="text-gray-900 dark:text-white bg-white dark:bg-gray-800 p-2 rounded max-h-32 overflow-y-auto"></div>
+                            </div>
+                            <div>
+                                <div class="text-gray-600 dark:text-gray-400 mb-1 font-semibold">Rule B Values:</div>
+                                <div id="ruleBValues" class="text-gray-900 dark:text-white bg-white dark:bg-gray-800 p-2 rounded max-h-32 overflow-y-auto"></div>
+                            </div>
+                        </div>
+                    </details>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Error Display -->
+    <div id="errorDisplay" class="hidden bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 mb-6">
+        <div class="flex items-center">
+            <span class="text-red-600 dark:text-red-400 font-semibold mr-2">❌ Error:</span>
+            <span id="errorMessage" class="text-red-800 dark:text-red-200"></span>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Example rules for testing
+    const exampleRules = {
+        a: `title: Suspicious PowerShell Execution
+id: test-rule-a-001
+status: experimental
+description: Detects suspicious PowerShell execution patterns
+author: Test User
+date: 2025/01/01
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection:
+    Image|endswith: '\\powershell.exe'
+    CommandLine|contains: 
+      - '-nop'
+      - '-w hidden'
+  condition: selection
+level: high
+tags:
+  - attack.execution
+  - attack.t1059.001`,
+        
+        b: `title: PowerShell Obfuscation Detection
+id: test-rule-b-001
+status: experimental
+description: Identifies obfuscated PowerShell command execution
+author: Test User
+date: 2025/01/01
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection:
+    ProcessCommandLine|contains: 'powershell'
+    CommandLine|re: '.*-nop.*-w.*hidden.*'
+  condition: selection
+level: high
+tags:
+  - attack.execution
+  - attack.t1059.001`
+    };
+
+    function loadExample(rule) {
+        const textarea = document.getElementById(`rule${rule.toUpperCase()}`);
+        textarea.value = exampleRules[rule] || '';
+        validateRule(rule);
+        saveRule(rule); // Save to localStorage when loading example
+    }
+
+    function validateRule(rule) {
+        const textarea = document.getElementById(`rule${rule.toUpperCase()}`);
+        const validationDiv = document.getElementById(`${rule}Validation`);
+        const yaml = textarea.value.trim();
+        
+        if (!yaml) {
+            validationDiv.innerHTML = '<span class="text-gray-500">Empty</span>';
+            return false;
+        }
+        
+        // Basic YAML validation (check for key indicators)
+        const lines = yaml.split('\n');
+        if (lines.length < 3) {
+            validationDiv.innerHTML = '<span class="text-yellow-600">⚠️ Very short - may be invalid</span>';
+            return false;
+        }
+        
+        // Check for basic YAML structure indicators
+        const hasColon = yaml.includes(':');
+        const hasTitle = yaml.toLowerCase().includes('title:');
+        const hasDetection = yaml.toLowerCase().includes('detection:');
+        
+        if (!hasColon) {
+            validationDiv.innerHTML = '<span class="text-red-600">❌ Missing YAML structure</span>';
+            return false;
+        }
+        
+        if (hasTitle || hasDetection) {
+            validationDiv.innerHTML = '<span class="text-green-600">✓ Valid YAML structure</span>';
+            return true;
+        }
+        
+        validationDiv.innerHTML = '<span class="text-yellow-600">⚠️ Basic structure found</span>';
+        return true;
+    }
+
+    async function compareRules() {
+        console.log('compareRules() called');
+        
+        try {
+            const ruleA = document.getElementById('ruleA').value.trim();
+            const ruleB = document.getElementById('ruleB').value.trim();
+            const useLLMRerank = document.getElementById('useLLMRerank').checked;
+            const embeddingModel = document.getElementById('embeddingModel').value;
+            const llmModel = document.getElementById('llmModel').value;
+            const compareBtn = document.getElementById('compareBtn');
+            const resultsDiv = document.getElementById('results');
+            const errorDiv = document.getElementById('errorDisplay');
+            
+            console.log('Elements found:', { ruleA: !!ruleA, ruleB: !!ruleB, compareBtn: !!compareBtn });
+            
+            // Hide previous results/errors
+            if (resultsDiv) resultsDiv.classList.add('hidden');
+            if (errorDiv) errorDiv.classList.add('hidden');
+            
+            if (!ruleA || !ruleB) {
+                showError('Please provide both Rule A and Rule B');
+                return;
+            }
+            
+            // Validate rules (but don't block on validation - let server validate)
+            // if (!validateRule('a') || !validateRule('b')) {
+            //     showError('Please ensure both rules are valid YAML');
+            //     return;
+            // }
+            
+            // Disable button and show loading
+            if (compareBtn) {
+                compareBtn.disabled = true;
+                compareBtn.textContent = '⏳ Comparing...';
+            }
+            
+            console.log('Sending request to /api/sigma-ab-test/compare');
+            
+            const response = await fetch('/api/sigma-ab-test/compare', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    rule_a: ruleA,
+                    rule_b: ruleB,
+                    use_llm_rerank: useLLMRerank,
+                    embedding_model: embeddingModel,
+                    llm_model: llmModel
+                })
+            });
+            
+            console.log('Response status:', response.status);
+            
+            if (!response.ok) {
+                let errorData;
+                try {
+                    errorData = await response.json();
+                } catch (e) {
+                    errorData = { detail: `HTTP error! status: ${response.status}` };
+                }
+                throw new Error(errorData.detail || `HTTP error! status: ${response.status}`);
+            }
+            
+            const data = await response.json();
+            console.log('Response data:', data);
+            
+            if (!data.success) {
+                throw new Error(data.error || 'Comparison failed');
+            }
+            
+            // Display results
+            displayResults(data);
+            
+        } catch (error) {
+            console.error('Error in compareRules:', error);
+            showError(error.message || 'Failed to compare rules');
+        } finally {
+            const compareBtn = document.getElementById('compareBtn');
+            if (compareBtn) {
+                compareBtn.disabled = false;
+                compareBtn.textContent = '🔍 Compare Rules';
+            }
+        }
+    }
+
+    function displayResults(data) {
+        const resultsDiv = document.getElementById('results');
+        resultsDiv.classList.remove('hidden');
+        
+        // Overall similarity
+        const similarity = (data.embedding_similarity * 100).toFixed(1);
+        document.getElementById('overallSimilarity').textContent = `${similarity}%`;
+        document.getElementById('similarityBar').style.width = `${similarity}%`;
+        
+        // Models used
+        if (data.models_used) {
+            const modelsSection = document.getElementById('modelsUsedSection');
+            modelsSection.classList.remove('hidden');
+            document.getElementById('usedEmbeddingModel').textContent = data.models_used.embedding_model || 'Default';
+            document.getElementById('usedLLMModel').textContent = data.models_used.llm_model || 'Not used';
+        }
+        
+        // Embedding text debug info
+        if (data.embedding_texts) {
+            const embeddingTextSection = document.getElementById('embeddingTextSection');
+            embeddingTextSection.classList.remove('hidden');
+            document.getElementById('ruleATitleText').textContent = data.embedding_texts.title_a || '(empty)';
+            document.getElementById('ruleBTitleText').textContent = data.embedding_texts.title_b || '(empty)';
+            document.getElementById('ruleASignatureText').textContent = data.embedding_texts.signature_a || '(empty)';
+            document.getElementById('ruleBSignatureText').textContent = data.embedding_texts.signature_b || '(empty)';
+        }
+        
+        // Similarity breakdown
+        const breakdownDiv = document.getElementById('similarityBreakdown');
+        breakdownDiv.innerHTML = '';
+        
+        const sections = ['title', 'description', 'tags', 'signature'];
+        const sectionLabels = {
+            'title': 'Title',
+            'description': 'Description',
+            'tags': 'Tags',
+            'signature': 'Signature'
+        };
+        
+        sections.forEach(section => {
+            const value = (data.similarity_breakdown[section] * 100).toFixed(1);
+            const div = document.createElement('div');
+            div.className = 'bg-gray-50 dark:bg-gray-700 rounded p-3';
+            div.innerHTML = `
+                <div class="text-xs text-gray-600 dark:text-gray-400 mb-1">${sectionLabels[section]}</div>
+                <div class="text-lg font-bold text-gray-900 dark:text-white">${value}%</div>
+                <div class="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-2 mt-1">
+                    <div class="bg-blue-600 h-2 rounded-full" style="width: ${value}%"></div>
+                </div>
+            `;
+            breakdownDiv.appendChild(div);
+        });
+        
+        // LLM reranking
+        if (data.llm_rerank) {
+            const llmSection = document.getElementById('llmRerankSection');
+            llmSection.classList.remove('hidden');
+            document.getElementById('llmRerankModel').textContent = `${data.llm_rerank.provider || 'unknown'} — ${data.llm_rerank.model || 'unknown'}`;
+            document.getElementById('llmSimilarity').textContent = `${(data.llm_rerank.similarity * 100).toFixed(1)}%`;
+            document.getElementById('llmExplanation').textContent = data.llm_rerank.explanation || 'No explanation provided';
+        } else {
+            document.getElementById('llmRerankSection').classList.add('hidden');
+        }
+        
+        // Semantic overlap
+        if (data.semantic_overlap) {
+            const semanticDiv = document.getElementById('semanticDetails');
+            semanticDiv.innerHTML = '';
+            
+            const overlap = (data.semantic_overlap.semantic_overlap_ratio * 100).toFixed(1);
+            document.getElementById('semanticOverlapRatio').textContent = `${overlap}%`;
+            
+            const details = [
+                { label: 'Process Overlap', value: data.semantic_overlap.process_overlap },
+                { label: 'Path Overlap', value: data.semantic_overlap.path_overlap },
+                { label: 'Cmdline Overlap', value: data.semantic_overlap.cmdline_overlap }
+            ];
+            
+            details.forEach(detail => {
+                const div = document.createElement('div');
+                div.className = 'flex justify-between';
+                div.innerHTML = `
+                    <span class="text-gray-600 dark:text-gray-400">${detail.label}:</span>
+                    <span class="font-semibold text-gray-900 dark:text-white">${detail.value}</span>
+                `;
+                semanticDiv.appendChild(div);
+            });
+            
+            // Show extracted values for debugging
+            const ruleAValues = [];
+            if (data.semantic_overlap.gen_processes && data.semantic_overlap.gen_processes.length > 0) {
+                ruleAValues.push(`Processes: ${data.semantic_overlap.gen_processes.join(', ')}`);
+            }
+            if (data.semantic_overlap.gen_paths && data.semantic_overlap.gen_paths.length > 0) {
+                ruleAValues.push(`Paths: ${data.semantic_overlap.gen_paths.join(', ')}`);
+            }
+            if (data.semantic_overlap.gen_cmdline && data.semantic_overlap.gen_cmdline.length > 0) {
+                ruleAValues.push(`Cmdline: ${data.semantic_overlap.gen_cmdline.join(', ')}`);
+            }
+            document.getElementById('ruleAValues').textContent = ruleAValues.length > 0 ? ruleAValues.join('\n') : '(none extracted)';
+            
+            const ruleBValues = [];
+            if (data.semantic_overlap.sig_processes && data.semantic_overlap.sig_processes.length > 0) {
+                ruleBValues.push(`Processes: ${data.semantic_overlap.sig_processes.join(', ')}`);
+            }
+            if (data.semantic_overlap.sig_paths && data.semantic_overlap.sig_paths.length > 0) {
+                ruleBValues.push(`Paths: ${data.semantic_overlap.sig_paths.join(', ')}`);
+            }
+            if (data.semantic_overlap.sig_cmdline && data.semantic_overlap.sig_cmdline.length > 0) {
+                ruleBValues.push(`Cmdline: ${data.semantic_overlap.sig_cmdline.join(', ')}`);
+            }
+            document.getElementById('ruleBValues').textContent = ruleBValues.length > 0 ? ruleBValues.join('\n') : '(none extracted)';
+        }
+    }
+
+    function showError(message) {
+        const errorDiv = document.getElementById('errorDisplay');
+        document.getElementById('errorMessage').textContent = message;
+        errorDiv.classList.remove('hidden');
+    }
+
+    // Load saved rules from localStorage on page load
+    function loadSavedRules() {
+        const savedRuleA = localStorage.getItem('sigma_ab_test_rule_a');
+        const savedRuleB = localStorage.getItem('sigma_ab_test_rule_b');
+        
+        if (savedRuleA) {
+            document.getElementById('ruleA').value = savedRuleA;
+            validateRule('a');
+        }
+        
+        if (savedRuleB) {
+            document.getElementById('ruleB').value = savedRuleB;
+            validateRule('b');
+        }
+    }
+    
+    // Save rules to localStorage on input
+    function saveRule(section) {
+        const textarea = document.getElementById(`rule${section.toUpperCase()}`);
+        if (textarea) {
+            localStorage.setItem(`sigma_ab_test_rule_${section.toLowerCase()}`, textarea.value);
+        }
+    }
+    
+    // Validate on input and save to localStorage
+    document.getElementById('ruleA').addEventListener('input', () => {
+        validateRule('a');
+        saveRule('a');
+    });
+    document.getElementById('ruleB').addEventListener('input', () => {
+        validateRule('b');
+        saveRule('b');
+    });
+    
+    // Helper function to check if a model is an embedding model
+    function isEmbeddingModel(modelName) {
+        const embeddingIndicators = ['embedding', 'embed', 'e5-base', 'bge-', 'gte-', 'nomic-embed'];
+        return embeddingIndicators.some(indicator => modelName.toLowerCase().includes(indicator));
+    }
+
+    // Load LMStudio models on page load
+    async function loadLMStudioModels() {
+        try {
+            const response = await fetch('/api/lmstudio-models');
+            const data = await response.json();
+            
+            const embeddingSelect = document.getElementById('embeddingModel');
+            const llmSelect = document.getElementById('llmModel');
+            
+            if (!embeddingSelect || !llmSelect) return;
+            
+            embeddingSelect.innerHTML = '';
+            llmSelect.innerHTML = '';
+            
+            if (data.success && data.all_models && data.all_models.length > 0) {
+                // Get current models from Settings
+                let currentEmbeddingModel = null;
+                let currentLLMModel = null;
+                try {
+                    const settingsResponse = await fetch('/api/settings/lmstudio_model');
+                    const settingsData = await settingsResponse.json();
+                    if (settingsData.success && settingsData.exists) {
+                        const savedModel = settingsData.value;
+                        if (isEmbeddingModel(savedModel)) {
+                            currentEmbeddingModel = savedModel;
+                        } else {
+                            currentLLMModel = savedModel;
+                        }
+                    }
+                } catch (e) {
+                    console.log('Could not fetch saved models:', e);
+                }
+                
+                // Separate embedding and chat models
+                const embeddingModels = [];
+                const chatModels = [];
+                
+                data.all_models.forEach(model => {
+                    if (isEmbeddingModel(model)) {
+                        embeddingModels.push(model);
+                    } else {
+                        chatModels.push(model);
+                    }
+                });
+                
+                // Populate embedding model dropdown
+                if (embeddingModels.length > 0) {
+                    embeddingModels.forEach((model, index) => {
+                        const option = document.createElement('option');
+                        option.value = model;
+                        option.textContent = model;
+                        if ((currentEmbeddingModel && model === currentEmbeddingModel) || (!currentEmbeddingModel && index === 0)) {
+                            option.selected = true;
+                        }
+                        embeddingSelect.appendChild(option);
+                    });
+                } else {
+                    embeddingSelect.innerHTML = '<option value="">No embedding models available</option>';
+                }
+                
+                // Populate LLM model dropdown
+                if (chatModels.length > 0) {
+                    chatModels.forEach((model, index) => {
+                        const option = document.createElement('option');
+                        option.value = model;
+                        option.textContent = model;
+                        if ((currentLLMModel && model === currentLLMModel) || (!currentLLMModel && index === 0)) {
+                            option.selected = true;
+                        }
+                        llmSelect.appendChild(option);
+                    });
+                } else {
+                    llmSelect.innerHTML = '<option value="">No chat models available</option>';
+                }
+            } else {
+                embeddingSelect.innerHTML = '<option value="">No models available</option>';
+                llmSelect.innerHTML = '<option value="">No models available</option>';
+            }
+        } catch (error) {
+            console.error('Error loading LMStudio models:', error);
+            const embeddingSelect = document.getElementById('embeddingModel');
+            const llmSelect = document.getElementById('llmModel');
+            if (embeddingSelect) {
+                embeddingSelect.innerHTML = '<option value="">Error loading models</option>';
+            }
+            if (llmSelect) {
+                llmSelect.innerHTML = '<option value="">Error loading models</option>';
+            }
+        }
+    }
+
+    // Load models and saved rules when page loads
+    window.addEventListener('DOMContentLoaded', () => {
+        loadLMStudioModels();
+        loadSavedRules();
+    });
+</script>
+{% endblock %}
+

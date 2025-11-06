@@ -48,6 +48,7 @@ class ExecutionDetailResponse(ExecutionResponse):
     similarity_results: Optional[List[Dict[str, Any]]]
     error_log: Optional[Dict[str, Any]]
     queued_rules_count: Optional[int] = 0
+    queued_rule_ids: Optional[List[int]] = None  # IDs of queued rules for linking
     article_content: Optional[str] = None  # Full article content for showing inputs
     article_content_preview: Optional[str] = None  # Preview (first 500 chars)
 
@@ -163,11 +164,13 @@ async def get_workflow_execution(request: Request, execution_id: int):
             # Get article title and URL
             article = db_session.query(ArticleTable).filter(ArticleTable.id == execution.article_id).first()
             
-            # Count queued rules for this execution
+            # Get queued rules for this execution
             from src.database.models import SigmaRuleQueueTable
-            queued_count = db_session.query(SigmaRuleQueueTable).filter(
+            queued_rules = db_session.query(SigmaRuleQueueTable).filter(
                 SigmaRuleQueueTable.workflow_execution_id == execution.id
-            ).count()
+            ).all()
+            queued_count = len(queued_rules)
+            queued_rule_ids = [rule.id for rule in queued_rules]
             
             # Get article content for displaying inputs
             article_content = article.content if article else None
@@ -196,6 +199,7 @@ async def get_workflow_execution(request: Request, execution_id: int):
                 similarity_results=execution.similarity_results,
                 error_log=execution.error_log,
                 queued_rules_count=queued_count,
+                queued_rule_ids=queued_rule_ids,
                 article_content=article_content,
                 article_content_preview=article_content_preview,
                 termination_reason=term_reason,

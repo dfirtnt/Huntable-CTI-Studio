@@ -208,6 +208,7 @@ outputs/
 test_*.html
 debug_*.py
 *_test.py
+!src/web/routes/sigma_ab_test.py  # Allow SIGMA A/B test route
 *_debug.py
 debug_*.log
 *.test

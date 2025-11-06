@@ -2005,6 +2005,11 @@ async def api_generate_sigma(article_id: int, request: Request):
                 lmstudio_model = await _get_current_lmstudio_model()
 
                 lmstudio_settings = _get_lmstudio_settings()
+                
+                # For reasoning models like Deepseek-R1, need more tokens for reasoning + output
+                is_reasoning_model = 'r1' in lmstudio_model.lower() or 'reasoning' in lmstudio_model.lower()
+                max_tokens = 2000 if is_reasoning_model else 800
+                
                 payload = {
                     "model": lmstudio_model,
                     "messages": [
@@ -2017,7 +2022,7 @@ async def api_generate_sigma(article_id: int, request: Request):
                             "content": prompt_text
                         }
                     ],
-                    "max_tokens": 800,  # Reduced for small models - enough for 1 SIGMA rule
+                    "max_tokens": max_tokens,
                     "temperature": lmstudio_settings["temperature"],
                     "top_p": lmstudio_settings["top_p"],
                 }
@@ -2031,7 +2036,42 @@ async def api_generate_sigma(article_id: int, request: Request):
                     failure_context="Failed to generate SIGMA rules from LMStudio",
                 )
 
-                return result['choices'][0]['message']['content']
+                # Deepseek-R1 returns reasoning in 'reasoning_content', fallback to 'content'
+                message = result['choices'][0]['message']
+                content_text = message.get('content', '')
+                reasoning_text = message.get('reasoning_content', '')
+                
+                # For Deepseek-R1: prefer content if it exists and looks like YAML
+                # Otherwise, try to extract YAML from reasoning_content
+                if content_text and (content_text.strip().startswith('title:') or 'title:' in content_text[:100]):
+                    output = content_text
+                    logger.debug("Using 'content' field for SIGMA generation (contains YAML)")
+                elif reasoning_text:
+                    # Try to extract YAML from reasoning_content
+                    import re
+                    yaml_match = re.search(r'(?:^|\n)title:\s*[^\n]+\n(?:[^\n]+\n)*', reasoning_text, re.MULTILINE)
+                    if yaml_match:
+                        yaml_start = yaml_match.start()
+                        yaml_block = reasoning_text[yaml_start:]
+                        output = yaml_block
+                        logger.debug("Extracted YAML from 'reasoning_content' field")
+                    else:
+                        # No YAML found in reasoning, use reasoning as-is
+                        output = reasoning_text
+                        logger.debug("Using 'reasoning_content' field for SIGMA generation (no YAML pattern found)")
+                else:
+                    output = content_text or reasoning_text or ""
+                
+                # Check if response was truncated
+                finish_reason = result['choices'][0].get('finish_reason', '')
+                if finish_reason == 'length':
+                    logger.warning(f"SIGMA generation response was truncated (finish_reason=length). Used {result.get('usage', {}).get('completion_tokens', 0)} tokens. max_tokens={max_tokens} may need to be increased.")
+                
+                if not output or len(output.strip()) == 0:
+                    logger.error("LLM returned empty response for SIGMA generation")
+                    raise ValueError("LLM returned empty response for SIGMA generation. Check LMStudio is responding correctly.")
+                
+                return output
             else:
                 # Use OpenAI API (chatgpt)
                 # Verify API key is valid before making request
