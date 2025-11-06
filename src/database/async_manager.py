@@ -952,7 +952,7 @@ class AsyncDatabaseManager:
                         ELSE 0 
                     END as acceptance_rate
                 FROM sources s 
-                LEFT JOIN articles a ON s.id = a.source_id 
+                LEFT JOIN articles a ON s.id = a.source_id AND a.archived = false
                 GROUP BY s.id, s.name, s.identifier, s.active
                 ORDER BY rejected_count DESC, rejection_rate DESC
                 """
@@ -1000,7 +1000,7 @@ class AsyncDatabaseManager:
                     END as avg_hunt_score,
                     MAX((a.article_metadata->>'threat_hunting_score')::float) as max_hunt_score
                 FROM sources s
-                LEFT JOIN articles a ON s.id = a.source_id
+                LEFT JOIN articles a ON s.id = a.source_id AND a.archived = false
                 GROUP BY s.id, s.name, s.identifier, s.active
                 ORDER BY avg_hunt_score DESC NULLS LAST
                 """
