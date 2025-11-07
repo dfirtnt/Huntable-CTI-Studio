@@ -1768,6 +1768,78 @@ async def api_extract_iocs(article_id: int, request: Request):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.post("/{article_id}/extract-iocs-ctibert")
+async def api_extract_iocs_ctibert(article_id: int, request: Request):
+    """Extract IOCs using CTI-BERT Named Entity Recognition."""
+    try:
+        # Get the article
+        article = await async_db_manager.get_article(article_id)
+        if not article:
+            raise HTTPException(status_code=404, detail="Article not found")
+        
+        # Import CTI-BERT extractor
+        from src.utils.ctibert_ner_extractor import CTIBERTNERExtractor
+        
+        # Initialize extractor
+        extractor = CTIBERTNERExtractor()
+        
+        # Extract IOCs
+        result = extractor.extract_iocs(article.content)
+        
+        # Update article metadata with extracted IOCs
+        if article.article_metadata:
+            update_data = {
+                'article_metadata': {
+                    **article.article_metadata,
+                    'extracted_iocs_ctibert': {
+                        'iocs': result.iocs,
+                        'extraction_method': result.extraction_method,
+                        'confidence': result.confidence,
+                        'processing_time': result.processing_time,
+                        'raw_count': result.raw_count,
+                        'validated_count': result.validated_count,
+                        'extracted_at': datetime.now().isoformat(),
+                        'metadata': result.metadata
+                    }
+                }
+            }
+        else:
+            update_data = {
+                'article_metadata': {
+                    'extracted_iocs_ctibert': {
+                        'iocs': result.iocs,
+                        'extraction_method': result.extraction_method,
+                        'confidence': result.confidence,
+                        'processing_time': result.processing_time,
+                        'raw_count': result.raw_count,
+                        'validated_count': result.validated_count,
+                        'extracted_at': datetime.now().isoformat(),
+                        'metadata': result.metadata
+                    }
+                }
+            }
+        
+        await async_db_manager.update_article(article_id, update_data)
+        
+        return {
+            "success": result.validated_count > 0,
+            "iocs": result.iocs,
+            "method": result.extraction_method,
+            "confidence": result.confidence,
+            "processing_time": result.processing_time,
+            "raw_count": result.raw_count,
+            "validated_count": result.validated_count,
+            "metadata": result.metadata,
+            "error": None if result.validated_count > 0 else "No IOCs found"
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"CTI-BERT IOC extraction error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @router.post("/{article_id}/generate-sigma")
 async def api_generate_sigma(article_id: int, request: Request):
     """Generate SIGMA detection rules from an article using AI."""

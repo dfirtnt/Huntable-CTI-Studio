@@ -278,6 +278,9 @@ class RAGService:
                                       threshold: float = 0.7) -> List[Dict[str, Any]]:
         """
         Find similar Sigma detection rules using semantic search.
+        
+        Uses standardized section-based matching: compares query embedding against
+        rule's signature embedding (87.4% weight) since queries focus on detection logic.
 
         Args:
             query: Search query text
@@ -288,16 +291,20 @@ class RAGService:
             List of similar Sigma rules with metadata
         """
         try:
+            # Import weights from sigma_matching_service for consistency
+            from src.services.sigma_matching_service import SIMILARITY_WEIGHTS
+            
             # Generate query embedding using SIGMA embedding model (e5-base-v2)
             query_embedding = self.sigma_embedding_service.generate_embedding(query)
             embedding_str = '[' + ','.join(map(str, query_embedding)) + ']'
+            zero_vector = '[' + ','.join(['0.0'] * 768) + ']'
             
             # Get database session
             async with self.db_manager.get_session() as session:
                 from sqlalchemy import text, select
                 from src.database.models import SigmaRuleTable
                 
-                # Build query using SQLAlchemy ORM + text for vector operations
+                # Build query using section embeddings (signature embedding for detection logic focus)
                 stmt = select(
                     SigmaRuleTable.id,
                     SigmaRuleTable.rule_id,
@@ -307,24 +314,36 @@ class RAGService:
                     SigmaRuleTable.level,
                     SigmaRuleTable.status,
                     SigmaRuleTable.file_path,
-                    text("1 - (embedding <=> :query_vector) AS similarity")
+                    text("""
+                        CASE 
+                            WHEN logsource_embedding IS NOT NULL AND :query_vector != :zero_vec
+                                THEN 1 - (logsource_embedding <=> :query_vector::vector) 
+                            WHEN embedding IS NOT NULL AND :query_vector != :zero_vec
+                                THEN 1 - (embedding <=> :query_vector::vector)
+                            ELSE 0.0 
+                        END AS signature_sim
+                    """)
                 ).where(
-                    SigmaRuleTable.embedding.is_not(None)
+                    (SigmaRuleTable.logsource_embedding.is_not(None)) |
+                    (SigmaRuleTable.embedding.is_not(None))
                 ).order_by(
-                    text("embedding <=> :query_vector")
+                    text("signature_sim DESC")
                 ).limit(top_k)
                 
                 # Execute query with vector binding
                 result = await session.execute(
-                    stmt.params(query_vector=embedding_str)
+                    stmt.params(query_vector=embedding_str, zero_vec=zero_vector)
                 )
                 
                 rules = []
                 all_results = []
                 for row in result:
-                    similarity = float(row[8])
-                    all_results.append((row[2], similarity))  # title and similarity
-                    if similarity >= threshold:
+                    signature_sim = float(row[8]) if row[8] is not None else 0.0
+                    # For queries, similarity is primarily signature-based (detection logic)
+                    # Apply signature weight directly
+                    weighted_sim = signature_sim * SIMILARITY_WEIGHTS['signature']
+                    all_results.append((row[2], weighted_sim))  # title and similarity
+                    if weighted_sim >= threshold:
                         rules.append({
                             'id': row[0],
                             'rule_id': row[1],
@@ -334,7 +353,7 @@ class RAGService:
                             'level': row[5],
                             'status': row[6],
                             'file_path': row[7],
-                            'similarity': similarity
+                            'similarity': weighted_sim
                         })
 
                 if all_results:

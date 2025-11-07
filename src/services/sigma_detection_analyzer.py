@@ -127,7 +127,8 @@ def analyze_detection_fields(detection: Dict[str, Any]) -> Dict[str, Any]:
                             # Extract tokens
                             tokens = extract_tokens(normalized)
                             fields_analysis['tokens'].update(tokens)
-                elif isinstance(field_value, str):
+                elif isinstance(field_value, (str, int, float)):
+                    # Handle strings, integers (like EventID), and floats
                     normalized = normalize_detection_value(field_value)
                     if normalized:
                         fields_analysis['normalized_values'].append(normalized)

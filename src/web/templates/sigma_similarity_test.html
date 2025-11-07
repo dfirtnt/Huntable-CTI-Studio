@@ -247,7 +247,14 @@ tags:
             return;
         }
         
-        data.matches.forEach((match, index) => {
+        // Sort matches by similarity (descending) to ensure highest % on top
+        const sortedMatches = [...data.matches].sort((a, b) => {
+            const simA = a.similarity || 0;
+            const simB = b.similarity || 0;
+            return simB - simA; // Descending order
+        });
+        
+        sortedMatches.forEach((match, index) => {
             const similarityPercent = (match.similarity * 100).toFixed(1);
             const matchDiv = document.createElement('div');
             matchDiv.className = 'border border-gray-200 dark:border-gray-700 rounded-lg p-4 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors';

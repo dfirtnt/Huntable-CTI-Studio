@@ -10,49 +10,13 @@ from sqlalchemy import text
 
 from src.database.manager import DatabaseManager
 from src.services.lmstudio_embedding_client import LMStudioEmbeddingClient
+from src.services.sigma_sync_service import SigmaSyncService
 from src.database.models import SigmaRuleTable
-
-
-def create_rule_embedding_text(rule_data: Dict[str, Any]) -> str:
-    """
-    Create enriched text for embedding from a rule.
-    Uses the same format as SigmaSyncService.create_rule_embedding_text
-    """
-    parts = []
-    
-    # Title (10% weight)
-    if rule_data.get('title'):
-        parts.append(f"Title: {rule_data['title']}")
-    
-    # Description (10% weight)
-    if rule_data.get('description'):
-        parts.append(f"Description: {rule_data['description']}")
-    
-    # MITRE ATT&CK tags (10% weight)
-    tags = rule_data.get('tags', [])
-    if tags:
-        attack_tags = [t for t in tags if t.startswith('attack.')]
-        if attack_tags:
-            parts.append(f"MITRE: {', '.join(attack_tags)}")
-    
-    # Logsource (25% weight - repeat 5x)
-    logsource = rule_data.get('logsource', {})
-    if isinstance(logsource, dict) and logsource:
-        logsource_str = json.dumps(logsource, separators=(',', ':'))
-        parts.extend([f"Logsource: {logsource_str}"] * 5)
-    
-    # Detection logic (45% weight - repeat 9x)
-    detection = rule_data.get('detection', {})
-    if isinstance(detection, dict) and detection:
-        detection_str = json.dumps(detection, separators=(',', ':'))
-        parts.extend([f"Detection: {detection_str}"] * 9)
-    
-    return ' '.join(parts)
 
 
 def search_similar_rules(rule_content: Dict[str, Any], top_k: int = 20, threshold: float = 0.5) -> List[Dict[str, Any]]:
     """
-    Search for similar SIGMA rules.
+    Search for similar SIGMA rules using standardized section-based matching.
     
     Args:
         rule_content: Rule data with detection, logsource, etc.
@@ -62,17 +26,35 @@ def search_similar_rules(rule_content: Dict[str, Any], top_k: int = 20, threshol
     Returns:
         List of similar rules with similarity scores
     """
-    # Create embedding text from rule
-    embedding_text = create_rule_embedding_text(rule_content)
-    print(f"Generated embedding text (length: {len(embedding_text)} chars)")
+    # Import weights for consistency
+    from src.services.sigma_matching_service import SIMILARITY_WEIGHTS
     
-    # Generate embedding
+    # Use SigmaSyncService for standardized embedding text generation
+    sync_service = SigmaSyncService()
+    
+    # Generate section embeddings using standardized approach
+    section_texts = sync_service.create_section_embeddings_text(rule_content)
+    section_texts_list = [
+        section_texts['title'],
+        section_texts['description'],
+        section_texts['tags'],
+        section_texts['signature']
+    ]
+    
+    # Generate embeddings
     embedding_client = LMStudioEmbeddingClient()
-    embedding = embedding_client.generate_embedding(embedding_text)
-    embedding_str = '[' + ','.join(map(str, embedding)) + ']'
-    print(f"Generated embedding (dimension: {len(embedding)})")
+    section_embeddings = embedding_client.generate_embeddings_batch(section_texts_list)
     
-    # Query database
+    # Handle cases where batch might return fewer embeddings than expected
+    while len(section_embeddings) < 4:
+        section_embeddings.append([0.0] * 768)  # Zero vector for missing sections
+    
+    # Use signature embedding for comparison (detection logic focus)
+    signature_emb = section_embeddings[3]
+    embedding_str = '[' + ','.join(map(str, signature_emb)) + ']'
+    print(f"Generated signature embedding (dimension: {len(signature_emb)})")
+    
+    # Query database using section embeddings
     db_manager = DatabaseManager()
     session = db_manager.get_session()
     
@@ -80,6 +62,7 @@ def search_similar_rules(rule_content: Dict[str, Any], top_k: int = 20, threshol
         # Use raw connection like sigma_matching_service does
         connection = session.connection()
         cursor = connection.connection.cursor()
+        zero_vector = '[' + ','.join(['0.0'] * 768) + ']'
         
         query_text = """
             SELECT 
@@ -92,15 +75,25 @@ def search_similar_rules(rule_content: Dict[str, Any], top_k: int = 20, threshol
                 sr.status,
                 sr.file_path,
                 sr.detection,
-                1 - (sr.embedding <=> %(embedding)s::vector) AS similarity
+                CASE 
+                    WHEN sr.logsource_embedding IS NOT NULL AND %(embedding)s != %(zero_vec)s
+                        THEN 1 - (sr.logsource_embedding <=> %(embedding)s::vector) 
+                    WHEN sr.embedding IS NOT NULL AND %(embedding)s != %(zero_vec)s
+                        THEN 1 - (sr.embedding <=> %(embedding)s::vector)
+                    ELSE 0.0 
+                END AS signature_sim
             FROM sigma_rules sr
-            WHERE sr.embedding IS NOT NULL
-            ORDER BY similarity DESC
+            WHERE (
+                sr.logsource_embedding IS NOT NULL OR
+                sr.embedding IS NOT NULL
+            )
+            ORDER BY signature_sim DESC
             LIMIT %(limit)s
         """
         
         cursor.execute(query_text, {
             'embedding': embedding_str,
+            'zero_vec': zero_vector,
             'limit': top_k
         })
         
@@ -109,8 +102,10 @@ def search_similar_rules(rule_content: Dict[str, Any], top_k: int = 20, threshol
         
         rules = []
         for row in rows:
-            similarity = float(row[9])
-            if similarity >= threshold:
+            signature_sim = float(row[9]) if row[9] is not None else 0.0
+            # Apply signature weight for consistency with other implementations
+            weighted_sim = signature_sim * SIMILARITY_WEIGHTS['signature']
+            if weighted_sim >= threshold:
                 rules.append({
                     'id': row[0],
                     'rule_id': row[1],
@@ -121,7 +116,7 @@ def search_similar_rules(rule_content: Dict[str, Any], top_k: int = 20, threshol
                     'status': row[6],
                     'file_path': row[7],
                     'detection': row[8],
-                    'similarity': similarity
+                    'similarity': weighted_sim
                 })
         
         return rules
