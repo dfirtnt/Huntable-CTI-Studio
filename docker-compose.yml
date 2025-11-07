@@ -293,12 +293,56 @@ services:
       - tools
     command: ["python", "-m", "src.cli.main"]
 
+  # LangFlow for Visual LangChain/LangGraph Workflow Management
+  langflow:
+    image: langflowai/langflow:latest
+    container_name: cti_langflow
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    environment:
+      - LANGFLOW_PORT=${LANGFLOW_PORT:-7860}
+      - LANGFLOW_HOST=${LANGFLOW_HOST:-0.0.0.0}
+      - LANGFLOW_DATABASE_URL=sqlite:///data/langflow.db
+      - LANGGRAPH_SERVER_URL=http://langgraph-server:2024
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - CHATGPT_API_KEY=${CHATGPT_API_KEY}
+      - LMSTUDIO_API_URL=${LMSTUDIO_API_URL:-http://host.docker.internal:1234/v1}
+      - LMSTUDIO_MODEL=${LMSTUDIO_MODEL:-deepseek/deepseek-r1-0528-qwen3-8b}
+      - LMSTUDIO_API_KEY=dummy
+      - LMSTUDIO_EMBEDDING_URL=${LMSTUDIO_EMBEDDING_URL:-http://host.docker.internal:1234/v1/embeddings}
+      - LMSTUDIO_EMBEDDING_MODEL=${LMSTUDIO_EMBEDDING_MODEL:-text-embedding-e5-base-v2}
+      - LANGSMITH_API_KEY=${LANGSMITH_API_KEY}
+      - TZ=America/New_York
+    ports:
+      - "${LANGFLOW_PORT:-7860}:7860"
+    volumes:
+      - langflow_data:/data
+      - ./langgraph.json:/app/langgraph.json:ro
+      - ./langflow_components:/app/langflow_components:ro
+      - ./src:/app/src:ro
+      - ./config:/app/config:ro
+    depends_on:
+      langgraph-server:
+        condition: service_started
+    networks:
+      - cti_network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:7860/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
 volumes:
   postgres_data:
     driver: local
   redis_data:
     driver: local
   ollama_data:
+    driver: local
+  langflow_data:
     driver: local
 
 networks:
