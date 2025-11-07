@@ -36,6 +36,7 @@ scikit-learn==1.7.2
 ollama==0.6.0
 lightgbm==4.6.0
 joblib==1.5.2
+spacy>=3.7.0  # Sentence splitting (sentencizer component only, ~2MB)
 
 # Utilities
 click==8.3.0

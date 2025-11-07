@@ -23,6 +23,7 @@ logger = logging.getLogger(__name__)
 
 # Import perfect discriminators from threat hunting scorer
 from .content import WINDOWS_MALWARE_KEYWORDS
+from .sentence_splitter import find_sentence_boundaries, count_sentences
 
 @dataclass
 class FilterResult:
@@ -199,7 +200,7 @@ class ContentFilter:
             # Text characteristics
             "char_count": len(text),
             "word_count": len(text.split()),
-            "sentence_count": len(re.split(r'[.!?]+', text)),
+            "sentence_count": count_sentences(text),
             "avg_word_length": np.mean([len(word) for word in text.split()]) if text.split() else 0,
             
             # Technical content indicators
@@ -283,10 +284,10 @@ class ContentFilter:
             
             # Try to break at sentence boundaries
             if end < len(content):
-                # Look for sentence endings within the last 100 chars
-                sentence_end = content.rfind('.', max(start, end - 100), end)
-                if sentence_end > start:
-                    end = sentence_end + 1
+                # Use SpaCy to find sentence boundary within chunk window
+                sentence_end = find_sentence_boundaries(content, start, end)
+                if sentence_end is not None:
+                    end = sentence_end
             
             chunk_text = content[start:end].strip()
             if chunk_text:
