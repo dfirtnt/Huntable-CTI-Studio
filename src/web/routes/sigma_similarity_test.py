@@ -118,6 +118,9 @@ async def search_similar_rules(request: Request, body: SimilarityTestRequest):
                 threshold=0.0  # Get all matches, sorted by similarity
             )
             
+            # Sort by similarity (descending) to ensure highest % on top
+            similar_matches = sorted(similar_matches, key=lambda x: x.get('similarity', 0.0), reverse=True)
+            
             # Limit to top_k
             similar_matches = similar_matches[:body.top_k]
             

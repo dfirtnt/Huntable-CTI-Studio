@@ -21,6 +21,15 @@ from src.services.lmstudio_embedding_client import LMStudioEmbeddingClient
 
 logger = logging.getLogger(__name__)
 
+# Standardized similarity weights for section-based matching
+# These weights are used consistently across all similarity search implementations
+SIMILARITY_WEIGHTS = {
+    'title': 0.042,           # 4.2% - semantic layer
+    'description': 0.042,    # 4.2% - semantic layer
+    'tags': 0.042,           # 4.2% - classification layer (non-attack tags only)
+    'signature': 0.874       # 87.4% - combines logsource (10.5%) + detection_structure (9.5%) + detection_fields (67.4%)
+}
+
 
 class SigmaMatchingService:
     """Service for matching articles and chunks to Sigma rules using semantic search."""
@@ -49,6 +58,9 @@ class SigmaMatchingService:
         """
         Match an article to Sigma rules using article-level embedding.
         
+        Uses standardized section-based matching: compares article embedding against
+        rule's signature embedding (87.4% weight) since articles focus on detection logic.
+        
         Args:
             article_id: Article ID to match
             threshold: Minimum similarity score (0-1, default 0.0 = no filtering)
@@ -72,8 +84,11 @@ class SigmaMatchingService:
             # Convert embedding to string format for pgvector
             embedding_str = '[' + ','.join(map(str, article.embedding)) + ']'
             
-            # Query for similar Sigma rules using raw connection
-            # No threshold filter - return all results sorted by similarity
+            # Query for similar Sigma rules using section embeddings
+            # Compare article embedding against rule's signature embedding (detection logic focus)
+            # Use zero vector for missing embeddings
+            zero_vector = '[' + ','.join(['0.0'] * 768) + ']'
+            
             query_text = """
                 SELECT 
                     sr.id,
@@ -86,10 +101,19 @@ class SigmaMatchingService:
                     sr.level,
                     sr.status,
                     sr.file_path,
-                    1 - (sr.embedding <=> %(embedding)s::vector) AS similarity
+                    CASE 
+                        WHEN sr.logsource_embedding IS NOT NULL AND %(embedding)s != %(zero_vec)s
+                            THEN 1 - (sr.logsource_embedding <=> %(embedding)s::vector) 
+                        WHEN sr.embedding IS NOT NULL AND %(embedding)s != %(zero_vec)s
+                            THEN 1 - (sr.embedding <=> %(embedding)s::vector)
+                        ELSE 0.0 
+                    END AS signature_sim
                 FROM sigma_rules sr
-                WHERE sr.embedding IS NOT NULL
-                ORDER BY similarity DESC
+                WHERE (
+                    sr.logsource_embedding IS NOT NULL OR
+                    sr.embedding IS NOT NULL
+                )
+                ORDER BY signature_sim DESC
                 LIMIT %(limit)s
             """
             
@@ -98,14 +122,26 @@ class SigmaMatchingService:
             cursor = connection.connection.cursor()
             cursor.execute(query_text, {
                 'embedding': embedding_str,
+                'zero_vec': zero_vector,
                 'limit': limit
             })
             rows = cursor.fetchall()
             cursor.close()
             
+            # Calculate weighted similarity (article matches against signature only)
+            # Since articles don't have title/description/tags structure, weight signature at 100%
+            # This is equivalent to signature_sim * 0.874 + 0 (for missing sections)
             import json
             matches = []
             for row in rows:
+                signature_sim = float(row[10]) if row[10] is not None else 0.0
+                # For articles, similarity is primarily signature-based (detection logic)
+                # Apply signature weight directly
+                weighted_sim = signature_sim * SIMILARITY_WEIGHTS['signature']
+                
+                # Skip if below threshold
+                if weighted_sim < threshold:
+                    continue
                 # Handle JSONB fields (logsource, detection) - convert to serializable format
                 def safe_json_convert(value):
                     if value is None:
@@ -140,7 +176,7 @@ class SigmaMatchingService:
                     'level': str(row[7]) if row[7] else '',
                     'status': str(row[8]) if row[8] else '',
                     'file_path': str(row[9]) if row[9] else '',
-                    'similarity_score': float(row[10])
+                    'similarity_score': weighted_sim
                 })
             
             logger.info(f"Found {len(matches)} article-level matches for article {article_id}")
@@ -158,6 +194,9 @@ class SigmaMatchingService:
     ) -> List[Dict[str, Any]]:
         """
         Match article chunks to Sigma rules using chunk-level embeddings.
+        
+        Uses standardized section-based matching: compares chunk embedding against
+        rule's signature embedding (87.4% weight) since chunks focus on detection logic.
         
         Args:
             article_id: Article ID to match
@@ -178,6 +217,7 @@ class SigmaMatchingService:
                 return []
             
             all_matches = []
+            zero_vector = '[' + ','.join(['0.0'] * 768) + ']'
             
             # Generate embeddings for chunks if not already present
             for chunk in chunks:
@@ -186,7 +226,8 @@ class SigmaMatchingService:
                     chunk_embedding = self.embedding_service.generate_embedding(chunk.chunk_text)
                     embedding_str = '[' + ','.join(map(str, chunk_embedding)) + ']'
                     
-                    # Query for similar Sigma rules
+                    # Query for similar Sigma rules using section embeddings
+                    # Compare chunk embedding against rule's signature embedding (detection logic focus)
                     query = sa.text("""
                         SELECT 
                             sr.id,
@@ -199,11 +240,19 @@ class SigmaMatchingService:
                             sr.level,
                             sr.status,
                             sr.file_path,
-                            1 - (sr.embedding <=> :embedding::vector) AS similarity
+                            CASE 
+                                WHEN sr.logsource_embedding IS NOT NULL AND :embedding != :zero_vec
+                                    THEN 1 - (sr.logsource_embedding <=> :embedding::vector) 
+                                WHEN sr.embedding IS NOT NULL AND :embedding != :zero_vec
+                                    THEN 1 - (sr.embedding <=> :embedding::vector)
+                                ELSE 0.0 
+                            END AS signature_sim
                         FROM sigma_rules sr
-                        WHERE sr.embedding IS NOT NULL
-                          AND 1 - (sr.embedding <=> :embedding::vector) >= :threshold
-                        ORDER BY similarity DESC
+                        WHERE (
+                            sr.logsource_embedding IS NOT NULL OR
+                            sr.embedding IS NOT NULL
+                        )
+                        ORDER BY signature_sim DESC
                         LIMIT :limit
                     """)
                     
@@ -211,12 +260,21 @@ class SigmaMatchingService:
                         query,
                         {
                             'embedding': embedding_str,
-                            'threshold': threshold,
+                            'zero_vec': zero_vector,
                             'limit': limit_per_chunk
                         }
                     )
                     
                     for row in result:
+                        signature_sim = float(row[10]) if row[10] is not None else 0.0
+                        # For chunks, similarity is primarily signature-based (detection logic)
+                        # Apply signature weight directly
+                        weighted_sim = signature_sim * SIMILARITY_WEIGHTS['signature']
+                        
+                        # Apply threshold filter
+                        if weighted_sim < threshold:
+                            continue
+                        
                         all_matches.append({
                             'id': row[0],
                             'rule_id': row[1],
@@ -228,7 +286,7 @@ class SigmaMatchingService:
                             'level': row[7],
                             'status': row[8],
                             'file_path': row[9],
-                            'similarity': float(row[10]),
+                            'similarity': weighted_sim,
                             'chunk_id': chunk.id,
                             'chunk_text': chunk.chunk_text[:200] + '...',
                             'chunk_hunt_score': chunk.hunt_score,
@@ -732,7 +790,8 @@ Return JSON array only, no markdown formatting."""
                 return matches
             
             # Query for similar Sigma rules using weighted multi-vector similarity
-            # Weights: title 4.2%, description 4.2%, tags 4.2%, logsource 10.5%, detection_structure 9.5%, detection_fields 67.4%
+            # Uses standardized weights from SIMILARITY_WEIGHTS constant
+            # Signature combines logsource (10.5%), detection_structure (9.5%), and detection_fields (67.4%) = 87.4%
             from sqlalchemy import text
             
             # Use zero vectors for missing embeddings (PostgreSQL handles NULL parameters poorly)
@@ -833,15 +892,12 @@ Return JSON array only, no markdown formatting."""
                 det_struct_sim = float(row[14]) if row[14] is not None else 0.0
                 det_fields_sim = float(row[15]) if row[15] is not None else 0.0
                 
-                # Weighted similarity: title 4.2%, description 4.2%, tags 4.2%, signature 87.4%
+                # Weighted similarity using standardized weights
                 # Signature combines logsource (10.5%), detection_structure (9.5%), and detection_fields (67.4%)
                 # Since all three use the same signature embedding, we use signature_sim for all
                 signature_sim = logsource_sim  # All three are the same (signature embedding)
-                weighted_sim = (
-                    0.042 * title_sim +
-                    0.042 * desc_sim +
-                    0.042 * tags_sim +
-                    0.874 * signature_sim  # Combined signature weight
+                weighted_sim = self._calculate_weighted_similarity(
+                    title_sim, desc_sim, tags_sim, signature_sim
                 )
                 
                 matches_raw.append({
@@ -916,6 +972,32 @@ Return JSON array only, no markdown formatting."""
             import traceback
             logger.error(traceback.format_exc())
             return []
+    
+    def _calculate_weighted_similarity(
+        self,
+        title_sim: float,
+        desc_sim: float,
+        tags_sim: float,
+        signature_sim: float
+    ) -> float:
+        """
+        Calculate weighted similarity score using standardized weights.
+        
+        Args:
+            title_sim: Title similarity (0-1)
+            desc_sim: Description similarity (0-1)
+            tags_sim: Tags similarity (0-1)
+            signature_sim: Signature similarity (0-1) - combines logsource, detection_structure, detection_fields
+            
+        Returns:
+            Weighted similarity score (0-1)
+        """
+        return (
+            SIMILARITY_WEIGHTS['title'] * title_sim +
+            SIMILARITY_WEIGHTS['description'] * desc_sim +
+            SIMILARITY_WEIGHTS['tags'] * tags_sim +
+            SIMILARITY_WEIGHTS['signature'] * signature_sim
+        )
     
     def _apply_semantic_clustering(self, matches: List[Dict[str, Any]], tight_threshold: float = 0.05) -> List[Dict[str, Any]]:
         """

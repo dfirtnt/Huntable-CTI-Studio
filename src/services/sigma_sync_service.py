@@ -210,9 +210,12 @@ class SigmaSyncService:
         Weight distribution (via repetition):
         - Title: 10%
         - Description: 10%
-        - MITRE Tags: 10% (only tags starting with attack.)
+        - Tags: 10% (strips "attack." prefix from MITRE tags, keeps technique identifiers)
         - Detection: 45% (full JSON structure)
         - Logsource: 25% (platform/product info)
+        
+        Note: This method is maintained for backward compatibility (generating main sr.embedding).
+        For new similarity searches, use create_section_embeddings_text() with standardized weights.
         
         Args:
             rule_data: Parsed rule data
@@ -233,12 +236,21 @@ class SigmaSyncService:
             parts.append(f"Description: {rule_data['description']}")
         
         # === CLASSIFICATION LAYER (10% weight) ===
-        # MITRE ATT&CK tags (repeat 1x for 10% weight)
+        # Strip "attack." prefix from MITRE ATT&CK tags but keep technique identifiers
+        # Example: "attack.t1059.001" -> "t1059.001", "attack.execution" -> "execution"
+        # The "attack." prefix is classification metadata; technique IDs are detection-relevant
         tags = rule_data.get('tags', [])
         if tags:
-            attack_tags = [t for t in tags if t.startswith('attack.')]
-            if attack_tags:
-                parts.append(f"MITRE: {', '.join(attack_tags)}")
+            processed_tags = []
+            for tag in tags:
+                if tag.startswith('attack.'):
+                    # Remove "attack." prefix, keep the technique identifier
+                    processed_tags.append(tag[7:])  # len("attack.") = 7
+                else:
+                    # Keep non-attack tags as-is
+                    processed_tags.append(tag)
+            if processed_tags:
+                parts.append(', '.join(processed_tags))
         
         # === PLATFORM LAYER (25% weight) ===
         # Logsource (repeat 5x for 25% weight)
@@ -271,8 +283,18 @@ class SigmaSyncService:
         """Create embedding text for tags section."""
         tags = rule_data.get('tags', [])
         if tags:
-            # Return tags without prefixes
-            return ', '.join(tags)
+            # Strip "attack." prefix from MITRE ATT&CK tags but keep the technique identifiers
+            # Example: "attack.t1059.001" -> "t1059.001", "attack.execution" -> "execution"
+            processed_tags = []
+            for tag in tags:
+                if tag.startswith('attack.'):
+                    # Remove "attack." prefix, keep the technique identifier
+                    processed_tags.append(tag[7:])  # len("attack.") = 7
+                else:
+                    # Keep non-attack tags as-is
+                    processed_tags.append(tag)
+            if processed_tags:
+                return ', '.join(processed_tags)
         return ""
     
     def create_logsource_embedding_text(self, rule_data: Dict) -> str:
@@ -342,13 +364,11 @@ class SigmaSyncService:
         
         parts = []
         
-        # EMPHASIZE VALUES over field names - values are what actually distinguish rules
-        # Values repeated 3x for emphasis (no prefix)
+        # Include detection values (no prefix)
         if fields_analysis['normalized_values']:
             values = fields_analysis['normalized_values'][:30]  # Limit to avoid too long strings
-            # Repeat values 3x to give them much higher weight than field names
             values_str = ', '.join(values[:15])  # Show first 15 unique values
-            parts.extend([values_str] * 3)
+            parts.append(values_str)
         
         # Field names (with modifiers) - mentioned once for context (no prefix)
         if fields_analysis['field_names_with_modifiers']:

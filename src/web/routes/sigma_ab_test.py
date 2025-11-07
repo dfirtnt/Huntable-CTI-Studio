@@ -34,7 +34,6 @@ class RulePairResponse(BaseModel):
     embedding_similarity: float
     similarity_breakdown: Optional[Dict[str, float]]
     llm_rerank: Optional[Dict[str, Any]]
-    semantic_overlap: Optional[Dict[str, Any]]
     models_used: Optional[Dict[str, Optional[str]]] = None
     embedding_texts: Optional[Dict[str, str]] = None
     error: Optional[str] = None
@@ -174,18 +173,12 @@ async def compare_rule_pair(request: Request, body: RulePairRequest):
                 'signature': cosine_similarity(embeddings_a[3], embeddings_b[3]) if len(embeddings_a) > 3 and len(embeddings_b) > 3 else 0.0,
             }
             
-            # Calculate weighted overall similarity
-            # Weights: title 4.2%, description 4.2%, tags 4.2%, signature 87.4% (combines logsource 10.5% + detection_structure 9.5% + detection_fields 67.4%)
-            weights = {
-                'title': 0.042,
-                'description': 0.042,
-                'tags': 0.042,
-                'signature': 0.874
-            }
+            # Calculate weighted overall similarity using standardized weights
+            from src.services.sigma_matching_service import SIMILARITY_WEIGHTS
             
             overall_similarity = sum(
-                similarity_breakdown[section] * weights[section]
-                for section in weights.keys()
+                similarity_breakdown[section] * SIMILARITY_WEIGHTS[section]
+                for section in SIMILARITY_WEIGHTS.keys()
             )
             
             # LLM reranking (optional)
@@ -228,18 +221,18 @@ async def compare_rule_pair(request: Request, body: RulePairRequest):
                 except Exception as e:
                     logger.warning(f"LLM reranking failed: {e}")
             
-            # Semantic overlap analysis
-            from src.web.routes.ai import calculate_semantic_overlap
-            semantic_overlap = calculate_semantic_overlap(rule_a, rule_b)
-            
             # Determine which models were used
             actual_embedding_model = embedding_model or (matching_service.sigma_embedding_client.model if matching_service.sigma_embedding_client else None)
             actual_llm_model = body.llm_model if body.use_llm_rerank else None
             
-            # Include embedding text for debugging
+            # Include embedding text for debugging (all 4 segments)
             embedding_texts = {
                 'title_a': section_texts_a.get('title', ''),
                 'title_b': section_texts_b.get('title', ''),
+                'description_a': section_texts_a.get('description', ''),
+                'description_b': section_texts_b.get('description', ''),
+                'tags_a': section_texts_a.get('tags', ''),
+                'tags_b': section_texts_b.get('tags', ''),
                 'signature_a': section_texts_a.get('signature', ''),
                 'signature_b': section_texts_b.get('signature', '')
             }
@@ -251,7 +244,6 @@ async def compare_rule_pair(request: Request, body: RulePairRequest):
                 embedding_similarity=overall_similarity,
                 similarity_breakdown=similarity_breakdown,
                 llm_rerank=llm_rerank_result,
-                semantic_overlap=semantic_overlap,
                 models_used={
                     'embedding_model': actual_embedding_model,
                     'llm_model': actual_llm_model
