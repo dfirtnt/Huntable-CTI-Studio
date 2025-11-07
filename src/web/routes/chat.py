@@ -10,6 +10,7 @@ from datetime import datetime
 from fastapi import APIRouter, HTTPException, Request
 
 from src.web.dependencies import logger
+from src.utils.sentence_splitter import split_sentences
 
 router = APIRouter(tags=["Chat"])
 
@@ -67,9 +68,9 @@ async def api_rag_chat(request: Request):
                         "breach",
                         "compromise",
                     ]
-                    sentences = content.split(".")
+                    sentences = split_sentences(content)
                     relevant_sentences = [
-                        sentence.strip()
+                        sentence
                         for sentence in sentences
                         if any(term in sentence.lower() for term in threat_terms)
                     ]

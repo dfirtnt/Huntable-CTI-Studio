@@ -9,6 +9,7 @@ from bs4 import BeautifulSoup, Tag
 # Temporarily disabled due to Python 3 compatibility issues
 # from readability import Document
 import logging
+from .sentence_splitter import split_sentences
 
 logger = logging.getLogger(__name__)
 
@@ -176,11 +177,10 @@ class ContentCleaner:
         text = ContentCleaner.normalize_whitespace(text)
         
         # Find first complete sentence that doesn't exceed max_length
-        sentences = re.split(r'[.!?]+', text)
+        sentences = split_sentences(text)
         summary = ""
         
         for sentence in sentences:
-            sentence = sentence.strip()
             if not sentence:
                 continue
             
