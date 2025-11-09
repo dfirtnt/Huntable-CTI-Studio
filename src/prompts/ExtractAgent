@@ -26,10 +26,7 @@
   },
   "platform_coverage": {
     "valid_sources": [
-      "Windows: Sysmon, Security Logs",
-      "Linux: auditd, Syslog",
-      "macOS: EndpointSecurity, Unified Logs",
-      "Cloud: AWS CloudTrail, Azure Activity Logs, GCP Audit Logs"
+      "Windows: Sysmon, Security Event Logs"
     ]
   },
   "instructions": "Read the threat report. Extract **only** telemetry-relevant attacker behaviors and observables that can be captured by EDR/logs. All observables must be unique. Remove any duplicates. Use exact strings or <placeholder> where appropriate. Output must be a **valid JSON object only** (no markdown, no explanations)."

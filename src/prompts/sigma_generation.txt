@@ -15,7 +15,7 @@ Generate a Sigma detection rule based on this threat intelligence:
 **Rule Guidelines:**
 - Avoid rules for single IP addresses or file hashes
 - Focus on command-line patterns, process creation, and system modifications
-- Use appropriate log sources (Windows Event Logs, Sysmon, Linux auditd, etc.)
+- Use appropriate Windows log sources (Windows Event Logs, Sysmon)
 - Include proper categorization and references
 - Make rules specific enough to avoid false positives
 
@@ -49,7 +49,7 @@ tags:
   - cve.####-#####
 logsource:
   category: <process_creation|network_connection|...>
-  product: <windows|linux|macos>
+  product: windows
 detection:
   selection:
     <FieldName>: <Value or List>
