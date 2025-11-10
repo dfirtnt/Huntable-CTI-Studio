@@ -28,7 +28,7 @@ class WorkflowConfigResponse(BaseModel):
     is_active: bool
     description: Optional[str]
     agent_prompts: Optional[Dict[str, Any]] = None
-    agent_models: Optional[Dict[str, str]] = None
+    agent_models: Optional[Dict[str, Any]] = None  # Changed from Dict[str, str] to allow None values
     created_at: str
     updated_at: str
 
@@ -86,6 +86,11 @@ async def get_workflow_config(request: Request):
                 db_session.commit()
                 db_session.refresh(config)
             
+            # Ensure agent_models and agent_prompts are properly serialized
+            # JSONB fields should already be dicts, but ensure they're not None
+            agent_models = config.agent_models if config.agent_models is not None else {}
+            agent_prompts = config.agent_prompts if config.agent_prompts is not None else {}
+            
             return WorkflowConfigResponse(
                 id=config.id,
                 min_hunt_score=config.min_hunt_score,
@@ -95,8 +100,8 @@ async def get_workflow_config(request: Request):
                 version=config.version,
                 is_active=config.is_active,
                 description=config.description,
-                agent_prompts=config.agent_prompts,
-                agent_models=config.agent_models,
+                agent_prompts=agent_prompts,
+                agent_models=agent_models,
                 created_at=config.created_at.isoformat(),
                 updated_at=config.updated_at.isoformat()
             )
@@ -205,7 +210,7 @@ async def get_agent_prompts(request: Request):
             sigma_model_env = os.getenv("LMSTUDIO_MODEL_SIGMA", "").strip()
             
             # Use config models if available, otherwise fall back to env vars
-            agent_models = config.agent_models or {}
+            agent_models = config.agent_models if config.agent_models is not None else {}
             rank_model = agent_models.get("RankAgent") or rank_model_env or "[Not configured - requires LMSTUDIO_MODEL_RANK]"
             extract_model = agent_models.get("ExtractAgent") or extract_model_env or default_model
             sigma_model = agent_models.get("SigmaAgent") or sigma_model_env or default_model

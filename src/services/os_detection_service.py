@@ -235,10 +235,10 @@ class OSDetectionService:
             "confidence": "high" if max_similarity > 0.7 else "medium" if max_similarity > 0.6 else "low"
         }
     
-    async def _detect_with_mistral_fallback(self, content: str) -> Optional[Dict[str, Any]]:
-        """Detect OS using Mistral-7B-Instruct-v0.3 via LMStudio (fallback)."""
+    async def _detect_with_llm_fallback(self, content: str, fallback_model: Optional[str] = None) -> Optional[Dict[str, Any]]:
+        """Detect OS using LLM via LMStudio (fallback)."""
         lmstudio_url = os.getenv("LMSTUDIO_API_URL", "http://localhost:1234/v1")
-        model_name = "mistralai/mistral-7b-instruct-v0.3"
+        model_name = fallback_model or "mistralai/mistral-7b-instruct-v0.3"
         
         prompt = f"""Determine which operating system the described behaviors target (Windows, Linux, MacOS, or multiple). Output one label only.
 
@@ -272,7 +272,7 @@ Output only the OS label: Windows, Linux, MacOS, or multiple"""
                 )
                 
                 if response.status_code != 200:
-                    logger.warning(f"Mistral fallback failed: {response.status_code}")
+                    logger.warning(f"LLM fallback failed: {response.status_code}")
                     return None
                 
                 result = response.json()
@@ -296,18 +296,19 @@ Output only the OS label: Windows, Linux, MacOS, or multiple"""
                 
                 return {
                     "operating_system": os_label,
-                    "method": "mistral_fallback",
+                    "method": f"llm_fallback_{model_name}",
                     "raw_response": response_text[:200]
                 }
         except Exception as e:
-            logger.warning(f"Mistral fallback failed: {e}")
+            logger.warning(f"LLM fallback failed: {e}")
             return None
     
     async def detect_os(
         self,
         content: str,
         use_classifier: bool = True,
-        use_fallback: bool = True
+        use_fallback: bool = True,
+        fallback_model: Optional[str] = None
     ) -> Dict[str, Any]:
         """
         Detect OS from content.
@@ -315,7 +316,8 @@ Output only the OS label: Windows, Linux, MacOS, or multiple"""
         Args:
             content: Article content
             use_classifier: Try to use trained classifier first
-            use_fallback: Fall back to Mistral-7B if classifier/similarity fails
+            use_fallback: Fall back to LLM if classifier/similarity fails
+            fallback_model: Optional LLM model name for fallback (defaults to mistralai/mistral-7b-instruct-v0.3)
         
         Returns:
             Dict with operating_system, method, and confidence
@@ -329,11 +331,11 @@ Output only the OS label: Windows, Linux, MacOS, or multiple"""
         # Fall back to similarity-based detection
         result = self._detect_with_similarity(content)
         
-        # If similarity confidence is low and fallback is enabled, try Mistral
+        # If similarity confidence is low and fallback is enabled, try LLM fallback
         if use_fallback and result.get("confidence") == "low":
-            mistral_result = await self._detect_with_mistral_fallback(content)
-            if mistral_result:
-                return mistral_result
+            llm_result = await self._detect_with_llm_fallback(content, fallback_model=fallback_model)
+            if llm_result:
+                return llm_result
         
         return result
     

@@ -240,7 +240,7 @@
         <!-- Workflow Overview -->
         <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
             <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">📊 Workflow Overview</h2>
-            <div class="grid grid-cols-1 md:grid-cols-6 gap-4">
+            <div class="grid grid-cols-1 md:grid-cols-7 gap-4">
                 <div class="text-center p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
                     <div class="text-2xl font-bold text-blue-600 dark:text-blue-400">0</div>
                     <div class="text-xs text-gray-600 dark:text-gray-300 mt-1">Junk Filter</div>
@@ -248,6 +248,10 @@
                 <div class="text-center p-4 bg-green-50 dark:bg-green-900/20 rounded-lg">
                     <div class="text-2xl font-bold text-green-600 dark:text-green-400">1</div>
                     <div class="text-xs text-gray-600 dark:text-gray-300 mt-1">LLM Ranking</div>
+                </div>
+                <div class="text-center p-4 bg-cyan-50 dark:bg-cyan-900/20 rounded-lg">
+                    <div class="text-2xl font-bold text-cyan-600 dark:text-cyan-400">1.5</div>
+                    <div class="text-xs text-gray-600 dark:text-gray-300 mt-1">OS Detection</div>
                 </div>
                 <div class="text-center p-4 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg">
                     <div class="text-2xl font-bold text-yellow-600 dark:text-yellow-400">2</div>
@@ -626,7 +630,17 @@ async function loadConfig() {
             
             // Load agent models from config
             agentModels = currentConfig.agent_models || {};
-            renderAgentModels();
+            try {
+                renderAgentModels();
+            } catch (error) {
+                console.error('Error rendering agent models:', error);
+                const container = document.getElementById('agentModelsContainer');
+                if (container) {
+                    container.innerHTML = `<div class="bg-red-50 dark:bg-red-900/20 rounded-lg p-4 border border-red-200 dark:border-red-700">
+                        <p class="text-sm text-red-800 dark:text-red-300">Error rendering agent models: ${error.message}</p>
+                    </div>`;
+                }
+            }
             
             document.getElementById('configDisplay').innerHTML = `
                 <div class="grid grid-cols-4 gap-4">
@@ -649,17 +663,72 @@ async function loadConfig() {
 
 function renderAgentModels() {
     const container = document.getElementById('agentModelsContainer');
+    if (!container) {
+        console.error('agentModelsContainer not found');
+        return;
+    }
     
-    const agents = ['RankAgent', 'ExtractAgent', 'SigmaAgent'];
+    const agents = ['RankAgent', 'OSDetectionAgent', 'ExtractAgent', 'SigmaAgent'];
     const agentLabels = {
         'RankAgent': 'Rank Agent',
+        'OSDetectionAgent': 'OS Detection Agent',
         'ExtractAgent': 'Extract Agent',
         'SigmaAgent': 'Sigma Agent'
     };
     
     container.innerHTML = agents.map(agentName => {
-        const currentModel = agentModels[agentName] || '';
         const agentId = agentName.toLowerCase().replace(/\s+/g, '-');
+        
+        // Special handling for OSDetectionAgent
+        if (agentName === 'OSDetectionAgent') {
+            const currentEmbeddingModel = (agentModels && agentModels['OSDetectionAgent_embedding']) || 'ibm-research/CTI-BERT';
+            const currentFallbackModel = (agentModels && agentModels['OSDetectionAgent_fallback']) || '';
+            
+            return `
+                <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+                    <div class="flex items-center justify-between mb-3">
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                            ${agentLabels[agentName] || agentName}
+                        </label>
+                    </div>
+                    
+                    <!-- Embedding Model Selection -->
+                    <div class="mb-3">
+                        <label for="${agentId}-embedding-model" class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                            Embedding Model
+                        </label>
+                        <select id="${agentId}-embedding-model" 
+                                name="agent_models[OSDetectionAgent_embedding]"
+                                class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-sm">
+                            <option value="ibm-research/CTI-BERT" ${currentEmbeddingModel === 'ibm-research/CTI-BERT' ? 'selected' : ''}>CTI-BERT</option>
+                            <option value="ehsanaghaei/SEC-BERT" ${currentEmbeddingModel === 'ehsanaghaei/SEC-BERT' ? 'selected' : ''}>SEC-BERT</option>
+                        </select>
+                        <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                            Pre-trained embedding model for OS detection
+                        </p>
+                    </div>
+                    
+                    <!-- Fallback LLM Model Selection -->
+                    <div>
+                        <label for="${agentId}-fallback-model" class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                            Fallback LLM Model
+                        </label>
+                        <select id="${agentId}-fallback-model" 
+                                name="agent_models[OSDetectionAgent_fallback]"
+                                class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-sm">
+                            <option value="">-- Select model --</option>
+                            <!-- Options will be populated by loadLMStudioModels() -->
+                        </select>
+                        <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                            Optional - LLM fallback when embedding confidence is low (defaults to mistralai/mistral-7b-instruct-v0.3)
+                        </p>
+                    </div>
+                </div>
+            `;
+        }
+        
+        // Regular agents (RankAgent, ExtractAgent, SigmaAgent)
+        const currentModel = (agentModels && agentModels[agentName]) || '';
         
         return `
             <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
@@ -691,10 +760,40 @@ async function loadLMStudioModels() {
         const data = await response.json();
         
         if (data.success && data.models && data.models.length > 0) {
-            const agents = ['RankAgent', 'ExtractAgent', 'SigmaAgent'];
+            const agents = ['RankAgent', 'OSDetectionAgent', 'ExtractAgent', 'SigmaAgent'];
             
             agents.forEach(agentName => {
                 const agentId = agentName.toLowerCase().replace(/\s+/g, '-');
+                
+                // Handle OSDetectionAgent fallback model separately
+                if (agentName === 'OSDetectionAgent') {
+                    const fallbackSelect = document.getElementById(`${agentId}-fallback-model`);
+                    if (fallbackSelect) {
+                        const currentFallbackModel = agentModels['OSDetectionAgent_fallback'] || '';
+                        fallbackSelect.innerHTML = '<option value="">-- Select model --</option>';
+                        
+                        data.models.forEach(model => {
+                            const option = document.createElement('option');
+                            option.value = model;
+                            option.textContent = model;
+                            if (model === currentFallbackModel) {
+                                option.selected = true;
+                            }
+                            fallbackSelect.appendChild(option);
+                        });
+                        
+                        if (currentFallbackModel && !data.models.includes(currentFallbackModel)) {
+                            const option = document.createElement('option');
+                            option.value = currentFallbackModel;
+                            option.textContent = `${currentFallbackModel} (not available)`;
+                            option.selected = true;
+                            option.style.color = 'orange';
+                            fallbackSelect.appendChild(option);
+                        }
+                    }
+                    return; // Skip regular model select for OSDetectionAgent
+                }
+                
                 const select = document.getElementById(`${agentId}-model`);
                 if (!select) return;
                 
@@ -1063,6 +1162,8 @@ document.getElementById('workflowConfigForm').addEventListener('submit', async (
         description: document.getElementById('description').value,
         agent_models: {
             RankAgent: document.getElementById('rankagent-model').value.trim() || null,
+            OSDetectionAgent_embedding: document.getElementById('osdetectionagent-embedding-model').value.trim() || 'ibm-research/CTI-BERT',
+            OSDetectionAgent_fallback: document.getElementById('osdetectionagent-fallback-model').value.trim() || null,
             ExtractAgent: document.getElementById('extractagent-model').value.trim() || null,
             SigmaAgent: document.getElementById('sigmaagent-model').value.trim() || null
         }
@@ -1349,6 +1450,97 @@ async function viewExecution(executionId) {
                         <div><strong>Decision:</strong> ${exec.ranking_score >= (exec.config_snapshot?.ranking_threshold ?? 6.0) ? '✅ Continue' : '❌ Stop'}</div>
                     </div>${exec.termination_reason === 'rank_below_threshold' ? '<div class="mt-2 text-yellow-600 dark:text-yellow-400">⚠️ Workflow ended after ranking because the huntability score was below the threshold.</div>' : ''}`,
                     details: rankingDetails
+                });
+            }
+            
+            // Step 1.5: OS Detection
+            // Check for OS detection data in error_log.os_detection_result, termination_details, or error_log.os_detection
+            const osDetectionResult = exec.error_log?.os_detection_result;
+            const osDetectionData = osDetectionResult || exec.termination_details || {};
+            const osDetectionError = exec.error_log?.os_detection;
+            const detectedOS = osDetectionData.detected_os || (osDetectionError ? null : undefined);
+            
+            // Determine if ranking passed (workflow would have continued to OS detection)
+            const rankingThreshold = exec.config_snapshot?.ranking_threshold ?? 6.0;
+            const rankingPassed = exec.ranking_score !== null && exec.ranking_score >= rankingThreshold;
+            
+            // Show OS Detection step if:
+            // 1. OS detection result exists in error_log
+            // 2. OS was detected (in termination_details when workflow stopped)
+            // 3. There was an OS detection error
+            // 4. Ranking passed (OS detection runs after ranking, so if ranking passed, OS detection should have run)
+            if (osDetectionResult || detectedOS !== undefined || osDetectionError || rankingPassed) {
+                const osMethod = osDetectionData.detection_method || 'Unknown';
+                const osConfidence = osDetectionData.confidence || 'Unknown';
+                const osSimilarities = osDetectionData.similarities || {};
+                const osMaxSimilarity = osDetectionData.max_similarity;
+                const isWindows = detectedOS === 'Windows';
+                const workflowContinued = exec.extraction_result !== null && exec.extraction_result !== undefined;
+                
+                // Build similarities display
+                let similaritiesHtml = '';
+                if (Object.keys(osSimilarities).length > 0) {
+                    const similaritiesList = Object.entries(osSimilarities)
+                        .map(([os, sim]) => `<div>• ${os}: ${(sim * 100).toFixed(1)}%</div>`)
+                        .join('');
+                    similaritiesHtml = `<details class="mt-2 w-full">
+                        <summary class="cursor-pointer text-xs text-gray-700 dark:text-white hover:text-gray-900 dark:hover:text-gray-100">View OS Similarity Scores</summary>
+                        <div class="mt-2 w-full bg-gray-50 dark:bg-gray-900 rounded p-2 border text-xs text-gray-900 dark:text-white">
+                            ${similaritiesList}
+                        </div>
+                    </details>`;
+                }
+                
+                // Get embedding model from config
+                const embeddingModel = exec.config_snapshot?.agent_models?.['OSDetectionAgent_embedding'] || 
+                                      activeConfig?.agent_models?.['OSDetectionAgent_embedding'] || 
+                                      'ibm-research/CTI-BERT';
+                const fallbackModel = exec.config_snapshot?.agent_models?.['OSDetectionAgent_fallback'] || 
+                                     activeConfig?.agent_models?.['OSDetectionAgent_fallback'] || 
+                                     'mistralai/mistral-7b-instruct-v0.3';
+                
+                const osInputContentLength = exec.junk_filter_result?.filtered_length || exec.article_content?.length || 0;
+                const osInputDetails = exec.article_content ? `<details class="mt-2 w-full">
+                    <summary class="cursor-pointer text-xs text-gray-700 dark:text-white hover:text-gray-900 dark:hover:text-gray-100">View Content Sent to OS Detection (${osInputContentLength} chars)</summary>
+                    <div class="mt-2 w-full max-h-96 overflow-y-auto bg-gray-50 dark:bg-gray-900 rounded p-2 border text-xs font-mono text-gray-900 dark:text-white whitespace-pre-wrap break-words">
+                        ${exec.article_content.replace(/</g, '&lt;').replace(/>/g, '&gt;')}
+                    </div>
+                </details>` : '';
+                
+                let osOutput = '';
+                if (osDetectionError) {
+                    osOutput = `<div class="space-y-1 text-red-700 dark:text-red-400">
+                        <div><strong>Error:</strong> ${osDetectionError}</div>
+                    </div>`;
+                } else if (detectedOS !== undefined) {
+                    osOutput = `<div class="space-y-1 text-gray-700 dark:text-gray-300">
+                        <div><strong>Detected OS:</strong> ${detectedOS}</div>
+                        <div><strong>Method:</strong> ${osMethod}</div>
+                        <div><strong>Confidence:</strong> ${osConfidence}</div>
+                        ${osMaxSimilarity !== undefined ? `<div><strong>Max Similarity:</strong> ${(osMaxSimilarity * 100).toFixed(1)}%</div>` : ''}
+                        <div><strong>Decision:</strong> ${isWindows ? '✅ Continue (Windows detected)' : '❌ Stop (Non-Windows OS)'}</div>
+                        ${!isWindows ? '<div class="mt-2 text-yellow-600 dark:text-yellow-400">⚠️ Workflow ended because non-Windows OS was detected.</div>' : ''}
+                    </div>`;
+                } else if (rankingPassed && !osDetectionResult) {
+                    // Ranking passed but no OS detection data stored
+                    // This could be a legacy execution or OS detection failed silently
+                    osOutput = `<div class="space-y-1 text-gray-700 dark:text-gray-300">
+                        <div><strong>Detected OS:</strong> ${workflowContinued ? 'Windows (inferred - workflow continued)' : 'Unknown (no data stored)'}</div>
+                        <div><strong>Decision:</strong> ${workflowContinued ? '✅ Continue' : '❓ Unknown'}</div>
+                        <div class="mt-2 text-xs text-gray-500 dark:text-gray-400">Note: OS detection data not stored for this execution. ${workflowContinued ? 'Workflow continued, so Windows was likely detected.' : 'Check logs for OS detection errors.'}</div>
+                    </div>`;
+                }
+                
+                steps.push({
+                    name: 'Step 1.5: OS Detection',
+                    input: `<div class="space-y-1">
+                        <div>• Filtered article content (${osInputContentLength} chars)</div>
+                        <div>• Embedding Model: <span class="font-mono text-xs">${embeddingModel}</span></div>
+                        ${fallbackModel ? `<div>• Fallback LLM Model: <span class="font-mono text-xs">${fallbackModel}</span></div>` : ''}
+                    </div>`,
+                    inputDetails: osInputDetails,
+                    output: osOutput,
+                    details: similaritiesHtml
                 });
             }
             
