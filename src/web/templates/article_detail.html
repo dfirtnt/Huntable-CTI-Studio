@@ -5105,6 +5105,28 @@ Please provide a detailed analysis based on the article content and the user's s
         
         const articleId = {{ article.id }};
         
+        // Fetch workflow config to get actual model names
+        let embeddingModel = 'ibm-research/CTI-BERT';
+        let fallbackModel = 'mistralai/mistral-7b-instruct-v0.3';
+        try {
+            const configResponse = await fetch('/api/workflow/config');
+            if (configResponse.ok) {
+                const config = await configResponse.json();
+                if (config.agent_models) {
+                    embeddingModel = config.agent_models['OSDetectionAgent_embedding'] || embeddingModel;
+                    fallbackModel = config.agent_models['OSDetectionAgent_fallback'] || fallbackModel;
+                }
+            }
+        } catch (e) {
+            console.warn('Could not fetch workflow config for model names:', e);
+        }
+        
+        // Format model names for display
+        const embeddingModelDisplay = embeddingModel.includes('CTI-BERT') ? 'CTI-BERT' : 
+                                     embeddingModel.includes('SEC-BERT') ? 'SEC-BERT' : 
+                                     embeddingModel.split('/').pop();
+        const fallbackModelDisplay = fallbackModel.split('/').pop() || 'Mistral-7B-Instruct-v0.3';
+        
         // Show loading indicator
         const loadingModal = document.createElement('div');
         loadingModal.id = 'osDetectionLoadingModal';
@@ -5117,7 +5139,8 @@ Please provide a detailed analysis based on the article content and the user's s
                         <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-cyan-600"></div>
                         <span class="ml-3 text-gray-600">Analyzing article content...</span>
                     </div>
-                    <p class="text-xs text-gray-500 mt-4">Using CTI-BERT embeddings + classifier (Mistral-7B fallback)</p>
+                    <p class="text-xs text-gray-500 mt-4">Using ${embeddingModelDisplay} embeddings + classifier</p>
+                    <p class="text-xs text-gray-400 mt-1">Fallback: ${fallbackModelDisplay}</p>
                 </div>
             </div>
         `;
@@ -5184,7 +5207,15 @@ Please provide a detailed analysis based on the article content and the user's s
                         
                         <div>
                             <div class="text-sm font-medium text-gray-700">Detection Method:</div>
-                            <div class="text-sm text-gray-600 mt-1">${method}</div>
+                            <div class="text-sm text-gray-600 mt-1 font-mono">${method}</div>
+                        </div>
+                        
+                        <div>
+                            <div class="text-sm font-medium text-gray-700">Models Used:</div>
+                            <div class="text-xs text-gray-600 mt-1">
+                                <div>Embedding: <span class="font-mono">${embeddingModelDisplay}</span></div>
+                                ${method.includes('fallback') || method.includes('LLM') ? `<div>LLM Fallback: <span class="font-mono">${fallbackModelDisplay}</span></div>` : ''}
+                            </div>
                         </div>
                         
                         <div>

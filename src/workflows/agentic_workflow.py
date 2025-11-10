@@ -1,9 +1,10 @@
 """
 Agentic Workflow using LangGraph for processing high-hunt-score articles.
 
-This workflow processes articles through 6 steps:
+This workflow processes articles through 7 steps:
 0. Junk Filter
 1. LLM Rank Article
+1.5. OS Detection (Windows only continues)
 2. Extract Agent
 3. Generate SIGMA rules
 4. Similarity Search
@@ -34,6 +35,7 @@ from src.workflows.status_utils import (
     mark_execution_completed,
     TERMINATION_REASON_RANK_THRESHOLD,
     TERMINATION_REASON_NO_SIGMA_RULES,
+    TERMINATION_REASON_NON_WINDOWS_OS,
 )
 
 logger = logging.getLogger(__name__)
@@ -54,6 +56,10 @@ class WorkflowState(TypedDict):
     ranking_score: Optional[float]
     ranking_reasoning: Optional[str]
     should_continue: bool
+    
+    # Step 1.5: OS Detection
+    os_detection_result: Optional[Dict[str, Any]]
+    detected_os: Optional[str]
     
     # Step 2: Extract Agent
     extraction_result: Optional[Dict[str, Any]]
@@ -272,6 +278,123 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                 'error': str(e),
                 'should_continue': False,
                 'current_step': 'rank_article',
+                'status': 'failed',
+                'termination_reason': state.get('termination_reason'),
+                'termination_details': state.get('termination_details')
+            }
+    
+    async def os_detection_node(state: WorkflowState) -> WorkflowState:
+        """Step 1.5: Detect operating system from article content."""
+        try:
+            logger.info(f"[Workflow {state['execution_id']}] Step 1.5: OS Detection")
+            
+            article = state['article']
+            filtered_content = state.get('filtered_content') or article.content if article else ""
+            
+            if not article:
+                raise ValueError("Article not found in state")
+            
+            # Update execution record
+            execution = db_session.query(AgenticWorkflowExecutionTable).filter(
+                AgenticWorkflowExecutionTable.id == state['execution_id']
+            ).first()
+            
+            if execution:
+                execution.current_step = 'os_detection'
+                db_session.commit()
+            
+            # Import OS detection service
+            from src.services.os_detection_service import OSDetectionService
+            
+            # Get OS detection config from workflow config
+            agent_models = state['config'].get('agent_models', {}) if state.get('config') else {}
+            embedding_model = agent_models.get('OSDetectionAgent_embedding', 'ibm-research/CTI-BERT')
+            fallback_model = agent_models.get('OSDetectionAgent_fallback')
+            
+            # Initialize service with configured embedding model
+            service = OSDetectionService(model_name=embedding_model)
+            
+            # Detect OS with configured fallback model
+            os_result = await service.detect_os(
+                content=filtered_content,
+                use_classifier=True,
+                use_fallback=True,
+                fallback_model=fallback_model
+            )
+            
+            detected_os = os_result.get('operating_system', 'Unknown')
+            is_windows = detected_os == 'Windows'
+            
+            termination_reason = state.get('termination_reason')
+            termination_details = state.get('termination_details')
+            
+            # Update execution record
+            if execution:
+                execution.current_step = 'os_detection'
+                
+                # Store OS detection result in error_log for retrieval
+                # (We'll add a dedicated os_detection_result column later via migration)
+                if execution.error_log is None:
+                    execution.error_log = {}
+                execution.error_log['os_detection_result'] = {
+                    'detected_os': detected_os,
+                    'detection_method': os_result.get('method'),
+                    'confidence': os_result.get('confidence'),
+                    'similarities': os_result.get('similarities'),
+                    'max_similarity': os_result.get('max_similarity'),
+                    'probabilities': os_result.get('probabilities')
+                }
+                
+                if is_windows:
+                    execution.status = 'running'
+                    db_session.commit()
+                else:
+                    termination_details = {
+                        'detected_os': detected_os,
+                        'detection_method': os_result.get('method'),
+                        'confidence': os_result.get('confidence'),
+                        'similarities': os_result.get('similarities'),
+                        'max_similarity': os_result.get('max_similarity')
+                    }
+                    mark_execution_completed(
+                        execution,
+                        'os_detection',
+                        db_session=db_session,
+                        reason=TERMINATION_REASON_NON_WINDOWS_OS,
+                        details=termination_details,
+                        commit=False
+                    )
+                    db_session.commit()
+                    termination_reason = TERMINATION_REASON_NON_WINDOWS_OS
+            
+            logger.info(f"[Workflow {state['execution_id']}] OS Detection: {detected_os}, continue: {is_windows}")
+            
+            return {
+                **state,
+                'os_detection_result': os_result,
+                'detected_os': detected_os,
+                'should_continue': is_windows,
+                'current_step': 'os_detection',
+                'status': 'completed' if not is_windows else 'running',
+                'termination_reason': termination_reason,
+                'termination_details': termination_details
+            }
+            
+        except Exception as e:
+            logger.error(f"[Workflow {state['execution_id']}] OS detection error: {e}")
+            execution = db_session.query(AgenticWorkflowExecutionTable).filter(
+                AgenticWorkflowExecutionTable.id == state['execution_id']
+            ).first()
+            if execution:
+                execution.status = 'failed'
+                execution.error_message = str(e)
+                db_session.commit()
+            
+            return {
+                **state,
+                'error': str(e),
+                'should_continue': False,
+                'current_step': 'os_detection',
                 'status': 'failed',
                 'termination_reason': state.get('termination_reason'),
                 'termination_details': state.get('termination_details')
@@ -802,9 +925,16 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                 'termination_details': state.get('termination_details')
             }
     
-    def check_should_continue(state: WorkflowState) -> str:
+    def check_should_continue_after_rank(state: WorkflowState) -> str:
         """Check if workflow should continue after ranking."""
         if state.get('should_continue', False):
+            return "os_detection"
+        else:
+            return "end"
+    
+    def check_should_continue_after_os_detection(state: WorkflowState) -> str:
+        """Check if workflow should continue after OS detection (only if Windows)."""
+        if state.get('should_continue', False) and state.get('detected_os') == 'Windows':
             return "extract_agent"
         else:
             return "end"
@@ -815,6 +945,7 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
     # Add nodes
     workflow.add_node("junk_filter", junk_filter_node)
     workflow.add_node("rank_article", rank_article_node)
+    workflow.add_node("os_detection", os_detection_node)
     workflow.add_node("extract_agent", extract_agent_node)
     workflow.add_node("generate_sigma", generate_sigma_node)
     workflow.add_node("similarity_search", similarity_search_node)
@@ -825,7 +956,15 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
     workflow.add_edge("junk_filter", "rank_article")
     workflow.add_conditional_edges(
         "rank_article",
-        check_should_continue,
+        check_should_continue_after_rank,
+        {
+            "os_detection": "os_detection",
+            "end": END
+        }
+    )
+    workflow.add_conditional_edges(
+        "os_detection",
+        check_should_continue_after_os_detection,
         {
             "extract_agent": "extract_agent",
             "end": END

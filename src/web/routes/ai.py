@@ -1856,15 +1856,30 @@ async def api_detect_os(article_id: int, request: Request):
         
         # Import OS detection service
         from src.services.os_detection_service import OSDetectionService
+        from src.services.workflow_trigger_service import WorkflowTriggerService
+        from src.database.manager import DatabaseManager
         
-        # Initialize service
-        service = OSDetectionService()
+        # Get OS detection config from workflow config
+        db_manager = DatabaseManager()
+        db_session = db_manager.get_session()
+        try:
+            trigger_service = WorkflowTriggerService(db_session)
+            config_obj = trigger_service.get_active_config()
+            agent_models = config_obj.agent_models if config_obj and config_obj.agent_models else {}
+            embedding_model = agent_models.get('OSDetectionAgent_embedding', 'ibm-research/CTI-BERT')
+            fallback_model = agent_models.get('OSDetectionAgent_fallback')
+        finally:
+            db_session.close()
         
-        # Detect OS
+        # Initialize service with configured embedding model
+        service = OSDetectionService(model_name=embedding_model)
+        
+        # Detect OS with configured fallback model
         result = await service.detect_os(
             content=article.content,
             use_classifier=use_classifier,
-            use_fallback=use_fallback
+            use_fallback=use_fallback,
+            fallback_model=fallback_model
         )
         
         # Update article metadata with OS detection result

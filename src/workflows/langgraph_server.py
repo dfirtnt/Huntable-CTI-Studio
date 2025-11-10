@@ -32,6 +32,7 @@ from src.workflows.status_utils import (
     mark_execution_completed,
     TERMINATION_REASON_RANK_THRESHOLD,
     TERMINATION_REASON_NO_SIGMA_RULES,
+    TERMINATION_REASON_NON_WINDOWS_OS,
 )
 
 logger = logging.getLogger(__name__)
@@ -61,6 +62,10 @@ class ExposableWorkflowState(TypedDict, total=False):
     ranking_score: Optional[float]
     ranking_reasoning: Optional[str]
     should_continue: bool
+    
+    # Step 1.5: OS Detection
+    os_detection_result: Optional[Dict[str, Any]]
+    detected_os: Optional[str]
     
     # Step 2: Extract Agent
     extraction_result: Optional[Dict[str, Any]]
@@ -539,6 +544,139 @@ Cannot process empty articles."""
                 'error': str(e),
                 'error_log': {**(state.get('error_log') or {}), 'rank_article': str(e)},
                 'current_step': 'rank_article',
+                'status': 'failed',
+                'termination_reason': state.get('termination_reason'),
+                'termination_details': state.get('termination_details')
+            }
+        finally:
+            db_session.close()
+    
+    async def os_detection_node(state: ExposableWorkflowState) -> ExposableWorkflowState:
+        """Step 1.5: Detect operating system from article content."""
+        db_session = get_db_session()
+        try:
+            logger.info(f"[Workflow {state.get('execution_id')}] Step 1.5: OS Detection")
+            
+            article_id = state['article_id']
+            article = db_session.query(ArticleTable).filter(ArticleTable.id == article_id).first()
+            if not article:
+                raise ValueError(f"Article {article_id} not found")
+            
+            filtered_content = state.get('filtered_content') or article.content
+            
+            # Update execution record
+            execution_id = state.get('execution_id')
+            if execution_id:
+                execution = db_session.query(AgenticWorkflowExecutionTable).filter(
+                    AgenticWorkflowExecutionTable.id == execution_id
+                ).first()
+                if execution:
+                    execution.current_step = 'os_detection'
+                    db_session.commit()
+            
+            # Import OS detection service
+            from src.services.os_detection_service import OSDetectionService
+            
+            # Get OS detection config from workflow config
+            # Try to get from state config first, then from database
+            agent_models = state.get('agent_models', {})
+            if not agent_models:
+                # Fallback to getting from active config
+                trigger_service = WorkflowTriggerService(db_session)
+                config_obj = trigger_service.get_active_config()
+                if config_obj and config_obj.agent_models:
+                    agent_models = config_obj.agent_models
+            
+            embedding_model = agent_models.get('OSDetectionAgent_embedding', 'ibm-research/CTI-BERT') if agent_models else 'ibm-research/CTI-BERT'
+            fallback_model = agent_models.get('OSDetectionAgent_fallback') if agent_models else None
+            
+            # Initialize service with configured embedding model
+            service = OSDetectionService(model_name=embedding_model)
+            
+            # Detect OS with configured fallback model
+            os_result = await service.detect_os(
+                content=filtered_content,
+                use_classifier=True,
+                use_fallback=True,
+                fallback_model=fallback_model
+            )
+            
+            detected_os = os_result.get('operating_system', 'Unknown')
+            is_windows = detected_os == 'Windows'
+            
+            termination_reason = state.get('termination_reason')
+            termination_details = state.get('termination_details')
+            
+            # Update execution record
+            if execution_id and execution:
+                execution.current_step = 'os_detection'
+                
+                # Store OS detection result in error_log for retrieval
+                # (We'll add a dedicated os_detection_result column later via migration)
+                if execution.error_log is None:
+                    execution.error_log = {}
+                execution.error_log['os_detection_result'] = {
+                    'detected_os': detected_os,
+                    'detection_method': os_result.get('method'),
+                    'confidence': os_result.get('confidence'),
+                    'similarities': os_result.get('similarities'),
+                    'max_similarity': os_result.get('max_similarity'),
+                    'probabilities': os_result.get('probabilities')
+                }
+                
+                if is_windows:
+                    execution.status = 'running'
+                    db_session.commit()
+                else:
+                    termination_details = {
+                        'detected_os': detected_os,
+                        'detection_method': os_result.get('method'),
+                        'confidence': os_result.get('confidence'),
+                        'similarities': os_result.get('similarities'),
+                        'max_similarity': os_result.get('max_similarity')
+                    }
+                    mark_execution_completed(
+                        execution,
+                        'os_detection',
+                        db_session=db_session,
+                        reason=TERMINATION_REASON_NON_WINDOWS_OS,
+                        details=termination_details,
+                        commit=False
+                    )
+                    db_session.commit()
+                    termination_reason = TERMINATION_REASON_NON_WINDOWS_OS
+            
+            logger.info(f"[Workflow {execution_id}] OS Detection: {detected_os}, continue: {is_windows}")
+            
+            return {
+                **state,
+                'os_detection_result': os_result,
+                'detected_os': detected_os,
+                'should_continue': is_windows,
+                'current_step': 'os_detection',
+                'status': 'completed' if not is_windows else 'running',
+                'termination_reason': termination_reason,
+                'termination_details': termination_details
+            }
+            
+        except Exception as e:
+            logger.error(f"[Workflow {state.get('execution_id')}] OS detection error: {e}")
+            execution_id = state.get('execution_id')
+            if execution_id:
+                execution = db_session.query(AgenticWorkflowExecutionTable).filter(
+                    AgenticWorkflowExecutionTable.id == execution_id
+                ).first()
+                if execution:
+                    execution.status = 'failed'
+                    execution.error_message = str(e)
+                    db_session.commit()
+            
+            return {
+                **state,
+                'error': str(e),
+                'error_log': {**(state.get('error_log') or {}), 'os_detection': str(e)},
+                'should_continue': False,
+                'current_step': 'os_detection',
                 'status': 'failed',
                 'termination_reason': state.get('termination_reason'),
                 'termination_details': state.get('termination_details')
@@ -1139,9 +1277,16 @@ Check the Workflow > Executions tab for detailed error logs."""
         finally:
             db_session.close()
     
-    def check_should_continue(state: ExposableWorkflowState) -> str:
+    def check_should_continue_after_rank(state: ExposableWorkflowState) -> str:
         """Check if workflow should continue after ranking."""
         if state.get('should_continue', False) and state.get('status') != 'failed':
+            return "os_detection"
+        else:
+            return "end"
+    
+    def check_should_continue_after_os_detection(state: ExposableWorkflowState) -> str:
+        """Check if workflow should continue after OS detection (only if Windows)."""
+        if state.get('should_continue', False) and state.get('detected_os') == 'Windows' and state.get('status') != 'failed':
             return "extract_agent"
         else:
             return "end"
@@ -1153,6 +1298,7 @@ Check the Workflow > Executions tab for detailed error logs."""
     workflow.add_node("parse_input", parse_input_node)
     workflow.add_node("junk_filter", junk_filter_node)
     workflow.add_node("rank_article", rank_article_node)
+    workflow.add_node("os_detection", os_detection_node)
     workflow.add_node("extract_agent", extract_agent_node)
     workflow.add_node("generate_sigma", generate_sigma_node)
     workflow.add_node("similarity_search", similarity_search_node)
@@ -1182,10 +1328,18 @@ Check the Workflow > Executions tab for detailed error logs."""
     workflow.add_edge("junk_filter", "rank_article")
     workflow.add_conditional_edges(
         "rank_article",
-        check_should_continue,
+        check_should_continue_after_rank,
+        {
+            "os_detection": "os_detection",
+            "end": "generate_response"  # Route failed rankings to generate_response for chat-friendly error message
+        }
+    )
+    workflow.add_conditional_edges(
+        "os_detection",
+        check_should_continue_after_os_detection,
         {
             "extract_agent": "extract_agent",
-            "end": "generate_response"  # Route failed rankings to generate_response for chat-friendly error message
+            "end": "generate_response"  # Route non-Windows OS to generate_response for chat-friendly message
         }
     )
     def check_sigma_generation(state: ExposableWorkflowState) -> str:
