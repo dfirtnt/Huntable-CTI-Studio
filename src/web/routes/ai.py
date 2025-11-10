@@ -1840,6 +1840,83 @@ async def api_extract_iocs_ctibert(article_id: int, request: Request):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.post("/{article_id}/detect-os")
+async def api_detect_os(article_id: int, request: Request):
+    """Detect operating system from article content using CTI-BERT + classifier (with Mistral-7B fallback)."""
+    try:
+        # Get the article
+        article = await async_db_manager.get_article(article_id)
+        if not article:
+            raise HTTPException(status_code=404, detail="Article not found")
+        
+        # Get request body
+        body = await request.json()
+        use_classifier = body.get('use_classifier', True)
+        use_fallback = body.get('use_fallback', True)
+        
+        # Import OS detection service
+        from src.services.os_detection_service import OSDetectionService
+        
+        # Initialize service
+        service = OSDetectionService()
+        
+        # Detect OS
+        result = await service.detect_os(
+            content=article.content,
+            use_classifier=use_classifier,
+            use_fallback=use_fallback
+        )
+        
+        # Update article metadata with OS detection result
+        if article.article_metadata:
+            update_data = {
+                'article_metadata': {
+                    **article.article_metadata,
+                    'os_detection': {
+                        'operating_system': result.get('operating_system'),
+                        'method': result.get('method'),
+                        'confidence': result.get('confidence'),
+                        'detected_at': datetime.now().isoformat(),
+                        'similarities': result.get('similarities'),
+                        'max_similarity': result.get('max_similarity'),
+                        'probabilities': result.get('probabilities')
+                    }
+                }
+            }
+        else:
+            update_data = {
+                'article_metadata': {
+                    'os_detection': {
+                        'operating_system': result.get('operating_system'),
+                        'method': result.get('method'),
+                        'confidence': result.get('confidence'),
+                        'detected_at': datetime.now().isoformat(),
+                        'similarities': result.get('similarities'),
+                        'max_similarity': result.get('max_similarity'),
+                        'probabilities': result.get('probabilities')
+                    }
+                }
+            }
+        
+        await async_db_manager.update_article(article_id, update_data)
+        
+        return {
+            "success": True,
+            "operating_system": result.get('operating_system'),
+            "method": result.get('method'),
+            "confidence": result.get('confidence'),
+            "similarities": result.get('similarities'),
+            "max_similarity": result.get('max_similarity'),
+            "probabilities": result.get('probabilities')
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"OS detection error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @router.post("/{article_id}/generate-sigma")
 async def api_generate_sigma(article_id: int, request: Request):
     """Generate SIGMA detection rules from an article using AI."""
