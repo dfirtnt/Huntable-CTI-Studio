@@ -49,17 +49,30 @@ The CTI Scraper uses a microservices architecture with the following components:
 
 ### Additional Services
 
-8. **RAG Generation Service** (`llm_generation_service`)
+8. **LangGraph Server** (`langgraph-server`)
+   - Workflow orchestration server for agentic processing
+   - Exposes agentic workflow via HTTP API (port 2024)
+   - PostgreSQL checkpointing for state persistence
+   - Compatible with LangSmith Studio for debugging
+   - Supports time-travel debugging and state inspection
+
+9. **RAG Generation Service** (`llm_generation_service`)
    - Multi-provider LLM integration (OpenAI, Anthropic, Ollama)
    - Conversational AI with context memory
    - Synthesized response generation instead of raw chunks
    - Auto-fallback between providers
    - Conversation history management
 
-9. **CLI Tool Service** (`cli`) - **NEW**
-   - Containerized command-line interface
-   - Uses same PostgreSQL database as web application
-   - Eliminates data inconsistency between CLI and web operations
+10. **CLI Tool Service** (`cli`)
+    - Containerized command-line interface
+    - Uses same PostgreSQL database as web application
+    - Eliminates data inconsistency between CLI and web operations
+    - Available via Docker profiles (`tools`)
+
+11. **LangFlow** (`langflow`) - Optional
+    - Visual workflow management for LangChain/LangGraph
+    - Interactive UI for workflow design and debugging
+    - Port 7860 (configurable)
 
 
 ## Environment Configurations
@@ -119,12 +132,15 @@ Services communicate using Docker service names:
 - Database: `postgres:5432`
 - Redis: `redis:6379`
 - Web API: `web:8001`
+- LangGraph Server: `langgraph-server:2024`
 - Ollama: `cti_ollama:11434`
 
 ### External Access (Port Mapping)
 
 For development and external access:
 - Web UI: `localhost:8001`
+- LangGraph Server: `localhost:2024` (configurable via LANGGRAPH_PORT)
+- LangFlow UI: `localhost:7860` (optional, configurable via LANGFLOW_PORT)
 - Database: `postgres:5432` (Docker container)
 - Redis: `redis:6379` (Docker container)
 - Ollama: `cti_ollama:11434` (Docker container)

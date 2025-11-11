@@ -137,14 +137,17 @@ In Agent Chat UI:
 
 ## Workflow Steps
 
-The workflow executes these steps:
+The workflow executes these 7 steps:
 
-1. **junk_filter**: Remove non-huntable content
-2. **rank_article**: LLM scores article (1-10)
-3. **extract_agent**: Extract huntable behaviors
-4. **generate_sigma**: Generate SIGMA rules
-5. **similarity_search**: Compare against existing rules
-6. **promote_to_queue**: Queue low-similarity rules
+0. **junk_filter**: Remove non-huntable content using ML-based filtering
+1. **rank_article**: LLM scores article for SIGMA huntability (1-10 scale)
+1.5. **os_detection**: Detect target operating system (Windows/Linux/MacOS/multiple)
+   - Workflow continues only if Windows detected (or multiple including Windows)
+   - Non-Windows articles terminate gracefully
+2. **extract_agent**: Extract telemetry-aware attacker behaviors and observables
+3. **generate_sigma**: Generate SIGMA detection rules from extracted behaviors
+4. **similarity_search**: Compare generated rules against existing SigmaHQ rules
+5. **promote_to_queue**: Queue unique rules (low similarity) for human review
 
 ## Debugging Features
 
