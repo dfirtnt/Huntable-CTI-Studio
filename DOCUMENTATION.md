@@ -43,6 +43,7 @@ Choose your path based on your role:
 ### Feature Documentation
 - **[SIGMA Detection Rules](docs/features/SIGMA_DETECTION_RULES.md)** - AI-powered rule generation, matching & similarity
 - **[Content Filtering](docs/features/CONTENT_FILTERING.md)** - ML-based content optimization for GPT-4o
+- **[OS Detection](docs/features/OS_DETECTION.md)** - Automated operating system detection for threat intelligence articles
 - **[AGENTS.md](AGENTS.md)** - AI assistant guidelines and instructions
 
 ### Development Documentation
@@ -54,6 +55,7 @@ Choose your path based on your role:
 - **[Allure Reports](docs/development/ALLURE_REPORTS.md)** - Test visualization and reporting
 - **[Lightweight Integration](docs/development/LIGHTWEIGHT_INTEGRATION_TESTING.md)** - Fast integration testing
 - **[RAG System](docs/RAG_SYSTEM.md)** - Retrieval-Augmented Generation
+- **[LangGraph Integration](docs/LANGGRAPH_INTEGRATION.md)** - Agentic workflow orchestration and debugging
 
 ### Testing Documentation
 - **[Testing Guide](tests/TESTING.md)** - Comprehensive testing documentation
@@ -95,7 +97,8 @@ Choose your path based on your role:
 
 ### By Component
 - **Web Interface** → [README.md](README.md#web-interface) + [API Endpoints](docs/API_ENDPOINTS.md)
-- **AI Features** → [RAG System](docs/RAG_SYSTEM.md) + [SIGMA Detection Rules](docs/features/SIGMA_DETECTION_RULES.md) + [Content Filtering](docs/features/CONTENT_FILTERING.md)
+- **AI Features** → [RAG System](docs/RAG_SYSTEM.md) + [SIGMA Detection Rules](docs/features/SIGMA_DETECTION_RULES.md) + [Content Filtering](docs/features/CONTENT_FILTERING.md) + [OS Detection](docs/features/OS_DETECTION.md)
+- **Workflow System** → [LangGraph Integration](docs/LANGGRAPH_INTEGRATION.md) + [Agentic Workflow](src/workflows/agentic_workflow.py)
 - **Testing** → [Testing Guide](tests/TESTING.md) + [Advanced Testing](tests/ADVANCED_TESTING.md) + [ML Tests](tests/ML_FEEDBACK_TESTS_README.md)
 - **Database** → [Database Queries](docs/development/DATABASE_QUERY_GUIDE.md) + [Backup & Restore](docs/operations/BACKUP_AND_RESTORE.md)
 - **Docker** → [Docker Architecture](docs/deployment/DOCKER_ARCHITECTURE.md) + [Getting Started](docs/deployment/GETTING_STARTED.md)
@@ -141,3 +144,12 @@ Benefits:
 ---
 
 *Last updated: January 2025*
+
+## Recent Documentation Updates
+
+### January 2025 - MDU Update
+- **OS Detection**: Added comprehensive documentation for OS detection system
+- **Workflow Steps**: Updated to reflect correct 7-step agentic workflow (including OS Detection as Step 1.5)
+- **Docker Services**: Added LangGraph Server and LangFlow to architecture documentation
+- **API Endpoints**: Updated count to 133+ endpoints
+- **Feature Index**: Added OS Detection and Workflow System to component navigation
