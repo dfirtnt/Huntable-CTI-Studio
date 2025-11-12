@@ -8,11 +8,13 @@ Falls back to Mistral-7B-Instruct-v0.3 via LMStudio for lightweight inference.
 import logging
 import os
 import pickle
+import warnings
 from typing import Dict, Any, Optional, List
 from pathlib import Path
 import torch
 import numpy as np
 from transformers import AutoTokenizer, AutoModel
+from transformers import logging as transformers_logging
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics.pairwise import cosine_similarity as sklearn_cosine_similarity
@@ -20,6 +22,9 @@ import httpx
 import asyncio
 
 logger = logging.getLogger(__name__)
+
+# Suppress transformers warnings about uninitialized pooler weights (harmless for embedding extraction)
+transformers_logging.set_verbosity_error()
 
 # OS labels
 OS_LABELS = ["Windows", "Linux", "MacOS", "multiple", "Unknown"]
@@ -90,8 +95,11 @@ class OSDetectionService:
         
         try:
             logger.info(f"Loading CTI-BERT model: {self.model_name}")
-            self.tokenizer = AutoTokenizer.from_pretrained(self.model_name)
-            self.model = AutoModel.from_pretrained(self.model_name)
+            # Suppress warnings about uninitialized pooler weights (not used for embeddings)
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                self.tokenizer = AutoTokenizer.from_pretrained(self.model_name)
+                self.model = AutoModel.from_pretrained(self.model_name)
             self.model.eval()
             
             if self.device >= 0:
@@ -217,11 +225,43 @@ class OSDetectionService:
         max_similarity = max(similarities.values())
         max_os = max(similarities, key=similarities.get)
         
-        # If multiple OSes have high similarity (>0.7), classify as "multiple"
-        high_similarity_oses = [os for os, sim in similarities.items() if sim > 0.7]
+        # Sort similarities to find the gap between top OSes
+        sorted_sims = sorted(similarities.items(), key=lambda x: x[1], reverse=True)
+        top_os, top_sim = sorted_sims[0]
+        second_os, second_sim = sorted_sims[1] if len(sorted_sims) > 1 else (None, 0)
         
-        if len(high_similarity_oses) > 1:
-            detected_os = "multiple"
+        # Decision logic:
+        # 1. If max similarity is very high (>0.8) and significantly higher than second (>0.05 gap), use that OS
+        # 2. If multiple OSes have high similarity (>0.75) and are close to each other (<0.05 gap), classify as "multiple"
+        # 3. If max similarity > 0.6, use that OS
+        # 4. Otherwise, "Unknown"
+        
+        gap_to_second = top_sim - second_sim if second_sim > 0 else top_sim
+        
+        # Decision logic:
+        # 1. If max similarity > 0.8, prefer that OS unless second is very close (<0.02 gap)
+        # 2. If max similarity > 0.75 and gap > 0.02, use that OS
+        # 3. If multiple OSes are very close (<0.02 gap) and all > 0.75, classify as "multiple"
+        # 4. If max similarity > 0.6, use that OS
+        # 5. Otherwise, "Unknown"
+        
+        if max_similarity > 0.8:
+            # High confidence - prefer the top OS unless second is extremely close (<0.5% gap)
+            if gap_to_second < 0.005:
+                # Top OSes are within 0.5% - likely truly multi-platform
+                close_oses = [os for os, sim in similarities.items() if sim > max_similarity - 0.005]
+                detected_os = "multiple" if len(close_oses) > 1 else max_os
+            else:
+                # Clear winner - use the top OS
+                detected_os = max_os
+        elif max_similarity > 0.75:
+            # Medium-high confidence
+            if gap_to_second < 0.02:
+                # Top OSes are very close - check if multiple qualify
+                high_similarity_oses = [os for os, sim in similarities.items() if sim > 0.75]
+                detected_os = "multiple" if len(high_similarity_oses) > 1 else max_os
+            else:
+                detected_os = max_os
         elif max_similarity > 0.6:
             detected_os = max_os
         else:

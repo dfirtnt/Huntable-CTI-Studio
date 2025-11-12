@@ -8,6 +8,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **OS Detection Agent**: Operating system detection for threat intelligence articles
+  - Embedding-based detection using CTI-BERT or SEC-BERT models
+  - Configurable embedding model selection (CTI-BERT, SEC-BERT)
+  - Configurable LLM fallback model for low-confidence cases
+  - Integration into agentic workflow (Step 1.5, after ranking, before extraction)
+  - Workflow continues only if Windows detected; otherwise gracefully terminates
+  - AI/ML Assistant modal with OS detection functionality
+  - Manual testing script: `test_os_detection_manual.py`
 - **SpaCy-Based Sentence Splitting**: Improved sentence boundary detection for content chunking
   - Replaced regex-based sentence splitting with SpaCy's sentencizer component
   - Better handling of abbreviations (Dr., CVE-, IOC, APT, etc.) and technical content
@@ -34,6 +42,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Model selection persists through Settings page configuration
 
 ### Changed
+- **OS Detection Similarity Logic**: Improved decision-making for embedding-based OS detection
+  - High confidence (>0.8): Prefer top OS unless gap to second is < 0.5%
+  - Prevents false "multiple" classifications when one OS is clearly dominant
+  - Updated SEC-BERT model name: `nlpaueb/sec-bert-base` (was incorrect placeholder)
+  - Suppressed harmless transformers warnings about uninitialized pooler weights
 - **SIGMA Title Embeddings**: Removed "Title: " prefix to improve semantic similarity accuracy
 - **SIGMA Section Embeddings**: Combined logsource, detection_structure, and detection_fields into single "Signature" segment
 - **Similarity Calculation**: Updated weights to reflect combined Signature segment

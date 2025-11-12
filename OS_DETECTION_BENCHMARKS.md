@@ -58,7 +58,7 @@ This document records benchmark test results for various language models evaluat
 
 ### Special Models
 - `CTI-BERT` (HuggingFace: ibm-research/CTI-BERT - embedding-based similarity classification)
-- `SEC-BERT` (HuggingFace: e3b/security-bert or similar - embedding-based similarity classification)
+- `SEC-BERT` (HuggingFace: nlpaueb/sec-bert-base - embedding-based similarity classification)
 
 ---
 
@@ -83,6 +83,30 @@ This document records benchmark test results for various language models evaluat
 - **To be populated after manual validation**
 
 ---
+
+## Similarity Detection Logic
+
+The embedding-based detection (CTI-BERT, SEC-BERT) uses cosine similarity between article content and OS-specific indicator embeddings. The decision logic is:
+
+1. **High Confidence (>0.8 similarity)**: Prefer the top OS unless the gap to second place is < 0.5% (0.005)
+   - If gap ≥ 0.5%: Return the top OS (clear winner)
+   - If gap < 0.5%: Check if multiple OSes are within 0.5% of the top score
+     - If multiple OSes are close: Return "multiple"
+     - Otherwise: Return the top OS
+
+2. **Medium-High Confidence (0.75-0.8 similarity)**: 
+   - If gap to second > 2%: Return the top OS
+   - If gap < 2% and multiple OSes > 0.75: Return "multiple"
+   - Otherwise: Return the top OS
+
+3. **Medium Confidence (0.6-0.75 similarity)**: Return the top OS
+
+4. **Low Confidence (<0.6 similarity)**: Return "Unknown"
+
+**Example:**
+- Windows: 84.9%, MacOS: 84.1%, Linux: 83.1%
+- Gap: 0.8% (84.9% - 84.1%)
+- Since gap (0.8%) > 0.5% threshold: Returns "Windows"
 
 ## Decision Rules
 
@@ -117,6 +141,22 @@ The OS detection agent uses the following indicators:
 
 ---
 
+## Implementation Details
+
+### Embedding Models
+- **CTI-BERT**: `ibm-research/CTI-BERT` - Domain-specific BERT model for cybersecurity threat intelligence
+- **SEC-BERT**: `nlpaueb/sec-bert-base` - Security-focused BERT model for financial/security documents
+
+### Detection Methods
+1. **Classifier** (if trained): Uses RandomForest or LogisticRegression on CTI-BERT/SEC-BERT embeddings
+2. **Similarity-based** (fallback): Cosine similarity between article embeddings and OS indicator embeddings
+3. **LLM Fallback** (low confidence): Uses configured LLM (default: Mistral-7B-Instruct-v0.3) for inference
+
+### Configuration
+- Embedding model selection: Configurable via workflow config page
+- Fallback LLM model: Configurable via workflow config page
+- Classifier path: `models/os_detection_classifier.pkl` (if trained)
+
 ## Next Steps
 
 1. Run benchmarks across all models
@@ -124,4 +164,5 @@ The OS detection agent uses the following indicators:
 3. Perform manual validation to establish ground truth
 4. Calculate accuracy metrics
 5. Generate final recommendations
+6. Train classifier model on labeled CTI data
 
