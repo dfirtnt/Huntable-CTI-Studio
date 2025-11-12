@@ -87,6 +87,15 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
     """
     Create LangGraph workflow for agentic processing.
     
+    Workflow steps:
+    0. OS Detection - Detect operating system (Windows/Linux/MacOS/multiple)
+    1. Junk Filter - Filter content using conservative junk filter
+    2. LLM Ranking - Rank article using LLM
+    3. Extract Agent - Extract behaviors using ExtractAgent
+    4. Generate SIGMA - Generate SIGMA detection rules
+    5. Similarity Search - Check similarity against existing rules
+    6. Queue Promotion - Queue new rules for human review
+    
     Args:
         db_session: Database session
     
@@ -103,9 +112,9 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
     # Define workflow nodes
     
     def junk_filter_node(state: WorkflowState) -> WorkflowState:
-        """Step 0: Filter content using conservative junk filter."""
+        """Step 1: Filter content using conservative junk filter."""
         try:
-            logger.info(f"[Workflow {state['execution_id']}] Step 0: Junk Filter")
+            logger.info(f"[Workflow {state['execution_id']}] Step 1: Junk Filter")
             
             article = state['article']
             if not article:
@@ -182,9 +191,9 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
             }
     
     async def rank_article_node(state: WorkflowState) -> WorkflowState:
-        """Step 1: Rank article using LLM."""
+        """Step 2: Rank article using LLM."""
         try:
-            logger.info(f"[Workflow {state['execution_id']}] Step 1: LLM Ranking")
+            logger.info(f"[Workflow {state['execution_id']}] Step 2: LLM Ranking")
             
             article = state['article']
             filtered_content = state.get('filtered_content') or article.content if article else ""
@@ -284,12 +293,13 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
             }
     
     async def os_detection_node(state: WorkflowState) -> WorkflowState:
-        """Step 1.5: Detect operating system from article content."""
+        """Step 0: Detect operating system from article content."""
         try:
-            logger.info(f"[Workflow {state['execution_id']}] Step 1.5: OS Detection")
+            logger.info(f"[Workflow {state['execution_id']}] Step 0: OS Detection")
             
             article = state['article']
-            filtered_content = state.get('filtered_content') or article.content if article else ""
+            # OS detection runs first, so use original content
+            content = article.content if article else ""
             
             if not article:
                 raise ValueError("Article not found in state")
@@ -316,7 +326,7 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
             
             # Detect OS with configured fallback model
             os_result = await service.detect_os(
-                content=filtered_content,
+                content=content,
                 use_classifier=True,
                 use_fallback=True,
                 fallback_model=fallback_model
@@ -401,9 +411,9 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
             }
     
     async def extract_agent_node(state: WorkflowState) -> WorkflowState:
-        """Step 2: Extract behaviors using ExtractAgent."""
+        """Step 3: Extract behaviors using ExtractAgent."""
         try:
-            logger.info(f"[Workflow {state['execution_id']}] Step 2: Extract Agent")
+            logger.info(f"[Workflow {state['execution_id']}] Step 3: Extract Agent")
             
             article = state['article']
             filtered_content = state.get('filtered_content') or article.content if article else ""
@@ -925,16 +935,16 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                 'termination_details': state.get('termination_details')
             }
     
-    def check_should_continue_after_rank(state: WorkflowState) -> str:
-        """Check if workflow should continue after ranking."""
-        if state.get('should_continue', False):
-            return "os_detection"
-        else:
-            return "end"
-    
     def check_should_continue_after_os_detection(state: WorkflowState) -> str:
         """Check if workflow should continue after OS detection (only if Windows)."""
         if state.get('should_continue', False) and state.get('detected_os') == 'Windows':
+            return "junk_filter"
+        else:
+            return "end"
+    
+    def check_should_continue_after_rank(state: WorkflowState) -> str:
+        """Check if workflow should continue after ranking."""
+        if state.get('should_continue', False):
             return "extract_agent"
         else:
             return "end"
@@ -952,19 +962,19 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
     workflow.add_node("promote_to_queue", promote_to_queue_node)
     
     # Define edges
-    workflow.set_entry_point("junk_filter")
+    workflow.set_entry_point("os_detection")
+    workflow.add_conditional_edges(
+        "os_detection",
+        check_should_continue_after_os_detection,
+        {
+            "junk_filter": "junk_filter",
+            "end": END
+        }
+    )
     workflow.add_edge("junk_filter", "rank_article")
     workflow.add_conditional_edges(
         "rank_article",
         check_should_continue_after_rank,
-        {
-            "os_detection": "os_detection",
-            "end": END
-        }
-    )
-    workflow.add_conditional_edges(
-        "os_detection",
-        check_should_continue_after_os_detection,
         {
             "extract_agent": "extract_agent",
             "end": END
@@ -1028,7 +1038,7 @@ async def run_workflow(article_id: int, db_session: Session) -> Dict[str, Any]:
         # Initialize state
         execution.status = 'running'
         execution.started_at = datetime.utcnow()
-        execution.current_step = 'junk_filter'
+        execution.current_step = 'os_detection'
         db_session.commit()
         
         initial_state: WorkflowState = {
@@ -1041,6 +1051,8 @@ async def run_workflow(article_id: int, db_session: Session) -> Dict[str, Any]:
             'ranking_score': None,
             'ranking_reasoning': None,
             'should_continue': True,
+            'os_detection_result': None,
+            'detected_os': None,
             'extraction_result': None,
             'discrete_huntables_count': None,
             'sigma_rules': None,
@@ -1048,7 +1060,7 @@ async def run_workflow(article_id: int, db_session: Session) -> Dict[str, Any]:
             'max_similarity': None,
             'queued_rules': None,
             'error': None,
-            'current_step': 'junk_filter',
+            'current_step': 'os_detection',
             'status': 'running',
             'termination_reason': None,
             'termination_details': None

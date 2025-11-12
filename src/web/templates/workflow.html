@@ -241,32 +241,32 @@
         <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
             <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">📊 Workflow Overview</h2>
             <div class="grid grid-cols-1 md:grid-cols-7 gap-4">
+                <div class="text-center p-4 bg-cyan-50 dark:bg-cyan-900/20 rounded-lg">
+                    <div class="text-2xl font-bold text-cyan-600 dark:text-cyan-400">0</div>
+                    <div class="text-xs text-gray-600 dark:text-gray-300 mt-1">OS Detection</div>
+                </div>
                 <div class="text-center p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-                    <div class="text-2xl font-bold text-blue-600 dark:text-blue-400">0</div>
+                    <div class="text-2xl font-bold text-blue-600 dark:text-blue-400">1</div>
                     <div class="text-xs text-gray-600 dark:text-gray-300 mt-1">Junk Filter</div>
                 </div>
                 <div class="text-center p-4 bg-green-50 dark:bg-green-900/20 rounded-lg">
-                    <div class="text-2xl font-bold text-green-600 dark:text-green-400">1</div>
+                    <div class="text-2xl font-bold text-green-600 dark:text-green-400">2</div>
                     <div class="text-xs text-gray-600 dark:text-gray-300 mt-1">LLM Ranking</div>
                 </div>
-                <div class="text-center p-4 bg-cyan-50 dark:bg-cyan-900/20 rounded-lg">
-                    <div class="text-2xl font-bold text-cyan-600 dark:text-cyan-400">1.5</div>
-                    <div class="text-xs text-gray-600 dark:text-gray-300 mt-1">OS Detection</div>
-                </div>
                 <div class="text-center p-4 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg">
-                    <div class="text-2xl font-bold text-yellow-600 dark:text-yellow-400">2</div>
+                    <div class="text-2xl font-bold text-yellow-600 dark:text-yellow-400">3</div>
                     <div class="text-xs text-gray-600 dark:text-gray-300 mt-1">Extract Agent</div>
                 </div>
                 <div class="text-center p-4 bg-orange-50 dark:bg-orange-900/20 rounded-lg">
-                    <div class="text-2xl font-bold text-orange-600 dark:text-orange-400">3</div>
+                    <div class="text-2xl font-bold text-orange-600 dark:text-orange-400">4</div>
                     <div class="text-xs text-gray-600 dark:text-gray-300 mt-1">Generate SIGMA</div>
                 </div>
                 <div class="text-center p-4 bg-pink-50 dark:bg-pink-900/20 rounded-lg">
-                    <div class="text-2xl font-bold text-pink-600 dark:text-pink-400">4</div>
+                    <div class="text-2xl font-bold text-pink-600 dark:text-pink-400">5</div>
                     <div class="text-xs text-gray-600 dark:text-gray-300 mt-1">Similarity Search</div>
                 </div>
                 <div class="text-center p-4 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
-                    <div class="text-2xl font-bold text-purple-600 dark:text-purple-400">5</div>
+                    <div class="text-2xl font-bold text-purple-600 dark:text-purple-400">6</div>
                     <div class="text-xs text-gray-600 dark:text-gray-300 mt-1">Queue</div>
                 </div>
             </div>
@@ -321,6 +321,7 @@
                     <!-- Edges/Arrows -->
                     <g stroke="#6b7280" stroke-width="2" fill="none" marker-end="url(#arrowhead)">
                         <line x1="150" y1="175" x2="250" y2="175"/>
+                        <text x="200" y="170" fill="#06b6d4" font-size="10">Windows?</text>
                         <line x1="350" y1="175" x2="420" y2="175"/>
                         <line x1="440" y1="165" x2="540" y2="100"/>
                         <text x="490" y="130" fill="#10b981" font-size="10">Score ≥ 6</text>
@@ -331,37 +332,44 @@
                         <line x1="200" y1="300" x2="900" y2="300" stroke-dasharray="3,3"/>
                         <line x1="440" y1="185" x2="440" y2="300" stroke-dasharray="5,5"/>
                         <line x1="440" y1="300" x2="900" y2="300" stroke-dasharray="5,5"/>
+                        <line x1="50" y1="175" x2="100" y2="175"/>
+                        <line x1="50" y1="300" x2="900" y2="300" stroke-dasharray="5,5"/>
                         <text x="670" y="295" fill="#ef4444" font-size="10">Score &lt; 6 → End</text>
+                        <text x="25" y="295" fill="#ef4444" font-size="10">Non-Win → End</text>
                     </g>
                     
                     <!-- Nodes -->
                     <g id="workflowNodes">
-                        <rect x="50" y="145" width="100" height="60" rx="8" fill="#3b82f6" class="workflow-node" data-step="junk_filter"/>
-                        <text x="100" y="165" text-anchor="middle" fill="white" font-weight="bold" font-size="11">Step 0</text>
-                        <text x="100" y="185" text-anchor="middle" fill="white" font-size="10">Junk Filter</text>
+                        <rect x="0" y="145" width="100" height="60" rx="8" fill="#06b6d4" class="workflow-node" data-step="os_detection"/>
+                        <text x="50" y="165" text-anchor="middle" fill="white" font-weight="bold" font-size="11">Step 0</text>
+                        <text x="50" y="185" text-anchor="middle" fill="white" font-size="10">OS Detect</text>
+                        
+                        <rect x="150" y="145" width="100" height="60" rx="8" fill="#3b82f6" class="workflow-node" data-step="junk_filter"/>
+                        <text x="200" y="165" text-anchor="middle" fill="white" font-weight="bold" font-size="11">Step 1</text>
+                        <text x="200" y="185" text-anchor="middle" fill="white" font-size="10">Junk Filter</text>
                         
                         <rect x="250" y="145" width="100" height="60" rx="8" fill="#10b981" class="workflow-node" data-step="rank_article"/>
-                        <text x="300" y="165" text-anchor="middle" fill="white" font-weight="bold" font-size="11">Step 1</text>
+                        <text x="300" y="165" text-anchor="middle" fill="white" font-weight="bold" font-size="11">Step 2</text>
                         <text x="300" y="185" text-anchor="middle" fill="white" font-size="10">LLM Rank</text>
                         
                         <polygon points="420,175 460,155 460,195 420,215" fill="#f59e0b" stroke="#92400e" stroke-width="2"/>
                         <text x="440" y="178" text-anchor="middle" fill="white" font-weight="bold" font-size="9">≥6?</text>
                         
                         <rect x="540" y="70" width="100" height="60" rx="8" fill="#f59e0b" class="workflow-node" data-step="extract_agent"/>
-                        <text x="590" y="90" text-anchor="middle" fill="white" font-weight="bold" font-size="11">Step 2</text>
+                        <text x="590" y="90" text-anchor="middle" fill="white" font-weight="bold" font-size="11">Step 3</text>
                         <text x="590" y="110" text-anchor="middle" fill="white" font-size="10">Extract</text>
                         
                         <rect x="740" y="95" width="100" height="60" rx="8" fill="#ef4444" class="workflow-node" data-step="generate_sigma"/>
-                        <text x="790" y="115" text-anchor="middle" fill="white" font-weight="bold" font-size="11">Step 3</text>
+                        <text x="790" y="115" text-anchor="middle" fill="white" font-weight="bold" font-size="11">Step 4</text>
                         <text x="790" y="135" text-anchor="middle" fill="white" font-size="10">Generate</text>
                         <text x="790" y="150" text-anchor="middle" fill="white" font-size="10">SIGMA</text>
                         
                         <rect x="540" y="220" width="100" height="60" rx="8" fill="#ec4899" class="workflow-node" data-step="similarity_search"/>
-                        <text x="590" y="240" text-anchor="middle" fill="white" font-weight="bold" font-size="11">Step 4</text>
+                        <text x="590" y="240" text-anchor="middle" fill="white" font-weight="bold" font-size="11">Step 5</text>
                         <text x="590" y="260" text-anchor="middle" fill="white" font-size="10">Similarity</text>
                         
                         <rect x="340" y="220" width="100" height="60" rx="8" fill="#8b5cf6" class="workflow-node" data-step="promote_to_queue"/>
-                        <text x="390" y="240" text-anchor="middle" fill="white" font-weight="bold" font-size="11">Step 5</text>
+                        <text x="390" y="240" text-anchor="middle" fill="white" font-weight="bold" font-size="11">Step 6</text>
                         <text x="390" y="260" text-anchor="middle" fill="white" font-size="10">Queue</text>
                         
                         <circle cx="900" cy="300" r="25" fill="#6b7280"/>
@@ -701,7 +709,7 @@ function renderAgentModels() {
                                 name="agent_models[OSDetectionAgent_embedding]"
                                 class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-sm">
                             <option value="ibm-research/CTI-BERT" ${currentEmbeddingModel === 'ibm-research/CTI-BERT' ? 'selected' : ''}>CTI-BERT</option>
-                            <option value="ehsanaghaei/SEC-BERT" ${currentEmbeddingModel === 'ehsanaghaei/SEC-BERT' ? 'selected' : ''}>SEC-BERT</option>
+                            <option value="nlpaueb/sec-bert-base" ${currentEmbeddingModel === 'nlpaueb/sec-bert-base' ? 'selected' : ''}>SEC-BERT</option>
                         </select>
                         <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
                             Pre-trained embedding model for OS detection
@@ -1385,7 +1393,7 @@ async function viewExecution(executionId) {
             // Build step-by-step inputs/outputs
             const steps = [];
             
-            // Step 0: Junk Filter
+            // Step 1: Junk Filter
             if (exec.junk_filter_result) {
                 const originalContentPreview = exec.article_content_preview || '';
                 const contentInputDetails = exec.article_content ? `<details class="mt-2 w-full">
@@ -1396,7 +1404,7 @@ async function viewExecution(executionId) {
                 </details>` : '';
                 
                 steps.push({
-                    name: 'Step 0: Junk Filter',
+                    name: 'Step 1: Junk Filter',
                     input: `<div class="space-y-1">
                         <div>• Article content: ${exec.junk_filter_result.original_length || 0} chars</div>
                     </div>`,
@@ -1412,7 +1420,7 @@ async function viewExecution(executionId) {
                 });
             }
             
-            // Step 1: Rank Article
+            // Step 2: Rank Article
             if (exec.ranking_score !== null && exec.ranking_score !== undefined) {
                 const rankingDetails = exec.ranking_reasoning ? `<details class="mt-2 w-full">
                     <summary class="cursor-pointer text-xs text-gray-700 dark:text-white hover:text-gray-900 dark:hover:text-gray-100">View Ranking Reasoning (Full LLM Output)</summary>
@@ -1434,7 +1442,7 @@ async function viewExecution(executionId) {
                 const rankModel = getModel('RankAgent');
                 
                 steps.push({
-                    name: 'Step 1: LLM Ranking',
+                    name: 'Step 2: LLM Ranking',
                     input: `<div class="space-y-1">
                         <div>• Filtered article content (${filteredContentLength} chars)</div>
                         <div>• Article title: "${exec.article_title || 'N/A'}"</div>
@@ -1453,23 +1461,19 @@ async function viewExecution(executionId) {
                 });
             }
             
-            // Step 1.5: OS Detection
+            // Step 0: OS Detection
             // Check for OS detection data in error_log.os_detection_result, termination_details, or error_log.os_detection
             const osDetectionResult = exec.error_log?.os_detection_result;
             const osDetectionData = osDetectionResult || exec.termination_details || {};
             const osDetectionError = exec.error_log?.os_detection;
             const detectedOS = osDetectionData.detected_os || (osDetectionError ? null : undefined);
             
-            // Determine if ranking passed (workflow would have continued to OS detection)
-            const rankingThreshold = exec.config_snapshot?.ranking_threshold ?? 6.0;
-            const rankingPassed = exec.ranking_score !== null && exec.ranking_score >= rankingThreshold;
-            
             // Show OS Detection step if:
             // 1. OS detection result exists in error_log
             // 2. OS was detected (in termination_details when workflow stopped)
             // 3. There was an OS detection error
-            // 4. Ranking passed (OS detection runs after ranking, so if ranking passed, OS detection should have run)
-            if (osDetectionResult || detectedOS !== undefined || osDetectionError || rankingPassed) {
+            // 4. Workflow has any steps (OS detection runs first, so it should always be present)
+            if (osDetectionResult || detectedOS !== undefined || osDetectionError || exec.status !== 'pending') {
                 const osMethod = osDetectionData.detection_method || 'Unknown';
                 const osConfidence = osDetectionData.confidence || 'Unknown';
                 const osSimilarities = osDetectionData.similarities || {};
@@ -1521,9 +1525,9 @@ async function viewExecution(executionId) {
                         <div><strong>Decision:</strong> ${isWindows ? '✅ Continue (Windows detected)' : '❌ Stop (Non-Windows OS)'}</div>
                         ${!isWindows ? '<div class="mt-2 text-yellow-600 dark:text-yellow-400">⚠️ Workflow ended because non-Windows OS was detected.</div>' : ''}
                     </div>`;
-                } else if (rankingPassed && !osDetectionResult) {
-                    // Ranking passed but no OS detection data stored
-                    // This could be a legacy execution or OS detection failed silently
+                } else if (!osDetectionResult) {
+                    // No OS detection data stored - could be legacy execution
+                    const workflowContinued = exec.junk_filter_result !== null && exec.junk_filter_result !== undefined;
                     osOutput = `<div class="space-y-1 text-gray-700 dark:text-gray-300">
                         <div><strong>Detected OS:</strong> ${workflowContinued ? 'Windows (inferred - workflow continued)' : 'Unknown (no data stored)'}</div>
                         <div><strong>Decision:</strong> ${workflowContinued ? '✅ Continue' : '❓ Unknown'}</div>
@@ -1532,9 +1536,9 @@ async function viewExecution(executionId) {
                 }
                 
                 steps.push({
-                    name: 'Step 1.5: OS Detection',
+                    name: 'Step 0: OS Detection',
                     input: `<div class="space-y-1">
-                        <div>• Filtered article content (${osInputContentLength} chars)</div>
+                        <div>• Original article content (${osInputContentLength} chars)</div>
                         <div>• Embedding Model: <span class="font-mono text-xs">${embeddingModel}</span></div>
                         ${fallbackModel ? `<div>• Fallback LLM Model: <span class="font-mono text-xs">${fallbackModel}</span></div>` : ''}
                     </div>`,
@@ -1544,7 +1548,7 @@ async function viewExecution(executionId) {
                 });
             }
             
-            // Step 2: Extract Agent
+            // Step 3: Extract Agent
             if (exec.extraction_result) {
                 const observables = exec.extraction_result.observables || [];
                 const summary = exec.extraction_result.summary || {};
@@ -1626,7 +1630,7 @@ async function viewExecution(executionId) {
                 const extractModel = getModel('ExtractAgent');
                 
                 steps.push({
-                    name: 'Step 2: Extract Agent',
+                    name: 'Step 3: Extract Agent',
                     input: `<div class="space-y-1">
                         <div>• Filtered article content (${extractInputContentLength} chars)</div>
                         <div>• Article title: "${exec.article_title || 'N/A'}"</div>
@@ -1644,12 +1648,12 @@ async function viewExecution(executionId) {
                 });
             }
             
-            // Step 3: Generate SIGMA
+            // Step 4: Generate SIGMA
             const sigmaErrors = exec.error_log?.generate_sigma || exec.error_log?.sigma_generation;
             // Get conversation log from error_log even when there are no errors
             const conversationLog = sigmaErrors?.conversation_log || [];
             
-            // Show Step 3 if we have sigma_rules (even if empty array) OR if we have error/conversation data
+            // Show Step 4 if we have sigma_rules (even if empty array) OR if we have error/conversation data
             if ((exec.sigma_rules !== null && exec.sigma_rules !== undefined) || sigmaErrors || conversationLog.length > 0) {
                 const validationResults = sigmaErrors?.validation_results || [];
                 const totalAttempts = sigmaErrors?.total_attempts || 0;
@@ -1921,7 +1925,7 @@ async function viewExecution(executionId) {
                 const sigmaModel = getModel('SigmaAgent');
                 
                 steps.push({
-                    name: 'Step 3: Generate SIGMA',
+                    name: 'Step 4: Generate SIGMA',
                     input: `<div class="space-y-1">
                         <div>• Extracted huntables: ${exec.extraction_result ? (exec.extraction_result.discrete_huntables_count || 0) : 0}</div>
                         <div>• Observables: ${exec.extraction_result ? (exec.extraction_result.observables?.length || 0) : 0}</div>
@@ -1939,7 +1943,7 @@ async function viewExecution(executionId) {
                 });
             }
             
-            // Step 4: Similarity Search
+            // Step 5: Similarity Search
             if (exec.similarity_results !== null && exec.similarity_results !== undefined && Array.isArray(exec.similarity_results)) {
                 const maxSim = exec.similarity_results.length > 0 ? exec.similarity_results.reduce((max, r) => Math.max(max, r.max_similarity || 0), 0) : 0;
                 const similarityDetails = exec.similarity_results.length > 0 ? `<details class="mt-2 w-full" open>
@@ -1996,7 +2000,7 @@ async function viewExecution(executionId) {
                 </details>` : '';
                 
                 steps.push({
-                    name: 'Step 4: Similarity Search',
+                    name: 'Step 5: Similarity Search',
                     input: `<div class="space-y-1">
                         <div>• Generated SIGMA rules: ${exec.sigma_rules?.length || 0}</div>
                         <div>• Similarity threshold: ${(exec.config_snapshot?.similarity_threshold || 0.5) * 100}%</div>
@@ -2013,13 +2017,13 @@ async function viewExecution(executionId) {
                 });
             } else if (exec.sigma_rules && exec.sigma_rules.length === 0) {
                 steps.push({
-                    name: 'Step 4: Similarity Search',
+                    name: 'Step 5: Similarity Search',
                     input: '0 generated SIGMA rules',
                     output: '<div class="text-orange-600 dark:text-orange-400">⚠️ Skipped (no rules to search)</div>'
                 });
             }
             
-            // Step 5: Promote to Queue
+            // Step 6: Promote to Queue
             const queuedCount = exec.queued_rules_count || 0;
             const queuedRuleIds = exec.queued_rule_ids || [];
             const queueDetails = queuedCount > 0 ? `<details class="mt-2 w-full">
@@ -2070,7 +2074,7 @@ async function viewExecution(executionId) {
             }
             
             steps.push({
-                name: 'Step 5: Promote to Queue',
+                name: 'Step 6: Promote to Queue',
                 input: `<div class="space-y-1">
                     <div>• Generated rules: ${exec.sigma_rules?.length || 0}</div>
                     <div>• Similarity results: ${exec.similarity_results !== null && exec.similarity_results !== undefined ? exec.similarity_results.length : 'N/A (did not run)'}</div>

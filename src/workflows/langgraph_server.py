@@ -100,6 +100,15 @@ def create_exposable_workflow():
     """
     Create LangGraph workflow exposed via LangGraph server.
     
+    Workflow steps:
+    0. OS Detection - Detect operating system (Windows/Linux/MacOS/multiple)
+    1. Junk Filter - Filter content using conservative junk filter
+    2. LLM Ranking - Rank article using LLM
+    3. Extract Agent - Extract behaviors using ExtractAgent
+    4. Generate SIGMA - Generate SIGMA detection rules
+    5. Similarity Search - Check similarity against existing rules
+    6. Queue Promotion - Queue new rules for human review
+    
     This version uses checkpointing and can be accessed via Agent Chat UI.
     
     Returns:
@@ -345,10 +354,10 @@ Cannot process empty articles."""
             }
     
     def junk_filter_node(state: ExposableWorkflowState) -> ExposableWorkflowState:
-        """Step 0: Filter content using conservative junk filter."""
+        """Step 1: Filter content using conservative junk filter."""
         db_session = get_db_session()
         try:
-            logger.info(f"[Workflow {state.get('execution_id')}] Step 0: Junk Filter")
+            logger.info(f"[Workflow {state.get('execution_id')}] Step 1: Junk Filter")
             
             article_id = state['article_id']
             article = db_session.query(ArticleTable).filter(ArticleTable.id == article_id).first()
@@ -434,10 +443,10 @@ Cannot process empty articles."""
             db_session.close()
     
     async def rank_article_node(state: ExposableWorkflowState) -> ExposableWorkflowState:
-        """Step 1: Rank article using LLM."""
+        """Step 2: Rank article using LLM."""
         db_session = get_db_session()
         try:
-            logger.info(f"[Workflow {state.get('execution_id')}] Step 1: LLM Ranking")
+            logger.info(f"[Workflow {state.get('execution_id')}] Step 2: LLM Ranking")
             
             article_id = state['article_id']
             article = db_session.query(ArticleTable).filter(ArticleTable.id == article_id).first()
@@ -552,17 +561,18 @@ Cannot process empty articles."""
             db_session.close()
     
     async def os_detection_node(state: ExposableWorkflowState) -> ExposableWorkflowState:
-        """Step 1.5: Detect operating system from article content."""
+        """Step 0: Detect operating system from article content."""
         db_session = get_db_session()
         try:
-            logger.info(f"[Workflow {state.get('execution_id')}] Step 1.5: OS Detection")
+            logger.info(f"[Workflow {state.get('execution_id')}] Step 0: OS Detection")
             
             article_id = state['article_id']
             article = db_session.query(ArticleTable).filter(ArticleTable.id == article_id).first()
             if not article:
                 raise ValueError(f"Article {article_id} not found")
             
-            filtered_content = state.get('filtered_content') or article.content
+            # OS detection runs first, so use original content
+            content = article.content
             
             # Update execution record
             execution_id = state.get('execution_id')
@@ -595,7 +605,7 @@ Cannot process empty articles."""
             
             # Detect OS with configured fallback model
             os_result = await service.detect_os(
-                content=filtered_content,
+                content=content,
                 use_classifier=True,
                 use_fallback=True,
                 fallback_model=fallback_model
@@ -685,10 +695,10 @@ Cannot process empty articles."""
             db_session.close()
     
     async def extract_agent_node(state: ExposableWorkflowState) -> ExposableWorkflowState:
-        """Step 2: Extract behaviors using Extract Agent."""
+        """Step 3: Extract behaviors using Extract Agent."""
         db_session = get_db_session()
         try:
-            logger.info(f"[Workflow {state.get('execution_id')}] Step 2: Extract Agent")
+            logger.info(f"[Workflow {state.get('execution_id')}] Step 3: Extract Agent")
             
             article_id = state['article_id']
             article = db_session.query(ArticleTable).filter(ArticleTable.id == article_id).first()
@@ -1277,16 +1287,16 @@ Check the Workflow > Executions tab for detailed error logs."""
         finally:
             db_session.close()
     
-    def check_should_continue_after_rank(state: ExposableWorkflowState) -> str:
-        """Check if workflow should continue after ranking."""
-        if state.get('should_continue', False) and state.get('status') != 'failed':
-            return "os_detection"
-        else:
-            return "end"
-    
     def check_should_continue_after_os_detection(state: ExposableWorkflowState) -> str:
         """Check if workflow should continue after OS detection (only if Windows)."""
         if state.get('should_continue', False) and state.get('detected_os') == 'Windows' and state.get('status') != 'failed':
+            return "junk_filter"
+        else:
+            return "end"
+    
+    def check_should_continue_after_rank(state: ExposableWorkflowState) -> str:
+        """Check if workflow should continue after ranking."""
+        if state.get('should_continue', False) and state.get('status') != 'failed':
             return "extract_agent"
         else:
             return "end"
@@ -1315,14 +1325,22 @@ Check the Workflow > Executions tab for detailed error logs."""
             return "end"
         if not state.get("article_id"):
             return "end"  # Error case - already handled in parse_input
-        return "junk_filter"
+        return "os_detection"
     
     workflow.add_conditional_edges(
         "parse_input",
         route_after_parse,
         {
-            "junk_filter": "junk_filter",
+            "os_detection": "os_detection",
             "end": END
+        }
+    )
+    workflow.add_conditional_edges(
+        "os_detection",
+        check_should_continue_after_os_detection,
+        {
+            "junk_filter": "junk_filter",
+            "end": "generate_response"  # Route non-Windows OS to generate_response for chat-friendly message
         }
     )
     workflow.add_edge("junk_filter", "rank_article")
@@ -1330,16 +1348,8 @@ Check the Workflow > Executions tab for detailed error logs."""
         "rank_article",
         check_should_continue_after_rank,
         {
-            "os_detection": "os_detection",
-            "end": "generate_response"  # Route failed rankings to generate_response for chat-friendly error message
-        }
-    )
-    workflow.add_conditional_edges(
-        "os_detection",
-        check_should_continue_after_os_detection,
-        {
             "extract_agent": "extract_agent",
-            "end": "generate_response"  # Route non-Windows OS to generate_response for chat-friendly message
+            "end": "generate_response"  # Route failed rankings to generate_response for chat-friendly error message
         }
     )
     def check_sigma_generation(state: ExposableWorkflowState) -> str:
