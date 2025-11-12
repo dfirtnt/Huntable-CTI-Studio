@@ -391,13 +391,22 @@
                 </div>
             </div>
             <div class="prose max-w-none relative">
-                <button onclick="copyArticleContentToClipboard()" 
-                        class="absolute top-4 right-4 p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 z-10"
-                        title="Copy article content">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
-                    </svg>
-                </button>
+                <div class="absolute top-4 right-4 flex items-center space-x-2 z-10">
+                    <button onclick="copyArticleContentToClipboard()" 
+                            class="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
+                            title="Copy article content">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
+                        </svg>
+                    </button>
+                    <button onclick="exportArticleToPDF()" 
+                            class="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
+                            title="Export to PDF and print">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path>
+                        </svg>
+                    </button>
+                </div>
                 <div id="article-content" class="whitespace-pre-wrap text-base text-black font-mono leading-relaxed select-text bg-gray-50 dark:bg-gray-950 p-6 rounded-lg border-2 border-gray-300 dark:border-gray-600 shadow-inner">{{ article.content|highlight_keywords(article.article_metadata)|safe }}</div>
             </div>
         </div>
@@ -504,6 +513,8 @@
 </div>
 {% endblock %}
 {% block scripts %}
+<!-- html2pdf.js library for PDF generation -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 <script>
 
     // Global help functions - must be defined at top level for onclick handlers
@@ -2709,6 +2720,337 @@ Please provide a detailed analysis based on the article content and the user's s
         } catch (error) {
             console.error('Error copying article content:', error);
             showNotification('Failed to copy article content', 'error');
+        }
+    }
+    
+    // Export article to PDF and open for printing
+    async function exportArticleToPDF() {
+        try {
+            const contentElement = document.getElementById('article-content');
+            const articleTitle = document.querySelector('h1.text-3xl')?.textContent || 'Article';
+            
+            if (!contentElement) {
+                showNotification('Article content element not found', 'error');
+                return;
+            }
+            
+            // Check if html2pdf is loaded
+            if (typeof html2pdf === 'undefined') {
+                showNotification('PDF library not loaded. Please refresh the page.', 'error');
+                return;
+            }
+            
+            showNotification('Generating PDF...', 'info');
+            
+            // Create a print-friendly container that will be visible during capture
+            const printContainer = document.createElement('div');
+            printContainer.id = 'pdf-export-container';
+            printContainer.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 800px;
+                max-width: 100vw;
+                min-height: 600px;
+                padding: 40px;
+                margin: 0;
+                font-family: Arial, sans-serif;
+                background: white;
+                color: black;
+                z-index: 99999;
+                overflow: visible;
+                box-shadow: 0 0 20px rgba(0,0,0,0.3);
+                box-sizing: border-box;
+            `;
+            
+            // Add title
+            const titleElement = document.createElement('h1');
+            titleElement.textContent = articleTitle;
+            titleElement.style.cssText = 'font-size: 24px; font-weight: bold; margin-bottom: 20px; color: #000; line-height: 1.4;';
+            printContainer.appendChild(titleElement);
+            
+            // Get HTML content to preserve highlights
+            let contentHtml = contentElement.innerHTML;
+            
+            if (!contentHtml || contentHtml.trim().length === 0) {
+                const textContent = contentElement.textContent || contentElement.innerText || '';
+                if (!textContent || textContent.trim().length === 0) {
+                    showNotification('Article has no content to export', 'error');
+                    return;
+                }
+                contentHtml = '<div>' + textContent + '</div>';
+            }
+            
+            // Create a wrapper for the content with print-friendly styles
+            const contentWrapper = document.createElement('div');
+            contentWrapper.style.cssText = `
+                color: #000000;
+                background: #ffffff;
+                border: 1px solid #cccccc;
+                padding: 20px;
+                font-family: 'Courier New', 'Monaco', monospace;
+                font-size: 11pt;
+                line-height: 1.8;
+                white-space: pre-wrap;
+                word-wrap: break-word;
+                overflow-wrap: break-word;
+                min-height: 200px;
+            `;
+            
+            // Set HTML to preserve highlights
+            contentWrapper.innerHTML = contentHtml;
+            
+            // Verify we have text content
+            const originalTextLength = (contentElement.textContent || '').length;
+            const clonedTextLength = (contentWrapper.textContent || '').length;
+            
+            if (clonedTextLength < originalTextLength * 0.9) {
+                console.warn('Text content may have been lost:', {
+                    original: originalTextLength,
+                    cloned: clonedTextLength,
+                    difference: originalTextLength - clonedTextLength
+                });
+                // Fallback: ensure we have the text
+                if (clonedTextLength === 0 || clonedTextLength < originalTextLength * 0.5) {
+                    // Re-add text content as fallback
+                    const textNodes = [];
+                    const walker = document.createTreeWalker(
+                        contentElement,
+                        NodeFilter.SHOW_TEXT,
+                        null,
+                        false
+                    );
+                    let node;
+                    while (node = walker.nextNode()) {
+                        if (node.textContent.trim()) {
+                            textNodes.push(node.textContent);
+                        }
+                    }
+                    if (textNodes.length > 0 && contentWrapper.textContent.length < textNodes.join('').length * 0.5) {
+                        console.log('Restoring text content from text nodes');
+                        // Create a new div with the text, preserving structure
+                        const textDiv = document.createElement('div');
+                        textDiv.style.cssText = contentWrapper.style.cssText;
+                        textDiv.innerHTML = contentHtml;
+                        // Merge text nodes back
+                        contentWrapper.innerHTML = textDiv.innerHTML;
+                    }
+                }
+            }
+            
+            printContainer.appendChild(contentWrapper);
+            
+            // Add to document first so we can process styles
+            document.body.appendChild(printContainer);
+            
+            // Force a reflow
+            printContainer.offsetHeight;
+            await new Promise(resolve => setTimeout(resolve, 100));
+            
+            // Process all elements to make highlights print-friendly
+            // First, ensure all text nodes are visible by checking parent elements
+            const allElements = Array.from(contentWrapper.querySelectorAll('*'));
+            
+            // Also process text nodes' parent elements to ensure they're visible
+            const textNodes = [];
+            const textWalker = document.createTreeWalker(
+                contentWrapper,
+                NodeFilter.SHOW_TEXT,
+                null,
+                false
+            );
+            let textNode;
+            while (textNode = textWalker.nextNode()) {
+                if (textNode.textContent.trim()) {
+                    textNodes.push(textNode);
+                }
+            }
+            
+            // First pass: Remove purple and orange highlights (convert to plain text)
+            const elementsToRemove = [];
+            allElements.forEach(el => {
+                const hasPurpleBg = el.classList.contains('bg-purple-100') || 
+                                    el.classList.contains('bg-purple-200');
+                const hasOrangeBg = el.classList.contains('bg-orange-100') || 
+                                    el.classList.contains('bg-orange-200');
+                
+                if (hasPurpleBg || hasOrangeBg) {
+                    elementsToRemove.push(el);
+                }
+            });
+            
+            // Replace purple/orange highlights with plain text
+            elementsToRemove.forEach(el => {
+                const textNode = document.createTextNode(el.textContent);
+                if (el.parentNode) {
+                    el.parentNode.replaceChild(textNode, el);
+                }
+            });
+            
+            // Second pass: Process remaining elements for styling
+            const remainingElements = Array.from(contentWrapper.querySelectorAll('*'));
+            remainingElements.forEach(el => {
+                // Remove all dark mode classes
+                const classesToRemove = Array.from(el.classList).filter(c => c.startsWith('dark:'));
+                classesToRemove.forEach(c => el.classList.remove(c));
+                
+                // Ensure element is visible (but preserve its display type)
+                const currentDisplay = window.getComputedStyle(el).display;
+                if (currentDisplay === 'none') {
+                    el.style.setProperty('display', 'block', 'important');
+                }
+                el.style.setProperty('visibility', 'visible', 'important');
+                el.style.setProperty('opacity', '1', 'important');
+                
+                // Check if this is a highlight element - only Perfect (green) and LOLBAS (blue)
+                const hasGreenBg = el.classList.contains('bg-green-100') || 
+                                   el.classList.contains('bg-green-200') ||
+                                   el.classList.contains('bg-green-300');
+                const hasBlueBg = el.classList.contains('bg-blue-100') || 
+                                  el.classList.contains('bg-blue-200');
+                
+                // Ensure highlight colors are visible for print (only Perfect and LOLBAS)
+                if (hasGreenBg) {
+                    // Perfect keyword matches - green highlight
+                    el.style.setProperty('background-color', '#d1fae5', 'important'); // light green
+                    el.style.setProperty('color', '#065f46', 'important'); // dark green text
+                    el.style.setProperty('border', '1px solid #10b981', 'important');
+                    el.style.setProperty('padding', '2px 4px', 'important');
+                    el.style.setProperty('border-radius', '3px', 'important');
+                } else if (hasBlueBg) {
+                    // LOLBAS matches - blue highlight
+                    el.style.setProperty('background-color', '#dbeafe', 'important');
+                    el.style.setProperty('color', '#1e40af', 'important');
+                    el.style.setProperty('border', '1px solid #3b82f6', 'important');
+                    el.style.setProperty('padding', '2px 4px', 'important');
+                    el.style.setProperty('border-radius', '3px', 'important');
+                } else {
+                    // Regular text elements - ensure black text
+                    const tagName = el.tagName.toLowerCase();
+                    if (['span', 'div', 'p', 'strong', 'em', 'b', 'i', 'mark', 'a'].includes(tagName)) {
+                        const computedStyle = window.getComputedStyle(el);
+                        const color = computedStyle.color;
+                        const bgColor = computedStyle.backgroundColor;
+                        
+                        // If text is not black and not a highlight, make it black
+                        if (color && !color.includes('rgb(0, 0, 0)') && 
+                            !color.includes('rgb(1,') && !color.includes('rgb(2,')) {
+                            // Only change if it's not already a colored highlight
+                            if (!hasGreenBg && !hasBlueBg) {
+                                el.style.setProperty('color', '#000000', 'important');
+                            }
+                        }
+                        
+                        // Remove dark backgrounds that aren't highlights
+                        if (bgColor && bgColor !== 'rgba(0, 0, 0, 0)' && bgColor !== 'transparent' &&
+                            !hasGreenBg && !hasBlueBg) {
+                            if (bgColor.includes('rgb(0,') || bgColor.includes('rgb(1,')) {
+                                el.style.setProperty('background-color', 'transparent', 'important');
+                            }
+                        }
+                    }
+                }
+            });
+            
+            // Ensure text nodes are visible
+            textNodes.forEach(textNode => {
+                const parent = textNode.parentElement;
+                if (parent) {
+                    parent.style.setProperty('color', 'inherit', 'important');
+                    // If parent has no color set, ensure it's black
+                    const parentColor = window.getComputedStyle(parent).color;
+                    if (!parentColor || parentColor === 'rgba(0, 0, 0, 0)' || parentColor === 'transparent') {
+                        parent.style.setProperty('color', '#000000', 'important');
+                    }
+                }
+            });
+            
+            // Final verification - check text content again
+            const finalTextLength = (contentWrapper.textContent || '').length;
+            console.log('PDF export text verification:', {
+                original: originalTextLength,
+                final: finalTextLength,
+                preserved: ((finalTextLength / originalTextLength) * 100).toFixed(1) + '%'
+            });
+            
+            // Wait for style updates to render
+            await new Promise(resolve => setTimeout(resolve, 100));
+            
+            // Configure PDF options - ensure we capture the content
+            const opt = {
+                margin: [15, 15, 15, 15],
+                filename: `article-${articleTitle.substring(0, 50).replace(/[^a-z0-9]/gi, '_')}.pdf`,
+                image: { type: 'jpeg', quality: 0.98 },
+                html2canvas: { 
+                    scale: 2,
+                    useCORS: true,
+                    logging: false,
+                    backgroundColor: '#ffffff',
+                    width: printContainer.offsetWidth,
+                    height: printContainer.offsetHeight,
+                    windowWidth: printContainer.scrollWidth || 800,
+                    windowHeight: printContainer.scrollHeight || 1200,
+                    allowTaint: false,
+                    removeContainer: false,
+                    x: 0,
+                    y: 0,
+                    scrollX: 0,
+                    scrollY: 0
+                },
+                jsPDF: { 
+                    unit: 'mm', 
+                    format: 'a4', 
+                    orientation: 'portrait' 
+                }
+            };
+            
+            // Generate PDF and get as blob
+            // html2pdf.js uses a promise chain - get the jsPDF object from the worker
+            const worker = html2pdf().set(opt).from(printContainer);
+            
+            // Get PDF as data URL first, then convert to blob
+            const pdfDataUrl = await new Promise((resolve, reject) => {
+                worker.output('dataurlstring').then(resolve).catch(reject);
+            });
+            
+            // Convert data URL to blob
+            const response = await fetch(pdfDataUrl);
+            const pdfBlob = await response.blob();
+            
+            // Clean up - remove the temporary container after a brief delay
+            setTimeout(() => {
+                if (printContainer && printContainer.parentNode) {
+                    document.body.removeChild(printContainer);
+                }
+            }, 500);
+            
+            // Create blob URL and open in new window for printing
+            const blobUrl = URL.createObjectURL(pdfBlob);
+            const printWindow = window.open(blobUrl, '_blank');
+            
+            if (printWindow) {
+                showNotification('PDF opened in new window. Ready for printing!', 'success');
+                
+                // Wait for PDF to load, then trigger print dialog
+                printWindow.onload = function() {
+                    setTimeout(() => {
+                        printWindow.print();
+                    }, 1000);
+                };
+            } else {
+                // Fallback: download the PDF
+                const link = document.createElement('a');
+                link.href = blobUrl;
+                link.download = opt.filename;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                showNotification('PDF downloaded. Please open and print manually.', 'info');
+            }
+            
+        } catch (error) {
+            console.error('Error generating PDF:', error);
+            showNotification('Failed to generate PDF: ' + error.message, 'error');
         }
     }
     
