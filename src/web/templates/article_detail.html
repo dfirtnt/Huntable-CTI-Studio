@@ -391,7 +391,14 @@
                 </div>
             </div>
             <div class="prose max-w-none relative">
-                <div class="absolute top-4 right-4 flex items-center space-x-2 z-10">
+                <div class="absolute top-4 right-4 flex items-center space-x-2 z-50">
+                    <button id="toggle-annotations-btn" onclick="toggleAnnotationSystem()" 
+                            class="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 bg-white dark:bg-gray-800 shadow-md border border-gray-200 dark:border-gray-700"
+                            title="Toggle annotation system">
+                        <svg id="toggle-annotations-icon" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"></path>
+                        </svg>
+                    </button>
                     <button onclick="copyArticleContentToClipboard()" 
                             class="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
                             title="Copy article content">
@@ -407,7 +414,7 @@
                         </svg>
                     </button>
                 </div>
-                <div id="article-content" class="whitespace-pre-wrap text-base text-black font-mono leading-relaxed select-text bg-gray-50 dark:bg-gray-950 p-6 rounded-lg border-2 border-gray-300 dark:border-gray-600 shadow-inner">{{ article.content|highlight_keywords(article.article_metadata)|safe }}</div>
+                <div id="article-content" class="whitespace-pre-wrap text-base text-black font-mono leading-relaxed select-text bg-gray-50 dark:bg-gray-950 p-6 rounded-lg border-2 border-gray-300 dark:border-gray-600 shadow-inner"><br>{{ article.content|highlight_keywords(article.article_metadata)|safe }}</div>
             </div>
         </div>
     </div>
@@ -994,6 +1001,11 @@ Please provide a detailed analysis based on the article content and the user's s
             this.previousStates = []; // Store previous HTML states for undo
             this.maxUndoStates = 10;
             this.isSubmitting = false; // Prevent duplicate submissions
+            this.selectionListenersAttached = false; // Track if selection listeners are attached
+            
+            // Check localStorage for annotation system state (default: enabled)
+            const storedState = localStorage.getItem('annotationsEnabled');
+            this.annotationsEnabled = storedState === null ? true : storedState === 'true';
             
             this.init();
         }
@@ -1002,14 +1014,62 @@ Please provide a detailed analysis based on the article content and the user's s
             // Load existing user classifications
             this.loadExistingClassifications();
             
-            // Enable user text selection
-            this.enableUserSelection();
+            // Enable user text selection (only if annotations are enabled)
+            if (this.annotationsEnabled) {
+                this.enableUserSelection();
+            }
             
             // Enable keyboard shortcuts
             this.enableKeyboardShortcuts();
             
             // Enable clicking on annotations to remove them
             this.enableAnnotationClicking();
+            
+            // Update button state
+            this.updateToggleButton();
+        }
+        
+        updateToggleButton() {
+            const btn = document.getElementById('toggle-annotations-btn');
+            const icon = document.getElementById('toggle-annotations-icon');
+            if (!btn || !icon) return;
+            
+            if (this.annotationsEnabled) {
+                btn.title = 'Disable annotation system';
+                btn.classList.remove('opacity-50');
+                icon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"></path>';
+            } else {
+                btn.title = 'Enable annotation system';
+                btn.classList.add('opacity-50');
+                icon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"></path>';
+            }
+        }
+        
+        enableAnnotations() {
+            this.annotationsEnabled = true;
+            localStorage.setItem('annotationsEnabled', 'true');
+            // Reset flag to allow re-attaching listeners
+            this.selectionListenersAttached = false;
+            this.enableUserSelection();
+            this.updateToggleButton();
+        }
+        
+        disableAnnotations() {
+            this.annotationsEnabled = false;
+            localStorage.setItem('annotationsEnabled', 'false');
+            // Clear any active selection
+            window.getSelection().removeAllRanges();
+            // Hide any open annotation menus
+            const menus = document.querySelectorAll('.annotation-menu');
+            menus.forEach(menu => menu.remove());
+            // Remove native selection handler if it exists
+            if (this.nativeSelectionHandler) {
+                document.removeEventListener('mouseup', this.nativeSelectionHandler);
+                this.nativeSelectionHandler = null;
+            }
+            // Reset flag so listeners can be re-attached when re-enabled
+            this.selectionListenersAttached = false;
+            this.updateToggleButton();
         }
         
         async loadExistingClassifications() {
@@ -1310,16 +1370,24 @@ Please provide a detailed analysis based on the article content and the user's s
         }
         
         enableUserSelection() {
+            if (!this.annotationsEnabled) return;
+            
+            // Prevent duplicate listeners
+            if (this.selectionListenersAttached) return;
+            this.selectionListenersAttached = true;
+            
             let isSelecting = false;
             let startPos = null;
             let endPos = null;
             
             this.contentElement.addEventListener('mousedown', (e) => {
+                if (!this.annotationsEnabled) return;
                 isSelecting = true;
                 startPos = this.getTextPositionFromEvent(e);
             });
             
             this.contentElement.addEventListener('mousemove', (e) => {
+                if (!this.annotationsEnabled) return;
                 if (isSelecting) {
                     endPos = this.getTextPositionFromEvent(e);
                     this.showSelectionPreview(startPos, endPos);
@@ -1327,6 +1395,7 @@ Please provide a detailed analysis based on the article content and the user's s
             });
             
             this.contentElement.addEventListener('mouseup', (e) => {
+                if (!this.annotationsEnabled) return;
                 if (isSelecting) {
                     isSelecting = false;
                     endPos = this.getTextPositionFromEvent(e);
@@ -1335,7 +1404,8 @@ Please provide a detailed analysis based on the article content and the user's s
             });
             
             // Also listen for native text selection events (as backup)
-            document.addEventListener('mouseup', (e) => {
+            this.nativeSelectionHandler = (e) => {
+                if (!this.annotationsEnabled) return;
                 // Only handle if the click was within our content area
                 if (this.contentElement.contains(e.target)) {
                     setTimeout(() => {
@@ -1388,7 +1458,9 @@ Please provide a detailed analysis based on the article content and the user's s
                         }
                     }, 50);
                 }
-            });
+            };
+            
+            document.addEventListener('mouseup', this.nativeSelectionHandler);
         }
         
         getTextPositionFromEvent(e) {
@@ -2335,6 +2407,17 @@ Please provide a detailed analysis based on the article content and the user's s
         // Add iPhone touch support
         addiPhoneTouchSupport();
     });
+    
+    // Global function to toggle annotation system
+    function toggleAnnotationSystem() {
+        if (!simpleTextManager) return;
+        
+        if (simpleTextManager.annotationsEnabled) {
+            simpleTextManager.disableAnnotations();
+        } else {
+            simpleTextManager.enableAnnotations();
+        }
+    }
     
     // iPhone Touch Support for Text Selection
     function addiPhoneTouchSupport() {
