@@ -1256,6 +1256,9 @@ Score the article from 1-10 for SIGMA rule generation potential. Consider:
             )
         
         # Build user prompt from config
+        task = prompt_config.get('task', 'Extract observables from threat intelligence content.')
+        instructions = prompt_config.get('instructions', 'Output valid JSON only.')
+        
         user_prompt = f"""Title: {title}
 
 URL: {url}
@@ -1264,19 +1267,25 @@ Content:
 
 {truncated_content}
 
-Extract all IOCs and observables (atomic indicators and behavioral patterns).
+{task}
 
 {json.dumps(prompt_config, indent=2)}
 
-CRITICAL: If you are a reasoning model, you may include reasoning text, but you MUST end your response with a valid JSON object. The JSON object must contain the extracted observables following the output_format structure exactly (with atomic_iocs, behavioral_observables, and metadata fields). Begin the JSON object with {{ and end with }}. If no observables are found, still output the complete JSON structure with empty arrays."""
+CRITICAL: {instructions} If you are a reasoning model, you may include reasoning text, but you MUST end your response with a valid JSON object. The JSON object must follow the output_format structure exactly. If no observables are found, still output the complete JSON structure with empty arrays."""
         
         # Use extract model for observable extraction (backward compatible with extract_behaviors)
         model_name = self.model_extract
         
+        # Build system message - use role if present, otherwise construct from task
+        system_content = prompt_config.get("role")
+        if not system_content:
+            task = prompt_config.get("task", "Extract observables from threat intelligence content.")
+            system_content = f"You are a cybersecurity analyst. {task}"
+        
         messages = [
                 {
                     "role": "system",
-                    "content": prompt_config.get("role", "You are a cybersecurity analyst specializing in IOC and observable extraction.")
+                    "content": system_content
                 },
                 {
                     "role": "user",
@@ -1320,13 +1329,15 @@ CRITICAL: If you are a reasoning model, you may include reasoning text, but you 
             message = result['choices'][0]['message']
             content_text = message.get('content', '')
             reasoning_text = message.get('reasoning_content', '')
+            finish_reason = result['choices'][0].get('finish_reason', '')
             
             # Prefer content if it looks like JSON, otherwise check reasoning_content
             # Deepseek-R1 might put JSON in either field
-            if content_text and (content_text.strip().startswith('{') or 'atomic_iocs' in content_text or 'behavioral_observables' in content_text):
+            # Check for both old format (atomic_iocs, behavioral_observables) and new format (observables, summary)
+            if content_text and (content_text.strip().startswith('{') or 'atomic_iocs' in content_text or 'behavioral_observables' in content_text or 'observables' in content_text or 'summary' in content_text):
                 response_text = content_text
                 logger.info("Using 'content' field for observable extraction (looks like JSON)")
-            elif reasoning_text and (reasoning_text.strip().startswith('{') or 'atomic_iocs' in reasoning_text or 'behavioral_observables' in reasoning_text):
+            elif reasoning_text and (reasoning_text.strip().startswith('{') or 'atomic_iocs' in reasoning_text or 'behavioral_observables' in reasoning_text or 'observables' in reasoning_text or 'summary' in reasoning_text):
                 response_text = reasoning_text
                 logger.info("Using 'reasoning_content' field for observable extraction (looks like JSON)")
             else:
@@ -1339,7 +1350,10 @@ CRITICAL: If you are a reasoning model, you may include reasoning text, but you 
                 logger.error("LLM returned empty response for observable extraction")
                 raise ValueError("LLM returned empty response. Check LMStudio is responding correctly.")
             
-            logger.info(f"Observable extraction response received: {len(response_text)} chars")
+            if finish_reason == 'length':
+                logger.warning(f"Observable extraction response was truncated (finish_reason=length). Attempting to parse partial JSON.")
+            
+            logger.info(f"Observable extraction response received: {len(response_text)} chars (finish_reason={finish_reason})")
             
             # Parse JSON from response (reuse same logic as extract_behaviors)
             # Deepseek-R1 may provide reasoning, then JSON at the end
@@ -1380,7 +1394,8 @@ CRITICAL: If you are a reasoning model, you may include reasoning text, but you 
                             try:
                                 candidate_data = json.loads(candidate_json)
                                 # Check if it has expected root-level keys (not a nested object)
-                                expected_keys = ['atomic_iocs', 'behavioral_observables', 'metadata']
+                                # Support both old format (atomic_iocs, behavioral_observables, metadata) and new format (observables, summary)
+                                expected_keys = ['atomic_iocs', 'behavioral_observables', 'metadata', 'observables', 'summary']
                                 if any(key in candidate_data for key in expected_keys):
                                     json_candidates.append((open_pos, json_end, len(candidate_json), candidate_data))
                             except json.JSONDecodeError:
@@ -1391,7 +1406,7 @@ CRITICAL: If you are a reasoning model, you may include reasoning text, but you 
                     if json_candidates:
                         # Prefer candidates with expected keys, and prefer those from the end of the response
                         # (reasoning models typically output JSON after reasoning)
-                        root_candidates = [c for c in json_candidates if any(k in c[3] for k in ['atomic_iocs', 'behavioral_observables', 'metadata'])]
+                        root_candidates = [c for c in json_candidates if any(k in c[3] for k in ['atomic_iocs', 'behavioral_observables', 'metadata', 'observables', 'summary'])]
                         if root_candidates:
                             # Prefer the one closest to the end (highest open_pos), but also consider size
                             # Sort by position (descending) first, then by size (descending)
@@ -1406,45 +1421,266 @@ CRITICAL: If you are a reasoning model, you may include reasoning text, but you 
                             json_text = json.dumps(largest_data)
                             logger.info(f"Extracted largest JSON object from position {json_candidates[0][0]} (fallback)")
                     else:
-                        raise ValueError("No valid JSON found in response")
+                        # If no complete JSON found and response was truncated, try to repair partial JSON
+                        if finish_reason == 'length':
+                            logger.info("No complete JSON found in truncated response. Attempting to repair partial JSON.")
+                            # Try to extract and repair partial JSON
+                            cleaned = response_text.strip()
+                            # Remove any leading/trailing whitespace or markdown
+                            if cleaned.startswith('{{'):
+                                cleaned = cleaned[1:]
+                            if cleaned.endswith('}}'):
+                                cleaned = cleaned[:-1]
+                            
+                            # Find where JSON starts
+                            json_start = cleaned.find('{')
+                            if json_start == -1:
+                                raise ValueError("No JSON object found in response")
+                            
+                            # Start from the opening brace
+                            partial_json = cleaned[json_start:]
+                            
+                            # Remove trailing comma and whitespace from the end (common in truncated arrays)
+                            partial_json = partial_json.rstrip()
+                            if partial_json.endswith(','):
+                                partial_json = partial_json[:-1].rstrip()
+                            
+                            # Count open/close braces and brackets
+                            open_braces = partial_json.count('{')
+                            close_braces = partial_json.count('}')
+                            open_brackets = partial_json.count('[')
+                            close_brackets = partial_json.count(']')
+                            
+                            # Close incomplete arrays first (they're nested inside objects)
+                            if open_brackets > close_brackets:
+                                partial_json += ']' * (open_brackets - close_brackets)
+                            
+                            # Close incomplete objects
+                            if open_braces > close_braces:
+                                partial_json += '}' * (open_braces - close_braces)
+                            
+                            try:
+                                repaired_data = json.loads(partial_json)
+                                # Check if it has expected structure (new or old format)
+                                if 'atomic_iocs' in repaired_data or 'behavioral_observables' in repaired_data or 'observables' in repaired_data:
+                                    # Ensure all expected sections exist for old format
+                                    if 'atomic_iocs' not in repaired_data and 'observables' not in repaired_data:
+                                        repaired_data['atomic_iocs'] = {}
+                                    if 'behavioral_observables' not in repaired_data and 'observables' not in repaired_data:
+                                        repaired_data['behavioral_observables'] = {}
+                                    # Ensure summary exists for new format
+                                    if 'observables' in repaired_data and 'summary' not in repaired_data:
+                                        repaired_data['summary'] = {}
+                                    
+                                    json_text = json.dumps(repaired_data)
+                                    logger.info("Successfully repaired partial JSON from truncated response")
+                                else:
+                                    raise ValueError("Repaired JSON doesn't have expected structure")
+                            except json.JSONDecodeError as e:
+                                logger.warning(f"Could not repair partial JSON: {e}. Attempting alternative repair strategy.")
+                                # Alternative: try to extract observables or atomic_iocs section if it exists
+                                # Look for observables array (new format) or atomic_iocs (old format)
+                                observables_pattern = r'"observables"\s*:\s*\['
+                                atomic_iocs_pattern = r'"atomic_iocs"\s*:\s*\{'
+                                observables_match = re.search(observables_pattern, cleaned)
+                                atomic_iocs_match = re.search(atomic_iocs_pattern, cleaned)
+                                
+                                if observables_match:
+                                    # New format: extract from root to observables
+                                    root_start = cleaned.rfind('{', 0, observables_match.start())
+                                    if root_start != -1:
+                                        partial = cleaned[root_start:]
+                                        partial = partial.rstrip().rstrip(',')
+                                        if partial.count('"') % 2 != 0:
+                                            partial = partial.rstrip('"').rstrip()
+                                        open_brackets = partial.count('[')
+                                        close_brackets = partial.count(']')
+                                        open_braces = partial.count('{')
+                                        close_braces = partial.count('}')
+                                        if open_brackets > close_brackets:
+                                            partial += ']' * (open_brackets - close_brackets)
+                                        if open_braces > close_braces:
+                                            partial += '}' * (open_braces - close_braces)
+                                        try:
+                                            minimal_data = json.loads(partial)
+                                            if 'observables' in minimal_data:
+                                                repaired_data = {
+                                                    'observables': minimal_data.get('observables', []),
+                                                    'summary': minimal_data.get('summary', {})
+                                                }
+                                                json_text = json.dumps(repaired_data)
+                                                logger.info("Successfully extracted observables from truncated JSON using alternative strategy")
+                                            else:
+                                                raise ValueError("Could not extract observables")
+                                        except json.JSONDecodeError as parse_err:
+                                            logger.warning(f"Alternative repair also failed: {parse_err}")
+                                            raise ValueError("No valid JSON found in response (truncated and repair failed)")
+                                    else:
+                                        raise ValueError("No valid JSON found in response (truncated and repair failed)")
+                                elif atomic_iocs_match:
+                                    # Find the start of the root object
+                                    root_start = cleaned.rfind('{', 0, atomic_iocs_match.start())
+                                    if root_start != -1:
+                                        # Extract from root to end, then repair
+                                        partial = cleaned[root_start:]
+                                        # Remove trailing comma/newline
+                                        partial = partial.rstrip().rstrip(',')
+                                        
+                                        # Try to close incomplete string values first
+                                        # If we end with a quote, close it
+                                        if partial.count('"') % 2 != 0:
+                                            # Odd number of quotes means unclosed string
+                                            partial = partial.rstrip('"').rstrip()
+                                        
+                                        # Close arrays and objects
+                                        open_brackets = partial.count('[')
+                                        close_brackets = partial.count(']')
+                                        open_braces = partial.count('{')
+                                        close_braces = partial.count('}')
+                                        
+                                        # Close arrays first
+                                        if open_brackets > close_brackets:
+                                            partial += ']' * (open_brackets - close_brackets)
+                                        
+                                        # Close objects
+                                        if open_braces > close_braces:
+                                            partial += '}' * (open_braces - close_braces)
+                                        
+                                        try:
+                                            minimal_data = json.loads(partial)
+                                            if 'atomic_iocs' in minimal_data or 'observables' in minimal_data:
+                                                # Build complete structure with what we have
+                                                if 'observables' in minimal_data:
+                                                    # New format
+                                                    repaired_data = {
+                                                        'observables': minimal_data.get('observables', []),
+                                                        'summary': minimal_data.get('summary', {})
+                                                    }
+                                                else:
+                                                    # Old format
+                                                    repaired_data = {
+                                                        'atomic_iocs': minimal_data.get('atomic_iocs', {}),
+                                                        'behavioral_observables': {},
+                                                        'metadata': {}
+                                                    }
+                                                json_text = json.dumps(repaired_data)
+                                                logger.info("Successfully extracted observables from truncated JSON using alternative strategy")
+                                            else:
+                                                raise ValueError("Could not extract atomic_iocs")
+                                        except json.JSONDecodeError as parse_err:
+                                            logger.warning(f"Alternative repair also failed: {parse_err}")
+                                            raise ValueError("No valid JSON found in response (truncated and repair failed)")
+                                    else:
+                                        raise ValueError("No valid JSON found in response (truncated and repair failed)")
+                                else:
+                                    raise ValueError("No valid JSON found in response (truncated and repair failed)")
+                        else:
+                            raise ValueError("No valid JSON found in response")
                 
-                extracted = json.loads(json_text)
+                # Try to parse the JSON
+                try:
+                    extracted = json.loads(json_text)
+                except json.JSONDecodeError as e:
+                    # If parsing fails and response was truncated, try repair
+                    if finish_reason == 'length':
+                        logger.warning(f"JSON parsing failed for truncated response: {e}. Attempting repair.")
+                        # Try to repair by finding the last valid structure
+                        cleaned = response_text.strip()
+                        if cleaned.startswith('{{'):
+                            cleaned = cleaned[1:]
+                        if cleaned.endswith('}}'):
+                            cleaned = cleaned[:-1]
+                        
+                        # Find last complete brace and try to close incomplete structures
+                        last_brace = cleaned.rfind('}')
+                        if last_brace > 0:
+                            partial = cleaned[:last_brace + 1]
+                            # Close incomplete arrays/objects
+                            open_braces = partial.count('{')
+                            close_braces = partial.count('}')
+                            open_brackets = partial.count('[')
+                            close_brackets = partial.count(']')
+                            
+                            if open_brackets > close_brackets:
+                                partial += ']' * (open_brackets - close_brackets)
+                            if open_braces > close_braces:
+                                partial += '}' * (open_braces - close_braces)
+                            
+                            try:
+                                extracted = json.loads(partial)
+                                logger.info("Successfully repaired and parsed truncated JSON")
+                            except json.JSONDecodeError:
+                                raise e  # Re-raise original error if repair fails
+                        else:
+                            raise e  # Re-raise original error if no valid structure found
+                    else:
+                        raise e  # Re-raise original error if not truncated
                 
                 if 'raw_response' not in extracted:
                     extracted['raw_response'] = response_text
                 
-                # Calculate counts
-                atomic_count = 0
-                behavioral_count = 0
-                
-                if 'atomic_iocs' in extracted:
-                    atomic_count = sum(len(v) if isinstance(v, list) else 0 for v in extracted['atomic_iocs'].values())
-                
-                if 'behavioral_observables' in extracted:
-                    behavioral_count = sum(len(v) if isinstance(v, list) else 0 for v in extracted['behavioral_observables'].values())
-                
-                if 'metadata' not in extracted:
-                    extracted['metadata'] = {}
-                
-                extracted['metadata']['observable_count'] = atomic_count + behavioral_count
-                extracted['metadata']['atomic_count'] = atomic_count
-                extracted['metadata']['behavioral_count'] = behavioral_count
-                extracted['metadata']['url'] = url
-                
-                if atomic_count == 0 and behavioral_count == 0:
-                    logger.warning(f"No observables extracted from article. Raw response length: {len(response_text)} chars. First 500 chars: {response_text[:500]}")
+                # Handle new format (observables array + summary) or old format (atomic_iocs + behavioral_observables + metadata)
+                if 'observables' in extracted and 'summary' in extracted:
+                    # New format: observables array with type/value/platform/source_context
+                    observables_list = extracted.get('observables', [])
+                    observable_count = len(observables_list)
+                    summary = extracted.get('summary', {})
+                    
+                    # Convert to old format for backward compatibility with UI
+                    extracted['atomic_iocs'] = {}
+                    extracted['behavioral_observables'] = {
+                        'command_line': [obs.get('value', '') for obs in observables_list if obs.get('type') == 'process_cmdline']
+                    }
+                    extracted['metadata'] = {
+                        'observable_count': observable_count,
+                        'atomic_count': 0,
+                        'behavioral_count': observable_count,
+                        'url': summary.get('source_url', url),
+                        'platforms_detected': summary.get('platforms_detected', [])
+                    }
+                    
+                    logger.info(f"Parsed observable extraction result (new format): {observable_count} command-line observables")
                 else:
-                    logger.info(f"Parsed observable extraction result: {atomic_count} atomic IOCs, {behavioral_count} behavioral observables")
+                    # Old format: atomic_iocs + behavioral_observables + metadata
+                    atomic_count = 0
+                    behavioral_count = 0
+                    
+                    if 'atomic_iocs' in extracted:
+                        atomic_count = sum(len(v) if isinstance(v, list) else 0 for v in extracted['atomic_iocs'].values())
+                    
+                    if 'behavioral_observables' in extracted:
+                        behavioral_count = sum(len(v) if isinstance(v, list) else 0 for v in extracted['behavioral_observables'].values())
+                    
+                    if 'metadata' not in extracted:
+                        extracted['metadata'] = {}
+                    
+                    extracted['metadata']['observable_count'] = atomic_count + behavioral_count
+                    extracted['metadata']['atomic_count'] = atomic_count
+                    extracted['metadata']['behavioral_count'] = behavioral_count
+                    extracted['metadata']['url'] = url
+                    
+                    if atomic_count == 0 and behavioral_count == 0:
+                        logger.warning(f"No observables extracted from article. Raw response length: {len(response_text)} chars. First 500 chars: {response_text[:500]}")
+                        logger.warning(f"Extracted JSON keys: {list(extracted.keys())}")
+                        if 'atomic_iocs' in extracted:
+                            logger.warning(f"atomic_iocs structure: {list(extracted['atomic_iocs'].keys()) if isinstance(extracted['atomic_iocs'], dict) else 'not a dict'}")
+                        if 'behavioral_observables' in extracted:
+                            logger.warning(f"behavioral_observables structure: {list(extracted['behavioral_observables'].keys()) if isinstance(extracted['behavioral_observables'], dict) else 'not a dict'}")
+                    else:
+                        logger.info(f"Parsed observable extraction result: {atomic_count} atomic IOCs, {behavioral_count} behavioral observables")
                 
             except (json.JSONDecodeError, ValueError) as e:
                 logger.warning(f"Could not parse JSON from observable extraction response: {e}. Using fallback.")
                 extracted = {
-                    "atomic_iocs": {
-                        "ip_addresses": [], "domains": [], "urls": [], "file_hashes": [], "emails": []
+                    "observables": [],
+                    "summary": {
+                        "count": 0,
+                        "source_url": url,
+                        "platforms_detected": []
                     },
+                    "atomic_iocs": {},
                     "behavioral_observables": {
-                        "command_line": [], "process_chains": [], "registry_keys": [], "file_paths": [],
-                        "services": [], "mutexes": [], "named_pipes": [], "event_logs": [], "api_calls": []
+                        "command_line": []
                     },
                     "metadata": {
                         "url": url,

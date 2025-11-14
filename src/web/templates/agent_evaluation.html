@@ -1,0 +1,259 @@
+{% extends "base.html" %}
+
+{% block title %}{{ agent_name }} Evaluations - Huntable CTI Scraper{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+    <!-- Header -->
+    <div class="mb-8">
+        <div class="flex items-center justify-between">
+            <div>
+                <h1 class="text-4xl font-bold text-gray-900 dark:text-white mb-2">{{ agent_name }} Evaluations</h1>
+                <p class="text-gray-600 dark:text-gray-400">Performance metrics and improvement tracking</p>
+            </div>
+            <a href="/evaluations" class="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600">
+                ← Back to All Evaluations
+            </a>
+        </div>
+    </div>
+
+    <!-- Latest Evaluation Summary -->
+    {% if latest %}
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mb-8">
+        <h2 class="text-2xl font-semibold text-gray-900 dark:text-white mb-4">Latest Evaluation</h2>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+            <div>
+                <div class="text-sm text-gray-500 dark:text-gray-400">Type</div>
+                <div class="text-lg font-semibold text-gray-900 dark:text-white">{{ latest.evaluation_type }}</div>
+            </div>
+            <div>
+                <div class="text-sm text-gray-500 dark:text-gray-400">Model</div>
+                <div class="text-lg font-semibold text-gray-900 dark:text-white">{{ latest.model_version or 'N/A' }}</div>
+            </div>
+            <div>
+                <div class="text-sm text-gray-500 dark:text-gray-400">Articles Tested</div>
+                <div class="text-lg font-semibold text-gray-900 dark:text-white">{{ latest.total_articles }}</div>
+            </div>
+        </div>
+        
+        <!-- Metrics Display -->
+        <div id="latest-metrics" class="mt-4">
+            <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-2">Key Metrics</h3>
+            <div id="metrics-content" class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                Loading metrics...
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Evaluation History -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mb-8">
+        <h2 class="text-2xl font-semibold text-gray-900 dark:text-white mb-4">Evaluation History</h2>
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                <thead class="bg-gray-50 dark:bg-gray-900">
+                    <tr>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Type</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Model</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Articles</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Date</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="history-table" class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                    {% for eval in history %}
+                    <tr class="hover:bg-gray-50 dark:hover:bg-gray-700 {% if selected_evaluation and eval.id == selected_evaluation.id %}bg-blue-50 dark:bg-blue-900{% endif %}">
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">{{ eval.evaluation_type }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{{ eval.model_version or 'N/A' }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{{ eval.total_articles }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{{ eval.created_at[:10] if eval.created_at else 'N/A' }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm">
+                            <a href="/evaluations/{{ agent_name }}?evaluation_id={{ eval.id }}" class="text-blue-600 dark:text-blue-400 hover:underline mr-3">View</a>
+                            {% if loop.index > 1 %}
+                            <a href="/evaluations/compare?baseline_id={{ history[loop.index - 1].id }}&current_id={{ eval.id }}" class="text-green-600 dark:text-green-400 hover:underline">Compare</a>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Selected Evaluation Details -->
+    {% if selected_evaluation %}
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+        <h2 class="text-2xl font-semibold text-gray-900 dark:text-white mb-4">Evaluation Details</h2>
+        <div id="evaluation-details">
+            <div class="mb-4">
+                <div class="text-sm text-gray-500 dark:text-gray-400 mb-1">Evaluation ID</div>
+                <div class="text-lg font-semibold text-gray-900 dark:text-white">{{ selected_evaluation.id }}</div>
+            </div>
+            <div class="mb-4">
+                <div class="text-sm text-gray-500 dark:text-gray-400 mb-1">Type</div>
+                <div class="text-lg font-semibold text-gray-900 dark:text-white">{{ selected_evaluation.evaluation_type }}</div>
+            </div>
+            <div id="metrics-display" class="mt-6">
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Metrics</h3>
+                <pre class="bg-gray-100 dark:bg-gray-900 p-4 rounded-lg overflow-x-auto text-sm">{{ selected_evaluation.metrics | tojson(indent=2) }}</pre>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Run Evaluation Section -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mt-8">
+        <h2 class="text-2xl font-semibold text-gray-900 dark:text-white mb-4">Run New Evaluation</h2>
+        <div class="bg-blue-50 dark:bg-blue-900 p-4 rounded-lg mb-4">
+            <p class="text-sm text-gray-700 dark:text-gray-300">
+                <strong>Note:</strong> Evaluations should be run via CLI scripts for full control. 
+                Use the command below with your test dataset path.
+            </p>
+        </div>
+        <div class="bg-gray-100 dark:bg-gray-900 p-4 rounded-lg font-mono text-sm">
+            <div class="text-gray-600 dark:text-gray-400 mb-2">Command:</div>
+            <div id="eval-command" class="text-gray-900 dark:text-white">
+                {% if agent_name == 'ExtractAgent' %}
+                python scripts/eval_extract_agent.py --test-data &lt;your_dataset.json&gt; --evaluation-type baseline --save-to-db
+                {% elif agent_name == 'RankAgent' %}
+                python scripts/eval_rank_agent.py --test-data &lt;your_dataset.json&gt; --evaluation-type baseline --save-to-db
+                {% elif agent_name == 'SigmaAgent' %}
+                python scripts/eval_sigma_agent.py --test-data &lt;your_dataset.json&gt; --evaluation-type baseline --save-to-db
+                {% elif agent_name == 'OSDetection' %}
+                python scripts/eval_os_detection.py --test-data &lt;your_dataset.json&gt; --evaluation-type baseline --save-to-db
+                {% else %}
+                python scripts/eval_&lt;agent&gt;.py --test-data &lt;your_dataset.json&gt; --evaluation-type baseline --save-to-db
+                {% endif %}
+            </div>
+            <button onclick="copyCommand()" class="mt-2 px-3 py-1 bg-blue-600 text-white rounded text-xs hover:bg-blue-700">
+                Copy Command
+            </button>
+        </div>
+    </div>
+
+    <!-- Trend Charts -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mt-8">
+        <h2 class="text-2xl font-semibold text-gray-900 dark:text-white mb-4">Performance Trends</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+                <canvas id="trend-chart-1"></canvas>
+            </div>
+            <div>
+                <canvas id="trend-chart-2"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function copyCommand() {
+    const command = document.getElementById('eval-command').textContent;
+    navigator.clipboard.writeText(command).then(() => {
+        alert('Command copied to clipboard!');
+    });
+}
+</script>
+
+<script>
+// Load latest metrics
+{% if latest %}
+document.addEventListener('DOMContentLoaded', () => {
+    const metrics = {{ latest.metrics | tojson }};
+    const agentName = '{{ agent_name }}';
+    
+    let metricsHtml = '';
+    
+    if (agentName === 'ExtractAgent') {
+        if (metrics.json_validity_rate !== undefined) {
+            metricsHtml += `<div class="bg-green-100 dark:bg-green-900 p-3 rounded"><div class="text-xs text-gray-600 dark:text-gray-400">JSON Validity</div><div class="text-2xl font-bold">${(metrics.json_validity_rate * 100).toFixed(1)}%</div></div>`;
+        }
+        if (metrics.field_completeness_rate !== undefined) {
+            metricsHtml += `<div class="bg-blue-100 dark:bg-blue-900 p-3 rounded"><div class="text-xs text-gray-600 dark:text-gray-400">Field Completeness</div><div class="text-2xl font-bold">${(metrics.field_completeness_rate * 100).toFixed(1)}%</div></div>`;
+        }
+        if (metrics.avg_discrete_count !== undefined) {
+            metricsHtml += `<div class="bg-purple-100 dark:bg-purple-900 p-3 rounded"><div class="text-xs text-gray-600 dark:text-gray-400">Avg Observables</div><div class="text-2xl font-bold">${metrics.avg_discrete_count.toFixed(1)}</div></div>`;
+        }
+        if (metrics.total_commandlines !== undefined) {
+            metricsHtml += `<div class="bg-yellow-100 dark:bg-yellow-900 p-3 rounded"><div class="text-xs text-gray-600 dark:text-gray-400">Total Command-lines</div><div class="text-2xl font-bold">${metrics.total_commandlines}</div></div>`;
+        }
+    } else if (agentName === 'RankAgent') {
+        if (metrics.score_mean !== undefined) {
+            metricsHtml += `<div class="bg-green-100 dark:bg-green-900 p-3 rounded"><div class="text-xs text-gray-600 dark:text-gray-400">Avg Score</div><div class="text-2xl font-bold">${metrics.score_mean.toFixed(2)}</div></div>`;
+        }
+        if (metrics.threshold_accuracy !== undefined) {
+            metricsHtml += `<div class="bg-blue-100 dark:bg-blue-900 p-3 rounded"><div class="text-xs text-gray-600 dark:text-gray-400">Threshold Accuracy</div><div class="text-2xl font-bold">${(metrics.threshold_accuracy * 100).toFixed(1)}%</div></div>`;
+        }
+    } else if (agentName === 'SigmaAgent') {
+        if (metrics.avg_huntability_score !== undefined) {
+            metricsHtml += `<div class="bg-green-100 dark:bg-green-900 p-3 rounded"><div class="text-xs text-gray-600 dark:text-gray-400">Huntability Score</div><div class="text-2xl font-bold">${metrics.avg_huntability_score.toFixed(1)}/10</div></div>`;
+        }
+        if (metrics.structural_validation_pass_rate !== undefined) {
+            metricsHtml += `<div class="bg-blue-100 dark:bg-blue-900 p-3 rounded"><div class="text-xs text-gray-600 dark:text-gray-400">Validation Pass Rate</div><div class="text-2xl font-bold">${(metrics.structural_validation_pass_rate * 100).toFixed(1)}%</div></div>`;
+        }
+        if (metrics.avg_semantic_similarity !== undefined) {
+            metricsHtml += `<div class="bg-purple-100 dark:bg-purple-900 p-3 rounded"><div class="text-xs text-gray-600 dark:text-gray-400">Semantic Similarity</div><div class="text-2xl font-bold">${(metrics.avg_semantic_similarity * 100).toFixed(1)}%</div></div>`;
+        }
+    } else if (agentName === 'OSDetection') {
+        if (metrics.accuracy !== undefined) {
+            metricsHtml += `<div class="bg-green-100 dark:bg-green-900 p-3 rounded"><div class="text-xs text-gray-600 dark:text-gray-400">Accuracy</div><div class="text-2xl font-bold">${(metrics.accuracy * 100).toFixed(1)}%</div></div>`;
+        }
+        if (metrics.avg_confidence !== undefined) {
+            metricsHtml += `<div class="bg-blue-100 dark:bg-blue-900 p-3 rounded"><div class="text-xs text-gray-600 dark:text-gray-400">Avg Confidence</div><div class="text-2xl font-bold">${(metrics.avg_confidence * 100).toFixed(1)}%</div></div>`;
+        }
+    }
+    
+    document.getElementById('metrics-content').innerHTML = metricsHtml || '<div class="text-gray-500">No metrics available</div>';
+    
+    // Load trend charts
+    loadTrendCharts(agentName);
+});
+{% endif %}
+
+async function loadTrendCharts(agentName) {
+    // Load trends for key metrics
+    const metricKeys = agentName === 'ExtractAgent' ? ['json_validity_rate', 'avg_discrete_count'] :
+                       agentName === 'RankAgent' ? ['score_mean', 'threshold_accuracy'] :
+                       agentName === 'SigmaAgent' ? ['avg_huntability_score', 'structural_validation_pass_rate'] :
+                       ['accuracy', 'avg_confidence'];
+    
+    for (let i = 0; i < 2 && i < metricKeys.length; i++) {
+        try {
+            const response = await fetch(`/api/eval/trends?agent_name=${agentName}&metric_key=${metricKeys[i]}`);
+            if (response.ok) {
+                const data = await response.json();
+                const trends = data.trends || [];
+                
+                if (trends.length > 0) {
+                    const ctx = document.getElementById(`trend-chart-${i + 1}`).getContext('2d');
+                    new Chart(ctx, {
+                        type: 'line',
+                        data: {
+                            labels: trends.map(t => new Date(t.timestamp).toLocaleDateString()),
+                            datasets: [{
+                                label: metricKeys[i],
+                                data: trends.map(t => t.value),
+                                borderColor: 'rgb(59, 130, 246)',
+                                backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                                tension: 0.1
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            plugins: {
+                                title: {
+                                    display: true,
+                                    text: metricKeys[i].replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
+                                }
+                            }
+                        }
+                    });
+                }
+            }
+        } catch (error) {
+            console.error(`Error loading trend for ${metricKeys[i]}:`, error);
+        }
+    }
+}
+</script>
+{% endblock %}
+

@@ -762,26 +762,37 @@ class ThreatHuntingScorer:
             if ThreatHuntingScorer._keyword_matches(negative, full_text):
                 negative_matches.append(negative)
         
-        # Calculate scores using logarithmic bucket system with diminishing returns
-        import math
+        # Calculate scores using geometric series with 50% diminishing returns
+        # Each successive match adds 50% of the previous increment
+        # Formula: score = max_points * (1 - 0.5^n) where n = number of matches
+        # This ensures scores approach but never reach the category maximum
+        
+        def geometric_score(matches: int, max_points: float) -> float:
+            """Calculate score using geometric series that never reaches max."""
+            if matches == 0:
+                return 0.0
+            # Score = max_points * (1 - 0.5^n)
+            # As n increases, 0.5^n approaches 0, so score approaches max_points but never reaches it
+            return max_points * (1.0 - (0.5 ** matches))
         
         # Perfect Discriminators: 75 points max (dominant weight for technical depth)
-        perfect_score = min(35 * math.log(len(perfect_matches) + 1), 75.0)
+        perfect_score = geometric_score(len(perfect_matches), 75.0)
         
         # LOLBAS Executables: 10 points max (practical attack techniques)
-        lolbas_score = min(5 * math.log(len(lolbas_matches) + 1), 10.0)
+        lolbas_score = geometric_score(len(lolbas_matches), 10.0)
         
         # Intelligence Indicators: 10 points max (core threat intelligence value)
-        intelligence_score = min(4 * math.log(len(intelligence_matches) + 1), 10.0)
+        intelligence_score = geometric_score(len(intelligence_matches), 10.0)
         
         # Good Discriminators: 5 points max (supporting technical content)
-        good_score = min(2.5 * math.log(len(good_matches) + 1), 5.0)
+        good_score = geometric_score(len(good_matches), 5.0)
         
         # Negative Penalties: -10 points max (educational/marketing content penalty)
-        negative_penalty = min(3 * math.log(len(negative_matches) + 1), 10.0)
+        negative_penalty = geometric_score(len(negative_matches), 10.0)
 
-        # Calculate final threat hunting score (0-100 range)
-        threat_hunting_score = max(0.0, min(100.0, perfect_score + good_score + lolbas_score + intelligence_score - negative_penalty))
+        # Calculate final threat hunting score (0-100 range, but will never reach 100)
+        # Theoretical max: 75 + 5 + 10 + 10 = 100, but geometric series ensures it never reaches 100
+        threat_hunting_score = max(0.0, perfect_score + good_score + lolbas_score + intelligence_score - negative_penalty)
 
         return {
             'threat_hunting_score': round(threat_hunting_score, 1),
