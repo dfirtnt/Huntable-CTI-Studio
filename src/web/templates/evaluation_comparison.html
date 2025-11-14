@@ -1,0 +1,150 @@
+{% extends "base.html" %}
+
+{% block title %}Evaluation Comparison - Huntable CTI Scraper{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+    <!-- Header -->
+    <div class="mb-8">
+        <div class="flex items-center justify-between">
+            <div>
+                <h1 class="text-4xl font-bold text-gray-900 dark:text-white mb-2">Evaluation Comparison</h1>
+                <p class="text-gray-600 dark:text-gray-400">Compare baseline vs current evaluation</p>
+            </div>
+            <a href="/evaluations" class="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600">
+                ← Back to Evaluations
+            </a>
+        </div>
+    </div>
+
+    <!-- Comparison Summary -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+        <!-- Baseline -->
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+            <h2 class="text-2xl font-semibold text-gray-900 dark:text-white mb-4">Baseline</h2>
+            <div class="space-y-2">
+                <div>
+                    <div class="text-sm text-gray-500 dark:text-gray-400">Type</div>
+                    <div class="text-lg font-semibold text-gray-900 dark:text-white">{{ comparison.baseline.evaluation_type }}</div>
+                </div>
+                <div>
+                    <div class="text-sm text-gray-500 dark:text-gray-400">Model</div>
+                    <div class="text-lg font-semibold text-gray-900 dark:text-white">{{ comparison.baseline.model_version or 'N/A' }}</div>
+                </div>
+                <div>
+                    <div class="text-sm text-gray-500 dark:text-gray-400">Date</div>
+                    <div class="text-lg font-semibold text-gray-900 dark:text-white">{{ comparison.baseline.created_at[:10] if comparison.baseline.created_at else 'N/A' }}</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Current -->
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+            <h2 class="text-2xl font-semibold text-gray-900 dark:text-white mb-4">Current</h2>
+            <div class="space-y-2">
+                <div>
+                    <div class="text-sm text-gray-500 dark:text-gray-400">Type</div>
+                    <div class="text-lg font-semibold text-gray-900 dark:text-white">{{ comparison.current.evaluation_type }}</div>
+                </div>
+                <div>
+                    <div class="text-sm text-gray-500 dark:text-gray-400">Model</div>
+                    <div class="text-lg font-semibold text-gray-900 dark:text-white">{{ comparison.current.model_version or 'N/A' }}</div>
+                </div>
+                <div>
+                    <div class="text-sm text-gray-500 dark:text-gray-400">Date</div>
+                    <div class="text-lg font-semibold text-gray-900 dark:text-white">{{ comparison.current.created_at[:10] if comparison.current.created_at else 'N/A' }}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Improvements -->
+    {% if comparison.comparison.improvements %}
+    <div class="bg-green-50 dark:bg-green-900 rounded-lg shadow-lg p-6 mb-8">
+        <h2 class="text-2xl font-semibold text-gray-900 dark:text-white mb-4">✅ Improvements</h2>
+        <div class="overflow-x-auto">
+            <table class="min-w-full">
+                <thead>
+                    <tr class="border-b border-green-200 dark:border-green-700">
+                        <th class="px-4 py-2 text-left text-sm font-medium text-gray-700 dark:text-gray-300">Metric</th>
+                        <th class="px-4 py-2 text-left text-sm font-medium text-gray-700 dark:text-gray-300">Baseline</th>
+                        <th class="px-4 py-2 text-left text-sm font-medium text-gray-700 dark:text-gray-300">Current</th>
+                        <th class="px-4 py-2 text-left text-sm font-medium text-gray-700 dark:text-gray-300">Change</th>
+                        <th class="px-4 py-2 text-left text-sm font-medium text-gray-700 dark:text-gray-300">% Change</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for metric, data in comparison.comparison.improvements.items() %}
+                    <tr class="border-b border-green-100 dark:border-green-800">
+                        <td class="px-4 py-2 text-sm text-gray-900 dark:text-white">{{ metric }}</td>
+                        <td class="px-4 py-2 text-sm text-gray-600 dark:text-gray-400">{{ "%.3f"|format(data.baseline) }}</td>
+                        <td class="px-4 py-2 text-sm text-gray-600 dark:text-gray-400">{{ "%.3f"|format(data.current) }}</td>
+                        <td class="px-4 py-2 text-sm font-semibold text-green-600 dark:text-green-400">+{{ "%.3f"|format(data.diff) }}</td>
+                        <td class="px-4 py-2 text-sm font-semibold text-green-600 dark:text-green-400">+{{ "%.1f"|format(data.pct_change) }}%</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Degradations -->
+    {% if comparison.comparison.degradations %}
+    <div class="bg-red-50 dark:bg-red-900 rounded-lg shadow-lg p-6 mb-8">
+        <h2 class="text-2xl font-semibold text-gray-900 dark:text-white mb-4">⚠️ Degradations</h2>
+        <div class="overflow-x-auto">
+            <table class="min-w-full">
+                <thead>
+                    <tr class="border-b border-red-200 dark:border-red-700">
+                        <th class="px-4 py-2 text-left text-sm font-medium text-gray-700 dark:text-gray-300">Metric</th>
+                        <th class="px-4 py-2 text-left text-sm font-medium text-gray-700 dark:text-gray-300">Baseline</th>
+                        <th class="px-4 py-2 text-left text-sm font-medium text-gray-700 dark:text-gray-300">Current</th>
+                        <th class="px-4 py-2 text-left text-sm font-medium text-gray-700 dark:text-gray-300">Change</th>
+                        <th class="px-4 py-2 text-left text-sm font-medium text-gray-700 dark:text-gray-300">% Change</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for metric, data in comparison.comparison.degradations.items() %}
+                    <tr class="border-b border-red-100 dark:border-red-800">
+                        <td class="px-4 py-2 text-sm text-gray-900 dark:text-white">{{ metric }}</td>
+                        <td class="px-4 py-2 text-sm text-gray-600 dark:text-gray-400">{{ "%.3f"|format(data.baseline) }}</td>
+                        <td class="px-4 py-2 text-sm text-gray-600 dark:text-gray-400">{{ "%.3f"|format(data.current) }}</td>
+                        <td class="px-4 py-2 text-sm font-semibold text-red-600 dark:text-red-400">{{ "%.3f"|format(data.diff) }}</td>
+                        <td class="px-4 py-2 text-sm font-semibold text-red-600 dark:text-red-400">{{ "%.1f"|format(data.pct_change) }}%</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Unchanged -->
+    {% if comparison.comparison.unchanged %}
+    <div class="bg-gray-50 dark:bg-gray-800 rounded-lg shadow-lg p-6">
+        <h2 class="text-2xl font-semibold text-gray-900 dark:text-white mb-4">➡️ Unchanged</h2>
+        <div class="overflow-x-auto">
+            <table class="min-w-full">
+                <thead>
+                    <tr class="border-b border-gray-200 dark:border-gray-700">
+                        <th class="px-4 py-2 text-left text-sm font-medium text-gray-700 dark:text-gray-300">Metric</th>
+                        <th class="px-4 py-2 text-left text-sm font-medium text-gray-700 dark:text-gray-300">Value</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for metric, data in comparison.comparison.unchanged.items() %}
+                    <tr class="border-b border-gray-100 dark:border-gray-700">
+                        <td class="px-4 py-2 text-sm text-gray-900 dark:text-white">{{ metric }}</td>
+                        <td class="px-4 py-2 text-sm text-gray-600 dark:text-gray-400">{{ "%.3f"|format(data.current) }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+

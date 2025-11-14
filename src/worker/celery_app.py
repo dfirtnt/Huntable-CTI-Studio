@@ -308,9 +308,8 @@ def check_source(self, source_identifier: str):
     try:
         import asyncio
         from src.database.async_manager import AsyncDatabaseManager
-        from src.core.rss_parser import RSSParser
+        from src.core.fetcher import ContentFetcher
         from src.core.processor import ContentProcessor
-        from src.utils.http import HTTPClient
         
         async def run_source_check():
             """Run the actual source checking."""
@@ -343,22 +342,21 @@ def check_source(self, source_identifier: str):
                 existing_hashes = await db.get_existing_content_hashes()
                 existing_urls = await db.get_existing_urls()
                 
-                async with HTTPClient() as http_client:
-                    rss_parser = RSSParser(http_client)
-                    
+                # Use ContentFetcher with fallback strategy (RSS → Modern Scraping → Legacy Scraping)
+                async with ContentFetcher() as fetcher:
                     # Track timing for health metrics
                     start_time = time.time()
                     collection_success = False
                     
                     try:
-                        # Parse RSS feed for new articles
-                        articles = await rss_parser.parse_feed(source)
+                        # Fetch articles using hierarchical strategy
+                        fetch_result = await fetcher.fetch_source(source)
                         
-                        if articles:
-                            logger.info(f"  ✓ {source.name}: {len(articles)} articles collected")
+                        if fetch_result.success and fetch_result.articles:
+                            logger.info(f"  ✓ {source.name}: {len(fetch_result.articles)} articles collected via {fetch_result.method}")
                             
                             # Process articles through deduplication
-                            dedup_result = await processor.process_articles(articles, existing_hashes, existing_urls)
+                            dedup_result = await processor.process_articles(fetch_result.articles, existing_hashes, existing_urls)
                             
                             # Save deduplicated articles
                             saved_count = 0
@@ -375,7 +373,7 @@ def check_source(self, source_identifier: str):
                             filtered_count = len(dedup_result.duplicates)
                             duplicates_filtered = filtered_count
                             
-                            logger.info(f"    - Collected: {len(articles)} articles")
+                            logger.info(f"    - Collected: {len(fetch_result.articles)} articles")
                             logger.info(f"    - Saved: {saved_count} new articles")
                             logger.info(f"    - Duplicates filtered: {duplicates_filtered} articles")
                             
@@ -385,12 +383,13 @@ def check_source(self, source_identifier: str):
                                 "status": "success",
                                 "source_id": source.id,
                                 "source_name": source.name,
-                                "articles_collected": len(articles),
+                                "articles_collected": len(fetch_result.articles),
                                 "articles_saved": saved_count,
                                 "duplicates_filtered": duplicates_filtered,
-                                "message": f"Successfully collected {saved_count} new articles from {source.name}"
+                                "method": fetch_result.method,
+                                "message": f"Successfully collected {saved_count} new articles from {source.name} via {fetch_result.method}"
                             }
-                        else:
+                        elif fetch_result.success:
                             logger.info(f"  ✓ {source.name}: No new articles found")
                             collection_success = True  # No articles is still a successful check
                             
@@ -401,8 +400,13 @@ def check_source(self, source_identifier: str):
                                 "articles_collected": 0,
                                 "articles_saved": 0,
                                 "duplicates_filtered": 0,
+                                "method": fetch_result.method if fetch_result else "none",
                                 "message": f"No new articles found for {source.name}"
                             }
+                        else:
+                            logger.error(f"  ✗ {source.name}: Fetch failed - {fetch_result.error}")
+                            collection_success = False
+                            return {"status": "error", "source_id": source.id, "message": fetch_result.error or "Unknown error"}
                             
                     except Exception as e:
                         logger.error(f"Error collecting from {source.name}: {e}")

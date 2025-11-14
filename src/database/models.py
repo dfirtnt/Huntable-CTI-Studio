@@ -569,3 +569,36 @@ class AgentPromptVersionTable(Base):
     
     def __repr__(self):
         return f"<AgentPromptVersion(id={self.id}, agent_name='{self.agent_name}', version={self.version})>"
+
+
+class AgentEvaluationTable(Base):
+    """Database table for storing agent evaluation results for performance tracking over time."""
+    
+    __tablename__ = 'agent_evaluations'
+    
+    id = Column(Integer, primary_key=True, index=True)
+    agent_name = Column(String(50), nullable=False, index=True)  # ExtractAgent, SigmaAgent, RankAgent, OSDetection
+    evaluation_type = Column(String(50), nullable=False)  # baseline, finetuned, v2, etc.
+    model_version = Column(String(255), nullable=True)
+    workflow_config_version = Column(Integer, nullable=True)
+    
+    # Evaluation metadata
+    test_dataset_path = Column(String(500), nullable=True)
+    article_ids = Column(JSONB, nullable=True)  # Array of article IDs tested
+    total_articles = Column(Integer, nullable=False)
+    
+    # Agent-specific metrics (JSONB for flexibility)
+    metrics = Column(JSONB, nullable=False)
+    
+    # Full results (can be large, may be null if too large)
+    results = Column(JSONB, nullable=True)
+    
+    # Timestamps
+    created_at = Column(DateTime, nullable=False, default=func.now(), index=True)
+    evaluated_at = Column(DateTime, nullable=False, default=func.now())
+    
+    # Relationships
+    workflow_execution_id = Column(Integer, ForeignKey('agentic_workflow_executions.id'), nullable=True)
+    
+    def __repr__(self):
+        return f"<AgentEvaluation(id={self.id}, agent_name='{self.agent_name}', evaluation_type='{self.evaluation_type}')>"

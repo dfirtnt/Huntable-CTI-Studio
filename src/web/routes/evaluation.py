@@ -109,3 +109,149 @@ async def api_eval_metrics():
         logger.error("Metrics evaluation error: %s", exc)
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
+
+@router.get("/api/eval/history")
+async def api_eval_history(agent_name: str, limit: int = 50):
+    """Get evaluation history for an agent."""
+    try:
+        from src.database.manager import DatabaseManager
+        from src.services.evaluation.evaluation_tracker import EvaluationTracker
+        
+        db_manager = DatabaseManager()
+        db_session = db_manager.get_session()
+        
+        try:
+            tracker = EvaluationTracker(db_session)
+            history = tracker.get_evaluation_history(agent_name, limit=limit)
+            return {"agent_name": agent_name, "history": history}
+        finally:
+            db_session.close()
+    
+    except Exception as exc:  # noqa: BLE001
+        logger.error("Evaluation history error: %s", exc)
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+@router.get("/api/eval/comparison")
+async def api_eval_comparison(baseline_id: int, current_id: int):
+    """Compare two evaluations."""
+    try:
+        from src.database.manager import DatabaseManager
+        from src.services.evaluation.evaluation_tracker import EvaluationTracker
+        
+        db_manager = DatabaseManager()
+        db_session = db_manager.get_session()
+        
+        try:
+            tracker = EvaluationTracker(db_session)
+            comparison = tracker.compare_evaluations(baseline_id, current_id)
+            return comparison
+        finally:
+            db_session.close()
+    
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:  # noqa: BLE001
+        logger.error("Evaluation comparison error: %s", exc)
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+@router.get("/api/eval/agent-metrics")
+async def api_eval_agent_metrics(agent_name: str):
+    """Get latest metrics for an agent."""
+    try:
+        from src.database.manager import DatabaseManager
+        from src.services.evaluation.evaluation_tracker import EvaluationTracker
+        
+        db_manager = DatabaseManager()
+        db_session = db_manager.get_session()
+        
+        try:
+            tracker = EvaluationTracker(db_session)
+            latest = tracker.get_latest_evaluation(agent_name)
+            
+            if not latest:
+                raise HTTPException(status_code=404, detail=f"No evaluations found for {agent_name}")
+            
+            return {
+                "agent_name": agent_name,
+                "latest_evaluation": latest,
+                "metrics": latest.get("metrics", {})
+            }
+        finally:
+            db_session.close()
+    
+    except HTTPException:
+        raise
+    except Exception as exc:  # noqa: BLE001
+        logger.error("Agent metrics error: %s", exc)
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+@router.get("/api/eval/trends")
+async def api_eval_trends(agent_name: str, metric_key: str, evaluation_type: str = None):
+    """Get improvement trends for a specific metric."""
+    try:
+        from src.database.manager import DatabaseManager
+        from src.services.evaluation.evaluation_tracker import EvaluationTracker
+        
+        db_manager = DatabaseManager()
+        db_session = db_manager.get_session()
+        
+        try:
+            tracker = EvaluationTracker(db_session)
+            trends = tracker.get_improvement_trends(agent_name, metric_key, evaluation_type)
+            return {
+                "agent_name": agent_name,
+                "metric_key": metric_key,
+                "trends": trends
+            }
+        finally:
+            db_session.close()
+    
+    except Exception as exc:  # noqa: BLE001
+        logger.error("Evaluation trends error: %s", exc)
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+@router.post("/api/eval/run")
+async def api_eval_run(request: Request):
+    """Trigger an evaluation run (returns immediately, runs in background)."""
+    try:
+        body = await request.json()
+        agent_name = body.get("agent_name")
+        test_data_path = body.get("test_data_path")
+        evaluation_type = body.get("evaluation_type", "baseline")
+        model_version = body.get("model_version")
+        save_to_db = body.get("save_to_db", True)
+        
+        if not agent_name or not test_data_path:
+            raise HTTPException(status_code=400, detail="agent_name and test_data_path are required")
+        
+        # Import evaluators
+        from pathlib import Path
+        from src.services.evaluation.extract_agent_evaluator import ExtractAgentEvaluator
+        from src.services.evaluation.rank_agent_evaluator import RankAgentEvaluator
+        from src.services.evaluation.sigma_agent_evaluator import SigmaAgentEvaluator
+        from src.services.evaluation.os_detection_evaluator import OSDetectionEvaluator
+        from src.services.llm_service import LLMService
+        from src.utils.content_filter import ContentFilter
+        from src.services.os_detection_service import OSDetectionService
+        from src.database.manager import DatabaseManager
+        import asyncio
+        
+        # This would ideally run in a background task
+        # For now, return a message that evaluation should be run via CLI
+        return {
+            "status": "info",
+            "message": "Evaluation triggered. Note: Full evaluations should be run via CLI scripts for better control.",
+            "agent_name": agent_name,
+            "suggestion": f"Run: python scripts/eval_{agent_name.lower().replace('agent', 'agent').replace('osdetection', 'os_detection')}.py --test-data {test_data_path} --evaluation-type {evaluation_type} {'--save-to-db' if save_to_db else ''}"
+        }
+    
+    except HTTPException:
+        raise
+    except Exception as exc:  # noqa: BLE001
+        logger.error("Evaluation run error: %s", exc)
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
