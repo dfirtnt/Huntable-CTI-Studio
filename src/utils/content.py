@@ -792,7 +792,8 @@ class ThreatHuntingScorer:
 
         # Calculate final threat hunting score (0-100 range, but will never reach 100)
         # Theoretical max: 75 + 5 + 10 + 10 = 100, but geometric series ensures it never reaches 100
-        threat_hunting_score = max(0.0, perfect_score + good_score + lolbas_score + intelligence_score - negative_penalty)
+        # Cap at 99.9 to prevent rounding to 100.0
+        threat_hunting_score = max(0.0, min(99.9, perfect_score + good_score + lolbas_score + intelligence_score - negative_penalty))
 
         return {
             'threat_hunting_score': round(threat_hunting_score, 1),

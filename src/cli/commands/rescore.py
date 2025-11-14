@@ -28,10 +28,10 @@ def rescore(ctx: CLIContext, article_id: int, force: bool, dry_run: bool):
         
         try:
             if article_id:
-                # Rescore specific article
+                # Rescore specific article (including archived)
                 console.print(f"🔄 Rescoring article {article_id}...")
                 
-                article = db_manager.get_article(article_id)
+                article = db_manager.get_article_including_archived(article_id)
                 if not article:
                     console.print(f"❌ Article {article_id} not found", style="red")
                     return
@@ -62,7 +62,7 @@ def rescore(ctx: CLIContext, article_id: int, force: bool, dry_run: bool):
                     console.print(f"✅ New threat hunting score: {new_score}", style="green")
                     
                     if not dry_run:
-                        # Update the article in database
+                        # Update the article in database (including archived)
                         if not article.article_metadata:
                             article.article_metadata = {}
                         
@@ -74,18 +74,18 @@ def rescore(ctx: CLIContext, article_id: int, force: bool, dry_run: bool):
                         article.article_metadata['intelligence_matches'] = enhanced_metadata.get('intelligence_matches', [])
                         article.article_metadata['negative_matches'] = enhanced_metadata.get('negative_matches', [])
                         
-                        # Save the updated article
-                        db_manager.update_article(article.id, article)
+                        # Save the updated article (including archived)
+                        db_manager.update_article_including_archived(article.id, article)
                         console.print(f"✅ Article {article_id} updated successfully", style="green")
                     else:
                         console.print("🔍 Dry run - no changes saved", style="blue")
                 else:
                     console.print("❌ No threat hunting score generated", style="red")
             else:
-                # Rescore all articles
-                console.print("🔄 Rescoring all articles...")
+                # Rescore all articles (including archived)
+                console.print("🔄 Rescoring all articles (including archived)...")
                 
-                articles = db_manager.list_articles()
+                articles = db_manager.list_articles_including_archived()
                 total_articles = len(articles)
                 
                 if total_articles == 0:
@@ -152,8 +152,8 @@ def rescore(ctx: CLIContext, article_id: int, force: bool, dry_run: bool):
                                     article.article_metadata['intelligence_matches'] = enhanced_metadata.get('intelligence_matches', [])
                                     article.article_metadata['negative_matches'] = enhanced_metadata.get('negative_matches', [])
                                     
-                                    # Save the updated article
-                                    db_manager.update_article(article.id, article)
+                                    # Save the updated article (including archived)
+                                    db_manager.update_article_including_archived(article.id, article)
                                 
                                 success_count += 1
                             else:

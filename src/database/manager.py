@@ -320,6 +320,12 @@ class DatabaseManager:
             db_article = session.query(ArticleTable).filter(ArticleTable.archived == False).filter(ArticleTable.id == article_id).first()
             return self._db_article_to_model(db_article) if db_article else None
     
+    def get_article_including_archived(self, article_id: int) -> Optional[Article]:
+        """Get article by ID, including archived articles."""
+        with self.get_session() as session:
+            db_article = session.query(ArticleTable).filter(ArticleTable.id == article_id).first()
+            return self._db_article_to_model(db_article) if db_article else None
+    
     def update_article(self, article_id: int, article: Article) -> Optional[Article]:
         """Update article by ID."""
         with self.get_session() as session:
@@ -346,6 +352,41 @@ class DatabaseManager:
                 session.rollback()
                 logger.error(f"Failed to update article {article_id}: {e}")
                 raise
+    
+    def update_article_including_archived(self, article_id: int, article: Article) -> Optional[Article]:
+        """Update article by ID, including archived articles."""
+        with self.get_session() as session:
+            try:
+                db_article = session.query(ArticleTable).filter(ArticleTable.id == article_id).first()
+                if not db_article:
+                    return None
+                
+                # Update fields
+                db_article.title = article.title
+                db_article.content = article.content
+                db_article.content_hash = article.content_hash
+                db_article.authors = article.authors
+                db_article.tags = article.tags
+                db_article.summary = article.summary
+                db_article.article_metadata = article.article_metadata
+                db_article.word_count = article.word_count
+                db_article.updated_at = datetime.utcnow()
+                
+                session.commit()
+                return self._db_article_to_model(db_article)
+                
+            except Exception as e:
+                session.rollback()
+                logger.error(f"Failed to update article {article_id}: {e}")
+                raise
+    
+    def list_articles_including_archived(self) -> List[Article]:
+        """List all articles including archived ones."""
+        with self.get_session() as session:
+            query = session.query(ArticleTable)
+            query = query.order_by(desc(ArticleTable.published_at))
+            db_articles = query.all()
+            return [self._db_article_to_model(db_article) for db_article in db_articles]
     
     def list_articles(self, filter_params: Optional[ArticleFilter] = None) -> List[Article]:
         """List articles with optional filtering."""
