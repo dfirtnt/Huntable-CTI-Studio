@@ -592,6 +592,7 @@ WINDOWS_MALWARE_KEYWORDS = {
             # Perfect threat hunting discriminators (>75% in 90+ hunt score range)
             'icacls', 'InteropServices.Marshal', 'selection1:', 'dclist', 'invoke-',
             'tasklist', 'adfind', '-EncodedCommand', 'selection_1:', 'attrib',
+            'ParentImage', 'CommandLine',
             # Low-rejection keywords from analysis (0-2 rejected)
             'System.IO', 'New-Object', 'StreamReader', 'ByteArray', '127.0.0.1', '>1', 'admin$',
             'MpPreference', 'Whoami', 'C$', 'MSBuild', '7z',
