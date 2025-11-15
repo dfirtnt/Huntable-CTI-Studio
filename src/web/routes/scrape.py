@@ -171,8 +171,6 @@ async def _scrape_single_url(url: str, title: Optional[str], force_scrape: bool)
             "content_hash": content_hash,
             "simhash": simhash,
             "simhash_bucket": simhash_bucket,
-            "threat_hunting_score": 50.0,
-            "quality_score": 50.0,
             "processing_status": "completed",
             "manual_scrape": True,
         },
@@ -191,11 +189,41 @@ async def _scrape_single_url(url: str, title: Optional[str], force_scrape: bool)
     
     created_article = articles[0]
 
-    logger.info(
-        "Successfully scraped and processed manual URL: %s -> Article ID: %s",
-        url,
-        created_article.id,
-    )
+    # Calculate actual threat hunting score (similar to PDF upload)
+    try:
+        from src.utils.content import ThreatHuntingScorer
+        from src.database.async_manager import AsyncDatabaseManager
+        from src.models.article import ArticleUpdate
+        
+        threat_hunting_result = ThreatHuntingScorer.score_threat_hunting_content(
+            extracted_title, sanitized_content
+        )
+        
+        # Update article metadata with calculated score
+        if not created_article.article_metadata:
+            created_article.article_metadata = {}
+        
+        created_article.article_metadata.update(threat_hunting_result)
+        
+        # Save updated metadata
+        async_db_manager = AsyncDatabaseManager()
+        update_data = ArticleUpdate(article_metadata=created_article.article_metadata)
+        await async_db_manager.update_article(created_article.id, update_data)
+        
+        score = threat_hunting_result.get("threat_hunting_score", 0)
+        logger.info(
+            "Successfully scraped and processed manual URL: %s -> Article ID: %s, Hunt Score: %s",
+            url,
+            created_article.id,
+            score,
+        )
+    except Exception as exc:
+        logger.warning("Failed to generate threat hunting score for manual scrape: %s", exc)
+        logger.info(
+            "Successfully scraped manual URL: %s -> Article ID: %s (score calculation failed)",
+            url,
+            created_article.id,
+        )
 
     return {
         "success": True,
