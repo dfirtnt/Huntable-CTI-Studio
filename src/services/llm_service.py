@@ -446,8 +446,37 @@ class LLMService:
                     if response.status_code == 200:
                         return response.json()
                     else:
-                        last_error_detail = f"Status {response.status_code}: {response.text}"
-                        logger.warning(f"LMStudio at {lmstudio_url} returned {response.status_code}")
+                        # Extract error message from response
+                        error_text = response.text
+                        try:
+                            error_json = response.json()
+                            error_message = error_json.get('error', {}).get('message', error_text) if isinstance(error_json.get('error'), dict) else error_text
+                        except:
+                            error_message = error_text[:500]  # Limit length
+                        
+                        last_error_detail = f"Status {response.status_code}: {error_message}"
+                        logger.error(f"LMStudio at {lmstudio_url} returned {response.status_code}: {error_message}")
+                        
+                        # For 400 errors, don't try other URLs - the request is invalid
+                        if response.status_code == 400:
+                            # Close client before raising
+                            try:
+                                await client.aclose()
+                            except:
+                                pass
+                            raise RuntimeError(
+                                f"{failure_context}: Invalid request to LMStudio. "
+                                f"Status {response.status_code}: {error_message}. "
+                                f"This usually means the model '{model_name}' is not loaded, the request format is invalid, or the context window is too small."
+                            )
+                        
+                except RuntimeError as e:
+                    # Re-raise RuntimeErrors (like 400 errors) immediately without trying other URLs
+                    try:
+                        await client.aclose()
+                    except:
+                        pass
+                    raise
                         
                 except httpx.TimeoutException as e:
                     last_error_detail = f"Request timeout after {timeout}s"
@@ -500,7 +529,8 @@ class LLMService:
         url: str,
         prompt_template_path: Optional[str] = None,
         execution_id: Optional[int] = None,
-        article_id: Optional[int] = None
+        article_id: Optional[int] = None,
+        qa_feedback: Optional[str] = None
     ) -> Dict[str, Any]:
         """
         Rank an article using LLM (Step 1 of workflow).
@@ -657,6 +687,10 @@ Score the article from 1-10 for SIGMA rule generation potential. Consider:
             url=url,
             content=truncated_content
         )
+        
+        # Add QA feedback if provided
+        if qa_feedback:
+            prompt_text = f"{qa_feedback}\n\n{prompt_text}"
         
         # Final verification: estimate total prompt tokens
         total_prompt_tokens = self._estimate_tokens(prompt_text) + system_message_tokens + message_formatting_overhead
@@ -819,7 +853,8 @@ Score the article from 1-10 for SIGMA rule generation potential. Consider:
         prompt_config_dict: Optional[Dict[str, Any]] = None,
         instructions_template_str: Optional[str] = None,
         execution_id: Optional[int] = None,
-        article_id: Optional[int] = None
+        article_id: Optional[int] = None,
+        qa_feedback: Optional[str] = None
     ) -> Dict[str, Any]:
         """
         Extract huntable behaviors using ExtractAgent prompt (Step 2 of workflow).
@@ -952,6 +987,10 @@ Score the article from 1-10 for SIGMA rule generation potential. Consider:
             content=truncated_content,
             prompt_config=prompt_config_json
         )
+        
+        # Add QA feedback if provided
+        if qa_feedback:
+            user_prompt = f"{qa_feedback}\n\n{user_prompt}"
         
         # Final verification: estimate total prompt tokens
         total_prompt_tokens = self._estimate_tokens(user_prompt) + system_message_tokens + message_formatting_overhead
@@ -1241,22 +1280,84 @@ Score the article from 1-10 for SIGMA rule generation potential. Consider:
         
         prompt_config = await asyncio.to_thread(self._read_json_file_sync, str(prompt_path))
         
-        # Truncate content to fit within context limits
-        truncated_content = self._truncate_content(
-            content,
-            max_context_tokens=MAX_CONTEXT_TOKENS,
-            max_output_tokens=4000,
-            prompt_overhead=PROMPT_OVERHEAD_TOKENS + 500
+        # Use extract model for observable extraction
+        model_name = self.model_extract
+        
+        # Get actual model context length (similar to extract_behaviors)
+        # Use conservative caps to avoid LM Studio configuration mismatches
+        MAX_SAFE_CONTEXT_REASONING = 4096  # Very conservative cap for reasoning models
+        MAX_SAFE_CONTEXT_NORMAL = 2048     # Very conservative cap for normal models
+        
+        try:
+            context_check = await self.check_model_context_length(model_name=model_name)
+            detected_length = context_check['context_length']
+        except Exception as e:
+            logger.warning(f"Could not get model context length for observables extraction: {e}")
+            detected_length = 32768  # Fallback
+        
+        # Always use conservative caps regardless of detection
+        is_reasoning_model = 'r1' in model_name.lower() or 'reasoning' in model_name.lower()
+        if is_reasoning_model:
+            actual_context_length = min(detected_length, MAX_SAFE_CONTEXT_REASONING)
+        else:
+            actual_context_length = min(detected_length, MAX_SAFE_CONTEXT_NORMAL)
+        
+        # Apply additional safety margin (use 75% of the conservative cap)
+        actual_context_length = int(actual_context_length * 0.75)
+        
+        logger.info(
+            f"Using conservative context length {actual_context_length} for observables extraction "
+            f"(detected: {detected_length}, reasoning: {is_reasoning_model}, "
+            f"cap: {MAX_SAFE_CONTEXT_REASONING if is_reasoning_model else MAX_SAFE_CONTEXT_NORMAL})"
         )
         
-        if truncated_content != content:
+        # Get task for prompt overhead estimation
+        task = prompt_config.get('task', 'Extract observables from threat intelligence content.')
+        
+        # Estimate prompt overhead
+        # Account for: title + URL + task + prompt_config JSON + system message + formatting
+        base_prompt_tokens = self._estimate_tokens(
+            f"Title: {title}\n\nURL: {url}\n\nContent:\n\n{task}\n\n{json.dumps(prompt_config, indent=2)}"
+        )
+        system_message_tokens = 50 if not self._model_needs_system_conversion(model_name) else 0
+        message_formatting_overhead = 100
+        total_prompt_overhead = base_prompt_tokens + system_message_tokens + message_formatting_overhead
+        
+        # Truncate content to fit within remaining context
+        max_output_tokens = 4000
+        available_tokens = actual_context_length - total_prompt_overhead - max_output_tokens
+        available_tokens = int(available_tokens * 0.85)  # 15% safety margin
+        
+        if available_tokens <= 0:
+            logger.error(f"Available tokens for content is {available_tokens} - prompt overhead too large")
+            available_tokens = 1000  # Minimum fallback
+        
+        content_tokens = self._estimate_tokens(content)
+        if content_tokens <= available_tokens:
+            truncated_content = content
+        else:
+            # Truncate to fit
+            max_chars = available_tokens * 4
+            truncated = content[:max_chars]
+            
+            # Try to truncate at sentence boundary
+            last_period = truncated.rfind(".")
+            last_newline = truncated.rfind("\n")
+            last_boundary = max(last_period, last_newline)
+            
+            if last_boundary > max_chars * 0.8:
+                truncated = truncated[:last_boundary + 1]
+            
+            truncated_content = truncated + "\n\n[Content truncated to fit context window]"
+            
             logger.warning(
-                f"Truncated article content from {self._estimate_tokens(content)} to "
-                f"{self._estimate_tokens(truncated_content)} tokens to fit context window"
+                f"Truncated article content from {content_tokens} to "
+                f"{self._estimate_tokens(truncated_content)} tokens (available: {available_tokens}, "
+                f"prompt overhead: {total_prompt_overhead}, max_output: {max_output_tokens}, "
+                f"context: {actual_context_length})"
             )
         
-        # Build user prompt from config
-        task = prompt_config.get('task', 'Extract observables from threat intelligence content.')
+        # Build user prompt from config (task already set above)
         instructions = prompt_config.get('instructions', 'Output valid JSON only.')
         
         user_prompt = f"""Title: {title}
@@ -1273,8 +1374,7 @@ Content:
 
 CRITICAL: {instructions} If you are a reasoning model, you may include reasoning text, but you MUST end your response with a valid JSON object. The JSON object must follow the output_format structure exactly. If no observables are found, still output the complete JSON structure with empty arrays."""
         
-        # Use extract model for observable extraction (backward compatible with extract_behaviors)
-        model_name = self.model_extract
+        # model_name already set above
         
         # Build system message - use role if present, otherwise construct from task
         system_content = prompt_config.get("role")
