@@ -1,6 +1,8 @@
 services:
   # PostgreSQL Database with pgvector extension
   postgres:
+    env_file:
+      - .env
     image: pgvector/pgvector:pg15
     container_name: cti_postgres_mobile
     environment:
@@ -12,9 +14,10 @@ services:
       - postgres_data_mobile:/var/lib/postgresql/data
       - ./init.sql:/docker-entrypoint-initdb.d/init.sql
     ports:
-      - "5433:5432"  # Different port to avoid conflicts
+      - "5434:5432"  # Different port to avoid conflicts
     networks:
       - cti_network_mobile
+      - ctiscraper_cti_network
     restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U cti_user -d cti_scraper"]
@@ -24,14 +27,17 @@ services:
 
   # Redis for caching and background tasks
   redis:
+    env_file:
+      - .env
     image: redis:7-alpine
     container_name: cti_redis_mobile
     ports:
-      - "6380:6379"  # Different port to avoid conflicts
+      - "6381:6379"  # Different port to avoid conflicts
     volumes:
       - redis_data_mobile:/data
     networks:
       - cti_network_mobile
+      - ctiscraper_cti_network
     restart: unless-stopped
     command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD}
     healthcheck:
@@ -42,12 +48,14 @@ services:
 
   # FastAPI Web Application
   web:
+    env_file:
+      - .env
     build:
       context: .
       dockerfile: Dockerfile
     container_name: cti_web_mobile
     environment:
-      - DATABASE_URL=postgresql+asyncpg://cti_user:${POSTGRES_PASSWORD}@postgres:5432/cti_scraper
+      - DATABASE_URL=postgresql+asyncpg://cti_user:${POSTGRES_PASSWORD}@cti_postgres:5432/cti_scraper
       - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
       - ENVIRONMENT=development
       - LOG_LEVEL=DEBUG
@@ -75,13 +83,11 @@ services:
       - ./scripts:/app/scripts
       - /var/run/docker.sock:/var/run/docker.sock
       - /var/db/timezone/zoneinfo/America/New_York:/etc/localtime:ro
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
+    ports:
+      - "8001:8001"
     networks:
       - cti_network_mobile
+      - ctiscraper_cti_network
     restart: unless-stopped
     command: uvicorn src.web.modern_main:app --host 0.0.0.0 --port 8001 --reload
 
@@ -98,6 +104,7 @@ services:
       - web
     networks:
       - cti_network_mobile
+      - ctiscraper_cti_network
     restart: unless-stopped
 
   # Celery Worker for Background Tasks
@@ -107,7 +114,7 @@ services:
       dockerfile: Dockerfile
     container_name: cti_worker_mobile
     environment:
-      - DATABASE_URL=postgresql+asyncpg://cti_user:${POSTGRES_PASSWORD}@postgres:5432/cti_scraper
+      - DATABASE_URL=postgresql+asyncpg://cti_user:${POSTGRES_PASSWORD}@cti_postgres:5432/cti_scraper
       - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
       - ENVIRONMENT=development
       - LOG_LEVEL=DEBUG
@@ -119,13 +126,9 @@ services:
       - ./config:/app/config
       - ./logs:/app/logs
       - ./tests:/app/tests
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
     networks:
       - cti_network_mobile
+      - ctiscraper_cti_network
     restart: unless-stopped
     command: celery -A src.worker.celery_app worker --loglevel=debug
 
@@ -136,7 +139,7 @@ services:
       dockerfile: Dockerfile
     container_name: cti_scheduler_mobile
     environment:
-      - DATABASE_URL=postgresql+asyncpg://cti_user:${POSTGRES_PASSWORD}@postgres:5432/cti_scraper
+      - DATABASE_URL=postgresql+asyncpg://cti_user:${POSTGRES_PASSWORD}@cti_postgres:5432/cti_scraper
       - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
       - ENVIRONMENT=development
       - LOG_LEVEL=DEBUG
@@ -145,13 +148,9 @@ services:
       - ./config:/app/config
       - ./logs:/app/logs
       - ./tests:/app/tests
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
     networks:
       - cti_network_mobile
+      - ctiscraper_cti_network
     restart: unless-stopped
     command: celery -A src.worker.celery_app beat --loglevel=debug
 
@@ -171,6 +170,7 @@ services:
       - OLLAMA_MAX_QUEUE=512
     networks:
       - cti_network_mobile
+      - ctiscraper_cti_network
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "ollama", "list"]
@@ -198,3 +198,5 @@ volumes:
 networks:
   cti_network_mobile:
     driver: bridge
+  ctiscraper_cti_network:
+    external: true
