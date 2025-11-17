@@ -54,6 +54,8 @@ services:
       context: .
       dockerfile: Dockerfile
     container_name: cti_web_mobile
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     environment:
       - DATABASE_URL=postgresql+asyncpg://cti_user:${POSTGRES_PASSWORD}@cti_postgres:5432/cti_scraper
       - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
@@ -71,6 +73,13 @@ services:
       - ANTHROPIC_CONTENT_LIMIT=1000000
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - CHATGPT_API_KEY=${CHATGPT_API_KEY}
+      - LMSTUDIO_API_URL=${LMSTUDIO_API_URL:-http://host.docker.internal:1234/v1}
+      - LMSTUDIO_MODEL=${LMSTUDIO_MODEL:-deepseek/deepseek-r1-0528-qwen3-8b}
+      - LMSTUDIO_MODEL_RANK=${LMSTUDIO_MODEL_RANK:-qwen/qwen3-4b-2507}
+      - LMSTUDIO_MODEL_EXTRACT=${LMSTUDIO_MODEL_EXTRACT:-qwen/qwen3-4b-2507}
+      - LMSTUDIO_MODEL_SIGMA=${LMSTUDIO_MODEL_SIGMA:-qwen/qwen3-4b-2507}
+      - LMSTUDIO_EMBEDDING_URL=${LMSTUDIO_EMBEDDING_URL:-http://host.docker.internal:1234/v1/embeddings}
+      - LMSTUDIO_EMBEDDING_MODEL=${LMSTUDIO_EMBEDDING_MODEL:-text-embedding-e5-base-v2}
       - TZ=America/New_York
     volumes:
       - ./src:/app/src
@@ -113,6 +122,8 @@ services:
       context: .
       dockerfile: Dockerfile
     container_name: cti_worker_mobile
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     environment:
       - DATABASE_URL=postgresql+asyncpg://cti_user:${POSTGRES_PASSWORD}@cti_postgres:5432/cti_scraper
       - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
@@ -121,6 +132,13 @@ services:
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - CHATGPT_API_KEY=${CHATGPT_API_KEY}
+      - LMSTUDIO_API_URL=${LMSTUDIO_API_URL:-http://host.docker.internal:1234/v1}
+      - LMSTUDIO_MODEL=${LMSTUDIO_MODEL:-deepseek/deepseek-r1-0528-qwen3-8b}
+      - LMSTUDIO_MODEL_RANK=${LMSTUDIO_MODEL_RANK:-qwen/qwen3-4b-2507}
+      - LMSTUDIO_MODEL_EXTRACT=${LMSTUDIO_MODEL_EXTRACT:-qwen/qwen3-4b-2507}
+      - LMSTUDIO_MODEL_SIGMA=${LMSTUDIO_MODEL_SIGMA:-qwen/qwen3-4b-2507}
+      - LMSTUDIO_EMBEDDING_URL=${LMSTUDIO_EMBEDDING_URL:-http://host.docker.internal:1234/v1/embeddings}
+      - LMSTUDIO_EMBEDDING_MODEL=${LMSTUDIO_EMBEDDING_MODEL:-text-embedding-e5-base-v2}
     volumes:
       - ./src:/app/src
       - ./config:/app/config
