@@ -669,7 +669,7 @@ WINDOWS_MALWARE_KEYWORDS = {
         'certutil.exe', 'cmd.exe', 'schtasks.exe', 'wmic.exe', 'bitsadmin.exe', 'ftp.exe', 'netsh.exe', 'cscript.exe', 'mshta.exe',
         'regsvr32.exe', 'rundll32.exe', 'forfiles.exe', 'explorer.exe', 'ieexec.exe', 'powershell.exe', 'conhost.exe', 'svchost.exe', 'lsass.exe',
         'csrss.exe', 'smss.exe', 'wininit.exe', 'nltest.exe', 'odbcconf.exe', 'scrobj.dll', 'addinutil.exe', 'appinstaller.exe', 'aspnet_compiler.exe',
-        'at.exe', 'atbroker.exe', 'bash.exe', 'certoc.exe', 'certreq.exe', 'cipher.exe', 'cmdkey.exe', 'cmdl32.exe', 'cmstp.exe', 'colorcpl.exe',
+        'atbroker.exe', 'bash.exe', 'certoc.exe', 'certreq.exe', 'cipher.exe', 'cmdkey.exe', 'cmdl32.exe', 'cmstp.exe', 'colorcpl.exe',
         'computerdefaults.exe', 'configsecuritypolicy.exe', 'control.exe', 'csc.exe', 'customshellhost.exe', 'datasvcutil.exe',
         'desktopimgdownldr.exe', 'devicecredentialdeployment.exe', 'dfsvc.exe', 'diantz.exe', 'diskshadow.exe', 'dnscmd.exe', 'esentutl.exe',
         'eventvwr.exe', 'expand.exe', 'extexport.exe', 'extrac32.exe', 'findstr.exe', 'finger.exe', 'fltmc.exe', 'gpscript.exe',
