@@ -221,9 +221,9 @@ async def cleanup_stale_executions(
     max_age_hours: int = Query(1, description="Maximum age in hours for running executions to be considered stale")
 ):
     """
-    Mark stale running executions as failed.
+    Mark stale running or pending executions as failed.
     
-    Finds all executions with status='running' that are older than max_age_hours
+    Finds all executions with status='running' or 'pending' that are older than max_age_hours
     and marks them as failed with an appropriate error message.
     """
     try:
@@ -234,10 +234,10 @@ async def cleanup_stale_executions(
             # Calculate cutoff time
             cutoff_time = datetime.utcnow() - timedelta(hours=max_age_hours)
             
-            # Find stale running executions
+            # Find stale running or pending executions
             # Use started_at if available, otherwise fall back to created_at
             stale_executions = db_session.query(AgenticWorkflowExecutionTable).filter(
-                AgenticWorkflowExecutionTable.status == 'running'
+                AgenticWorkflowExecutionTable.status.in_(['running', 'pending'])
             ).filter(
                 or_(
                     and_(
@@ -253,10 +253,11 @@ async def cleanup_stale_executions(
             
             count = 0
             for execution in stale_executions:
+                original_status = execution.status
                 execution.status = 'failed'
                 execution.error_message = (
                     execution.error_message or 
-                    f"Execution marked as failed due to timeout (running for more than {max_age_hours} hour(s))"
+                    f"Execution marked as failed due to timeout ({original_status} for more than {max_age_hours} hour(s))"
                 )
                 execution.completed_at = datetime.utcnow()
                 count += 1
