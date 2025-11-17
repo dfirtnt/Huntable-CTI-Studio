@@ -214,6 +214,17 @@
                     </div>
                 </div>
 
+                <!-- QA Agent Settings Section -->
+                <div class="border-t border-gray-200 dark:border-gray-700 pt-6 mt-6">
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">QA Agent Settings</h3>
+                    <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">Enable quality assurance validation for each agent. When enabled, agents will retry up to 5 times with feedback until QA passes.</p>
+                    
+                    <div id="qaAgentSettingsContainer" class="space-y-4">
+                        <!-- QA toggles will be loaded here -->
+                        <div class="text-center text-gray-500 dark:text-gray-400 py-4">Loading QA settings...</div>
+                    </div>
+                </div>
+
                 <!-- Current Config Display -->
                 <div id="currentConfig" class="bg-gray-50 dark:bg-gray-900 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
                     <p class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Current Configuration:</p>
@@ -283,7 +294,7 @@
                 <button onclick="showTriggerWorkflowModal()" class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md transition-colors">
                     ➕ Trigger Workflow
                 </button>
-                <button onclick="cleanupStaleExecutions()" class="px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-md transition-colors" title="Mark running executions older than 1 hour as failed">
+                <button onclick="cleanupStaleExecutions()" class="px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-md transition-colors" title="Mark running or pending executions older than 1 hour as failed">
                     🧹 Cleanup Stale
                 </button>
                 <select id="statusFilter" onchange="filterExecutions()" class="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-700 dark:text-white">
@@ -401,7 +412,7 @@
         </div>
 
         <!-- Executions Table -->
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg overflow-hidden">
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg overflow-x-auto">
             <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                 <thead class="bg-gray-50 dark:bg-gray-900">
                     <tr>
@@ -664,9 +675,60 @@ async function loadConfig() {
         
         // Load agent prompts
         await loadAgentPrompts();
+        
+        // Load QA settings
+        loadQASettings();
     } catch (error) {
         console.error('Error loading config:', error);
     }
+}
+
+function loadQASettings() {
+    const qaEnabled = currentConfig?.qa_enabled || {};
+    renderQASettings(qaEnabled);
+}
+
+function renderQASettings(qaEnabled) {
+    const container = document.getElementById('qaAgentSettingsContainer');
+    if (!container) {
+        console.error('qaAgentSettingsContainer not found');
+        return;
+    }
+    
+    const agents = [
+        { name: 'OSDetectionAgent', label: 'OS Detection Agent' },
+        { name: 'RankAgent', label: 'Rank Agent' },
+        { name: 'ExtractAgent', label: 'Extract Agent' },
+        { name: 'SigmaAgent', label: 'SIGMA Generator Agent' }
+    ];
+    
+    container.innerHTML = agents.map(agent => {
+        const agentId = agent.name.toLowerCase().replace(/\s+/g, '-');
+        const isEnabled = qaEnabled[agent.name] || false;
+        
+        return `
+            <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                            ${agent.label}
+                        </label>
+                        <p class="text-xs text-gray-500 dark:text-gray-400">
+                            Enable QA validation with up to 5 retry attempts
+                        </p>
+                    </div>
+                    <label class="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" 
+                               id="qa-${agentId}" 
+                               name="qa_enabled[${agent.name}]"
+                               class="sr-only peer" 
+                               ${isEnabled ? 'checked' : ''}>
+                        <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 dark:peer-focus:ring-purple-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-purple-600"></div>
+                    </label>
+                </div>
+            </div>
+        `;
+    }).join('');
 }
 
 function renderAgentModels() {
@@ -1162,6 +1224,15 @@ document.getElementById('workflowConfigForm').addEventListener('submit', async (
         return;
     }
     
+    // Collect QA enabled settings
+    const qaEnabled = {};
+    const agents = ['OSDetectionAgent', 'RankAgent', 'ExtractAgent', 'SigmaAgent'];
+    agents.forEach(agentName => {
+        const agentId = agentName.toLowerCase().replace(/\s+/g, '-');
+        const checkbox = document.getElementById(`qa-${agentId}`);
+        qaEnabled[agentName] = checkbox ? checkbox.checked : false;
+    });
+    
     const formData = {
         min_hunt_score: parseFloat(document.getElementById('minHuntScore').value),
         junk_filter_threshold: parseFloat(document.getElementById('junkFilterThreshold').value),
@@ -1174,7 +1245,8 @@ document.getElementById('workflowConfigForm').addEventListener('submit', async (
             OSDetectionAgent_fallback: document.getElementById('osdetectionagent-fallback-model').value.trim() || null,
             ExtractAgent: document.getElementById('extractagent-model').value.trim() || null,
             SigmaAgent: document.getElementById('sigmaagent-model').value.trim() || null
-        }
+        },
+        qa_enabled: qaEnabled
     };
     
     // Validate RankAgent model is set
@@ -2400,7 +2472,7 @@ function filterExecutions() {
 }
 
 async function cleanupStaleExecutions() {
-    if (!confirm('Mark all running executions older than 1 hour as failed?')) {
+    if (!confirm('Mark all running or pending executions older than 1 hour as failed?')) {
         return;
     }
     
@@ -2411,6 +2483,12 @@ async function cleanupStaleExecutions() {
                 'Content-Type': 'application/json'
             }
         });
+        
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({ detail: 'Unknown error' }));
+            alert(`❌ Cleanup failed: ${errorData.detail || 'Unknown error'}`);
+            return;
+        }
         
         const result = await response.json();
         
