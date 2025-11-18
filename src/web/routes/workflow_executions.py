@@ -284,6 +284,76 @@ async def cleanup_stale_executions(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.post("/executions/trigger-stuck")
+async def trigger_stuck_executions(request: Request):
+    """
+    Manually trigger all pending workflow executions.
+    
+    This bypasses Celery and directly runs the workflow for any stuck pending executions.
+    """
+    try:
+        import asyncio
+        from src.workflows.agentic_workflow import run_workflow
+        
+        db_manager = DatabaseManager()
+        db_session = db_manager.get_session()
+        
+        try:
+            # Find all pending executions
+            pending_executions = db_session.query(AgenticWorkflowExecutionTable).filter(
+                AgenticWorkflowExecutionTable.status == 'pending'
+            ).order_by(AgenticWorkflowExecutionTable.created_at.asc()).all()
+            
+            if not pending_executions:
+                return {
+                    "success": True,
+                    "message": "No pending executions found",
+                    "count": 0,
+                    "results": []
+                }
+            
+            results = []
+            for execution in pending_executions:
+                try:
+                    logger.info(f"Triggering stuck execution {execution.id} for article {execution.article_id}")
+                    result = await run_workflow(execution.article_id, db_session)
+                    
+                    results.append({
+                        'execution_id': execution.id,
+                        'article_id': execution.article_id,
+                        'success': result.get('success', False),
+                        'message': result.get('message', 'Workflow completed')
+                    })
+                    
+                except Exception as e:
+                    logger.error(f"Error triggering execution {execution.id}: {e}", exc_info=True)
+                    results.append({
+                        'execution_id': execution.id,
+                        'article_id': execution.article_id,
+                        'success': False,
+                        'message': str(e)
+                    })
+            
+            successful = sum(1 for r in results if r['success'])
+            failed = len(results) - successful
+            
+            return {
+                "success": True,
+                "message": f"Triggered {len(results)} execution(s): {successful} successful, {failed} failed",
+                "count": len(results),
+                "successful": successful,
+                "failed": failed,
+                "results": results
+            }
+            
+        finally:
+            db_session.close()
+            
+    except Exception as e:
+        logger.error(f"Error triggering stuck executions: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 async def _trigger_via_langgraph_server(article_id: int, execution_id: int, langgraph_server_url: str, thread_id: str) -> bool:
     """
     Trigger workflow via LangGraph server API (creates traces).
@@ -411,11 +481,13 @@ async def retry_workflow_execution(request: Request, execution_id: int, use_lang
     
     Args:
         use_langgraph_server: If True, uses LangGraph server API (creates traces).
-                             If False, uses direct Celery execution (no traces, faster).
+                             If False, uses direct workflow execution with Langfuse tracing (if enabled).
     """
     try:
         import os
+        import asyncio
         from src.worker.celery_app import trigger_agentic_workflow
+        from src.workflows.agentic_workflow import run_workflow
         
         db_manager = DatabaseManager()
         db_session = db_manager.get_session()
@@ -445,61 +517,35 @@ async def retry_workflow_execution(request: Request, execution_id: int, use_lang
             # Trigger workflow
             logger.info(f"Retry requested for execution {execution_id}, use_langgraph_server={use_langgraph_server}")
             if use_langgraph_server:
-                langgraph_server_url = os.getenv("LANGGRAPH_SERVER_URL", "http://localhost:2024")
-                thread_id = f"workflow_exec_{new_execution.id}"
+                # "Retry (Trace)" - Use direct execution with Langfuse tracing
+                # This ensures Langfuse traces are always created when using trace mode
+                logger.info(f"Running workflow directly with Langfuse tracing for execution {new_execution.id}")
+                new_execution.status = 'running'
+                new_execution.started_at = datetime.utcnow()
+                new_execution.current_step = 'junk_filter'
+                db_session.commit()
                 
-                # Try LangGraph server API
-                logger.info(f"Attempting to connect to LangGraph server at {langgraph_server_url}")
-                success = await _trigger_via_langgraph_server(
-                    execution.article_id,
-                    new_execution.id,
-                    langgraph_server_url,
-                    thread_id
-                )
+                # Run workflow directly (this will create Langfuse traces if enabled)
+                result = await run_workflow(execution.article_id, db_session)
                 
-                # Fallback: try localhost if service name failed (for local dev)
-                if not success and langgraph_server_url != "http://localhost:2024":
-                    logger.info(f"Service name connection failed, trying localhost fallback")
-                    success = await _trigger_via_langgraph_server(
-                        execution.article_id,
-                        new_execution.id,
-                        "http://localhost:2024",
-                        thread_id
-                    )
-                
-                if success:
-                    # Update execution status
-                    new_execution.status = 'running'
-                    new_execution.started_at = datetime.utcnow()
-                    new_execution.current_step = 'junk_filter'
-                    db_session.commit()
-                    
-                    return {
-                        "success": True,
-                        "message": f"Retry initiated via LangGraph server for execution {execution_id} (creates traces)",
-                        "new_execution_id": new_execution.id,
-                        "via_langgraph_server": True
-                    }
-                else:
-                    # Fail with error instead of falling back
-                    new_execution.status = 'failed'
-                    new_execution.error_message = f"LangGraph server unavailable at {langgraph_server_url}"
-                    db_session.commit()
-                    
-                    raise HTTPException(
-                        status_code=503,
-                        detail=f"LangGraph server unavailable at {langgraph_server_url}. Make sure the server is running on port 2024."
-                    )
+                return {
+                    "success": True,
+                    "message": f"Retry completed for execution {execution_id} (direct execution with Langfuse tracing)",
+                    "new_execution_id": new_execution.id,
+                    "via_langgraph_server": False,
+                    "via_direct_execution": True,
+                    "workflow_result": result
+                }
             else:
-                # Direct Celery execution (default)
+                # Regular "Retry" - Use Celery (uses Langfuse if enabled, but async)
                 trigger_agentic_workflow.delay(execution.article_id)
-            
-            return {
-                "success": True,
-                "message": f"Retry initiated for execution {execution_id}",
+                
+                return {
+                    "success": True,
+                    "message": f"Retry initiated for execution {execution_id} (via Celery, Langfuse tracing if enabled)",
                     "new_execution_id": new_execution.id,
                     "via_langgraph_server": False
-            }
+                }
         finally:
             db_session.close()
             
