@@ -1407,8 +1407,8 @@ function renderExecutions() {
                 <button onclick="viewExecution(${exec.id})" class="text-blue-600 hover:text-blue-800 dark:text-blue-400 mr-2">View</button>
                 <button onclick="debugInAgentChat(${exec.id})" class="text-purple-600 hover:text-purple-800 dark:text-purple-400 mr-2" title="Open in Langfuse. Note: Traces only exist if execution ran with Langfuse tracing enabled. Use 'View' for database details.">🔍 Debug</button>
                 ${exec.status === 'failed' ? `
-                    <button onclick="retryExecution(${exec.id}, false)" class="text-green-600 hover:text-green-800 dark:text-green-400 mr-2" title="Retry via Celery (fast, no traces)">Retry</button>
-                    <button onclick="retryExecution(${exec.id}, true)" class="text-purple-600 hover:text-purple-800 dark:text-purple-400" title="Retry via LangGraph Server (creates traces in Langfuse)">Retry (Trace)</button>
+                    <button onclick="retryExecution(${exec.id}, false)" class="text-green-600 hover:text-green-800 dark:text-green-400 mr-2" title="Retry in background via Celery (async, returns immediately)">Retry (Async)</button>
+                    <button onclick="retryExecution(${exec.id}, true)" class="text-purple-600 hover:text-purple-800 dark:text-purple-400" title="Retry synchronously and wait for completion (returns result)">Retry (Wait)</button>
                 ` : ''}
             </td>
         </tr>
@@ -2208,8 +2208,8 @@ async function viewExecution(executionId) {
 }
 
 async function retryExecution(executionId, useLangGraphServer = false) {
-    const mode = useLangGraphServer ? 'LangGraph Server (creates traces)' : 'Celery (fast, no traces)';
-    if (!confirm(`Retry execution ${executionId} via ${mode}?`)) return;
+    const mode = useLangGraphServer ? 'synchronously (wait for completion)' : 'asynchronously (background)';
+    if (!confirm(`Retry execution ${executionId} ${mode}?`)) return;
     
     try {
         const url = `/api/workflow/executions/${executionId}/retry?use_langgraph_server=${useLangGraphServer}`;
@@ -2217,12 +2217,16 @@ async function retryExecution(executionId, useLangGraphServer = false) {
         
         if (response.ok) {
             const result = await response.json();
-            if (result.via_langgraph_server) {
-                alert('✅ Retry initiated via LangGraph Server\n\n' +
-                      'This will create traces in Langfuse.\n' +
-                      'Click "Debug" button to view after execution starts.');
+            if (result.via_direct_execution) {
+                alert('✅ Retry completed\n\n' +
+                      'Execution finished synchronously.\n' +
+                      'Langfuse traces created (if enabled).\n' +
+                      'Click "Debug" button to view traces.');
             } else {
-                alert('Retry initiated via Celery (fast, no traces)');
+                alert('✅ Retry queued\n\n' +
+                      'Execution running in background via Celery.\n' +
+                      'Langfuse traces will be created (if enabled).\n' +
+                      'Check execution status to see progress.');
             }
             await loadExecutions();
         } else {
