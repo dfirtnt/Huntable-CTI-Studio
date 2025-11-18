@@ -5743,6 +5743,13 @@ Please provide a detailed analysis based on the article content and the user's s
         
         const articleId = {{ article.id }};
         
+        // Show optimization dialog first
+        const optimizationOptions = await showOptimizationDialog(false);
+        if (!optimizationOptions) {
+            // User cancelled
+            return;
+        }
+        
         // Fetch workflow config to get actual model names
         let embeddingModel = 'ibm-research/CTI-BERT';
         let fallbackModel = 'mistralai/mistral-7b-instruct-v0.3';
@@ -5792,7 +5799,9 @@ Please provide a detailed analysis based on the article content and the user's s
                 },
                 body: JSON.stringify({
                     use_classifier: true,
-                    use_fallback: true
+                    use_fallback: true,
+                    use_junk_filter: optimizationOptions.useFiltering,
+                    junk_filter_threshold: optimizationOptions.minConfidence
                 })
             });
             
@@ -5824,6 +5833,23 @@ Please provide a detailed analysis based on the article content and the user's s
                     .map(([os, sim]) => `<div class="flex justify-between"><span>${os}:</span><span>${(sim * 100).toFixed(1)}%</span></div>`)
                     .join('');
                 similaritiesHtml = `<div class="mt-3 p-2 bg-gray-50 rounded text-xs">${sortedSims}</div>`;
+            }
+            
+            // Build content filtering display
+            let filteringHtml = '';
+            if (result.content_filtering && result.content_filtering.enabled) {
+                const filtering = result.content_filtering;
+                filteringHtml = `
+                    <div class="mt-3 pt-3 border-t">
+                        <div class="text-sm font-medium text-gray-700 mb-2">Content Filtering:</div>
+                        <div class="text-xs text-gray-600 space-y-1">
+                            <div>Threshold: ${filtering.threshold}</div>
+                            <div>Original: ${filtering.original_length?.toLocaleString() || 'N/A'} chars</div>
+                            <div>Filtered: ${filtering.filtered_length?.toLocaleString() || 'N/A'} chars</div>
+                            ${filtering.reduction_percent ? `<div>Reduction: ${filtering.reduction_percent.toFixed(1)}%</div>` : ''}
+                        </div>
+                    </div>
+                `;
             }
             
             resultModal.innerHTML = `
@@ -5869,6 +5895,8 @@ Please provide a detailed analysis based on the article content and the user's s
                         ` : ''}
                         
                         ${similaritiesHtml}
+                        
+                        ${filteringHtml}
                         
                         <div class="mt-4 pt-4 border-t">
                             <button onclick="this.closest('.fixed').remove()" 

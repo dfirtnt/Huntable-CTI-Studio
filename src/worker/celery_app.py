@@ -7,6 +7,7 @@ Handles source checking, article collection, and other async operations.
 import os
 import logging
 import time
+import sys
 from typing import List
 from celery import Celery
 from celery.schedules import crontab
@@ -14,15 +15,67 @@ from celery.schedules import crontab
 # Configure logging
 logger = logging.getLogger(__name__)
 
+# CRITICAL: Get Redis URL from environment BEFORE any other imports
+# Check both REDIS_URL and CELERY_BROKER_URL (Celery's preferred env var name)
+redis_url = os.getenv('REDIS_URL') or os.getenv('CELERY_BROKER_URL')
+
+# Set CELERY_BROKER_URL and CELERY_RESULT_BACKEND environment variables
+# Celery automatically reads these and they take precedence
+if redis_url:
+    os.environ['CELERY_BROKER_URL'] = redis_url
+    os.environ['CELERY_RESULT_BACKEND'] = redis_url
+    logger.debug("Set CELERY_BROKER_URL and CELERY_RESULT_BACKEND environment variables")
+
 # Set the default Django settings module for the 'celery' program.
 os.environ.setdefault('CELERY_CONFIG_MODULE', 'src.worker.celeryconfig')
 
-# Create the Celery app
-celery_app = Celery('cti_scraper')
+# Create the Celery app with broker URL directly in constructor
+# This is the most reliable way to set it
+if redis_url:
+    celery_app = Celery('cti_scraper', broker=redis_url, backend=redis_url)
+    logger.info(f"Celery app created with Redis URL from environment: {redis_url.split('@')[0]}@***")
+else:
+    celery_app = Celery('cti_scraper')
 
-# Using a string here means the worker doesn't have to serialize
-# the configuration object to child processes.
-celery_app.config_from_object('src.worker.celeryconfig')
+# Import config module to get other settings (but we won't use its broker_url)
+import src.worker.celeryconfig as celeryconfig
+
+# Manually copy config settings EXCEPT broker_url and result_backend
+# This prevents config_from_object from overwriting our broker URL
+celery_app.conf.task_serializer = celeryconfig.task_serializer
+celery_app.conf.accept_content = celeryconfig.accept_content
+celery_app.conf.result_serializer = celeryconfig.result_serializer
+celery_app.conf.timezone = celeryconfig.timezone
+celery_app.conf.enable_utc = celeryconfig.enable_utc
+celery_app.conf.worker_prefetch_multiplier = celeryconfig.worker_prefetch_multiplier
+celery_app.conf.worker_max_tasks_per_child = celeryconfig.worker_max_tasks_per_child
+celery_app.conf.worker_disable_rate_limits = celeryconfig.worker_disable_rate_limits
+celery_app.conf.task_routes = celeryconfig.task_routes
+celery_app.conf.task_default_queue = celeryconfig.task_default_queue
+celery_app.conf.task_queues = celeryconfig.task_queues
+celery_app.conf.task_always_eager = celeryconfig.task_always_eager
+celery_app.conf.task_eager_propagates = celeryconfig.task_eager_propagates
+celery_app.conf.task_ignore_result = celeryconfig.task_ignore_result
+celery_app.conf.task_store_errors_even_if_ignored = celeryconfig.task_store_errors_even_if_ignored
+celery_app.conf.result_expires = celeryconfig.result_expires
+celery_app.conf.result_persistent = celeryconfig.result_persistent
+celery_app.conf.worker_send_task_events = celeryconfig.worker_send_task_events
+celery_app.conf.task_send_sent_event = celeryconfig.task_send_sent_event
+celery_app.conf.worker_log_format = celeryconfig.worker_log_format
+celery_app.conf.worker_task_log_format = celeryconfig.worker_task_log_format
+celery_app.conf.worker_direct = celeryconfig.worker_direct
+celery_app.conf.worker_redirect_stdouts = celeryconfig.worker_redirect_stdouts
+celery_app.conf.worker_redirect_stdouts_level = celeryconfig.worker_redirect_stdouts_level
+celery_app.conf.task_acks_late = celeryconfig.task_acks_late
+celery_app.conf.task_reject_on_worker_lost = celeryconfig.task_reject_on_worker_lost
+celery_app.conf.task_remote_tracebacks = celeryconfig.task_remote_tracebacks
+
+# Verify broker URL is still correct
+if redis_url:
+    if celery_app.conf.broker_url == redis_url:
+        logger.debug("Broker URL successfully set from environment")
+    else:
+        logger.error(f"CRITICAL: Broker URL mismatch! Expected: {redis_url[:30]}..., Got: {celery_app.conf.broker_url}")
 
 # Load task modules from all registered app configs.
 celery_app.autodiscover_tasks()

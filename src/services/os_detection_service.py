@@ -52,6 +52,26 @@ OS_INDICATORS = {
         ".pkg .dmg .app macOS package formats",
         "LaunchAgents LaunchDaemons macOS launch agents",
         "CoreFoundation Cocoa macOS APIs"
+    ],
+    "Other": [
+        "network protocols HTTP HTTPS TCP UDP DNS",
+        "cloud platforms AWS Azure GCP infrastructure",
+        "web applications APIs REST GraphQL",
+        "container technologies Docker Kubernetes",
+        "virtualization VMware Hyper-V VirtualBox",
+        "firmware BIOS UEFI embedded systems",
+        "IoT devices routers switches network equipment",
+        "cross-platform frameworks Electron Node.js Python",
+        "mobile platforms Android iOS",
+        "hardware vulnerabilities CPU GPU firmware"
+    ],
+    "multiple": [
+        "Windows Linux MacOS cross-platform multi-OS",
+        "multiple operating systems different platforms",
+        "Windows and Linux Windows and MacOS Linux and MacOS",
+        "cross-platform attack multi-platform malware",
+        "works on Windows Linux MacOS all platforms",
+        "platform-agnostic OS-independent"
     ]
 }
 
@@ -275,7 +295,7 @@ class OSDetectionService:
             "confidence": "high" if max_similarity > 0.7 else "medium" if max_similarity > 0.6 else "low"
         }
     
-    async def _detect_with_llm_fallback(self, content: str, fallback_model: Optional[str] = None) -> Optional[Dict[str, Any]]:
+    async def _detect_with_llm_fallback(self, content: str, fallback_model: Optional[str] = None, qa_feedback: Optional[str] = None) -> Optional[Dict[str, Any]]:
         """Detect OS using LLM via LMStudio (fallback)."""
         lmstudio_url = os.getenv("LMSTUDIO_API_URL", "http://localhost:1234/v1")
         model_name = fallback_model or "mistralai/mistral-7b-instruct-v0.3"
@@ -294,6 +314,14 @@ Output only the OS label: Windows, Linux, MacOS, or multiple"""
 
 {prompt}"""
             
+            # Add QA feedback if provided
+            if qa_feedback:
+                combined_prompt = f"{qa_feedback}\n\n{combined_prompt}"
+            
+            # Reasoning models (DeepSeek R1) need more tokens for reasoning output
+            is_reasoning_model = 'deepseek-r1' in model_name.lower() or 'r1' in model_name.lower()
+            max_tokens = 500 if is_reasoning_model else 50
+            
             async with httpx.AsyncClient(timeout=60.0) as client:
                 response = await client.post(
                     f"{lmstudio_url}/chat/completions",
@@ -307,19 +335,30 @@ Output only the OS label: Windows, Linux, MacOS, or multiple"""
                             }
                         ],
                         "temperature": 0,
-                        "max_tokens": 50
+                        "max_tokens": max_tokens
                     }
                 )
                 
                 if response.status_code != 200:
-                    logger.warning(f"LLM fallback failed: {response.status_code}")
+                    error_text = response.text[:500] if hasattr(response, 'text') else 'No error text'
+                    logger.warning(f"LLM fallback failed: HTTP {response.status_code} - {error_text}")
                     return None
                 
                 result = response.json()
                 if 'choices' not in result or len(result['choices']) == 0:
+                    logger.warning(f"LLM fallback failed: No choices in response. Response keys: {list(result.keys())}")
                     return None
                 
-                response_text = result['choices'][0]['message']['content'].strip()
+                # Handle reasoning models (DeepSeek R1) that return answer in reasoning_content
+                message = result['choices'][0]['message']
+                content_text = message.get('content', '')
+                reasoning_text = message.get('reasoning_content', '')
+                
+                # For reasoning models, check reasoning_content first, then content
+                if is_reasoning_model and reasoning_text:
+                    response_text = reasoning_text.strip()
+                else:
+                    response_text = content_text.strip()
                 
                 # Parse response - look for OS label
                 response_lower = response_text.lower()
@@ -340,7 +379,7 @@ Output only the OS label: Windows, Linux, MacOS, or multiple"""
                     "raw_response": response_text[:200]
                 }
         except Exception as e:
-            logger.warning(f"LLM fallback failed: {e}")
+            logger.error(f"LLM fallback failed with exception: {type(e).__name__}: {e}", exc_info=True)
             return None
     
     async def detect_os(
@@ -348,7 +387,9 @@ Output only the OS label: Windows, Linux, MacOS, or multiple"""
         content: str,
         use_classifier: bool = True,
         use_fallback: bool = True,
-        fallback_model: Optional[str] = None
+        fallback_model: Optional[str] = None,
+        force_fallback: bool = False,
+        qa_feedback: Optional[str] = None
     ) -> Dict[str, Any]:
         """
         Detect OS from content.
@@ -358,6 +399,7 @@ Output only the OS label: Windows, Linux, MacOS, or multiple"""
             use_classifier: Try to use trained classifier first
             use_fallback: Fall back to LLM if classifier/similarity fails
             fallback_model: Optional LLM model name for fallback (defaults to mistralai/mistral-7b-instruct-v0.3)
+            force_fallback: Always use LLM fallback regardless of confidence (for testing)
         
         Returns:
             Dict with operating_system, method, and confidence
@@ -371,11 +413,21 @@ Output only the OS label: Windows, Linux, MacOS, or multiple"""
         # Fall back to similarity-based detection
         result = self._detect_with_similarity(content)
         
-        # If similarity confidence is low and fallback is enabled, try LLM fallback
-        if use_fallback and result.get("confidence") == "low":
-            llm_result = await self._detect_with_llm_fallback(content, fallback_model=fallback_model)
+        # If force_fallback is enabled, always use LLM fallback
+        if force_fallback and use_fallback:
+            llm_result = await self._detect_with_llm_fallback(content, fallback_model=fallback_model, qa_feedback=qa_feedback)
             if llm_result:
                 return llm_result
+        
+        # If similarity confidence is low and fallback is enabled, try LLM fallback
+        if use_fallback and result.get("confidence") == "low":
+            logger.info(f"Similarity confidence is low ({result.get('max_similarity', 'unknown')}), attempting LLM fallback...")
+            llm_result = await self._detect_with_llm_fallback(content, fallback_model=fallback_model, qa_feedback=qa_feedback)
+            if llm_result:
+                logger.info(f"LLM fallback succeeded: {llm_result.get('operating_system')} (method: {llm_result.get('method')})")
+                return llm_result
+            else:
+                logger.warning(f"LLM fallback failed or returned None, falling back to similarity result: {result.get('operating_system')}")
         
         return result
     

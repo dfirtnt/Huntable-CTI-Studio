@@ -294,7 +294,10 @@
                 <button onclick="showTriggerWorkflowModal()" class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md transition-colors">
                     ➕ Trigger Workflow
                 </button>
-                <button onclick="cleanupStaleExecutions()" class="px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-md transition-colors" title="Mark running or pending executions older than 1 hour as failed">
+                <button onclick="triggerStuckExecutions()" class="px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-md transition-colors" id="triggerStuckBtn">
+                    ⚡ Trigger Stuck
+                </button>
+                <button onclick="cleanupStaleExecutions()" class="px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-md transition-colors" title="Mark running or pending executions older than 15 minutes as failed">
                     🧹 Cleanup Stale
                 </button>
                 <select id="statusFilter" onchange="filterExecutions()" class="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-700 dark:text-white">
@@ -2485,13 +2488,50 @@ function filterExecutions() {
     loadExecutions();
 }
 
+async function triggerStuckExecutions() {
+    const btn = document.getElementById('triggerStuckBtn');
+    const originalText = btn.textContent;
+    
+    if (!confirm('Trigger all stuck pending executions? This will bypass Celery and run them directly.')) {
+        return;
+    }
+    
+    btn.disabled = true;
+    btn.textContent = '⏳ Processing...';
+    
+    try {
+        const response = await fetch('/api/workflow/executions/trigger-stuck', { method: 'POST' });
+        const data = await response.json();
+        
+        if (response.ok) {
+            if (data.count === 0) {
+                alert('✅ No pending executions found.');
+            } else {
+                const message = `✅ Triggered ${data.count} execution(s)\n\n` +
+                              `Successful: ${data.successful}\n` +
+                              `Failed: ${data.failed}`;
+                alert(message);
+            }
+            await loadExecutions();
+        } else {
+            alert('❌ Error: ' + (data.detail || 'Unknown error'));
+        }
+    } catch (error) {
+        console.error('Error triggering stuck executions:', error);
+        alert('Error triggering stuck executions: ' + error.message);
+    } finally {
+        btn.disabled = false;
+        btn.textContent = originalText;
+    }
+}
+
 async function cleanupStaleExecutions() {
-    if (!confirm('Mark all running or pending executions older than 1 hour as failed?')) {
+    if (!confirm('Mark all running or pending executions older than 15 minutes as failed?')) {
         return;
     }
     
     try {
-        const response = await fetch('/api/workflow/executions/cleanup-stale?max_age_hours=1', {
+        const response = await fetch('/api/workflow/executions/cleanup-stale?max_age_hours=0.25', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'

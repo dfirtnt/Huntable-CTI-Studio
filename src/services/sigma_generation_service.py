@@ -43,7 +43,8 @@ class SigmaGenerationService:
         max_attempts: int = 3,
         min_confidence: float = 0.7,
         execution_id: Optional[int] = None,
-        article_id: Optional[int] = None
+        article_id: Optional[int] = None,
+        qa_feedback: Optional[str] = None
     ) -> Dict[str, Any]:
         """
         Generate SIGMA rules from article content.
@@ -110,6 +111,9 @@ class SigmaGenerationService:
                 # Prepare prompt for this attempt
                 if attempt == 0:
                     current_prompt = sigma_prompt
+                    # Add QA feedback if provided (only on first attempt)
+                    if qa_feedback:
+                        current_prompt = f"{qa_feedback}\n\n{current_prompt}"
                 else:
                     # Include validation feedback
                     previous_errors = []
