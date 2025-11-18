@@ -4011,7 +4011,7 @@ Please provide a detailed analysis based on the article content and the user's s
             
             if (shouldShowOptimization) {
                 console.log('Showing optimization dialog...');
-                const optimizationOptions = await showOptimizationDialog();
+                const optimizationOptions = await showOptimizationDialog(type === 'observables');
                 if (!optimizationOptions) {
                     // User dismissed the modal (ESC or Cancel) - clean up and return
                     const loadingModal = document.getElementById('loadingModal');
@@ -4303,7 +4303,7 @@ Please provide a detailed analysis based on the article content and the user's s
         }
     }
     // Show optimization options dialog
-    async function showOptimizationDialog() {
+    async function showOptimizationDialog(showQAAgent = false) {
         return new Promise((resolve) => {
             // Get AI model from settings to determine modal title
             const settings = JSON.parse(localStorage.getItem('ctiScraperSettings') || '{}');
@@ -4345,6 +4345,20 @@ Please provide a detailed analysis based on the article content and the user's s
                                 Higher values keep more content but reduce cost savings
                             </p>
                         </div>
+                        
+                        ${showQAAgent ? `
+                        <div class="border-t border-gray-200 pt-4 mt-4">
+                            <div class="flex items-center">
+                                <input type="checkbox" id="useQAAgent" checked class="mr-3">
+                                <label for="useQAAgent" class="text-sm text-gray-700">
+                                    Enable QA Agent validation
+                                </label>
+                            </div>
+                            <p class="text-xs text-gray-500 mt-1 ml-6">
+                                QA Agent will validate the extraction and retry up to 5 times if issues are found. This improves accuracy but increases processing time.
+                            </p>
+                        </div>
+                        ` : ''}
                         
                         <div class="bg-blue-50 p-3 rounded">
                             <h4 class="text-sm font-medium text-blue-900 mb-2">How it works:</h4>
@@ -4389,14 +4403,19 @@ Please provide a detailed analysis based on the article content and the user's s
             modal.querySelector('#confirmBtn').addEventListener('click', () => {
                 const useFiltering = useFilteringCheckbox.checked;
                 const minConfidence = parseFloat(modal.querySelector('#minConfidence').value);
+                const useQAAgent = showQAAgent ? (modal.querySelector('#useQAAgent')?.checked ?? false) : undefined;
                 
                 if (modal && modal.parentNode) {
                     modal.remove();
                 }
-                resolve({
+                const result = {
                     useFiltering,
                     minConfidence
-                });
+                };
+                if (useQAAgent !== undefined) {
+                    result.useQAAgent = useQAAgent;
+                }
+                resolve(result);
             });
             
             // Handle escape key - just dismisses/closes the modal

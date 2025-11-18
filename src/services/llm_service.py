@@ -1259,7 +1259,8 @@ Score the article from 1-10 for SIGMA rule generation potential. Consider:
         title: str,
         url: str,
         prompt_file_path: str,
-        cancellation_event: Optional[asyncio.Event] = None
+        cancellation_event: Optional[asyncio.Event] = None,
+        qa_feedback: Optional[str] = None
     ) -> Dict[str, Any]:
         """
         Extract observables (IOCs and behavioral indicators) using ExtractObservables prompt.
@@ -1373,6 +1374,10 @@ Content:
 {json.dumps(prompt_config, indent=2)}
 
 CRITICAL: {instructions} If you are a reasoning model, you may include reasoning text, but you MUST end your response with a valid JSON object. The JSON object must follow the output_format structure exactly. If no observables are found, still output the complete JSON structure with empty arrays."""
+        
+        # Prepend QA feedback if provided
+        if qa_feedback:
+            user_prompt = f"{qa_feedback}\n\n{user_prompt}"
         
         # model_name already set above
         
