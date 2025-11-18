@@ -304,36 +304,17 @@ services:
       - .:/app
 ```
 
-#### Production (`docker-compose.prod.yml`)
-```yaml
-version: '3.8'
-services:
-  postgres:
-    image: postgres:15
-    environment:
-      POSTGRES_DB: cti_scraper
-      POSTGRES_USER: cti_user
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    restart: unless-stopped
+#### Production (`docker-compose.yml`)
+**Note**: Production uses the same `docker-compose.yml` file with production environment variables set in `.env`.
 
-  redis:
-    image: redis:7-alpine
-    volumes:
-      - redis_data:/data
-    restart: unless-stopped
-
-  web:
-    build: .
-    environment:
-      - DATABASE_URL=postgresql://cti_user:${POSTGRES_PASSWORD}@postgres:5432/cti_scraper
-      - REDIS_URL=redis://redis:6379
-    depends_on:
-      - postgres
-      - redis
-    restart: unless-stopped
-```
+For production deployment:
+- Set `ENVIRONMENT=production` in `.env`
+- Use strong passwords for `POSTGRES_PASSWORD`
+- Configure proper `CORS_ORIGINS` for your domain
+- Set `DEBUG=false` and `LOG_LEVEL=INFO`
+- Ensure `SECRET_KEY` is a secure random string
+- Configure SSL/TLS certificates
+- Set up proper backup strategies
 
 ## Verification
 

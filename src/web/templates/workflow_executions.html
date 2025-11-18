@@ -20,6 +20,9 @@
                 <button onclick="triggerStuckExecutions()" class="px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-md transition-colors" id="triggerStuckBtn">
                     ⚡ Trigger Stuck
                 </button>
+                <button onclick="cleanupStaleExecutions()" class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md transition-colors">
+                    🧹 Cleanup Stale
+                </button>
                 <select id="statusFilter" onchange="filterExecutions()" class="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-700 dark:text-white">
                     <option value="">All Status</option>
                     <option value="pending">Pending</option>
@@ -311,6 +314,7 @@ function renderExecutions() {
             </td>
             <td class="px-6 py-4 whitespace-nowrap text-sm">
                 <button onclick="viewExecution(${exec.id})" class="text-blue-600 hover:text-blue-900 dark:text-white dark:hover:text-gray-300 mr-2">View</button>
+                ${exec.status === 'running' || exec.status === 'pending' ? `<button onclick="openLiveExecutionView(${exec.id})" class="text-green-600 hover:text-green-900 dark:text-green-400 dark:hover:text-green-300 mr-2" title="Live streaming view">📺 Live</button>` : ''}
                 ${exec.status === 'failed' ? `<button onclick="retryExecution(${exec.id})" class="text-green-600 hover:text-green-900 dark:text-white dark:hover:text-gray-300 mr-2">Retry</button>` : ''}
                 ${exec.status === 'running' || exec.status === 'pending' ? `<button onclick="cancelExecution(${exec.id})" class="text-red-600 hover:text-red-900 dark:text-white dark:hover:text-gray-300">Cancel</button>` : ''}
             </td>
@@ -1030,6 +1034,39 @@ function refreshExecutions() {
     loadExecutions();
 }
 
+async function cleanupStaleExecutions() {
+    if (!confirm('Mark all running or pending executions older than 15 minutes as failed?')) {
+        return;
+    }
+    
+    try {
+        const response = await fetch('/api/workflow/executions/cleanup-stale?max_age_hours=0.25', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({ detail: 'Unknown error' }));
+            alert(`❌ Cleanup failed: ${errorData.detail || 'Unknown error'}`);
+            return;
+        }
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            alert(`✅ ${result.message}`);
+            loadExecutions(); // Refresh the list
+        } else {
+            alert(`❌ Cleanup failed: ${result.message || 'Unknown error'}`);
+        }
+    } catch (error) {
+        console.error('Cleanup error:', error);
+        alert(`❌ Error cleaning up stale executions: ${error.message}`);
+    }
+}
+
 async function triggerStuckExecutions() {
     const btn = document.getElementById('triggerStuckBtn');
     const originalText = btn.textContent;
@@ -1146,8 +1183,8 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 
-// Auto-refresh every 10 seconds
-setInterval(loadExecutions, 10000);
+// Auto-refresh every 5 seconds
+setInterval(loadExecutions, 5000);
 
 // Load on page load
 loadExecutions();
@@ -1318,6 +1355,182 @@ function navigateToQueuedRules(executionId, ruleIds) {
 function highlightQueuedRule(ruleId) {
     sessionStorage.setItem('highlightQueuedRules', JSON.stringify([ruleId]));
     window.location.href = '/workflow#queue';
+}
+
+// Live execution view with SSE streaming
+let liveExecutionEventSource = null;
+let liveExecutionId = null;
+
+function openLiveExecutionView(executionId) {
+    liveExecutionId = executionId;
+    
+    // Create modal
+    const modal = document.createElement('div');
+    modal.id = 'liveExecutionModal';
+    modal.className = 'fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center';
+    modal.innerHTML = `
+        <div class="bg-gray-900 dark:bg-gray-800 rounded-lg shadow-xl w-11/12 max-w-6xl h-5/6 flex flex-col">
+            <div class="flex justify-between items-center p-4 border-b border-gray-700">
+                <h2 class="text-xl font-bold text-white">📺 Live Execution View - Execution ${executionId}</h2>
+                <button onclick="closeLiveExecutionView()" class="text-gray-400 hover:text-white text-2xl">&times;</button>
+            </div>
+            <div id="liveExecutionOutput" class="flex-1 overflow-y-auto p-4 font-mono text-sm text-green-400 bg-black rounded m-4" style="min-height: 400px;">
+                <div class="text-gray-500">Connecting to execution stream...</div>
+            </div>
+            <div class="p-4 border-t border-gray-700 flex justify-between items-center">
+                <div class="text-sm text-gray-400">
+                    <span id="liveExecutionStatus">Status: Connecting...</span>
+                </div>
+                <button onclick="closeLiveExecutionView()" class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded">Close</button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(modal);
+    
+    // Start SSE connection
+    startLiveExecutionStream(executionId);
+}
+
+function closeLiveExecutionView() {
+    if (liveExecutionEventSource) {
+        liveExecutionEventSource.close();
+        liveExecutionEventSource = null;
+    }
+    const modal = document.getElementById('liveExecutionModal');
+    if (modal) {
+        modal.remove();
+    }
+    liveExecutionId = null;
+}
+
+function startLiveExecutionStream(executionId) {
+    const outputDiv = document.getElementById('liveExecutionOutput');
+    const statusSpan = document.getElementById('liveExecutionStatus');
+    
+    // Clear previous content
+    outputDiv.innerHTML = '<div class="text-gray-500">Connecting to execution stream...</div>';
+    
+    // Create EventSource connection
+    const eventSource = new EventSource(`/api/workflow/executions/${executionId}/stream`);
+    liveExecutionEventSource = eventSource;
+    
+    // Format timestamp
+    function formatTime() {
+        return new Date().toLocaleTimeString();
+    }
+    
+    // Append to output
+    function appendOutput(text, className = 'text-green-400') {
+        const line = document.createElement('div');
+        line.className = className;
+        line.textContent = `[${formatTime()}] ${text}`;
+        outputDiv.appendChild(line);
+        outputDiv.scrollTop = outputDiv.scrollHeight;
+    }
+    
+    // Handle connection open
+    eventSource.onopen = () => {
+        appendOutput('✅ Connected to execution stream', 'text-green-400');
+        statusSpan.textContent = 'Status: Connected';
+    };
+    
+    // Handle messages
+    eventSource.onmessage = (event) => {
+        try {
+            const data = JSON.parse(event.data);
+            
+            switch (data.type) {
+                case 'step':
+                    appendOutput(`📍 Step: ${data.step}`, 'text-blue-400');
+                    break;
+                    
+                case 'status':
+                    appendOutput(`📊 Status: ${data.status}`, 'text-yellow-400');
+                    statusSpan.textContent = `Status: ${data.status}`;
+                    break;
+                    
+                case 'llm_interaction':
+                    appendOutput(`\n🤖 LLM Call - ${data.agent} (Attempt ${data.attempt})`, 'text-cyan-400');
+                    if (data.messages && data.messages.length > 0) {
+                        data.messages.forEach((msg, idx) => {
+                            const role = msg.role || 'user';
+                            const content = msg.content || '';
+                            const preview = content.length > 500 ? content.substring(0, 500) + '...' : content;
+                            appendOutput(`  ${role.toUpperCase()}: ${preview}`, 'text-gray-400');
+                        });
+                    }
+                    if (data.response) {
+                        const responsePreview = data.response.length > 1000 ? data.response.substring(0, 1000) + '...' : data.response;
+                        appendOutput(`  RESPONSE: ${responsePreview}`, 'text-green-300');
+                    }
+                    if (data.score !== undefined) {
+                        appendOutput(`  Score: ${data.score}/10`, 'text-yellow-300');
+                    }
+                    if (data.discrete_huntables_count !== undefined) {
+                        appendOutput(`  Discrete Huntables: ${data.discrete_huntables_count}`, 'text-yellow-300');
+                    }
+                    break;
+                    
+                case 'qa_result':
+                    const verdictIcon = data.verdict === 'pass' ? '✅' : data.verdict === 'critical_failure' ? '❌' : '⚠️';
+                    appendOutput(`\n${verdictIcon} QA Result - ${data.agent}: ${data.verdict.toUpperCase()}`, 
+                        data.verdict === 'pass' ? 'text-green-400' : data.verdict === 'critical_failure' ? 'text-red-400' : 'text-yellow-400');
+                    if (data.summary) {
+                        appendOutput(`  Summary: ${data.summary}`, 'text-gray-300');
+                    }
+                    if (data.issues && data.issues.length > 0) {
+                        appendOutput(`  Issues (${data.issues.length}):`, 'text-orange-400');
+                        data.issues.forEach((issue, idx) => {
+                            appendOutput(`    ${idx + 1}. [${issue.severity}] ${issue.type}: ${issue.description}`, 'text-orange-300');
+                        });
+                    }
+                    break;
+                    
+                case 'ranking':
+                    appendOutput(`\n📊 Ranking Score: ${data.score}/10`, 'text-yellow-400');
+                    if (data.reasoning) {
+                        const reasoningPreview = data.reasoning.length > 500 ? data.reasoning.substring(0, 500) + '...' : data.reasoning;
+                        appendOutput(`  Reasoning: ${reasoningPreview}`, 'text-gray-300');
+                    }
+                    break;
+                    
+                case 'complete':
+                    appendOutput(`\n🏁 Execution ${data.status.toUpperCase()}`, 
+                        data.status === 'completed' ? 'text-green-400' : 'text-red-400');
+                    if (data.error_message) {
+                        appendOutput(`  Error: ${data.error_message}`, 'text-red-300');
+                    }
+                    statusSpan.textContent = `Status: ${data.status}`;
+                    // Close stream after a delay
+                    setTimeout(() => {
+                        if (liveExecutionEventSource) {
+                            liveExecutionEventSource.close();
+                            liveExecutionEventSource = null;
+                        }
+                    }, 2000);
+                    break;
+                    
+                case 'error':
+                    appendOutput(`❌ Error: ${data.message}`, 'text-red-400');
+                    statusSpan.textContent = 'Status: Error';
+                    break;
+                    
+                default:
+                    appendOutput(`Unknown event type: ${data.type}`, 'text-gray-500');
+            }
+        } catch (e) {
+            appendOutput(`Error parsing event: ${e.message}`, 'text-red-400');
+        }
+    };
+    
+    // Handle errors
+    eventSource.onerror = (error) => {
+        appendOutput('❌ Stream error or connection closed', 'text-red-400');
+        statusSpan.textContent = 'Status: Disconnected';
+        if (eventSource.readyState === EventSource.CLOSED) {
+            appendOutput('Stream closed. Execution may have completed.', 'text-gray-500');
+        }
+    };
 }
 </script>
 {% endblock %}

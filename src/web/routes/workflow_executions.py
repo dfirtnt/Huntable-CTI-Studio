@@ -3,8 +3,11 @@ API routes for agentic workflow execution monitoring.
 """
 
 import logging
+import asyncio
+import json
 from typing import List, Dict, Any, Optional
 from fastapi import APIRouter, HTTPException, Request, Query
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from sqlalchemy import or_, and_
@@ -282,6 +285,137 @@ async def cleanup_stale_executions(
     except Exception as e:
         logger.error(f"Error cleaning up stale executions: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/executions/{execution_id}/stream")
+async def stream_execution_updates(execution_id: int):
+    """
+    Server-Sent Events (SSE) endpoint for streaming real-time execution updates.
+    
+    Streams:
+    - Current step changes
+    - Status updates
+    - LLM chat completions (requests/responses)
+    - Error messages
+    - Progress indicators
+    """
+    async def event_generator():
+        db_manager = DatabaseManager()
+        last_step = None
+        last_status = None
+        last_error_log = None
+        last_updated = None
+        
+        try:
+            while True:
+                db_session = db_manager.get_session()
+                try:
+                    execution = db_session.query(AgenticWorkflowExecutionTable).filter(
+                        AgenticWorkflowExecutionTable.id == execution_id
+                    ).first()
+                    
+                    if not execution:
+                        yield f"data: {json.dumps({'type': 'error', 'message': 'Execution not found'})}\n\n"
+                        break
+                    
+                    # Check for updates
+                    current_step = execution.current_step
+                    current_status = execution.status
+                    current_error_log = execution.error_log
+                    current_updated = execution.updated_at.isoformat() if execution.updated_at else None
+                    
+                    # Send step update
+                    if current_step != last_step:
+                        last_step = current_step
+                        yield f"data: {json.dumps({'type': 'step', 'step': current_step, 'timestamp': datetime.utcnow().isoformat()})}\n\n"
+                    
+                    # Send status update
+                    if current_status != last_status:
+                        last_status = current_status
+                        yield f"data: {json.dumps({'type': 'status', 'status': current_status, 'timestamp': datetime.utcnow().isoformat()})}\n\n"
+                        
+                        # If completed or failed, send final update and close
+                        if current_status in ['completed', 'failed']:
+                            yield f"data: {json.dumps({'type': 'complete', 'status': current_status, 'error_message': execution.error_message, 'timestamp': datetime.utcnow().isoformat()})}\n\n"
+                            break
+                    
+                    # Send LLM interaction updates from error_log
+                    if current_error_log and current_error_log != last_error_log:
+                        # Create a deep copy to track what we've sent
+                        if last_error_log is None:
+                            last_error_log = {}
+                        
+                        # Check for LLM interactions in each agent's error_log entry
+                        for agent_name in ['rank_article', 'extract_agent', 'generate_sigma', 'os_detection']:
+                            agent_log = current_error_log.get(agent_name, {})
+                            last_agent_log = last_error_log.get(agent_name, {})
+                            
+                            # Check for conversation_log (Rank, Extract, SIGMA, etc.)
+                            if 'conversation_log' in agent_log:
+                                conversation_log = agent_log['conversation_log']
+                                last_conversation_log = last_agent_log.get('conversation_log', [])
+                                
+                                if conversation_log and isinstance(conversation_log, list):
+                                    # Only send new entries (entries not in last_error_log)
+                                    for entry in conversation_log:
+                                        # Check if this entry is new (by attempt number)
+                                        is_new = True
+                                        for last_entry in last_conversation_log:
+                                            if last_entry.get('attempt') == entry.get('attempt'):
+                                                is_new = False
+                                                break
+                                        
+                                        if is_new:
+                                            yield f"data: {json.dumps({'type': 'llm_interaction', 'agent': agent_name, 'messages': entry.get('messages', []), 'response': entry.get('llm_response', ''), 'attempt': entry.get('attempt', 1), 'score': entry.get('score'), 'discrete_huntables_count': entry.get('discrete_huntables_count'), 'timestamp': datetime.utcnow().isoformat()})}\n\n"
+                            
+                            # Check for QA results
+                            if 'qa_results' in current_error_log:
+                                qa_results = current_error_log['qa_results']
+                                last_qa_results = last_error_log.get('qa_results', {})
+                                
+                                for qa_agent_name, qa_result in qa_results.items():
+                                    # Map QA agent names to workflow agent names
+                                    agent_mapping = {
+                                        'RankAgent': 'rank_article',
+                                        'ExtractAgent': 'extract_agent',
+                                        'SigmaAgent': 'generate_sigma',
+                                        'OSDetectionAgent': 'os_detection'
+                                    }
+                                    mapped_agent_name = agent_mapping.get(qa_agent_name, agent_name)
+                                    
+                                    # Only send if this QA result is new or updated
+                                    last_qa_result = last_qa_results.get(qa_agent_name)
+                                    if not last_qa_result or last_qa_result.get('verdict') != qa_result.get('verdict'):
+                                        yield f"data: {json.dumps({'type': 'qa_result', 'agent': mapped_agent_name, 'verdict': qa_result.get('verdict'), 'summary': qa_result.get('summary'), 'issues': qa_result.get('issues', []), 'timestamp': datetime.utcnow().isoformat()})}\n\n"
+                        
+                        # Update last_error_log after processing
+                        last_error_log = json.loads(json.dumps(current_error_log)) if current_error_log else {}
+                    
+                    # Send ranking score if available
+                    if execution.ranking_score is not None and last_updated != current_updated:
+                        yield f"data: {json.dumps({'type': 'ranking', 'score': execution.ranking_score, 'reasoning': execution.ranking_reasoning, 'timestamp': datetime.utcnow().isoformat()})}\n\n"
+                    
+                    last_updated = current_updated
+                    
+                finally:
+                    db_session.close()
+                
+                # Poll every 1 second
+                await asyncio.sleep(1)
+                
+        except Exception as e:
+            logger.error(f"Error in execution stream: {e}", exc_info=True)
+            yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\n\n"
+    
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no"  # Disable nginx buffering
+        }
+    )
 
 
 @router.post("/executions/trigger-stuck")
@@ -848,16 +982,37 @@ async def trigger_workflow_for_article(request: Request, article_id: int, use_la
                     raise HTTPException(status_code=404, detail=f"Article {article_id} not found")
                 
                 # Check if already has active execution
+                # Also check for stuck pending executions (older than 5 minutes)
+                from datetime import timedelta
+                cutoff_time = datetime.utcnow() - timedelta(minutes=5)
+                
                 existing_execution = db_session.query(AgenticWorkflowExecutionTable).filter(
                     AgenticWorkflowExecutionTable.article_id == article_id,
                     AgenticWorkflowExecutionTable.status.in_(['pending', 'running'])
                 ).first()
                 
                 if existing_execution:
-                    raise HTTPException(
-                        status_code=400, 
-                        detail=f"Article {article_id} already has an active workflow execution (ID: {existing_execution.id})"
-                    )
+                    # Check if it's a stuck pending execution (older than 5 minutes and never started)
+                    if (existing_execution.status == 'pending' and 
+                        existing_execution.created_at < cutoff_time and 
+                        existing_execution.started_at is None):
+                        logger.warning(
+                            f"Found stuck pending execution {existing_execution.id} for article {article_id} "
+                            f"(created {existing_execution.created_at}, never started). Marking as failed."
+                        )
+                        existing_execution.status = 'failed'
+                        existing_execution.error_message = (
+                            existing_execution.error_message or 
+                            f"Execution stuck in pending status for more than 5 minutes (created: {existing_execution.created_at})"
+                        )
+                        existing_execution.completed_at = datetime.utcnow()
+                        db_session.commit()
+                        # Continue to create new execution
+                    else:
+                        raise HTTPException(
+                            status_code=400, 
+                            detail=f"Article {article_id} already has an active workflow execution (ID: {existing_execution.id})"
+                        )
                 
                 # Should not reach here if trigger_workflow logic is correct
                 # But if it does, it's not a hunt score issue (threshold check disabled)

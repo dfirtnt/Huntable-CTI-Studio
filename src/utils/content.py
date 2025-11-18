@@ -883,13 +883,29 @@ class ThreatHuntingScorer:
             # For keywords with leading/trailing hyphens, use letter boundaries instead of word boundaries
             return r"(?<![a-zA-Z])" + escaped_keyword + r"(?![a-zA-Z])"
         elif keyword.endswith('.exe'):
-            # For .exe executables, match both with and without .exe extension
+            # For .exe executables, always require .exe extension to avoid false positives
+            # with common English words (e.g., "services", "system", "process")
             base_name = keyword[:-4]  # Remove .exe
-            return r'\b' + re.escape(base_name) + r'(\.exe)?\b'
+            # For short base names (2-3 chars), allow without extension if followed by non-word char
+            # This handles cases like "cmd" in command lines, but prevents matches in words
+            if len(base_name) <= 3:
+                # Match: base.exe OR base followed by non-word char (space, punctuation, etc.)
+                return r'\b' + re.escape(base_name) + r'(\.exe\b|(?![a-zA-Z0-9]))'
+            else:
+                # For longer names, require .exe extension to prevent false positives
+                # with common words (e.g., "services" in "cloud services")
+                return r'\b' + re.escape(base_name) + r'\.exe\b'
         elif keyword.endswith('.dll'):
             # For .dll files, match both with and without .dll extension
             base_name = keyword[:-4]  # Remove .dll
-            return r'\b' + re.escape(base_name) + r'(\.dll)?\b'
+            # For short base names (2-3 chars), require either .dll extension or
+            # ensure it's not part of a longer word by requiring non-word char after
+            if len(base_name) <= 3:
+                # Match: base.dll OR base followed by non-word char (space, punctuation, etc.)
+                return r'\b' + re.escape(base_name) + r'(\.dll\b|(?![a-zA-Z0-9]))'
+            else:
+                # For longer names, use standard word boundary matching
+                return r'\b' + re.escape(base_name) + r'(\.dll)?\b'
         elif ' ' in keyword:
             # For multi-word phrases, ensure word boundaries at start and end
             # but allow flexible matching in the middle

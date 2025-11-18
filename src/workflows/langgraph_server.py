@@ -738,6 +738,13 @@ Cannot process empty articles."""
                             except:
                                 pass
                 except json.JSONDecodeError as e:
+                    # Check if prompt is empty
+                    if not prompt_str:
+                        logger.error(f"[Workflow {state.get('execution_id')}] ExtractAgent prompt is empty in database")
+                        raise ValueError("ExtractAgent prompt is empty in workflow config. Please configure it in the workflow settings.")
+                    
+                    # Check if it looks like JSON (starts with { or [)
+                    if prompt_str.startswith('{') or prompt_str.startswith('['):
                     # Try to fix double-wrapped JSON (starts with "{\n  {" or "{{")
                     # Find the second opening brace and extract from there
                     if prompt_str.startswith('{\n  {') or prompt_str.startswith('{{'):
@@ -766,6 +773,28 @@ Cannot process empty articles."""
                             raise ValueError(f"Failed to parse ExtractAgent prompt JSON: {e}")
                     else:
                         raise ValueError(f"Failed to parse ExtractAgent prompt JSON: {e}")
+                    else:
+                        # Prompt is plain text, not JSON - try to load from file as fallback
+                        logger.warning(
+                            f"[Workflow {state.get('execution_id')}] ExtractAgent prompt in database is plain text, not JSON. "
+                            f"Attempting to load from file system as fallback."
+                        )
+                        prompt_file = Path(__file__).parent.parent.parent / "prompts" / "ExtractAgent"
+                        if prompt_file.exists():
+                            try:
+                                with open(prompt_file, 'r') as f:
+                                    prompt_config_dict = json.load(f)
+                                logger.info(f"[Workflow {state.get('execution_id')}] Successfully loaded ExtractAgent prompt from file system")
+                            except Exception as file_error:
+                                raise ValueError(
+                                    f"ExtractAgent prompt in database is not valid JSON and file fallback failed: {file_error}. "
+                                    f"Please update the ExtractAgent prompt in workflow settings to be valid JSON."
+                                )
+                        else:
+                            raise ValueError(
+                                f"ExtractAgent prompt in database is not valid JSON (plain text format) and file fallback not found. "
+                                f"Please update the ExtractAgent prompt in workflow settings to be valid JSON format."
+                            )
             elif isinstance(agent_prompt_data.get("prompt"), dict):
                 prompt_config_dict = agent_prompt_data["prompt"]
             else:

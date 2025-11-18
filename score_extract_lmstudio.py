@@ -56,8 +56,18 @@ def load_prompt_from_database():
     
     return prompt_config_dict, instructions_template
 
-# Load prompt
-prompt_config_dict, instructions_template = load_prompt_from_database()
+# Load prompt - use file system fallback if database fails
+try:
+    prompt_config_dict, instructions_template = load_prompt_from_database()
+except Exception as e:
+    print(f"Warning: Could not load prompt from database: {e}")
+    print("Using file system fallback...")
+    EXTRACT_PROMPT_PATH = "src/prompts/ExtractAgent"
+    if not os.path.exists(EXTRACT_PROMPT_PATH):
+        raise FileNotFoundError(f"ExtractAgent prompt not found at {EXTRACT_PROMPT_PATH}")
+    with open(EXTRACT_PROMPT_PATH, 'r') as f:
+        prompt_config_dict = json.load(f)
+    instructions_template = prompt_config_dict.get("instructions", "")
 
 def parse_extraction_result(response_text: str) -> Optional[Dict[str, Any]]:
     """Parse JSON extraction result from LLM response."""

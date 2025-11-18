@@ -460,6 +460,10 @@ class AgenticWorkflowConfigTable(Base):
     # e.g., {"RankAgent": "deepseek/deepseek-r1", "ExtractAgent": "...", "SigmaAgent": "..."}
     agent_models = Column(JSONB, nullable=True)
     
+    # QA enabled flags (JSONB: {agent_name: bool})
+    # e.g., {"OSDetectionAgent": true, "RankAgent": false, "ExtractAgent": true, "SigmaAgent": true}
+    qa_enabled = Column(JSONB, nullable=True)
+    
     # Timestamps
     created_at = Column(DateTime, nullable=False, default=func.now())
     updated_at = Column(DateTime, nullable=False, default=func.now(), onupdate=func.now())

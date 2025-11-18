@@ -1497,195 +1497,194 @@ async def api_extract_observables(article_id: int, request: Request):
                     prompt_config_dict = agent_prompt_data["prompt"]
                 
                 instructions_template_str = agent_prompt_data.get("instructions")
+        finally:
+            db_session.close()
+        
+        # Initialize LLM service with workflow config
+        llm_service = LLMService(config_models=agent_models)
+        
+        # Use ExtractAgent prompt from config if available, otherwise fall back to ExtractObservables file
+        use_workflow_prompt = prompt_config_dict is not None and instructions_template_str is not None
+        prompt_file = None
+        if not use_workflow_prompt:
+            prompt_file = Path(__file__).parent.parent.parent / "prompts" / "ExtractObservables"
+            if not prompt_file.exists():
+                raise HTTPException(status_code=500, detail="ExtractObservables prompt file not found and ExtractAgent prompt not in workflow config")
+        
+        # Filter content if filtering is enabled
+        from src.utils.content_filter import ContentFilter
+        content_filter = ContentFilter()
+        
+        if use_filtering:
+            filter_result = content_filter.filter_content(
+                article.content,
+                min_confidence=min_confidence,
+                hunt_score=article.article_metadata.get('threat_hunting_score', 0) if article.article_metadata else 0,
+                article_id=article.id
+            )
+        else:
+            # No filtering - use original content
+            filter_result = type('FilterResult', (), {
+                'is_huntable': True,
+                'filtered_content': article.content,
+                'removed_chunks': []
+            })()
+        
+        # Check if content passed filter (has huntable content)
+        if not filter_result.is_huntable:
+            raise HTTPException(
+                status_code=400, 
+                detail="Article content did not pass content filter. No huntable content detected."
+            )
+        
+        # Check if filtered content is empty or too short
+        filtered_content = filter_result.filtered_content or article.content
+        if not filtered_content or len(filtered_content.strip()) < 100:
+            raise HTTPException(
+                status_code=400,
+                detail="Article content has insufficient huntable content after filtering."
+            )
+        
+        # Create a cancellation event
+        cancellation_event = asyncio.Event()
+        
+        # Start monitoring client disconnection in background
+        async def monitor_disconnection():
+            # Only check for disconnection periodically, and be more careful about false positives
+            while True:
+                await asyncio.sleep(1.0)  # Check every 1 second (less aggressive)
+                try:
+                    # Check if client disconnected - only use property check, avoid callable check
+                    # which can cause false positives
+                    if hasattr(request, 'is_disconnected'):
+                        # Only check the property, not as a callable
+                        is_disconnected = request.is_disconnected
+                        if isinstance(is_disconnected, bool) and is_disconnected:
+                            logger.info(f"Client disconnected, cancelling observables extraction for article {article_id}")
+                            cancellation_event.set()
+                            break
+                except Exception as e:
+                    # Don't cancel on exceptions checking disconnection - just log and continue
+                    logger.debug(f"Error checking disconnection status: {e}")
+                    # Don't break - continue monitoring
+        
+        monitor_task = asyncio.create_task(monitor_disconnection())
+        
+        # QA retry loop (max 5 attempts)
+        max_qa_retries = 5
+        qa_feedback = None
+        extraction_result = None
+        qa_results = {}
+        
+        try:
+            # Get agent prompt for QA
+            agent_prompt = None
+            if use_workflow_prompt:
+                import json
+                agent_prompt = json.dumps(prompt_config_dict, indent=2) if prompt_config_dict else instructions_template_str[:5000]
             
-            # Initialize LLM service with workflow config
-            llm_service = LLMService(config_models=agent_models)
-            
-            # Use ExtractAgent prompt from config if available, otherwise fall back to ExtractObservables file
-            use_workflow_prompt = prompt_config_dict is not None and instructions_template_str is not None
-            prompt_file = None
-            if not use_workflow_prompt:
-                prompt_file = Path(__file__).parent.parent.parent / "prompts" / "ExtractObservables"
-                if not prompt_file.exists():
-                    raise HTTPException(status_code=500, detail="ExtractObservables prompt file not found and ExtractAgent prompt not in workflow config")
-            
-                # Filter content if filtering is enabled
-            from src.utils.content_filter import ContentFilter
-            content_filter = ContentFilter()
-            
-            if use_filtering:
-                filter_result = content_filter.filter_content(
-                    article.content,
-                    min_confidence=min_confidence,
-                    hunt_score=article.article_metadata.get('threat_hunting_score', 0) if article.article_metadata else 0,
-                    article_id=article.id
-                )
-            else:
-                # No filtering - use original content
-                filter_result = type('FilterResult', (), {
-                    'is_huntable': True,
-                    'filtered_content': article.content,
-                    'removed_chunks': []
-                })()
-            
-            # Check if content passed filter (has huntable content)
-            if not filter_result.is_huntable:
-                raise HTTPException(
-                    status_code=400, 
-                    detail="Article content did not pass content filter. No huntable content detected."
-                )
-            
-            # Check if filtered content is empty or too short
-            filtered_content = filter_result.filtered_content or article.content
-            if not filtered_content or len(filtered_content.strip()) < 100:
-                raise HTTPException(
-                    status_code=400,
-                    detail="Article content has insufficient huntable content after filtering."
-                )
-            
-            # Create a cancellation event
-            cancellation_event = asyncio.Event()
-            
-            # Start monitoring client disconnection in background
-            async def monitor_disconnection():
-                # Only check for disconnection periodically, and be more careful about false positives
-                while True:
-                    await asyncio.sleep(1.0)  # Check every 1 second (less aggressive)
-                    try:
-                        # Check if client disconnected - only use property check, avoid callable check
-                        # which can cause false positives
-                        if hasattr(request, 'is_disconnected'):
-                            # Only check the property, not as a callable
-                            is_disconnected = request.is_disconnected
-                            if isinstance(is_disconnected, bool) and is_disconnected:
-                                logger.info(f"Client disconnected, cancelling observables extraction for article {article_id}")
-                                cancellation_event.set()
-                                break
-                    except Exception as e:
-                        # Don't cancel on exceptions checking disconnection - just log and continue
-                        logger.debug(f"Error checking disconnection status: {e}")
-                        # Don't break - continue monitoring
-            
-            monitor_task = asyncio.create_task(monitor_disconnection())
-            
-            # QA retry loop (max 5 attempts)
-            max_qa_retries = 5
-            qa_feedback = None
-            extraction_result = None
-            qa_results = {}
-            
-            try:
-                # Get agent prompt for QA
-                agent_prompt = None
+            # QA retry loop
+            for qa_attempt in range(max_qa_retries):
+                # Extract observables
                 if use_workflow_prompt:
-                    import json
-                    agent_prompt = json.dumps(prompt_config_dict, indent=2) if prompt_config_dict else instructions_template_str[:5000]
-                
-                # QA retry loop
-                for qa_attempt in range(max_qa_retries):
-                    # Extract observables
-                    if use_workflow_prompt:
-                        # Use ExtractAgent prompt from workflow config (via extract_behaviors)
-                        extraction_task = asyncio.create_task(
-                            llm_service.extract_behaviors(
-                                content=filtered_content,
-                                title=article.title,
-                                url=article.canonical_url or "",
-                                prompt_config_dict=prompt_config_dict,
-                                instructions_template_str=instructions_template_str,
-                                qa_feedback=qa_feedback
-                            )
+                    # Use ExtractAgent prompt from workflow config (via extract_behaviors)
+                    extraction_task = asyncio.create_task(
+                        llm_service.extract_behaviors(
+                            content=filtered_content,
+                            title=article.title,
+                            url=article.canonical_url or "",
+                            prompt_config_dict=prompt_config_dict,
+                            instructions_template_str=instructions_template_str,
+                            qa_feedback=qa_feedback
                         )
-                    else:
-                        # Use ExtractObservables file prompt
-                        extraction_task = asyncio.create_task(
-                            llm_service.extract_observables(
-                                content=filtered_content,
-                                title=article.title,
-                                url=article.canonical_url or "",
-                                prompt_file_path=str(prompt_file),
-                                cancellation_event=cancellation_event,
-                                qa_feedback=qa_feedback
-                            )
+                    )
+                else:
+                    # Use ExtractObservables file prompt
+                    extraction_task = asyncio.create_task(
+                        llm_service.extract_observables(
+                            content=filtered_content,
+                            title=article.title,
+                            url=article.canonical_url or "",
+                            prompt_file_path=str(prompt_file),
+                            cancellation_event=cancellation_event,
+                            qa_feedback=qa_feedback
                         )
-                    
-                    # Wait for either completion or cancellation
-                    done, pending = await asyncio.wait(
-                        [extraction_task, monitor_task],
-                        return_when=asyncio.FIRST_COMPLETED
                     )
-                    
-                    # Cancel remaining tasks
-                    for task in pending:
-                        task.cancel()
-                        try:
-                            await task
-                        except asyncio.CancelledError:
-                            pass
-                    
-                    # Check if cancellation was requested
-                    if cancellation_event.is_set():
-                        logger.info(f"Observables extraction cancelled for article {article_id}")
-                        raise HTTPException(status_code=499, detail="Client cancelled the request")
-                    
-                    # Get the result
-                    extraction_result = await extraction_task
-                    
-                    # If QA not enabled, break after first attempt
-                    if not qa_enabled or not use_workflow_prompt:
-                        break
-                    
-                    # Run QA check
-                    from src.services.qa_agent_service import QAAgentService
-                    qa_service = QAAgentService(llm_service=llm_service)
-                    qa_result = await qa_service.evaluate_agent_output(
-                        article=article,
-                        agent_prompt=agent_prompt,
-                        agent_output=extraction_result,
-                        agent_name="ExtractAgent",
-                        config_obj=config_obj
-                    )
-                    
-                    # Store QA result
-                    qa_results[f"attempt_{qa_attempt + 1}"] = qa_result
-                    
-                    # If QA passes, break
-                    if qa_result.get('verdict') == 'pass':
-                        break
-                    
-                    # Generate feedback for retry
-                    qa_feedback = await qa_service.generate_feedback(qa_result, "ExtractAgent")
-                    
-                    # If critical failure on last attempt, log warning but continue
-                    if qa_result.get('verdict') == 'critical_failure' and qa_attempt == max_qa_retries - 1:
-                        logger.warning(f"QA critical failure after {max_qa_retries} attempts for observables extraction: {qa_result.get('summary', 'Unknown error')}")
                 
-                return {
-                    "success": True,
-                    "article_id": article_id,
-                    "extraction": extraction_result,
-                    "metadata": {
-                        "atomic_count": extraction_result.get("metadata", {}).get("atomic_count", 0),
-                        "behavioral_count": extraction_result.get("metadata", {}).get("behavioral_count", 0),
-                        "total_observables": extraction_result.get("metadata", {}).get("observable_count", 0)
-                    },
-                    "qa_results": qa_results if qa_results else None
-                }
+                # Wait for either completion or cancellation
+                done, pending = await asyncio.wait(
+                    [extraction_task, monitor_task],
+                    return_when=asyncio.FIRST_COMPLETED
+                )
                 
-            except asyncio.CancelledError:
-                logger.info(f"Observables extraction task cancelled for article {article_id}")
-                raise HTTPException(status_code=499, detail="Client cancelled the request")
-            finally:
-                # Clean up monitor task
-                if not monitor_task.done():
-                    monitor_task.cancel()
+                # Cancel remaining tasks
+                for task in pending:
+                    task.cancel()
                     try:
-                        await monitor_task
+                        await task
                     except asyncio.CancelledError:
                         pass
+                
+                # Check if cancellation was requested
+                if cancellation_event.is_set():
+                    logger.info(f"Observables extraction cancelled for article {article_id}")
+                    raise HTTPException(status_code=499, detail="Client cancelled the request")
+                
+                # Get the result
+                extraction_result = await extraction_task
+                
+                # If QA not enabled, break after first attempt
+                if not qa_enabled or not use_workflow_prompt:
+                    break
+                
+                # Run QA check
+                from src.services.qa_agent_service import QAAgentService
+                qa_service = QAAgentService(llm_service=llm_service)
+                qa_result = await qa_service.evaluate_agent_output(
+                    article=article,
+                    agent_prompt=agent_prompt,
+                    agent_output=extraction_result,
+                    agent_name="ExtractAgent",
+                    config_obj=config_obj
+                )
+                
+                # Store QA result
+                qa_results[f"attempt_{qa_attempt + 1}"] = qa_result
+                
+                # If QA passes, break
+                if qa_result.get('verdict') == 'pass':
+                    break
+                
+                # Generate feedback for retry
+                qa_feedback = await qa_service.generate_feedback(qa_result, "ExtractAgent")
+                
+                # If critical failure on last attempt, log warning but continue
+                if qa_result.get('verdict') == 'critical_failure' and qa_attempt == max_qa_retries - 1:
+                    logger.warning(f"QA critical failure after {max_qa_retries} attempts for observables extraction: {qa_result.get('summary', 'Unknown error')}")
+            
+            return {
+                "success": True,
+                "article_id": article_id,
+                "extraction": extraction_result,
+                "metadata": {
+                    "atomic_count": extraction_result.get("metadata", {}).get("atomic_count", 0),
+                    "behavioral_count": extraction_result.get("metadata", {}).get("behavioral_count", 0),
+                    "total_observables": extraction_result.get("metadata", {}).get("observable_count", 0)
+                },
+                "qa_results": qa_results if qa_results else None
+            }
+            
+        except asyncio.CancelledError:
+            logger.info(f"Observables extraction task cancelled for article {article_id}")
+            raise HTTPException(status_code=499, detail="Client cancelled the request")
         finally:
-            # Close database session
-            db_session.close()
+            # Clean up monitor task
+            if not monitor_task.done():
+                monitor_task.cancel()
+                try:
+                    await monitor_task
+                except asyncio.CancelledError:
+                    pass
         
     except HTTPException:
         raise
@@ -1961,11 +1960,14 @@ async def api_detect_os(article_id: int, request: Request):
         body = await request.json()
         use_classifier = body.get('use_classifier', True)
         use_fallback = body.get('use_fallback', True)
+        use_junk_filter = body.get('use_junk_filter', True)  # Enable junk filter by default
+        junk_filter_threshold = body.get('junk_filter_threshold', 0.8)  # Default threshold
         
-        # Import OS detection service
+        # Import OS detection service and content filter
         from src.services.os_detection_service import OSDetectionService
         from src.services.workflow_trigger_service import WorkflowTriggerService
         from src.database.manager import DatabaseManager
+        from src.utils.content_filter import ContentFilter
         
         # Get OS detection config from workflow config
         db_manager = DatabaseManager()
@@ -1976,15 +1978,46 @@ async def api_detect_os(article_id: int, request: Request):
             agent_models = config_obj.agent_models if config_obj and config_obj.agent_models else {}
             embedding_model = agent_models.get('OSDetectionAgent_embedding', 'ibm-research/CTI-BERT')
             fallback_model = agent_models.get('OSDetectionAgent_fallback')
+            
+            # Get junk filter threshold from config if not provided in request
+            if config_obj and not body.get('junk_filter_threshold'):
+                junk_filter_threshold = config_obj.junk_filter_threshold if hasattr(config_obj, 'junk_filter_threshold') and config_obj.junk_filter_threshold else 0.8
         finally:
             db_session.close()
+        
+        # Apply junk filter if enabled
+        content_to_analyze = article.content
+        filtering_metadata = None
+        if use_junk_filter:
+            content_filter = ContentFilter()
+            hunt_score = article.article_metadata.get('threat_hunting_score', 0) if article.article_metadata else 0
+            filter_result = content_filter.filter_content(
+                article.content,
+                min_confidence=junk_filter_threshold,
+                hunt_score=hunt_score,
+                article_id=article.id
+            )
+            content_to_analyze = filter_result.filtered_content or article.content
+            filtering_metadata = {
+                'enabled': True,
+                'threshold': junk_filter_threshold,
+                'original_length': len(article.content),
+                'filtered_length': len(content_to_analyze),
+                'reduction_percent': ((len(article.content) - len(content_to_analyze)) / len(article.content) * 100) if len(article.content) > 0 else 0,
+                'chunks_removed': filter_result.chunks_removed if hasattr(filter_result, 'chunks_removed') else None,
+                'chunks_kept': filter_result.chunks_kept if hasattr(filter_result, 'chunks_kept') else None
+            }
+        else:
+            filtering_metadata = {
+                'enabled': False
+            }
         
         # Initialize service with configured embedding model
         service = OSDetectionService(model_name=embedding_model)
         
-        # Detect OS with configured fallback model
+        # Detect OS with configured fallback model using filtered content
         result = await service.detect_os(
-            content=article.content,
+            content=content_to_analyze,
             use_classifier=use_classifier,
             use_fallback=use_fallback,
             fallback_model=fallback_model
@@ -2002,7 +2035,8 @@ async def api_detect_os(article_id: int, request: Request):
                         'detected_at': datetime.now().isoformat(),
                         'similarities': result.get('similarities'),
                         'max_similarity': result.get('max_similarity'),
-                        'probabilities': result.get('probabilities')
+                        'probabilities': result.get('probabilities'),
+                        'content_filtering': filtering_metadata
                     }
                 }
             }
@@ -2016,7 +2050,8 @@ async def api_detect_os(article_id: int, request: Request):
                         'detected_at': datetime.now().isoformat(),
                         'similarities': result.get('similarities'),
                         'max_similarity': result.get('max_similarity'),
-                        'probabilities': result.get('probabilities')
+                        'probabilities': result.get('probabilities'),
+                        'content_filtering': filtering_metadata
                     }
                 }
             }
@@ -2030,7 +2065,9 @@ async def api_detect_os(article_id: int, request: Request):
             "confidence": result.get('confidence'),
             "similarities": result.get('similarities'),
             "max_similarity": result.get('max_similarity'),
-            "probabilities": result.get('probabilities')
+            "probabilities": result.get('probabilities'),
+            "raw_response": result.get('raw_response'),
+            "content_filtering": filtering_metadata
         }
         
     except HTTPException:

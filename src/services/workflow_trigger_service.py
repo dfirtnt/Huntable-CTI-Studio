@@ -76,13 +76,35 @@ class WorkflowTriggerService:
             # Threshold check disabled - removed: if hunt_score < config.min_hunt_score: return False
             
             # Check if workflow already running or completed for this article
+            # Also check for stuck pending executions (older than 5 minutes)
+            from datetime import datetime, timedelta
+            cutoff_time = datetime.utcnow() - timedelta(minutes=5)
+            
             existing_execution = self.db.query(AgenticWorkflowExecutionTable).filter(
                 AgenticWorkflowExecutionTable.article_id == article.id,
                 AgenticWorkflowExecutionTable.status.in_(['pending', 'running'])
             ).first()
             
             if existing_execution:
-                logger.debug(f"Article {article.id} already has active workflow execution")
+                # Check if it's a stuck pending execution (older than 5 minutes and never started)
+                if (existing_execution.status == 'pending' and 
+                    existing_execution.created_at < cutoff_time and 
+                    existing_execution.started_at is None):
+                    logger.warning(
+                        f"Found stuck pending execution {existing_execution.id} for article {article.id} "
+                        f"(created {existing_execution.created_at}, never started). Marking as failed."
+                    )
+                    existing_execution.status = 'failed'
+                    existing_execution.error_message = (
+                        existing_execution.error_message or 
+                        f"Execution stuck in pending status for more than 5 minutes (created: {existing_execution.created_at})"
+                    )
+                    existing_execution.completed_at = datetime.utcnow()
+                    self.db.commit()
+                    # Allow new execution to be created
+                    return True
+                
+                logger.debug(f"Article {article.id} already has active workflow execution {existing_execution.id}")
                 return False
             
             return True

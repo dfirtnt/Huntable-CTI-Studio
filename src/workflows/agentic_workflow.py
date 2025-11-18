@@ -30,6 +30,7 @@ from src.services.llm_service import LLMService
 from src.services.rag_service import RAGService
 from src.services.workflow_trigger_service import WorkflowTriggerService
 from src.services.sigma_matching_service import SigmaMatchingService
+from src.services.qa_agent_service import QAAgentService
 from src.utils.langfuse_client import trace_workflow_execution, log_workflow_step
 from src.workflows.status_utils import (
     mark_execution_completed,
@@ -215,20 +216,103 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
             agent_models = config_obj.agent_models if config_obj else None
             llm_service = LLMService(config_models=agent_models)
             
+            # Check if QA is enabled for Rank Agent
+            qa_enabled = False
+            if config_obj and config_obj.qa_enabled:
+                qa_enabled = config_obj.qa_enabled.get("RankAgent", False)
+            
+            max_qa_retries = 5
+            qa_feedback = None
+            ranking_result = None
+            
             # Get source name
             source_name = article.source.name if article.source else "Unknown"
             
-            # Rank article using LLM
-            ranking_result = await llm_service.rank_article(
-                title=article.title,
-                content=filtered_content,
-                source=source_name,
-                url=article.canonical_url or "",
-                execution_id=state['execution_id'],
-                article_id=article.id
-            )
+            # Get agent prompt for QA
+            agent_prompt = "Rank the article from 1-10 for SIGMA huntability based on telemetry observables, behavioral patterns, and detection rule feasibility."
+            if config_obj and config_obj.agent_prompts and "RankAgent" in config_obj.agent_prompts:
+                rank_prompt_data = config_obj.agent_prompts["RankAgent"]
+                if isinstance(rank_prompt_data.get("prompt"), str):
+                    agent_prompt = rank_prompt_data["prompt"][:5000]  # Truncate for QA context
             
-            ranking_score = ranking_result['score']
+            # Initialize conversation log for rank_article
+            conversation_log = []
+            
+            # QA retry loop
+            for qa_attempt in range(max_qa_retries):
+                # Rank article using LLM
+                ranking_result = await llm_service.rank_article(
+                    title=article.title,
+                    content=filtered_content,
+                    source=source_name,
+                    url=article.canonical_url or "",
+                    execution_id=state['execution_id'],
+                    article_id=article.id,
+                    qa_feedback=qa_feedback
+                )
+                
+                # Store LLM interaction in conversation log
+                conversation_log.append({
+                    'attempt': qa_attempt + 1,
+                    'messages': [
+                        {
+                            'role': 'system',
+                            'content': 'You are a cybersecurity detection engineer. Score threat intelligence articles 1-10 for SIGMA huntability.'
+                        },
+                        {
+                            'role': 'user',
+                            'content': f"Title: {article.title}\nSource: {source_name}\nURL: {article.canonical_url or ''}\n\nContent: {filtered_content[:2000]}..." if len(filtered_content) > 2000 else f"Title: {article.title}\nSource: {source_name}\nURL: {article.canonical_url or ''}\n\nContent: {filtered_content}"
+                        }
+                    ],
+                    'llm_response': ranking_result.get('raw_response', ranking_result.get('reasoning', '')),
+                    'score': ranking_result.get('score'),
+                    'qa_feedback': qa_feedback
+                })
+                
+                # Store conversation log in execution.error_log
+                if execution:
+                    if execution.error_log is None:
+                        execution.error_log = {}
+                    execution.error_log['rank_article'] = {
+                        'conversation_log': conversation_log
+                    }
+                    db_session.commit()
+                
+                # If QA not enabled, break after first attempt
+                if not qa_enabled:
+                    break
+                
+                # Run QA check
+                qa_service = QAAgentService(llm_service=llm_service)
+                qa_result = await qa_service.evaluate_agent_output(
+                    article=article,
+                    agent_prompt=agent_prompt,
+                    agent_output=ranking_result,
+                    agent_name="RankAgent",
+                    config_obj=config_obj
+                )
+                
+                # Store QA result in error_log
+                if execution:
+                    if execution.error_log is None:
+                        execution.error_log = {}
+                    if 'qa_results' not in execution.error_log:
+                        execution.error_log['qa_results'] = {}
+                    execution.error_log['qa_results']['RankAgent'] = qa_result
+                    db_session.commit()
+                
+                # If QA passes, break
+                if qa_result.get('verdict') == 'pass':
+                    break
+                
+                # Generate feedback for retry
+                qa_feedback = await qa_service.generate_feedback(qa_result, "RankAgent")
+                
+                # If critical failure, raise error
+                if qa_result.get('verdict') == 'critical_failure' and qa_attempt == max_qa_retries - 1:
+                    raise ValueError(f"QA critical failure after {max_qa_retries} attempts: {qa_result.get('summary', 'Unknown error')}")
+            
+            ranking_score = ranking_result['score'] if ranking_result else 0.0
             ranking_threshold = state['config'].get('ranking_threshold', 6.0) if state.get('config') else 6.0
             should_continue = ranking_score >= ranking_threshold
             
@@ -324,15 +408,68 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
             # Initialize service with configured embedding model
             service = OSDetectionService(model_name=embedding_model)
             
-            # Detect OS with configured fallback model
-            os_result = await service.detect_os(
-                content=content,
-                use_classifier=True,
-                use_fallback=True,
-                fallback_model=fallback_model
-            )
+            # Check if QA is enabled for OS Detection
+            config_obj = trigger_service.get_active_config()
+            qa_enabled = False
+            if config_obj and config_obj.qa_enabled:
+                qa_enabled = config_obj.qa_enabled.get("OSDetectionAgent", False)
             
-            detected_os = os_result.get('operating_system', 'Unknown')
+            max_qa_retries = 5
+            qa_feedback = None
+            os_result = None
+            
+            # QA retry loop
+            for qa_attempt in range(max_qa_retries):
+                # Detect OS with configured fallback model
+                os_result = await service.detect_os(
+                    content=content,
+                    use_classifier=True,
+                    use_fallback=True,
+                    fallback_model=fallback_model,
+                    qa_feedback=qa_feedback
+                )
+                
+                # If QA not enabled, break after first attempt
+                if not qa_enabled:
+                    break
+                
+                # Run QA check
+                agent_models = config_obj.agent_models if config_obj else None
+                llm_service = LLMService(config_models=agent_models)
+                qa_service = QAAgentService(llm_service=llm_service)
+                
+                # Get agent prompt for QA (OS Detection doesn't have a traditional prompt, use a description)
+                agent_prompt = "Detect the operating system (Windows, Linux, MacOS, multiple, or Unknown) from the article content."
+                
+                qa_result = await qa_service.evaluate_agent_output(
+                    article=article,
+                    agent_prompt=agent_prompt,
+                    agent_output=os_result,
+                    agent_name="OSDetectionAgent",
+                    config_obj=config_obj
+                )
+                
+                # Store QA result in error_log
+                if execution:
+                    if execution.error_log is None:
+                        execution.error_log = {}
+                    if 'qa_results' not in execution.error_log:
+                        execution.error_log['qa_results'] = {}
+                    execution.error_log['qa_results']['OSDetectionAgent'] = qa_result
+                    db_session.commit()
+                
+                # If QA passes, break
+                if qa_result.get('verdict') == 'pass':
+                    break
+                
+                # Generate feedback for retry
+                qa_feedback = await qa_service.generate_feedback(qa_result, "OSDetectionAgent")
+                
+                # If critical failure, raise error
+                if qa_result.get('verdict') == 'critical_failure' and qa_attempt == max_qa_retries - 1:
+                    raise ValueError(f"QA critical failure after {max_qa_retries} attempts: {qa_result.get('summary', 'Unknown error')}")
+            
+            detected_os = os_result.get('operating_system', 'Unknown') if os_result else 'Unknown'
             is_windows = detected_os == 'Windows'
             
             termination_reason = state.get('termination_reason')
@@ -445,49 +582,79 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
             prompt_config_dict = None
             if isinstance(agent_prompt_data.get("prompt"), str):
                 prompt_str = agent_prompt_data["prompt"].strip()
-                try:
-                    prompt_config_dict = json.loads(prompt_str)
-                    # Handle nested JSON structure if present
-                    if isinstance(prompt_config_dict, dict) and len(prompt_config_dict) == 1:
-                        # If it's a dict with one key, might be nested - try unwrapping
-                        first_value = next(iter(prompt_config_dict.values()))
-                        if isinstance(first_value, dict):
-                            prompt_config_dict = first_value
-                        elif isinstance(first_value, str):
-                            # Try parsing the inner string as JSON
-                            try:
-                                prompt_config_dict = json.loads(first_value)
-                            except:
-                                pass
-                except json.JSONDecodeError as e:
-                    # Try to fix double-wrapped JSON (starts with "{\n  {" or "{{")
-                    # Find the second opening brace and extract from there
-                    if prompt_str.startswith('{\n  {') or prompt_str.startswith('{{'):
-                        # Find the second opening brace
-                        second_brace_idx = prompt_str.find('{', 1)
-                        if second_brace_idx > 0:
-                            # Extract from second brace to matching closing brace
-                            brace_count = 0
-                            for i in range(second_brace_idx, len(prompt_str)):
-                                if prompt_str[i] == '{':
-                                    brace_count += 1
-                                elif prompt_str[i] == '}':
-                                    brace_count -= 1
-                                    if brace_count == 0:
-                                        # Found matching closing brace
-                                        inner_json = prompt_str[second_brace_idx:i + 1]
-                                        try:
-                                            prompt_config_dict = json.loads(inner_json)
-                                            logger.info(f"[Workflow {state['execution_id']}] Successfully unwrapped double-wrapped JSON prompt")
-                                            break
-                                        except json.JSONDecodeError as e2:
-                                            raise ValueError(f"Failed to parse unwrapped prompt JSON: {e2}")
-                            if prompt_config_dict is None:
+                
+                # Check if prompt is empty
+                if not prompt_str:
+                    logger.error(f"[Workflow {state['execution_id']}] ExtractAgent prompt is empty in database")
+                    raise ValueError("ExtractAgent prompt is empty in workflow config. Please configure it in the workflow settings.")
+                
+                # Check if it looks like JSON (starts with { or [)
+                if prompt_str.startswith('{') or prompt_str.startswith('['):
+                    try:
+                        prompt_config_dict = json.loads(prompt_str)
+                        # Handle nested JSON structure if present
+                        if isinstance(prompt_config_dict, dict) and len(prompt_config_dict) == 1:
+                            # If it's a dict with one key, might be nested - try unwrapping
+                            first_value = next(iter(prompt_config_dict.values()))
+                            if isinstance(first_value, dict):
+                                prompt_config_dict = first_value
+                            elif isinstance(first_value, str):
+                                # Try parsing the inner string as JSON
+                                try:
+                                    prompt_config_dict = json.loads(first_value)
+                                except:
+                                    pass
+                    except json.JSONDecodeError as e:
+                        # Try to fix double-wrapped JSON (starts with "{\n  {" or "{{")
+                        # Find the second opening brace and extract from there
+                        if prompt_str.startswith('{\n  {') or prompt_str.startswith('{{'):
+                            # Find the second opening brace
+                            second_brace_idx = prompt_str.find('{', 1)
+                            if second_brace_idx > 0:
+                                # Extract from second brace to matching closing brace
+                                brace_count = 0
+                                for i in range(second_brace_idx, len(prompt_str)):
+                                    if prompt_str[i] == '{':
+                                        brace_count += 1
+                                    elif prompt_str[i] == '}':
+                                        brace_count -= 1
+                                        if brace_count == 0:
+                                            # Found matching closing brace
+                                            inner_json = prompt_str[second_brace_idx:i + 1]
+                                            try:
+                                                prompt_config_dict = json.loads(inner_json)
+                                                logger.info(f"[Workflow {state['execution_id']}] Successfully unwrapped double-wrapped JSON prompt")
+                                                break
+                                            except json.JSONDecodeError as e2:
+                                                raise ValueError(f"Failed to parse unwrapped prompt JSON: {e2}")
+                                if prompt_config_dict is None:
+                                    raise ValueError(f"Failed to parse ExtractAgent prompt JSON: {e}")
+                            else:
                                 raise ValueError(f"Failed to parse ExtractAgent prompt JSON: {e}")
                         else:
                             raise ValueError(f"Failed to parse ExtractAgent prompt JSON: {e}")
+                else:
+                    # Prompt is plain text, not JSON - try to load from file as fallback
+                    logger.warning(
+                        f"[Workflow {state['execution_id']}] ExtractAgent prompt in database is plain text, not JSON. "
+                        f"Attempting to load from file system as fallback."
+                    )
+                    prompt_file = Path(__file__).parent.parent / "prompts" / "ExtractAgent"
+                    if prompt_file.exists():
+                        try:
+                            with open(prompt_file, 'r') as f:
+                                prompt_config_dict = json.load(f)
+                            logger.info(f"[Workflow {state['execution_id']}] Successfully loaded ExtractAgent prompt from file system")
+                        except Exception as file_error:
+                            raise ValueError(
+                                f"ExtractAgent prompt in database is not valid JSON and file fallback failed: {file_error}. "
+                                f"Please update the ExtractAgent prompt in workflow settings to be valid JSON."
+                            )
                     else:
-                        raise ValueError(f"Failed to parse ExtractAgent prompt JSON: {e}")
+                        raise ValueError(
+                            f"ExtractAgent prompt in database is not valid JSON (plain text format) and file fallback not found. "
+                            f"Please update the ExtractAgent prompt in workflow settings to be valid JSON format."
+                        )
             elif isinstance(agent_prompt_data.get("prompt"), dict):
                 prompt_config_dict = agent_prompt_data["prompt"]
             else:
@@ -506,18 +673,99 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
             agent_models = config_obj.agent_models if config_obj else None
             llm_service = LLMService(config_models=agent_models)
             
-            # Use database prompt
-            extraction_result = await llm_service.extract_behaviors(
-                content=filtered_content,
-                title=article.title,
-                url=article.canonical_url or "",
-                prompt_config_dict=prompt_config_dict,
-                instructions_template_str=instructions_template_str,
-                execution_id=state['execution_id'],
-                article_id=article.id
-            )
+            # Check if QA is enabled for Extract Agent
+            qa_enabled = False
+            if config_obj and config_obj.qa_enabled:
+                qa_enabled = config_obj.qa_enabled.get("ExtractAgent", False)
             
-            discrete_count = extraction_result.get('discrete_huntables_count', 0)
+            max_qa_retries = 5
+            qa_feedback = None
+            extraction_result = None
+            
+            # Get agent prompt for QA
+            agent_prompt = json.dumps(prompt_config_dict, indent=2) if prompt_config_dict else instructions_template_str[:5000]
+            
+            # Initialize conversation log for extract_agent
+            conversation_log = []
+            
+            # QA retry loop
+            for qa_attempt in range(max_qa_retries):
+                # Use database prompt
+                extraction_result = await llm_service.extract_behaviors(
+                    content=filtered_content,
+                    title=article.title,
+                    url=article.canonical_url or "",
+                    prompt_config_dict=prompt_config_dict,
+                    instructions_template_str=instructions_template_str,
+                    execution_id=state['execution_id'],
+                    article_id=article.id,
+                    qa_feedback=qa_feedback
+                )
+                
+                # Store LLM interaction in conversation log
+                system_content = prompt_config_dict.get('role') or prompt_config_dict.get('task', 'You are a detection engineer LLM.')
+                user_content_preview = filtered_content[:2000] + "..." if len(filtered_content) > 2000 else filtered_content
+                conversation_log.append({
+                    'attempt': qa_attempt + 1,
+                    'messages': [
+                        {
+                            'role': 'system',
+                            'content': system_content
+                        },
+                        {
+                            'role': 'user',
+                            'content': f"Title: {article.title}\nURL: {article.canonical_url or ''}\n\nContent: {user_content_preview}"
+                        }
+                    ],
+                    'llm_response': extraction_result.get('raw_response', ''),
+                    'discrete_huntables_count': extraction_result.get('discrete_huntables_count', 0),
+                    'qa_feedback': qa_feedback
+                })
+                
+                # Store conversation log in execution.error_log
+                if execution:
+                    if execution.error_log is None:
+                        execution.error_log = {}
+                    execution.error_log['extract_agent'] = {
+                        'conversation_log': conversation_log
+                    }
+                    db_session.commit()
+                
+                # If QA not enabled, break after first attempt
+                if not qa_enabled:
+                    break
+                
+                # Run QA check
+                qa_service = QAAgentService(llm_service=llm_service)
+                qa_result = await qa_service.evaluate_agent_output(
+                    article=article,
+                    agent_prompt=agent_prompt,
+                    agent_output=extraction_result,
+                    agent_name="ExtractAgent",
+                    config_obj=config_obj
+                )
+                
+                # Store QA result in error_log
+                if execution:
+                    if execution.error_log is None:
+                        execution.error_log = {}
+                    if 'qa_results' not in execution.error_log:
+                        execution.error_log['qa_results'] = {}
+                    execution.error_log['qa_results']['ExtractAgent'] = qa_result
+                    db_session.commit()
+                
+                # If QA passes, break
+                if qa_result.get('verdict') == 'pass':
+                    break
+                
+                # Generate feedback for retry
+                qa_feedback = await qa_service.generate_feedback(qa_result, "ExtractAgent")
+                
+                # If critical failure, raise error
+                if qa_result.get('verdict') == 'critical_failure' and qa_attempt == max_qa_retries - 1:
+                    raise ValueError(f"QA critical failure after {max_qa_retries} attempts: {qa_result.get('summary', 'Unknown error')}")
+            
+            discrete_count = extraction_result.get('discrete_huntables_count', 0) if extraction_result else 0
             
             # Update execution record with extraction results
             if execution:
@@ -582,24 +830,79 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
             config_obj = trigger_service.get_active_config()
             agent_models = config_obj.agent_models if config_obj else None
             
+            # Check if QA is enabled for Sigma Agent
+            qa_enabled = False
+            if config_obj and config_obj.qa_enabled:
+                qa_enabled = config_obj.qa_enabled.get("SigmaAgent", False)
+            
+            max_qa_retries = 5
+            qa_feedback = None
+            generation_result = None
+            
             # Get source name
             source_name = article.source.name if article.source else "Unknown"
             
+            # Get agent prompt for QA
+            agent_prompt = "Generate SIGMA detection rules from the article content following SIGMA rule format and validation requirements."
+            if config_obj and config_obj.agent_prompts and "SigmaAgent" in config_obj.agent_prompts:
+                sigma_prompt_data = config_obj.agent_prompts["SigmaAgent"]
+                if isinstance(sigma_prompt_data.get("prompt"), str):
+                    agent_prompt = sigma_prompt_data["prompt"][:5000]  # Truncate for QA context
+            
             # Generate SIGMA rules using service
             sigma_service = SigmaGenerationService(config_models=agent_models)
-            generation_result = await sigma_service.generate_sigma_rules(
-                article_title=article.title,
-                article_content=filtered_content,
-                source_name=source_name,
-                url=article.canonical_url or "",
-                ai_model='lmstudio',  # Use Deepseek-R1 via LMStudio
-                max_attempts=3,
-                min_confidence=0.9,  # Use high confidence for filtered content
-                execution_id=state['execution_id'],
-                article_id=state['article_id']
-            )
             
-            sigma_rules = generation_result.get('rules', [])
+            # QA retry loop
+            for qa_attempt in range(max_qa_retries):
+                generation_result = await sigma_service.generate_sigma_rules(
+                    article_title=article.title,
+                    article_content=filtered_content,
+                    source_name=source_name,
+                    url=article.canonical_url or "",
+                    ai_model='lmstudio',  # Use Deepseek-R1 via LMStudio
+                    max_attempts=3,
+                    min_confidence=0.9,  # Use high confidence for filtered content
+                    execution_id=state['execution_id'],
+                    article_id=state['article_id'],
+                    qa_feedback=qa_feedback
+                )
+                
+                # If QA not enabled, break after first attempt
+                if not qa_enabled:
+                    break
+                
+                # Run QA check
+                llm_service = LLMService(config_models=agent_models)
+                qa_service = QAAgentService(llm_service=llm_service)
+                qa_result = await qa_service.evaluate_agent_output(
+                    article=article,
+                    agent_prompt=agent_prompt,
+                    agent_output=generation_result,
+                    agent_name="SigmaAgent",
+                    config_obj=config_obj
+                )
+                
+                # Store QA result in error_log
+                if execution:
+                    if execution.error_log is None:
+                        execution.error_log = {}
+                    if 'qa_results' not in execution.error_log:
+                        execution.error_log['qa_results'] = {}
+                    execution.error_log['qa_results']['SigmaAgent'] = qa_result
+                    db_session.commit()
+                
+                # If QA passes, break
+                if qa_result.get('verdict') == 'pass':
+                    break
+                
+                # Generate feedback for retry
+                qa_feedback = await qa_service.generate_feedback(qa_result, "SigmaAgent")
+                
+                # If critical failure, raise error
+                if qa_result.get('verdict') == 'critical_failure' and qa_attempt == max_qa_retries - 1:
+                    raise ValueError(f"QA critical failure after {max_qa_retries} attempts: {qa_result.get('summary', 'Unknown error')}")
+            
+            sigma_rules = generation_result.get('rules', []) if generation_result else []
             sigma_errors = generation_result.get('errors')
             sigma_metadata = generation_result.get('metadata', {})
             

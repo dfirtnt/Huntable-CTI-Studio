@@ -7,8 +7,18 @@ Configures Redis as the message broker and result backend.
 import os
 
 # Broker settings
-broker_url = os.getenv('REDIS_URL', 'redis://redis:6379/0')
-result_backend = os.getenv('REDIS_URL', 'redis://redis:6379/0')
+# CRITICAL: Read from environment, but celery_app.py will override via conf.update()
+# This allows celery_app.py to set it with password before config_from_object runs
+# We set a default here, but it will be overridden if REDIS_URL is set
+_redis_url = os.getenv('REDIS_URL') or os.getenv('CELERY_BROKER_URL')
+if _redis_url:
+    # Use the environment variable value
+    broker_url = _redis_url
+    result_backend = _redis_url
+else:
+    # Fallback to default (no password) only if REDIS_URL not set
+    broker_url = 'redis://redis:6379/0'
+    result_backend = 'redis://redis:6379/0'
 
 # Task settings
 task_serializer = 'json'
