@@ -29,6 +29,7 @@ class WorkflowConfigResponse(BaseModel):
     description: Optional[str]
     agent_prompts: Optional[Dict[str, Any]] = None
     agent_models: Optional[Dict[str, Any]] = None  # Changed from Dict[str, str] to allow None values
+    qa_enabled: Optional[Dict[str, bool]] = None
     created_at: str
     updated_at: str
 
@@ -42,6 +43,7 @@ class WorkflowConfigUpdate(BaseModel):
     description: Optional[str] = None
     agent_prompts: Optional[Dict[str, Any]] = None
     agent_models: Optional[Dict[str, str]] = None
+    qa_enabled: Optional[Dict[str, bool]] = None
 
 
 class AgentPromptUpdate(BaseModel):
@@ -86,10 +88,11 @@ async def get_workflow_config(request: Request):
                 db_session.commit()
                 db_session.refresh(config)
             
-            # Ensure agent_models and agent_prompts are properly serialized
+            # Ensure agent_models, agent_prompts, and qa_enabled are properly serialized
             # JSONB fields should already be dicts, but ensure they're not None
             agent_models = config.agent_models if config.agent_models is not None else {}
             agent_prompts = config.agent_prompts if config.agent_prompts is not None else {}
+            qa_enabled = config.qa_enabled if config.qa_enabled is not None else {}
             
             return WorkflowConfigResponse(
                 id=config.id,
@@ -102,6 +105,7 @@ async def get_workflow_config(request: Request):
                 description=config.description,
                 agent_prompts=agent_prompts,
                 agent_models=agent_models,
+                qa_enabled=qa_enabled,
                 created_at=config.created_at.isoformat(),
                 updated_at=config.updated_at.isoformat()
             )
@@ -154,7 +158,8 @@ async def update_workflow_config(request: Request, config_update: WorkflowConfig
                 is_active=True,
                 description=config_update.description or (current_config.description if current_config else "Updated configuration"),
                 agent_prompts=config_update.agent_prompts if config_update.agent_prompts is not None else (current_config.agent_prompts if current_config else None),
-                agent_models=config_update.agent_models if config_update.agent_models is not None else (current_config.agent_models if current_config else None)
+                agent_models=config_update.agent_models if config_update.agent_models is not None else (current_config.agent_models if current_config else None),
+                qa_enabled=config_update.qa_enabled if config_update.qa_enabled is not None else (current_config.qa_enabled if current_config else None)
             )
             
             db_session.add(new_config)
@@ -174,6 +179,7 @@ async def update_workflow_config(request: Request, config_update: WorkflowConfig
                 description=new_config.description,
                 agent_prompts=new_config.agent_prompts,
                 agent_models=new_config.agent_models,
+                qa_enabled=new_config.qa_enabled,
                 created_at=new_config.created_at.isoformat(),
                 updated_at=new_config.updated_at.isoformat()
             )
@@ -255,6 +261,17 @@ async def get_agent_prompts(request: Request):
                     "prompt": sigma_prompt,
                     "instructions": "",
                     "model": sigma_model
+                }
+            
+            # QAAgent
+            qa_agent_path = prompts_dir / "QAAgentCMD"
+            if qa_agent_path.exists():
+                with open(qa_agent_path, 'r') as f:
+                    qa_prompt = f.read()
+                default_prompts["QAAgent"] = {
+                    "prompt": qa_prompt,
+                    "instructions": "",
+                    "model": extract_model  # Use extract model for QA
                 }
             
             # Merge database prompts with defaults (database takes precedence)
