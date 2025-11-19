@@ -314,9 +314,9 @@ function renderExecutions() {
             </td>
             <td class="px-6 py-4 whitespace-nowrap text-sm">
                 <button onclick="viewExecution(${exec.id})" class="text-blue-600 hover:text-blue-900 dark:text-white dark:hover:text-gray-300 mr-2">View</button>
-                ${exec.status === 'running' || exec.status === 'pending' ? `<button onclick="openLiveExecutionView(${exec.id})" class="text-green-600 hover:text-green-900 dark:text-green-400 dark:hover:text-green-300 mr-2" title="Live streaming view">📺 Live</button>` : ''}
+                ${(exec.status === 'running' || exec.status === 'pending') ? `<button onclick="openLiveExecutionView(${exec.id})" class="text-green-600 hover:text-green-900 dark:text-green-400 dark:hover:text-green-300 mr-2" title="Live streaming view for execution ${exec.id}">📺 Live</button>` : ''}
                 ${exec.status === 'failed' ? `<button onclick="retryExecution(${exec.id})" class="text-green-600 hover:text-green-900 dark:text-white dark:hover:text-gray-300 mr-2">Retry</button>` : ''}
-                ${exec.status === 'running' || exec.status === 'pending' ? `<button onclick="cancelExecution(${exec.id})" class="text-red-600 hover:text-red-900 dark:text-white dark:hover:text-gray-300">Cancel</button>` : ''}
+                ${(exec.status === 'running' || exec.status === 'pending') ? `<button onclick="cancelExecution(${exec.id})" class="text-red-600 hover:text-red-900 dark:text-white dark:hover:text-gray-300">Cancel</button>` : ''}
             </td>
         </tr>
     `).join('');
@@ -1048,8 +1048,14 @@ async function cleanupStaleExecutions() {
         });
         
         if (!response.ok) {
-            const errorData = await response.json().catch(() => ({ detail: 'Unknown error' }));
-            alert(`❌ Cleanup failed: ${errorData.detail || 'Unknown error'}`);
+            let errorMessage = 'Unknown error';
+            try {
+                const errorData = await response.json();
+                errorMessage = errorData.detail || errorData.message || JSON.stringify(errorData);
+            } catch (e) {
+                errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+            }
+            alert(`❌ Cleanup failed: ${errorMessage}`);
             return;
         }
         
@@ -1059,11 +1065,13 @@ async function cleanupStaleExecutions() {
             alert(`✅ ${result.message}`);
             loadExecutions(); // Refresh the list
         } else {
-            alert(`❌ Cleanup failed: ${result.message || 'Unknown error'}`);
+            const errorMsg = result.message || result.error || JSON.stringify(result);
+            alert(`❌ Cleanup failed: ${errorMsg}`);
         }
     } catch (error) {
         console.error('Cleanup error:', error);
-        alert(`❌ Error cleaning up stale executions: ${error.message}`);
+        const errorMsg = error.message || error.toString() || 'Unknown error';
+        alert(`❌ Error cleaning up stale executions: ${errorMsg}`);
     }
 }
 
