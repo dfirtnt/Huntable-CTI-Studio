@@ -338,7 +338,7 @@ async def update_agent_prompts(request: Request, prompt_update: AgentPromptUpdat
             if prompt_update.instructions is not None:
                 agent_prompts[prompt_update.agent_name]["instructions"] = prompt_update.instructions
             
-            # Create new config version
+            # Create new config version - preserve all fields including agent_models and qa_enabled
             new_config = AgenticWorkflowConfigTable(
                 min_hunt_score=current_config.min_hunt_score,
                 ranking_threshold=current_config.ranking_threshold,
@@ -347,7 +347,9 @@ async def update_agent_prompts(request: Request, prompt_update: AgentPromptUpdat
                 version=new_version,
                 is_active=True,
                 description=current_config.description or "Updated configuration",
-                agent_prompts=agent_prompts
+                agent_prompts=agent_prompts,
+                agent_models=current_config.agent_models.copy() if current_config.agent_models else {},
+                qa_enabled=current_config.qa_enabled.copy() if current_config.qa_enabled else {}
             )
             
             db_session.add(new_config)
