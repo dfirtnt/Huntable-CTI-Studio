@@ -304,7 +304,7 @@ async def stream_execution_updates(execution_id: int):
         last_step = None
         last_status = None
         last_error_log = None
-        last_updated = None
+        last_ranking_score = None  # Track if we've already sent the ranking score
         
         try:
             while True:
@@ -322,12 +322,17 @@ async def stream_execution_updates(execution_id: int):
                     current_step = execution.current_step
                     current_status = execution.status
                     current_error_log = execution.error_log
-                    current_updated = execution.updated_at.isoformat() if execution.updated_at else None
+                    current_ranking_score = execution.ranking_score
                     
                     # Send step update
                     if current_step != last_step:
                         last_step = current_step
                         yield f"data: {json.dumps({'type': 'step', 'step': current_step, 'timestamp': datetime.utcnow().isoformat()})}\n\n"
+                        
+                        # Include ranking score with step update if available and not yet sent
+                        if current_ranking_score is not None and last_ranking_score is None:
+                            yield f"data: {json.dumps({'type': 'ranking', 'score': current_ranking_score, 'reasoning': execution.ranking_reasoning, 'timestamp': datetime.utcnow().isoformat()})}\n\n"
+                            last_ranking_score = current_ranking_score
                     
                     # Send status update
                     if current_status != last_status:
@@ -391,11 +396,10 @@ async def stream_execution_updates(execution_id: int):
                         # Update last_error_log after processing
                         last_error_log = json.loads(json.dumps(current_error_log)) if current_error_log else {}
                     
-                    # Send ranking score if available
-                    if execution.ranking_score is not None and last_updated != current_updated:
-                        yield f"data: {json.dumps({'type': 'ranking', 'score': execution.ranking_score, 'reasoning': execution.ranking_reasoning, 'timestamp': datetime.utcnow().isoformat()})}\n\n"
-                    
-                    last_updated = current_updated
+                    # Send ranking score only once when it first becomes available
+                    if current_ranking_score is not None and last_ranking_score is None:
+                        yield f"data: {json.dumps({'type': 'ranking', 'score': current_ranking_score, 'reasoning': execution.ranking_reasoning, 'timestamp': datetime.utcnow().isoformat()})}\n\n"
+                        last_ranking_score = current_ranking_score
                     
                 finally:
                     db_session.close()
