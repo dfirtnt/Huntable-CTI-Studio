@@ -117,9 +117,9 @@ class Response:
         try:
             # First, try the specified encoding
             try:
-            text = self.content.decode(self.encoding)
+                text = self.content.decode(self.encoding)
                 # Check for excessive replacement characters (indicates wrong encoding)
-            replacement_char = '\ufffd'
+                replacement_char = '\ufffd'
                 replacement_ratio = text.count(replacement_char) / len(text) if text else 0
                 
                 # If less than 1% replacement chars, encoding is likely correct
@@ -137,7 +137,7 @@ class Response:
                 
                 # Only use detected encoding if confidence is reasonable
                 if confidence > 0.5 and detected_encoding:
-                try:
+                    try:
                         text = self.content.decode(detected_encoding)
                         # Verify it's not corrupted
                         replacement_ratio = text.count('\ufffd') / len(text) if text else 0
@@ -156,7 +156,7 @@ class Response:
                     # Verify it's not corrupted
                     replacement_ratio = text.count('\ufffd') / len(text) if text else 0
                     if replacement_ratio < 0.01:
-            return text
+                        return text
                 except (UnicodeDecodeError, LookupError):
                     continue
             

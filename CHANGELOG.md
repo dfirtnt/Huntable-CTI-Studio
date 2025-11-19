@@ -8,6 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Agentic Workflow Test Coverage**: Comprehensive integration tests for the agentic workflow and LangGraph server
+  - **LangGraph Server Tests**: `tests/workflows/test_langgraph_server.py` covering chat logic, input parsing, and node transitions
+  - **Comprehensive Integration Test**: `tests/integration/test_agentic_workflow_comprehensive.py` simulating full "happy path" run with Article 1427
+  - **Full Workflow Simulation**: Verifies end-to-end flow: Chat -> ID Parse -> OS Detect -> Junk Filter -> Rank -> Extract -> Sigma -> Queue
+  - **State Verification**: Ensures correct state transitions and database updates at each step
 - **OS Detection Agent**: Operating system detection for threat intelligence articles
   - Embedding-based detection using CTI-BERT or SEC-BERT models
   - Configurable embedding model selection (CTI-BERT, SEC-BERT)

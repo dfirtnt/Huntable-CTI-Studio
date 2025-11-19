@@ -610,7 +610,7 @@ class RSSParser:
             'webinar', 'event', 'conference', 'training', 'workshop',
             'newsletter', 'subscribe', 'unsubscribe', 'privacy policy',
             'terms of service', 'cookie policy', 'about us', 'contact us',
-            'advertisement', 'sponsored', 'promotion', 'discount',
+            'advertisement', 'sponsored', 'promotion', 'discount', 'CFP Tracker'
             'product launch', 'new product', 'feature update',
             'maintenance', 'downtime', 'scheduled maintenance', 'outage',
             'the state of', 'office hours'

@@ -181,7 +181,7 @@ def _get_lmstudio_settings() -> Dict[str, Any]:
     Get recommended LMStudio settings for deterministic scoring.
     
     Settings can be overridden via environment variables:
-    - LMSTUDIO_TEMPERATURE (default: 0.15)
+    - LMSTUDIO_TEMPERATURE (default: 0.0 for deterministic scoring)
     - LMSTUDIO_TOP_P (default: 0.9)
     - LMSTUDIO_SEED (default: 42 for deterministic scoring)
     
@@ -189,7 +189,7 @@ def _get_lmstudio_settings() -> Dict[str, Any]:
     when loading the model - cannot be controlled via API.
     """
     return {
-        "temperature": float(os.getenv("LMSTUDIO_TEMPERATURE", "0.15")),
+        "temperature": float(os.getenv("LMSTUDIO_TEMPERATURE", "0.0")),
         "top_p": float(os.getenv("LMSTUDIO_TOP_P", "0.9")),
         "seed": int(os.getenv("LMSTUDIO_SEED", "42")) if os.getenv("LMSTUDIO_SEED") else None,
     }

@@ -175,7 +175,31 @@ The workflow executes these 7 steps:
 - Modify state before continuing
 - Interrupt for manual review
 
-## API Endpoints
+## Testing
+   
+   ### Unit Tests
+   `tests/workflows/test_langgraph_server.py`
+   - Covers `create_exposable_workflow` initialization
+   - Tests `parse_input_node` logic (conversational vs article ID)
+   - Verifies workflow node transitions and state updates
+   - Mocks all external services for isolation
+   
+   ### Integration Tests
+   `tests/integration/test_agentic_workflow_comprehensive.py`
+   - Simulates full end-to-end run using **Article 1427**
+   - Verifies the complete pipeline:
+     1. Parse Input (Chat -> Article ID)
+     2. OS Detection (Windows -> Continue)
+     3. Junk Filter (Clean -> Continue)
+     4. Ranking (High Score -> Continue)
+     5. Extraction (Extract Observables)
+     6. SIGMA Generation (Generate Rules)
+     7. Similarity Search (Check Existing)
+     8. Queue Promotion (Add to Queue)
+   - Checks database updates (execution status, queue entries)
+   - Verifies final chat response format
+
+   ## API Endpoints
 
 ### Get Debug Info
 ```

@@ -176,6 +176,7 @@ tests/
 ├── integration/          # Integration test suites
 ├── ui/                   # UI test suites
 ├── api/                  # API test suites
+├── workflows/            # Workflow test suites
 └── e2e/                  # End-to-end test suites
 ```
 
@@ -226,6 +227,8 @@ Cross-component testing with real dependencies:
 #### Integration Workflow Tests (NEW)
 End-to-end workflow testing with real services:
 
+- **`test_agentic_workflow_comprehensive.py`** - Full agentic workflow simulation (Chat -> Queue) with mocked services
+- **`test_langgraph_server.py`** - LangGraph server integration, chat logic, and node transitions
 - **`test_celery_workflow_integration.py`** - Celery task workflows (collection, embedding, retry, concurrency)
 - **`test_scoring_system_integration.py`** - Scoring workflows (initial scoring, rescore, keyword updates, ML integration)
 - **`test_annotation_feedback_integration.py`** - Annotation and feedback loop (creation, retraining, version tracking)
