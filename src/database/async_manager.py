@@ -220,6 +220,39 @@ class AsyncDatabaseManager:
             logger.error(f"Error getting database stats: {e}")
             raise
 
+    async def get_corruption_stats(self) -> Dict[str, Any]:
+        """Get statistics about corrupted articles."""
+        try:
+            async with self.get_session() as session:
+                # Count articles with replacement character
+                # Note: This might be slow on large datasets due to LIKE query
+                query = select(func.count(ArticleTable.id)).where(
+                    ArticleTable.archived == False,
+                    ArticleTable.content.like('%\ufffd%')
+                )
+                result = await session.execute(query)
+                corrupted_count = result.scalar() or 0
+                
+                # Get a few examples
+                example_query = select(ArticleTable.id, ArticleTable.title).where(
+                    ArticleTable.archived == False,
+                    ArticleTable.content.like('%\ufffd%')
+                ).limit(5)
+                example_result = await session.execute(example_query)
+                examples = [{"id": row.id, "title": row.title} for row in example_result.fetchall()]
+                
+                return {
+                    "corrupted_count": corrupted_count,
+                    "examples": examples
+                }
+        except Exception as e:
+            logger.error(f"Failed to get corruption stats: {e}")
+            return {
+                "corrupted_count": 0,
+                "examples": [],
+                "error": str(e)
+            }
+
     async def count_annotated_chunks(self) -> int:
         """Count total annotated chunks available for training."""
         async with self.get_session() as session:
@@ -395,10 +428,35 @@ class AsyncDatabaseManager:
                 update_dict = update_data.model_dump(exclude_unset=True, exclude_none=True)
                 for field, value in update_dict.items():
                     if field == 'config' and value:
+                        # Handle config: extract inner config if SourceConfig model
                         if hasattr(value, 'model_dump'):
-                            setattr(db_source, field, value.model_dump(exclude_none=True))
+                            # SourceConfig Pydantic model: extract inner 'config' field
+                            config_dict = value.model_dump(exclude_none=True)
+                            # If it has a nested 'config' key, use that (the actual config)
+                            if 'config' in config_dict and isinstance(config_dict['config'], dict):
+                                config_dict = config_dict['config']
+                            # Remove check_frequency and lookback_days (separate columns)
+                            config_dict.pop('check_frequency', None)
+                            config_dict.pop('lookback_days', None)
+                        elif isinstance(value, dict):
+                            # Already a dict: clean it up
+                            config_dict = value.copy()
+                            config_dict.pop('check_frequency', None)
+                            config_dict.pop('lookback_days', None)
+                            # If nested structure exists, extract inner config
+                            if 'config' in config_dict and isinstance(config_dict['config'], dict):
+                                config_dict = config_dict['config']
                         else:
-                            setattr(db_source, field, value)
+                            config_dict = {}
+                        
+                        # If existing config has nested structure, merge with inner config
+                        existing_config = db_source.config if db_source.config else {}
+                        if isinstance(existing_config, dict) and 'config' in existing_config:
+                            existing_inner = existing_config.get('config', {})
+                            if existing_inner and isinstance(existing_inner, dict):
+                                config_dict = {**existing_inner, **config_dict}
+                        
+                        setattr(db_source, field, config_dict)
                     else:
                         setattr(db_source, field, value)
                 

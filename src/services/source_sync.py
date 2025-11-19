@@ -53,12 +53,34 @@ class SourceSyncService:
             existing = existing_by_identifier.get(identifier)
 
             if existing:
+                # Extract config: SourceConfig model has inner 'config' dict
+                if hasattr(config.config, 'config'):
+                    # SourceConfig Pydantic model: extract inner config dict
+                    config_dict = config.config.config if isinstance(config.config.config, dict) else {}
+                elif isinstance(config.config, dict):
+                    # Already a dict
+                    config_dict = config.config
+                else:
+                    config_dict = {}
+                
+                # SourceUpdate.config expects a SourceConfig model, not a dict
+                # Create SourceConfig with the inner config dict properly set
+                # Use check_frequency and lookback_days from the SourceCreate's config model
+                from src.models.source import SourceConfig
+                check_freq = config.config.check_frequency if hasattr(config.config, 'check_frequency') else 3600
+                lookback = config.config.lookback_days if hasattr(config.config, 'lookback_days') else 180
+                source_config_model = SourceConfig(
+                    check_frequency=check_freq,
+                    lookback_days=lookback,
+                    config=config_dict
+                )
+                
                 update_data = SourceUpdate(
                     name=config.name,
                     url=config.url,
                     rss_url=config.rss_url,
                     active=config.active,
-                    config=config.config if isinstance(config.config, dict) else (config.config.model_dump(exclude_none=True) if config.config else {}),
+                    config=source_config_model,
                 )
 
                 synced = await self.db_manager.update_source(existing.id, update_data)

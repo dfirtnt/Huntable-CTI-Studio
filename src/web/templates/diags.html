@@ -617,6 +617,26 @@ async function updateDatabaseHealth() {
                         <p class="text-2xl font-bold text-blue-600">${db.simhash.coverage}</p>
                     </div>
                 </div>
+
+                <!-- Corruption Stats -->
+                <div class="p-4 ${db.corruption && db.corruption.count === 0 ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'} border rounded-lg">
+                    <div class="flex items-center mb-3">
+                        <span class="text-2xl mr-2">${db.corruption && db.corruption.count === 0 ? '✅' : '❌'}</span>
+                        <div>
+                            <h3 class="font-medium ${db.corruption && db.corruption.count === 0 ? 'text-green-900' : 'text-red-900'}">Content Integrity</h3>
+                            <p class="text-sm ${db.corruption && db.corruption.count === 0 ? 'text-green-700' : 'text-red-700'}">${db.corruption ? db.corruption.count : 0} corrupted articles found</p>
+                        </div>
+                    </div>
+                    ${db.corruption && db.corruption.count > 0 ? `
+                        <div class="mt-2 text-sm text-gray-600">
+                            <p class="font-medium mb-1">Examples:</p>
+                            <ul class="list-disc list-inside pl-2">
+                                ${db.corruption.examples.map(ex => `<li>ID ${ex.id}: ${ex.title}</li>`).join('')}
+                            </ul>
+                            <p class="mt-2 text-xs italic">Run <code>python fix_corrupted_articles.py --all</code> to fix.</p>
+                        </div>
+                    ` : ''}
+                </div>
             </div>
         `;
         
