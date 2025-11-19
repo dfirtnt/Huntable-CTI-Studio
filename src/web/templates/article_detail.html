@@ -3898,27 +3898,26 @@ Please provide a detailed analysis based on the article content and the user's s
             document.removeEventListener('keydown', handleEsc);
         };
         
-        // Close modal when clicking outside
+        // Close modal when clicking outside (dismiss without cancelling)
         loadingModal.addEventListener('click', function(e) {
             if (e.target === loadingModal) {
-                handleCancel();
+                const modal = document.getElementById('loadingModal');
+                if (modal && modal.parentNode) {
+                    modal.remove();
+                }
+                document.removeEventListener('keydown', handleEsc);
             }
         });
         
-        // Add ESC key handler to close loading modal
+        // Add ESC key handler to close loading modal (dismiss without cancelling)
         const handleEsc = function(e) {
             if (e.key === 'Escape') {
-                if (requestStarted) {
-                    // If request started, treat ESC as cancel
-                    handleCancel();
-                } else {
-                    // If request hasn't started, just close modal
-                    const modal = document.getElementById('loadingModal');
-                    if (modal && modal.parentNode) {
-                        modal.remove();
-                    }
-                    document.removeEventListener('keydown', handleEsc);
+                // ESC just closes the modal, operation continues in background
+                const modal = document.getElementById('loadingModal');
+                if (modal && modal.parentNode) {
+                    modal.remove();
                 }
+                document.removeEventListener('keydown', handleEsc);
             }
         };
         document.addEventListener('keydown', handleEsc);
@@ -3934,12 +3933,16 @@ Please provide a detailed analysis based on the article content and the user's s
                     </div>
                     <h3 class="text-lg font-medium text-gray-900 mt-4">${typeIcon} ${type === 'sigma' ? 'Generating' : type === 'ranking' ? 'Generating' : 'Extracting'} ${typeText}...</h3>
                     <p class="text-sm text-gray-500 mt-2">${type === 'sigma' ? 'Creating detection rules' : type === 'ranking' ? (aiModel === 'chatgpt' ? 'Analyzing content with GPT-4o' : 'Analyzing content with local AI') : type === 'observables' ? 'Extracting IOCs and behavioral observables' : 'Extracting indicators of compromise'} - this may take a few moments.</p>
-                    <div class="mt-4 flex justify-center">
-                        <button id="cancelBtn" class="px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500">
-                            Cancel
+                    <div class="mt-6 flex flex-col items-center space-y-3">
+                        <button id="cancelBtn" class="px-6 py-2.5 bg-red-600 text-white text-sm font-medium rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 shadow-sm transition-colors">
+                            Cancel Operation
                         </button>
+                        <div class="flex items-center space-x-2 text-sm text-gray-600">
+                            <span>Press</span>
+                            <kbd class="px-2 py-1 bg-gray-100 border border-gray-300 rounded text-xs font-semibold text-gray-700 shadow-sm">ESC</kbd>
+                            <span>or click outside to dismiss (operation continues)</span>
+                        </div>
                     </div>
-                    <p class="text-xs text-gray-400 mt-3">💡 Press <kbd class="px-1 py-0.5 bg-gray-200 rounded text-xs">ESC</kbd> to cancel</p>
                 </div>
             </div>
         `;
@@ -4675,27 +4678,26 @@ Please provide a detailed analysis based on the article content and the user's s
             document.removeEventListener('keydown', handleEsc);
         };
         
-        // Close modal when clicking outside
+        // Close modal when clicking outside (dismiss without cancelling)
         loadingModal.addEventListener('click', function(e) {
             if (e.target === loadingModal) {
-                handleCancel();
+                const modal = document.getElementById('loadingModal');
+                if (modal && modal.parentNode) {
+                    modal.remove();
+                }
+                document.removeEventListener('keydown', handleEsc);
             }
         });
         
-        // Add ESC key handler to close loading modal
+        // Add ESC key handler to close loading modal (dismiss without cancelling)
         const handleEsc = function(e) {
             if (e.key === 'Escape') {
-                if (requestStarted) {
-                    // If request started, treat ESC as cancel
-                    handleCancel();
-                } else {
-                    // If request hasn't started, just close modal
-                    const modal = document.getElementById('loadingModal');
-                    if (modal && modal.parentNode) {
-                        modal.remove();
-                    }
-                    document.removeEventListener('keydown', handleEsc);
+                // ESC just closes the modal, operation continues in background
+                const modal = document.getElementById('loadingModal');
+                if (modal && modal.parentNode) {
+                    modal.remove();
                 }
+                document.removeEventListener('keydown', handleEsc);
             }
         };
         document.addEventListener('keydown', handleEsc);
@@ -4711,12 +4713,16 @@ Please provide a detailed analysis based on the article content and the user's s
                     </div>
                     <h3 class="text-lg font-medium text-gray-900 mt-4">🤖 Processing Custom Request...</h3>
                     <p class="text-sm text-gray-500 mt-2">This may take a few moments.</p>
-                    <div class="mt-4 flex justify-center">
-                        <button id="cancelBtnCustom" class="px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500">
-                            Cancel
+                    <div class="mt-6 flex flex-col items-center space-y-3">
+                        <button id="cancelBtnCustom" class="px-6 py-2.5 bg-red-600 text-white text-sm font-medium rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 shadow-sm transition-colors">
+                            Cancel Operation
                         </button>
+                        <div class="flex items-center space-x-2 text-sm text-gray-600">
+                            <span>Press</span>
+                            <kbd class="px-2 py-1 bg-gray-100 border border-gray-300 rounded text-xs font-semibold text-gray-700 shadow-sm">ESC</kbd>
+                            <span>or click outside to dismiss (operation continues)</span>
+                        </div>
                     </div>
-                    <p class="text-xs text-gray-400 mt-3">💡 Press <kbd class="px-1 py-0.5 bg-gray-200 rounded text-xs">ESC</kbd> to cancel</p>
                 </div>
             </div>
         `;
@@ -5776,6 +5782,52 @@ Please provide a detailed analysis based on the article content and the user's s
         const loadingModal = document.createElement('div');
         loadingModal.id = 'osDetectionLoadingModal';
         loadingModal.className = 'fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50';
+        
+        // Track if request has started
+        let osRequestStarted = false;
+        
+        // Create AbortController for cancellation
+        const osAbortController = new AbortController();
+        let osIsCancelled = false;
+        
+        // Cancel handler function
+        const handleOsCancel = function() {
+            if (osRequestStarted && !osIsCancelled) {
+                osIsCancelled = true;
+                osAbortController.abort();
+                showNotification('OS detection cancelled', 'info');
+            }
+            const modal = document.getElementById('osDetectionLoadingModal');
+            if (modal && modal.parentNode) {
+                modal.remove();
+            }
+            document.removeEventListener('keydown', handleOsEsc);
+        };
+        
+        // Close modal when clicking outside (dismiss without cancelling)
+        loadingModal.addEventListener('click', function(e) {
+            if (e.target === loadingModal) {
+                const modal = document.getElementById('osDetectionLoadingModal');
+                if (modal && modal.parentNode) {
+                    modal.remove();
+                }
+                document.removeEventListener('keydown', handleOsEsc);
+            }
+        });
+        
+        // Add ESC key handler to close loading modal (dismiss without cancelling)
+        const handleOsEsc = function(e) {
+            if (e.key === 'Escape') {
+                // ESC just closes the modal, operation continues in background
+                const modal = document.getElementById('osDetectionLoadingModal');
+                if (modal && modal.parentNode) {
+                    modal.remove();
+                }
+                document.removeEventListener('keydown', handleOsEsc);
+            }
+        };
+        document.addEventListener('keydown', handleOsEsc);
+        
         loadingModal.innerHTML = `
             <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
                 <div class="mt-3 text-center">
@@ -5786,12 +5838,29 @@ Please provide a detailed analysis based on the article content and the user's s
                     </div>
                     <p class="text-xs text-gray-500 mt-4">Using ${embeddingModelDisplay} embeddings + classifier</p>
                     <p class="text-xs text-gray-400 mt-1">Fallback: ${fallbackModelDisplay}</p>
+                    <div class="mt-6 flex flex-col items-center space-y-3">
+                        <button id="cancelBtnOs" class="px-6 py-2.5 bg-red-600 text-white text-sm font-medium rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 shadow-sm transition-colors">
+                            Cancel Operation
+                        </button>
+                        <div class="flex items-center space-x-2 text-sm text-gray-600">
+                            <span>Press</span>
+                            <kbd class="px-2 py-1 bg-gray-100 border border-gray-300 rounded text-xs font-semibold text-gray-700 shadow-sm">ESC</kbd>
+                            <span>or click outside to dismiss (operation continues)</span>
+                        </div>
+                    </div>
                 </div>
             </div>
         `;
         document.body.appendChild(loadingModal);
         
+        // Wire up cancel button
+        const cancelBtnOs = loadingModal.querySelector('#cancelBtnOs');
+        if (cancelBtnOs) {
+            cancelBtnOs.addEventListener('click', handleOsCancel);
+        }
+        
         try {
+            osRequestStarted = true;
             const response = await fetch(`/api/articles/${articleId}/detect-os`, {
                 method: 'POST',
                 headers: {
@@ -5802,7 +5871,8 @@ Please provide a detailed analysis based on the article content and the user's s
                     use_fallback: true,
                     use_junk_filter: optimizationOptions.useFiltering,
                     junk_filter_threshold: optimizationOptions.minConfidence
-                })
+                }),
+                signal: osAbortController.signal
             });
             
             if (!response.ok) {
@@ -5812,8 +5882,11 @@ Please provide a detailed analysis based on the article content and the user's s
             
             const result = await response.json();
             
-            // Remove loading modal
-            loadingModal.remove();
+            // Remove loading modal and clean up ESC handler
+            if (loadingModal && loadingModal.parentNode) {
+                loadingModal.remove();
+            }
+            document.removeEventListener('keydown', handleOsEsc);
             
             // Show results modal
             const resultModal = document.createElement('div');
@@ -7479,35 +7552,71 @@ ${JSON.stringify(rule.logsource, null, 2)}
                     </div>
                     <h3 class="text-lg font-medium text-gray-900 mt-4">Analyzing Chunks</h3>
                     <p class="text-sm text-gray-500 mt-2">Processing article content and analyzing chunking decisions...</p>
+                    <div class="mt-6 flex flex-col items-center space-y-3">
+                        <button id="cancelBtnChunk" class="px-6 py-2.5 bg-red-600 text-white text-sm font-medium rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 shadow-sm transition-colors">
+                            Cancel Operation
+                        </button>
+                        <div class="flex items-center space-x-2 text-sm text-gray-600">
+                            <span>Press</span>
+                            <kbd class="px-2 py-1 bg-gray-100 border border-gray-300 rounded text-xs font-semibold text-gray-700 shadow-sm">ESC</kbd>
+                            <span>or click outside to dismiss (operation continues)</span>
+                        </div>
+                    </div>
                 </div>
             </div>
         `;
         document.body.appendChild(loadingModal);
         
-        // Close modal when clicking outside
+        // Track if request has started
+        let chunkRequestStarted = false;
+        
+        // Create AbortController for cancellation
+        const chunkAbortController = new AbortController();
+        let chunkIsCancelled = false;
+        
+        // Cancel handler function
+        const handleChunkCancel = function() {
+            if (chunkRequestStarted && !chunkIsCancelled) {
+                chunkIsCancelled = true;
+                chunkAbortController.abort();
+                showNotification('Chunk debug analysis cancelled', 'info');
+            }
+            const modal = document.getElementById('chunkDebugLoadingModal');
+            if (modal && modal.parentNode) {
+                modal.remove();
+            }
+            document.removeEventListener('keydown', handleChunkEsc);
+        };
+        
+        // Close modal when clicking outside (dismiss without cancelling)
         loadingModal.addEventListener('click', function(e) {
             if (e.target === loadingModal) {
                 const modal = document.getElementById('chunkDebugLoadingModal');
                 if (modal && modal.parentNode) {
                     modal.remove();
                 }
-                document.removeEventListener('keydown', handleEsc);
-                showNotification('Chunk debug analysis cancelled', 'info');
+                document.removeEventListener('keydown', handleChunkEsc);
             }
         });
         
-        // Add ESC key handler to close loading modal
-        const handleEsc = function(e) {
+        // Add ESC key handler to close loading modal (dismiss without cancelling)
+        const handleChunkEsc = function(e) {
             if (e.key === 'Escape') {
+                // ESC just closes the modal, operation continues in background
                 const modal = document.getElementById('chunkDebugLoadingModal');
                 if (modal && modal.parentNode) {
                     modal.remove();
                 }
-                document.removeEventListener('keydown', handleEsc);
-                showNotification('Chunk debug analysis cancelled', 'info');
+                document.removeEventListener('keydown', handleChunkEsc);
             }
         };
-        document.addEventListener('keydown', handleEsc);
+        document.addEventListener('keydown', handleChunkEsc);
+        
+        // Wire up cancel button
+        const cancelBtnChunk = loadingModal.querySelector('#cancelBtnChunk');
+        if (cancelBtnChunk) {
+            cancelBtnChunk.addEventListener('click', handleChunkCancel);
+        }
         
         try {
             // Create a timeout promise - shorter for faster response
@@ -7517,9 +7626,12 @@ ${JSON.stringify(rule.logsource, null, 2)}
             });
             
             // Create the fetch promise
+            chunkRequestStarted = true;
             const fetchPromise = (async () => {
                 const currentThreshold = window.chunkDebugThreshold || 0.7;
-                const response = await fetch(`/api/articles/{{ article.id }}/chunk-debug?chunk_size=1000&overlap=200&min_confidence=${currentThreshold}`);
+                const response = await fetch(`/api/articles/{{ article.id }}/chunk-debug?chunk_size=1000&overlap=200&min_confidence=${currentThreshold}`, {
+                    signal: chunkAbortController.signal
+                });
                 if (!response.ok) {
                     throw new Error(`HTTP error! status: ${response.status}`);
                 }
@@ -7529,23 +7641,25 @@ ${JSON.stringify(rule.logsource, null, 2)}
             // Race between fetch and timeout
             const debugData = await Promise.race([fetchPromise, timeoutPromise]);
             
-            // Remove loading modal
+            // Remove loading modal and clean up ESC handler
             if (loadingModal && loadingModal.parentNode) {
                 loadingModal.remove();
             }
-            
-            // Clean up ESC handler
-            document.removeEventListener('keydown', handleEsc);
+            document.removeEventListener('keydown', handleChunkEsc);
             
             // Show chunk debug modal
             showChunkDebugResults(debugData);
             
         } catch (error) {
             console.error('Chunk debug error:', error);
+            // Don't show error if request was cancelled
+            if (chunkIsCancelled || error.name === 'AbortError') {
+                return; // Already handled in handleChunkCancel
+            }
             if (loadingModal && loadingModal.parentNode) {
                 loadingModal.remove();
             }
-            document.removeEventListener('keydown', handleEsc);
+            document.removeEventListener('keydown', handleChunkEsc);
             
             if (error.message.includes('timed out')) {
                 showNotification('Chunk debug analysis timed out after 180 seconds. Showing partial results.', 'warning');
