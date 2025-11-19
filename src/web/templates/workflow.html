@@ -59,8 +59,11 @@
     <!-- Tab Navigation -->
     <div class="border-b border-gray-200 dark:border-gray-700 mb-6">
         <nav class="-mb-px flex space-x-8">
-            <button onclick="switchTab('config')" id="tab-config" class="tab-button border-b-2 border-purple-500 py-4 px-1 text-sm font-medium text-purple-600 dark:text-purple-400">
-                ⚙️ Configuration
+                <button onclick="switchTab('config')" id="tab-config" class="tab-button border-b-2 border-transparent py-4 px-1 text-sm font-medium text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300" title="⚠️ Deprecated - Use Configuration 2 instead">
+                    ⚙️ Configuration <span class="text-xs text-red-500 dark:text-red-400">(Deprecated)</span>
+                </button>
+            <button onclick="switchTab('config2')" id="tab-config2" class="tab-button border-b-2 border-transparent py-4 px-1 text-sm font-medium text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-300 dark:hover:text-gray-200">
+                ⚙️ Configuration 2
             </button>
             <button onclick="switchTab('executions')" id="tab-executions" class="tab-button border-b-2 border-transparent py-4 px-1 text-sm font-medium text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-300 dark:hover:text-gray-200">
                 🔄 Executions
@@ -237,6 +240,340 @@
                 <div class="flex justify-end space-x-4">
                     <button type="button" 
                             onclick="loadConfig()" 
+                            class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                        Reset
+                    </button>
+                    <button type="submit" 
+                            class="px-6 py-2 bg-gray-400 hover:bg-gray-500 text-white rounded-md transition-colors font-medium cursor-not-allowed opacity-60"
+                            disabled
+                            title="⚠️ This configuration tab is deprecated. Use Configuration 2 instead.">
+                        Save Configuration (Deprecated)
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Workflow Overview -->
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+            <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">📊 Workflow Overview</h2>
+            <div class="grid grid-cols-1 md:grid-cols-7 gap-4">
+                <div class="text-center p-4 bg-cyan-50 dark:bg-cyan-900/20 rounded-lg">
+                    <div class="text-2xl font-bold text-cyan-600 dark:text-cyan-400">0</div>
+                    <div class="text-xs text-gray-600 dark:text-gray-300 mt-1">OS Detection</div>
+                </div>
+                <div class="text-center p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                    <div class="text-2xl font-bold text-blue-600 dark:text-blue-400">1</div>
+                    <div class="text-xs text-gray-600 dark:text-gray-300 mt-1">Junk Filter</div>
+                </div>
+                <div class="text-center p-4 bg-green-50 dark:bg-green-900/20 rounded-lg">
+                    <div class="text-2xl font-bold text-green-600 dark:text-green-400">2</div>
+                    <div class="text-xs text-gray-600 dark:text-gray-300 mt-1">LLM Ranking</div>
+                </div>
+                <div class="text-center p-4 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg">
+                    <div class="text-2xl font-bold text-yellow-600 dark:text-yellow-400">3</div>
+                    <div class="text-xs text-gray-600 dark:text-gray-300 mt-1">Extract Agent</div>
+                </div>
+                <div class="text-center p-4 bg-orange-50 dark:bg-orange-900/20 rounded-lg">
+                    <div class="text-2xl font-bold text-orange-600 dark:text-orange-400">4</div>
+                    <div class="text-xs text-gray-600 dark:text-gray-300 mt-1">Generate SIGMA</div>
+                </div>
+                <div class="text-center p-4 bg-pink-50 dark:bg-pink-900/20 rounded-lg">
+                    <div class="text-2xl font-bold text-pink-600 dark:text-pink-400">5</div>
+                    <div class="text-xs text-gray-600 dark:text-gray-300 mt-1">Similarity Search</div>
+                </div>
+                <div class="text-center p-4 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
+                    <div class="text-2xl font-bold text-purple-600 dark:text-purple-400">6</div>
+                    <div class="text-xs text-gray-600 dark:text-gray-300 mt-1">Queue</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Configuration 2 Tab -->
+    <div id="tab-content-config2" class="tab-content hidden">
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mb-8">
+            <form id="workflowConfigForm2" class="space-y-6">
+                <!-- Description -->
+                <div>
+                    <label for="description2" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        Description
+                    </label>
+                    <textarea id="description2" 
+                              name="description"
+                              rows="2"
+                              class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white"
+                              placeholder="Optional description for this configuration version"></textarea>
+                </div>
+
+                <!-- OS Detection Agent Panel -->
+                <div class="border border-gray-200 dark:border-gray-700 rounded-lg">
+                    <button type="button" onclick="toggleCollapsible('os-detection-panel')" class="w-full flex items-center justify-between p-4 text-left hover:bg-gray-50 dark:hover:bg-gray-700 rounded-t-lg transition-colors">
+                        <div class="flex items-center gap-3">
+                            <h3 class="text-lg font-semibold text-gray-900 dark:text-white">OS Detection Agent</h3>
+                            <span id="os-detection-qa-badge" class="px-2 py-1 text-xs rounded-full bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300">QA: OFF</span>
+                        </div>
+                        <span id="os-detection-panel-toggle" class="text-gray-700 dark:text-gray-200 text-lg font-medium transform transition-transform">▼</span>
+                    </button>
+                    <div id="os-detection-panel-content" class="hidden p-4 border-t border-gray-200 dark:border-gray-700 space-y-4">
+                        <!-- OS Detection Agent Model -->
+                        <div id="os-detection-model-container"></div>
+                        <!-- OS Detection Agent Prompt -->
+                        <div id="os-detection-prompt-container"></div>
+                        <!-- OS Detection QA Agent Toggle -->
+                        <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                        OS Detection QA Agent
+                                    </label>
+                                    <p class="text-xs text-gray-500 dark:text-gray-400">
+                                        Enable QA validation with up to 5 retry attempts
+                                    </p>
+                                </div>
+                                <label class="relative inline-flex items-center cursor-pointer">
+                                    <input type="checkbox" 
+                                           id="qa-osdetectionagent" 
+                                           name="qa_enabled[OSDetectionAgent]"
+                                           class="sr-only peer" 
+                                           onchange="updateQABadge('os-detection')">
+                                    <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 dark:peer-focus:ring-purple-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-purple-600"></div>
+                                </label>
+                            </div>
+                        </div>
+                        <!-- OS Detection QA Agent Prompt -->
+                        <div id="os-detection-qa-prompt-container" class="hidden"></div>
+                    </div>
+                </div>
+
+                <!-- Rank Agent Configs Panel -->
+                <div class="border border-gray-200 dark:border-gray-700 rounded-lg">
+                    <button type="button" onclick="toggleCollapsible('rank-agent-configs-panel')" class="w-full flex items-center justify-between p-4 text-left hover:bg-gray-50 dark:hover:bg-gray-700 rounded-t-lg transition-colors">
+                        <div class="flex items-center gap-3">
+                            <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Rank Agent Configs</h3>
+                            <span id="rank-agent-qa-badge" class="px-2 py-1 text-xs rounded-full bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300">QA: OFF</span>
+                        </div>
+                        <span id="rank-agent-configs-panel-toggle" class="text-gray-700 dark:text-gray-200 text-lg font-medium transform transition-transform">▼</span>
+                    </button>
+                    <div id="rank-agent-configs-panel-content" class="hidden p-4 border-t border-gray-200 dark:border-gray-700 space-y-4">
+                        <!-- Rank Agent Model -->
+                        <div>
+                            <h4 class="text-md font-semibold text-gray-900 dark:text-white mb-3">Rank Agent Model</h4>
+                            <div id="rank-agent-model-container"></div>
+                        </div>
+                        <!-- Rank Agent Thresholds -->
+                        <div>
+                            <h4 class="text-md font-semibold text-gray-900 dark:text-white mb-3">Rank Agent Thresholds</h4>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label for="rankingThreshold2" class="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                        Ranking Threshold
+                                        <button type="button" 
+                                                onclick="showHelp('rankingThreshold')"
+                                                class="text-blue-500 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 focus:outline-none"
+                                                title="Help">
+                                            <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                                                <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/>
+                                            </svg>
+                                        </button>
+                                    </label>
+                                    <input type="number" 
+                                           id="rankingThreshold2" 
+                                           name="ranking_threshold"
+                                           min="0" 
+                                           max="10" 
+                                           step="0.1"
+                                           required
+                                           oninput="validateThreshold(this, 0, 10)"
+                                           class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white">
+                                    <p class="text-xs text-gray-500 dark:text-gray-300 mt-1">Minimum LLM ranking (0-10) to continue workflow</p>
+                                    <p id="rankingThreshold2-error" class="text-xs text-red-500 dark:text-red-400 mt-1 hidden"></p>
+                                </div>
+                            </div>
+                        </div>
+                        <!-- Rank Agent Prompt -->
+                        <div>
+                            <h4 class="text-md font-semibold text-gray-900 dark:text-white mb-3">Rank Agent Prompts</h4>
+                            <div id="rank-agent-prompt-container"></div>
+                        </div>
+                        <!-- Rank QA Agent Toggle -->
+                        <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                        Rank QA Agent
+                                    </label>
+                                    <p class="text-xs text-gray-500 dark:text-gray-400">
+                                        Enable QA validation with up to 5 retry attempts
+                                    </p>
+                                </div>
+                                <label class="relative inline-flex items-center cursor-pointer">
+                                    <input type="checkbox" 
+                                           id="qa-rankagent" 
+                                           name="qa_enabled[RankAgent]"
+                                           class="sr-only peer" 
+                                           onchange="updateQABadge('rank-agent')">
+                                    <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 dark:peer-focus:ring-purple-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-purple-600"></div>
+                                </label>
+                            </div>
+                        </div>
+                        <!-- Rank QA Agent Prompt -->
+                        <div id="rank-agent-qa-prompt-container" class="hidden">
+                            <h4 class="text-md font-semibold text-gray-900 dark:text-white mb-3">Rank QA Agent Prompts</h4>
+                            <div id="rank-qa-agent-prompt-content"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Extract Agent Panel -->
+                <div class="border border-gray-200 dark:border-gray-700 rounded-lg">
+                    <button type="button" onclick="toggleCollapsible('extract-agent-panel')" class="w-full flex items-center justify-between p-4 text-left hover:bg-gray-50 dark:hover:bg-gray-700 rounded-t-lg transition-colors">
+                        <div class="flex items-center gap-3">
+                            <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Extract Agent</h3>
+                            <span id="extract-agent-qa-badge" class="px-2 py-1 text-xs rounded-full bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300">QA: OFF</span>
+                        </div>
+                        <span id="extract-agent-panel-toggle" class="text-gray-700 dark:text-gray-200 text-lg font-medium transform transition-transform">▼</span>
+                    </button>
+                    <div id="extract-agent-panel-content" class="hidden p-4 border-t border-gray-200 dark:border-gray-700 space-y-4">
+                        <!-- Extract Agent Model -->
+                        <div id="extract-agent-model-container"></div>
+                        <!-- Extract Agent Prompt -->
+                        <div id="extract-agent-prompt-container"></div>
+                        <!-- Extract QA Agent Toggle -->
+                        <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                        Extract QA Agent
+                                    </label>
+                                    <p class="text-xs text-gray-500 dark:text-gray-400">
+                                        Enable QA validation with up to 5 retry attempts
+                                    </p>
+                                </div>
+                                <label class="relative inline-flex items-center cursor-pointer">
+                                    <input type="checkbox" 
+                                           id="qa-extractagent" 
+                                           name="qa_enabled[ExtractAgent]"
+                                           class="sr-only peer" 
+                                           onchange="updateQABadge('extract-agent')">
+                                    <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 dark:peer-focus:ring-purple-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-purple-600"></div>
+                                </label>
+                            </div>
+                        </div>
+                        <!-- Extract QA Agent Prompt -->
+                        <div id="extract-agent-qa-prompt-container" class="hidden"></div>
+                    </div>
+                </div>
+
+                <!-- SIGMA Generator Agent Panel -->
+                <div class="border border-gray-200 dark:border-gray-700 rounded-lg">
+                    <button type="button" onclick="toggleCollapsible('sigma-agent-panel')" class="w-full flex items-center justify-between p-4 text-left hover:bg-gray-50 dark:hover:bg-gray-700 rounded-t-lg transition-colors">
+                        <div class="flex items-center gap-3">
+                            <h3 class="text-lg font-semibold text-gray-900 dark:text-white">SIGMA Generator Agent</h3>
+                            <span id="sigma-agent-qa-badge" class="px-2 py-1 text-xs rounded-full bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300">QA: OFF</span>
+                        </div>
+                        <span id="sigma-agent-panel-toggle" class="text-gray-700 dark:text-gray-200 text-lg font-medium transform transition-transform">▼</span>
+                    </button>
+                    <div id="sigma-agent-panel-content" class="hidden p-4 border-t border-gray-200 dark:border-gray-700 space-y-4">
+                        <!-- SIGMA Agent Model -->
+                        <div id="sigma-agent-model-container"></div>
+                        <!-- SIGMA Agent Prompt -->
+                        <div id="sigma-agent-prompt-container"></div>
+                        <!-- SIGMA QA Agent Toggle -->
+                        <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                        SIGMA QA Agent
+                                    </label>
+                                    <p class="text-xs text-gray-500 dark:text-gray-400">
+                                        Enable QA validation with up to 5 retry attempts
+                                    </p>
+                                </div>
+                                <label class="relative inline-flex items-center cursor-pointer">
+                                    <input type="checkbox" 
+                                           id="qa-sigmaagent" 
+                                           name="qa_enabled[SigmaAgent]"
+                                           class="sr-only peer" 
+                                           onchange="updateQABadge('sigma-agent')">
+                                    <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 dark:peer-focus:ring-purple-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-purple-600"></div>
+                                </label>
+                            </div>
+                        </div>
+                        <!-- SIGMA QA Agent Prompt -->
+                        <div id="sigma-agent-qa-prompt-container" class="hidden"></div>
+                    </div>
+                </div>
+
+                <!-- Other Thresholds -->
+                <div class="border-t border-gray-200 dark:border-gray-700 pt-6 mt-6">
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Other Thresholds</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <!-- Junk Filter Threshold -->
+                        <div>
+                            <label for="junkFilterThreshold2" class="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                Junk Filter Threshold
+                                <button type="button" 
+                                        onclick="showHelp('junkFilterThreshold')"
+                                        class="text-blue-500 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 focus:outline-none"
+                                        title="Help">
+                                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                                        <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/>
+                                    </svg>
+                                </button>
+                            </label>
+                            <input type="number" 
+                                   id="junkFilterThreshold2" 
+                                   name="junk_filter_threshold"
+                                   min="0" 
+                                   max="1" 
+                                   step="0.05"
+                                   required
+                                   oninput="validateThreshold(this, 0, 1)"
+                                   class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white">
+                            <p class="text-xs text-gray-500 dark:text-gray-300 mt-1">Min confidence (0-1) for content filtering</p>
+                            <p id="junkFilterThreshold2-error" class="text-xs text-red-500 dark:text-red-400 mt-1 hidden"></p>
+                        </div>
+
+                        <!-- Similarity Threshold -->
+                        <div>
+                            <label for="similarityThreshold2" class="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                Similarity Threshold
+                                <button type="button" 
+                                        onclick="showHelp('similarityThreshold')"
+                                        class="text-blue-500 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 focus:outline-none"
+                                        title="Help">
+                                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                                        <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/>
+                                    </svg>
+                                </button>
+                            </label>
+                            <input type="number" 
+                                   id="similarityThreshold2" 
+                                   name="similarity_threshold"
+                                   min="0" 
+                                   max="1" 
+                                   step="0.05"
+                                   required
+                                   oninput="validateThreshold(this, 0, 1)"
+                                   class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white">
+                            <p class="text-xs text-gray-500 dark:text-gray-300 mt-1">Max similarity (0-1) to queue rule</p>
+                            <p id="similarityThreshold2-error" class="text-xs text-red-500 dark:text-red-400 mt-1 hidden"></p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Current Config Display -->
+                <div id="currentConfig2" class="bg-gray-50 dark:bg-gray-900 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+                    <p class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Current Configuration:</p>
+                    <div id="configDisplay2" class="text-sm text-gray-600 dark:text-gray-300">
+                        Loading...
+                    </div>
+                </div>
+
+                <!-- Buttons -->
+                <div class="flex justify-end space-x-4">
+                    <button type="button" 
+                            onclick="loadConfig2()" 
                             class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
                         Reset
                     </button>
@@ -626,6 +963,8 @@ function switchTab(tab) {
     // Load data for active tab
     if (tab === 'config') {
         loadConfig();
+    } else if (tab === 'config2') {
+        loadConfig2();
     } else if (tab === 'executions') {
         loadExecutions();
     } else if (tab === 'queue') {
@@ -1227,10 +1566,655 @@ function validateThreshold(input, min, max) {
 document.getElementById('workflowConfigForm').addEventListener('submit', async (e) => {
     e.preventDefault();
     
+    // Original config form is disabled - only config2 should be used
+    alert('⚠️ This configuration tab is deprecated. Please use "Configuration 2" tab to update workflow settings. Only settings from Configuration 2 are enforced.');
+    
+    // Optionally redirect to config2
+    const config2Tab = document.getElementById('tab-config2');
+    if (config2Tab) {
+        switchTab('config2');
+    }
+    
+    return false;
+});
+
+// Configuration 2 Functions
+let currentConfig2 = null;
+let agentPrompts2 = {};
+let agentModels2 = {};
+let editingPrompts2 = {}; // Track which prompts are being edited in config2
+
+// Make updateQABadge globally accessible
+window.updateQABadge = function(agentPrefix) {
+    const badgeId = `${agentPrefix}-qa-badge`;
+    const badge = document.getElementById(badgeId);
+    const checkboxId = agentPrefix === 'os-detection' ? 'qa-osdetectionagent' :
+                      agentPrefix === 'rank-agent' ? 'qa-rankagent' :
+                      agentPrefix === 'extract-agent' ? 'qa-extractagent' :
+                      agentPrefix === 'sigma-agent' ? 'qa-sigmaagent' : null;
+    
+    if (!badge) {
+        console.error(`updateQABadge: Badge not found for prefix: ${agentPrefix}, badgeId: ${badgeId}`);
+        return;
+    }
+    
+    if (!checkboxId) {
+        console.error(`updateQABadge: Checkbox ID not found for prefix: ${agentPrefix}`);
+        return;
+    }
+    
+    const checkbox = document.getElementById(checkboxId);
+    if (!checkbox) {
+        console.error(`updateQABadge: Checkbox not found: ${checkboxId}`);
+        return;
+    }
+    
+    // Update badge based on checkbox state
+    if (checkbox.checked) {
+        badge.textContent = 'QA: ON';
+        badge.className = 'px-2 py-1 text-xs rounded-full bg-green-200 text-green-800 dark:bg-green-900 dark:text-green-300';
+        // Show QA prompt container
+        const qaPromptContainer = document.getElementById(`${agentPrefix}-qa-prompt-container`);
+        if (qaPromptContainer) {
+            qaPromptContainer.classList.remove('hidden');
+            if (agentPrefix === 'rank-agent') {
+                renderQAPrompt('QAAgent', 'rank-qa-agent-prompt-content');
+            } else {
+                renderQAPrompt('QAAgent', `${agentPrefix}-qa-prompt-container`);
+            }
+        }
+    } else {
+        badge.textContent = 'QA: OFF';
+        badge.className = 'px-2 py-1 text-xs rounded-full bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300';
+        // Hide QA prompt container
+        const qaPromptContainer = document.getElementById(`${agentPrefix}-qa-prompt-container`);
+        if (qaPromptContainer) {
+            qaPromptContainer.classList.add('hidden');
+        }
+    }
+};
+
+// Also make it available as a non-window function for event listeners
+const updateQABadge = window.updateQABadge;
+
+function toggleCollapsible(panelId) {
+    const content = document.getElementById(`${panelId}-content`);
+    const toggle = document.getElementById(`${panelId}-toggle`);
+    
+    if (content && toggle) {
+        const isHidden = content.classList.contains('hidden');
+        if (isHidden) {
+            content.classList.remove('hidden');
+            toggle.textContent = '▲';
+            toggle.style.transform = 'rotate(0deg)';
+        } else {
+            content.classList.add('hidden');
+            toggle.textContent = '▼';
+            toggle.style.transform = 'rotate(0deg)';
+        }
+    }
+}
+
+
+async function loadConfig2() {
+    try {
+        const response = await fetch('/api/workflow/config');
+        if (response.ok) {
+            const fetchedConfig = await response.json();
+            
+            // Preserve qa_enabled from currentConfig2 if it exists and fetched config doesn't have it
+            if (currentConfig2?.qa_enabled && (!fetchedConfig.qa_enabled || Object.keys(fetchedConfig.qa_enabled).length === 0)) {
+                fetchedConfig.qa_enabled = currentConfig2.qa_enabled;
+            }
+            
+            currentConfig2 = fetchedConfig;
+            
+            // Populate form fields
+            if (currentConfig2.ranking_threshold !== undefined) {
+                document.getElementById('rankingThreshold2').value = currentConfig2.ranking_threshold;
+            }
+            if (currentConfig2.junk_filter_threshold !== undefined) {
+                document.getElementById('junkFilterThreshold2').value = currentConfig2.junk_filter_threshold;
+            }
+            if (currentConfig2.similarity_threshold !== undefined) {
+                document.getElementById('similarityThreshold2').value = currentConfig2.similarity_threshold;
+            }
+            if (currentConfig2.description) {
+                document.getElementById('description2').value = currentConfig2.description;
+            }
+            
+            // Display current config
+            const configDisplay = document.getElementById('configDisplay2');
+            if (configDisplay) {
+                configDisplay.innerHTML = `
+                    <div class="space-y-1">
+                        <p><strong>Version:</strong> ${currentConfig2.version || 'N/A'}</p>
+                        <p><strong>Ranking Threshold:</strong> ${currentConfig2.ranking_threshold || 'N/A'}</p>
+                        <p><strong>Junk Filter Threshold:</strong> ${currentConfig2.junk_filter_threshold || 'N/A'}</p>
+                        <p><strong>Similarity Threshold:</strong> ${currentConfig2.similarity_threshold || 'N/A'}</p>
+                        <p><strong>Updated:</strong> ${new Date(currentConfig2.updated_at).toLocaleString()}</p>
+                    </div>
+                `;
+            }
+            
+            // Load agent models and prompts
+            await loadAgentModels2();
+            await loadAgentPrompts2();
+            
+            // Load QA settings
+            loadQASettings2();
+            
+            // Setup event listeners for QA toggles after content is loaded
+            setupQAEventListeners();
+        }
+    } catch (error) {
+        console.error('Error loading config2:', error);
+    }
+}
+
+function setupQAEventListeners() {
+    const qaCheckboxes = [
+        { id: 'qa-osdetectionagent', prefix: 'os-detection' },
+        { id: 'qa-rankagent', prefix: 'rank-agent' },
+        { id: 'qa-extractagent', prefix: 'extract-agent' },
+        { id: 'qa-sigmaagent', prefix: 'sigma-agent' }
+    ];
+    
+    qaCheckboxes.forEach(function(item) {
+        const checkbox = document.getElementById(item.id);
+        if (checkbox) {
+            // Ensure onchange attribute is set (in case it was lost)
+            if (!checkbox.getAttribute('onchange')) {
+                checkbox.setAttribute('onchange', `updateQABadge('${item.prefix}')`);
+            }
+            
+            // Remove existing event listener if any (by cloning without listeners)
+            const hasListener = checkbox.onchange !== null;
+            
+            // Add event listener as backup (works alongside inline onchange)
+            checkbox.addEventListener('change', function(e) {
+                console.log(`QA toggle changed for ${item.prefix}, checked: ${e.target.checked}`);
+                updateQABadge(item.prefix);
+            }, { once: false });
+        } else {
+            console.warn(`setupQAEventListeners: Checkbox not found: ${item.id}`);
+        }
+    });
+}
+
+async function loadAgentModels2() {
+    try {
+        const response = await fetch('/api/lmstudio-models');
+        if (response.ok) {
+            const data = await response.json();
+            if (data.success && data.models) {
+                agentModels2 = currentConfig2?.agent_models || {};
+                renderAgentModels2(data.models);
+            }
+        }
+    } catch (error) {
+        console.error('Error loading agent models2:', error);
+    }
+}
+
+function renderAgentModels2(lmstudioModels) {
+    const agentMappings = {
+        'os-detection': {
+            container: 'os-detection-model-container',
+            agentName: 'OSDetectionAgent',
+            labels: { main: 'OS Detection Agent' }
+        },
+        'extract-agent': {
+            container: 'extract-agent-model-container',
+            agentName: 'ExtractAgent',
+            labels: { main: 'Extract Agent' }
+        },
+        'sigma-agent': {
+            container: 'sigma-agent-model-container',
+            agentName: 'SigmaAgent',
+            labels: { main: 'SIGMA Generator Agent' }
+        }
+    };
+    
+    // Render Rank Agent Model
+    const rankContainer = document.getElementById('rank-agent-model-container');
+    if (rankContainer) {
+        const currentModel = agentModels2['RankAgent'] || '';
+        // Models are returned as strings, not objects with .id property
+        const modelOptions = lmstudioModels.map(m => {
+            const modelId = typeof m === 'string' ? m : m.id;
+            return `<option value="${escapeHtml(modelId)}" ${currentModel === modelId ? 'selected' : ''}>${escapeHtml(modelId)}</option>`;
+        }).join('');
+        rankContainer.innerHTML = `
+            <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+                <label for="rankagent-model-2" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Rank Agent Model</label>
+                <select id="rankagent-model-2" 
+                        name="agent_models[RankAgent]"
+                        class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-sm">
+                    <option value="">Select a model (required)</option>
+                    ${modelOptions}
+                </select>
+                <p class="text-xs text-gray-500 dark:text-gray-300 mt-1">Required: Select a model from the dropdown</p>
+            </div>
+        `;
+    }
+    
+    // Render OS Detection Agent Model
+    const osContainer = document.getElementById('os-detection-model-container');
+    if (osContainer) {
+        const currentEmbeddingModel = agentModels2['OSDetectionAgent_embedding'] || 'ibm-research/CTI-BERT';
+        const currentFallbackModel = agentModels2['OSDetectionAgent_fallback'] || '';
+        osContainer.innerHTML = `
+            <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">OS Detection Agent Model</label>
+                <div class="mb-3">
+                    <label for="osdetectionagent-embedding-model-2" class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Embedding Model</label>
+                    <select id="osdetectionagent-embedding-model-2" 
+                            name="agent_models[OSDetectionAgent_embedding]"
+                            class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-sm">
+                        <option value="ibm-research/CTI-BERT" ${currentEmbeddingModel === 'ibm-research/CTI-BERT' ? 'selected' : ''}>CTI-BERT</option>
+                        <option value="nlpaueb/sec-bert-base" ${currentEmbeddingModel === 'nlpaueb/sec-bert-base' ? 'selected' : ''}>SEC-BERT</option>
+                    </select>
+                </div>
+                <div>
+                    <label for="osdetectionagent-fallback-model-2" class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Fallback Model (Optional)</label>
+                    <input type="text" 
+                           id="osdetectionagent-fallback-model-2" 
+                           name="agent_models[OSDetectionAgent_fallback]"
+                           value="${currentFallbackModel}"
+                           placeholder="Leave empty to use default"
+                           class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-sm">
+                </div>
+            </div>
+        `;
+    }
+    
+    // Render Extract Agent Model
+    const extractContainer = document.getElementById('extract-agent-model-container');
+    if (extractContainer) {
+        const currentModel = agentModels2['ExtractAgent'] || '';
+        // Models are returned as strings, not objects with .id property
+        const modelOptions = lmstudioModels.map(m => {
+            const modelId = typeof m === 'string' ? m : m.id;
+            return `<option value="${escapeHtml(modelId)}" ${currentModel === modelId ? 'selected' : ''}>${escapeHtml(modelId)}</option>`;
+        }).join('');
+        extractContainer.innerHTML = `
+            <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+                <label for="extractagent-model-2" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Extract Agent Model</label>
+                <select id="extractagent-model-2" 
+                        name="agent_models[ExtractAgent]"
+                        class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-sm">
+                    <option value="">Use default from Settings</option>
+                    ${modelOptions}
+                </select>
+            </div>
+        `;
+    }
+    
+    // Render SIGMA Agent Model
+    const sigmaContainer = document.getElementById('sigma-agent-model-container');
+    if (sigmaContainer) {
+        const currentModel = agentModels2['SigmaAgent'] || '';
+        // Models are returned as strings, not objects with .id property
+        const modelOptions = lmstudioModels.map(m => {
+            const modelId = typeof m === 'string' ? m : m.id;
+            return `<option value="${escapeHtml(modelId)}" ${currentModel === modelId ? 'selected' : ''}>${escapeHtml(modelId)}</option>`;
+        }).join('');
+        sigmaContainer.innerHTML = `
+            <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+                <label for="sigmaagent-model-2" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">SIGMA Generator Agent Model</label>
+                <select id="sigmaagent-model-2" 
+                        name="agent_models[SigmaAgent]"
+                        class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-sm">
+                    <option value="">Use default from Settings</option>
+                    ${modelOptions}
+                </select>
+            </div>
+        `;
+    }
+}
+
+async function loadAgentPrompts2() {
+    try {
+        const response = await fetch('/api/workflow/config/prompts');
+        if (response.ok) {
+            const data = await response.json();
+            agentPrompts2 = data.prompts || {};
+            renderAgentPrompts2();
+        }
+    } catch (error) {
+        console.error('Error loading agent prompts2:', error);
+    }
+}
+
+function renderAgentPrompts2() {
+    const agentDisplayNames = {
+        'QAAgent': 'QA Agent (CMD)',
+        'ExtractAgent': 'Extract Agent',
+        'RankAgent': 'Rank Agent',
+        'SigmaAgent': 'SIGMA Generator Agent',
+        'OSDetectionAgent': 'OS Detection Agent'
+    };
+    
+    // Render OS Detection Agent Prompt
+    const osPromptContainer = document.getElementById('os-detection-prompt-container');
+    if (osPromptContainer && agentPrompts2['OSDetectionAgent']) {
+        const promptData = agentPrompts2['OSDetectionAgent'];
+        osPromptContainer.innerHTML = renderSinglePrompt('OSDetectionAgent', promptData, 'os-detection');
+    }
+    
+    // Render Rank Agent Prompt
+    const rankPromptContainer = document.getElementById('rank-agent-prompt-container');
+    if (rankPromptContainer && agentPrompts2['RankAgent']) {
+        const promptData = agentPrompts2['RankAgent'];
+        rankPromptContainer.innerHTML = renderSinglePrompt('RankAgent', promptData, 'rank-agent');
+    }
+    
+    // Render Extract Agent Prompt
+    const extractPromptContainer = document.getElementById('extract-agent-prompt-container');
+    if (extractPromptContainer && agentPrompts2['ExtractAgent']) {
+        const promptData = agentPrompts2['ExtractAgent'];
+        extractPromptContainer.innerHTML = renderSinglePrompt('ExtractAgent', promptData, 'extract-agent');
+    }
+    
+    // Render SIGMA Agent Prompt
+    const sigmaPromptContainer = document.getElementById('sigma-agent-prompt-container');
+    if (sigmaPromptContainer && agentPrompts2['SigmaAgent']) {
+        const promptData = agentPrompts2['SigmaAgent'];
+        sigmaPromptContainer.innerHTML = renderSinglePrompt('SigmaAgent', promptData, 'sigma-agent');
+    }
+}
+
+function renderSinglePrompt(agentName, promptData, prefix) {
+    const prompt = promptData.prompt || '';
+    const instructions = promptData.instructions || '';
+    const model = promptData.model || 'Not configured';
+    const agentId = agentName.toLowerCase().replace(/\s+/g, '-');
+    const isEditing = editingPrompts2[agentName] || false;
+    
+    return `
+        <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+            <div class="flex items-center justify-between mb-3">
+                <div>
+                    <p class="text-xs text-gray-500 dark:text-gray-400">Model: <span class="font-mono">${escapeHtml(model)}</span></p>
+                </div>
+                <div class="flex gap-2">
+                    ${isEditing ? `
+                        <button onclick="cancelEditPrompt2('${agentName}')" 
+                                class="px-3 py-1 bg-gray-600 hover:bg-gray-700 text-white text-sm rounded-md transition-colors">
+                            Cancel
+                        </button>
+                        <button onclick="saveAgentPrompt2('${agentName}')" 
+                                class="px-3 py-1 bg-purple-600 hover:bg-purple-700 text-white text-sm rounded-md transition-colors">
+                            💾 Save
+                        </button>
+                    ` : `
+                        <button onclick="showPromptHistory('${agentName}')" 
+                                class="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-md transition-colors">
+                            📜 History
+                        </button>
+                        <button onclick="editPrompt2('${agentName}')" 
+                                class="px-3 py-1 bg-green-600 hover:bg-green-700 text-white text-sm rounded-md transition-colors">
+                            ✏️ Edit
+                        </button>
+                    `}
+                </div>
+            </div>
+            ${instructions ? `
+                <div class="mb-3">
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Instructions Template</label>
+                    ${isEditing ? `
+                        <textarea id="${agentId}-instructions-2" 
+                                  rows="4"
+                                  class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-800 dark:text-white font-mono text-sm">${escapeHtml(instructions)}</textarea>
+                    ` : `
+                        <div class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-800 dark:text-white font-mono text-sm bg-white whitespace-pre-wrap max-h-48 overflow-y-auto">${escapeHtml(instructions)}</div>
+                    `}
+                </div>
+            ` : ''}
+            <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Prompt</label>
+                ${isEditing ? `
+                    <textarea id="${agentId}-prompt-2" 
+                              rows="8"
+                              class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-800 dark:text-white font-mono text-sm">${escapeHtml(prompt)}</textarea>
+                    <div class="mt-2">
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Change Description (optional)</label>
+                        <input type="text" id="${agentId}-change-description-2" 
+                               placeholder="Describe what changed..."
+                               class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-800 dark:text-white text-sm">
+                    </div>
+                ` : `
+                    <div class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-800 dark:text-white font-mono text-sm bg-white whitespace-pre-wrap max-h-96 overflow-y-auto">${escapeHtml(prompt)}</div>
+                `}
+            </div>
+        </div>
+    `;
+}
+
+function renderQAPrompt(agentName, containerId) {
+    const container = document.getElementById(containerId);
+    if (!container || !agentPrompts2['QAAgent']) return;
+    
+    const promptData = agentPrompts2['QAAgent'];
+    const prompt = promptData.prompt || '';
+    const instructions = promptData.instructions || '';
+    const model = promptData.model || 'Not configured';
+    const isEditing = editingPrompts2['QAAgent'] || false;
+    const agentId = 'qa-agent';
+    
+    container.innerHTML = `
+        <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+            <div class="flex items-center justify-between mb-3">
+                <div>
+                    <p class="text-xs text-gray-500 dark:text-gray-400">Model: <span class="font-mono">${escapeHtml(model)}</span></p>
+                </div>
+                <div class="flex gap-2">
+                    ${isEditing ? `
+                        <button onclick="cancelEditPrompt2('QAAgent')" 
+                                class="px-3 py-1 bg-gray-600 hover:bg-gray-700 text-white text-sm rounded-md transition-colors">
+                            Cancel
+                        </button>
+                        <button onclick="saveAgentPrompt2('QAAgent')" 
+                                class="px-3 py-1 bg-purple-600 hover:bg-purple-700 text-white text-sm rounded-md transition-colors">
+                            💾 Save
+                        </button>
+                    ` : `
+                        <button onclick="showPromptHistory('QAAgent')" 
+                                class="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-md transition-colors">
+                            📜 History
+                        </button>
+                        <button onclick="editPrompt2('QAAgent')" 
+                                class="px-3 py-1 bg-green-600 hover:bg-green-700 text-white text-sm rounded-md transition-colors">
+                            ✏️ Edit
+                        </button>
+                    `}
+                </div>
+            </div>
+            ${instructions ? `
+                <div class="mb-3">
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Instructions Template</label>
+                    ${isEditing ? `
+                        <textarea id="${agentId}-instructions-2" 
+                                  rows="4"
+                                  class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-800 dark:text-white font-mono text-sm">${escapeHtml(instructions)}</textarea>
+                    ` : `
+                        <div class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-800 dark:text-white font-mono text-sm bg-white whitespace-pre-wrap max-h-48 overflow-y-auto">${escapeHtml(instructions)}</div>
+                    `}
+                </div>
+            ` : ''}
+            <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Prompt</label>
+                ${isEditing ? `
+                    <textarea id="${agentId}-prompt-2" 
+                              rows="8"
+                              class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-800 dark:text-white font-mono text-sm">${escapeHtml(prompt)}</textarea>
+                    <div class="mt-2">
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Change Description (optional)</label>
+                        <input type="text" id="${agentId}-change-description-2" 
+                               placeholder="Describe what changed..."
+                               class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-800 dark:text-white text-sm">
+                    </div>
+                ` : `
+                    <div class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-800 dark:text-white font-mono text-sm bg-white whitespace-pre-wrap max-h-96 overflow-y-auto">${escapeHtml(prompt)}</div>
+                `}
+            </div>
+        </div>
+    `;
+}
+
+function loadQASettings2() {
+    const qaEnabled = currentConfig2?.qa_enabled || {};
+    
+    // Set checkboxes
+    const agents = [
+        { name: 'OSDetectionAgent', id: 'qa-osdetectionagent' },
+        { name: 'RankAgent', id: 'qa-rankagent' },
+        { name: 'ExtractAgent', id: 'qa-extractagent' },
+        { name: 'SigmaAgent', id: 'qa-sigmaagent' }
+    ];
+    
+    agents.forEach(agent => {
+        const checkbox = document.getElementById(agent.id);
+        if (checkbox) {
+            const shouldBeChecked = qaEnabled[agent.name] || false;
+            
+            // Set checkbox state - do this first
+            checkbox.checked = shouldBeChecked;
+            
+            // Force browser to recognize the checked state by accessing offsetHeight
+            // This triggers a reflow which helps Tailwind peer-checked classes apply
+            void checkbox.offsetHeight;
+            
+            // Trigger change event to ensure Tailwind peer-checked classes update
+            checkbox.dispatchEvent(new Event('change', { bubbles: true }));
+            
+            const prefix = agent.name === 'OSDetectionAgent' ? 'os-detection' :
+                          agent.name === 'RankAgent' ? 'rank-agent' :
+                          agent.name === 'ExtractAgent' ? 'extract-agent' :
+                          'sigma-agent';
+            updateQABadge(prefix);
+        }
+    });
+}
+
+// Prompt editing functions for config2
+function editPrompt2(agentName) {
+    editingPrompts2[agentName] = true;
+    renderAgentPrompts2();
+    // Also update QA prompt if it's visible
+    const qaEnabled = currentConfig2?.qa_enabled || {};
+    if (agentName === 'QAAgent' || (qaEnabled[agentName] && agentName !== 'QAAgent')) {
+        // Re-render QA prompts if they're visible
+        const prefix = agentName === 'OSDetectionAgent' ? 'os-detection' :
+                      agentName === 'RankAgent' ? 'rank-agent' :
+                      agentName === 'ExtractAgent' ? 'extract-agent' :
+                      agentName === 'SigmaAgent' ? 'sigma-agent' : null;
+        if (prefix) {
+            const qaPromptContainer = document.getElementById(`${prefix}-qa-prompt-container`);
+            if (qaPromptContainer && !qaPromptContainer.classList.contains('hidden')) {
+                if (prefix === 'rank-agent') {
+                    renderQAPrompt('QAAgent', 'rank-qa-agent-prompt-content');
+                } else {
+                    renderQAPrompt('QAAgent', `${prefix}-qa-prompt-container`);
+                }
+            }
+        }
+    }
+}
+
+function cancelEditPrompt2(agentName) {
+    editingPrompts2[agentName] = false;
+    renderAgentPrompts2();
+    // Reload prompts to restore original values
+    loadAgentPrompts2();
+    // Also update QA prompt if it's visible
+    const qaEnabled = currentConfig2?.qa_enabled || {};
+    if (agentName === 'QAAgent' || (qaEnabled[agentName] && agentName !== 'QAAgent')) {
+        const prefix = agentName === 'OSDetectionAgent' ? 'os-detection' :
+                      agentName === 'RankAgent' ? 'rank-agent' :
+                      agentName === 'ExtractAgent' ? 'extract-agent' :
+                      agentName === 'SigmaAgent' ? 'sigma-agent' : null;
+        if (prefix) {
+            const qaPromptContainer = document.getElementById(`${prefix}-qa-prompt-container`);
+            if (qaPromptContainer && !qaPromptContainer.classList.contains('hidden')) {
+                if (prefix === 'rank-agent') {
+                    renderQAPrompt('QAAgent', 'rank-qa-agent-prompt-content');
+                } else {
+                    renderQAPrompt('QAAgent', `${prefix}-qa-prompt-container`);
+                }
+            }
+        }
+    }
+}
+
+async function saveAgentPrompt2(agentName) {
+    const agentId = agentName === 'QAAgent' ? 'qa-agent' : agentName.toLowerCase().replace(/\s+/g, '-');
+    const promptElement = document.getElementById(`${agentId}-prompt-2`);
+    const instructionsElement = document.getElementById(`${agentId}-instructions-2`);
+    const changeDescriptionElement = document.getElementById(`${agentId}-change-description-2`);
+    
+    if (!promptElement) {
+        alert('Prompt element not found');
+        return;
+    }
+    
+    const promptData = {
+        agent_name: agentName,
+        prompt: promptElement.value,
+        instructions: instructionsElement ? instructionsElement.value : null,
+        change_description: changeDescriptionElement ? changeDescriptionElement.value : null
+    };
+    
+    try {
+        const response = await fetch('/api/workflow/config/prompts', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(promptData)
+        });
+        
+        if (response.ok) {
+            const result = await response.json();
+            editingPrompts2[agentName] = false;
+            alert(`Agent prompt updated successfully for ${agentName}`);
+            await loadAgentPrompts2();
+            await loadConfig2(); // Reload config to get updated version
+            
+            // Also update QA prompt if it's visible
+            const qaEnabled = currentConfig2?.qa_enabled || {};
+            if (agentName === 'QAAgent' || (qaEnabled[agentName] && agentName !== 'QAAgent')) {
+                const prefix = agentName === 'OSDetectionAgent' ? 'os-detection' :
+                              agentName === 'RankAgent' ? 'rank-agent' :
+                              agentName === 'ExtractAgent' ? 'extract-agent' :
+                              agentName === 'SigmaAgent' ? 'sigma-agent' : null;
+                if (prefix) {
+                    const qaPromptContainer = document.getElementById(`${prefix}-qa-prompt-container`);
+                    if (qaPromptContainer && !qaPromptContainer.classList.contains('hidden')) {
+                        if (prefix === 'rank-agent') {
+                            renderQAPrompt('QAAgent', 'rank-qa-agent-prompt-content');
+                        } else {
+                            renderQAPrompt('QAAgent', `${prefix}-qa-prompt-container`);
+                        }
+                    }
+                }
+            }
+        } else {
+            const error = await response.json();
+            alert('Error updating agent prompt: ' + (error.detail || 'Unknown error'));
+        }
+    } catch (error) {
+        console.error('Error saving agent prompt:', error);
+        alert('Error saving agent prompt');
+    }
+}
+
+document.getElementById('workflowConfigForm2').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
     // Validate all thresholds before submission
-    const junkFilterValid = validateThreshold(document.getElementById('junkFilterThreshold'), 0, 1);
-    const rankingValid = validateThreshold(document.getElementById('rankingThreshold'), 0, 10);
-    const similarityValid = validateThreshold(document.getElementById('similarityThreshold'), 0, 1);
+    const junkFilterValid = validateThreshold(document.getElementById('junkFilterThreshold2'), 0, 1);
+    const rankingValid = validateThreshold(document.getElementById('rankingThreshold2'), 0, 10);
+    const similarityValid = validateThreshold(document.getElementById('similarityThreshold2'), 0, 1);
     
     if (!junkFilterValid || !rankingValid || !similarityValid) {
         alert('Please fix the validation errors before saving.');
@@ -1247,17 +2231,17 @@ document.getElementById('workflowConfigForm').addEventListener('submit', async (
     });
     
     const formData = {
-        min_hunt_score: parseFloat(document.getElementById('minHuntScore').value),
-        junk_filter_threshold: parseFloat(document.getElementById('junkFilterThreshold').value),
-        ranking_threshold: parseFloat(document.getElementById('rankingThreshold').value),
-        similarity_threshold: parseFloat(document.getElementById('similarityThreshold').value),
-        description: document.getElementById('description').value,
+        min_hunt_score: currentConfig2?.min_hunt_score || 97.0,
+        junk_filter_threshold: parseFloat(document.getElementById('junkFilterThreshold2').value),
+        ranking_threshold: parseFloat(document.getElementById('rankingThreshold2').value),
+        similarity_threshold: parseFloat(document.getElementById('similarityThreshold2').value),
+        description: document.getElementById('description2').value,
         agent_models: {
-            RankAgent: document.getElementById('rankagent-model').value.trim() || null,
-            OSDetectionAgent_embedding: document.getElementById('osdetectionagent-embedding-model').value.trim() || 'ibm-research/CTI-BERT',
-            OSDetectionAgent_fallback: document.getElementById('osdetectionagent-fallback-model').value.trim() || null,
-            ExtractAgent: document.getElementById('extractagent-model').value.trim() || null,
-            SigmaAgent: document.getElementById('sigmaagent-model').value.trim() || null
+            RankAgent: document.getElementById('rankagent-model-2')?.value.trim() || null,
+            OSDetectionAgent_embedding: document.getElementById('osdetectionagent-embedding-model-2')?.value.trim() || 'ibm-research/CTI-BERT',
+            OSDetectionAgent_fallback: document.getElementById('osdetectionagent-fallback-model-2')?.value.trim() || null,
+            ExtractAgent: document.getElementById('extractagent-model-2')?.value.trim() || null,
+            SigmaAgent: document.getElementById('sigmaagent-model-2')?.value.trim() || null
         },
         qa_enabled: qaEnabled
     };
@@ -1265,7 +2249,7 @@ document.getElementById('workflowConfigForm').addEventListener('submit', async (
     // Validate RankAgent model is set
     if (!formData.agent_models.RankAgent) {
         alert('Rank Agent model is required. Please select a model from the dropdown.');
-        document.getElementById('rankagent-model').focus();
+        document.getElementById('rankagent-model-2')?.focus();
         return;
     }
     
@@ -1286,14 +2270,61 @@ document.getElementById('workflowConfigForm').addEventListener('submit', async (
         });
         
         if (response.ok) {
+            const updatedConfig = await response.json();
+            
+            // Ensure qa_enabled is preserved from what we sent if not in response or is empty
+            if (!updatedConfig.qa_enabled || Object.keys(updatedConfig.qa_enabled).length === 0) {
+                updatedConfig.qa_enabled = qaEnabled;
+            }
+            
+            // Update currentConfig2 with the response to ensure QA settings are preserved
+            currentConfig2 = updatedConfig;
+            
+            // Update form fields and UI directly instead of fetching again
+            if (updatedConfig.ranking_threshold !== undefined) {
+                document.getElementById('rankingThreshold2').value = updatedConfig.ranking_threshold;
+            }
+            if (updatedConfig.junk_filter_threshold !== undefined) {
+                document.getElementById('junkFilterThreshold2').value = updatedConfig.junk_filter_threshold;
+            }
+            if (updatedConfig.similarity_threshold !== undefined) {
+                document.getElementById('similarityThreshold2').value = updatedConfig.similarity_threshold;
+            }
+            if (updatedConfig.description) {
+                document.getElementById('description2').value = updatedConfig.description;
+            }
+            
+            // Update config display
+            const configDisplay = document.getElementById('configDisplay2');
+            if (configDisplay) {
+                configDisplay.innerHTML = `
+                    <div class="space-y-1">
+                        <p><strong>Version:</strong> ${updatedConfig.version || 'N/A'}</p>
+                        <p><strong>Ranking Threshold:</strong> ${updatedConfig.ranking_threshold || 'N/A'}</p>
+                        <p><strong>Junk Filter Threshold:</strong> ${updatedConfig.junk_filter_threshold || 'N/A'}</p>
+                        <p><strong>Similarity Threshold:</strong> ${updatedConfig.similarity_threshold || 'N/A'}</p>
+                        <p><strong>Updated:</strong> ${new Date(updatedConfig.updated_at).toLocaleString()}</p>
+                    </div>
+                `;
+            }
+            
+            // Reload agent models and prompts (these might have changed)
+            await loadAgentModels2();
+            await loadAgentPrompts2();
+            
+            // Restore QA settings from the saved config
+            loadQASettings2();
+            
+            // Setup event listeners
+            setupQAEventListeners();
+            
             alert('Configuration updated successfully!');
-            await loadConfig();
         } else {
             const error = await response.json();
             alert('Error updating configuration: ' + (error.detail || 'Unknown error'));
         }
     } catch (error) {
-        console.error('Error saving config:', error);
+        console.error('Error saving config2:', error);
         alert('Error saving configuration');
     }
 });
@@ -1418,6 +2449,7 @@ function renderExecutions() {
             </td>
             <td class="px-6 py-4 whitespace-nowrap text-sm">
                 <button onclick="viewExecution(${exec.id})" class="text-blue-600 hover:text-blue-800 dark:text-blue-400 mr-2">View</button>
+                ${(exec.status === 'running' || exec.status === 'pending') ? `<button onclick="openLiveExecutionView(${exec.id})" class="text-green-600 hover:text-green-900 dark:text-green-400 dark:hover:text-green-300 mr-2" title="Live streaming view for execution ${exec.id}">📺 Live</button>` : ''}
                 <button onclick="debugInAgentChat(${exec.id})" class="text-purple-600 hover:text-purple-800 dark:text-purple-400 mr-2" title="Open in Langfuse. Note: Traces only exist if execution ran with Langfuse tracing enabled. Use 'View' for database details.">🔍 Debug</button>
                 ${exec.status === 'failed' ? `
                     <button onclick="retryExecution(${exec.id}, false)" class="text-green-600 hover:text-green-800 dark:text-green-400 mr-2" title="Retry in background via Celery (async, returns immediately)">Retry (Async)</button>
@@ -3087,5 +4119,202 @@ function highlightQueuedRule(ruleId) {
     sessionStorage.setItem('highlightQueuedRules', JSON.stringify([ruleId]));
     window.location.href = '/workflow#queue';
 }
+
+// Live execution view with SSE streaming
+let liveExecutionEventSource = null;
+let liveExecutionId = null;
+
+function openLiveExecutionView(executionId) {
+    liveExecutionId = executionId;
+    
+    // Create modal
+    const modal = document.createElement('div');
+    modal.id = 'liveExecutionModal';
+    modal.className = 'fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center';
+    modal.innerHTML = `
+        <div class="bg-gray-900 dark:bg-gray-800 rounded-lg shadow-xl w-11/12 max-w-6xl h-5/6 flex flex-col">
+            <div class="flex justify-between items-center p-4 border-b border-gray-700">
+                <h2 class="text-xl font-bold text-white">📺 Live Execution View - Execution ${executionId}</h2>
+                <button onclick="closeLiveExecutionView()" class="text-gray-400 hover:text-white text-2xl">&times;</button>
+            </div>
+            <div id="liveExecutionOutput" class="flex-1 overflow-y-auto p-4 font-mono text-sm text-green-400 bg-black rounded m-4" style="min-height: 400px;">
+                <div class="text-gray-500">Connecting to execution stream...</div>
+            </div>
+            <div class="p-4 border-t border-gray-700 flex justify-between items-center">
+                <div class="text-sm text-gray-400">
+                    <span id="liveExecutionStatus">Status: Connecting...</span>
+                </div>
+                <button onclick="closeLiveExecutionView()" class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded">Close</button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(modal);
+    
+    // Start SSE connection
+    startLiveExecutionStream(executionId);
+}
+
+function closeLiveExecutionView() {
+    if (liveExecutionEventSource) {
+        liveExecutionEventSource.close();
+        liveExecutionEventSource = null;
+    }
+    const modal = document.getElementById('liveExecutionModal');
+    if (modal) {
+        modal.remove();
+    }
+    liveExecutionId = null;
+}
+
+function startLiveExecutionStream(executionId) {
+    const outputDiv = document.getElementById('liveExecutionOutput');
+    const statusSpan = document.getElementById('liveExecutionStatus');
+    
+    // Clear previous content
+    outputDiv.innerHTML = '<div class="text-gray-500">Connecting to execution stream...</div>';
+    
+    // Create EventSource connection
+    const eventSource = new EventSource(`/api/workflow/executions/${executionId}/stream`);
+    liveExecutionEventSource = eventSource;
+    
+    // Format timestamp
+    function formatTime() {
+        return new Date().toLocaleTimeString();
+    }
+    
+    // Append to output
+    function appendOutput(text, className = 'text-green-400') {
+        const line = document.createElement('div');
+        line.className = className;
+        line.textContent = `[${formatTime()}] ${text}`;
+        outputDiv.appendChild(line);
+        outputDiv.scrollTop = outputDiv.scrollHeight;
+    }
+    
+    // Handle connection open
+    eventSource.onopen = () => {
+        appendOutput('✅ Connected to execution stream', 'text-green-400');
+        statusSpan.textContent = 'Status: Connected';
+    };
+    
+    // Handle messages
+    eventSource.onmessage = (event) => {
+        try {
+            const data = JSON.parse(event.data);
+            
+            switch (data.type) {
+                case 'step':
+                    appendOutput(`📍 Step: ${data.step}`, 'text-blue-400');
+                    break;
+                    
+                case 'status':
+                    appendOutput(`📊 Status: ${data.status}`, 'text-yellow-400');
+                    statusSpan.textContent = `Status: ${data.status}`;
+                    break;
+                    
+                case 'llm_interaction':
+                    appendOutput(`\n🤖 LLM Call - ${data.agent} (Attempt ${data.attempt})`, 'text-cyan-400');
+                    if (data.messages && data.messages.length > 0) {
+                        data.messages.forEach((msg, idx) => {
+                            const role = msg.role || 'user';
+                            const content = msg.content || '';
+                            const preview = content.length > 500 ? content.substring(0, 500) + '...' : content;
+                            appendOutput(`  ${role.toUpperCase()}: ${preview}`, 'text-gray-400');
+                        });
+                    }
+                    if (data.response) {
+                        const responsePreview = data.response.length > 1000 ? data.response.substring(0, 1000) + '...' : data.response;
+                        appendOutput(`  RESPONSE: ${responsePreview}`, 'text-green-300');
+                    }
+                    if (data.score !== undefined) {
+                        appendOutput(`  Score: ${data.score}/10`, 'text-yellow-300');
+                    }
+                    if (data.discrete_huntables_count !== undefined) {
+                        appendOutput(`  Discrete Huntables: ${data.discrete_huntables_count}`, 'text-yellow-300');
+                    }
+                    break;
+                    
+                case 'qa_result':
+                    const verdictIcon = data.verdict === 'pass' ? '✅' : data.verdict === 'critical_failure' ? '❌' : '⚠️';
+                    appendOutput(`\n${verdictIcon} QA Result - ${data.agent}: ${data.verdict.toUpperCase()}`, 
+                        data.verdict === 'pass' ? 'text-green-400' : data.verdict === 'critical_failure' ? 'text-red-400' : 'text-yellow-400');
+                    if (data.summary) {
+                        appendOutput(`  Summary: ${data.summary}`, 'text-gray-300');
+                    }
+                    if (data.issues && data.issues.length > 0) {
+                        appendOutput(`  Issues (${data.issues.length}):`, 'text-orange-400');
+                        data.issues.forEach((issue, idx) => {
+                            appendOutput(`    ${idx + 1}. [${issue.severity}] ${issue.type}: ${issue.description}`, 'text-orange-300');
+                        });
+                    }
+                    break;
+                    
+                case 'ranking':
+                    appendOutput(`\n📊 Ranking Score: ${data.score}/10`, 'text-yellow-400');
+                    if (data.reasoning) {
+                        const reasoningPreview = data.reasoning.length > 500 ? data.reasoning.substring(0, 500) + '...' : data.reasoning;
+                        appendOutput(`  Reasoning: ${reasoningPreview}`, 'text-gray-300');
+                    }
+                    break;
+                    
+                case 'complete':
+                    appendOutput(`\n🏁 Execution ${data.status.toUpperCase()}`, 
+                        data.status === 'completed' ? 'text-green-400' : 'text-red-400');
+                    if (data.error_message) {
+                        appendOutput(`  Error: ${data.error_message}`, 'text-red-300');
+                    }
+                    statusSpan.textContent = `Status: ${data.status}`;
+                    // Close stream after a delay
+                    setTimeout(() => {
+                        if (liveExecutionEventSource) {
+                            liveExecutionEventSource.close();
+                            liveExecutionEventSource = null;
+                        }
+                    }, 2000);
+                    break;
+                    
+                case 'error':
+                    appendOutput(`❌ Error: ${data.message}`, 'text-red-400');
+                    statusSpan.textContent = 'Status: Error';
+                    break;
+                    
+                default:
+                    appendOutput(`Unknown event type: ${data.type}`, 'text-gray-500');
+            }
+        } catch (e) {
+            appendOutput(`Error parsing event: ${e.message}`, 'text-red-400');
+        }
+    };
+    
+    // Handle errors
+    eventSource.onerror = (error) => {
+        appendOutput('❌ Stream error or connection closed', 'text-red-400');
+        statusSpan.textContent = 'Status: Disconnected';
+        if (eventSource.readyState === EventSource.CLOSED) {
+            appendOutput('Stream closed. Execution may have completed.', 'text-gray-500');
+        }
+    };
+}
+
+// Initialize on page load
+document.addEventListener('DOMContentLoaded', function() {
+    // Check for hash in URL
+    const hash = window.location.hash.substring(1);
+    if (hash) {
+        switchTab(hash);
+    } else {
+        // Default to config tab
+        switchTab('config');
+    }
+    
+    // Listen for hash changes
+    window.addEventListener('hashchange', function() {
+        const hash = window.location.hash.substring(1);
+        if (hash) {
+            switchTab(hash);
+        }
+    });
+    
+});
 </script>
 {% endblock %}

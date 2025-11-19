@@ -29,6 +29,13 @@ async def workflow_config_page_redirect(request: Request):
     return RedirectResponse(url="/workflow#config", status_code=302)
 
 
+@router.get("/workflow/config2", response_class=HTMLResponse)
+async def workflow_config2_page_redirect(request: Request):
+    """Redirect to unified workflow page config2 tab."""
+    from fastapi.responses import RedirectResponse
+    return RedirectResponse(url="/workflow#config2", status_code=302)
+
+
 @router.get("/workflow/executions", response_class=HTMLResponse)
 async def workflow_executions_page_redirect(request: Request):
     """Redirect to unified workflow page."""

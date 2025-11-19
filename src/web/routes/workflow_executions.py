@@ -221,7 +221,7 @@ async def get_workflow_execution(request: Request, execution_id: int):
 @router.post("/executions/cleanup-stale")
 async def cleanup_stale_executions(
     request: Request,
-    max_age_hours: int = Query(1, description="Maximum age in hours for running executions to be considered stale")
+    max_age_hours: float = Query(1.0, description="Maximum age in hours for running executions to be considered stale")
 ):
     """
     Mark stale running or pending executions as failed.
@@ -234,8 +234,8 @@ async def cleanup_stale_executions(
         db_session = db_manager.get_session()
         
         try:
-            # Calculate cutoff time
-            cutoff_time = datetime.utcnow() - timedelta(hours=max_age_hours)
+            # Calculate cutoff time (convert hours to timedelta)
+            cutoff_time = datetime.utcnow() - timedelta(hours=float(max_age_hours))
             
             # Find stale running or pending executions
             # Use started_at if available, otherwise fall back to created_at

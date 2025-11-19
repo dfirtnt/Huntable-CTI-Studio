@@ -158,14 +158,48 @@ async def main():
     
     if len(sys.argv) < 2:
         print("Usage: python fix_incomplete_articles.py <article_id1> [article_id2] ...")
-        print("\nOr use predefined list:")
-        print("  python fix_incomplete_articles.py --auto")
+        print("\nOr use predefined options:")
+        print("  python fix_incomplete_articles.py --auto          # Fix known incomplete articles")
+        print("  python fix_incomplete_articles.py --recent        # Fix corrupted articles from last 2 days")
         sys.exit(1)
     
     if sys.argv[1] == '--auto':
         # Predefined list of incomplete articles
         article_ids = [2353, 2166, 1308]
         print(f"🔧 Auto-fixing {len(article_ids)} incomplete articles...")
+    elif sys.argv[1] == '--recent':
+        # Find corrupted articles from last 2 days
+        from src.database.manager import DatabaseManager
+        from src.database.models import ArticleTable
+        from sqlalchemy import func
+        
+        db = DatabaseManager()
+        with db.get_session() as session:
+            # Find articles with corruption indicators from last 2 days
+            corrupted = session.query(ArticleTable.id).filter(
+                ArticleTable.archived == False,
+                ArticleTable.discovered_at >= func.now() - func.make_interval(days=2),
+                func.length(ArticleTable.content) > 0
+            ).all()
+            
+            # Filter by corruption patterns
+            article_ids = []
+            for (article_id,) in corrupted:
+                article = db.get_article(article_id)
+                if not article:
+                    continue
+                
+                content_len = len(article.content)
+                non_printable = len(re.sub(r'[[:print:][:space:]]', '', article.content))
+                special_ratio = len(re.sub(r'[a-zA-Z0-9\s]', '', article.content)) / max(content_len, 1)
+                
+                # Check for corruption indicators
+                if (non_printable > 200 or 
+                    (content_len > 1000 and special_ratio > 0.3)):
+                    article_ids.append(article_id)
+            
+            print(f"🔧 Found {len(article_ids)} corrupted articles from last 2 days")
+            print(f"   IDs: {article_ids}")
     else:
         article_ids = [int(arg) for arg in sys.argv[1:]]
     
