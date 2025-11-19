@@ -524,6 +524,38 @@ class AsyncDatabaseManager:
             logger.error(f"Failed to update source article count for {source_id}: {e}")
             raise
     
+    async def record_source_check(
+        self,
+        source_id: int,
+        success: bool,
+        method: str,
+        articles_found: int = 0,
+        response_time: Optional[float] = None,
+        error_message: Optional[str] = None,
+        metadata: Optional[Dict[str, Any]] = None
+    ):
+        """Record a source check for tracking and analysis."""
+        try:
+            async with self.get_session() as session:
+                check_record = SourceCheckTable(
+                    source_id=source_id,
+                    check_time=datetime.utcnow(),
+                    success=success,
+                    method=method,
+                    articles_found=articles_found,
+                    response_time=response_time,
+                    error_message=error_message,
+                    check_metadata=metadata or {}
+                )
+                
+                session.add(check_record)
+                await session.commit()
+                logger.debug(f"Recorded source check for source {source_id}: success={success}, method={method}, articles={articles_found}")
+                
+        except Exception as e:
+            logger.error(f"Failed to record source check for {source_id}: {e}")
+            # Don't raise - this is a logging operation, shouldn't break the main flow
+    
     async def list_articles(self, article_filter: Optional['ArticleListFilter'] = None, limit: Optional[int] = None) -> List[Article]:
         """List articles with optional filtering and sorting."""
         try:
