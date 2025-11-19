@@ -235,8 +235,14 @@ class SourceConfigLoader:
             if 'content_selector' in source_data:
                 config_dict['content_selector'] = source_data['content_selector']
 
-        # Config should be passed as dict, not SourceConfig object
-        config = config_dict or {}
+        # Config should be passed as SourceConfig model with inner config dict
+        # SourceConfig expects: check_frequency, lookback_days, and inner 'config' dict
+        from src.models.source import SourceConfig
+        source_config = SourceConfig(
+            check_frequency=check_frequency,
+            lookback_days=lookback_days,
+            config=config_dict or {}
+        )
         
         return SourceCreate(
             identifier=identifier,
@@ -246,7 +252,7 @@ class SourceConfigLoader:
             check_frequency=check_frequency,
             lookback_days=lookback_days,
             active=active,
-            config=config
+            config=source_config
         )
 
 

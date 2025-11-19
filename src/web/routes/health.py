@@ -68,6 +68,7 @@ async def api_database_health() -> Dict[str, Any]:
         stats = await async_db_manager.get_database_stats()
         dedup_stats = await async_db_manager.get_deduplication_stats()
         performance_metrics = await async_db_manager.get_performance_metrics()
+        corruption_stats = await async_db_manager.get_corruption_stats()
 
         return {
             "status": "healthy",
@@ -83,6 +84,10 @@ async def api_database_health() -> Dict[str, Any]:
                     "total_articles": stats["total_articles"],
                     "unique_urls": dedup_stats.get("unique_urls", 0),
                     "duplicate_rate": f"{dedup_stats.get('duplicate_rate', 0)}%",
+                },
+                "corruption": {
+                    "count": corruption_stats.get("corrupted_count", 0),
+                    "examples": corruption_stats.get("examples", []),
                 },
                 "performance": performance_metrics,
             },
