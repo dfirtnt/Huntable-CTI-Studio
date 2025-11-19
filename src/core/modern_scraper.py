@@ -40,19 +40,25 @@ class URLDiscovery:
         discovery_config = source.config.get('discovery') if isinstance(source.config, dict) else getattr(source.config, 'discovery', None)
         strategies = discovery_config.get('strategies', []) if isinstance(discovery_config, dict) else []
         
-        for strategy in strategies:
-            try:
-                if 'listing' in strategy:
-                    urls = await self._discover_from_listing(strategy['listing'], source)
-                    discovered_urls.update(urls)
-                
-                elif 'sitemap' in strategy:
-                    urls = await self._discover_from_sitemap(strategy['sitemap'], source)
-                    discovered_urls.update(urls)
+        # If no discovery strategies configured, use fallback: scrape base URL for links
+        if not strategies:
+            logger.debug(f"No discovery strategies configured for {source.name}, using fallback: scraping base URL")
+            urls = await self._discover_from_base_url(source)
+            discovered_urls.update(urls)
+        else:
+            for strategy in strategies:
+                try:
+                    if 'listing' in strategy:
+                        urls = await self._discover_from_listing(strategy['listing'], source)
+                        discovered_urls.update(urls)
                     
-            except Exception as e:
-                logger.error(f"Discovery strategy failed for {source.name}: {e}")
-                continue
+                    elif 'sitemap' in strategy:
+                        urls = await self._discover_from_sitemap(strategy['sitemap'], source)
+                        discovered_urls.update(urls)
+                        
+                except Exception as e:
+                    logger.error(f"Discovery strategy failed for {source.name}: {e}")
+                    continue
         
         # Filter by scope
         filtered_urls = self._filter_by_scope(list(discovered_urls), source)
@@ -133,6 +139,49 @@ class URLDiscovery:
             except Exception as e:
                 logger.error(f"Failed to scrape listing {listing_url}: {e}")
                 continue
+        
+        return list(urls)
+    
+    async def _discover_from_base_url(self, source: Source) -> List[str]:
+        """Fallback: Discover URLs by scraping the source's base URL for links matching post_url_regex."""
+        urls = set()
+        
+        try:
+            logger.debug(f"Scraping base URL for {source.name}: {source.url}")
+            
+            response = await self.http_client.get(source.url, source_id=source.identifier)
+            response.raise_for_status()
+            
+            soup = BeautifulSoup(response.text, 'lxml')
+            
+            # Get post_url_regex patterns from config
+            post_url_regex = source.config.get('post_url_regex', []) if isinstance(source.config, dict) else []
+            if not post_url_regex:
+                logger.warning(f"No post_url_regex configured for {source.name}, cannot filter URLs")
+                return []
+            
+            # Compile regex patterns
+            patterns = [re.compile(pattern) for pattern in post_url_regex]
+            
+            # Find all links
+            links = soup.find_all('a', href=True)
+            for link in links:
+                href = link.get('href')
+                if href:
+                    # Resolve relative URLs
+                    full_url = urljoin(source.url, href)
+                    normalized_url = normalize_url(full_url)
+                    
+                    # Check if URL matches any pattern
+                    for pattern in patterns:
+                        if pattern.match(normalized_url):
+                            urls.add(normalized_url)
+                            break
+            
+            logger.info(f"Discovered {len(urls)} URLs from base URL for {source.name}")
+            
+        except Exception as e:
+            logger.error(f"Failed to discover URLs from base URL for {source.name}: {e}")
         
         return list(urls)
     

@@ -667,8 +667,8 @@ You analyze retrieved CTI article content and Sigma detection rules to answer us
     
     async def _call_lmstudio(self, system_prompt: str, user_prompt: str) -> str:
         """Call LMStudio API (OpenAI-compatible) with recommended settings."""
-        # Get recommended settings (temperature 0.15, top_p 0.9, seed 42)
-        temperature = float(os.getenv("LMSTUDIO_TEMPERATURE", "0.15"))
+        # Get recommended settings (temperature 0.0 for deterministic scoring, top_p 0.9, seed 42)
+        temperature = float(os.getenv("LMSTUDIO_TEMPERATURE", "0.0"))
         top_p = float(os.getenv("LMSTUDIO_TOP_P", "0.9"))
         seed = int(os.getenv("LMSTUDIO_SEED", "42")) if os.getenv("LMSTUDIO_SEED") else None
         

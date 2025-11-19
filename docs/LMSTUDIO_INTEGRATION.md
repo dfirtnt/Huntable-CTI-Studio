@@ -45,7 +45,7 @@ In the web interface, select `lmstudio` as the LLM provider in chat settings.
 - `LMSTUDIO_MODEL`: Model name in LMStudio (default: `llama-3.2-1b-instruct`)
 
 ### Recommended Settings (for Deterministic Scoring)
-- `LMSTUDIO_TEMPERATURE`: Temperature for inference (default: `0.15`, recommended: `0.1-0.2`)
+- `LMSTUDIO_TEMPERATURE`: Temperature for inference (default: `0.0` for deterministic scoring)
 - `LMSTUDIO_TOP_P`: Top-p sampling parameter (default: `0.9`)
 - `LMSTUDIO_SEED`: Random seed for deterministic outputs (default: `42`)
 

@@ -68,7 +68,8 @@ class LLMService:
         self._needs_system_conversion = self._model_needs_system_conversion(default_model)
         
         # Recommended settings for reasoning models (temperature/top_p work well for structured output)
-        self.temperature = float(os.getenv("LMSTUDIO_TEMPERATURE", "0.2"))
+        # Temperature 0.0 for deterministic scoring
+        self.temperature = float(os.getenv("LMSTUDIO_TEMPERATURE", "0.0"))
         self.top_p = float(os.getenv("LMSTUDIO_TOP_P", "0.9"))
         self.seed = int(os.getenv("LMSTUDIO_SEED", "42")) if os.getenv("LMSTUDIO_SEED") else None
         
@@ -1846,3 +1847,181 @@ CRITICAL: {instructions} If you are a reasoning model, you may include reasoning
         except Exception as e:
             logger.error(f"Error extracting observables: {e}")
             raise
+
+    async def run_extraction_agent(
+        self,
+        agent_name: str,
+        content: str,
+        title: str,
+        url: str,
+        prompt_config: Dict[str, Any],
+        qa_prompt_config: Optional[Dict[str, Any]] = None,
+        max_retries: int = 5,
+        execution_id: Optional[int] = None
+    ) -> Dict[str, Any]:
+        """
+        Run a generic extraction agent with optional QA loop.
+        
+        Args:
+            agent_name: Name of the sub-agent (e.g. "SigExtract")
+            content: Article content
+            title: Article title
+            url: Article URL
+            prompt_config: Extraction prompt configuration
+            qa_prompt_config: QA prompt configuration (optional)
+            max_retries: Max QA retries
+            
+        Returns:
+            Dict with extraction results
+        """
+        logger.info(f"Running extraction agent {agent_name} (QA enabled: {bool(qa_prompt_config)})")
+        
+        current_try = 0
+        feedback = ""
+        last_result = {"items": [], "count": 0}
+        
+        # Determine model to use
+        # Check if specific model configured for this agent
+        # agent_models is passed to __init__, stored in self.config_models? 
+        # Wait, __init__ doesn't store config_models globally, it parses specific ones.
+        # But we set self.model_extract. We'll use that as default.
+        model_name = self.model_extract
+        
+        while current_try <= max_retries:
+            current_try += 1
+            
+            # 1. Run Extraction
+            try:
+                # Build prompt
+                task = prompt_config.get("objective", "Extract information.")
+                instructions = prompt_config.get("instructions", "Output valid JSON.")
+                output_format = json.dumps(prompt_config.get("output_format", {}), indent=2)
+                
+                # Construct prompt similar to extract_observables
+                user_prompt = f"""Title: {title}
+URL: {url}
+
+Content:
+{self._truncate_content(content, 4000, 1000)}
+
+Task: {task}
+
+Output Format:
+{output_format}
+
+Instructions: {instructions}
+"""
+                if feedback:
+                    user_prompt = f"PREVIOUS FEEDBACK (FIX THESE ISSUES):\n{feedback}\n\n" + user_prompt
+
+                system_content = prompt_config.get("role", "You are a detection engineer.")
+                
+                messages = [
+                    {"role": "system", "content": system_content},
+                    {"role": "user", "content": user_prompt}
+                ]
+                
+                # Call LLM
+                payload = {
+                    "model": model_name,
+                    "messages": self._convert_messages_for_model(messages, model_name),
+                    "max_tokens": 2000,
+                    "temperature": 0.0
+                }
+                
+                response = await self._post_lmstudio_chat(
+                    payload, 
+                    model_name=model_name,
+                    failure_context=f"{agent_name} extraction attempt {current_try}"
+                )
+                
+                # Parse response
+                response_text = response['choices'][0]['message'].get('content', '')
+                # Handle Deepseek reasoning
+                if not response_text:
+                    response_text = response['choices'][0]['message'].get('reasoning_content', '')
+                
+                # Extract JSON
+                try:
+                    # Simple JSON extraction (find first { and last })
+                    start = response_text.find('{')
+                    end = response_text.rfind('}')
+                    if start != -1 and end != -1:
+                        json_str = response_text[start:end+1]
+                        last_result = json.loads(json_str)
+                    else:
+                        # Fallback if no JSON found
+                        logger.warning(f"{agent_name}: No JSON found in response")
+                        last_result = {"items": [], "count": 0, "error": "No JSON found"}
+                except json.JSONDecodeError:
+                    logger.warning(f"{agent_name}: Invalid JSON response")
+                    last_result = {"items": [], "count": 0, "error": "Invalid JSON"}
+                
+                # If no QA config, return immediately
+                if not qa_prompt_config:
+                    return last_result
+                
+                # 2. Run QA
+                qa_task = qa_prompt_config.get("objective", "Verify extraction.")
+                qa_criteria = json.dumps(qa_prompt_config.get("evaluation_criteria", []), indent=2)
+                
+                qa_prompt = f"""Task: {qa_task}
+
+Source Text:
+{self._truncate_content(content, 4000, 1000)}
+
+Extracted Data:
+{json.dumps(last_result, indent=2)}
+
+Evaluation Criteria:
+{qa_criteria}
+
+Instructions: {qa_prompt_config.get("instructions", "Evaluate and return JSON.")}
+Output valid JSON with keys: "status" ("pass" or "fail"), "feedback" (string explanation).
+"""
+                
+                qa_messages = [
+                    {"role": "system", "content": qa_prompt_config.get("role", "You are a QA agent.")},
+                    {"role": "user", "content": qa_prompt}
+                ]
+                
+                qa_payload = {
+                    "model": model_name, # Use same model for QA for now
+                    "messages": self._convert_messages_for_model(qa_messages, model_name),
+                    "max_tokens": 1000,
+                    "temperature": 0.0
+                }
+                
+                qa_response = await self._post_lmstudio_chat(
+                    qa_payload,
+                    model_name=model_name,
+                    failure_context=f"{agent_name} QA attempt {current_try}"
+                )
+                
+                qa_text = qa_response['choices'][0]['message'].get('content', '')
+                qa_result = {}
+                try:
+                    s = qa_text.find('{')
+                    e = qa_text.rfind('}')
+                    if s != -1 and e != -1:
+                        qa_result = json.loads(qa_text[s:e+1])
+                except:
+                    pass
+                
+                status = qa_result.get("status", "pass").lower() # Default to pass if parse fail to avoid loops
+                
+                if status == "pass":
+                    logger.info(f"{agent_name} QA Passed on attempt {current_try}")
+                    return last_result
+                else:
+                    feedback = qa_result.get("feedback", "QA failed without feedback.")
+                    logger.info(f"{agent_name} QA Failed on attempt {current_try}: {feedback}")
+                    # Continue loop
+            
+            except Exception as e:
+                logger.error(f"{agent_name} error on attempt {current_try}: {e}")
+                feedback = f"Previous attempt failed with error: {str(e)}"
+                # Continue loop
+        
+        logger.warning(f"{agent_name} failed all {max_retries} attempts. Returning last result.")
+        return last_result

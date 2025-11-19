@@ -70,6 +70,7 @@ class ExposableWorkflowState(TypedDict, total=False):
     # Step 2: Extract Agent
     extraction_result: Optional[Dict[str, Any]]
     discrete_huntables_count: Optional[int]
+    extraction_subresults: Optional[Dict[str, Any]]  # Sub-results from CmdLine, Sig, Event, Reg, Proc sub-agents
     
     # Step 3: SIGMA Generation
     sigma_rules: Optional[list]
@@ -695,10 +696,10 @@ Cannot process empty articles."""
             db_session.close()
     
     async def extract_agent_node(state: ExposableWorkflowState) -> ExposableWorkflowState:
-        """Step 3: Extract behaviors using Extract Agent."""
+        """Step 3: Extract behaviors using sequential sub-agents and Supervisor."""
         db_session = get_db_session()
         try:
-            logger.info(f"[Workflow {state.get('execution_id')}] Step 3: Extract Agent")
+            logger.info(f"[Workflow {state.get('execution_id')}] Step 3: Extract Agent (Supervisor Mode)")
             
             article_id = state['article_id']
             article = db_session.query(ArticleTable).filter(ArticleTable.id == article_id).first()
@@ -707,132 +708,194 @@ Cannot process empty articles."""
             
             filtered_content = state.get('filtered_content') or article.content
             
-            # Extract behaviors using ExtractAgent prompt
-            # Must use database prompt from config - no fallback
+            # Initialize sub-results accumulator
+            subresults = {
+                "cmdline": {"items": [], "count": 0},
+                "sigma_queries": {"items": [], "count": 0},
+                "event_ids": {"items": [], "count": 0},
+                "process_lineage": {"items": [], "count": 0},
+                "registry_keys": {"items": [], "count": 0}
+            }
+            
             trigger_service = WorkflowTriggerService(db_session)
             config_obj = trigger_service.get_active_config()
-            if not config_obj:
-                raise ValueError("No active workflow configuration found")
-            
-            if not config_obj.agent_prompts or "ExtractAgent" not in config_obj.agent_prompts:
-                raise ValueError(f"ExtractAgent prompt not found in workflow config (version {config_obj.version}). Please configure it in the workflow settings.")
-            
-            agent_prompt_data = config_obj.agent_prompts["ExtractAgent"]
-            
-            # Parse prompt JSON (stored as string in database)
-            prompt_config_dict = None
-            if isinstance(agent_prompt_data.get("prompt"), str):
-                prompt_str = agent_prompt_data["prompt"].strip()
-                try:
-                    prompt_config_dict = json.loads(prompt_str)
-                    # Handle nested JSON structure if present
-                    if isinstance(prompt_config_dict, dict) and len(prompt_config_dict) == 1:
-                        # If it's a dict with one key, might be nested - try unwrapping
-                        first_value = next(iter(prompt_config_dict.values()))
-                        if isinstance(first_value, dict):
-                            prompt_config_dict = first_value
-                        elif isinstance(first_value, str):
-                            # Try parsing the inner string as JSON
-                            try:
-                                prompt_config_dict = json.loads(first_value)
-                            except:
-                                pass
-                except json.JSONDecodeError as e:
-                    # Check if prompt is empty
-                    if not prompt_str:
-                        logger.error(f"[Workflow {state.get('execution_id')}] ExtractAgent prompt is empty in database")
-                        raise ValueError("ExtractAgent prompt is empty in workflow config. Please configure it in the workflow settings.")
-                    
-                    # Check if it looks like JSON (starts with { or [)
-                    if prompt_str.startswith('{') or prompt_str.startswith('['):
-                    # Try to fix double-wrapped JSON (starts with "{\n  {" or "{{")
-                    # Find the second opening brace and extract from there
-                    if prompt_str.startswith('{\n  {') or prompt_str.startswith('{{'):
-                        # Find the second opening brace
-                        second_brace_idx = prompt_str.find('{', 1)
-                        if second_brace_idx > 0:
-                            # Extract from second brace to matching closing brace
-                            brace_count = 0
-                            for i in range(second_brace_idx, len(prompt_str)):
-                                if prompt_str[i] == '{':
-                                    brace_count += 1
-                                elif prompt_str[i] == '}':
-                                    brace_count -= 1
-                                    if brace_count == 0:
-                                        # Found matching closing brace
-                                        inner_json = prompt_str[second_brace_idx:i + 1]
-                                        try:
-                                            prompt_config_dict = json.loads(inner_json)
-                                            logger.info(f"[Workflow {state.get('execution_id')}] Successfully unwrapped double-wrapped JSON prompt")
-                                            break
-                                        except json.JSONDecodeError as e2:
-                                            raise ValueError(f"Failed to parse unwrapped prompt JSON: {e2}")
-                            if prompt_config_dict is None:
-                                raise ValueError(f"Failed to parse ExtractAgent prompt JSON: {e}")
-                        else:
-                            raise ValueError(f"Failed to parse ExtractAgent prompt JSON: {e}")
-                    else:
-                        raise ValueError(f"Failed to parse ExtractAgent prompt JSON: {e}")
-                    else:
-                        # Prompt is plain text, not JSON - try to load from file as fallback
-                        logger.warning(
-                            f"[Workflow {state.get('execution_id')}] ExtractAgent prompt in database is plain text, not JSON. "
-                            f"Attempting to load from file system as fallback."
-                        )
-                        prompt_file = Path(__file__).parent.parent.parent / "prompts" / "ExtractAgent"
-                        if prompt_file.exists():
-                            try:
-                                with open(prompt_file, 'r') as f:
-                                    prompt_config_dict = json.load(f)
-                                logger.info(f"[Workflow {state.get('execution_id')}] Successfully loaded ExtractAgent prompt from file system")
-                            except Exception as file_error:
-                                raise ValueError(
-                                    f"ExtractAgent prompt in database is not valid JSON and file fallback failed: {file_error}. "
-                                    f"Please update the ExtractAgent prompt in workflow settings to be valid JSON."
-                                )
-                        else:
-                            raise ValueError(
-                                f"ExtractAgent prompt in database is not valid JSON (plain text format) and file fallback not found. "
-                                f"Please update the ExtractAgent prompt in workflow settings to be valid JSON format."
-                            )
-            elif isinstance(agent_prompt_data.get("prompt"), dict):
-                prompt_config_dict = agent_prompt_data["prompt"]
-            else:
-                raise ValueError("ExtractAgent prompt is not in valid format (expected string or dict)")
-            
-            instructions_template_str = agent_prompt_data.get("instructions")
-            if not instructions_template_str:
-                raise ValueError("ExtractAgent instructions template not found in workflow config")
-            
-            if not prompt_config_dict:
-                raise ValueError("ExtractAgent prompt config is empty")
-            
-            logger.info(f"[Workflow {state.get('execution_id')}] Using database ExtractAgent prompt (config version {config_obj.version})")
-            
-            # Get config models for LLMService
             agent_models = config_obj.agent_models if config_obj else None
             llm_service = LLMService(config_models=agent_models)
             
-            # Use database prompt
-            extraction_result = await llm_service.extract_behaviors(
-                content=filtered_content,
-                title=article.title,
-                url=article.canonical_url or "",
-                prompt_config_dict=prompt_config_dict,
-                instructions_template_str=instructions_template_str
-            )
+            # --- 1. CmdLineExtract (Existing ExtractAgent) ---
+            try:
+                # Load ExtractAgent prompt from DB config
+                if not config_obj or not config_obj.agent_prompts or "ExtractAgent" not in config_obj.agent_prompts:
+                    # Fallback to file if not in DB
+                    logger.warning("ExtractAgent not in DB config, attempting file fallback for CmdLineExtract")
+                    prompt_config_dict = None
+                    instructions_template_str = None
+                    
+                    # Try loading from file
+                    prompt_file = Path(__file__).parent.parent / "prompts" / "ExtractAgent"
+                    if prompt_file.exists():
+                        with open(prompt_file, 'r') as f:
+                            prompt_config_dict = json.load(f)
+                        
+                        instr_file = Path(__file__).parent.parent / "prompts" / "ExtractAgentInstructions.txt"
+                        if instr_file.exists():
+                            with open(instr_file, 'r') as f:
+                                instructions_template_str = f.read()
+                else:
+                    agent_prompt_data = config_obj.agent_prompts["ExtractAgent"]
+                    # Parse prompt JSON (stored as string or dict)
+                    if isinstance(agent_prompt_data.get("prompt"), dict):
+                        prompt_config_dict = agent_prompt_data["prompt"]
+                    elif isinstance(agent_prompt_data.get("prompt"), str):
+                        try:
+                            prompt_config_dict = json.loads(agent_prompt_data["prompt"])
+                        except:
+                            prompt_config_dict = {} # Fail gracefully
+                    else:
+                        prompt_config_dict = {}
+                        
+                    instructions_template_str = agent_prompt_data.get("instructions")
+
+                if prompt_config_dict and instructions_template_str:
+                    cmdline_result = await llm_service.extract_behaviors(
+                        content=filtered_content,
+                        title=article.title,
+                        url=article.canonical_url or "",
+                        prompt_config_dict=prompt_config_dict,
+                        instructions_template_str=instructions_template_str
+                    )
+                    
+                    # Map to subresults["cmdline"]
+                    cmd_observables = cmdline_result.get('observables', [])
+                    # Extract values
+                    cmd_items = []
+                    for obs in cmd_observables:
+                         val = obs.get('value') or obs.get('content') or str(obs)
+                         if isinstance(val, str):
+                             cmd_items.append(val)
+                    
+                    subresults["cmdline"] = {
+                        "items": cmd_items,
+                        "count": len(cmd_items),
+                        "raw": cmdline_result
+                    }
+                    logger.info(f"CmdLineExtract: {len(cmd_items)} items")
+                else:
+                    logger.warning("Could not load CmdLineExtract configuration")
+            except Exception as e:
+                logger.error(f"CmdLineExtract failed: {e}")
+
+            # --- 2. New Sub-Agents ---
+            sub_agents = [
+                ("SigExtract", "sigma_queries", "SigQA"),
+                ("EventCodeExtract", "event_ids", "EventCodeQA"),
+                ("ProcTreeExtract", "process_lineage", "ProcTreeQA"),
+                ("RegExtract", "registry_keys", "RegQA")
+            ]
             
-            discrete_huntables = extraction_result.get('discrete_huntables_count', 0)
+            prompts_dir = Path(__file__).parent.parent / "prompts"
             
-            # Fail if extraction result is invalid or empty
-            raw_response = extraction_result.get('raw_response', '')
-            if not raw_response or len(raw_response.strip()) == 0:
-                error_msg = "Extraction returned empty response - LLM did not provide valid output"
-                logger.error(f"[Workflow {state.get('execution_id')}] {error_msg}")
-                raise ValueError(error_msg)
+            for agent_name, result_key, qa_name in sub_agents:
+                try:
+                    # Load Prompts
+                    prompt_path = prompts_dir / agent_name
+                    qa_path = prompts_dir / qa_name
+
+                    if prompt_path.exists():
+                        with open(prompt_path, 'r') as f:
+                            prompt_config = json.load(f)
+                    else:
+                        logger.warning(f"Prompt file missing for {agent_name}")
+                        continue
+                        
+                    qa_config = None
+                    if qa_path.exists():
+                        with open(qa_path, 'r') as f:
+                            qa_config = json.load(f)
+                    
+                    # Run Agent
+                    agent_result = await llm_service.run_extraction_agent(
+                        agent_name=agent_name,
+                        content=filtered_content,
+                        title=article.title,
+                        url=article.canonical_url or "",
+                        prompt_config=prompt_config,
+                        qa_prompt_config=qa_config
+                    )
+                    
+                    # Store Result
+                    items = []
+                    # Try to find the specific list for this agent
+                    if result_key in agent_result:
+                        items = agent_result[result_key]
+                    elif "items" in agent_result:
+                         items = agent_result["items"]
+                    else:
+                        # Fallback: find first list
+                        for v in agent_result.values():
+                            if isinstance(v, list):
+                                items = v
+                                break
+                    
+                    subresults[result_key] = {
+                        "items": items,
+                        "count": len(items),
+                        "raw": agent_result
+                    }
+                    logger.info(f"{agent_name}: {len(items)} items")
+                    
+                except Exception as e:
+                    logger.error(f"{agent_name} failed: {e}")
+
+            # --- 3. Supervisor Aggregation ---
+            # Merge all items into a single 'observables' list for backward compatibility
+            all_observables = []
+            content_summary = []  # Accumulate text summary for content field
             
-            # Log extraction quality for debugging
-            logger.info(f"[Workflow {state.get('execution_id')}] Extraction completed: {discrete_huntables} huntables, {len(extraction_result.get('observables', []))} observables")
+            # Tag and merge
+            for cat, data in subresults.items():
+                items = data.get("items", [])
+                if items:
+                    content_summary.append(f"Extracted {cat.replace('_', ' ').title()}:")
+                    for item in items:
+                        # Normalize to observable structure
+                        # Ensure item is serializable
+                        if isinstance(item, dict):
+                            # For structured items (lineage, registry), keep as dict but maybe stringify for 'value' field if needed
+                            val = item.get('value') if 'value' in item else item
+                        else:
+                            val = item
+                            
+                        all_observables.append({
+                            "type": cat,
+                            "value": val,
+                            "original_data": item if isinstance(item, dict) else None,
+                            "source": "supervisor_aggregation"
+                        })
+                        
+                        # Add to text summary
+                        item_str = str(item)
+                        if isinstance(item, dict):
+                            item_str = json.dumps(item, indent=None)
+                        content_summary.append(f"- {item_str}")
+                    content_summary.append("")  # Newline separator
+            
+            total_count = len(all_observables)
+            
+            # Construct final result matching existing schema
+            extraction_result = {
+                "observables": all_observables,
+                "summary": {
+                    "count": total_count,
+                    "source_url": article.canonical_url,
+                    "platforms_detected": ["Windows"] # Default assumption or derived
+                },
+                "discrete_huntables_count": total_count,
+                "subresults": subresults, # Persist detailed breakdown
+                "content": "\n".join(content_summary) # Synthesized content for Sigma Agent
+            }
+            
+            logger.info(f"[Workflow {state.get('execution_id')}] Supervisor Aggregation: {total_count} total observables")
             
             # Update execution record
             execution_id = state.get('execution_id')
@@ -849,7 +912,8 @@ Cannot process empty articles."""
             return {
                 **state,
                 'extraction_result': extraction_result,
-                'discrete_huntables_count': discrete_huntables,
+                'discrete_huntables_count': total_count,
+                'extraction_subresults': subresults,
                 'current_step': 'extract_agent',
                 'status': 'running',
                 'termination_reason': state.get('termination_reason'),
@@ -1123,11 +1187,11 @@ No detection rules were produced for **article #{article_id}**. Review extractio
 The execution finished normally and recorded all intermediate results."""
                 else:
                     # Build success summary
-                    ranking_score = state.get("ranking_score", 0)
-                    discrete_count = state.get("discrete_huntables_count", 0)
-                    sigma_count = len(state.get("sigma_rules", []))
-                    queued_count = len(state.get("queued_rules", []))
-                    max_sim = state.get("max_similarity", 0)
+                    ranking_score = state.get("ranking_score", 0) or 0
+                    discrete_count = state.get("discrete_huntables_count", 0) or 0
+                    sigma_count = len(state.get("sigma_rules") or [])
+                    queued_count = len(state.get("queued_rules") or [])
+                    max_sim = state.get("max_similarity", 0) or 0
                     
                     response_text = f"""✅ **Workflow completed for article #{article_id}**
 
