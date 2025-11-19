@@ -214,6 +214,23 @@ def check_all_sources(self):
                             try:
                                 await db.update_source_health(source.id, success, response_time)
                                 await db.update_source_article_count(source.id)
+                                
+                                # Record source check for historical tracking
+                                method = "rss"  # Default method for check_all_sources
+                                articles_found = len(articles) if articles else 0
+                                error_msg = None
+                                if not success:
+                                    error_msg = f"Failed to fetch articles from {source.name}"
+                                
+                                await db.record_source_check(
+                                    source_id=source.id,
+                                    success=success,
+                                    method=method,
+                                    articles_found=articles_found,
+                                    response_time=response_time,
+                                    error_message=error_msg
+                                )
+                                
                                 logger.info(f"Updated source {source.id} health and article count")
                             except Exception as e:
                                 logger.error(f"Failed to update health metrics for {source.name}: {e}")
@@ -471,6 +488,21 @@ def check_source(self, source_identifier: str):
                             response_time = time.time() - start_time
                             await db.update_source_health(source.id, collection_success, response_time)
                             await db.update_source_article_count(source.id)
+                            
+                            # Record source check for historical tracking
+                            method = fetch_result.method if fetch_result else "unknown"
+                            articles_found = len(fetch_result.articles) if fetch_result and fetch_result.articles else 0
+                            error_msg = fetch_result.error if fetch_result and not fetch_result.success else None
+                            
+                            await db.record_source_check(
+                                source_id=source.id,
+                                success=collection_success,
+                                method=method,
+                                articles_found=articles_found,
+                                response_time=response_time,
+                                error_message=error_msg
+                            )
+                            
                             logger.info(f"Updated source {source.id} health and article count")
                         except Exception as health_error:
                             logger.error(f"Failed to update health for source {source.id}: {health_error}")
@@ -865,6 +897,21 @@ def collect_from_source(self, source_id: int):
                             # Update article count using the private method
                             with db.get_session() as session:
                                 db._update_source_article_count(session, source_id)
+                            
+                            # Record source check for historical tracking
+                            method = fetch_result.method if fetch_result else "unknown"
+                            articles_found = len(fetch_result.articles) if fetch_result and fetch_result.articles else 0
+                            error_msg = fetch_result.error if fetch_result and not fetch_result.success else None
+                            
+                            db.record_source_check(
+                                source_id=source_id,
+                                success=collection_success,
+                                method=method,
+                                articles_found=articles_found,
+                                response_time=response_time,
+                                error_message=error_msg
+                            )
+                            
                             logger.info(f"Updated source {source_id} health and article count")
                         except Exception as health_error:
                             logger.error(f"Failed to update health for source {source_id}: {health_error}")
