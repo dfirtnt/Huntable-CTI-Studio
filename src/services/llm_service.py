@@ -1176,6 +1176,21 @@ Score the article from 1-10 for SIGMA rule generation potential. Consider:
                     # Parse JSON
                     extracted = json.loads(json_text)
                     
+                    # Check if model wrapped the actual JSON in a raw_response field (common mistake)
+                    if 'raw_response' in extracted and isinstance(extracted['raw_response'], str):
+                        try:
+                            # Try to parse the string as JSON - this might be the actual data
+                            nested_data = json.loads(extracted['raw_response'])
+                            # If nested_data has the expected fields, use it instead
+                            if any(key in nested_data for key in ['behavioral_observables', 'observable_list', 'observables', 'discrete_huntables_count']):
+                                logger.warning("Model wrapped JSON in raw_response field - extracting nested data")
+                                # Merge nested data into extracted, but keep raw_response as original response_text
+                                for key, value in nested_data.items():
+                                    if key != 'raw_response':  # Don't overwrite with nested raw_response
+                                        extracted[key] = value
+                        except (json.JSONDecodeError, TypeError):
+                            pass  # raw_response is just a string, not nested JSON
+                    
                     # Ensure required fields exist
                     if 'raw_response' not in extracted:
                         extracted['raw_response'] = response_text
@@ -1210,9 +1225,39 @@ Score the article from 1-10 for SIGMA rule generation potential. Consider:
                         extracted['url'] = summary.get('source_url', url)
                         
                         logger.info(f"Parsed extraction result (new format): {len(observables)} observables, {discrete_huntables_count} huntables")
+                    elif 'behavioral_observables' in extracted and 'observable_list' in extracted:
+                        # Updated format: behavioral_observables + observable_list (from updated prompt)
+                        behavioral_obs = extracted.get('behavioral_observables', [])
+                        observable_list = extracted.get('observable_list', [])
+                        discrete_count = extracted.get('discrete_huntables_count', len(observable_list))
+                        
+                        # Ensure behavioral_observables is a list (can be array or dict)
+                        if isinstance(behavioral_obs, dict):
+                            # Convert dict to list of all values
+                            behavioral_obs_list = []
+                            for key, values in behavioral_obs.items():
+                                if isinstance(values, list):
+                                    behavioral_obs_list.extend(values)
+                                elif isinstance(values, (str, dict)):
+                                    behavioral_obs_list.append(values)
+                            behavioral_obs = behavioral_obs_list
+                        
+                        if not isinstance(behavioral_obs, list):
+                            behavioral_obs = []
+                        if not isinstance(observable_list, list):
+                            observable_list = []
+                        
+                        extracted['behavioral_observables'] = behavioral_obs
+                        extracted['observable_list'] = observable_list
+                        extracted['discrete_huntables_count'] = discrete_count
+                        extracted['url'] = extracted.get('url', url)
+                        extracted['content'] = extracted.get('content', '')
+                        
+                        logger.info(f"Parsed extraction result (behavioral_observables format): {len(observable_list)} observables, {discrete_count} huntables")
                     else:
-                        # Missing required fields
-                        raise ValueError("Extraction result must contain 'observables' array and 'summary' object matching the prompt format")
+                        # Missing required fields - check what we have
+                        available_keys = list(extracted.keys())
+                        raise ValueError(f"Extraction result missing required fields. Expected 'observables'+'summary' OR 'behavioral_observables'+'observable_list'. Found keys: {available_keys}")
                 except (json.JSONDecodeError, ValueError) as e:
                     logger.warning(f"Could not parse JSON from extraction response: {e}. Using fallback. Response preview: {response_text[:200]}")
                     extracted = {
