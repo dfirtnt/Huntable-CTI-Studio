@@ -192,16 +192,18 @@ async def api_dashboard_data():
             top_query = text(
                 """
                 SELECT 
-                    id,
-                    title,
-                    article_metadata,
-                    published_at,
-                    canonical_url
-                FROM articles 
-                WHERE article_metadata->>'threat_hunting_score' IS NOT NULL
-                  AND (article_metadata->>'threat_hunting_score')::float > 50
-                  AND created_at >= NOW() - INTERVAL '7 days'
-                ORDER BY published_at DESC
+                    a.id,
+                    a.title,
+                    a.article_metadata,
+                    a.published_at,
+                    a.canonical_url,
+                    s.name as source_name
+                FROM articles a
+                JOIN sources s ON a.source_id = s.id
+                WHERE a.article_metadata->>'threat_hunting_score' IS NOT NULL
+                  AND (a.article_metadata->>'threat_hunting_score')::float > 50
+                  AND a.created_at >= NOW() - INTERVAL '7 days'
+                ORDER BY a.published_at DESC
                 LIMIT 10
                 """
             )
@@ -231,6 +233,7 @@ async def api_dashboard_data():
                     "classification": classification,
                     "published_at": published_at_str,
                     "url": db_article.canonical_url,
+                    "source_name": db_article.source_name if hasattr(db_article, "source_name") else "Unknown Source",
                 }
             )
 

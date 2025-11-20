@@ -236,6 +236,7 @@
                             <span class="text-lg font-mono font-bold ${scoreColor}">${article.hunt_score || 0}</span>
                         </div>
                         <h4 class="font-semibold text-base mb-2 leading-tight">${article.title || "Untitled"}</h4>
+                        <p class="text-sm text-gray-400 leading-relaxed">Source: <span class="text-gray-300 font-medium">${article.source_name || "Unknown Source"}</span></p>
                         <p class="text-sm text-gray-400 leading-relaxed">Publication date: ${article.published_at || "Unknown"}</p>
                     `;
                     topArticlesContainer.appendChild(card);
