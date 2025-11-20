@@ -204,6 +204,68 @@ async def api_services_health() -> Dict[str, Any]:
                 "error": str(lmstudio_exc),
             }
 
+        # Check LangGraph Server
+        try:
+            langgraph_url = os.getenv("LANGGRAPH_SERVER_URL", "http://localhost:2024")
+            async with httpx.AsyncClient() as client:
+                response = await client.get(f"{langgraph_url}/health", timeout=5.0)
+                if response.status_code == 200:
+                    health_data = response.json()
+                    services_status["langgraph"] = {
+                        "status": "healthy",
+                        "url": langgraph_url,
+                        "version": health_data.get("version", "unknown"),
+                    }
+                else:
+                    services_status["langgraph"] = {
+                        "status": "unhealthy",
+                        "error": f"HTTP {response.status_code}",
+                    }
+        except Exception as langgraph_exc:
+            services_status["langgraph"] = {
+                "status": "unhealthy",
+                "error": str(langgraph_exc),
+            }
+
+        # Check LangFuse
+        try:
+            from src.utils.langfuse_client import get_langfuse_client, is_langfuse_enabled
+            
+            if is_langfuse_enabled():
+                client = get_langfuse_client()
+                if client:
+                    # Try to flush to test connection (non-blocking)
+                    try:
+                        client.flush()
+                        services_status["langfuse"] = {
+                            "status": "healthy",
+                            "configured": True,
+                        }
+                    except Exception as flush_exc:
+                        services_status["langfuse"] = {
+                            "status": "unhealthy",
+                            "error": f"Flush failed: {str(flush_exc)}",
+                            "configured": True,
+                        }
+                else:
+                    services_status["langfuse"] = {
+                        "status": "unhealthy",
+                        "error": "Client initialization failed",
+                        "configured": False,
+                    }
+            else:
+                services_status["langfuse"] = {
+                    "status": "not_configured",
+                    "configured": False,
+                    "message": "LangFuse not configured (missing keys)",
+                }
+        except Exception as langfuse_exc:
+            services_status["langfuse"] = {
+                "status": "unhealthy",
+                "error": str(langfuse_exc),
+                "configured": False,
+            }
+
         return {
             "status": "healthy",
             "timestamp": datetime.now().isoformat(),

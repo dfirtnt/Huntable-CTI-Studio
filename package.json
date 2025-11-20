@@ -2,11 +2,13 @@
   "name": "cti-scraper-tests",
   "private": true,
   "devDependencies": {
-    "@playwright/test": "^1.56.1"
+    "@playwright/test": "^1.56.1",
+    "allure-playwright": "^2.13.0"
   },
   "scripts": {
     "test:pw": "playwright test",
-    "test:pw:all": "playwright test tests/playwright/ '**/*.spec.ts' '**/*.spec.js'"
+    "test:pw:all": "playwright test tests/playwright/ '**/*.spec.ts' '**/*.spec.js'",
+    "test:pw:save-button": "playwright test tests/playwright/workflow_save_button.spec.ts"
   },
   "packageManager": "pnpm@10.18.3+sha512.bbd16e6d7286fd7e01f6b3c0b3c932cda2965c06a908328f74663f10a9aea51f1129eea615134bf992831b009eabe167ecb7008b597f40ff9bc75946aadfb08d"
 }

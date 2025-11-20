@@ -517,6 +517,163 @@ async function viewExecution(executionId) {
                         </div>
                     </details>
 
+                    <!-- Sub-Agents: Individual Extraction Agents (in workflow execution order) -->
+                    ${exec.extraction_result?.subresults ? `
+                    <details class="border border-cyan-200 dark:border-cyan-800 rounded-lg overflow-hidden">
+                        <summary class="bg-cyan-100 dark:bg-cyan-900/40 px-4 py-3 cursor-pointer font-semibold text-gray-900 dark:text-white hover:bg-cyan-200 dark:hover:bg-cyan-900/60">
+                            🔬 Sub-Agents (Individual Extraction)
+                        </summary>
+                        <div class="p-4 space-y-4 bg-white dark:bg-gray-800">
+                            ${(() => {
+                                const subresults = exec.extraction_result.subresults || {};
+                                // Sub-agents in workflow execution order
+                                const subAgents = [
+                                    { key: 'cmdline', name: 'CmdlineExtract', qaName: 'CmdLineQA', display: 'Command Line Extraction', icon: '💻', order: 1 },
+                                    { key: 'sigma_queries', name: 'SigExtract', qaName: 'SigQA', display: 'SIGMA Query Extraction', icon: '🔍', order: 2 },
+                                    { key: 'event_ids', name: 'EventCodeExtract', qaName: 'EventCodeQA', display: 'Event ID Extraction', icon: '📋', order: 3 },
+                                    { key: 'process_lineage', name: 'ProcTreeExtract', qaName: 'ProcTreeQA', display: 'Process Lineage Extraction', icon: '🌳', order: 4 },
+                                    { key: 'registry_keys', name: 'RegExtract', qaName: 'RegQA', display: 'Registry Key Extraction', icon: '🔑', order: 5 }
+                                ];
+                                
+                                // Get QA results from error_log if available
+                                const qaResults = exec.error_log?.qa_results || {};
+                                
+                                return subAgents.map(subAgent => {
+                                    const result = subresults[subAgent.key];
+                                    const items = result?.items || [];
+                                    const count = result?.count || items.length || 0;
+                                    const raw = result?.raw || {};
+                                    
+                                    // Get QA result for this sub-agent (check both agent name and QA name)
+                                    const qaResult = qaResults[subAgent.name] || qaResults[subAgent.qaName] || null;
+                                    const qaVerdict = qaResult?.verdict || qaResult?.status || null;
+                                    const qaFeedback = qaResult?.feedback || null;
+                                    const qaIssues = qaResult?.issues || [];
+                                    
+                                    return `
+                                        <details class="border border-cyan-200 dark:border-cyan-700 rounded-lg overflow-hidden">
+                                            <summary class="bg-cyan-50 dark:bg-cyan-900/30 px-4 py-3 cursor-pointer font-medium text-gray-900 dark:text-white hover:bg-cyan-100 dark:hover:bg-cyan-900/50">
+                                                ${subAgent.icon} ${subAgent.display} <span class="text-white">${count > 0 ? `(${count} items)` : '(0 items)'}</span>
+                                                ${qaVerdict ? ` ${qaVerdict === 'pass' ? '✅' : qaVerdict === 'fail' ? '❌' : '⚠️'}` : ''}
+                                            </summary>
+                                            <div class="p-4 space-y-3 bg-white dark:bg-gray-800">
+                                                <div>
+                                                    <strong class="text-gray-900 dark:text-white">Inputs:</strong>
+                                                    <div class="mt-1 text-sm">
+                                                        <div>• Filtered Content: ${exec.junk_filter_result?.filtered_length || 0} chars</div>
+                                                        <div>• Article Title: ${exec.article_title || 'N/A'}</div>
+                                                        <div>• Article URL: ${exec.article_url || 'N/A'}</div>
+                                                        <div>• Agent: ${subAgent.name}</div>
+                                                        ${config.agent_models && config.agent_models[`${subAgent.name}_model`] ? `<div>• Model: ${config.agent_models[`${subAgent.name}_model`]}</div>` : ''}
+                                                    </div>
+                                                </div>
+                                                <div>
+                                                    <strong class="text-gray-900 dark:text-white">Outputs:</strong>
+                                                    ${count > 0 ? `
+                                                        <div class="mt-1 text-sm">
+                                                            <div>• Items Extracted: <strong>${count}</strong></div>
+                                                        </div>
+                                                        ${items.length > 0 ? `
+                                                            <details class="mt-2">
+                                                                <summary class="cursor-pointer text-sm text-purple-600 dark:text-white hover:underline">View ${items.length} Items</summary>
+                                                                <div class="mt-2 max-h-64 overflow-y-auto">
+                                                                    <div class="space-y-2 text-xs bg-gray-50 dark:bg-gray-900 p-3 rounded border border-gray-200 dark:border-gray-700">
+                                                                        ${items.slice(0, 20).map((item, idx) => {
+                                                                            const itemValue = typeof item === 'object' ? JSON.stringify(item, null, 2) : String(item);
+                                                                            return `<div class="border-b border-gray-300 dark:border-gray-600 pb-2">
+                                                                                <div class="font-semibold text-gray-900 dark:text-white">${idx + 1}. Item</div>
+                                                                                <div class="text-gray-700 dark:text-gray-300 break-all whitespace-pre-wrap">${itemValue.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</div>
+                                                                            </div>`;
+                                                                        }).join('')}
+                                                                        ${items.length > 20 ? `<div class="text-gray-500 dark:text-gray-300">... and ${items.length - 20} more</div>` : ''}
+                                                                    </div>
+                                                                </div>
+                                                            </details>
+                                                        ` : ''}
+                                                        ${raw && Object.keys(raw).length > 0 ? `
+                                                            <details class="mt-2">
+                                                                <summary class="cursor-pointer text-sm text-blue-600 dark:text-white hover:underline">View Raw Agent Response</summary>
+                                                                <div class="mt-2">${formatJSON(raw)}</div>
+                                                            </details>
+                                                        ` : ''}
+                                                    ` : '<span class="text-gray-400">No items extracted</span>'}
+                                                    
+                                                    ${qaResult ? `
+                                                        <div class="mt-3 border-t border-gray-300 dark:border-gray-600 pt-3">
+                                                            <strong class="text-gray-900 dark:text-white">QA Results (${subAgent.qaName}):</strong>
+                                                            <div class="mt-2">
+                                                                <div class="flex items-center gap-2 mb-2">
+                                                                    <span class="px-2 py-1 rounded text-xs font-semibold ${qaVerdict === 'pass' ? 'bg-green-100 dark:bg-green-900/40 text-green-800 dark:text-green-300' : qaVerdict === 'fail' ? 'bg-red-100 dark:bg-red-900/40 text-red-800 dark:text-red-300' : 'bg-yellow-100 dark:bg-yellow-900/40 text-yellow-800 dark:text-yellow-300'}">
+                                                                        ${qaVerdict === 'pass' ? '✅ PASS' : qaVerdict === 'fail' ? '❌ FAIL' : '⚠️ WARNING'}
+                                                                    </span>
+                                                                </div>
+                                                                ${qaFeedback ? `
+                                                                    <div class="text-sm text-gray-700 dark:text-gray-300 mb-2">
+                                                                        <strong>Feedback:</strong> ${qaFeedback}
+                                                                    </div>
+                                                                ` : ''}
+                                                                ${qaIssues.length > 0 ? `
+                                                                    <div class="text-sm">
+                                                                        <strong class="text-gray-900 dark:text-white">Issues (${qaIssues.length}):</strong>
+                                                                        <ul class="list-disc list-inside mt-1 space-y-1 text-gray-700 dark:text-gray-300">
+                                                                            ${qaIssues.map(issue => {
+                                                                                const issueText = typeof issue === 'string' ? issue : (issue.description || issue.type || JSON.stringify(issue));
+                                                                                return `<li>${issueText.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</li>`;
+                                                                            }).join('')}
+                                                                        </ul>
+                                                                    </div>
+                                                                ` : ''}
+                                                            </div>
+                                                        </div>
+                                                    ` : ''}
+                                                </div>
+                                            </div>
+                                        </details>
+                                    `;
+                                }).join('')}
+                            })()}
+                        </div>
+                    </details>
+                    ` : ''}
+
+                    <!-- ExtractionSupervisorAgent: Aggregation -->
+                    ${exec.extraction_result?.subresults ? `
+                    <details class="border border-teal-200 dark:border-teal-800 rounded-lg overflow-hidden">
+                        <summary class="bg-teal-100 dark:bg-teal-900/40 px-4 py-3 cursor-pointer font-semibold text-gray-900 dark:text-white hover:bg-teal-200 dark:hover:bg-teal-900/60">
+                            🎯 ExtractionSupervisorAgent (Aggregation)
+                        </summary>
+                        <div class="p-4 space-y-3 bg-white dark:bg-gray-800">
+                            <div>
+                                <strong class="text-gray-900 dark:text-white">Inputs:</strong>
+                                <div class="mt-1 text-sm">
+                                    <div>• Sub-Agent Results: ${Object.keys(exec.extraction_result.subresults || {}).length} sub-agents</div>
+                                    ${Object.entries(exec.extraction_result.subresults || {}).map(([key, data]) => {
+                                        const count = data?.count || data?.items?.length || 0;
+                                        const displayName = key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+                                        return `<div>• ${displayName}: ${count} items</div>`;
+                                    }).join('')}
+                                </div>
+                            </div>
+                            <div>
+                                <strong class="text-gray-900 dark:text-white">Outputs:</strong>
+                                ${exec.extraction_result ? `
+                                    <div class="mt-1 text-sm">
+                                        <div>• Total Observables: <strong>${exec.extraction_result.discrete_huntables_count || exec.extraction_result.observables?.length || 0}</strong></div>
+                                        <div>• Aggregated from ${Object.keys(exec.extraction_result.subresults || {}).length} sub-agents</div>
+                                        ${exec.extraction_result.summary?.platforms_detected && exec.extraction_result.summary.platforms_detected.length > 0 ? `<div>• Platforms: ${exec.extraction_result.summary.platforms_detected.join(', ')}</div>` : ''}
+                                    </div>
+                                    ${exec.extraction_result.content ? `
+                                        <details class="mt-2">
+                                            <summary class="cursor-pointer text-sm text-green-600 dark:text-white hover:underline">View Aggregated Content Summary</summary>
+                                            <div class="mt-2">${formatText(exec.extraction_result.content, 2000)}</div>
+                                        </details>
+                                    ` : ''}
+                                ` : '<span class="text-gray-400">No aggregation results</span>'}
+                            </div>
+                        </div>
+                    </details>
+                    ` : ''}
+
                     <!-- Step 3: Generate SIGMA -->
                     <details class="border border-red-200 dark:border-red-800 rounded-lg overflow-hidden" ${exec.sigma_rules && exec.sigma_rules.length > 0 ? 'open' : ''}>
                         <summary class="bg-red-100 dark:bg-red-900/40 px-4 py-3 cursor-pointer font-semibold text-gray-900 dark:text-white hover:bg-red-200 dark:hover:bg-red-900/60">
@@ -1009,6 +1166,25 @@ async function retryExecution(executionId) {
 
 function closeModal() {
     document.getElementById('executionModal').classList.add('hidden');
+}
+
+// Close modal when clicking outside
+const executionModal = document.getElementById('executionModal');
+if (executionModal) {
+    executionModal.addEventListener('click', function(e) {
+        if (e.target === this) {
+            closeModal();
+        }
+    });
+}
+
+const executeModal = document.getElementById('executeModal');
+if (executeModal) {
+    executeModal.addEventListener('click', function(e) {
+        if (e.target === this) {
+            closeExecuteModal();
+        }
+    });
 }
 
 // Close modal with ESC key

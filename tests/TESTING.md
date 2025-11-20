@@ -207,22 +207,61 @@ Core functionality testing with mocked dependencies:
 - **`test_core.py`** (8 tests) - Core system functionality
 - **`test_database.py`** (5 tests) - Database models and schemas
 
-#### UI Tests (80+ tests)
+#### UI Tests (380+ tests)
 User interface testing with Playwright sync API:
 
-- **`test_ai_assistant_ui.py`** (15 tests) - AI Assistant interface
-- **`test_ui_flows.py`** (13 tests) - User workflow testing
+- **`test_ai_assistant_ui.py`** (17 tests) - AI Assistant interface
+- **`test_analytics_pages_ui.py`** (11 tests) - Analytics dashboard pages
+- **`test_analytics_ui.py`** (20 tests) - Analytics main page
+- **`test_article_classification.py`** (9 tests) - Article classification UI
+- **`test_article_interactions_ui.py`** (10 tests) - Article interactions
 - **`test_collect_now_button.py`** (9 tests) - Collection button functionality
-- **`test_article_classification.py`** (15 tests) - Article classification UI
-- **`test_health_page.py`** (9 tests) - Health monitoring page
+- **`test_dashboard_functionality.py`** (11 tests) - Dashboard functionality
+- **`test_diags_ui.py`** (51 tests) - Diagnostics page
+- **`test_health_page.py`** (15 tests) - Health monitoring page
+- **`test_help_ui.py`** (42 tests) - Help page and modals
+- **`test_ioc_*.py`** (9 tests) - IOC extraction UI tests (5 files)
+- **`test_jobs_monitor_ui.py`** (8 tests) - Jobs monitor
+- **`test_mobile_annotation.py`** (13 tests) - Mobile annotation
+- **`test_modal_interactions_ui.py`** (20 tests) - Modal interactions
+- **`test_navigation_ui.py`** (11 tests) - Navigation and breadcrumbs
+- **`test_ollama_test_button_ui.py`** (13 tests) - Ollama test button
+- **`test_pdf_upload_ui.py`** (6 tests) - PDF upload
+- **`test_prompt_sync_ui.py`** (24 tests) - Prompt synchronization
+- **`test_rag_chat_ui.py`** (16 tests) - RAG chat interface
+- **`test_settings_ui.py`** (63 tests) - Settings page
+- **`test_sources_ui.py`** (8 tests) - Sources management
+- **`test_ui_flows.py`** (16 tests) - User workflow testing
+- **`test_workflow_tabs_ui.py`** (3 tests) - Workflow agent config subpages visibility
 
-#### Integration Tests (50+ tests)
+#### Integration Tests (200+ tests)
 Cross-component testing with real dependencies:
 
-- **`test_system_integration.py`** (13 tests) - Full system integration
-- **`test_lightweight_integration.py`** (12 tests) - Lightweight integration
-- **`test_ai_real_api_integration.py`** (10 tests) - Real AI API integration
+- **`test_agentic_workflow_comprehensive.py`** - Full agentic workflow simulation
+- **`test_ai_api.py`** - AI API integration
+- **`test_ai_assistant.py`** - AI Assistant integration
 - **`test_ai_cross_model_integration.py`** (11 tests) - Cross-model AI integration
+- **`test_ai_real_api_integration.py`** (10 tests) - Real AI API integration
+- **`test_analytics_integration.py`** - Analytics integration
+- **`test_annotation_feedback_integration.py`** - Annotation feedback loop
+- **`test_backup_restore.py`** - Backup and restore
+- **`test_celery_workflow_integration.py`** - Celery workflows
+- **`test_content_pipeline_integration.py`** - Content pipeline
+- **`test_error_recovery_integration.py`** - Error recovery
+- **`test_export_backup_integration.py`** - Export/backup workflows
+- **`test_gpt4o_filtering.py`** - GPT-4o filtering
+- **`test_huntable_probability.py`** - Huntable probability
+- **`test_lightweight_integration.py`** (12 tests) - Lightweight integration
+- **`test_mobile_annotation_direct.py`** - Mobile annotation
+- **`test_ollama_test_button_integration.py`** - Ollama integration
+- **`test_rag_conversation_integration.py`** - RAG conversations
+- **`test_retraining_integration.py`** - Retraining workflows
+- **`test_scoring_system_integration.py`** - Scoring system
+- **`test_sigma_generation_e2e.py`** - SIGMA generation
+- **`test_source_health.py`** - Source health monitoring
+- **`test_source_management_integration.py`** - Source management
+- **`test_summarization.py`** - Summarization
+- **`test_system_integration.py`** (13 tests) - Full system integration
 
 #### Integration Workflow Tests (NEW)
 End-to-end workflow testing with real services:

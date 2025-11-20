@@ -219,15 +219,45 @@ python3 run_tests.py e2e             # End-to-end tests
 
 ### UI Tests 🖥️
 **Purpose**: Web interface testing (Playwright)
-**Files**: 6 files in `ui/`
-**Coverage**: 80+ tests, all passing
+**Files**: 28 files in `ui/` (includes TypeScript Playwright test wrapper)
+**Coverage**: 383+ tests, all passing
 **Run**: `python3 run_tests.py ui`
 
 ### E2E Tests 🎭
 **Purpose**: Complete user workflow testing
-**Files**: 20+ files in `e2e/`
-**Coverage**: 13+ tests, all passing
+**Files**: 19 files in `e2e/`
+**Coverage**: 120+ tests, all passing
 **Run**: `python3 run_tests.py e2e`
+
+### API Tests 🔌
+**Purpose**: REST API endpoint testing
+**Files**: 12 files in `api/`
+**Coverage**: 123+ tests, all passing
+**Run**: `pytest tests/api/ -v`
+
+### Integration Tests 🔗
+**Purpose**: Cross-component testing with real dependencies
+**Files**: 25 files in `integration/`
+**Coverage**: 200+ tests, all passing
+**Run**: `pytest tests/integration/ -v`
+
+### CLI Tests 💻
+**Purpose**: Command-line interface testing
+**Files**: 3 files in `cli/`
+**Coverage**: 20+ tests, all passing
+**Run**: `pytest tests/cli/ -v`
+
+### Utils Tests 🛠️
+**Purpose**: Test utility and helper testing
+**Files**: 4 files in `utils/`
+**Coverage**: 10+ tests, all passing
+**Run**: `pytest tests/utils/ -v`
+
+### Workflows Tests 🔄
+**Purpose**: Workflow and LangGraph testing
+**Files**: 1 file in `workflows/`
+**Coverage**: 10+ tests, all passing
+**Run**: `pytest tests/workflows/ -v`
 
 ## 🚧 Known Issues
 

@@ -89,6 +89,19 @@
             loadEmbeddingStats();
         }, []);
 
+        // Close YAML modal on Escape key
+        useEffect(() => {
+            const handleEscape = (e) => {
+                if (e.key === 'Escape' && yamlModal.isOpen) {
+                    closeYamlModal();
+                }
+            };
+            document.addEventListener('keydown', handleEscape);
+            return () => {
+                document.removeEventListener('keydown', handleEscape);
+            };
+        }, [yamlModal.isOpen]);
+
         const normalizeModelSelection = (value) => {
             if (!value) {
                 return 'chatgpt';

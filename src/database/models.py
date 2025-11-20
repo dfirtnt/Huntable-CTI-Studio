@@ -464,6 +464,10 @@ class AgenticWorkflowConfigTable(Base):
     # e.g., {"OSDetectionAgent": true, "RankAgent": false, "ExtractAgent": true, "SigmaAgent": true}
     qa_enabled = Column(JSONB, nullable=True)
     
+    # SIGMA Agent fallback: if True, use filtered_content when extraction_result has no huntables
+    # Default False (no fallback - SIGMA only generates from extracted observables)
+    sigma_fallback_enabled = Column(Boolean, nullable=False, default=False)
+    
     # Timestamps
     created_at = Column(DateTime, nullable=False, default=func.now())
     updated_at = Column(DateTime, nullable=False, default=func.now(), onupdate=func.now())

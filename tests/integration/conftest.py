@@ -14,6 +14,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 from datetime import datetime
 import sys
 from pathlib import Path
+from src.models.source import SourceCreate, SourceConfig
+from src.models.article import ArticleCreate
 
 # Add project root to path
 project_root = Path(__file__).parent.parent.parent
@@ -81,10 +83,19 @@ async def test_database_with_rollback(celery_worker_available):
 def test_database_manager(test_database_with_rollback):
     """Provide test database manager with transaction rollback."""
     from src.database.async_manager import AsyncDatabaseManager
+    from contextlib import asynccontextmanager
     
+    class TestAsyncDatabaseManager(AsyncDatabaseManager):
+        @asynccontextmanager
+        async def get_session(self):
+            yield test_database_with_rollback
+            
     # Create manager with test session
-    manager = AsyncDatabaseManager()
-    # Use the test session with rollback
+    # Use a valid URL to avoid init errors, though we'll override the session
+    db_url = os.getenv("DATABASE_URL", "postgresql+asyncpg://cti_user:cti_pass@localhost:5432/cti_scraper_test")
+    print(f"DEBUG: Creating TestAsyncDatabaseManager with {db_url}")
+    manager = TestAsyncDatabaseManager(database_url=db_url)
+    print(f"DEBUG: Manager type: {type(manager)}")
     return manager
 
 
@@ -222,34 +233,32 @@ def mock_rss_feed():
 @pytest.fixture
 def test_source_config():
     """Test source configuration."""
-    return {
-        "identifier": "test-source-integration",
-        "name": "Test Integration Source",
-        "url": "https://test.example.com",
-        "rss_url": "https://test.example.com/feed.xml",
-        "check_frequency": 3600,
-        "lookback_days": 180,
-        "active": True,
-        "config": {
-            "collection_method": "rss",
-            "fallback_to_scraping": True
-        }
-    }
+    return SourceCreate(
+        identifier="test-source-integration",
+        name="Test Integration Source",
+        url="https://test.example.com",
+        rss_url="https://test.example.com/feed.xml",
+        check_frequency=3600,
+        lookback_days=180,
+        active=True,
+        config=SourceConfig(
+            collection_method="rss",
+            fallback_to_scraping=True
+        )
+    )
 
 
 @pytest.fixture
 def sample_article_data():
     """Sample article data for testing."""
-    return {
-        "title": "Test Threat Intelligence Article",
-        "content": "Sample content with rundll32.exe, WINDIR, appdata references and threat hunting indicators",
-        "canonical_url": "https://test.example.com/test-article",
-        "published_date": datetime.now(),
-        "source_id": 1,
-        "content_hash": "test-hash-123",
-        "collected_at": datetime.now(),
-        "discovered_at": datetime.now()
-    }
+    return ArticleCreate(
+        title="Test Threat Intelligence Article",
+        content="Sample content with rundll32.exe, WINDIR, appdata references and threat hunting indicators",
+        canonical_url="https://test.example.com/test-article",
+        published_at=datetime.now(),
+        source_id=1,
+        content_hash="test-hash-123"
+    )
 
 
 @pytest.fixture

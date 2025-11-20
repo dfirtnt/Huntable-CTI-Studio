@@ -539,6 +539,7 @@ function getHealthStatusIcon(status) {
         case 'healthy': return '✅';
         case 'unhealthy': return '❌';
         case 'error': return '⚠️';
+        case 'not_configured': return '⚪';
         default: return '❓';
     }
 }
@@ -713,13 +714,17 @@ async function updateServicesHealth() {
         content.innerHTML = `
             <div class="space-y-4">
                 ${Object.entries(services).map(([serviceName, serviceData]) => `
-                    <div class="p-4 ${serviceData.status === 'healthy' ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'} border rounded-lg">
+                    <div class="p-4 ${serviceData.status === 'healthy' || serviceData.status === 'not_configured' ? 
+                        (serviceData.status === 'healthy' ? 'bg-green-50 border-green-200' : 'bg-gray-50 border-gray-200') : 
+                        'bg-red-50 border-red-200'} border rounded-lg">
                         <div class="flex items-center justify-between">
                             <div class="flex items-center">
                                 <span class="text-2xl mr-2">${getHealthStatusIcon(serviceData.status)}</span>
                                 <div>
-                                    <h3 class="font-medium ${serviceData.status === 'healthy' ? 'text-green-900' : 'text-red-900'}">${serviceName.toUpperCase()}</h3>
-                                    <p class="text-sm ${serviceData.status === 'healthy' ? 'text-green-700' : 'text-red-700'}">${serviceData.status}</p>
+                                    <h3 class="font-medium ${serviceData.status === 'healthy' ? 'text-green-900' : 
+                                        serviceData.status === 'not_configured' ? 'text-gray-900' : 'text-red-900'}">${serviceName.toUpperCase()}</h3>
+                                    <p class="text-sm ${serviceData.status === 'healthy' ? 'text-green-700' : 
+                                        serviceData.status === 'not_configured' ? 'text-gray-700' : 'text-red-700'}">${serviceData.status}</p>
                                 </div>
                             </div>
                             ${serviceData.status === 'healthy' ? `
@@ -727,16 +732,28 @@ async function updateServicesHealth() {
                                     ${serviceName === 'ollama' ? `
                                         <p class="font-medium">${serviceData.models_available} models available</p>
                                         <p class="text-xs text-gray-600">${serviceData.models.join(', ')}</p>
-                                    ` : serviceName === 'redis' ? `
-                                        <p class="font-medium">Memory: ${Math.round(serviceData.info.used_memory / 1024 / 1024)}MB</p>
                                     ` : serviceName === 'lmstudio' ? `
                                         <p class="font-medium">${serviceData.models_available} models available</p>
-                                        <p class="text-xs text-gray-600">${serviceData.models.join(', ')}</p>
+                                        <p class="text-xs text-gray-600">${serviceData.models.slice(0, 3).join(', ')}${serviceData.models.length > 3 ? '...' : ''}</p>
+                                    ` : serviceName === 'langgraph' ? `
+                                        <p class="font-medium">Server: ${serviceData.url || 'N/A'}</p>
+                                        ${serviceData.version ? `<p class="text-xs text-gray-600">Version: ${serviceData.version}</p>` : ''}
+                                    ` : serviceName === 'langfuse' ? `
+                                        <p class="font-medium">${serviceData.configured ? 'Configured' : 'Not configured'}</p>
+                                        ${serviceData.message ? `<p class="text-xs text-gray-600">${serviceData.message}</p>` : ''}
+                                    ` : serviceName === 'redis' ? `
+                                        <p class="font-medium">Memory: ${Math.round(serviceData.info.used_memory / 1024 / 1024)}MB</p>
                                     ` : ''}
+                                </div>
+                            ` : serviceData.status === 'not_configured' ? `
+                                <div class="text-right text-sm text-gray-600">
+                                    <p class="font-medium">Not Configured</p>
+                                    ${serviceData.message ? `<p class="text-xs">${serviceData.message}</p>` : ''}
                                 </div>
                             ` : `
                                 <div class="text-right text-sm text-red-700">
-                                    <p class="font-medium">${serviceData.error}</p>
+                                    <p class="font-medium">Error</p>
+                                    <p class="text-xs">${serviceData.error || 'Unknown error'}</p>
                                 </div>
                             `}
                         </div>
