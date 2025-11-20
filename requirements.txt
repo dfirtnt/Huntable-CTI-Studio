@@ -2,6 +2,7 @@
 # Pinned versions for reproducible builds
 # Last updated: 2025-01-29
 # Security audit: Updated all packages to latest versions
+# Phase 1 security updates: 2025-01-29 (certifi, charset-normalizer, cryptography)
 
 # Core scraping and processing
 requests==2.32.5
@@ -47,11 +48,11 @@ pydantic-settings==2.11.0
 reportlab==4.2.5  # PDF generation
 
 # Security
-certifi==2025.8.3
+certifi==2025.11.12
 urllib3==2.5.0
-charset-normalizer==3.4.3
+charset-normalizer==3.4.4
 python-multipart==0.0.20
-cryptography>=41.0.0  # Enhanced encryption
+cryptography==46.0.3  # Enhanced encryption
 
 # PDF processing
 PyPDF2==3.0.1
