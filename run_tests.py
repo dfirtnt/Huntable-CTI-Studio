@@ -286,6 +286,75 @@ class TestRunner:
         except Exception:
             return False
     
+    def _check_playwright_dependencies(self) -> bool:
+        """Check if Playwright and npm dependencies are available."""
+        try:
+            # Check if npm/node is available
+            result = subprocess.run(
+                ["npm", "--version"],
+                capture_output=True,
+                check=False
+            )
+            if result.returncode != 0:
+                return False
+            
+            # Check if package.json exists and has dependencies installed
+            if not os.path.exists("package.json"):
+                return False
+            
+            # Check if node_modules exists (dependencies installed)
+            if not os.path.exists("node_modules"):
+                return False
+            
+            # Check if allure-playwright is installed
+            result = subprocess.run(
+                ["npm", "list", "allure-playwright"],
+                capture_output=True,
+                check=False
+            )
+            return result.returncode == 0
+        except Exception:
+            return False
+    
+    def _build_playwright_command(self) -> List[str]:
+        """Build Playwright test command based on configuration."""
+        cmd = ["npx", "playwright", "test"]
+        
+        # Determine which Playwright tests to run based on test type
+        test_path_map = {
+            TestType.SMOKE: [],  # Skip Playwright in smoke tests
+            TestType.UNIT: [],  # Skip Playwright in unit tests
+            TestType.API: [],  # Skip Playwright in API tests
+            TestType.INTEGRATION: [],  # Skip Playwright in integration tests (Python-based)
+            TestType.UI: ["tests/playwright/", "tests/test_help_buttons.spec.js"],
+            TestType.E2E: ["tests/playwright/", "tests/test_help_buttons.spec.js"],
+            TestType.PERFORMANCE: [],  # Skip Playwright in performance tests
+            TestType.AI: [],  # Skip Playwright in AI tests (Python-based)
+            TestType.AI_UI: ["tests/playwright/", "tests/test_help_buttons.spec.js"],
+            TestType.AI_INTEGRATION: [],  # Skip Playwright in AI integration tests
+            TestType.ALL: ["tests/playwright/", "tests/test_help_buttons.spec.js"],
+            TestType.COVERAGE: ["tests/playwright/", "tests/test_help_buttons.spec.js"],
+        }
+        
+        if self.config.test_type in test_path_map:
+            test_paths = test_path_map[self.config.test_type]
+            if test_paths:
+                cmd.extend(test_paths)
+            else:
+                # No Playwright tests for this test type
+                return None
+        else:
+            # Default: run all Playwright tests
+            cmd.extend(["tests/playwright/", "tests/test_help_buttons.spec.js"])
+        
+        # Add verbosity
+        if self.config.verbose or self.config.debug:
+            cmd.append("--reporter=list")
+        
+        # Allure is configured in playwright.config.ts, so no need to add it here
+        
+        return cmd
+    
     def _run_command(self, cmd: str, description: str, capture_output: bool = True) -> bool:
         """Run a command and return success status."""
         logger.info(f"🔄 {description}")
@@ -454,11 +523,16 @@ class TestRunner:
                 if not self.install_dependencies():
                     return False
             
-            # Build and run pytest command
-            cmd = self._build_pytest_command()
-            cmd_str = " ".join(cmd)
+            # Determine if we should run Playwright tests
+            playwright_cmd = self._build_playwright_command()
+            run_playwright = playwright_cmd is not None
             
-            logger.info(f"Executing: {cmd_str}")
+            # Install Playwright dependencies if needed
+            if run_playwright and not self._check_playwright_dependencies():
+                logger.info("Installing Playwright dependencies...")
+                if not self._install_playwright_dependencies():
+                    logger.warning("Failed to install Playwright dependencies, skipping Playwright tests")
+                    run_playwright = False
             
             # Set environment variables
             env = os.environ.copy()
@@ -479,7 +553,16 @@ class TestRunner:
             if self.config.skip_real_api:
                 env["SKIP_REAL_API_TESTS"] = "1"
             
-            # Run tests
+            # Run pytest tests (always run pytest, except when only Playwright tests are needed)
+            pytest_success = True
+            pytest_start_time = time.time()
+            
+            # Build and run pytest command
+            cmd = self._build_pytest_command()
+            cmd_str = " ".join(cmd)
+            
+            logger.info(f"Executing pytest: {cmd_str}")
+            
             try:
                 result = subprocess.run(
                     cmd,
@@ -488,29 +571,110 @@ class TestRunner:
                     timeout=self.config.timeout
                 )
                 
-                success = result.returncode == 0
-                self.results[self.config.test_type.value] = {
-                    "success": success,
+                pytest_success = result.returncode == 0
+                self.results["pytest"] = {
+                    "success": pytest_success,
                     "returncode": result.returncode,
-                    "duration": time.time() - self.start_time
+                    "duration": time.time() - pytest_start_time
                 }
                 
-                return success
-                
             except subprocess.TimeoutExpired:
-                logger.error(f"Test execution timed out after {self.config.timeout} seconds")
-                return False
+                logger.error(f"Pytest execution timed out after {self.config.timeout} seconds")
+                pytest_success = False
             except KeyboardInterrupt:
-                logger.info("Test execution interrupted by user")
-                return False
+                logger.info("Pytest execution interrupted by user")
+                pytest_success = False
             except Exception as e:
-                logger.error(f"Test execution failed: {e}")
+                logger.error(f"Pytest execution failed: {e}")
                 if self.config.debug:
                     logger.exception("Full traceback:")
-                return False
+                pytest_success = False
+            
+            # Run Playwright tests
+            playwright_success = True
+            if run_playwright:
+                playwright_start_time = time.time()
+                cmd_str = " ".join(playwright_cmd)
+                
+                logger.info(f"Executing Playwright: {cmd_str}")
+                
+                try:
+                    result = subprocess.run(
+                        playwright_cmd,
+                        env=env,
+                        cwd=project_root,
+                        timeout=self.config.timeout
+                    )
+                    
+                    playwright_success = result.returncode == 0
+                    self.results["playwright"] = {
+                        "success": playwright_success,
+                        "returncode": result.returncode,
+                        "duration": time.time() - playwright_start_time
+                    }
+                    
+                except subprocess.TimeoutExpired:
+                    logger.error(f"Playwright execution timed out after {self.config.timeout} seconds")
+                    playwright_success = False
+                except KeyboardInterrupt:
+                    logger.info("Playwright execution interrupted by user")
+                    playwright_success = False
+                except Exception as e:
+                    logger.error(f"Playwright execution failed: {e}")
+                    if self.config.debug:
+                        logger.exception("Full traceback:")
+                    playwright_success = False
+            
+            # Overall success requires both to pass (if both ran)
+            if run_playwright:
+                overall_success = pytest_success and playwright_success
+            else:
+                overall_success = pytest_success
+            
+            self.results[self.config.test_type.value] = {
+                "success": overall_success,
+                "pytest": pytest_success,
+                "playwright": playwright_success if run_playwright else None,
+                "duration": time.time() - self.start_time
+            }
+            
+            return overall_success
+                
         finally:
             # Stop debugging components
             self.stop_debugging()
+    
+    def _install_playwright_dependencies(self) -> bool:
+        """Install Playwright and npm dependencies."""
+        try:
+            # Install npm dependencies
+            logger.info("Installing npm dependencies...")
+            result = subprocess.run(
+                ["npm", "install"],
+                cwd=project_root,
+                capture_output=True,
+                check=False
+            )
+            if result.returncode != 0:
+                logger.warning(f"npm install failed: {result.stderr}")
+                return False
+            
+            # Install Playwright browsers
+            logger.info("Installing Playwright browsers...")
+            result = subprocess.run(
+                ["npx", "playwright", "install", "chromium"],
+                cwd=project_root,
+                capture_output=True,
+                check=False
+            )
+            if result.returncode != 0:
+                logger.warning(f"Playwright browser installation failed: {result.stderr}")
+                # Non-fatal, continue anyway
+            
+            return True
+        except Exception as e:
+            logger.error(f"Failed to install Playwright dependencies: {e}")
+            return False
     
     def generate_report(self) -> None:
         """Generate comprehensive test report."""
@@ -571,8 +735,19 @@ class TestRunner:
         if self.results:
             print("\n📋 Test Results:")
             for test_type, result in self.results.items():
-                status = "✅ PASS" if result["success"] else "❌ FAIL"
-                print(f"  {test_type}: {status} ({result['duration']:.2f}s)")
+                if isinstance(result, dict) and "success" in result:
+                    status = "✅ PASS" if result["success"] else "❌ FAIL"
+                    duration = result.get("duration", 0)
+                    print(f"  {test_type}: {status} ({duration:.2f}s)")
+                    
+                    # Show pytest/playwright breakdown if available
+                    if "pytest" in result or "playwright" in result:
+                        if "pytest" in result and result["pytest"] is not None:
+                            pytest_status = "✅" if result["pytest"] else "❌"
+                            print(f"    - pytest: {pytest_status}")
+                        if "playwright" in result and result["playwright"] is not None:
+                            pw_status = "✅" if result["playwright"] else "❌"
+                            print(f"    - playwright: {pw_status}")
         
         # Report locations
         print("\n📁 Generated Reports:")

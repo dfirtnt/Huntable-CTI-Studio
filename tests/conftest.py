@@ -410,6 +410,9 @@ def pytest_configure(config):
     config.addinivalue_line("markers", "dashboard: Dashboard-specific tests")
     config.addinivalue_line("markers", "performance: Performance and load tests")
     config.addinivalue_line("markers", "analytics: Analytics and metrics tests")
+    config.addinivalue_line("markers", "priority_high: High priority E2E tests")
+    config.addinivalue_line("markers", "priority_medium: Medium priority E2E tests")
+    config.addinivalue_line("markers", "priority_low: Low priority E2E tests")
 
 
 def pytest_collection_modifyitems(config, items):
