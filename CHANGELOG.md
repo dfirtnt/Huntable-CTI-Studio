@@ -7,7 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Improved
+- **LMStudio Busy Error Handling**: Enhanced error messages and user experience when LMStudio is busy or unavailable
+  - Updated LangFuse client to provide informative error messages when generator errors occur (often indicates LMStudio busy)
+  - Enhanced test agent endpoints (`test-subagent`, `test-rankagent`) to detect LMStudio busy conditions
+  - Added user-friendly error messages with retry options in test agent modal
+  - Frontend now shows "Wait and Retry" button when LMStudio is detected as busy
+  - Improved error detection for timeout, connection, and overload scenarios
+
 ### Added
+- **Workflow Agent Config Subpages Test**: Playwright test suite to verify workflow agent configuration subpages remain visible
+  - TypeScript Playwright test (`tests/playwright/workflow_tabs.spec.ts`) with 10 test cases
+  - Python pytest wrapper (`tests/ui/test_workflow_tabs_ui.py`) integrated into UI test suite
+  - Verifies all three subpages (Configuration, Executions, SIGMA Queue) are accessible and functional
+  - Tests tab navigation, hash URL routing, and content visibility
+  - Prevents regression where tabs disappear after UI changes
+- **Modal Interactions UI Test**: Comprehensive test suite for modal behavior (`tests/ui/test_modal_interactions_ui.py`)
+  - 20 test cases covering Escape key closing, click-outside closing, and Cmd/Ctrl+Enter submission
+  - Tests all modals: result, source config, execution, trigger workflow, rule, classification, custom prompt, help
+  - Ensures consistent modal UX across the application
+- **Comprehensive Test Documentation Update**: Complete audit and update of test inventory
+  - Updated `tests/TEST_INDEX.md` with all 100+ test files across 9 categories
+  - Documented 28 UI test files (383+ tests), 12 API test files (123+ tests), 19 E2E test files (120+ tests), 25 integration test files (200+ tests)
+  - Added CLI tests (3 files), Utils tests (4 files), Workflows tests (1 file), and Smoke tests (2 files)
+  - Updated test statistics: 1200+ total tests, 900+ active tests (75%+), 205 skipped (~17%), 32 failing (~3%)
+  - Updated `tests/TESTING.md` and `tests/README.md` to reflect comprehensive test coverage
 - **Agentic Workflow Test Coverage**: Comprehensive integration tests for the agentic workflow and LangGraph server
   - **LangGraph Server Tests**: `tests/workflows/test_langgraph_server.py` covering chat logic, input parsing, and node transitions
   - **Comprehensive Integration Test**: `tests/integration/test_agentic_workflow_comprehensive.py` simulating full "happy path" run with Article 1427

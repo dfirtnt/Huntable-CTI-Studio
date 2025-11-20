@@ -30,6 +30,7 @@ class WorkflowConfigResponse(BaseModel):
     agent_prompts: Optional[Dict[str, Any]] = None
     agent_models: Optional[Dict[str, Any]] = None  # Changed from Dict[str, str] to allow None values
     qa_enabled: Optional[Dict[str, bool]] = None
+    sigma_fallback_enabled: bool = False
     created_at: str
     updated_at: str
 
@@ -42,8 +43,9 @@ class WorkflowConfigUpdate(BaseModel):
     junk_filter_threshold: Optional[float] = Field(None, ge=0.0, le=1.0, description="Must be between 0.0 and 1.0")
     description: Optional[str] = None
     agent_prompts: Optional[Dict[str, Any]] = None
-    agent_models: Optional[Dict[str, str]] = None
+    agent_models: Optional[Dict[str, Any]] = None  # Changed from Dict[str, str] to allow numeric temperatures
     qa_enabled: Optional[Dict[str, bool]] = None
+    sigma_fallback_enabled: Optional[bool] = False
 
 
 class AgentPromptUpdate(BaseModel):
@@ -82,7 +84,8 @@ async def get_workflow_config(request: Request):
                     junk_filter_threshold=0.8,
                     version=1,
                     is_active=True,
-                    description="Default configuration"
+                    description="Default configuration",
+                    sigma_fallback_enabled=False
                 )
                 db_session.add(config)
                 db_session.commit()
@@ -106,6 +109,7 @@ async def get_workflow_config(request: Request):
                 agent_prompts=agent_prompts,
                 agent_models=agent_models,
                 qa_enabled=qa_enabled,
+                sigma_fallback_enabled=config.sigma_fallback_enabled if hasattr(config, 'sigma_fallback_enabled') else False,
                 created_at=config.created_at.isoformat(),
                 updated_at=config.updated_at.isoformat()
             )
@@ -149,6 +153,22 @@ async def update_workflow_config(request: Request, config_update: WorkflowConfig
                 raise HTTPException(status_code=400, detail=f"Junk filter threshold must be between 0.0 and 1.0, got {junk_filter_threshold}")
             
             # Create new config version
+            sigma_fallback = config_update.sigma_fallback_enabled if config_update.sigma_fallback_enabled is not None else (current_config.sigma_fallback_enabled if current_config and hasattr(current_config, 'sigma_fallback_enabled') else False)
+            
+            # Merge agent_models instead of replacing (preserve existing models when updating)
+            merged_agent_models = None
+            if config_update.agent_models is not None:
+                # Start with current config's agent_models if it exists
+                if current_config and current_config.agent_models:
+                    merged_agent_models = current_config.agent_models.copy()
+                else:
+                    merged_agent_models = {}
+                # Update with new values from config_update
+                merged_agent_models.update(config_update.agent_models)
+                logger.info(f"Merged agent_models: {merged_agent_models} (update: {config_update.agent_models}, current: {current_config.agent_models if current_config else None})")
+            elif current_config:
+                merged_agent_models = current_config.agent_models
+            
             new_config = AgenticWorkflowConfigTable(
                 min_hunt_score=config_update.min_hunt_score if config_update.min_hunt_score is not None else (current_config.min_hunt_score if current_config else 97.0),
                 ranking_threshold=ranking_threshold,
@@ -158,8 +178,9 @@ async def update_workflow_config(request: Request, config_update: WorkflowConfig
                 is_active=True,
                 description=config_update.description or (current_config.description if current_config else "Updated configuration"),
                 agent_prompts=config_update.agent_prompts if config_update.agent_prompts is not None else (current_config.agent_prompts if current_config else None),
-                agent_models=config_update.agent_models if config_update.agent_models is not None else (current_config.agent_models if current_config else None),
-                qa_enabled=config_update.qa_enabled if config_update.qa_enabled is not None else (current_config.qa_enabled if current_config else None)
+                agent_models=merged_agent_models,
+                qa_enabled=config_update.qa_enabled if config_update.qa_enabled is not None else (current_config.qa_enabled if current_config else None),
+                sigma_fallback_enabled=sigma_fallback
             )
             
             db_session.add(new_config)
@@ -180,6 +201,7 @@ async def update_workflow_config(request: Request, config_update: WorkflowConfig
                 agent_prompts=new_config.agent_prompts,
                 agent_models=new_config.agent_models,
                 qa_enabled=new_config.qa_enabled,
+                sigma_fallback_enabled=new_config.sigma_fallback_enabled,
                 created_at=new_config.created_at.isoformat(),
                 updated_at=new_config.updated_at.isoformat()
             )
@@ -595,6 +617,7 @@ async def test_sub_agent(request: Request, test_request: TestSubAgentRequest):
             
             # Load QA config if exists
             qa_agent_map = {
+                "CmdlineExtract": "CmdLineQA",
                 "SigExtract": "SigQA",
                 "EventCodeExtract": "EventCodeQA",
                 "ProcTreeExtract": "ProcTreeQA",
@@ -652,8 +675,29 @@ async def test_sub_agent(request: Request, test_request: TestSubAgentRequest):
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error testing sub-agent: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        error_msg = str(e)
+        # Check if error is related to LMStudio being busy
+        is_lmstudio_busy = (
+            "generator didn't stop after throw" in error_msg.lower() or
+            "timeout" in error_msg.lower() or
+            "overloaded" in error_msg.lower() or
+            "cannot connect" in error_msg.lower() or
+            "connection" in error_msg.lower()
+        )
+        
+        if is_lmstudio_busy:
+            logger.error(f"Error testing sub-agent (LMStudio may be busy): {e}", exc_info=True)
+            raise HTTPException(
+                status_code=503,
+                detail=(
+                    "LMStudio appears to be busy or unavailable. "
+                    "The model may be processing another request. "
+                    "Would you like to wait and try again, or retry later?"
+                )
+            )
+        else:
+            logger.error(f"Error testing sub-agent: {e}", exc_info=True)
+            raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.post("/config/test-rankagent")
@@ -723,6 +767,27 @@ async def test_rank_agent(request: Request, test_request: TestRankAgentRequest):
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error testing Rank Agent: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        error_msg = str(e)
+        # Check if error is related to LMStudio being busy
+        is_lmstudio_busy = (
+            "generator didn't stop after throw" in error_msg.lower() or
+            "timeout" in error_msg.lower() or
+            "overloaded" in error_msg.lower() or
+            "cannot connect" in error_msg.lower() or
+            "connection" in error_msg.lower()
+        )
+        
+        if is_lmstudio_busy:
+            logger.error(f"Error testing Rank Agent (LMStudio may be busy): {e}", exc_info=True)
+            raise HTTPException(
+                status_code=503,
+                detail=(
+                    "LMStudio appears to be busy or unavailable. "
+                    "The model may be processing another request. "
+                    "Would you like to wait and try again, or retry later?"
+                )
+            )
+        else:
+            logger.error(f"Error testing Rank Agent: {e}", exc_info=True)
+            raise HTTPException(status_code=500, detail=str(e))
 

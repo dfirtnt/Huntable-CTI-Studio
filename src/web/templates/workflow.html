@@ -529,6 +529,27 @@
                         </div>
                         <!-- SIGMA QA Agent Prompt -->
                         <div id="sigma-agent-qa-prompt-container" class="hidden"></div>
+                        
+                        <!-- SIGMA Fallback Toggle -->
+                        <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                        SIGMA Fallback to Article Content
+                                    </label>
+                                    <p class="text-xs text-gray-500 dark:text-gray-400">
+                                        If enabled, SIGMA generation will use filtered article content when extraction agents find no observables. If disabled, SIGMA only generates from extracted observables.
+                                    </p>
+                                </div>
+                                <label class="relative inline-flex items-center cursor-pointer">
+                                    <input type="checkbox" 
+                                           id="sigma-fallback-enabled" 
+                                           name="sigma_fallback_enabled"
+                                           class="sr-only peer">
+                                    <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 dark:peer-focus:ring-purple-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-purple-600"></div>
+                                </label>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -1573,16 +1594,6 @@ function validateThreshold(input, min, max) {
     return true;
 }
 
-const workflowConfigForm = document.getElementById('workflowConfigForm');
-if (workflowConfigForm) {
-    workflowConfigForm.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        
-        // Form submission handled by new config form
-        return false;
-    });
-}
-
 // Configuration Functions (variables declared above)
 
 // Make updateQABadge globally accessible
@@ -1719,6 +1730,12 @@ async function loadConfig() {
             // Load QA settings
             loadQASettings2();
             
+            // Load SIGMA fallback setting
+            const sigmaFallbackCheckbox = document.getElementById('sigma-fallback-enabled');
+            if (sigmaFallbackCheckbox && currentConfig.sigma_fallback_enabled !== undefined) {
+                sigmaFallbackCheckbox.checked = currentConfig.sigma_fallback_enabled;
+            }
+            
             // Initialize change tracking after config is loaded
             initializeChangeTracking();
             
@@ -1827,10 +1844,17 @@ function renderAgentModels(lmstudioModels) {
     const rankContainer = document.getElementById('rank-agent-model-container');
     if (rankContainer) {
         const currentModel = agentModels['RankAgent'] || '';
+        const currentTemperature = agentModels['RankAgent_temperature'] !== undefined ? agentModels['RankAgent_temperature'] : 0.0;
         // Models are returned as strings, not objects with .id property
-        const modelOptions = lmstudioModels.map(m => {
-            const modelId = typeof m === 'string' ? m : m.id;
-            return `<option value="${escapeHtml(modelId)}" ${currentModel === modelId ? 'selected' : ''}>${escapeHtml(modelId)}</option>`;
+        const availableModelIds = lmstudioModels.map(m => typeof m === 'string' ? m : m.id);
+        
+        // Ensure current model is in the list (even if not in available models)
+        const allModelIds = [...new Set([...availableModelIds, ...(currentModel ? [currentModel] : [])])];
+        
+        const modelOptions = allModelIds.map(modelId => {
+            const isSelected = currentModel === modelId ? 'selected' : '';
+            const isUnavailable = !availableModelIds.includes(modelId) ? ' (not in LM Studio)' : '';
+            return `<option value="${escapeHtml(modelId)}" ${isSelected}>${escapeHtml(modelId)}${isUnavailable}</option>`;
         }).join('');
         rankContainer.innerHTML = `
             <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
@@ -1847,7 +1871,7 @@ function renderAgentModels(lmstudioModels) {
                 <!-- Temperature -->
                 <div class="mt-3">
                     <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">Temperature</label>
-                    <input type="number" id="rankagent-temperature" name="agent_models[RankAgent_temperature]" min="0" max="2" step="0.1" value="0.0" onchange="autoSaveModelChange()" class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white text-xs">
+                    <input type="number" id="rankagent-temperature" name="agent_models[RankAgent_temperature]" min="0" max="2" step="0.1" value="${currentTemperature}" onchange="autoSaveModelChange()" class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white text-xs">
                 </div>
             </div>
         `;
@@ -1944,9 +1968,16 @@ function renderAgentModels(lmstudioModels) {
         const select = document.getElementById(subAgent.id);
         if (select) {
             const currentModel = agentModels[`${subAgent.name}_model`] || '';
-            const modelOptions = lmstudioModels.map(m => {
-                const modelId = typeof m === 'string' ? m : m.id;
-                return `<option value="${escapeHtml(modelId)}" ${currentModel === modelId ? 'selected' : ''}>${escapeHtml(modelId)}</option>`;
+            // Models are returned as strings, not objects with .id property
+            const availableModelIds = lmstudioModels.map(m => typeof m === 'string' ? m : m.id);
+            
+            // Ensure current model is in the list (even if not in available models)
+            const allModelIds = [...new Set([...availableModelIds, ...(currentModel ? [currentModel] : [])])];
+            
+            const modelOptions = allModelIds.map(modelId => {
+                const isSelected = currentModel === modelId ? 'selected' : '';
+                const isUnavailable = !availableModelIds.includes(modelId) ? ' (not in LM Studio)' : '';
+                return `<option value="${escapeHtml(modelId)}" ${isSelected}>${escapeHtml(modelId)}${isUnavailable}</option>`;
             }).join('');
             select.innerHTML = '<option value="">Use Extract Agent Model</option>' + modelOptions;
             // Add onChange handler if not already present
@@ -1984,7 +2015,9 @@ function showTestModal(agentName, articleId) {
                     </div>
                 </div>
                 <div class="p-4 border-t border-gray-200 dark:border-gray-700">
-                    <button onclick="closeTestModal()" class="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-md text-sm">Close</button>
+                    <div id="test-modal-actions" class="flex gap-2">
+                        <button onclick="closeTestModal()" class="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-md text-sm">Close</button>
+                    </div>
                 </div>
             </div>
         `;
@@ -2038,12 +2071,33 @@ async function testSubAgent(agentName, articleId) {
         resultsDiv.classList.remove('hidden');
         
         const resultsContent = document.getElementById('test-modal-results-content');
-        if (data.success) {
+        if (response.ok && data.success) {
             resultsContent.textContent = JSON.stringify(data.result, null, 2);
             resultsContent.className = 'bg-green-50 dark:bg-green-900/20 p-3 rounded border border-green-200 dark:border-green-800 text-xs overflow-x-auto text-gray-500 dark:text-gray-400';
+            // Reset actions to just Close button
+            document.getElementById('test-modal-actions').innerHTML = '<button onclick="closeTestModal()" class="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-md text-sm">Close</button>';
         } else {
-            resultsContent.textContent = `Error: ${data.detail || 'Unknown error'}`;
+            const errorMsg = data.detail || 'Unknown error';
+            resultsContent.textContent = `Error: ${errorMsg}`;
             resultsContent.className = 'bg-red-50 dark:bg-red-900/20 p-3 rounded border border-red-200 dark:border-red-800 text-xs overflow-x-auto text-gray-500 dark:text-gray-400';
+            
+            // Check if LMStudio is busy
+            const isLmstudioBusy = response.status === 503 && (
+                errorMsg.toLowerCase().includes('busy') || 
+                errorMsg.toLowerCase().includes('unavailable') ||
+                errorMsg.toLowerCase().includes('would you like to wait')
+            );
+            
+            if (isLmstudioBusy) {
+                // Show retry options
+                document.getElementById('test-modal-actions').innerHTML = `
+                    <button onclick="testSubAgent('${agentName}', ${articleId})" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-sm">Wait and Retry</button>
+                    <button onclick="closeTestModal()" class="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-md text-sm">Close</button>
+                `;
+            } else {
+                // Reset actions to just Close button
+                document.getElementById('test-modal-actions').innerHTML = '<button onclick="closeTestModal()" class="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-md text-sm">Close</button>';
+            }
         }
     } catch (error) {
         document.getElementById('test-modal-progress').classList.add('hidden');
@@ -2052,6 +2106,8 @@ async function testSubAgent(agentName, articleId) {
         const resultsContent = document.getElementById('test-modal-results-content');
         resultsContent.textContent = `Error: ${error.message}`;
         resultsContent.className = 'bg-red-50 dark:bg-red-900/20 p-3 rounded border border-red-200 dark:border-red-800 text-xs overflow-x-auto text-gray-500 dark:text-gray-400';
+        // Reset actions to just Close button
+        document.getElementById('test-modal-actions').innerHTML = '<button onclick="closeTestModal()" class="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-md text-sm">Close</button>';
     }
 }
 
@@ -2075,12 +2131,33 @@ async function testRankAgent(articleId) {
         resultsDiv.classList.remove('hidden');
         
         const resultsContent = document.getElementById('test-modal-results-content');
-        if (data.success) {
+        if (response.ok && data.success) {
             resultsContent.textContent = JSON.stringify(data.result, null, 2);
             resultsContent.className = 'bg-green-50 dark:bg-green-900/20 p-3 rounded border border-green-200 dark:border-green-800 text-xs overflow-x-auto text-gray-500 dark:text-gray-400';
+            // Reset actions to just Close button
+            document.getElementById('test-modal-actions').innerHTML = '<button onclick="closeTestModal()" class="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-md text-sm">Close</button>';
         } else {
-            resultsContent.textContent = `Error: ${data.detail || 'Unknown error'}`;
+            const errorMsg = data.detail || 'Unknown error';
+            resultsContent.textContent = `Error: ${errorMsg}`;
             resultsContent.className = 'bg-red-50 dark:bg-red-900/20 p-3 rounded border border-red-200 dark:border-red-800 text-xs overflow-x-auto text-gray-500 dark:text-gray-400';
+            
+            // Check if LMStudio is busy
+            const isLmstudioBusy = response.status === 503 && (
+                errorMsg.toLowerCase().includes('busy') || 
+                errorMsg.toLowerCase().includes('unavailable') ||
+                errorMsg.toLowerCase().includes('would you like to wait')
+            );
+            
+            if (isLmstudioBusy) {
+                // Show retry options
+                document.getElementById('test-modal-actions').innerHTML = `
+                    <button onclick="testRankAgent(${articleId})" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-sm">Wait and Retry</button>
+                    <button onclick="closeTestModal()" class="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-md text-sm">Close</button>
+                `;
+            } else {
+                // Reset actions to just Close button
+                document.getElementById('test-modal-actions').innerHTML = '<button onclick="closeTestModal()" class="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-md text-sm">Close</button>';
+            }
         }
     } catch (error) {
         document.getElementById('test-modal-progress').classList.add('hidden');
@@ -2089,6 +2166,8 @@ async function testRankAgent(articleId) {
         const resultsContent = document.getElementById('test-modal-results-content');
         resultsContent.textContent = `Error: ${error.message}`;
         resultsContent.className = 'bg-red-50 dark:bg-red-900/20 p-3 rounded border border-red-200 dark:border-red-800 text-xs overflow-x-auto text-gray-500 dark:text-gray-400';
+        // Reset actions to just Close button
+        document.getElementById('test-modal-actions').innerHTML = '<button onclick="closeTestModal()" class="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-md text-sm">Close</button>';
     }
 }
 
@@ -2096,8 +2175,20 @@ async function testRankAgent(articleId) {
 window.autoSaveModelChange = async function autoSaveModelChange() {
     try {
         // Collect all current agent_models values
+        const rankModelSelect = document.getElementById('rankagent-model-2');
+        const rankModelValue = rankModelSelect?.value?.trim() || null;
+        
+        // Debug logging
+        if (rankModelSelect) {
+            console.log('Rank Agent model change:', {
+                selectedValue: rankModelValue,
+                selectElement: rankModelSelect,
+                allOptions: Array.from(rankModelSelect.options).map(opt => ({ value: opt.value, text: opt.text, selected: opt.selected }))
+            });
+        }
+        
         const agentModelsData = {
-            RankAgent: document.getElementById('rankagent-model-2')?.value.trim() || null,
+            RankAgent: rankModelValue,
             RankAgent_temperature: parseFloat(document.getElementById('rankagent-temperature')?.value) || 0.0,
             OSDetectionAgent_embedding: document.getElementById('osdetectionagent-embedding-model-2')?.value.trim() || 'ibm-research/CTI-BERT',
             OSDetectionAgent_fallback: document.getElementById('osdetectionagent-fallback-model-2')?.value.trim() || null,
@@ -2116,12 +2207,25 @@ window.autoSaveModelChange = async function autoSaveModelChange() {
         };
         
         // Remove null/empty string values (but keep 0.0 for temperature)
+        // CRITICAL: RankAgent must be included if it has a value (even if empty string, to override env var)
         const cleanedAgentModels = {};
         for (const [key, value] of Object.entries(agentModelsData)) {
-            if (value !== null && value !== '') {
+            // Always include RankAgent if it has a value (non-null, even if empty string)
+            if (key === 'RankAgent') {
+                // Include if value exists (not null) - empty string is valid to clear it
+                if (rankModelValue !== null && rankModelValue !== undefined) {
+                    cleanedAgentModels[key] = rankModelValue;
+                }
+            } else if (value !== null && value !== '') {
                 cleanedAgentModels[key] = value;
             }
         }
+        
+        console.log('Auto-saving agent models:', cleanedAgentModels);
+        console.log('RankAgent value from select:', rankModelValue, 'Type:', typeof rankModelValue);
+        
+        // Update save button state when models change (even though we auto-save, button should reflect changes)
+        updateSaveButtonState();
         
         // Get current config to preserve other settings
         if (!currentConfig) {
@@ -2136,15 +2240,18 @@ window.autoSaveModelChange = async function autoSaveModelChange() {
         }
         
         // Build update payload with only fields that can be updated
+        // CRITICAL: Always send agent_models if RankAgent is set, even if it's the only field
         const updateData = {
             min_hunt_score: currentConfig.min_hunt_score,
             ranking_threshold: currentConfig.ranking_threshold,
             similarity_threshold: currentConfig.similarity_threshold,
             junk_filter_threshold: currentConfig.junk_filter_threshold,
             description: currentConfig.description || null,
-            agent_models: Object.keys(cleanedAgentModels).length > 0 ? cleanedAgentModels : null,
+            agent_models: (Object.keys(cleanedAgentModels).length > 0 || cleanedAgentModels.RankAgent !== undefined) ? cleanedAgentModels : null,
             qa_enabled: currentConfig.qa_enabled || null
         };
+        
+        console.log('Sending update payload:', JSON.stringify(updateData, null, 2));
         
         const response = await fetch('/api/workflow/config', {
             method: 'PUT',
@@ -2156,10 +2263,21 @@ window.autoSaveModelChange = async function autoSaveModelChange() {
             const updatedConfig = await response.json();
             currentConfig = updatedConfig;
             agentModels = updatedConfig.agent_models || {};
-            console.log('Model change auto-saved successfully');
+            console.log('✅ Model change auto-saved successfully');
+            console.log('Updated config agent_models:', updatedConfig.agent_models);
+            
+            // Verify the saved value matches what we sent
+            const savedRankModel = updatedConfig.agent_models?.RankAgent;
+            if (savedRankModel !== rankModelValue) {
+                console.warn(`⚠️ Model mismatch! Sent: "${rankModelValue}", Saved: "${savedRankModel}"`);
+            } else {
+                console.log(`✅ RankAgent model verified: "${savedRankModel}"`);
+            }
         } else {
             const error = await response.json();
-            console.error('Failed to auto-save model change:', error.detail || 'Unknown error');
+            console.error('❌ Failed to auto-save model change:', error.detail || 'Unknown error');
+            console.error('Response status:', response.status);
+            console.error('Response body:', error);
         }
     } catch (error) {
         console.error('Error auto-saving model change:', error);
@@ -2584,12 +2702,53 @@ function getCurrentFormState() {
         qaEnabled[agentName] = checkbox ? checkbox.checked : false;
     });
     
+    // Get agent models from form
+    const agent_models = {};
+    const rankModel = document.getElementById('rankagent-model-2')?.value.trim();
+    if (rankModel) agent_models.RankAgent = rankModel;
+    
+    const rankTemp = document.getElementById('rankagent-temperature')?.value;
+    if (rankTemp !== undefined) agent_models.RankAgent_temperature = parseFloat(rankTemp) || 0.0;
+    
+    const extractModel = document.getElementById('extractagent-model-2')?.value.trim();
+    if (extractModel) agent_models.ExtractAgent = extractModel;
+    
+    const sigmaModel = document.getElementById('sigmaagent-model-2')?.value.trim();
+    if (sigmaModel) agent_models.SigmaAgent = sigmaModel;
+    
+    const osEmbedding = document.getElementById('osdetectionagent-embedding-model-2')?.value.trim();
+    if (osEmbedding) agent_models.OSDetectionAgent_embedding = osEmbedding;
+    
+    const osFallback = document.getElementById('osdetectionagent-fallback-model-2')?.value.trim();
+    if (osFallback) agent_models.OSDetectionAgent_fallback = osFallback;
+    
+    // Get sub-agent models
+    const subAgents = [
+        { name: 'CmdlineExtract', id: 'cmdlineextract-model', tempId: 'cmdlineextract-temperature' },
+        { name: 'SigExtract', id: 'sigextract-model', tempId: 'sigextract-temperature' },
+        { name: 'EventCodeExtract', id: 'eventcodeextract-model', tempId: 'eventcodeextract-temperature' },
+        { name: 'ProcTreeExtract', id: 'proctreeextract-model', tempId: 'proctreeextract-temperature' },
+        { name: 'RegExtract', id: 'regextract-model', tempId: 'regextract-temperature' }
+    ];
+    
+    subAgents.forEach(subAgent => {
+        const modelValue = document.getElementById(subAgent.id)?.value.trim();
+        if (modelValue) {
+            agent_models[`${subAgent.name}_model`] = modelValue;
+        }
+        const tempValue = document.getElementById(subAgent.tempId)?.value;
+        if (tempValue !== undefined && tempValue !== '') {
+            agent_models[`${subAgent.name}_temperature`] = parseFloat(tempValue) || 0.0;
+        }
+    });
+    
     return {
-        junk_filter_threshold: parseFloat(document.getElementById('junkFilterThreshold2')?.value || '0'),
-        ranking_threshold: parseFloat(document.getElementById('rankingThreshold2')?.value || '0'),
-        similarity_threshold: parseFloat(document.getElementById('similarityThreshold2')?.value || '0'),
-        description: document.getElementById('description2')?.value || '',
-        qa_enabled: qaEnabled
+        junk_filter_threshold: parseFloat(document.getElementById('junkFilterThreshold')?.value || '0'),
+        ranking_threshold: parseFloat(document.getElementById('rankingThreshold')?.value || '0'),
+        similarity_threshold: parseFloat(document.getElementById('similarityThreshold')?.value || '0'),
+        description: document.getElementById('description')?.value || '',
+        qa_enabled: qaEnabled,
+        agent_models: agent_models
     };
 }
 
@@ -2620,19 +2779,59 @@ function checkForUnsavedChanges() {
         if (currentQA[agentName] !== originalQA[agentName]) return true;
     }
     
+    // Compare agent_models - check all keys including sub-agent models and temperatures
+    const currentModels = currentState.agent_models || {};
+    const originalModels = originalState.agent_models || currentConfig.agent_models || {};
+    
+    // Get all unique keys from both objects
+    const allKeys = new Set([...Object.keys(currentModels), ...Object.keys(originalModels)]);
+    
+    for (const key of allKeys) {
+        const currentValue = currentModels[key];
+        const originalValue = originalModels[key];
+        
+        // Handle numeric comparison for temperatures (account for floating point precision)
+        if (key.includes('_temperature')) {
+            const currentNum = typeof currentValue === 'number' ? currentValue : parseFloat(currentValue) || 0.0;
+            const originalNum = typeof originalValue === 'number' ? originalValue : parseFloat(originalValue) || 0.0;
+            if (Math.abs(currentNum - originalNum) > 0.0001) return true;
+        } else {
+            // String comparison for model names
+            if (currentValue !== originalValue) return true;
+        }
+    }
+    
     return false;
 }
 
 // Function to update save button state
 function updateSaveButtonState() {
     const saveButton = document.getElementById('save-config-button');
-    if (!saveButton) return;
+    if (!saveButton) {
+        console.warn('Save button not found');
+        return;
+    }
     
     const hasChanges = checkForUnsavedChanges();
     saveButton.disabled = !hasChanges;
+    
+    // Update button text and styling based on state
+    if (hasChanges) {
+        saveButton.classList.remove('opacity-50', 'cursor-not-allowed');
+        saveButton.classList.add('hover:bg-purple-700');
+        saveButton.style.opacity = '1';
+        saveButton.style.cursor = 'pointer';
+    } else {
+        saveButton.classList.add('opacity-50', 'cursor-not-allowed');
+        saveButton.classList.remove('hover:bg-purple-700');
+        saveButton.style.opacity = '0.5';
+        saveButton.style.cursor = 'not-allowed';
+    }
+    
+    console.log('Save button state updated:', { hasChanges, disabled: saveButton.disabled });
 }
 
-// Initialize original state and set up change listeners
+    // Initialize original state and set up change listeners
 function initializeChangeTracking() {
     // Store original state after config is loaded
     if (currentConfig) {
@@ -2641,16 +2840,17 @@ function initializeChangeTracking() {
             ranking_threshold: currentConfig.ranking_threshold || 0,
             similarity_threshold: currentConfig.similarity_threshold || 0,
             description: currentConfig.description || '',
-            qa_enabled: currentConfig.qa_enabled || {}
+            qa_enabled: currentConfig.qa_enabled || {},
+            agent_models: currentConfig.agent_models || {}
         };
     }
     
     // Add change listeners to all configurable fields
     const fields = [
-        'junkFilterThreshold2',
-        'rankingThreshold2',
-        'similarityThreshold2',
-        'description2'
+        'junkFilterThreshold',
+        'rankingThreshold',
+        'similarityThreshold',
+        'description'
     ];
     
     fields.forEach(fieldId => {
@@ -2658,6 +2858,24 @@ function initializeChangeTracking() {
         if (field) {
             field.addEventListener('input', updateSaveButtonState);
             field.addEventListener('change', updateSaveButtonState);
+        }
+    });
+    
+    // Add change listeners to agent model selects
+    const modelSelects = [
+        'rankagent-model-2',
+        'rankagent-temperature',
+        'extractagent-model-2',
+        'sigmaagent-model-2',
+        'osdetectionagent-embedding-model-2',
+        'osdetectionagent-fallback-model-2'
+    ];
+    
+    modelSelects.forEach(selectId => {
+        const select = document.getElementById(selectId);
+        if (select) {
+            select.addEventListener('change', updateSaveButtonState);
+            select.addEventListener('input', updateSaveButtonState);
         }
     });
     
@@ -2671,19 +2889,34 @@ function initializeChangeTracking() {
         }
     });
     
-    // Initial button state
+    // Initial button state - ensure button starts disabled
+    const saveButton = document.getElementById('save-config-button');
+    if (saveButton) {
+        saveButton.disabled = true;
+        saveButton.classList.add('opacity-50', 'cursor-not-allowed');
+        saveButton.style.opacity = '0.5';
+        saveButton.style.cursor = 'not-allowed';
+    }
+    
+    // Then update based on actual changes
     updateSaveButtonState();
 }
 
-const workflowConfigForm2 = document.getElementById('workflowConfigForm2');
-if (workflowConfigForm2) {
-    workflowConfigForm2.addEventListener('submit', async (e) => {
+const workflowConfigForm = document.getElementById('workflowConfigForm');
+if (workflowConfigForm) {
+    workflowConfigForm.addEventListener('submit', async (e) => {
         e.preventDefault();
     
+    // Check if there are any changes to save
+    if (!checkForUnsavedChanges()) {
+        console.log('No changes to save');
+        return;
+    }
+    
     // Validate all thresholds before submission
-    const junkFilterValid = validateThreshold(document.getElementById('junkFilterThreshold2'), 0, 1);
-    const rankingValid = validateThreshold(document.getElementById('rankingThreshold2'), 0, 10);
-    const similarityValid = validateThreshold(document.getElementById('similarityThreshold2'), 0, 1);
+    const junkFilterValid = validateThreshold(document.getElementById('junkFilterThreshold'), 0, 1);
+    const rankingValid = validateThreshold(document.getElementById('rankingThreshold'), 0, 10);
+    const similarityValid = validateThreshold(document.getElementById('similarityThreshold'), 0, 1);
     
     if (!junkFilterValid || !rankingValid || !similarityValid) {
         alert('Please fix the validation errors before saving.');
@@ -2701,10 +2934,10 @@ if (workflowConfigForm2) {
     
     const formData = {
         min_hunt_score: currentConfig?.min_hunt_score || 97.0,
-        junk_filter_threshold: parseFloat(document.getElementById('junkFilterThreshold2').value),
-        ranking_threshold: parseFloat(document.getElementById('rankingThreshold2').value),
-        similarity_threshold: parseFloat(document.getElementById('similarityThreshold2').value),
-        description: document.getElementById('description2').value,
+        junk_filter_threshold: parseFloat(document.getElementById('junkFilterThreshold').value),
+        ranking_threshold: parseFloat(document.getElementById('rankingThreshold').value),
+        similarity_threshold: parseFloat(document.getElementById('similarityThreshold').value),
+        description: document.getElementById('description').value,
         agent_models: {
             RankAgent: document.getElementById('rankagent-model-2')?.value.trim() || null,
             RankAgent_temperature: parseFloat(document.getElementById('rankagent-temperature')?.value) || 0.0,
@@ -2721,7 +2954,8 @@ if (workflowConfigForm2) {
             RegExtract_model: document.getElementById('regextract-model')?.value.trim() || null,
             RegExtract_temperature: parseFloat(document.getElementById('regextract-temperature')?.value) || 0.0
         },
-        qa_enabled: qaEnabled
+        qa_enabled: qaEnabled,
+        sigma_fallback_enabled: document.getElementById('sigma-fallback-enabled')?.checked || false
     };
     
     // Validate RankAgent model is set
@@ -2739,6 +2973,13 @@ if (workflowConfigForm2) {
         }
     }
     formData.agent_models = Object.keys(cleanedAgentModels).length > 0 ? cleanedAgentModels : null;
+    
+    // Show loading state
+    const saveButton = document.getElementById('save-config-button');
+    const originalButtonText = saveButton.textContent;
+    saveButton.disabled = true;
+    saveButton.textContent = 'Saving...';
+    saveButton.classList.add('opacity-50', 'cursor-not-allowed');
     
     try {
         const response = await fetch('/api/workflow/config', {
@@ -2760,20 +3001,20 @@ if (workflowConfigForm2) {
             
             // Update form fields and UI directly instead of fetching again
             if (updatedConfig.ranking_threshold !== undefined) {
-                document.getElementById('rankingThreshold2').value = updatedConfig.ranking_threshold;
+                document.getElementById('rankingThreshold').value = updatedConfig.ranking_threshold;
             }
             if (updatedConfig.junk_filter_threshold !== undefined) {
-                document.getElementById('junkFilterThreshold2').value = updatedConfig.junk_filter_threshold;
+                document.getElementById('junkFilterThreshold').value = updatedConfig.junk_filter_threshold;
             }
             if (updatedConfig.similarity_threshold !== undefined) {
-                document.getElementById('similarityThreshold2').value = updatedConfig.similarity_threshold;
+                document.getElementById('similarityThreshold').value = updatedConfig.similarity_threshold;
             }
             if (updatedConfig.description) {
-                document.getElementById('description2').value = updatedConfig.description;
+                document.getElementById('description').value = updatedConfig.description;
             }
             
             // Update config display
-            const configDisplay = document.getElementById('configDisplay2');
+            const configDisplay = document.getElementById('configDisplay');
             if (configDisplay) {
                 configDisplay.innerHTML = `
                     <div class="space-y-1">
@@ -2802,14 +3043,46 @@ if (workflowConfigForm2) {
             // Initialize change tracking after save
             initializeChangeTracking();
             
-            alert('Configuration updated successfully!');
+            // Show success state
+            saveButton.textContent = '✓ Saved!';
+            saveButton.classList.remove('bg-purple-600', 'hover:bg-purple-700');
+            saveButton.classList.add('bg-green-600');
+            
+            setTimeout(() => {
+                saveButton.textContent = originalButtonText;
+                saveButton.classList.remove('bg-green-600');
+                saveButton.classList.add('bg-purple-600', 'hover:bg-purple-700');
+                updateSaveButtonState();
+            }, 2000);
         } else {
             const error = await response.json();
-            alert('Error updating configuration: ' + (error.detail || 'Unknown error'));
+            // Handle error detail - could be string, array, or object
+            let errorMessage = 'Unknown error';
+            if (error.detail) {
+                if (Array.isArray(error.detail)) {
+                    // Pydantic validation errors - format them nicely
+                    errorMessage = error.detail.map(e => {
+                        if (typeof e === 'string') return e;
+                        if (e.msg) return `${e.loc?.join('.') || 'Field'}: ${e.msg}`;
+                        return JSON.stringify(e);
+                    }).join('\n');
+                } else if (typeof error.detail === 'string') {
+                    errorMessage = error.detail;
+                } else {
+                    errorMessage = JSON.stringify(error.detail, null, 2);
+                }
+            }
+            alert('Error updating configuration:\n\n' + errorMessage);
+            saveButton.disabled = false;
+            saveButton.textContent = originalButtonText;
+            updateSaveButtonState();
         }
     } catch (error) {
         console.error('Error saving config:', error);
         alert('Error saving configuration');
+        saveButton.disabled = false;
+        saveButton.textContent = originalButtonText;
+        updateSaveButtonState();
     }
     });
 }
@@ -3299,38 +3572,38 @@ async function viewExecution(executionId) {
                         const qaIssues = qaResult?.issues || [];
                         
                         const itemsHtml = items.length > 0 ? `<details class="mt-2">
-                            <summary class="cursor-pointer text-xs !text-white dark:!text-white hover:text-gray-900 dark:hover:text-gray-100" style="color: white !important;">View ${items.length} Items</summary>
+                            <summary class="cursor-pointer text-xs text-gray-600 dark:text-gray-300 hover:text-gray-700 dark:hover:text-gray-200">View ${items.length} Items</summary>
                             <div class="mt-2 max-h-64 overflow-y-auto bg-gray-50 dark:bg-gray-900 p-3 rounded border border-gray-200 dark:border-gray-700 text-xs">
                                 <div class="space-y-2">
                                     ${items.slice(0, 20).map((item, idx) => {
                                         const itemValue = typeof item === 'object' ? JSON.stringify(item, null, 2) : String(item);
                                         return `<div class="border-b border-gray-300 dark:border-gray-600 pb-2">
-                                            <div class="font-semibold text-gray-900 dark:text-white">${idx + 1}. Item</div>
-                                            <div class="text-gray-700 dark:text-gray-300 break-all whitespace-pre-wrap">${itemValue.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</div>
+                                            <div class="font-semibold text-gray-600 dark:text-gray-300">${idx + 1}. Item</div>
+                                            <div class="text-gray-600 dark:text-gray-300 break-all whitespace-pre-wrap">${itemValue.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</div>
                                         </div>`;
                                     }).join('')}
-                                    ${items.length > 20 ? `<div class="text-gray-500 dark:text-gray-300">... and ${items.length - 20} more</div>` : ''}
+                                    ${items.length > 20 ? `<div class="text-gray-600 dark:text-gray-300">... and ${items.length - 20} more</div>` : ''}
                                 </div>
                             </div>
                         </details>` : '';
                         
                         const rawHtml = raw && Object.keys(raw).length > 0 ? `<details class="mt-2">
-                            <summary class="cursor-pointer text-xs !text-white dark:!text-white hover:text-gray-900 dark:hover:text-gray-100" style="color: white !important;">View Raw Agent Response</summary>
-                            <div class="mt-2 bg-gray-50 dark:bg-gray-900 p-3 rounded border border-gray-200 dark:border-gray-700 text-xs font-mono text-gray-900 dark:text-white whitespace-pre-wrap break-words">
+                            <summary class="cursor-pointer text-xs text-gray-600 dark:text-gray-300 hover:text-gray-700 dark:hover:text-gray-200">View Raw Agent Response</summary>
+                            <div class="mt-2 bg-gray-50 dark:bg-gray-900 p-3 rounded border border-gray-200 dark:border-gray-700 text-xs font-mono text-gray-600 dark:text-gray-300 whitespace-pre-wrap break-words">
                                 ${JSON.stringify(raw, null, 2).replace(/</g, '&lt;').replace(/>/g, '&gt;')}
                             </div>
                         </details>` : '';
                         
                         const qaHtml = qaResult ? `<div class="mt-3 border-t border-gray-300 dark:border-gray-600 pt-3">
-                            <strong class="text-gray-900 dark:text-white text-xs">QA Results (${subAgent.qaName}):</strong>
+                            <strong class="text-gray-600 dark:text-gray-300 text-xs">QA Results (${subAgent.qaName}):</strong>
                             <div class="mt-2">
                                 <div class="flex items-center gap-2 mb-2">
                                     <span class="px-2 py-1 rounded text-xs font-semibold ${qaVerdict === 'pass' ? 'bg-green-100 dark:bg-green-900/40 text-green-800 dark:text-green-300' : qaVerdict === 'fail' ? 'bg-red-100 dark:bg-red-900/40 text-red-800 dark:text-red-300' : 'bg-yellow-100 dark:bg-yellow-900/40 text-yellow-800 dark:text-yellow-300'}">
                                         ${qaVerdict === 'pass' ? '✅ PASS' : qaVerdict === 'fail' ? '❌ FAIL' : '⚠️ WARNING'}
                                     </span>
                                 </div>
-                                ${qaFeedback ? `<div class="text-xs text-gray-700 dark:text-gray-300 mb-2"><strong>Feedback:</strong> ${qaFeedback.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</div>` : ''}
-                                ${qaIssues.length > 0 ? `<div class="text-xs"><strong class="text-gray-900 dark:text-white">Issues (${qaIssues.length}):</strong><ul class="list-disc list-inside mt-1 space-y-1 text-gray-700 dark:text-gray-300">${qaIssues.map(issue => {
+                                ${qaFeedback ? `<div class="text-xs text-gray-600 dark:text-gray-300 mb-2"><strong class="text-gray-600 dark:text-gray-300">Feedback:</strong> ${qaFeedback.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</div>` : ''}
+                                ${qaIssues.length > 0 ? `<div class="text-xs"><strong class="text-gray-600 dark:text-gray-300">Issues (${qaIssues.length}):</strong><ul class="list-disc list-inside mt-1 space-y-1 text-gray-600 dark:text-gray-300">${qaIssues.map(issue => {
                                     const issueText = typeof issue === 'string' ? issue : (issue.description || issue.type || JSON.stringify(issue));
                                     return `<li>${issueText.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</li>`;
                                 }).join('')}</ul></div>` : ''}
@@ -3338,13 +3611,13 @@ async function viewExecution(executionId) {
                         </div>` : '';
                         
                         return `<details class="mt-2 border border-cyan-200 dark:border-cyan-700 rounded-lg overflow-hidden">
-                            <summary class="bg-cyan-50 dark:bg-cyan-900/30 px-4 py-3 cursor-pointer font-medium text-gray-400 dark:text-gray-500 hover:bg-cyan-100 dark:hover:bg-cyan-900/50 text-sm">
-                                ${subAgent.icon} ${subAgent.display} ${count > 0 ? `(${count} items)` : '(0 items)'}${qaVerdict ? ` ${qaVerdict === 'pass' ? '✅' : qaVerdict === 'fail' ? '❌' : '⚠️'}` : ''}
+                            <summary class="bg-cyan-50 dark:bg-cyan-900/30 px-4 py-3 cursor-pointer font-medium text-gray-400 dark:text-gray-300 hover:bg-cyan-100 dark:hover:bg-cyan-900/50 text-sm">
+                                ${subAgent.icon} ${subAgent.display} <span class="text-white dark:text-white">${count > 0 ? `(${count} items)` : '(0 items)'}</span>${qaVerdict ? ` ${qaVerdict === 'pass' ? '✅' : qaVerdict === 'fail' ? '❌' : '⚠️'}` : ''}
                             </summary>
                             <div class="p-4 space-y-3 bg-white dark:bg-gray-800">
                                 <div>
-                                    <strong class="text-gray-900 dark:text-white text-sm">Inputs:</strong>
-                                    <div class="mt-1 text-xs">
+                                    <strong class="text-gray-600 dark:text-gray-300 text-sm">Inputs:</strong>
+                                    <div class="mt-1 text-xs text-gray-600 dark:text-gray-300">
                                         <div>• Filtered Content: ${extractInputContentLength} chars</div>
                                         <div>• Article Title: ${exec.article_title || 'N/A'}</div>
                                         <div>• Article URL: ${exec.article_url || 'N/A'}</div>
@@ -3353,14 +3626,14 @@ async function viewExecution(executionId) {
                                     </div>
                                 </div>
                                 <div>
-                                    <strong class="text-gray-900 dark:text-white text-sm">Outputs:</strong>
+                                    <strong class="text-gray-600 dark:text-gray-300 text-sm">Outputs:</strong>
                                     ${count > 0 ? `
-                                        <div class="mt-1 text-xs">
-                                            <div>• Items Extracted: <strong>${count}</strong></div>
+                                        <div class="mt-1 text-xs text-gray-600 dark:text-gray-300">
+                                            <div>• Items Extracted: <strong class="text-gray-600 dark:text-gray-300">${count}</strong></div>
                                         </div>
                                         ${itemsHtml}
                                         ${rawHtml}
-                                    ` : '<span class="text-gray-400 text-xs">No items extracted</span>'}
+                                    ` : '<span class="text-gray-600 dark:text-gray-300 text-xs">No items extracted</span>'}
                                     ${qaHtml}
                                 </div>
                             </div>
@@ -3368,7 +3641,7 @@ async function viewExecution(executionId) {
                     }).join('');
                     
                     steps.push({
-                        name: '<span class="text-gray-400 dark:text-gray-500">🔬 Sub-Agents (Individual Extraction)</span>',
+                        name: '<span class="text-gray-600 dark:text-gray-300">🔬 Sub-Agents (Individual Extraction)</span>',
                         input: `<div class="space-y-1 text-xs">
                             <div>• ${Object.keys(subresults).length} sub-agents executed</div>
                         </div>`,
@@ -3409,7 +3682,7 @@ async function viewExecution(executionId) {
                     </div>`;
                     
                     steps.push({
-                        name: '<span class="text-gray-400 dark:text-gray-500">🎯 ExtractionSupervisorAgent (Aggregation)</span>',
+                        name: '<span class="text-gray-600 dark:text-gray-300">🎯 ExtractionSupervisorAgent (Aggregation)</span>',
                         input: `<div class="space-y-1 text-xs">
                             <div>• Sub-agent results from ${Object.keys(subresults).length} sub-agents</div>
                         </div>`,
@@ -5029,11 +5302,26 @@ function initializeTabs() {
     }
 }
 
+// Initialize save button state on page load
+function initializeSaveButton() {
+    const saveButton = document.getElementById('save-config-button');
+    if (saveButton) {
+        saveButton.disabled = true;
+        saveButton.classList.add('opacity-50', 'cursor-not-allowed');
+        saveButton.style.opacity = '0.5';
+        saveButton.style.cursor = 'not-allowed';
+    }
+}
+
 // Run immediately if DOM is ready, otherwise wait for DOMContentLoaded
 if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initializeTabs);
+    document.addEventListener('DOMContentLoaded', () => {
+        initializeSaveButton();
+        initializeTabs();
+    });
 } else {
     // DOM is already loaded, run immediately
+    initializeSaveButton();
     initializeTabs();
 }
 </script>

@@ -197,7 +197,9 @@ class _LangfuseWorkflowTrace(AbstractContextManager):
                 message = str(exit_error)
                 if "generator didn't stop after throw" in message:
                     logger.warning(
-                        "LangFuse span raised generator error on exit; continuing without failing workflow."
+                        "LangFuse span raised generator error on exit. "
+                        "This often occurs when LMStudio is busy or unavailable. "
+                        "Continuing without failing workflow."
                     )
                     suppress = False
                 else:
