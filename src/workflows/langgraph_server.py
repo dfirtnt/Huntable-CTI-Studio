@@ -28,6 +28,7 @@ from src.services.rag_service import RAGService
 from src.services.sigma_generation_service import SigmaGenerationService
 from src.services.workflow_trigger_service import WorkflowTriggerService
 from src.services.sigma_matching_service import SigmaMatchingService
+from src.utils.langfuse_client import get_langfuse_client, is_langfuse_enabled
 from src.workflows.status_utils import (
     mark_execution_completed,
     TERMINATION_REASON_RANK_THRESHOLD,
@@ -698,15 +699,55 @@ Cannot process empty articles."""
     async def extract_agent_node(state: ExposableWorkflowState) -> ExposableWorkflowState:
         """Step 3: Extract behaviors using sequential sub-agents and Supervisor."""
         db_session = get_db_session()
+        extract_span = None
+        extract_span_cm = None
         try:
             logger.info(f"[Workflow {state.get('execution_id')}] Step 3: Extract Agent (Supervisor Mode)")
             
             article_id = state['article_id']
+            execution_id = state.get('execution_id')
             article = db_session.query(ArticleTable).filter(ArticleTable.id == article_id).first()
             if not article:
                 raise ValueError(f"Article {article_id} not found")
             
             filtered_content = state.get('filtered_content') or article.content
+            
+            # Create parent span for extract_behaviors workflow step using context manager for proper nesting
+            extract_span_cm = None
+            if is_langfuse_enabled() and execution_id:
+                try:
+                    client = get_langfuse_client()
+                    if client:
+                        from langfuse.types import TraceContext
+                        import hashlib
+                        trace_id = hashlib.md5(f"workflow_exec_{execution_id}".encode()).hexdigest()
+                        session_id = f"workflow_exec_{execution_id}"
+                        if len(session_id) > 200:
+                            session_id = session_id[:200]
+                        
+                        extract_span_cm = client.start_as_current_span(
+                            name="extract_behaviors",
+                            trace_context=TraceContext(
+                                trace_id=trace_id,
+                                session_id=session_id
+                            ),
+                            input={
+                                "article_id": article_id,
+                                "execution_id": execution_id,
+                                "content_length": len(filtered_content),
+                                "title": article.title
+                            },
+                            metadata={
+                                "step": "extract_agent",
+                                "workflow_type": "agentic_workflow"
+                            },
+                            end_on_exit=False  # We'll end it manually
+                        )
+                        extract_span = extract_span_cm.__enter__()
+                except Exception as e:
+                    logger.warning(f"Failed to create extract_behaviors span: {e}")
+                    extract_span = None
+                    extract_span_cm = None
             
             # Initialize sub-results accumulator
             subresults = {
@@ -766,6 +807,8 @@ Cannot process empty articles."""
                         url=article.canonical_url or "",
                         prompt_config=prompt_config,
                         qa_prompt_config=qa_config,
+                        max_retries=5,
+                        execution_id=execution_id,
                         model_name=agent_model,
                         temperature=float(agent_temperature)
                     )
@@ -794,8 +837,59 @@ Cannot process empty articles."""
                     }
                     logger.info(f"{agent_name}: {len(items)} items")
                     
+                    # Log sub-agent result to LangFuse span (as child of extract_behaviors)
+                    if extract_span_cm:
+                        try:
+                            client = get_langfuse_client()
+                            if client:
+                                # Create child span within the parent context
+                                sub_span = client.start_span(
+                                    name=f"{agent_name.lower()}_extraction",
+                                    input={
+                                        "agent_name": agent_name,
+                                        "content_length": len(filtered_content),
+                                        "title": article.title
+                                    },
+                                    output={
+                                        "items_count": len(items),
+                                        "result_key": result_key,
+                                        "items": items[:10] if items else [],  # Include first 10 items for visibility
+                                        "has_items": len(items) > 0
+                                    },
+                                    metadata={
+                                        "agent_name": agent_name,
+                                        "result_key": result_key,
+                                        "total_items": len(items)
+                                    }
+                                )
+                                sub_span.end()
+                        except Exception as e:
+                            logger.warning(f"Failed to create sub-agent span for {agent_name}: {e}")
+                    
                 except Exception as e:
                     logger.error(f"{agent_name} failed: {e}")
+                    # Log sub-agent error to LangFuse span (as child of extract_behaviors)
+                    if extract_span_cm:
+                        try:
+                            client = get_langfuse_client()
+                            if client:
+                                # Create child error span within the parent context
+                                error_span = client.start_span(
+                                    name=f"{agent_name.lower()}_extraction",
+                                    input={
+                                        "agent_name": agent_name,
+                                        "content_length": len(filtered_content)
+                                    },
+                                    output={"error": str(e)},
+                                    metadata={
+                                        "agent_name": agent_name,
+                                        "error": str(e)
+                                    },
+                                    level="ERROR"
+                                )
+                                error_span.end()
+                        except Exception as span_error:
+                            logger.warning(f"Failed to create error span for {agent_name}: {span_error}")
 
             # --- 3. Supervisor Aggregation ---
             # Merge all items into a single 'observables' list for backward compatibility
@@ -832,6 +926,31 @@ Cannot process empty articles."""
             
             total_count = len(all_observables)
             
+            # Log supervisor aggregation to LangFuse (as child of extract_behaviors)
+            if extract_span_cm and is_langfuse_enabled():
+                try:
+                    client = get_langfuse_client()
+                    if client:
+                        # Create child supervisor span within the parent context
+                        supervisor_span = client.start_span(
+                            name="extraction_supervisor_aggregation",
+                            input={
+                                "subresults": {k: {"count": v["count"]} for k, v in subresults.items()},
+                                "total_sub_agents": 5
+                            },
+                            output={
+                                "total_observables": total_count,
+                                "aggregated_categories": list(subresults.keys())
+                            },
+                            metadata={
+                                "step": "supervisor_aggregation",
+                                "total_count": total_count
+                            }
+                        )
+                        supervisor_span.end()
+                except Exception as e:
+                    logger.warning(f"Failed to create supervisor span: {e}")
+            
             # Construct final result matching existing schema
             extraction_result = {
                 "observables": all_observables,
@@ -846,6 +965,32 @@ Cannot process empty articles."""
             }
             
             logger.info(f"[Workflow {state.get('execution_id')}] Supervisor Aggregation: {total_count} total observables")
+            
+            # Update and end parent extract_span
+            if extract_span_cm and extract_span:
+                try:
+                    extract_span.update(
+                        output={
+                            "total_observables": total_count,
+                            "subresults_summary": {k: {"count": v["count"]} for k, v in subresults.items()},
+                            "extraction_result": {
+                                "discrete_huntables_count": total_count,
+                                "observables_count": len(all_observables)
+                            }
+                        }
+                    )
+                    extract_span_cm.__exit__(None, None, None)
+                    client = get_langfuse_client()
+                    if client:
+                        client.flush()
+                except Exception as e:
+                    logger.warning(f"Failed to update extract_span: {e}")
+                    # Ensure context is exited even on error
+                    try:
+                        if extract_span_cm:
+                            extract_span_cm.__exit__(None, None, None)
+                    except:
+                        pass
             
             # Update execution record
             execution_id = state.get('execution_id')
@@ -872,6 +1017,12 @@ Cannot process empty articles."""
             
         except Exception as e:
             logger.error(f"[Workflow {state.get('execution_id')}] Extract agent error: {e}")
+            # Ensure extract_span context is closed on error
+            if extract_span_cm:
+                try:
+                    extract_span_cm.__exit__(type(e), e, e.__traceback__)
+                except:
+                    pass
             return {
                 **state,
                 'error': str(e),
@@ -882,6 +1033,12 @@ Cannot process empty articles."""
                 'termination_details': state.get('termination_details')
             }
         finally:
+            # Ensure extract_span context is closed
+            if extract_span_cm and extract_span:
+                try:
+                    extract_span_cm.__exit__(None, None, None)
+                except:
+                    pass
             db_session.close()
     
     async def generate_sigma_node(state: ExposableWorkflowState) -> ExposableWorkflowState:
@@ -898,8 +1055,13 @@ Cannot process empty articles."""
             extraction_result = state.get('extraction_result', {})
             filtered_content = state.get('filtered_content') or article.content
             
-            # Use extraction_result content if available and has huntables, otherwise use filtered_content
-            content_to_use = filtered_content
+            # Get SIGMA fallback setting from config
+            trigger_service = WorkflowTriggerService(db_session)
+            config_obj = trigger_service.get_active_config()
+            sigma_fallback_enabled = config_obj.sigma_fallback_enabled if config_obj and hasattr(config_obj, 'sigma_fallback_enabled') else False
+            
+            # Use extraction_result content if available and has huntables, otherwise check fallback setting
+            content_to_use = None
             if extraction_result and extraction_result.get('discrete_huntables_count', 0) > 0:
                 # Prefer extracted content if we have meaningful huntables
                 extracted_content = extraction_result.get('content', '')
@@ -907,9 +1069,47 @@ Cannot process empty articles."""
                     content_to_use = extracted_content
                     logger.info(f"[Workflow {state.get('execution_id')}] Using extracted content ({len(extracted_content)} chars) for SIGMA generation")
                 else:
-                    logger.warning(f"[Workflow {state.get('execution_id')}] Extraction result has {extraction_result.get('discrete_huntables_count', 0)} huntables but no usable content, using filtered_content")
-            else:
-                logger.warning(f"[Workflow {state.get('execution_id')}] No extraction result or zero huntables, using filtered_content for SIGMA generation")
+                    logger.warning(f"[Workflow {state.get('execution_id')}] Extraction result has {extraction_result.get('discrete_huntables_count', 0)} huntables but no usable content")
+            
+            # Fallback logic: only use filtered_content if fallback is enabled
+            if content_to_use is None:
+                if sigma_fallback_enabled:
+                    content_to_use = filtered_content
+                    logger.info(f"[Workflow {state.get('execution_id')}] SIGMA fallback enabled: using filtered_content ({len(filtered_content)} chars) for SIGMA generation")
+                else:
+                    # No extraction result and fallback disabled - skip SIGMA generation
+                    logger.warning(f"[Workflow {state.get('execution_id')}] No extraction result or zero huntables, and SIGMA fallback is disabled. Skipping SIGMA generation.")
+                    execution_id = state.get('execution_id')
+                    if execution_id:
+                        execution = db_session.query(AgenticWorkflowExecutionTable).filter(
+                            AgenticWorkflowExecutionTable.id == execution_id
+                        ).first()
+                        if execution:
+                            execution.current_step = 'generate_sigma'
+                            execution.status = 'completed'
+                            execution.error_log = (execution.error_log or {})
+                            execution.error_log['termination'] = {
+                                'reason': TERMINATION_REASON_NO_SIGMA_RULES,
+                                'details': {
+                                    'reason': 'No extraction results and SIGMA fallback disabled',
+                                    'discrete_huntables_count': extraction_result.get('discrete_huntables_count', 0) if extraction_result else 0,
+                                    'sigma_fallback_enabled': False
+                                }
+                            }
+                            db_session.commit()
+                    
+                    return {
+                        **state,
+                        'sigma_rules': [],
+                        'current_step': 'generate_sigma',
+                        'status': 'completed',
+                        'termination_reason': TERMINATION_REASON_NO_SIGMA_RULES,
+                        'termination_details': {
+                            'reason': 'No extraction results and SIGMA fallback disabled',
+                            'discrete_huntables_count': extraction_result.get('discrete_huntables_count', 0) if extraction_result else 0,
+                            'sigma_fallback_enabled': False
+                        }
+                    }
             
             # Get config models for SigmaGenerationService
             trigger_service = WorkflowTriggerService(db_session)
