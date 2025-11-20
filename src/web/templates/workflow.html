@@ -142,6 +142,12 @@
                             <h4 class="text-md font-semibold text-gray-900 dark:text-white mb-3">Rank Agent Model</h4>
                             <div id="rank-agent-model-container"></div>
                         </div>
+                        <!-- Test Button -->
+                        <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+                            <button type="button" onclick="testRankAgent(1427)" class="w-full px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-md transition-colors">
+                                🧪 Test with Article 1427
+                            </button>
+                        </div>
                         <!-- Rank Agent Thresholds -->
                         <div>
                             <h4 class="text-md font-semibold text-gray-900 dark:text-white mb-3">Rank Agent Thresholds</h4>
@@ -211,6 +217,7 @@
                     <button type="button" onclick="toggleCollapsible('extract-agent-panel')" class="w-full flex items-center justify-between p-4 text-left hover:bg-gray-50 dark:hover:bg-gray-700 rounded-t-lg transition-colors">
                         <div class="flex items-center gap-3">
                             <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Extract Agent</h3>
+                            <span class="px-2 py-1 text-xs rounded-full bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300 font-medium">Supervisor</span>
                             <span id="extract-agent-qa-badge" class="px-2 py-1 text-xs rounded-full bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300">QA: OFF</span>
                         </div>
                         <span id="extract-agent-panel-toggle" class="text-gray-700 dark:text-gray-200 text-lg font-medium transform transition-transform">▼</span>
@@ -243,6 +250,245 @@
                         </div>
                         <!-- Extract QA Agent Prompt -->
                         <div id="extract-agent-qa-prompt-container" class="hidden"></div>
+                        
+                        <!-- Sub-Agents Section -->
+                        <div class="mt-6 pt-6 border-t-2 border-yellow-300 dark:border-yellow-700">
+                            <div class="mb-4">
+                                <h4 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Extract Agent Sub-Agents</h4>
+                                <p class="text-xs text-gray-500 dark:text-gray-400">Specialized extraction agents orchestrated by the Supervisor</p>
+                            </div>
+                            <div class="space-y-3">
+                                <!-- CmdlineExtract Sub-Agent Panel -->
+                                <div class="border border-gray-200 dark:border-gray-700 rounded-lg ml-4">
+                                    <button type="button" onclick="toggleCollapsible('cmdlineextract-agent-panel')" class="w-full flex items-center justify-between p-3 text-left hover:bg-gray-50 dark:hover:bg-gray-700 rounded-t-lg transition-colors">
+                                        <div class="flex items-center gap-3">
+                                            <h4 class="text-sm font-semibold text-gray-900 dark:text-white">CmdlineExtract (Command Line Extraction)</h4>
+                                            <span id="cmdlineextract-agent-qa-badge" class="px-2 py-1 text-xs rounded-full bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300">QA: OFF</span>
+                                        </div>
+                                        <span id="cmdlineextract-agent-panel-toggle" class="text-gray-700 dark:text-gray-200 text-sm font-medium transform transition-transform">▼</span>
+                                    </button>
+                                    <div id="cmdlineextract-agent-panel-content" class="hidden p-3 border-t border-gray-200 dark:border-gray-700 space-y-3">
+                                        <!-- Model Selection -->
+                                        <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-3 border border-gray-200 dark:border-gray-700">
+                                            <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">Model</label>
+                                            <select id="cmdlineextract-model" name="agent_models[CmdlineExtract_model]" onchange="autoSaveModelChange()" class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-xs">
+                                                <option value="">Use Extract Agent Model</option>
+                                            </select>
+                                        </div>
+                                        <!-- Temperature -->
+                                        <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-3 border border-gray-200 dark:border-gray-700">
+                                            <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">Temperature</label>
+                                            <input type="number" id="cmdlineextract-temperature" name="agent_models[CmdlineExtract_temperature]" min="0" max="2" step="0.1" value="0.0" onchange="autoSaveModelChange()" class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white text-xs">
+                                            <p class="text-[10px] text-gray-500 dark:text-gray-400 mt-1">0.0 = deterministic, higher = more creative</p>
+                                        </div>
+                                        <!-- Test Button -->
+                                        <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-3 border border-gray-200 dark:border-gray-700">
+                                            <button type="button" onclick="testSubAgent('CmdlineExtract', 1427)" class="w-full px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded-md transition-colors">
+                                                🧪 Test with Article 1427
+                                            </button>
+                                        </div>
+                                        <div id="cmdlineextract-agent-prompt-container"></div>
+                                        <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-3 border border-gray-200 dark:border-gray-700">
+                                            <div class="flex items-center justify-between">
+                                                <div>
+                                                    <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">CmdlineExtract QA Agent</label>
+                                                    <p class="text-[10px] text-gray-500 dark:text-gray-400">Enable QA validation with up to 5 retry attempts</p>
+                                                </div>
+                                                <label class="relative inline-flex items-center cursor-pointer">
+                                                    <input type="checkbox" id="qa-cmdlineextract" name="qa_enabled[CmdlineExtract]" class="sr-only peer" onchange="updateQABadge('cmdlineextract-agent')">
+                                                    <div class="w-10 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 dark:peer-focus:ring-purple-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-purple-600"></div>
+                                                </label>
+                                            </div>
+                                        </div>
+                                        <div id="cmdlineextract-agent-qa-prompt-container" class="hidden"></div>
+                                    </div>
+                                </div>
+
+                                <!-- SigExtract Sub-Agent Panel -->
+                                <div class="border border-gray-200 dark:border-gray-700 rounded-lg ml-4">
+                                    <button type="button" onclick="toggleCollapsible('sigextract-agent-panel')" class="w-full flex items-center justify-between p-3 text-left hover:bg-gray-50 dark:hover:bg-gray-700 rounded-t-lg transition-colors">
+                                        <div class="flex items-center gap-3">
+                                            <h4 class="text-sm font-semibold text-gray-900 dark:text-white">SigExtract (Query Extraction)</h4>
+                                            <span id="sigextract-agent-qa-badge" class="px-2 py-1 text-xs rounded-full bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300">QA: OFF</span>
+                                        </div>
+                                        <span id="sigextract-agent-panel-toggle" class="text-gray-700 dark:text-gray-200 text-sm font-medium transform transition-transform">▼</span>
+                                    </button>
+                                    <div id="sigextract-agent-panel-content" class="hidden p-3 border-t border-gray-200 dark:border-gray-700 space-y-3">
+                                        <!-- Model Selection -->
+                                        <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-3 border border-gray-200 dark:border-gray-700">
+                                            <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">Model</label>
+                                            <select id="sigextract-model" name="agent_models[SigExtract_model]" onchange="autoSaveModelChange()" class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-xs">
+                                                <option value="">Use Extract Agent Model</option>
+                                            </select>
+                                        </div>
+                                        <!-- Temperature -->
+                                        <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-3 border border-gray-200 dark:border-gray-700">
+                                            <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">Temperature</label>
+                                            <input type="number" id="sigextract-temperature" name="agent_models[SigExtract_temperature]" min="0" max="2" step="0.1" value="0.0" onchange="autoSaveModelChange()" class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white text-xs">
+                                            <p class="text-[10px] text-gray-500 dark:text-gray-400 mt-1">0.0 = deterministic, higher = more creative</p>
+                                        </div>
+                                        <!-- Test Button -->
+                                        <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-3 border border-gray-200 dark:border-gray-700">
+                                            <button type="button" onclick="testSubAgent('SigExtract', 1427)" class="w-full px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded-md transition-colors">
+                                                🧪 Test with Article 1427
+                                            </button>
+                                        </div>
+                                        <div id="sigextract-agent-prompt-container"></div>
+                                        <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-3 border border-gray-200 dark:border-gray-700">
+                                            <div class="flex items-center justify-between">
+                                                <div>
+                                                    <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">SigExtract QA Agent</label>
+                                                    <p class="text-[10px] text-gray-500 dark:text-gray-400">Enable QA validation with up to 5 retry attempts</p>
+                                                </div>
+                                                <label class="relative inline-flex items-center cursor-pointer">
+                                                    <input type="checkbox" id="qa-sigextract" name="qa_enabled[SigExtract]" class="sr-only peer" onchange="updateQABadge('sigextract-agent')">
+                                                    <div class="w-10 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 dark:peer-focus:ring-purple-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-purple-600"></div>
+                                                </label>
+                                            </div>
+                                        </div>
+                                        <div id="sigextract-agent-qa-prompt-container" class="hidden"></div>
+                                    </div>
+                                </div>
+
+                                <!-- EventCodeExtract Sub-Agent Panel -->
+                                <div class="border border-gray-200 dark:border-gray-700 rounded-lg ml-4">
+                                    <button type="button" onclick="toggleCollapsible('eventcodeextract-agent-panel')" class="w-full flex items-center justify-between p-3 text-left hover:bg-gray-50 dark:hover:bg-gray-700 rounded-t-lg transition-colors">
+                                        <div class="flex items-center gap-3">
+                                            <h4 class="text-sm font-semibold text-gray-900 dark:text-white">EventCodeExtract (Event ID Extraction)</h4>
+                                            <span id="eventcodeextract-agent-qa-badge" class="px-2 py-1 text-xs rounded-full bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300">QA: OFF</span>
+                                        </div>
+                                        <span id="eventcodeextract-agent-panel-toggle" class="text-gray-700 dark:text-gray-200 text-sm font-medium transform transition-transform">▼</span>
+                                    </button>
+                                    <div id="eventcodeextract-agent-panel-content" class="hidden p-3 border-t border-gray-200 dark:border-gray-700 space-y-3">
+                                        <!-- Model Selection -->
+                                        <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-3 border border-gray-200 dark:border-gray-700">
+                                            <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">Model</label>
+                                            <select id="eventcodeextract-model" name="agent_models[EventCodeExtract_model]" onchange="autoSaveModelChange()" class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-xs">
+                                                <option value="">Use Extract Agent Model</option>
+                                            </select>
+                                        </div>
+                                        <!-- Temperature -->
+                                        <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-3 border border-gray-200 dark:border-gray-700">
+                                            <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">Temperature</label>
+                                            <input type="number" id="eventcodeextract-temperature" name="agent_models[EventCodeExtract_temperature]" min="0" max="2" step="0.1" value="0.0" onchange="autoSaveModelChange()" class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white text-xs">
+                                            <p class="text-[10px] text-gray-500 dark:text-gray-400 mt-1">0.0 = deterministic, higher = more creative</p>
+                                        </div>
+                                        <!-- Test Button -->
+                                        <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-3 border border-gray-200 dark:border-gray-700">
+                                            <button type="button" onclick="testSubAgent('EventCodeExtract', 1427)" class="w-full px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded-md transition-colors">
+                                                🧪 Test with Article 1427
+                                            </button>
+                                        </div>
+                                        <div id="eventcodeextract-agent-prompt-container"></div>
+                                        <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-3 border border-gray-200 dark:border-gray-700">
+                                            <div class="flex items-center justify-between">
+                                                <div>
+                                                    <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">EventCodeExtract QA Agent</label>
+                                                    <p class="text-[10px] text-gray-500 dark:text-gray-400">Enable QA validation with up to 5 retry attempts</p>
+                                                </div>
+                                                <label class="relative inline-flex items-center cursor-pointer">
+                                                    <input type="checkbox" id="qa-eventcodeextract" name="qa_enabled[EventCodeExtract]" class="sr-only peer" onchange="updateQABadge('eventcodeextract-agent')">
+                                                    <div class="w-10 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 dark:peer-focus:ring-purple-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-purple-600"></div>
+                                                </label>
+                                            </div>
+                                        </div>
+                                        <div id="eventcodeextract-agent-qa-prompt-container" class="hidden"></div>
+                                    </div>
+                                </div>
+
+                                <!-- ProcTreeExtract Sub-Agent Panel -->
+                                <div class="border border-gray-200 dark:border-gray-700 rounded-lg ml-4">
+                                    <button type="button" onclick="toggleCollapsible('proctreeextract-agent-panel')" class="w-full flex items-center justify-between p-3 text-left hover:bg-gray-50 dark:hover:bg-gray-700 rounded-t-lg transition-colors">
+                                        <div class="flex items-center gap-3">
+                                            <h4 class="text-sm font-semibold text-gray-900 dark:text-white">ProcTreeExtract (Process Lineage)</h4>
+                                            <span id="proctreeextract-agent-qa-badge" class="px-2 py-1 text-xs rounded-full bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300">QA: OFF</span>
+                                        </div>
+                                        <span id="proctreeextract-agent-panel-toggle" class="text-gray-700 dark:text-gray-200 text-sm font-medium transform transition-transform">▼</span>
+                                    </button>
+                                    <div id="proctreeextract-agent-panel-content" class="hidden p-3 border-t border-gray-200 dark:border-gray-700 space-y-3">
+                                        <!-- Model Selection -->
+                                        <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-3 border border-gray-200 dark:border-gray-700">
+                                            <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">Model</label>
+                                            <select id="proctreeextract-model" name="agent_models[ProcTreeExtract_model]" onchange="autoSaveModelChange()" class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-xs">
+                                                <option value="">Use Extract Agent Model</option>
+                                            </select>
+                                        </div>
+                                        <!-- Temperature -->
+                                        <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-3 border border-gray-200 dark:border-gray-700">
+                                            <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">Temperature</label>
+                                            <input type="number" id="proctreeextract-temperature" name="agent_models[ProcTreeExtract_temperature]" min="0" max="2" step="0.1" value="0.0" onchange="autoSaveModelChange()" class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white text-xs">
+                                            <p class="text-[10px] text-gray-500 dark:text-gray-400 mt-1">0.0 = deterministic, higher = more creative</p>
+                                        </div>
+                                        <!-- Test Button -->
+                                        <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-3 border border-gray-200 dark:border-gray-700">
+                                            <button type="button" onclick="testSubAgent('ProcTreeExtract', 1427)" class="w-full px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded-md transition-colors">
+                                                🧪 Test with Article 1427
+                                            </button>
+                                        </div>
+                                        <div id="proctreeextract-agent-prompt-container"></div>
+                                        <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-3 border border-gray-200 dark:border-gray-700">
+                                            <div class="flex items-center justify-between">
+                                                <div>
+                                                    <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">ProcTreeExtract QA Agent</label>
+                                                    <p class="text-[10px] text-gray-500 dark:text-gray-400">Enable QA validation with up to 5 retry attempts</p>
+                                                </div>
+                                                <label class="relative inline-flex items-center cursor-pointer">
+                                                    <input type="checkbox" id="qa-proctreeextract" name="qa_enabled[ProcTreeExtract]" class="sr-only peer" onchange="updateQABadge('proctreeextract-agent')">
+                                                    <div class="w-10 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 dark:peer-focus:ring-purple-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-purple-600"></div>
+                                                </label>
+                                            </div>
+                                        </div>
+                                        <div id="proctreeextract-agent-qa-prompt-container" class="hidden"></div>
+                                    </div>
+                                </div>
+
+                                <!-- RegExtract Sub-Agent Panel -->
+                                <div class="border border-gray-200 dark:border-gray-700 rounded-lg ml-4">
+                                    <button type="button" onclick="toggleCollapsible('regextract-agent-panel')" class="w-full flex items-center justify-between p-3 text-left hover:bg-gray-50 dark:hover:bg-gray-700 rounded-t-lg transition-colors">
+                                        <div class="flex items-center gap-3">
+                                            <h4 class="text-sm font-semibold text-gray-900 dark:text-white">RegExtract (Registry Extraction)</h4>
+                                            <span id="regextract-agent-qa-badge" class="px-2 py-1 text-xs rounded-full bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300">QA: OFF</span>
+                                        </div>
+                                        <span id="regextract-agent-panel-toggle" class="text-gray-700 dark:text-gray-200 text-sm font-medium transform transition-transform">▼</span>
+                                    </button>
+                                    <div id="regextract-agent-panel-content" class="hidden p-3 border-t border-gray-200 dark:border-gray-700 space-y-3">
+                                        <!-- Model Selection -->
+                                        <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-3 border border-gray-200 dark:border-gray-700">
+                                            <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">Model</label>
+                                            <select id="regextract-model" name="agent_models[RegExtract_model]" onchange="autoSaveModelChange()" class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-xs">
+                                                <option value="">Use Extract Agent Model</option>
+                                            </select>
+                                        </div>
+                                        <!-- Temperature -->
+                                        <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-3 border border-gray-200 dark:border-gray-700">
+                                            <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">Temperature</label>
+                                            <input type="number" id="regextract-temperature" name="agent_models[RegExtract_temperature]" min="0" max="2" step="0.1" value="0.0" onchange="autoSaveModelChange()" class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white text-xs">
+                                            <p class="text-[10px] text-gray-500 dark:text-gray-400 mt-1">0.0 = deterministic, higher = more creative</p>
+                                        </div>
+                                        <!-- Test Button -->
+                                        <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-3 border border-gray-200 dark:border-gray-700">
+                                            <button type="button" onclick="testSubAgent('RegExtract', 1427)" class="w-full px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded-md transition-colors">
+                                                🧪 Test with Article 1427
+                                            </button>
+                                        </div>
+                                        <div id="regextract-agent-prompt-container"></div>
+                                        <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-3 border border-gray-200 dark:border-gray-700">
+                                            <div class="flex items-center justify-between">
+                                                <div>
+                                                    <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">RegExtract QA Agent</label>
+                                                    <p class="text-[10px] text-gray-500 dark:text-gray-400">Enable QA validation with up to 5 retry attempts</p>
+                                                </div>
+                                                <label class="relative inline-flex items-center cursor-pointer">
+                                                    <input type="checkbox" id="qa-regextract" name="qa_enabled[RegExtract]" class="sr-only peer" onchange="updateQABadge('regextract-agent')">
+                                                    <div class="w-10 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 dark:peer-focus:ring-purple-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-purple-600"></div>
+                                                </label>
+                                            </div>
+                                        </div>
+                                        <div id="regextract-agent-qa-prompt-container" class="hidden"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -360,7 +606,9 @@
                         Reset
                     </button>
                     <button type="submit" 
-                            class="px-6 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-md transition-colors font-medium">
+                            id="save-config-button"
+                            class="px-6 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-md transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                            disabled>
                         Save Configuration
                     </button>
                 </div>
@@ -370,34 +618,70 @@
         <!-- Workflow Overview -->
         <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
             <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">📊 Workflow Overview</h2>
-            <div class="grid grid-cols-1 md:grid-cols-7 gap-4">
-                <div class="text-center p-4 bg-cyan-50 dark:bg-cyan-900/20 rounded-lg">
-                    <div class="text-2xl font-bold text-cyan-600 dark:text-cyan-400">0</div>
-                    <div class="text-xs text-gray-600 dark:text-gray-300 mt-1">OS Detection</div>
+            <div class="space-y-4">
+                <!-- Main Workflow Steps -->
+                <div class="grid grid-cols-1 md:grid-cols-7 gap-3">
+                    <div class="text-center p-4 bg-cyan-50 dark:bg-cyan-900/20 rounded-lg border border-cyan-200 dark:border-cyan-800">
+                        <div class="text-2xl font-bold text-cyan-600 dark:text-cyan-400">0</div>
+                        <div class="text-xs text-gray-600 dark:text-gray-300 mt-1">OS Detection</div>
+                    </div>
+                    <div class="text-center p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                        <div class="text-2xl font-bold text-blue-600 dark:text-blue-400">1</div>
+                        <div class="text-xs text-gray-600 dark:text-gray-300 mt-1">Junk Filter</div>
+                    </div>
+                    <div class="text-center p-4 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
+                        <div class="text-2xl font-bold text-green-600 dark:text-green-400">2</div>
+                        <div class="text-xs text-gray-600 dark:text-gray-300 mt-1">LLM Ranking</div>
+                    </div>
+                    <div class="text-center p-4 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg border-2 border-yellow-500 dark:border-yellow-600 shadow-md">
+                        <div class="text-2xl font-bold text-yellow-600 dark:text-yellow-400">3</div>
+                        <div class="text-xs font-semibold text-gray-700 dark:text-gray-200 mt-1">Extract Agent</div>
+                        <div class="mt-2 text-[10px] text-yellow-700 dark:text-yellow-300 font-medium">5 Sub-Agents</div>
+                    </div>
+                    <div class="text-center p-4 bg-orange-50 dark:bg-orange-900/20 rounded-lg border border-orange-200 dark:border-orange-800">
+                        <div class="text-2xl font-bold text-orange-600 dark:text-orange-400">4</div>
+                        <div class="text-xs text-gray-600 dark:text-gray-300 mt-1">Generate SIGMA</div>
+                    </div>
+                    <div class="text-center p-4 bg-pink-50 dark:bg-pink-900/20 rounded-lg border border-pink-200 dark:border-pink-800">
+                        <div class="text-2xl font-bold text-pink-600 dark:text-pink-400">5</div>
+                        <div class="text-xs text-gray-600 dark:text-gray-300 mt-1">Similarity Search</div>
+                    </div>
+                    <div class="text-center p-4 bg-purple-50 dark:bg-purple-900/20 rounded-lg border border-purple-200 dark:border-purple-800">
+                        <div class="text-2xl font-bold text-purple-600 dark:text-purple-400">6</div>
+                        <div class="text-xs text-gray-600 dark:text-gray-300 mt-1">Queue</div>
+                    </div>
                 </div>
-                <div class="text-center p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-                    <div class="text-2xl font-bold text-blue-600 dark:text-blue-400">1</div>
-                    <div class="text-xs text-gray-600 dark:text-gray-300 mt-1">Junk Filter</div>
-                </div>
-                <div class="text-center p-4 bg-green-50 dark:bg-green-900/20 rounded-lg">
-                    <div class="text-2xl font-bold text-green-600 dark:text-green-400">2</div>
-                    <div class="text-xs text-gray-600 dark:text-gray-300 mt-1">LLM Ranking</div>
-                </div>
-                <div class="text-center p-4 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg">
-                    <div class="text-2xl font-bold text-yellow-600 dark:text-yellow-400">3</div>
-                    <div class="text-xs text-gray-600 dark:text-gray-300 mt-1">Extract Agent</div>
-                </div>
-                <div class="text-center p-4 bg-orange-50 dark:bg-orange-900/20 rounded-lg">
-                    <div class="text-2xl font-bold text-orange-600 dark:text-orange-400">4</div>
-                    <div class="text-xs text-gray-600 dark:text-gray-300 mt-1">Generate SIGMA</div>
-                </div>
-                <div class="text-center p-4 bg-pink-50 dark:bg-pink-900/20 rounded-lg">
-                    <div class="text-2xl font-bold text-pink-600 dark:text-pink-400">5</div>
-                    <div class="text-xs text-gray-600 dark:text-gray-300 mt-1">Similarity Search</div>
-                </div>
-                <div class="text-center p-4 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
-                    <div class="text-2xl font-bold text-purple-600 dark:text-purple-400">6</div>
-                    <div class="text-xs text-gray-600 dark:text-gray-300 mt-1">Queue</div>
+                
+                <!-- Extract Agent Sub-Agents Detail -->
+                <div class="ml-0 md:ml-[calc(42.857%+0.75rem)] pl-0 md:pl-0">
+                    <div class="bg-gradient-to-r from-yellow-50 to-amber-50 dark:from-yellow-900/30 dark:to-amber-900/30 rounded-lg p-3 border border-yellow-200 dark:border-yellow-800">
+                        <div class="flex items-center gap-2 mb-2">
+                            <div class="w-1 h-4 bg-yellow-500 dark:bg-yellow-600 rounded-full"></div>
+                            <span class="text-xs font-semibold text-gray-700 dark:text-gray-300">Extract Agent Sub-Agents:</span>
+                        </div>
+                        <div class="grid grid-cols-2 md:grid-cols-5 gap-2">
+                            <div class="bg-white dark:bg-gray-800 rounded px-2 py-1.5 text-center border border-gray-200 dark:border-gray-700">
+                                <div class="text-[10px] font-semibold text-gray-700 dark:text-gray-300">CmdLine</div>
+                                <div class="text-[8px] text-gray-500 dark:text-gray-500 mt-0.5">Extract</div>
+                            </div>
+                            <div class="bg-white dark:bg-gray-800 rounded px-2 py-1.5 text-center border border-gray-200 dark:border-gray-700">
+                                <div class="text-[10px] font-semibold text-gray-700 dark:text-gray-300">SigExtract</div>
+                                <div class="text-[8px] text-gray-500 dark:text-gray-500 mt-0.5">Queries</div>
+                            </div>
+                            <div class="bg-white dark:bg-gray-800 rounded px-2 py-1.5 text-center border border-gray-200 dark:border-gray-700">
+                                <div class="text-[10px] font-semibold text-gray-700 dark:text-gray-300">EventCode</div>
+                                <div class="text-[8px] text-gray-500 dark:text-gray-500 mt-0.5">Event IDs</div>
+                            </div>
+                            <div class="bg-white dark:bg-gray-800 rounded px-2 py-1.5 text-center border border-gray-200 dark:border-gray-700">
+                                <div class="text-[10px] font-semibold text-gray-700 dark:text-gray-300">ProcTree</div>
+                                <div class="text-[8px] text-gray-500 dark:text-gray-500 mt-0.5">Lineage</div>
+                            </div>
+                            <div class="bg-white dark:bg-gray-800 rounded px-2 py-1.5 text-center border border-gray-200 dark:border-gray-700">
+                                <div class="text-[10px] font-semibold text-gray-700 dark:text-gray-300">RegExtract</div>
+                                <div class="text-[8px] text-gray-500 dark:text-gray-500 mt-0.5">Registry</div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -785,11 +1069,16 @@ function renderAgentModels() {
         return;
     }
     
-    const agents = ['RankAgent', 'OSDetectionAgent', 'ExtractAgent', 'SigmaAgent'];
+    const agents = ['RankAgent', 'OSDetectionAgent', 'ExtractAgent', 'CmdlineExtract', 'SigExtract', 'EventCodeExtract', 'ProcTreeExtract', 'RegExtract', 'SigmaAgent'];
     const agentLabels = {
         'RankAgent': 'Rank Agent',
         'OSDetectionAgent': 'OS Detection Agent',
         'ExtractAgent': 'Extract Agent',
+        'CmdlineExtract': 'CmdlineExtract (Command Line Extraction)',
+        'SigExtract': 'SigExtract (Query Extraction)',
+        'EventCodeExtract': 'EventCodeExtract (Event ID Extraction)',
+        'ProcTreeExtract': 'ProcTreeExtract (Process Lineage)',
+        'RegExtract': 'RegExtract (Registry Extraction)',
         'SigmaAgent': 'Sigma Agent'
     };
     
@@ -1198,6 +1487,22 @@ function showPromptHistoryModal(agentName, versions) {
         </div>
     `;
     document.body.appendChild(modal);
+    
+    // Add click outside to close
+    modal.addEventListener('click', function(e) {
+        if (e.target === modal) {
+            closePromptHistoryModal();
+        }
+    });
+    
+    // Add ESC key to close
+    const handleEsc = function(e) {
+        if (e.key === 'Escape') {
+            closePromptHistoryModal();
+            document.removeEventListener('keydown', handleEsc);
+        }
+    };
+    document.addEventListener('keydown', handleEsc);
 }
 
 function closePromptHistoryModal() {
@@ -1287,6 +1592,10 @@ window.updateQABadge = function(agentPrefix) {
     const checkboxId = agentPrefix === 'os-detection' ? 'qa-osdetectionagent' :
                       agentPrefix === 'rank-agent' ? 'qa-rankagent' :
                       agentPrefix === 'extract-agent' ? 'qa-extractagent' :
+                      agentPrefix === 'sigextract-agent' ? 'qa-sigextract' :
+                      agentPrefix === 'eventcodeextract-agent' ? 'qa-eventcodeextract' :
+                      agentPrefix === 'proctreeextract-agent' ? 'qa-proctreeextract' :
+                      agentPrefix === 'regextract-agent' ? 'qa-regextract' :
                       agentPrefix === 'sigma-agent' ? 'qa-sigmaagent' : null;
     
     if (!badge) {
@@ -1315,6 +1624,16 @@ window.updateQABadge = function(agentPrefix) {
             qaPromptContainer.classList.remove('hidden');
             if (agentPrefix === 'rank-agent') {
                 renderQAPrompt('QAAgent', 'rank-qa-agent-prompt-content');
+            } else if (agentPrefix === 'cmdlineextract-agent') {
+                renderQAPrompt('CmdLineQA', `${agentPrefix}-qa-prompt-container`);
+            } else if (agentPrefix === 'sigextract-agent') {
+                renderQAPrompt('SigQA', `${agentPrefix}-qa-prompt-container`);
+            } else if (agentPrefix === 'eventcodeextract-agent') {
+                renderQAPrompt('EventCodeQA', `${agentPrefix}-qa-prompt-container`);
+            } else if (agentPrefix === 'proctreeextract-agent') {
+                renderQAPrompt('ProcTreeQA', `${agentPrefix}-qa-prompt-container`);
+            } else if (agentPrefix === 'regextract-agent') {
+                renderQAPrompt('RegQA', `${agentPrefix}-qa-prompt-container`);
             } else {
                 renderQAPrompt('QAAgent', `${agentPrefix}-qa-prompt-container`);
             }
@@ -1400,6 +1719,33 @@ async function loadConfig() {
             // Load QA settings
             loadQASettings2();
             
+            // Initialize change tracking after config is loaded
+            initializeChangeTracking();
+            
+            // Load sub-agent temperature values
+            const agentModels = currentConfig?.agent_models || {};
+            const subAgents = [
+                { name: 'CmdlineExtract', id: 'cmdlineextract-temperature' },
+                { name: 'SigExtract', id: 'sigextract-temperature' },
+                { name: 'EventCodeExtract', id: 'eventcodeextract-temperature' },
+                { name: 'ProcTreeExtract', id: 'proctreeextract-temperature' },
+                { name: 'RegExtract', id: 'regextract-temperature' }
+            ];
+            subAgents.forEach(subAgent => {
+                const tempInput = document.getElementById(subAgent.id);
+                if (tempInput) {
+                    const tempKey = `${subAgent.name}_temperature`;
+                    const tempValue = agentModels[tempKey];
+                    if (tempValue !== undefined) {
+                        tempInput.value = tempValue;
+                    }
+                    // Ensure onChange handler is set
+                    if (!tempInput.getAttribute('onchange')) {
+                        tempInput.setAttribute('onchange', 'autoSaveModelChange()');
+                    }
+                }
+            });
+            
             // Setup event listeners for QA toggles after content is loaded
             setupQAEventListeners();
         }
@@ -1413,6 +1759,10 @@ function setupQAEventListeners() {
         { id: 'qa-osdetectionagent', prefix: 'os-detection' },
         { id: 'qa-rankagent', prefix: 'rank-agent' },
         { id: 'qa-extractagent', prefix: 'extract-agent' },
+        { id: 'qa-sigextract', prefix: 'sigextract-agent' },
+        { id: 'qa-eventcodeextract', prefix: 'eventcodeextract-agent' },
+        { id: 'qa-proctreeextract', prefix: 'proctreeextract-agent' },
+        { id: 'qa-regextract', prefix: 'regextract-agent' },
         { id: 'qa-sigmaagent', prefix: 'sigma-agent' }
     ];
     
@@ -1486,6 +1836,7 @@ function renderAgentModels(lmstudioModels) {
                 <label for="rankagent-model-2" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Rank Agent Model</label>
                 <select id="rankagent-model-2" 
                         name="agent_models[RankAgent]"
+                        onchange="autoSaveModelChange()"
                         class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-sm">
                     <option value="">Select a model (required)</option>
                     ${modelOptions}
@@ -1507,6 +1858,7 @@ function renderAgentModels(lmstudioModels) {
                     <label for="osdetectionagent-embedding-model-2" class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Embedding Model</label>
                     <select id="osdetectionagent-embedding-model-2" 
                             name="agent_models[OSDetectionAgent_embedding]"
+                            onchange="autoSaveModelChange()"
                             class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-sm">
                         <option value="ibm-research/CTI-BERT" ${currentEmbeddingModel === 'ibm-research/CTI-BERT' ? 'selected' : ''}>CTI-BERT</option>
                         <option value="nlpaueb/sec-bert-base" ${currentEmbeddingModel === 'nlpaueb/sec-bert-base' ? 'selected' : ''}>SEC-BERT</option>
@@ -1519,6 +1871,7 @@ function renderAgentModels(lmstudioModels) {
                            name="agent_models[OSDetectionAgent_fallback]"
                            value="${currentFallbackModel}"
                            placeholder="Leave empty to use default"
+                           onchange="autoSaveModelChange()"
                            class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-sm">
                 </div>
             </div>
@@ -1539,6 +1892,7 @@ function renderAgentModels(lmstudioModels) {
                 <label for="extractagent-model-2" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Extract Agent Model</label>
                 <select id="extractagent-model-2" 
                         name="agent_models[ExtractAgent]"
+                        onchange="autoSaveModelChange()"
                         class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-sm">
                     <option value="">Use default from Settings</option>
                     ${modelOptions}
@@ -1561,12 +1915,246 @@ function renderAgentModels(lmstudioModels) {
                 <label for="sigmaagent-model-2" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">SIGMA Generator Agent Model</label>
                 <select id="sigmaagent-model-2" 
                         name="agent_models[SigmaAgent]"
+                        onchange="autoSaveModelChange()"
                         class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-sm">
                     <option value="">Use default from Settings</option>
                     ${modelOptions}
                 </select>
             </div>
         `;
+    }
+    
+    // Populate sub-agent model dropdowns
+    const subAgents = [
+        { name: 'CmdlineExtract', id: 'cmdlineextract-model' },
+        { name: 'SigExtract', id: 'sigextract-model' },
+        { name: 'EventCodeExtract', id: 'eventcodeextract-model' },
+        { name: 'ProcTreeExtract', id: 'proctreeextract-model' },
+        { name: 'RegExtract', id: 'regextract-model' }
+    ];
+    
+    subAgents.forEach(subAgent => {
+        const select = document.getElementById(subAgent.id);
+        if (select) {
+            const currentModel = agentModels[`${subAgent.name}_model`] || '';
+            const modelOptions = lmstudioModels.map(m => {
+                const modelId = typeof m === 'string' ? m : m.id;
+                return `<option value="${escapeHtml(modelId)}" ${currentModel === modelId ? 'selected' : ''}>${escapeHtml(modelId)}</option>`;
+            }).join('');
+            select.innerHTML = '<option value="">Use Extract Agent Model</option>' + modelOptions;
+            // Add onChange handler if not already present
+            if (!select.getAttribute('onchange')) {
+                select.setAttribute('onchange', 'autoSaveModelChange()');
+            }
+        }
+    });
+}
+
+// Test Sub-Agent Modal
+let testModal = null;
+
+function showTestModal(agentName, articleId) {
+    if (!testModal) {
+        testModal = document.createElement('div');
+        testModal.id = 'test-subagent-modal';
+        testModal.className = 'fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center hidden';
+        testModal.innerHTML = `
+            <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-4xl w-full mx-4 max-h-[90vh] overflow-hidden flex flex-col">
+                <div class="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
+                    <h3 class="text-lg font-semibold text-gray-500 dark:text-gray-400" id="test-modal-title">Testing Agent</h3>
+                    <button onclick="closeTestModal()" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">✕</button>
+                </div>
+                <div class="flex-1 overflow-y-auto p-4">
+                    <div id="test-modal-progress" class="mb-4">
+                        <div class="flex items-center gap-2 mb-2">
+                            <div class="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                            <span class="text-sm text-gray-500 dark:text-gray-400">Running extraction...</span>
+                        </div>
+                    </div>
+                    <div id="test-modal-results" class="hidden">
+                        <h4 class="text-sm font-semibold text-gray-500 dark:text-gray-400 mb-2">Results:</h4>
+                        <pre id="test-modal-results-content" class="bg-gray-50 dark:bg-gray-900 p-3 rounded border border-gray-200 dark:border-gray-700 text-xs overflow-x-auto text-gray-500 dark:text-gray-400"></pre>
+                    </div>
+                </div>
+                <div class="p-4 border-t border-gray-200 dark:border-gray-700">
+                    <button onclick="closeTestModal()" class="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-md text-sm">Close</button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(testModal);
+        
+        // Close on escape key
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && !testModal.classList.contains('hidden')) {
+                closeTestModal();
+            }
+        });
+        
+        // Close on backdrop click
+        testModal.addEventListener('click', (e) => {
+            if (e.target === testModal) {
+                closeTestModal();
+            }
+        });
+    }
+    
+    document.getElementById('test-modal-title').textContent = `Testing ${agentName} on Article ${articleId}`;
+    document.getElementById('test-modal-progress').classList.remove('hidden');
+    document.getElementById('test-modal-results').classList.add('hidden');
+    testModal.classList.remove('hidden');
+}
+
+function closeTestModal() {
+    if (testModal) {
+        testModal.classList.add('hidden');
+    }
+}
+
+async function testSubAgent(agentName, articleId) {
+    showTestModal(agentName, articleId);
+    
+    try {
+        const response = await fetch('/api/workflow/config/test-subagent', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                agent_name: agentName,
+                article_id: articleId
+            })
+        });
+        
+        const data = await response.json();
+        
+        // Hide progress, show results
+        document.getElementById('test-modal-progress').classList.add('hidden');
+        const resultsDiv = document.getElementById('test-modal-results');
+        resultsDiv.classList.remove('hidden');
+        
+        const resultsContent = document.getElementById('test-modal-results-content');
+        if (data.success) {
+            resultsContent.textContent = JSON.stringify(data.result, null, 2);
+            resultsContent.className = 'bg-green-50 dark:bg-green-900/20 p-3 rounded border border-green-200 dark:border-green-800 text-xs overflow-x-auto text-gray-500 dark:text-gray-400';
+        } else {
+            resultsContent.textContent = `Error: ${data.detail || 'Unknown error'}`;
+            resultsContent.className = 'bg-red-50 dark:bg-red-900/20 p-3 rounded border border-red-200 dark:border-red-800 text-xs overflow-x-auto text-gray-500 dark:text-gray-400';
+        }
+    } catch (error) {
+        document.getElementById('test-modal-progress').classList.add('hidden');
+        const resultsDiv = document.getElementById('test-modal-results');
+        resultsDiv.classList.remove('hidden');
+        const resultsContent = document.getElementById('test-modal-results-content');
+        resultsContent.textContent = `Error: ${error.message}`;
+        resultsContent.className = 'bg-red-50 dark:bg-red-900/20 p-3 rounded border border-red-200 dark:border-red-800 text-xs overflow-x-auto text-gray-500 dark:text-gray-400';
+    }
+}
+
+async function testRankAgent(articleId) {
+    showTestModal('RankAgent', articleId);
+    
+    try {
+        const response = await fetch('/api/workflow/config/test-rankagent', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                article_id: articleId
+            })
+        });
+        
+        const data = await response.json();
+        
+        // Hide progress, show results
+        document.getElementById('test-modal-progress').classList.add('hidden');
+        const resultsDiv = document.getElementById('test-modal-results');
+        resultsDiv.classList.remove('hidden');
+        
+        const resultsContent = document.getElementById('test-modal-results-content');
+        if (data.success) {
+            resultsContent.textContent = JSON.stringify(data.result, null, 2);
+            resultsContent.className = 'bg-green-50 dark:bg-green-900/20 p-3 rounded border border-green-200 dark:border-green-800 text-xs overflow-x-auto text-gray-500 dark:text-gray-400';
+        } else {
+            resultsContent.textContent = `Error: ${data.detail || 'Unknown error'}`;
+            resultsContent.className = 'bg-red-50 dark:bg-red-900/20 p-3 rounded border border-red-200 dark:border-red-800 text-xs overflow-x-auto text-gray-500 dark:text-gray-400';
+        }
+    } catch (error) {
+        document.getElementById('test-modal-progress').classList.add('hidden');
+        const resultsDiv = document.getElementById('test-modal-results');
+        resultsDiv.classList.remove('hidden');
+        const resultsContent = document.getElementById('test-modal-results-content');
+        resultsContent.textContent = `Error: ${error.message}`;
+        resultsContent.className = 'bg-red-50 dark:bg-red-900/20 p-3 rounded border border-red-200 dark:border-red-800 text-xs overflow-x-auto text-gray-500 dark:text-gray-400';
+    }
+}
+
+// Auto-save model changes immediately
+window.autoSaveModelChange = async function autoSaveModelChange() {
+    try {
+        // Collect all current agent_models values
+        const agentModelsData = {
+            RankAgent: document.getElementById('rankagent-model-2')?.value.trim() || null,
+            OSDetectionAgent_embedding: document.getElementById('osdetectionagent-embedding-model-2')?.value.trim() || 'ibm-research/CTI-BERT',
+            OSDetectionAgent_fallback: document.getElementById('osdetectionagent-fallback-model-2')?.value.trim() || null,
+            ExtractAgent: document.getElementById('extractagent-model-2')?.value.trim() || null,
+            SigmaAgent: document.getElementById('sigmaagent-model-2')?.value.trim() || null,
+            CmdlineExtract_model: document.getElementById('cmdlineextract-model')?.value.trim() || null,
+            CmdlineExtract_temperature: parseFloat(document.getElementById('cmdlineextract-temperature')?.value) || 0.0,
+            SigExtract_model: document.getElementById('sigextract-model')?.value.trim() || null,
+            SigExtract_temperature: parseFloat(document.getElementById('sigextract-temperature')?.value) || 0.0,
+            EventCodeExtract_model: document.getElementById('eventcodeextract-model')?.value.trim() || null,
+            EventCodeExtract_temperature: parseFloat(document.getElementById('eventcodeextract-temperature')?.value) || 0.0,
+            ProcTreeExtract_model: document.getElementById('proctreeextract-model')?.value.trim() || null,
+            ProcTreeExtract_temperature: parseFloat(document.getElementById('proctreeextract-temperature')?.value) || 0.0,
+            RegExtract_model: document.getElementById('regextract-model')?.value.trim() || null,
+            RegExtract_temperature: parseFloat(document.getElementById('regextract-temperature')?.value) || 0.0
+        };
+        
+        // Remove null/empty string values (but keep 0.0 for temperature)
+        const cleanedAgentModels = {};
+        for (const [key, value] of Object.entries(agentModelsData)) {
+            if (value !== null && value !== '') {
+                cleanedAgentModels[key] = value;
+            }
+        }
+        
+        // Get current config to preserve other settings
+        if (!currentConfig) {
+            // Load config first if not available
+            const configResponse = await fetch('/api/workflow/config');
+            if (configResponse.ok) {
+                currentConfig = await configResponse.json();
+            } else {
+                console.error('Failed to load current config for auto-save');
+                return;
+            }
+        }
+        
+        // Build update payload with only fields that can be updated
+        const updateData = {
+            min_hunt_score: currentConfig.min_hunt_score,
+            ranking_threshold: currentConfig.ranking_threshold,
+            similarity_threshold: currentConfig.similarity_threshold,
+            junk_filter_threshold: currentConfig.junk_filter_threshold,
+            description: currentConfig.description || null,
+            agent_models: Object.keys(cleanedAgentModels).length > 0 ? cleanedAgentModels : null,
+            qa_enabled: currentConfig.qa_enabled || null
+        };
+        
+        const response = await fetch('/api/workflow/config', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(updateData)
+        });
+        
+        if (response.ok) {
+            const updatedConfig = await response.json();
+            currentConfig = updatedConfig;
+            agentModels = updatedConfig.agent_models || {};
+            console.log('Model change auto-saved successfully');
+        } else {
+            const error = await response.json();
+            console.error('Failed to auto-save model change:', error.detail || 'Unknown error');
+        }
+    } catch (error) {
+        console.error('Error auto-saving model change:', error);
     }
 }
 
@@ -1612,6 +2200,39 @@ function renderAgentPrompts() {
         const promptData = agentPrompts['ExtractAgent'];
         extractPromptContainer.innerHTML = renderSinglePrompt('ExtractAgent', promptData, 'extract-agent');
     }
+    
+    // Render Sub-Agent Prompts
+    const subAgents = [
+        { name: 'CmdlineExtract', container: 'cmdlineextract-agent-prompt-container', prefix: 'cmdlineextract-agent' },
+        { name: 'SigExtract', container: 'sigextract-agent-prompt-container', prefix: 'sigextract-agent' },
+        { name: 'EventCodeExtract', container: 'eventcodeextract-agent-prompt-container', prefix: 'eventcodeextract-agent' },
+        { name: 'ProcTreeExtract', container: 'proctreeextract-agent-prompt-container', prefix: 'proctreeextract-agent' },
+        { name: 'RegExtract', container: 'regextract-agent-prompt-container', prefix: 'regextract-agent' }
+    ];
+    
+    subAgents.forEach(subAgent => {
+        const container = document.getElementById(subAgent.container);
+        if (container && agentPrompts[subAgent.name]) {
+            const promptData = agentPrompts[subAgent.name];
+            container.innerHTML = renderSinglePrompt(subAgent.name, promptData, subAgent.prefix);
+        }
+    });
+    
+    // Render Sub-Agent QA Prompts
+    const qaAgents = [
+        { name: 'SigQA', container: 'sigextract-agent-qa-prompt-container', prefix: 'sigextract-agent' },
+        { name: 'EventCodeQA', container: 'eventcodeextract-agent-qa-prompt-container', prefix: 'eventcodeextract-agent' },
+        { name: 'ProcTreeQA', container: 'proctreeextract-agent-qa-prompt-container', prefix: 'proctreeextract-agent' },
+        { name: 'RegQA', container: 'regextract-agent-qa-prompt-container', prefix: 'regextract-agent' }
+    ];
+    
+    qaAgents.forEach(qaAgent => {
+        const container = document.getElementById(qaAgent.container);
+        if (container && agentPrompts[qaAgent.name]) {
+            const promptData = agentPrompts[qaAgent.name];
+            container.innerHTML = renderSinglePrompt(qaAgent.name, promptData, qaAgent.prefix);
+        }
+    });
     
     // Render SIGMA Agent Prompt
     const sigmaPromptContainer = document.getElementById('sigma-agent-prompt-container');
@@ -1690,14 +2311,14 @@ function renderSinglePrompt(agentName, promptData, prefix) {
 
 function renderQAPrompt(agentName, containerId) {
     const container = document.getElementById(containerId);
-    if (!container || !agentPrompts['QAAgent']) return;
+    if (!container || !agentPrompts[agentName]) return;
     
-    const promptData = agentPrompts['QAAgent'];
+    const promptData = agentPrompts[agentName];
     const prompt = promptData.prompt || '';
     const instructions = promptData.instructions || '';
     const model = promptData.model || 'Not configured';
-    const isEditing = editingPrompts['QAAgent'] || false;
-    const agentId = 'qa-agent';
+    const isEditing = editingPrompts[agentName] || false;
+    const agentId = agentName.toLowerCase().replace(/\s+/g, '-');
     
     container.innerHTML = `
         <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
@@ -1707,20 +2328,20 @@ function renderQAPrompt(agentName, containerId) {
                 </div>
                 <div class="flex gap-2">
                     ${isEditing ? `
-                        <button onclick="cancelEditPrompt2('QAAgent')" 
+                        <button onclick="cancelEditPrompt2('${agentName}')" 
                                 class="px-3 py-1 bg-gray-600 hover:bg-gray-700 text-white text-sm rounded-md transition-colors">
                             Cancel
                         </button>
-                        <button onclick="saveAgentPrompt2('QAAgent')" 
+                        <button onclick="saveAgentPrompt2('${agentName}')" 
                                 class="px-3 py-1 bg-purple-600 hover:bg-purple-700 text-white text-sm rounded-md transition-colors">
                             💾 Save
                         </button>
                     ` : `
-                        <button onclick="showPromptHistory('QAAgent')" 
+                        <button onclick="showPromptHistory('${agentName}')" 
                                 class="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-md transition-colors">
                             📜 History
                         </button>
-                        <button onclick="editPrompt('QAAgent')" 
+                        <button onclick="editPrompt('${agentName}')" 
                                 class="px-3 py-1 bg-green-600 hover:bg-green-700 text-white text-sm rounded-md transition-colors">
                             ✏️ Edit
                         </button>
@@ -1764,10 +2385,14 @@ function loadQASettings2() {
     
     // Set checkboxes
     const agents = [
-        { name: 'OSDetectionAgent', id: 'qa-osdetectionagent' },
-        { name: 'RankAgent', id: 'qa-rankagent' },
-        { name: 'ExtractAgent', id: 'qa-extractagent' },
-        { name: 'SigmaAgent', id: 'qa-sigmaagent' }
+        { name: 'OSDetectionAgent', id: 'qa-osdetectionagent', prefix: 'os-detection' },
+        { name: 'RankAgent', id: 'qa-rankagent', prefix: 'rank-agent' },
+        { name: 'ExtractAgent', id: 'qa-extractagent', prefix: 'extract-agent' },
+        { name: 'SigExtract', id: 'qa-sigextract', prefix: 'sigextract-agent' },
+        { name: 'EventCodeExtract', id: 'qa-eventcodeextract', prefix: 'eventcodeextract-agent' },
+        { name: 'ProcTreeExtract', id: 'qa-proctreeextract', prefix: 'proctreeextract-agent' },
+        { name: 'RegExtract', id: 'qa-regextract', prefix: 'regextract-agent' },
+        { name: 'SigmaAgent', id: 'qa-sigmaagent', prefix: 'sigma-agent' }
     ];
     
     agents.forEach(agent => {
@@ -1785,11 +2410,7 @@ function loadQASettings2() {
             // Trigger change event to ensure Tailwind peer-checked classes update
             checkbox.dispatchEvent(new Event('change', { bubbles: true }));
             
-            const prefix = agent.name === 'OSDetectionAgent' ? 'os-detection' :
-                          agent.name === 'RankAgent' ? 'rank-agent' :
-                          agent.name === 'ExtractAgent' ? 'extract-agent' :
-                          'sigma-agent';
-            updateQABadge(prefix);
+            updateQABadge(agent.prefix);
         }
     });
 }
@@ -1826,19 +2447,39 @@ function cancelEditPrompt2(agentName) {
     loadAgentPrompts();
     // Also update QA prompt if it's visible
     const qaEnabled = currentConfig?.qa_enabled || {};
-    if (agentName === 'QAAgent' || (qaEnabled[agentName] && agentName !== 'QAAgent')) {
-        const prefix = agentName === 'OSDetectionAgent' ? 'os-detection' :
-                      agentName === 'RankAgent' ? 'rank-agent' :
-                      agentName === 'ExtractAgent' ? 'extract-agent' :
-                      agentName === 'SigmaAgent' ? 'sigma-agent' : null;
-        if (prefix) {
-            const qaPromptContainer = document.getElementById(`${prefix}-qa-prompt-container`);
+    const qaAgentMap = {
+        'QAAgent': { prefix: 'rank-agent', container: 'rank-qa-agent-prompt-content' },
+        'CmdLineQA': { prefix: 'cmdlineextract-agent', container: 'cmdlineextract-agent-qa-prompt-container' },
+        'SigQA': { prefix: 'sigextract-agent', container: 'sigextract-agent-qa-prompt-container' },
+        'EventCodeQA': { prefix: 'eventcodeextract-agent', container: 'eventcodeextract-agent-qa-prompt-container' },
+        'ProcTreeQA': { prefix: 'proctreeextract-agent', container: 'proctreeextract-agent-qa-prompt-container' },
+        'RegQA': { prefix: 'regextract-agent', container: 'regextract-agent-qa-prompt-container' }
+    };
+    
+    // Check if this is a QA agent or if the corresponding extract agent has QA enabled
+    const qaInfo = qaAgentMap[agentName];
+    if (qaInfo) {
+        const qaPromptContainer = document.getElementById(qaInfo.container);
+        if (qaPromptContainer && !qaPromptContainer.classList.contains('hidden')) {
+            if (agentName === 'QAAgent') {
+                renderQAPrompt('QAAgent', 'rank-qa-agent-prompt-content');
+            } else {
+                renderQAPrompt(agentName, qaInfo.container);
+            }
+        }
+    } else {
+        // Check if this extract agent has QA enabled
+        const extractToQA = {
+            'SigExtract': { qaName: 'SigQA', prefix: 'sigextract-agent' },
+            'EventCodeExtract': { qaName: 'EventCodeQA', prefix: 'eventcodeextract-agent' },
+            'ProcTreeExtract': { qaName: 'ProcTreeQA', prefix: 'proctreeextract-agent' },
+            'RegExtract': { qaName: 'RegQA', prefix: 'regextract-agent' }
+        };
+        const qaMapping = extractToQA[agentName];
+        if (qaMapping && qaEnabled[agentName]) {
+            const qaPromptContainer = document.getElementById(`${qaMapping.prefix}-qa-prompt-container`);
             if (qaPromptContainer && !qaPromptContainer.classList.contains('hidden')) {
-                if (prefix === 'rank-agent') {
-                    renderQAPrompt('QAAgent', 'rank-qa-agent-prompt-content');
-                } else {
-                    renderQAPrompt('QAAgent', `${prefix}-qa-prompt-container`);
-                }
+                renderQAPrompt(qaMapping.qaName, qaPromptContainer.id);
             }
         }
     }
@@ -1878,19 +2519,37 @@ async function saveAgentPrompt2(agentName) {
             
             // Also update QA prompt if it's visible
             const qaEnabled = currentConfig?.qa_enabled || {};
-            if (agentName === 'QAAgent' || (qaEnabled[agentName] && agentName !== 'QAAgent')) {
-                const prefix = agentName === 'OSDetectionAgent' ? 'os-detection' :
-                              agentName === 'RankAgent' ? 'rank-agent' :
-                              agentName === 'ExtractAgent' ? 'extract-agent' :
-                              agentName === 'SigmaAgent' ? 'sigma-agent' : null;
-                if (prefix) {
-                    const qaPromptContainer = document.getElementById(`${prefix}-qa-prompt-container`);
+            const qaAgentMap = {
+                'QAAgent': { prefix: 'rank-agent', container: 'rank-qa-agent-prompt-content' },
+                'CmdLineQA': { prefix: 'cmdlineextract-agent', container: 'cmdlineextract-agent-qa-prompt-container' },
+                'SigQA': { prefix: 'sigextract-agent', container: 'sigextract-agent-qa-prompt-container' },
+                'EventCodeQA': { prefix: 'eventcodeextract-agent', container: 'eventcodeextract-agent-qa-prompt-container' },
+                'ProcTreeQA': { prefix: 'proctreeextract-agent', container: 'proctreeextract-agent-qa-prompt-container' },
+                'RegQA': { prefix: 'regextract-agent', container: 'regextract-agent-qa-prompt-container' }
+            };
+            
+            const qaInfo = qaAgentMap[agentName];
+            if (qaInfo) {
+                const qaPromptContainer = document.getElementById(qaInfo.container);
+                if (qaPromptContainer && !qaPromptContainer.classList.contains('hidden')) {
+                    if (agentName === 'QAAgent') {
+                        renderQAPrompt('QAAgent', 'rank-qa-agent-prompt-content');
+                    } else {
+                        renderQAPrompt(agentName, qaInfo.container);
+                    }
+                }
+            } else {
+                const extractToQA = {
+                    'SigExtract': { qaName: 'SigQA', prefix: 'sigextract-agent' },
+                    'EventCodeExtract': { qaName: 'EventCodeQA', prefix: 'eventcodeextract-agent' },
+                    'ProcTreeExtract': { qaName: 'ProcTreeQA', prefix: 'proctreeextract-agent' },
+                    'RegExtract': { qaName: 'RegQA', prefix: 'regextract-agent' }
+                };
+                const qaMapping = extractToQA[agentName];
+                if (qaMapping && qaEnabled[agentName]) {
+                    const qaPromptContainer = document.getElementById(`${qaMapping.prefix}-qa-prompt-container`);
                     if (qaPromptContainer && !qaPromptContainer.classList.contains('hidden')) {
-                        if (prefix === 'rank-agent') {
-                            renderQAPrompt('QAAgent', 'rank-qa-agent-prompt-content');
-                        } else {
-                            renderQAPrompt('QAAgent', `${prefix}-qa-prompt-container`);
-                        }
+                        renderQAPrompt(qaMapping.qaName, qaPromptContainer.id);
                     }
                 }
             }
@@ -1902,6 +2561,110 @@ async function saveAgentPrompt2(agentName) {
         console.error('Error saving agent prompt:', error);
         alert('Error saving agent prompt');
     }
+}
+
+// Track original config state for change detection
+let originalConfigState = null;
+
+// Function to get current form state
+function getCurrentFormState() {
+    const qaEnabled = {};
+    const agents = ['OSDetectionAgent', 'RankAgent', 'ExtractAgent', 'CmdlineExtract', 'SigExtract', 'EventCodeExtract', 'ProcTreeExtract', 'RegExtract', 'SigmaAgent'];
+    agents.forEach(agentName => {
+        const agentId = agentName.toLowerCase().replace(/\s+/g, '-');
+        const checkbox = document.getElementById(`qa-${agentId}`);
+        qaEnabled[agentName] = checkbox ? checkbox.checked : false;
+    });
+    
+    return {
+        junk_filter_threshold: parseFloat(document.getElementById('junkFilterThreshold2')?.value || '0'),
+        ranking_threshold: parseFloat(document.getElementById('rankingThreshold2')?.value || '0'),
+        similarity_threshold: parseFloat(document.getElementById('similarityThreshold2')?.value || '0'),
+        description: document.getElementById('description2')?.value || '',
+        qa_enabled: qaEnabled
+    };
+}
+
+// Function to check if there are unsaved changes
+function checkForUnsavedChanges() {
+    if (!originalConfigState || !currentConfig) {
+        return false;
+    }
+    
+    const currentState = getCurrentFormState();
+    const originalState = originalConfigState;
+    
+    // Compare thresholds
+    if (Math.abs(currentState.junk_filter_threshold - originalState.junk_filter_threshold) > 0.0001) return true;
+    if (Math.abs(currentState.ranking_threshold - originalState.ranking_threshold) > 0.0001) return true;
+    if (Math.abs(currentState.similarity_threshold - originalState.similarity_threshold) > 0.0001) return true;
+    
+    // Compare description
+    if (currentState.description !== originalState.description) return true;
+    
+    // Compare QA enabled settings
+    const currentQA = currentState.qa_enabled;
+    const originalQA = originalState.qa_enabled || {};
+    for (const agentName of Object.keys(currentQA)) {
+        if (currentQA[agentName] !== originalQA[agentName]) return true;
+    }
+    for (const agentName of Object.keys(originalQA)) {
+        if (currentQA[agentName] !== originalQA[agentName]) return true;
+    }
+    
+    return false;
+}
+
+// Function to update save button state
+function updateSaveButtonState() {
+    const saveButton = document.getElementById('save-config-button');
+    if (!saveButton) return;
+    
+    const hasChanges = checkForUnsavedChanges();
+    saveButton.disabled = !hasChanges;
+}
+
+// Initialize original state and set up change listeners
+function initializeChangeTracking() {
+    // Store original state after config is loaded
+    if (currentConfig) {
+        originalConfigState = {
+            junk_filter_threshold: currentConfig.junk_filter_threshold || 0,
+            ranking_threshold: currentConfig.ranking_threshold || 0,
+            similarity_threshold: currentConfig.similarity_threshold || 0,
+            description: currentConfig.description || '',
+            qa_enabled: currentConfig.qa_enabled || {}
+        };
+    }
+    
+    // Add change listeners to all configurable fields
+    const fields = [
+        'junkFilterThreshold2',
+        'rankingThreshold2',
+        'similarityThreshold2',
+        'description2'
+    ];
+    
+    fields.forEach(fieldId => {
+        const field = document.getElementById(fieldId);
+        if (field) {
+            field.addEventListener('input', updateSaveButtonState);
+            field.addEventListener('change', updateSaveButtonState);
+        }
+    });
+    
+    // Add change listeners to QA checkboxes
+    const agents = ['OSDetectionAgent', 'RankAgent', 'ExtractAgent', 'CmdlineExtract', 'SigExtract', 'EventCodeExtract', 'ProcTreeExtract', 'RegExtract', 'SigmaAgent'];
+    agents.forEach(agentName => {
+        const agentId = agentName.toLowerCase().replace(/\s+/g, '-');
+        const checkbox = document.getElementById(`qa-${agentId}`);
+        if (checkbox) {
+            checkbox.addEventListener('change', updateSaveButtonState);
+        }
+    });
+    
+    // Initial button state
+    updateSaveButtonState();
 }
 
 const workflowConfigForm2 = document.getElementById('workflowConfigForm2');
@@ -1921,7 +2684,7 @@ if (workflowConfigForm2) {
     
     // Collect QA enabled settings
     const qaEnabled = {};
-    const agents = ['OSDetectionAgent', 'RankAgent', 'ExtractAgent', 'SigmaAgent'];
+    const agents = ['OSDetectionAgent', 'RankAgent', 'ExtractAgent', 'CmdlineExtract', 'SigExtract', 'EventCodeExtract', 'ProcTreeExtract', 'RegExtract', 'SigmaAgent'];
     agents.forEach(agentName => {
         const agentId = agentName.toLowerCase().replace(/\s+/g, '-');
         const checkbox = document.getElementById(`qa-${agentId}`);
@@ -1939,7 +2702,15 @@ if (workflowConfigForm2) {
             OSDetectionAgent_embedding: document.getElementById('osdetectionagent-embedding-model-2')?.value.trim() || 'ibm-research/CTI-BERT',
             OSDetectionAgent_fallback: document.getElementById('osdetectionagent-fallback-model-2')?.value.trim() || null,
             ExtractAgent: document.getElementById('extractagent-model-2')?.value.trim() || null,
-            SigmaAgent: document.getElementById('sigmaagent-model-2')?.value.trim() || null
+            SigmaAgent: document.getElementById('sigmaagent-model-2')?.value.trim() || null,
+            SigExtract_model: document.getElementById('sigextract-model')?.value.trim() || null,
+            SigExtract_temperature: parseFloat(document.getElementById('sigextract-temperature')?.value) || 0.0,
+            EventCodeExtract_model: document.getElementById('eventcodeextract-model')?.value.trim() || null,
+            EventCodeExtract_temperature: parseFloat(document.getElementById('eventcodeextract-temperature')?.value) || 0.0,
+            ProcTreeExtract_model: document.getElementById('proctreeextract-model')?.value.trim() || null,
+            ProcTreeExtract_temperature: parseFloat(document.getElementById('proctreeextract-temperature')?.value) || 0.0,
+            RegExtract_model: document.getElementById('regextract-model')?.value.trim() || null,
+            RegExtract_temperature: parseFloat(document.getElementById('regextract-temperature')?.value) || 0.0
         },
         qa_enabled: qaEnabled
     };
@@ -2006,6 +2777,9 @@ if (workflowConfigForm2) {
                 `;
             }
             
+            // Update agentModels global variable with the saved config before reloading
+            agentModels = updatedConfig.agent_models || {};
+            
             // Reload agent models and prompts (these might have changed)
             await loadAgentModels();
             await loadAgentPrompts();
@@ -2015,6 +2789,9 @@ if (workflowConfigForm2) {
             
             // Setup event listeners
             setupQAEventListeners();
+            
+            // Initialize change tracking after save
+            initializeChangeTracking();
             
             alert('Configuration updated successfully!');
         } else {
@@ -3888,6 +4665,22 @@ function openLiveExecutionView(executionId) {
         </div>
     `;
     document.body.appendChild(modal);
+    
+    // Add click outside to close
+    modal.addEventListener('click', function(e) {
+        if (e.target === modal) {
+            closeLiveExecutionView();
+        }
+    });
+    
+    // Add ESC key to close
+    const handleEsc = function(e) {
+        if (e.key === 'Escape') {
+            closeLiveExecutionView();
+            document.removeEventListener('keydown', handleEsc);
+        }
+    };
+    document.addEventListener('keydown', handleEsc);
     
     // Start SSE connection
     startLiveExecutionStream(executionId);
