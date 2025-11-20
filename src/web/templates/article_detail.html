@@ -70,7 +70,7 @@
                     {% if article.article_metadata and article.article_metadata.get('threat_hunting_score') is not none %}
                     <div class="flex items-center">
                         <span class="mr-2">🎯</span>
-                        <span>Threat Hunting Score: 
+                        <span>RegexHuntScore: 
                             {% set score = article.article_metadata.get('threat_hunting_score', 0) %}
                             {% if score >= 80 %}
                                 <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-bold bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 border border-green-200 dark:border-green-700">
@@ -92,6 +92,42 @@
                         </span>
                     </div>
                     {% endif %}
+                    <div class="flex items-center">
+                        <span class="mr-2">🤖</span>
+                        <span>MLHuntScore: 
+                            {% if article.article_metadata and article.article_metadata.get('ml_hunt_score') is not none %}
+                                {% set ml_score = article.article_metadata.get('ml_hunt_score', 0) %}
+                                {% if ml_score >= 80 %}
+                                    <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-bold bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 border border-green-200 dark:border-green-700">
+                                        🤖 {{ "%.1f"|format(ml_score) }}
+                                    </span>
+                                {% elif ml_score >= 60 %}
+                                    <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-bold bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200 border border-yellow-200 dark:border-yellow-700">
+                                        🟡 {{ "%.1f"|format(ml_score) }}
+                                    </span>
+                                {% elif ml_score >= 40 %}
+                                    <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-bold bg-orange-100 dark:bg-orange-900 text-orange-800 dark:text-orange-200 border border-orange-200 dark:border-orange-700">
+                                        🟠 {{ "%.1f"|format(ml_score) }}
+                                    </span>
+                                {% else %}
+                                    <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-bold bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 border border-red-200 dark:border-red-700">
+                                        🔴 {{ "%.1f"|format(ml_score) }}
+                                    </span>
+                                {% endif %}
+                            {% else %}
+                                <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-bold bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-700 relative group cursor-help">
+                                    TBD
+                                    <span class="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-900 dark:bg-gray-700 text-white text-xs rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible pointer-events-none whitespace-pre-line z-50 w-72 text-left shadow-lg">
+                                        <strong>ML Hunt Score: To Be Determined</strong><br><br>
+                                        This score requires chunk analysis to be run first.<br><br>
+                                        <strong>How to generate:</strong><br>
+                                        1. Scroll down to "Chunk Analysis" section and click "Run Full Analysis"<br>
+                                        2. Or run CLI: <code class="bg-gray-800 px-1 rounded text-xs">./run_cli.sh rescore-ml --article-id {{ article.id }}</code>
+                                    </span>
+                                </span>
+                            {% endif %}
+                        </span>
+                    </div>
                 </div>
 
                 {% if article.canonical_url %}

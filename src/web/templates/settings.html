@@ -301,8 +301,9 @@
                 <!-- Model Description -->
                 <div class="p-3 bg-blue-50 border border-blue-200 rounded-md">
                     <div class="text-sm text-blue-800">
-                        <p class="font-medium mb-1">Model Details:</p>
+                        <p class="font-medium mb-1">Recommmended Models:</p>
                         <ul class="list-disc list-inside space-y-1">
+                            <li><u><strong>Usage Guidance:</strong> Model selected in this page are used as defaultfor certain AI Modals where no other model is used. </li></u>
                             <li><strong>GPT-4o-mini:</strong> Fast, high-quality responses, cost-efficient (requires OpenAI API key)</li>
                             <li><strong>Claude Sonnet 4.5:</strong> Advanced reasoning, cybersecurity-optimized, long context (requires Anthropic API key)</li>
                             <li><strong>llama3.2:1b:</strong> Local processing via Ollama, no API costs (fast and private)</li>
@@ -719,7 +720,10 @@
                     console.log('Could not fetch saved LMStudio model:', error);
                 }
 
-                data.models.forEach((model, index) => {
+                // Sort models alphabetically
+                const sortedModels = [...data.models].sort();
+
+                sortedModels.forEach((model, index) => {
                     const option = document.createElement('option');
                     option.value = model;
                     option.textContent = model;

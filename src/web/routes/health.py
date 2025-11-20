@@ -5,6 +5,7 @@ Health and diagnostics endpoints for the CTI Scraper FastAPI application.
 from __future__ import annotations
 
 import os
+import socket
 from datetime import datetime
 from typing import Any, Dict
 
@@ -204,28 +205,9 @@ async def api_services_health() -> Dict[str, Any]:
                 "error": str(lmstudio_exc),
             }
 
-        # Check LangGraph Server
-        try:
-            langgraph_url = os.getenv("LANGGRAPH_SERVER_URL", "http://localhost:2024")
-            async with httpx.AsyncClient() as client:
-                response = await client.get(f"{langgraph_url}/health", timeout=5.0)
-                if response.status_code == 200:
-                    health_data = response.json()
-                    services_status["langgraph"] = {
-                        "status": "healthy",
-                        "url": langgraph_url,
-                        "version": health_data.get("version", "unknown"),
-                    }
-                else:
-                    services_status["langgraph"] = {
-                        "status": "unhealthy",
-                        "error": f"HTTP {response.status_code}",
-                    }
-        except Exception as langgraph_exc:
-            services_status["langgraph"] = {
-                "status": "unhealthy",
-                "error": str(langgraph_exc),
-            }
+        # Note: LangGraph Server is optional - only used for debugging via Agent Chat UI
+        # Production workflows run via Celery and don't require LangGraph server
+        # Skipping health check as it's not required for normal operation
 
         # Check LangFuse
         try:

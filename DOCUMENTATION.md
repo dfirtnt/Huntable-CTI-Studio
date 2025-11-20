@@ -44,6 +44,7 @@ Choose your path based on your role:
 - **[SIGMA Detection Rules](docs/features/SIGMA_DETECTION_RULES.md)** - AI-powered rule generation, matching & similarity
 - **[Content Filtering](docs/features/CONTENT_FILTERING.md)** - ML-based content optimization for GPT-4o
 - **[OS Detection](docs/features/OS_DETECTION.md)** - Automated operating system detection for threat intelligence articles
+- **[Workflow Data Flow](docs/WORKFLOW_DATA_FLOW.md)** - Data storage, supervisor aggregation, and execution methods (Celery vs LangGraph Server)
 - **[AGENTS.md](AGENTS.md)** - AI assistant guidelines and instructions
 
 ### Development Documentation
