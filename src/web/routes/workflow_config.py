@@ -273,7 +273,39 @@ async def get_agent_prompts(request: Request):
                     "instructions": "",
                     "model": extract_model  # Use extract model for QA
                 }
+
+            # --- New Sub-Agents ---
+            sub_agents = [
+                ("CmdlineExtract", "CmdLineQA"),
+                ("SigExtract", "SigQA"),
+                ("EventCodeExtract", "EventCodeQA"),
+                ("ProcTreeExtract", "ProcTreeQA"),
+                ("RegExtract", "RegQA")
+            ]
             
+            for agent_name, qa_name in sub_agents:
+                # Load Extraction Agent
+                agent_path = prompts_dir / agent_name
+                if agent_path.exists():
+                    with open(agent_path, 'r') as f:
+                        prompt_content = f.read()
+                    default_prompts[agent_name] = {
+                        "prompt": prompt_content,
+                        "instructions": "", # Instructions are inside the JSON prompt file
+                        "model": extract_model
+                    }
+                
+                # Load QA Agent
+                qa_path = prompts_dir / qa_name
+                if qa_path.exists():
+                     with open(qa_path, 'r') as f:
+                        qa_content = f.read()
+                     default_prompts[qa_name] = {
+                        "prompt": qa_content,
+                        "instructions": "",
+                        "model": extract_model
+                     }
+
             # Merge database prompts with defaults (database takes precedence)
             if config.agent_prompts:
                 for agent_name, prompt_data in config.agent_prompts.items():
@@ -288,6 +320,9 @@ async def get_agent_prompts(request: Request):
                             prompt_data["model"] = rank_model
                         elif agent_name == "SigmaAgent":
                             prompt_data["model"] = sigma_model
+                        # Use extract model for sub-agents
+                        elif agent_name in [a for pair in sub_agents for a in pair]:
+                             prompt_data["model"] = extract_model
                         else:
                             prompt_data["model"] = default_model
                     default_prompts[agent_name] = prompt_data
@@ -505,5 +540,189 @@ async def rollback_agent_prompt(request: Request, agent_name: str, rollback_requ
         raise
     except Exception as e:
         logger.error(f"Error rolling back agent prompt: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+class TestSubAgentRequest(BaseModel):
+    """Request model for testing a sub-agent."""
+    article_id: int = Field(1427, description="Article ID to test with")
+    agent_name: str = Field(..., description="Name of the sub-agent (e.g., SigExtract, EventCodeExtract)")
+
+
+class TestRankAgentRequest(BaseModel):
+    """Request model for testing Rank Agent."""
+    article_id: int = Field(1427, description="Article ID to test with")
+
+
+@router.post("/config/test-subagent")
+async def test_sub_agent(request: Request, test_request: TestSubAgentRequest):
+    """Test a sub-agent extraction on a specific article."""
+    try:
+        db_manager = DatabaseManager()
+        db_session = db_manager.get_session()
+        
+        try:
+            # Get article
+            from src.database.models import ArticleTable
+            article = db_session.query(ArticleTable).filter(ArticleTable.id == test_request.article_id).first()
+            if not article:
+                raise HTTPException(status_code=404, detail=f"Article {test_request.article_id} not found")
+            
+            # Get active config
+            config = db_session.query(AgenticWorkflowConfigTable).filter(
+                AgenticWorkflowConfigTable.is_active == True
+            ).order_by(
+                AgenticWorkflowConfigTable.version.desc()
+            ).first()
+            
+            if not config:
+                raise HTTPException(status_code=404, detail="No active workflow configuration found")
+            
+            # Load prompt configs
+            from pathlib import Path
+            prompts_dir = Path(__file__).parent.parent.parent / "prompts"
+            
+            agent_name = test_request.agent_name
+            prompt_path = prompts_dir / agent_name
+            
+            if not prompt_path.exists():
+                raise HTTPException(status_code=404, detail=f"Prompt file not found for {agent_name}")
+            
+            # Load prompt config
+            import json
+            with open(prompt_path, 'r') as f:
+                prompt_config = json.load(f)
+            
+            # Load QA config if exists
+            qa_agent_map = {
+                "SigExtract": "SigQA",
+                "EventCodeExtract": "EventCodeQA",
+                "ProcTreeExtract": "ProcTreeQA",
+                "RegExtract": "RegQA"
+            }
+            qa_name = qa_agent_map.get(agent_name)
+            qa_prompt_config = None
+            if qa_name:
+                qa_path = prompts_dir / qa_name
+                if qa_path.exists():
+                    with open(qa_path, 'r') as f:
+                        qa_prompt_config = json.load(f)
+            
+            # Check if QA is enabled for this agent
+            qa_enabled = config.qa_enabled or {}
+            use_qa = qa_enabled.get(agent_name, False) and qa_prompt_config
+            
+            # Initialize LLM service
+            from src.services.llm_service import LLMService
+            agent_models = config.agent_models if config.agent_models else {}
+            llm_service = LLMService(config_models=agent_models)
+            
+            # Get model and temperature for this agent
+            model_key = f"{agent_name}_model"
+            temperature_key = f"{agent_name}_temperature"
+            agent_model = agent_models.get(model_key) or agent_models.get("ExtractAgent")
+            agent_temperature = agent_models.get(temperature_key, 0.0)
+            
+            # Run extraction agent
+            result = await llm_service.run_extraction_agent(
+                agent_name=agent_name,
+                content=article.content,
+                title=article.title,
+                url=article.canonical_url or "",
+                prompt_config=prompt_config,
+                qa_prompt_config=qa_prompt_config if use_qa else None,
+                max_retries=5,
+                execution_id=None,
+                model_name=agent_model,
+                temperature=float(agent_temperature)
+            )
+            
+            return {
+                "success": True,
+                "agent_name": agent_name,
+                "article_id": test_request.article_id,
+                "article_title": article.title,
+                "qa_enabled": use_qa,
+                "result": result
+            }
+            
+        finally:
+            db_session.close()
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error testing sub-agent: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/config/test-rankagent")
+async def test_rank_agent(request: Request, test_request: TestRankAgentRequest):
+    """Test Rank Agent on a specific article."""
+    try:
+        db_manager = DatabaseManager()
+        db_session = db_manager.get_session()
+        
+        try:
+            # Get article
+            from src.database.models import ArticleTable
+            article = db_session.query(ArticleTable).filter(ArticleTable.id == test_request.article_id).first()
+            if not article:
+                raise HTTPException(status_code=404, detail=f"Article {test_request.article_id} not found")
+            
+            # Get active config
+            config = db_session.query(AgenticWorkflowConfigTable).filter(
+                AgenticWorkflowConfigTable.is_active == True
+            ).order_by(
+                AgenticWorkflowConfigTable.version.desc()
+            ).first()
+            
+            if not config:
+                raise HTTPException(status_code=404, detail="No active workflow configuration found")
+            
+            # Initialize LLM service
+            from src.services.llm_service import LLMService
+            agent_models = config.agent_models if config.agent_models else {}
+            logger.info(f"Testing Rank Agent with config agent_models: {agent_models}")
+            rank_model = agent_models.get("RankAgent")
+            if not rank_model:
+                raise HTTPException(status_code=400, detail="RankAgent model not configured. Please set it in the workflow configuration.")
+            logger.info(f"Using RankAgent model: {rank_model}")
+            llm_service = LLMService(config_models=agent_models)
+            
+            # Get source name
+            source_name = article.source.name if article.source else "Unknown"
+            
+            # Load ranking prompt
+            from pathlib import Path
+            prompts_dir = Path(__file__).parent.parent.parent / "prompts"
+            prompt_file = prompts_dir / "lmstudio_sigma_ranking.txt"
+            
+            # Run ranking
+            ranking_result = await llm_service.rank_article(
+                title=article.title,
+                content=article.content,
+                source=source_name,
+                url=article.canonical_url or "",
+                prompt_template_path=str(prompt_file) if prompt_file.exists() else None,
+                execution_id=None,
+                article_id=test_request.article_id
+            )
+            
+            return {
+                "success": True,
+                "agent_name": "RankAgent",
+                "article_id": test_request.article_id,
+                "article_title": article.title,
+                "result": ranking_result
+            }
+            
+        finally:
+            db_session.close()
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error testing Rank Agent: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 

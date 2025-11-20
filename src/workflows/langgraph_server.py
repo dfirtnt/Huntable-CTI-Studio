@@ -722,71 +722,9 @@ Cannot process empty articles."""
             agent_models = config_obj.agent_models if config_obj else None
             llm_service = LLMService(config_models=agent_models)
             
-            # --- 1. CmdLineExtract (Existing ExtractAgent) ---
-            try:
-                # Load ExtractAgent prompt from DB config
-                if not config_obj or not config_obj.agent_prompts or "ExtractAgent" not in config_obj.agent_prompts:
-                    # Fallback to file if not in DB
-                    logger.warning("ExtractAgent not in DB config, attempting file fallback for CmdLineExtract")
-                    prompt_config_dict = None
-                    instructions_template_str = None
-                    
-                    # Try loading from file
-                    prompt_file = Path(__file__).parent.parent / "prompts" / "ExtractAgent"
-                    if prompt_file.exists():
-                        with open(prompt_file, 'r') as f:
-                            prompt_config_dict = json.load(f)
-                        
-                        instr_file = Path(__file__).parent.parent / "prompts" / "ExtractAgentInstructions.txt"
-                        if instr_file.exists():
-                            with open(instr_file, 'r') as f:
-                                instructions_template_str = f.read()
-                else:
-                    agent_prompt_data = config_obj.agent_prompts["ExtractAgent"]
-                    # Parse prompt JSON (stored as string or dict)
-                    if isinstance(agent_prompt_data.get("prompt"), dict):
-                        prompt_config_dict = agent_prompt_data["prompt"]
-                    elif isinstance(agent_prompt_data.get("prompt"), str):
-                        try:
-                            prompt_config_dict = json.loads(agent_prompt_data["prompt"])
-                        except:
-                            prompt_config_dict = {} # Fail gracefully
-                    else:
-                        prompt_config_dict = {}
-                        
-                    instructions_template_str = agent_prompt_data.get("instructions")
-
-                if prompt_config_dict and instructions_template_str:
-                    cmdline_result = await llm_service.extract_behaviors(
-                        content=filtered_content,
-                        title=article.title,
-                        url=article.canonical_url or "",
-                        prompt_config_dict=prompt_config_dict,
-                        instructions_template_str=instructions_template_str
-                    )
-                    
-                    # Map to subresults["cmdline"]
-                    cmd_observables = cmdline_result.get('observables', [])
-                    # Extract values
-                    cmd_items = []
-                    for obs in cmd_observables:
-                         val = obs.get('value') or obs.get('content') or str(obs)
-                         if isinstance(val, str):
-                             cmd_items.append(val)
-                    
-                    subresults["cmdline"] = {
-                        "items": cmd_items,
-                        "count": len(cmd_items),
-                        "raw": cmdline_result
-                    }
-                    logger.info(f"CmdLineExtract: {len(cmd_items)} items")
-                else:
-                    logger.warning("Could not load CmdLineExtract configuration")
-            except Exception as e:
-                logger.error(f"CmdLineExtract failed: {e}")
-
-            # --- 2. New Sub-Agents ---
+            # --- Sub-Agents (including CmdlineExtract) ---
             sub_agents = [
+                ("CmdlineExtract", "cmdline", "CmdLineQA"),
                 ("SigExtract", "sigma_queries", "SigQA"),
                 ("EventCodeExtract", "event_ids", "EventCodeQA"),
                 ("ProcTreeExtract", "process_lineage", "ProcTreeQA"),
@@ -813,6 +751,13 @@ Cannot process empty articles."""
                         with open(qa_path, 'r') as f:
                             qa_config = json.load(f)
                     
+                    # Get model and temperature for this agent
+                    agent_models = config_obj.agent_models if config_obj and config_obj.agent_models else {}
+                    model_key = f"{agent_name}_model"
+                    temperature_key = f"{agent_name}_temperature"
+                    agent_model = agent_models.get(model_key) or agent_models.get("ExtractAgent")
+                    agent_temperature = agent_models.get(temperature_key, 0.0)
+                    
                     # Run Agent
                     agent_result = await llm_service.run_extraction_agent(
                         agent_name=agent_name,
@@ -820,7 +765,9 @@ Cannot process empty articles."""
                         title=article.title,
                         url=article.canonical_url or "",
                         prompt_config=prompt_config,
-                        qa_prompt_config=qa_config
+                        qa_prompt_config=qa_config,
+                        model_name=agent_model,
+                        temperature=float(agent_temperature)
                     )
                     
                     # Store Result
@@ -828,6 +775,9 @@ Cannot process empty articles."""
                     # Try to find the specific list for this agent
                     if result_key in agent_result:
                         items = agent_result[result_key]
+                    elif agent_name == "CmdlineExtract" and "cmdline_items" in agent_result:
+                        # CmdlineExtract uses cmdline_items field
+                        items = agent_result["cmdline_items"]
                     elif "items" in agent_result:
                          items = agent_result["items"]
                     else:
