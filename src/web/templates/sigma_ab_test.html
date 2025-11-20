@@ -540,6 +540,8 @@ tags:
                 
                 // Populate embedding model dropdown
                 if (embeddingModels.length > 0) {
+                    // Sort embedding models alphabetically
+                    embeddingModels.sort();
                     embeddingModels.forEach((model, index) => {
                         const option = document.createElement('option');
                         option.value = model;
@@ -555,6 +557,8 @@ tags:
                 
                 // Populate LLM model dropdown
                 if (chatModels.length > 0) {
+                    // Sort chat models alphabetically
+                    chatModels.sort();
                     chatModels.forEach((model, index) => {
                         const option = document.createElement('option');
                         option.value = model;

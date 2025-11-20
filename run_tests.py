@@ -130,6 +130,7 @@ class TestRunner:
         self.start_time = time.time()
         self.results = {}
         self.environment_manager = None
+        self.test_groups_executed = []  # Track which test groups were run
         
         # Virtual environment paths - always use .venv
         self.venv_python = self._ensure_venv()
@@ -316,6 +317,70 @@ class TestRunner:
         except Exception:
             return False
     
+    def _get_pytest_test_groups(self) -> List[str]:
+        """Determine which pytest test groups are being executed based on test type."""
+        test_type = self.config.test_type
+        
+        if self.config.test_paths:
+            # Custom paths specified - analyze them
+            groups = []
+            for path in self.config.test_paths:
+                if "smoke" in path:
+                    groups.append("smoke")
+                elif "api" in path:
+                    groups.append("api")
+                elif "integration" in path:
+                    groups.append("integration")
+                elif "ui" in path:
+                    groups.append("ui")
+                elif "e2e" in path:
+                    groups.append("e2e")
+                elif "cli" in path:
+                    groups.append("cli")
+                elif "workflows" in path:
+                    groups.append("workflows")
+                elif "services" in path:
+                    groups.append("services")
+                elif "core" in path:
+                    groups.append("core")
+                elif "utils" in path:
+                    groups.append("utils")
+            return list(set(groups)) if groups else ["all"]
+        
+        # Map test types to groups
+        group_map = {
+            TestType.SMOKE: ["smoke"],
+            TestType.UNIT: ["unit", "core", "services", "utils"],
+            TestType.API: ["api"],
+            TestType.INTEGRATION: ["integration"],
+            TestType.UI: ["ui"],
+            TestType.E2E: ["e2e"],
+            TestType.PERFORMANCE: ["performance"],
+            TestType.AI: ["ai", "ui", "integration"],
+            TestType.AI_UI: ["ai", "ui"],
+            TestType.AI_INTEGRATION: ["ai", "integration"],
+            TestType.ALL: ["all"],
+            TestType.COVERAGE: ["all"],
+        }
+        
+        return group_map.get(test_type, ["all"])
+    
+    def _get_playwright_test_groups(self) -> List[str]:
+        """Determine which Playwright test groups are being executed."""
+        if not self._build_playwright_command():
+            return []
+        
+        groups = []
+        playwright_cmd = self._build_playwright_command()
+        if playwright_cmd:
+            for arg in playwright_cmd:
+                if "playwright" in arg:
+                    groups.append("playwright")
+                elif "help_buttons" in arg:
+                    groups.append("help-buttons")
+        
+        return groups if groups else ["playwright"]
+    
     def _build_playwright_command(self) -> List[str]:
         """Build Playwright test command based on configuration."""
         cmd = ["npx", "playwright", "test"]
@@ -464,13 +529,16 @@ class TestRunner:
                 "--cov-report=term-missing"
             ])
         
-        # Add output format
+        # Add output format - default to verbose for better visibility
         if self.config.output_format == "progress":
-            cmd.append("-q" if not self.config.verbose else "-v")
+            # Use verbose by default for better visibility, but allow quiet override
+            cmd.append("-v" if self.config.verbose else "-v")  # Always verbose for visibility
         elif self.config.output_format == "verbose":
-            cmd.append("-v")
+            cmd.append("-vv")  # Extra verbose
         elif self.config.output_format == "quiet":
             cmd.append("-q")
+        else:
+            cmd.append("-v")  # Default to verbose
         
         # Add debugging options
         if self.config.debug:
@@ -561,7 +629,18 @@ class TestRunner:
             cmd = self._build_pytest_command()
             cmd_str = " ".join(cmd)
             
+            # Determine which test groups are being executed
+            pytest_groups = self._get_pytest_test_groups()
+            if pytest_groups:
+                self.test_groups_executed.extend([f"pytest:{group}" for group in pytest_groups])
+            
+            print("\n" + "="*80)
+            print("🧪 RUNNING PYTEST TESTS")
+            if pytest_groups:
+                print(f"   Test Groups: {', '.join(pytest_groups)}")
+            print("="*80)
             logger.info(f"Executing pytest: {cmd_str}")
+            print()
             
             try:
                 result = subprocess.run(
@@ -572,11 +651,18 @@ class TestRunner:
                 )
                 
                 pytest_success = result.returncode == 0
+                pytest_duration = time.time() - pytest_start_time
                 self.results["pytest"] = {
                     "success": pytest_success,
                     "returncode": result.returncode,
-                    "duration": time.time() - pytest_start_time
+                    "duration": pytest_duration
                 }
+                
+                print()
+                print("="*80)
+                status = "✅ PASSED" if pytest_success else "❌ FAILED"
+                print(f"PYTEST TESTS: {status} ({pytest_duration:.2f}s)")
+                print("="*80)
                 
             except subprocess.TimeoutExpired:
                 logger.error(f"Pytest execution timed out after {self.config.timeout} seconds")
@@ -596,7 +682,18 @@ class TestRunner:
                 playwright_start_time = time.time()
                 cmd_str = " ".join(playwright_cmd)
                 
+                # Determine which Playwright test groups are being executed
+                playwright_groups = self._get_playwright_test_groups()
+                if playwright_groups:
+                    self.test_groups_executed.extend([f"playwright:{group}" for group in playwright_groups])
+                
+                print("\n" + "="*80)
+                print("🎭 RUNNING PLAYWRIGHT TESTS")
+                if playwright_groups:
+                    print(f"   Test Groups: {', '.join(playwright_groups)}")
+                print("="*80)
                 logger.info(f"Executing Playwright: {cmd_str}")
+                print()
                 
                 try:
                     result = subprocess.run(
@@ -607,11 +704,18 @@ class TestRunner:
                     )
                     
                     playwright_success = result.returncode == 0
+                    playwright_duration = time.time() - playwright_start_time
                     self.results["playwright"] = {
                         "success": playwright_success,
                         "returncode": result.returncode,
-                        "duration": time.time() - playwright_start_time
+                        "duration": playwright_duration
                     }
+                    
+                    print()
+                    print("="*80)
+                    status = "✅ PASSED" if playwright_success else "❌ FAILED"
+                    print(f"PLAYWRIGHT TESTS: {status} ({playwright_duration:.2f}s)")
+                    print("="*80)
                     
                 except subprocess.TimeoutExpired:
                     logger.error(f"Playwright execution timed out after {self.config.timeout} seconds")
@@ -731,6 +835,29 @@ class TestRunner:
         print(f"🔧 Debug Mode: {'Yes' if self.config.debug else 'No'}")
         print(f"📈 Coverage: {'Yes' if self.config.coverage else 'No'}")
         
+        # Test Groups Summary
+        print("\n" + "="*80)
+        print("📊 TEST EXECUTION SUMMARY")
+        print("="*80)
+        
+        if self.test_groups_executed:
+            print("\n✅ Test Groups Executed:")
+            # Group by framework
+            pytest_groups = [g.replace("pytest:", "") for g in self.test_groups_executed if g.startswith("pytest:")]
+            playwright_groups = [g.replace("playwright:", "") for g in self.test_groups_executed if g.startswith("playwright:")]
+            
+            if pytest_groups:
+                print(f"  🐍 Pytest:")
+                for group in sorted(set(pytest_groups)):
+                    print(f"     • {group}")
+            
+            if playwright_groups:
+                print(f"  🎭 Playwright:")
+                for group in sorted(set(playwright_groups)):
+                    print(f"     • {group}")
+        else:
+            print("\n⚠️  No test groups tracked")
+        
         # Results summary
         if self.results:
             print("\n📋 Test Results:")
@@ -744,10 +871,25 @@ class TestRunner:
                     if "pytest" in result or "playwright" in result:
                         if "pytest" in result and result["pytest"] is not None:
                             pytest_status = "✅" if result["pytest"] else "❌"
-                            print(f"    - pytest: {pytest_status}")
+                            pytest_duration = self.results.get("pytest", {}).get("duration", 0)
+                            print(f"    - pytest: {pytest_status} ({pytest_duration:.2f}s)")
                         if "playwright" in result and result["playwright"] is not None:
                             pw_status = "✅" if result["playwright"] else "❌"
-                            print(f"    - playwright: {pw_status}")
+                            pw_duration = self.results.get("playwright", {}).get("duration", 0)
+                            print(f"    - playwright: {pw_status} ({pw_duration:.2f}s)")
+        
+        # Overall statistics
+        total_duration = time.time() - self.start_time
+        print(f"\n⏱️  Total Execution Time: {total_duration:.2f}s")
+        
+        # Success summary
+        overall_success = all(
+            result.get("success", False) 
+            for result in self.results.values() 
+            if isinstance(result, dict) and "success" in result
+        ) if self.results else False
+        
+        print(f"🎯 Overall Status: {'✅ ALL TESTS PASSED' if overall_success else '❌ SOME TESTS FAILED'}")
         
         # Report locations
         print("\n📁 Generated Reports:")

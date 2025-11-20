@@ -1199,7 +1199,10 @@ async function loadLMStudioModels() {
                         const currentFallbackModel = agentModels['OSDetectionAgent_fallback'] || '';
                         fallbackSelect.innerHTML = '<option value="">-- Select model --</option>';
                         
-                        data.models.forEach(model => {
+                        // Sort models alphabetically
+                        const sortedModels = [...data.models].sort();
+                        
+                        sortedModels.forEach(model => {
                             const option = document.createElement('option');
                             option.value = model;
                             option.textContent = model;
@@ -1230,8 +1233,11 @@ async function loadLMStudioModels() {
                 // Clear existing options except the placeholder
                 select.innerHTML = '<option value="">-- Select model --</option>';
                 
+                // Sort models alphabetically
+                const sortedModels = [...data.models].sort();
+                
                 // Add all available models
-                data.models.forEach(model => {
+                sortedModels.forEach(model => {
                     const option = document.createElement('option');
                     option.value = model;
                     option.textContent = model;
@@ -1849,7 +1855,7 @@ function renderAgentModels(lmstudioModels) {
         const availableModelIds = lmstudioModels.map(m => typeof m === 'string' ? m : m.id);
         
         // Ensure current model is in the list (even if not in available models)
-        const allModelIds = [...new Set([...availableModelIds, ...(currentModel ? [currentModel] : [])])];
+        const allModelIds = [...new Set([...availableModelIds, ...(currentModel ? [currentModel] : [])])].sort();
         
         const modelOptions = allModelIds.map(modelId => {
             const isSelected = currentModel === modelId ? 'selected' : '';
@@ -1914,7 +1920,13 @@ function renderAgentModels(lmstudioModels) {
     if (extractContainer) {
         const currentModel = agentModels['ExtractAgent'] || '';
         // Models are returned as strings, not objects with .id property
-        const modelOptions = lmstudioModels.map(m => {
+        // Sort models alphabetically
+        const sortedModels = [...lmstudioModels].sort((a, b) => {
+            const aId = typeof a === 'string' ? a : a.id;
+            const bId = typeof b === 'string' ? b : b.id;
+            return aId.localeCompare(bId);
+        });
+        const modelOptions = sortedModels.map(m => {
             const modelId = typeof m === 'string' ? m : m.id;
             return `<option value="${escapeHtml(modelId)}" ${currentModel === modelId ? 'selected' : ''}>${escapeHtml(modelId)}</option>`;
         }).join('');
@@ -1937,7 +1949,13 @@ function renderAgentModels(lmstudioModels) {
     if (sigmaContainer) {
         const currentModel = agentModels['SigmaAgent'] || '';
         // Models are returned as strings, not objects with .id property
-        const modelOptions = lmstudioModels.map(m => {
+        // Sort models alphabetically
+        const sortedModels = [...lmstudioModels].sort((a, b) => {
+            const aId = typeof a === 'string' ? a : a.id;
+            const bId = typeof b === 'string' ? b : b.id;
+            return aId.localeCompare(bId);
+        });
+        const modelOptions = sortedModels.map(m => {
             const modelId = typeof m === 'string' ? m : m.id;
             return `<option value="${escapeHtml(modelId)}" ${currentModel === modelId ? 'selected' : ''}>${escapeHtml(modelId)}</option>`;
         }).join('');
@@ -1972,7 +1990,7 @@ function renderAgentModels(lmstudioModels) {
             const availableModelIds = lmstudioModels.map(m => typeof m === 'string' ? m : m.id);
             
             // Ensure current model is in the list (even if not in available models)
-            const allModelIds = [...new Set([...availableModelIds, ...(currentModel ? [currentModel] : [])])];
+            const allModelIds = [...new Set([...availableModelIds, ...(currentModel ? [currentModel] : [])])].sort();
             
             const modelOptions = allModelIds.map(modelId => {
                 const isSelected = currentModel === modelId ? 'selected' : '';

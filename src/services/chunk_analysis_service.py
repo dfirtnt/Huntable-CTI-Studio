@@ -99,6 +99,14 @@ class ChunkAnalysisService:
             self.db.commit()
             logger.info(f"Stored {stored_count} chunk analysis results for article {article_id}")
             
+            # Calculate and update ML hunt score after storing chunks
+            if stored_count > 0:
+                try:
+                    self.update_article_ml_hunt_score(article_id, metric='weighted_average', model_version=model_version)
+                except Exception as e:
+                    logger.warning(f"Failed to update ML hunt score for article {article_id} after storing chunks: {e}")
+                    # Don't fail the whole operation if score update fails
+            
         except Exception as e:
             self.db.rollback()
             logger.error(f"Error storing chunk analysis for article {article_id}: {e}")
@@ -252,3 +260,201 @@ class ChunkAnalysisService:
         except Exception as e:
             logger.error(f"Error getting model versions: {e}")
             return []
+    
+    def calculate_ml_hunt_score(
+        self, 
+        article_id: int, 
+        model_version: Optional[str] = None,
+        metric: str = 'weighted_average',
+        min_confidence_threshold: float = 0.5
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Calculate ML-based hunt score for an article from chunk analysis results.
+        
+        Args:
+            article_id: Article ID to calculate score for
+            model_version: Optional model version filter (uses latest if not specified)
+            metric: Metric calculation method:
+                - 'weighted_average': Average confidence of huntable chunks (recommended)
+                - 'proportion_weighted': (huntable_count / total_count) * avg_confidence
+                - 'confidence_sum_normalized': sum(confidences) / total_chunks
+                - 'top_percentile': 75th percentile confidence of huntable chunks
+                - 'user_proposed': User's original proposal (chunks >50% conf, sum/total)
+            min_confidence_threshold: Minimum confidence for user_proposed metric
+        
+        Returns:
+            Dict with score (0-100), metric details, and statistics, or None if no chunks found
+        """
+        try:
+            # Get all chunks for this article
+            query = self.db.query(ChunkAnalysisResultTable).filter(
+                ChunkAnalysisResultTable.article_id == article_id
+            )
+            
+            if model_version:
+                query = query.filter(ChunkAnalysisResultTable.model_version == model_version)
+            else:
+                # Use latest model version if not specified
+                latest_version = self.db.query(
+                    func.max(ChunkAnalysisResultTable.model_version)
+                ).filter(
+                    ChunkAnalysisResultTable.article_id == article_id
+                ).scalar()
+                if latest_version:
+                    query = query.filter(ChunkAnalysisResultTable.model_version == latest_version)
+            
+            chunks = query.all()
+            
+            if not chunks:
+                logger.debug(f"No chunk analysis results found for article {article_id}")
+                return None
+            
+            # Extract huntable chunks (where ML predicts huntable)
+            huntable_chunks = [
+                (chunk.ml_confidence, chunk.ml_prediction)
+                for chunk in chunks
+                if chunk.ml_prediction is True
+            ]
+            
+            total_chunks = len(chunks)
+            huntable_count = len(huntable_chunks)
+            
+            if huntable_count == 0:
+                # No huntable chunks - return zero score
+                return {
+                    'ml_hunt_score': 0.0,
+                    'metric': metric,
+                    'total_chunks': total_chunks,
+                    'huntable_chunks': 0,
+                    'avg_confidence': 0.0,
+                    'details': 'No chunks predicted as huntable by ML model'
+                }
+            
+            # Extract confidences for huntable chunks
+            huntable_confidences = [conf for conf, pred in huntable_chunks]
+            
+            # Calculate score based on selected metric
+            if metric == 'weighted_average':
+                # Recommended: Average confidence of huntable chunks, scaled to 0-100
+                avg_confidence = sum(huntable_confidences) / huntable_count
+                score = avg_confidence * 100
+                
+            elif metric == 'proportion_weighted':
+                # Proportion of huntable chunks * average confidence
+                proportion = huntable_count / total_chunks
+                avg_confidence = sum(huntable_confidences) / huntable_count
+                score = proportion * avg_confidence * 100
+                
+            elif metric == 'confidence_sum_normalized':
+                # Sum of all huntable confidences, normalized by total chunks
+                confidence_sum = sum(huntable_confidences)
+                score = (confidence_sum / total_chunks) * 100
+                
+            elif metric == 'top_percentile':
+                # 75th percentile confidence of huntable chunks
+                import numpy as np
+                percentile_75 = np.percentile(huntable_confidences, 75)
+                score = percentile_75 * 100
+                
+            elif metric == 'user_proposed':
+                # User's original proposal: chunks >threshold, sum/total
+                high_confidence_chunks = [
+                    conf for conf in huntable_confidences 
+                    if conf > min_confidence_threshold
+                ]
+                if len(high_confidence_chunks) == 0:
+                    score = 0.0
+                else:
+                    confidence_sum = sum(high_confidence_chunks)
+                    score = (confidence_sum / len(high_confidence_chunks)) * 100
+                huntable_count = len(high_confidence_chunks)  # Override for this metric
+                
+            else:
+                logger.warning(f"Unknown metric '{metric}', using weighted_average")
+                avg_confidence = sum(huntable_confidences) / huntable_count
+                score = avg_confidence * 100
+            
+            # Clamp score to 0-100 range
+            score = max(0.0, min(100.0, score))
+            
+            # Calculate additional statistics
+            avg_confidence = sum(huntable_confidences) / huntable_count
+            min_confidence = min(huntable_confidences)
+            max_confidence = max(huntable_confidences)
+            
+            return {
+                'ml_hunt_score': round(score, 2),
+                'metric': metric,
+                'total_chunks': total_chunks,
+                'huntable_chunks': huntable_count,
+                'huntable_proportion': round(huntable_count / total_chunks, 3),
+                'avg_confidence': round(avg_confidence, 3),
+                'min_confidence': round(min_confidence, 3),
+                'max_confidence': round(max_confidence, 3),
+                'model_version': chunks[0].model_version if chunks else None
+            }
+            
+        except Exception as e:
+            logger.error(f"Error calculating ML hunt score for article {article_id}: {e}")
+            return None
+    
+    def update_article_ml_hunt_score(
+        self,
+        article_id: int,
+        metric: str = 'weighted_average',
+        model_version: Optional[str] = None
+    ) -> bool:
+        """
+        Calculate and update article metadata with ML hunt score.
+        
+        Args:
+            article_id: Article ID to update
+            metric: Metric calculation method (see calculate_ml_hunt_score)
+            model_version: Optional model version filter
+        
+        Returns:
+            True if score was calculated and updated, False otherwise
+        """
+        try:
+            # Calculate ML hunt score
+            score_result = self.calculate_ml_hunt_score(
+                article_id, 
+                model_version=model_version,
+                metric=metric
+            )
+            
+            if not score_result:
+                logger.debug(f"No ML hunt score calculated for article {article_id} (no chunks found)")
+                return False
+            
+            # Get article and update metadata
+            article = self.db.query(ArticleTable).filter(ArticleTable.id == article_id).first()
+            if not article:
+                logger.error(f"Article {article_id} not found")
+                return False
+            
+            # Update article metadata
+            if not article.article_metadata:
+                article.article_metadata = {}
+            
+            # Store ML hunt score and details
+            article.article_metadata['ml_hunt_score'] = score_result['ml_hunt_score']
+            article.article_metadata['ml_hunt_score_metric'] = score_result['metric']
+            article.article_metadata['ml_hunt_score_details'] = {
+                'total_chunks': score_result['total_chunks'],
+                'huntable_chunks': score_result['huntable_chunks'],
+                'huntable_proportion': score_result['huntable_proportion'],
+                'avg_confidence': score_result['avg_confidence'],
+                'min_confidence': score_result['min_confidence'],
+                'max_confidence': score_result['max_confidence'],
+                'model_version': score_result['model_version']
+            }
+            
+            self.db.commit()
+            logger.info(f"Updated ML hunt score for article {article_id}: {score_result['ml_hunt_score']:.2f}")
+            return True
+            
+        except Exception as e:
+            self.db.rollback()
+            logger.error(f"Error updating ML hunt score for article {article_id}: {e}")
+            return False
