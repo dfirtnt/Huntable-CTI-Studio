@@ -300,6 +300,19 @@ class DatabaseManager:
                 # Commit all successful articles
                 session.commit()
                 
+                # Automatically run chunk analysis for articles with hunt_score > 50
+                # This calculates ML hunt score automatically
+                for created_article in created_articles:
+                    hunt_score = created_article.article_metadata.get('threat_hunting_score', 0) if created_article.article_metadata else 0
+                    if hunt_score > 50:
+                        try:
+                            # Run chunk analysis in background (non-blocking)
+                            from src.worker.celery_app import run_chunk_analysis
+                            run_chunk_analysis.delay(created_article.id)
+                            logger.info(f"Triggered automatic chunk analysis for article {created_article.id} (hunt_score: {hunt_score})")
+                        except Exception as e:
+                            logger.warning(f"Failed to trigger chunk analysis for article {created_article.id}: {e}")
+                
                 # Update source article count
                 if created_articles:
                     source_id = articles[0].source_id

@@ -5,6 +5,7 @@ from typing import List, Dict, Any, Optional, Tuple
 from datetime import datetime
 from sqlalchemy.orm import Session
 from sqlalchemy import and_, or_, func, desc
+from sqlalchemy.orm.attributes import flag_modified
 
 from src.database.models import ChunkAnalysisResultTable, ArticleTable
 from src.utils.content import ThreatHuntingScorer
@@ -449,6 +450,9 @@ class ChunkAnalysisService:
                 'max_confidence': score_result['max_confidence'],
                 'model_version': score_result['model_version']
             }
+            
+            # Mark JSON field as modified so SQLAlchemy detects the change
+            flag_modified(article, 'article_metadata')
             
             self.db.commit()
             logger.info(f"Updated ML hunt score for article {article_id}: {score_result['ml_hunt_score']:.2f}")

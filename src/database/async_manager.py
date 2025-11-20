@@ -869,16 +869,29 @@ class AsyncDatabaseManager:
                 
                 logger.info(f"Created article with deduplication: {article.title}")
                 
+                # Get hunt score once for both workflow and chunk analysis
+                hunt_score = new_article.article_metadata.get('threat_hunting_score', 0) if new_article.article_metadata else 0
+                
                 # Check if workflow should be triggered
                 # Hunt score threshold check is DISABLED - all articles can enter workflow
                 try:
-                    hunt_score = new_article.article_metadata.get('threat_hunting_score', 0) if new_article.article_metadata else 0
                     # Threshold check disabled - always trigger workflow regardless of score
                     from src.worker.celery_app import trigger_agentic_workflow
                     trigger_agentic_workflow.delay(new_article.id)
                     logger.info(f"Triggered agentic workflow for article {new_article.id} (hunt_score: {hunt_score}, threshold check disabled)")
                 except Exception as e:
                     logger.warning(f"Failed to trigger workflow for article {new_article.id}: {e}")
+                
+                # Automatically run chunk analysis for articles with hunt_score > 50
+                # This calculates ML hunt score automatically
+                if hunt_score > 50:
+                    try:
+                        # Run chunk analysis in background (non-blocking)
+                        from src.worker.celery_app import run_chunk_analysis
+                        run_chunk_analysis.delay(new_article.id)
+                        logger.info(f"Triggered automatic chunk analysis for article {new_article.id} (hunt_score: {hunt_score})")
+                    except Exception as e:
+                        logger.warning(f"Failed to trigger chunk analysis for article {new_article.id}: {e}")
                 
                 return self._db_article_to_model(new_article)
                 
