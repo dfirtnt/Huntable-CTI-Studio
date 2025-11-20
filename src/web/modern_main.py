@@ -140,7 +140,8 @@ register_routes(app)
 async def not_found_handler(request: Request, exc: HTTPException):
     """Handle 404 errors."""
     if request.url.path.startswith("/api/"):
-        return JSONResponse(content={"detail": "Not found"}, status_code=404)
+        detail = exc.detail if hasattr(exc, 'detail') and exc.detail else "Not found"
+        return JSONResponse(content={"detail": detail}, status_code=404)
 
     return templates.TemplateResponse(
         "error.html",
