@@ -1725,6 +1725,7 @@ async function loadConfig() {
             // Load sub-agent temperature values
             const agentModels = currentConfig?.agent_models || {};
             const subAgents = [
+                { name: 'RankAgent', id: 'rankagent-temperature' },
                 { name: 'CmdlineExtract', id: 'cmdlineextract-temperature' },
                 { name: 'SigExtract', id: 'sigextract-temperature' },
                 { name: 'EventCodeExtract', id: 'eventcodeextract-temperature' },
@@ -1842,6 +1843,12 @@ function renderAgentModels(lmstudioModels) {
                     ${modelOptions}
                 </select>
                 <p class="text-xs text-gray-500 dark:text-gray-300 mt-1">Required: Select a model from the dropdown</p>
+                
+                <!-- Temperature -->
+                <div class="mt-3">
+                    <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">Temperature</label>
+                    <input type="number" id="rankagent-temperature" name="agent_models[RankAgent_temperature]" min="0" max="2" step="0.1" value="0.0" onchange="autoSaveModelChange()" class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white text-xs">
+                </div>
             </div>
         `;
     }
@@ -2091,6 +2098,7 @@ window.autoSaveModelChange = async function autoSaveModelChange() {
         // Collect all current agent_models values
         const agentModelsData = {
             RankAgent: document.getElementById('rankagent-model-2')?.value.trim() || null,
+            RankAgent_temperature: parseFloat(document.getElementById('rankagent-temperature')?.value) || 0.0,
             OSDetectionAgent_embedding: document.getElementById('osdetectionagent-embedding-model-2')?.value.trim() || 'ibm-research/CTI-BERT',
             OSDetectionAgent_fallback: document.getElementById('osdetectionagent-fallback-model-2')?.value.trim() || null,
             ExtractAgent: document.getElementById('extractagent-model-2')?.value.trim() || null,
@@ -2699,6 +2707,7 @@ if (workflowConfigForm2) {
         description: document.getElementById('description2').value,
         agent_models: {
             RankAgent: document.getElementById('rankagent-model-2')?.value.trim() || null,
+            RankAgent_temperature: parseFloat(document.getElementById('rankagent-temperature')?.value) || 0.0,
             OSDetectionAgent_embedding: document.getElementById('osdetectionagent-embedding-model-2')?.value.trim() || 'ibm-research/CTI-BERT',
             OSDetectionAgent_fallback: document.getElementById('osdetectionagent-fallback-model-2')?.value.trim() || null,
             ExtractAgent: document.getElementById('extractagent-model-2')?.value.trim() || null,
@@ -3262,6 +3271,155 @@ async function viewExecution(executionId) {
                     </div>`,
                     details: detailsSections.join('')
                 });
+                
+                // Sub-Agents: Individual Extraction Agents (in workflow execution order)
+                if (exec.extraction_result?.subresults) {
+                    const subresults = exec.extraction_result.subresults || {};
+                    const qaResults = exec.error_log?.qa_results || {};
+                    
+                    // Sub-agents in workflow execution order
+                    const subAgents = [
+                        { key: 'cmdline', name: 'CmdlineExtract', qaName: 'CmdLineQA', display: 'Command Line Extraction', icon: '💻', order: 1 },
+                        { key: 'sigma_queries', name: 'SigExtract', qaName: 'SigQA', display: 'SIGMA Query Extraction', icon: '🔍', order: 2 },
+                        { key: 'event_ids', name: 'EventCodeExtract', qaName: 'EventCodeQA', display: 'Event ID Extraction', icon: '📋', order: 3 },
+                        { key: 'process_lineage', name: 'ProcTreeExtract', qaName: 'ProcTreeQA', display: 'Process Lineage Extraction', icon: '🌳', order: 4 },
+                        { key: 'registry_keys', name: 'RegExtract', qaName: 'RegQA', display: 'Registry Key Extraction', icon: '🔑', order: 5 }
+                    ];
+                    
+                    const subAgentDetails = subAgents.map(subAgent => {
+                        const result = subresults[subAgent.key];
+                        const items = result?.items || [];
+                        const count = result?.count || items.length || 0;
+                        const raw = result?.raw || {};
+                        
+                        // Get QA result for this sub-agent
+                        const qaResult = qaResults[subAgent.name] || qaResults[subAgent.qaName] || null;
+                        const qaVerdict = qaResult?.verdict || qaResult?.status || null;
+                        const qaFeedback = qaResult?.feedback || null;
+                        const qaIssues = qaResult?.issues || [];
+                        
+                        const itemsHtml = items.length > 0 ? `<details class="mt-2">
+                            <summary class="cursor-pointer text-xs !text-white dark:!text-white hover:text-gray-900 dark:hover:text-gray-100" style="color: white !important;">View ${items.length} Items</summary>
+                            <div class="mt-2 max-h-64 overflow-y-auto bg-gray-50 dark:bg-gray-900 p-3 rounded border border-gray-200 dark:border-gray-700 text-xs">
+                                <div class="space-y-2">
+                                    ${items.slice(0, 20).map((item, idx) => {
+                                        const itemValue = typeof item === 'object' ? JSON.stringify(item, null, 2) : String(item);
+                                        return `<div class="border-b border-gray-300 dark:border-gray-600 pb-2">
+                                            <div class="font-semibold text-gray-900 dark:text-white">${idx + 1}. Item</div>
+                                            <div class="text-gray-700 dark:text-gray-300 break-all whitespace-pre-wrap">${itemValue.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</div>
+                                        </div>`;
+                                    }).join('')}
+                                    ${items.length > 20 ? `<div class="text-gray-500 dark:text-gray-300">... and ${items.length - 20} more</div>` : ''}
+                                </div>
+                            </div>
+                        </details>` : '';
+                        
+                        const rawHtml = raw && Object.keys(raw).length > 0 ? `<details class="mt-2">
+                            <summary class="cursor-pointer text-xs !text-white dark:!text-white hover:text-gray-900 dark:hover:text-gray-100" style="color: white !important;">View Raw Agent Response</summary>
+                            <div class="mt-2 bg-gray-50 dark:bg-gray-900 p-3 rounded border border-gray-200 dark:border-gray-700 text-xs font-mono text-gray-900 dark:text-white whitespace-pre-wrap break-words">
+                                ${JSON.stringify(raw, null, 2).replace(/</g, '&lt;').replace(/>/g, '&gt;')}
+                            </div>
+                        </details>` : '';
+                        
+                        const qaHtml = qaResult ? `<div class="mt-3 border-t border-gray-300 dark:border-gray-600 pt-3">
+                            <strong class="text-gray-900 dark:text-white text-xs">QA Results (${subAgent.qaName}):</strong>
+                            <div class="mt-2">
+                                <div class="flex items-center gap-2 mb-2">
+                                    <span class="px-2 py-1 rounded text-xs font-semibold ${qaVerdict === 'pass' ? 'bg-green-100 dark:bg-green-900/40 text-green-800 dark:text-green-300' : qaVerdict === 'fail' ? 'bg-red-100 dark:bg-red-900/40 text-red-800 dark:text-red-300' : 'bg-yellow-100 dark:bg-yellow-900/40 text-yellow-800 dark:text-yellow-300'}">
+                                        ${qaVerdict === 'pass' ? '✅ PASS' : qaVerdict === 'fail' ? '❌ FAIL' : '⚠️ WARNING'}
+                                    </span>
+                                </div>
+                                ${qaFeedback ? `<div class="text-xs text-gray-700 dark:text-gray-300 mb-2"><strong>Feedback:</strong> ${qaFeedback.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</div>` : ''}
+                                ${qaIssues.length > 0 ? `<div class="text-xs"><strong class="text-gray-900 dark:text-white">Issues (${qaIssues.length}):</strong><ul class="list-disc list-inside mt-1 space-y-1 text-gray-700 dark:text-gray-300">${qaIssues.map(issue => {
+                                    const issueText = typeof issue === 'string' ? issue : (issue.description || issue.type || JSON.stringify(issue));
+                                    return `<li>${issueText.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</li>`;
+                                }).join('')}</ul></div>` : ''}
+                            </div>
+                        </div>` : '';
+                        
+                        return `<details class="mt-2 border border-cyan-200 dark:border-cyan-700 rounded-lg overflow-hidden">
+                            <summary class="bg-cyan-50 dark:bg-cyan-900/30 px-4 py-3 cursor-pointer font-medium text-gray-400 dark:text-gray-500 hover:bg-cyan-100 dark:hover:bg-cyan-900/50 text-sm">
+                                ${subAgent.icon} ${subAgent.display} ${count > 0 ? `(${count} items)` : '(0 items)'}${qaVerdict ? ` ${qaVerdict === 'pass' ? '✅' : qaVerdict === 'fail' ? '❌' : '⚠️'}` : ''}
+                            </summary>
+                            <div class="p-4 space-y-3 bg-white dark:bg-gray-800">
+                                <div>
+                                    <strong class="text-gray-900 dark:text-white text-sm">Inputs:</strong>
+                                    <div class="mt-1 text-xs">
+                                        <div>• Filtered Content: ${extractInputContentLength} chars</div>
+                                        <div>• Article Title: ${exec.article_title || 'N/A'}</div>
+                                        <div>• Article URL: ${exec.article_url || 'N/A'}</div>
+                                        <div>• Agent: ${subAgent.name}</div>
+                                        ${exec.config_snapshot?.agent_models?.[`${subAgent.name}_model`] ? `<div>• Model: ${exec.config_snapshot.agent_models[`${subAgent.name}_model`]}</div>` : ''}
+                                    </div>
+                                </div>
+                                <div>
+                                    <strong class="text-gray-900 dark:text-white text-sm">Outputs:</strong>
+                                    ${count > 0 ? `
+                                        <div class="mt-1 text-xs">
+                                            <div>• Items Extracted: <strong>${count}</strong></div>
+                                        </div>
+                                        ${itemsHtml}
+                                        ${rawHtml}
+                                    ` : '<span class="text-gray-400 text-xs">No items extracted</span>'}
+                                    ${qaHtml}
+                                </div>
+                            </div>
+                        </details>`;
+                    }).join('');
+                    
+                    steps.push({
+                        name: '<span class="text-gray-400 dark:text-gray-500">🔬 Sub-Agents (Individual Extraction)</span>',
+                        input: `<div class="space-y-1 text-xs">
+                            <div>• ${Object.keys(subresults).length} sub-agents executed</div>
+                        </div>`,
+                        inputDetails: '',
+                        output: `<div class="space-y-1 text-gray-700 dark:text-gray-300 text-xs">
+                            <div>• Total sub-agents: ${subAgents.length}</div>
+                        </div>`,
+                        details: `<div class="space-y-4">${subAgentDetails}</div>`
+                    });
+                    
+                    // ExtractionSupervisorAgent: Aggregation
+                    const supervisorDetails = `<div class="p-4 space-y-3 bg-white dark:bg-gray-800">
+                        <div>
+                            <strong class="text-gray-900 dark:text-white text-sm">Inputs:</strong>
+                            <div class="mt-1 text-xs">
+                                <div>• Sub-Agent Results: ${Object.keys(subresults).length} sub-agents</div>
+                                ${Object.entries(subresults).map(([key, data]) => {
+                                    const count = data?.count || data?.items?.length || 0;
+                                    const displayName = key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+                                    return `<div>• ${displayName}: ${count} items</div>`;
+                                }).join('')}
+                            </div>
+                        </div>
+                        <div>
+                            <strong class="text-gray-900 dark:text-white text-sm">Outputs:</strong>
+                            <div class="mt-1 text-xs">
+                                <div>• Total Observables: <strong>${discreteHuntablesCount}</strong></div>
+                                <div>• Aggregated from ${Object.keys(subresults).length} sub-agents</div>
+                                ${summary.platforms_detected && summary.platforms_detected.length > 0 ? `<div>• Platforms: ${summary.platforms_detected.join(', ')}</div>` : ''}
+                            </div>
+                            ${exec.extraction_result.content ? `<details class="mt-2">
+                                <summary class="cursor-pointer text-xs !text-white dark:!text-white hover:text-gray-900 dark:hover:text-gray-100" style="color: white !important;">View Aggregated Content Summary</summary>
+                                <div class="mt-2 bg-gray-50 dark:bg-gray-900 p-3 rounded border border-gray-200 dark:border-gray-700 text-xs font-mono text-gray-900 dark:text-white whitespace-pre-wrap break-words">
+                                    ${String(exec.extraction_result.content).substring(0, 2000).replace(/</g, '&lt;').replace(/>/g, '&gt;')}${exec.extraction_result.content.length > 2000 ? '...' : ''}
+                                </div>
+                            </details>` : ''}
+                        </div>
+                    </div>`;
+                    
+                    steps.push({
+                        name: '<span class="text-gray-400 dark:text-gray-500">🎯 ExtractionSupervisorAgent (Aggregation)</span>',
+                        input: `<div class="space-y-1 text-xs">
+                            <div>• Sub-agent results from ${Object.keys(subresults).length} sub-agents</div>
+                        </div>`,
+                        inputDetails: '',
+                        output: `<div class="space-y-1 text-gray-700 dark:text-gray-300 text-xs">
+                            <div>• Total Observables: <strong>${discreteHuntablesCount}</strong></div>
+                        </div>`,
+                        details: supervisorDetails
+                    });
+                }
             }
             
             // Step 4: Generate SIGMA
