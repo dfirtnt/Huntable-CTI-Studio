@@ -563,6 +563,35 @@ def trigger_agentic_workflow(self, article_id: int):
         raise self.retry(exc=exc, countdown=60 * (2 ** self.request.retries))
 
 
+@celery_app.task(bind=True, max_retries=2)
+def run_chunk_analysis(self, article_id: int):
+    """Run chunk analysis and calculate ML hunt score for an article."""
+    try:
+        from src.database.manager import DatabaseManager
+        from src.services.chunk_analysis_backfill import ChunkAnalysisBackfillService
+        
+        db_manager = DatabaseManager()
+        db_session = db_manager.get_session()
+        
+        try:
+            service = ChunkAnalysisBackfillService(db_session)
+            result = service.backfill_article(article_id, min_confidence=0.7)
+            
+            if result.get('success'):
+                logger.info(f"Chunk analysis completed for article {article_id}: {result.get('chunks_processed', 0)} chunks processed")
+            else:
+                logger.warning(f"Chunk analysis failed for article {article_id}: {result.get('error', 'Unknown error')}")
+            
+            return result
+        finally:
+            db_session.close()
+            
+    except Exception as exc:
+        logger.error(f"Chunk analysis task failed for article {article_id}: {exc}")
+        # Retry with exponential backoff
+        raise self.retry(exc=exc, countdown=30 * (2 ** self.request.retries))
+
+
 @celery_app.task(bind=True, max_retries=3)
 def generate_article_embedding(self, article_id: int):
     """Generate embedding for a single article."""

@@ -33,6 +33,7 @@ show_usage() {
     echo "  backup list [--backup-dir <dir>]              - List available backups"
     echo "  backup restore <file> [--backup-dir <dir>] [--force] - Restore database"
     echo "  rescore [--article-id <id>] [--force] [--dry-run] - Rescore threat hunting scores"
+    echo "  rescore-ml [--article-id <id>] [--force] [--dry-run] [--metric <metric>] [--model-version <version>] - Recalculate ML hunt scores"
     echo "  embed [--batch-size <size>] [--annotation-type <type>] [--dry-run] - Generate embeddings for annotations"
     echo "  embed search [--limit <n>] [--threshold <score>] [--annotation-type <type>] - Semantic search"
     echo "  embed stats                                    - Show embedding statistics"
@@ -281,6 +282,39 @@ case "$1" in
                 --dry-run)
                     CLI_CMD="$CLI_CMD --dry-run"
                     shift
+                    ;;
+                *)
+                    echo "Unknown option: $1"
+                    show_usage
+                    exit 1
+                    ;;
+            esac
+        done
+        ;;
+    "rescore-ml")
+        CLI_CMD="$CLI_CMD rescore-ml"
+        shift
+        while [[ $# -gt 0 ]]; do
+            case $1 in
+                --article-id)
+                    CLI_CMD="$CLI_CMD --article-id $2"
+                    shift 2
+                    ;;
+                --force)
+                    CLI_CMD="$CLI_CMD --force"
+                    shift
+                    ;;
+                --dry-run)
+                    CLI_CMD="$CLI_CMD --dry-run"
+                    shift
+                    ;;
+                --metric)
+                    CLI_CMD="$CLI_CMD --metric $2"
+                    shift 2
+                    ;;
+                --model-version)
+                    CLI_CMD="$CLI_CMD --model-version $2"
+                    shift 2
                     ;;
                 *)
                     echo "Unknown option: $1"
