@@ -301,7 +301,10 @@ Cannot process empty articles."""
                         'ranking_threshold': config.ranking_threshold if config else 6.0,
                         'similarity_threshold': config.similarity_threshold if config else 0.5,
                         'junk_filter_threshold': config.junk_filter_threshold if config else 0.8,
-                        'agent_models': agent_models
+                        'agent_models': agent_models,
+                        'qa_enabled': config.qa_enabled if config and config.qa_enabled is not None else {},
+                        'config_id': config.id if config else None,
+                        'config_version': config.version if config else None
                     } if config else None
                 )
                 db_session.add(execution)
@@ -399,7 +402,10 @@ Cannot process empty articles."""
                         'ranking_threshold': state.get('ranking_threshold', 6.0),
                         'similarity_threshold': state.get('similarity_threshold', 0.5),
                         'junk_filter_threshold': state.get('junk_filter_threshold', 0.8),
-                        'agent_models': agent_models
+                        'agent_models': agent_models,
+                        'qa_enabled': config_obj.qa_enabled if config_obj and config_obj.qa_enabled is not None else {},
+                        'config_id': config_obj.id if config_obj else None,
+                        'config_version': config_obj.version if config_obj else None
                     }
                 )
                 db_session.add(execution)
@@ -1233,8 +1239,13 @@ Cannot process empty articles."""
                     'termination_details': state.get('termination_details')
                 }
             
+            # Get config models for embedding model selection
+            trigger_service = WorkflowTriggerService(db_session)
+            config_obj = trigger_service.get_active_config()
+            agent_models = config_obj.agent_models if config_obj else None
+            
             # Initialize SigmaMatchingService for 4-segment weighted similarity search
-            sigma_matching_service = SigmaMatchingService(db_session)
+            sigma_matching_service = SigmaMatchingService(db_session, config_models=agent_models)
             
             sigma_rules = state.get('sigma_rules', [])
             similarity_threshold = state.get('similarity_threshold', 0.5)

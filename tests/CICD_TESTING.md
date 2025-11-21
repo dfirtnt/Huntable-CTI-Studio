@@ -193,57 +193,12 @@ jobs:
 ## 🐳 Docker Integration
 
 ### Docker Compose for Testing
-```yaml
-# docker-compose.test.yml
-version: '3.8'
 
-services:
-  cti_web_test:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    environment:
-      - TESTING=true
-      - DATABASE_URL=postgresql://cti_user:cti_password@cti_postgres_test:5432/cti_scraper_test
-      - REDIS_URL=redis://cti_redis_test:6379
-    depends_on:
-      - cti_postgres_test
-      - cti_redis_test
-    ports:
-      - "8001:8001"
-    volumes:
-      - ./test-results:/app/test-results
+**Note:** Tests run against production containers (`cti_web`, `cti_postgres`, `cti_worker`) on standard ports (8001, 5432, 6379). No separate test infrastructure is used.
 
-  cti_postgres_test:
-    image: postgres:15
-    environment:
-      - POSTGRES_USER=cti_user
-      - POSTGRES_PASSWORD=cti_password
-      - POSTGRES_DB=cti_scraper_test
-    ports:
-      - "5433:5432"
-    volumes:
-      - postgres_test_data:/var/lib/postgresql/data
-
-  cti_redis_test:
-    image: redis:7
-    ports:
-      - "6380:6379"
-
-  cti_worker_test:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    environment:
-      - TESTING=true
-      - DATABASE_URL=postgresql://cti_user:cti_password@cti_postgres_test:5432/cti_scraper_test
-      - REDIS_URL=redis://cti_redis_test:6379
-    depends_on:
-      - cti_postgres_test
-      - cti_redis_test
-
-volumes:
-  postgres_test_data:
+Tests are executed within the production Docker containers using:
+```bash
+docker exec cti_web pytest tests/...
 ```
 
 ### Docker-based Testing

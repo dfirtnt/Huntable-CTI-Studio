@@ -550,6 +550,22 @@
                                 </label>
                             </div>
                         </div>
+                        
+                        <!-- Embedding Model Selection for SIGMA Similarity Search -->
+                        <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+                            <label for="sigma-embedding-model" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                Embedding Model (for SIGMA Similarity Search)
+                            </label>
+                            <select id="sigma-embedding-model" 
+                                    name="agent_models[SigmaEmbeddingModel]"
+                                    onchange="autoSaveModelChange()"
+                                    class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-sm">
+                                <option value="">Loading embedding models...</option>
+                            </select>
+                            <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                                Select embedding model for SIGMA rule similarity search. Used by similarity_search step.
+                            </p>
+                        </div>
                     </div>
                 </div>
 
@@ -1282,6 +1298,58 @@ async function loadLMStudioModels() {
             </div>
         `;
     }
+    
+    // Load embedding models for SIGMA similarity search
+    await loadLMStudioEmbeddingModels();
+}
+
+// Load LMStudio embedding models for SIGMA similarity search
+async function loadLMStudioEmbeddingModels() {
+    try {
+        const response = await fetch('/api/lmstudio-embedding-models');
+        const data = await response.json();
+        
+        const embeddingSelect = document.getElementById('sigma-embedding-model');
+        if (!embeddingSelect) return;
+        
+        if (data.success && data.models && data.models.length > 0) {
+            embeddingSelect.innerHTML = ''; // Clear loading option
+            
+            // Get current embedding model from config
+            const currentEmbeddingModel = agentModels['SigmaEmbeddingModel'] || '';
+            
+            // Sort models alphabetically
+            const sortedModels = [...data.models].sort();
+            
+            sortedModels.forEach(model => {
+                const option = document.createElement('option');
+                option.value = model;
+                option.textContent = model;
+                if (model === currentEmbeddingModel) {
+                    option.selected = true;
+                }
+                embeddingSelect.appendChild(option);
+            });
+            
+            // If current model is not in the list, add it as an option
+            if (currentEmbeddingModel && !data.models.includes(currentEmbeddingModel)) {
+                const option = document.createElement('option');
+                option.value = currentEmbeddingModel;
+                option.textContent = `${currentEmbeddingModel} (not available)`;
+                option.selected = true;
+                option.style.color = 'orange';
+                embeddingSelect.appendChild(option);
+            }
+        } else {
+            embeddingSelect.innerHTML = '<option value="">No embedding models available</option>';
+        }
+    } catch (error) {
+        console.error('Error loading LMStudio embedding models:', error);
+        const embeddingSelect = document.getElementById('sigma-embedding-model');
+        if (embeddingSelect) {
+            embeddingSelect.innerHTML = '<option value="">Error loading embedding models</option>';
+        }
+    }
 }
 
 async function loadAgentPrompts() {
@@ -1770,8 +1838,20 @@ async function loadConfig() {
                 }
             });
             
+            // Load embedding model selection
+            const embeddingModelSelect = document.getElementById('sigma-embedding-model');
+            if (embeddingModelSelect) {
+                const currentEmbeddingModel = agentModels['SigmaEmbeddingModel'] || '';
+                if (currentEmbeddingModel) {
+                    embeddingModelSelect.value = currentEmbeddingModel;
+                }
+            }
+            
             // Setup event listeners for QA toggles after content is loaded
             setupQAEventListeners();
+            
+            // Load embedding models for SIGMA similarity search
+            await loadLMStudioEmbeddingModels();
         }
     } catch (error) {
         console.error('Error loading config:', error);
@@ -2221,7 +2301,8 @@ window.autoSaveModelChange = async function autoSaveModelChange() {
             ProcTreeExtract_model: document.getElementById('proctreeextract-model')?.value.trim() || null,
             ProcTreeExtract_temperature: parseFloat(document.getElementById('proctreeextract-temperature')?.value) || 0.0,
             RegExtract_model: document.getElementById('regextract-model')?.value.trim() || null,
-            RegExtract_temperature: parseFloat(document.getElementById('regextract-temperature')?.value) || 0.0
+            RegExtract_temperature: parseFloat(document.getElementById('regextract-temperature')?.value) || 0.0,
+            SigmaEmbeddingModel: document.getElementById('sigma-embedding-model')?.value.trim() || null
         };
         
         // Remove null/empty string values (but keep 0.0 for temperature)
@@ -2970,7 +3051,8 @@ if (workflowConfigForm) {
             ProcTreeExtract_model: document.getElementById('proctreeextract-model')?.value.trim() || null,
             ProcTreeExtract_temperature: parseFloat(document.getElementById('proctreeextract-temperature')?.value) || 0.0,
             RegExtract_model: document.getElementById('regextract-model')?.value.trim() || null,
-            RegExtract_temperature: parseFloat(document.getElementById('regextract-temperature')?.value) || 0.0
+            RegExtract_temperature: parseFloat(document.getElementById('regextract-temperature')?.value) || 0.0,
+            SigmaEmbeddingModel: document.getElementById('sigma-embedding-model')?.value.trim() || null
         },
         qa_enabled: qaEnabled,
         sigma_fallback_enabled: document.getElementById('sigma-fallback-enabled')?.checked || false
@@ -3309,75 +3391,7 @@ async function viewExecution(executionId) {
             // Build step-by-step inputs/outputs
             const steps = [];
             
-            // Step 1: Junk Filter
-            if (exec.junk_filter_result) {
-                const originalContentPreview = exec.article_content_preview || '';
-                const contentInputDetails = exec.article_content ? `<details class="mt-2 w-full">
-                    <summary class="cursor-pointer text-xs text-gray-700 dark:text-white hover:text-gray-900 dark:hover:text-gray-100">View Original Article Content</summary>
-                    <div class="mt-2 w-full max-h-96 overflow-y-auto bg-gray-50 dark:bg-gray-900 rounded p-2 border text-xs font-mono text-gray-900 dark:text-white whitespace-pre-wrap break-words">
-                        ${exec.article_content.replace(/</g, '&lt;').replace(/>/g, '&gt;')}
-                    </div>
-                </details>` : '';
-                
-                steps.push({
-                    name: 'Step 1: Junk Filter',
-                    input: `<div class="space-y-1">
-                        <div>• Article content: ${exec.junk_filter_result.original_length || 0} chars</div>
-                    </div>`,
-                    inputDetails: contentInputDetails,
-                    output: `<div class="space-y-1 text-gray-700 dark:text-gray-300">
-                        <div><strong>Filtered:</strong> ${exec.junk_filter_result.is_huntable ? 'Yes' : 'No'}</div>
-                        <div><strong>Confidence:</strong> ${(exec.junk_filter_result.confidence || 0).toFixed(2)}</div>
-                        <div><strong>Original Length:</strong> ${exec.junk_filter_result.original_length || 0} chars</div>
-                        <div><strong>Filtered Length:</strong> ${exec.junk_filter_result.filtered_length || 0} chars</div>
-                        <div><strong>Chunks Kept:</strong> ${exec.junk_filter_result.chunks_kept || 0}</div>
-                        <div><strong>Chunks Removed:</strong> ${exec.junk_filter_result.chunks_removed || 0}</div>
-                    </div>`
-                });
-            }
-            
-            // Step 2: Rank Article
-            if (exec.ranking_score !== null && exec.ranking_score !== undefined) {
-                const rankingDetails = exec.ranking_reasoning ? `<details class="mt-2 w-full">
-                    <summary class="cursor-pointer text-xs text-gray-700 dark:text-white hover:text-gray-900 dark:hover:text-gray-100">View Ranking Reasoning (Full LLM Output)</summary>
-                    <div class="mt-2 w-full max-h-96 overflow-y-auto bg-gray-50 dark:bg-gray-900 rounded p-2 border text-xs font-mono text-gray-900 dark:text-white whitespace-pre-wrap break-words">
-                        ${exec.ranking_reasoning.substring(0, 5000)}${exec.ranking_reasoning.length > 5000 ? '\n\n... (truncated)' : ''}
-                    </div>
-                </details>` : '';
-                
-                // Show filtered content that was sent to ranking agent
-                const filteredContentLength = exec.junk_filter_result?.filtered_length || exec.article_content?.length || 0;
-                const filteredContentDetails = exec.article_content ? `<details class="mt-2 w-full">
-                    <summary class="cursor-pointer text-xs text-gray-700 dark:text-white hover:text-gray-900 dark:hover:text-gray-100">View Filtered Content Sent to Rank Agent (${filteredContentLength} chars)</summary>
-                    <div class="mt-2 w-full max-h-96 overflow-y-auto bg-gray-50 dark:bg-gray-900 rounded p-2 border text-xs font-mono text-gray-900 dark:text-white whitespace-pre-wrap break-words">
-                        ${exec.article_content.replace(/</g, '&lt;').replace(/>/g, '&gt;')}
-                    </div>
-                </details>` : '';
-                
-                // Get model used for ranking
-                const rankModel = getModel('RankAgent');
-                
-                steps.push({
-                    name: 'Step 2: LLM Ranking',
-                    input: `<div class="space-y-1">
-                        <div>• Filtered article content (${filteredContentLength} chars)</div>
-                        <div>• Article title: "${exec.article_title || 'N/A'}"</div>
-                        <div>• Article URL: ${exec.article_url || 'N/A'}</div>
-                        <div>• Source metadata</div>
-                        <div>• RankAgent prompt from workflow config</div>
-                        <div>• Model: <span class="font-mono text-xs">${rankModel}</span></div>
-                    </div>`,
-                    inputDetails: filteredContentDetails,
-                    output: `<div class="space-y-1 text-gray-700 dark:text-gray-300">
-                        <div><strong>Ranking Score:</strong> ${exec.ranking_score.toFixed(1)}/10</div>
-                        <div><strong>Threshold:</strong> ${(exec.config_snapshot?.ranking_threshold ?? 6.0).toFixed(1)}/10</div>
-                        <div><strong>Decision:</strong> ${exec.ranking_score >= (exec.config_snapshot?.ranking_threshold ?? 6.0) ? '✅ Continue' : '❌ Stop'}</div>
-                    </div>${exec.termination_reason === 'rank_below_threshold' ? '<div class="mt-2 text-yellow-600 dark:text-yellow-400">⚠️ Workflow ended after ranking because the huntability score was below the threshold.</div>' : ''}`,
-                    details: rankingDetails
-                });
-            }
-            
-            // Step 0: OS Detection
+            // Step 0: OS Detection (runs first in workflow)
             // Check for OS detection data in error_log.os_detection_result, termination_details, or error_log.os_detection
             const osDetectionResult = exec.error_log?.os_detection_result;
             const osDetectionData = osDetectionResult || exec.termination_details || {};
@@ -3461,6 +3475,74 @@ async function viewExecution(executionId) {
                     inputDetails: osInputDetails,
                     output: osOutput,
                     details: similaritiesHtml
+                });
+            }
+            
+            // Step 1: Junk Filter
+            if (exec.junk_filter_result) {
+                const originalContentPreview = exec.article_content_preview || '';
+                const contentInputDetails = exec.article_content ? `<details class="mt-2 w-full">
+                    <summary class="cursor-pointer text-xs text-gray-700 dark:text-white hover:text-gray-900 dark:hover:text-gray-100">View Original Article Content</summary>
+                    <div class="mt-2 w-full max-h-96 overflow-y-auto bg-gray-50 dark:bg-gray-900 rounded p-2 border text-xs font-mono text-gray-900 dark:text-white whitespace-pre-wrap break-words">
+                        ${exec.article_content.replace(/</g, '&lt;').replace(/>/g, '&gt;')}
+                    </div>
+                </details>` : '';
+                
+                steps.push({
+                    name: 'Step 1: Junk Filter',
+                    input: `<div class="space-y-1">
+                        <div>• Article content: ${exec.junk_filter_result.original_length || 0} chars</div>
+                    </div>`,
+                    inputDetails: contentInputDetails,
+                    output: `<div class="space-y-1 text-gray-700 dark:text-gray-300">
+                        <div><strong>Filtered:</strong> ${exec.junk_filter_result.is_huntable ? 'Yes' : 'No'}</div>
+                        <div><strong>Confidence:</strong> ${(exec.junk_filter_result.confidence || 0).toFixed(2)}</div>
+                        <div><strong>Original Length:</strong> ${exec.junk_filter_result.original_length || 0} chars</div>
+                        <div><strong>Filtered Length:</strong> ${exec.junk_filter_result.filtered_length || 0} chars</div>
+                        <div><strong>Chunks Kept:</strong> ${exec.junk_filter_result.chunks_kept || 0}</div>
+                        <div><strong>Chunks Removed:</strong> ${exec.junk_filter_result.chunks_removed || 0}</div>
+                    </div>`
+                });
+            }
+            
+            // Step 2: Rank Article
+            if (exec.ranking_score !== null && exec.ranking_score !== undefined) {
+                const rankingDetails = exec.ranking_reasoning ? `<details class="mt-2 w-full">
+                    <summary class="cursor-pointer text-xs text-gray-700 dark:text-white hover:text-gray-900 dark:hover:text-gray-100">View Ranking Reasoning (Full LLM Output)</summary>
+                    <div class="mt-2 w-full max-h-96 overflow-y-auto bg-gray-50 dark:bg-gray-900 rounded p-2 border text-xs font-mono text-gray-900 dark:text-white whitespace-pre-wrap break-words">
+                        ${exec.ranking_reasoning.substring(0, 5000)}${exec.ranking_reasoning.length > 5000 ? '\n\n... (truncated)' : ''}
+                    </div>
+                </details>` : '';
+                
+                // Show filtered content that was sent to ranking agent
+                const filteredContentLength = exec.junk_filter_result?.filtered_length || exec.article_content?.length || 0;
+                const filteredContentDetails = exec.article_content ? `<details class="mt-2 w-full">
+                    <summary class="cursor-pointer text-xs text-gray-700 dark:text-white hover:text-gray-900 dark:hover:text-gray-100">View Filtered Content Sent to Rank Agent (${filteredContentLength} chars)</summary>
+                    <div class="mt-2 w-full max-h-96 overflow-y-auto bg-gray-50 dark:bg-gray-900 rounded p-2 border text-xs font-mono text-gray-900 dark:text-white whitespace-pre-wrap break-words">
+                        ${exec.article_content.replace(/</g, '&lt;').replace(/>/g, '&gt;')}
+                    </div>
+                </details>` : '';
+                
+                // Get model used for ranking
+                const rankModel = getModel('RankAgent');
+                
+                steps.push({
+                    name: 'Step 2: LLM Ranking',
+                    input: `<div class="space-y-1">
+                        <div>• Filtered article content (${filteredContentLength} chars)</div>
+                        <div>• Article title: "${exec.article_title || 'N/A'}"</div>
+                        <div>• Article URL: ${exec.article_url || 'N/A'}</div>
+                        <div>• Source metadata</div>
+                        <div>• RankAgent prompt from workflow config</div>
+                        <div>• Model: <span class="font-mono text-xs">${rankModel}</span></div>
+                    </div>`,
+                    inputDetails: filteredContentDetails,
+                    output: `<div class="space-y-1 text-gray-700 dark:text-gray-300">
+                        <div><strong>Ranking Score:</strong> ${exec.ranking_score.toFixed(1)}/10</div>
+                        <div><strong>Threshold:</strong> ${(exec.config_snapshot?.ranking_threshold ?? 6.0).toFixed(1)}/10</div>
+                        <div><strong>Decision:</strong> ${exec.ranking_score >= (exec.config_snapshot?.ranking_threshold ?? 6.0) ? '✅ Continue' : '❌ Stop'}</div>
+                    </div>${exec.termination_reason === 'rank_below_threshold' ? '<div class="mt-2 text-yellow-600 dark:text-yellow-400">⚠️ Workflow ended after ranking because the huntability score was below the threshold.</div>' : ''}`,
+                    details: rankingDetails
                 });
             }
             
@@ -3579,7 +3661,16 @@ async function viewExecution(executionId) {
                     
                     const subAgentDetails = subAgents.map(subAgent => {
                         const result = subresults[subAgent.key];
-                        const items = result?.items || [];
+                        // Ensure items is always an array - handle case where items is a string (e.g., process_lineage)
+                        let items = [];
+                        if (result?.items !== undefined && result?.items !== null) {
+                            if (Array.isArray(result.items)) {
+                                items = result.items;
+                            } else {
+                                // If items is not an array (string, object, etc.), set to empty array
+                                items = [];
+                            }
+                        }
                         const count = result?.count || items.length || 0;
                         const raw = result?.raw || {};
                         
@@ -3587,7 +3678,7 @@ async function viewExecution(executionId) {
                         const qaResult = qaResults[subAgent.name] || qaResults[subAgent.qaName] || null;
                         const qaVerdict = qaResult?.verdict || qaResult?.status || null;
                         const qaFeedback = qaResult?.feedback || null;
-                        const qaIssues = qaResult?.issues || [];
+                        const qaIssues = Array.isArray(qaResult?.issues) ? qaResult.issues : [];
                         
                         const itemsHtml = items.length > 0 ? `<details class="mt-2">
                             <summary class="cursor-pointer text-xs text-gray-600 dark:text-gray-300 hover:text-gray-700 dark:hover:text-gray-200">View ${items.length} Items</summary>
@@ -4390,6 +4481,7 @@ async function triggerWorkflow() {
         messageDiv.textContent = 'Triggering workflow...';
         messageDiv.classList.remove('hidden');
         
+        // Always use Celery (fast, production mode) - no LangGraph server option
         const response = await fetch(`/api/workflow/articles/${articleId}/trigger?use_langgraph_server=false`, {
             method: 'POST'
         });

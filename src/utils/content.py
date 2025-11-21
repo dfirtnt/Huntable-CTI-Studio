@@ -98,6 +98,12 @@ class ContentCleaner:
     def html_to_text(html: str) -> str:
         """Convert HTML to clean text with better formatting."""
         try:
+            # Handle None and empty input
+            if html is None:
+                return ""
+            if not html:
+                return ""
+            
             # Ensure we have clean text input
             if isinstance(html, bytes):
                 html = html.decode('utf-8', errors='ignore')
@@ -428,6 +434,14 @@ def validate_content(title: str, content: str, url: str, source_config: Optional
         if _has_compression_failure_indicators(content):
             issues.append("Content indicates extraction failure")
         
+        # Check for binary/control characters
+        if any(ord(c) < 32 and c not in '\n\r\t' for c in content):
+            issues.append("Content contains binary or control characters")
+        
+        # Check for unicode corruption
+        if '\ufffd' in content or '\uFFFD' in content:
+            issues.append("Content contains unicode corruption indicators")
+        
         text_content = ContentCleaner.html_to_text(content)
         content_length = len(text_content.strip())
         
@@ -505,6 +519,11 @@ def _is_garbage_content(content: str) -> bool:
             # Binary pattern matches detected
             return True
     
+    # Check for binary control characters (even in small amounts)
+    if any(ord(c) < 32 and c not in '\n\r\t' for c in content):
+        # Contains null bytes or other control characters (excluding common whitespace)
+            return True
+    
     # Check for compression artifacts
     compression_indicators = [
         'compression issues',
@@ -517,6 +536,12 @@ def _is_garbage_content(content: str) -> bool:
     
     if any(indicator in content_lower for indicator in compression_indicators):
         logger.debug("Compression indicators found")
+        return True
+    
+    # Check for unicode replacement characters (corruption indicators)
+    # U+FFFD is the unicode replacement character used when decoding fails
+    if '\ufffd' in content or '\uFFFD' in content:
+        # Unicode replacement characters indicate corruption
         return True
     
     return False

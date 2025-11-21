@@ -20,6 +20,7 @@ from pathlib import Path
 
 from langgraph.graph import StateGraph, END
 from sqlalchemy.orm import Session
+from sqlalchemy.orm.attributes import flag_modified
 
 from src.database.models import (
     ArticleTable, AgenticWorkflowExecutionTable, SigmaRuleQueueTable,
@@ -213,13 +214,18 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
             
             # Get config models for LLMService
             config_obj = trigger_service.get_active_config()
+            qa_flags = (
+                config_obj.qa_enabled
+                if config_obj and config_obj.qa_enabled
+                else (state.get('config', {}).get('qa_enabled', {}) or {})
+            )
             agent_models = config_obj.agent_models if config_obj else None
             llm_service = LLMService(config_models=agent_models)
+            llm_service._current_execution_id = state['execution_id']
+            llm_service._current_article_id = article.id
             
             # Check if QA is enabled for Rank Agent
-            qa_enabled = False
-            if config_obj and config_obj.qa_enabled:
-                qa_enabled = config_obj.qa_enabled.get("RankAgent", False)
+            qa_enabled = qa_flags.get("RankAgent", False)
             
             max_qa_retries = 5
             qa_feedback = None
@@ -289,7 +295,8 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                     agent_prompt=agent_prompt,
                     agent_output=ranking_result,
                     agent_name="RankAgent",
-                    config_obj=config_obj
+                    config_obj=config_obj,
+                    execution_id=state['execution_id']
                 )
                 
                 # Store QA result in error_log
@@ -299,6 +306,7 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                     if 'qa_results' not in execution.error_log:
                         execution.error_log['qa_results'] = {}
                     execution.error_log['qa_results']['RankAgent'] = qa_result
+                    flag_modified(execution, 'error_log')
                     db_session.commit()
                 
                 # If QA passes, break
@@ -410,9 +418,12 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
             
             # Check if QA is enabled for OS Detection
             config_obj = trigger_service.get_active_config()
-            qa_enabled = False
-            if config_obj and config_obj.qa_enabled:
-                qa_enabled = config_obj.qa_enabled.get("OSDetectionAgent", False)
+            qa_flags = (
+                config_obj.qa_enabled
+                if config_obj and config_obj.qa_enabled
+                else (state.get('config', {}).get('qa_enabled', {}) or {})
+            )
+            qa_enabled = qa_flags.get("OSDetectionAgent", False)
             
             max_qa_retries = 5
             qa_feedback = None
@@ -436,6 +447,8 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                 # Run QA check
                 agent_models = config_obj.agent_models if config_obj else None
                 llm_service = LLMService(config_models=agent_models)
+                llm_service._current_execution_id = state['execution_id']
+                llm_service._current_article_id = article.id
                 qa_service = QAAgentService(llm_service=llm_service)
                 
                 # Get agent prompt for QA (OS Detection doesn't have a traditional prompt, use a description)
@@ -446,7 +459,8 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                     agent_prompt=agent_prompt,
                     agent_output=os_result,
                     agent_name="OSDetectionAgent",
-                    config_obj=config_obj
+                    config_obj=config_obj,
+                    execution_id=state['execution_id']
                 )
                 
                 # Store QA result in error_log
@@ -456,6 +470,7 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                     if 'qa_results' not in execution.error_log:
                         execution.error_log['qa_results'] = {}
                     execution.error_log['qa_results']['OSDetectionAgent'] = qa_result
+                    flag_modified(execution, 'error_log')
                     db_session.commit()
                 
                 # If QA passes, break
@@ -571,6 +586,11 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
             logger.info(f"[Workflow {state['execution_id']}] Step 3: Extract Agent (Supervisor Mode with Sub-Agents)")
             
             config_obj = trigger_service.get_active_config()
+            qa_flags = (
+                config_obj.qa_enabled
+                if config_obj and config_obj.qa_enabled
+                else (state.get('config', {}).get('qa_enabled', {}) or {})
+            )
             if not config_obj:
                 raise ValueError("No active workflow configuration found")
             
@@ -620,9 +640,10 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                             qa_config = json.load(f)
                     
                     # Check if QA is enabled for this agent
-                    qa_enabled = False
-                    if config_obj and config_obj.qa_enabled:
-                        qa_enabled = config_obj.qa_enabled.get(agent_name, False) and qa_config is not None
+                    qa_enabled = (
+                        qa_flags.get(agent_name, qa_flags.get("ExtractAgent", False))
+                        and qa_config is not None
+                    )
                     
                     # Get model and temperature for this agent
                     model_key = f"{agent_name}_model"
@@ -676,6 +697,26 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                         'items_count': len(items),
                         'result': agent_result
                     })
+                    
+                    # Store QA result if available
+                    if qa_enabled and '_qa_result' in agent_result:
+                        # Use the execution object we already have, don't refresh (avoids transaction isolation issues)
+                        if execution:
+                            qa_result = agent_result.get('_qa_result')
+                            if execution.error_log is None:
+                                execution.error_log = {}
+                            if 'qa_results' not in execution.error_log:
+                                execution.error_log['qa_results'] = {}
+                            # Store using both agent_name and qa_name for UI compatibility
+                            execution.error_log['qa_results'][agent_name] = qa_result
+                            execution.error_log['qa_results'][qa_name] = qa_result
+                            # Mark as modified so SQLAlchemy tracks the change
+                            from sqlalchemy.orm.attributes import flag_modified
+                            flag_modified(execution, 'error_log')
+                            db_session.commit()
+                            logger.info(f"[Workflow {state['execution_id']}] Stored QA result for {agent_name}: {qa_result.get('verdict', 'unknown')}, error_log keys: {list(execution.error_log.keys())}")
+                        else:
+                            logger.warning(f"[Workflow {state['execution_id']}] Execution not found when storing QA result for {agent_name}")
                     
                 except Exception as e:
                     logger.error(f"[Workflow {state['execution_id']}] {agent_name} failed: {e}")
@@ -735,15 +776,26 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                 "raw_response": json.dumps(subresults, indent=2)  # Store subresults as raw_response for compatibility
             }
             
-            # Store conversation log in execution.error_log
+            # Store conversation log in execution.error_log (merge, don't overwrite)
+            # Use the execution object we already have (don't refresh to avoid transaction isolation issues)
             if execution:
                 if execution.error_log is None:
                     execution.error_log = {}
+                # Preserve all existing keys (especially qa_results we stored earlier in the loop)
+                existing_qa_results = execution.error_log.get('qa_results', {})
+                # Merge extract_agent data, preserving existing qa_results and all other keys
                 execution.error_log['extract_agent'] = {
                     'conversation_log': conversation_log,
                     'sub_agents_run': [agent[0] for agent in sub_agents]
                 }
+                # Ensure qa_results is preserved (it should already be there from earlier commits in the loop)
+                if existing_qa_results:
+                    execution.error_log['qa_results'] = existing_qa_results
+                # Mark as modified so SQLAlchemy tracks the change
+                from sqlalchemy.orm.attributes import flag_modified
+                flag_modified(execution, 'error_log')
                 db_session.commit()
+                logger.info(f"[Workflow {state['execution_id']}] Stored extract_agent log, preserved {len(existing_qa_results)} QA results, error_log keys: {list(execution.error_log.keys())}")
             
             discrete_count = total_count
             
@@ -808,15 +860,18 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
             
             # Get config models for SigmaGenerationService
             config_obj = trigger_service.get_active_config()
+            qa_flags = (
+                config_obj.qa_enabled
+                if config_obj and config_obj.qa_enabled
+                else (state.get('config', {}).get('qa_enabled', {}) or {})
+            )
             agent_models = config_obj.agent_models if config_obj else None
             
             # Get SIGMA fallback setting from config
             sigma_fallback_enabled = config_obj.sigma_fallback_enabled if config_obj and hasattr(config_obj, 'sigma_fallback_enabled') else False
             
             # Check if QA is enabled for Sigma Agent
-            qa_enabled = False
-            if config_obj and config_obj.qa_enabled:
-                qa_enabled = config_obj.qa_enabled.get("SigmaAgent", False)
+            qa_enabled = qa_flags.get("SigmaAgent", False)
             
             max_qa_retries = 5
             qa_feedback = None
@@ -890,13 +945,16 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                 
                 # Run QA check
                 llm_service = LLMService(config_models=agent_models)
+                llm_service._current_execution_id = state['execution_id']
+                llm_service._current_article_id = article.id
                 qa_service = QAAgentService(llm_service=llm_service)
                 qa_result = await qa_service.evaluate_agent_output(
                     article=article,
                     agent_prompt=agent_prompt,
                     agent_output=generation_result,
                     agent_name="SigmaAgent",
-                    config_obj=config_obj
+                    config_obj=config_obj,
+                    execution_id=state['execution_id']
                 )
                 
                 # Store QA result in error_log
@@ -906,6 +964,7 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                     if 'qa_results' not in execution.error_log:
                         execution.error_log['qa_results'] = {}
                     execution.error_log['qa_results']['SigmaAgent'] = qa_result
+                    flag_modified(execution, 'error_log')
                     db_session.commit()
                 
                 # If QA passes, break
@@ -1048,8 +1107,12 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
             max_similarity = 0.0
             similarity_threshold = state['config'].get('similarity_threshold', 0.5) if state.get('config') else 0.5
             
+            # Get config models for embedding model selection
+            config_obj = trigger_service.get_active_config()
+            agent_models = config_obj.agent_models if config_obj else None
+            
             # Initialize SigmaMatchingService for 4-segment weighted similarity search
-            sigma_matching_service = SigmaMatchingService(db_session)
+            sigma_matching_service = SigmaMatchingService(db_session, config_models=agent_models)
             
             # Search for similar rules for each generated rule using 4-segment weighted approach
             for rule in sigma_rules:
@@ -1347,12 +1410,16 @@ async def run_workflow(article_id: int, db_session: Session) -> Dict[str, Any]:
             'min_hunt_score': config_obj.min_hunt_score if config_obj else 97.0,
             'ranking_threshold': config_obj.ranking_threshold if config_obj else 6.0,
             'similarity_threshold': config_obj.similarity_threshold if config_obj else 0.5,
-            'junk_filter_threshold': config_obj.junk_filter_threshold if config_obj else 0.8
+            'junk_filter_threshold': config_obj.junk_filter_threshold if config_obj else 0.8,
+            'qa_enabled': config_obj.qa_enabled if config_obj and config_obj.qa_enabled else {},
+            'agent_models': config_obj.agent_models if config_obj else {}
         } if config_obj else {
             'min_hunt_score': 97.0,
             'ranking_threshold': 6.0,
             'similarity_threshold': 0.5,
-            'junk_filter_threshold': 0.8
+            'junk_filter_threshold': 0.8,
+            'qa_enabled': {},
+            'agent_models': {}
         }
         
         # Initialize state

@@ -11,6 +11,7 @@ from typing import Dict, Any, Optional
 
 from src.database.models import ArticleTable
 from src.services.llm_service import LLMService
+from src.utils.langfuse_client import trace_llm_call, log_llm_completion, log_llm_error
 
 logger = logging.getLogger(__name__)
 
@@ -33,7 +34,8 @@ class QAAgentService:
         agent_prompt: str,
         agent_output: Dict[str, Any],
         agent_name: str,
-        config_obj: Optional[Any] = None
+        config_obj: Optional[Any] = None,
+        execution_id: Optional[int] = None
     ) -> Dict[str, Any]:
         """
         Evaluate agent output for compliance, accuracy, and fidelity.
@@ -44,6 +46,7 @@ class QAAgentService:
             agent_output: Agent's output to evaluate
             agent_name: Name of the agent being evaluated
             config_obj: Workflow config object (for getting QA prompt)
+            execution_id: Optional workflow execution id for Langfuse tracing
         
         Returns:
             Dict with keys: summary, issues[], verdict
@@ -131,16 +134,33 @@ Please provide your evaluation in the following JSON format:
                 "top_p": 0.9
             }
             
-            # Call LMStudio API
-            response = await self.llm_service._post_lmstudio_chat(
-                payload=payload,
-                model_name=self.llm_service.model_extract,
-                timeout=300.0,
-                failure_context=f"QA evaluation for {agent_name}"
-            )
+            generation = None
+            # Call LMStudio API with Langfuse tracing
+            with trace_llm_call(
+                name=f"qa_{agent_name.lower()}",
+                model=self.llm_service.model_extract,
+                execution_id=execution_id,
+                article_id=article.id if article else None,
+                metadata={"messages": converted_messages, "agent_name": agent_name}
+            ) as generation:
+                response = await self.llm_service._post_lmstudio_chat(
+                    payload=payload,
+                    model_name=self.llm_service.model_extract,
+                    timeout=300.0,
+                    failure_context=f"QA evaluation for {agent_name}"
+                )
             
             # Parse response
             response_text = response.get("choices", [{}])[0].get("message", {}).get("content", "")
+            
+            if generation:
+                log_llm_completion(
+                    generation=generation,
+                    input_messages=converted_messages,
+                    output=response_text or "",
+                    usage=response.get("usage", {}),
+                    metadata={"agent_name": agent_name, "qa_prompt": qa_prompt_dict}
+                )
             
             # Try to extract JSON from response
             qa_result = self._parse_qa_response(response_text)
@@ -149,6 +169,8 @@ Please provide your evaluation in the following JSON format:
             
         except Exception as e:
             logger.error(f"QA evaluation error for {agent_name}: {e}", exc_info=True)
+            if 'generation' in locals() and generation:
+                log_llm_error(generation, e, metadata={"agent_name": agent_name})
             # Return failure verdict on error
             return {
                 "summary": f"QA evaluation failed: {str(e)}",
@@ -258,4 +280,3 @@ Please provide your evaluation in the following JSON format:
                 "❌ Are any forbidden behaviors or outputs present (as defined by the agent_prompt)?"
             ]
         }
-

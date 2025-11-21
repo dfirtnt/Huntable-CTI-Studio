@@ -17,7 +17,7 @@ from fastapi import APIRouter, HTTPException, Request
 
 from src.database.async_manager import async_db_manager
 from src.services.sigma_validator import validate_sigma_rule
-from src.utils.gpt4o_optimizer import estimate_gpt4o_cost
+from src.utils.llm_optimizer import estimate_llm_cost, estimate_gpt4o_cost  # Backward compatibility
 from src.utils.prompt_loader import format_prompt
 from src.utils.ioc_extractor import HybridIOCExtractor
 from src.worker.celery_app import celery_app
@@ -555,6 +555,7 @@ async def api_get_lmstudio_models():
                         return any(indicator in model_name.lower() for indicator in embedding_indicators)
 
                     chat_models = [m for m in all_models if not is_embedding_model(m)]
+                    embedding_models = [m for m in all_models if is_embedding_model(m)]
 
                     # Return chat models first, then embedding models for reference
                     models = chat_models if chat_models else all_models
@@ -566,9 +567,11 @@ async def api_get_lmstudio_models():
                         "success": True,
                         "models": models,
                         "all_models": all_models,  # Include all models for debugging
+                        "chat_models": chat_models,  # Chat models only
+                        "embedding_models": embedding_models,  # Embedding models only
                         "chat_models_count": len(chat_models),
-                        "embedding_models_count": len(all_models) - len(chat_models),
-                        "message": f"Found {len(chat_models)} chat model(s) and {len(all_models) - len(chat_models)} embedding model(s)"
+                        "embedding_models_count": len(embedding_models),
+                        "message": f"Found {len(chat_models)} chat model(s) and {len(embedding_models)} embedding model(s)"
                     }
 
                 last_error = f"{response.status_code}: {response.text}"
@@ -597,6 +600,8 @@ async def api_get_lmstudio_models():
         return {
             "success": False,
             "models": [],
+            "chat_models": [],
+            "embedding_models": [],
             "message": "Cannot connect to LMStudio service"
         }
     except Exception as e:
@@ -604,7 +609,86 @@ async def api_get_lmstudio_models():
         return {
             "success": False,
             "models": [],
+            "chat_models": [],
+            "embedding_models": [],
             "message": f"Error fetching models: {str(e)}"
+        }
+
+
+@test_router.get("/lmstudio-embedding-models")
+async def api_get_lmstudio_embedding_models():
+    """Get currently loaded embedding models from LMStudio."""
+    try:
+        lmstudio_urls = _lmstudio_url_candidates()
+        async with httpx.AsyncClient() as client:
+            last_error = "Unknown LMStudio error"
+            for idx, lmstudio_url in enumerate(lmstudio_urls):
+                try:
+                    response = await client.get(f"{lmstudio_url}/models", timeout=10.0)
+                except httpx.HTTPError as e:
+                    last_error = str(e)
+                    logger.debug(f"LMStudio models fetch failed via {lmstudio_url}: {e}")
+                    continue
+
+                if response.status_code == 200:
+                    models_data = response.json()
+                    all_models = [model["id"] for model in models_data.get("data", [])]
+
+                    # Filter for embedding models only
+                    def is_embedding_model(model_name: str) -> bool:
+                        embedding_indicators = ['embedding', 'embed', 'e5-base', 'bge-', 'gte-', 'text-embedding']
+                        return any(indicator in model_name.lower() for indicator in embedding_indicators)
+
+                    embedding_models = [m for m in all_models if is_embedding_model(m)]
+
+                    if idx > 0:
+                        logger.info(f"LMStudio embedding models fetched using fallback URL {lmstudio_url}")
+
+                    return {
+                        "success": True,
+                        "models": embedding_models,
+                        "count": len(embedding_models),
+                        "message": f"Found {len(embedding_models)} embedding model(s)"
+                    }
+
+                last_error = f"{response.status_code}: {response.text}"
+                logger.error(f"LMStudio /models returned {last_error}")
+
+                if response.status_code == 404 and idx < len(lmstudio_urls) - 1:
+                    logger.warning(
+                        "LMStudio /models endpoint returned 404. "
+                        "Retrying with alternate base URL."
+                    )
+                    continue
+
+            return {
+                "success": False,
+                "models": [],
+                "count": 0,
+                "message": f"LMStudio API error: {last_error}"
+            }
+                
+    except httpx.TimeoutException:
+        return {
+            "success": False,
+            "models": [],
+            "count": 0,
+            "message": "Request timeout - LMStudio may be starting up"
+        }
+    except httpx.ConnectError:
+        return {
+            "success": False,
+            "models": [],
+            "count": 0,
+            "message": "Cannot connect to LMStudio service"
+        }
+    except Exception as e:
+        logger.error(f"LMStudio embedding models fetch error: {e}")
+        return {
+            "success": False,
+            "models": [],
+            "count": 0,
+            "message": f"Error fetching embedding models: {str(e)}"
         }
 
 
@@ -831,7 +915,7 @@ async def api_rank_with_gpt4o(article_id: int, request: Request):
         content_filtering_enabled = os.getenv('CONTENT_FILTERING_ENABLED', 'true').lower() == 'true'
         
         if content_filtering_enabled and use_filtering:
-            from src.utils.gpt4o_optimizer import optimize_article_content
+            from src.utils.llm_optimizer import optimize_article_content
             
             try:
                 optimization_result = await optimize_article_content(
@@ -1309,7 +1393,7 @@ async def api_gpt4o_rank_optimized(article_id: int, request: Request):
             raise HTTPException(status_code=400, detail="Article content is required for analysis")
         
         # Import the optimizer
-        from src.utils.gpt4o_optimizer import optimize_article_content
+        from src.utils.llm_optimizer import optimize_article_content
         
         # Optimize content if filtering is enabled
         if use_filtering:
@@ -2233,7 +2317,7 @@ async def api_generate_sigma(article_id: int, request: Request):
         source_name = source.name if source else f"Source {article.source_id}"
         
         # Apply content filtering to optimize for SIGMA generation
-        from src.utils.gpt4o_optimizer import optimize_article_content
+        from src.utils.llm_optimizer import optimize_article_content
 
         # Use content filtering with high confidence threshold for SIGMA generation
         min_confidence = 0.7

@@ -174,7 +174,7 @@ python3 run_tests.py e2e             # End-to-end tests
 
 ### Configuration
 - `pytest.ini` - Pytest configuration with 38+ markers
-- `docker-compose.test.yml` - Test environment setup
+- Tests run against production containers (no separate test infrastructure)
 
 ## 📖 Reading Order
 

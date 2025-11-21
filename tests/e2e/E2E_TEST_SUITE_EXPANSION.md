@@ -283,7 +283,7 @@ This document tracks the implementation of the comprehensive E2E test suite expa
 ### Run All E2E Tests
 ```bash
 # Docker environment
-docker-compose -f docker-compose.test.yml run --rm web pytest tests/e2e -v
+docker-compose exec web pytest tests/e2e -v
 
 # Local environment
 pytest tests/e2e -v --headed

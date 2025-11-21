@@ -12,7 +12,7 @@ from pathlib import Path
 from src.utils.prompt_loader import format_prompt
 from src.services.sigma_validator import validate_sigma_rule, clean_sigma_rule
 from src.services.llm_service import LLMService
-from src.utils.gpt4o_optimizer import optimize_article_content
+from src.utils.llm_optimizer import optimize_article_content
 from src.utils.langfuse_client import trace_llm_call, log_llm_completion, log_llm_error
 
 logger = logging.getLogger(__name__)

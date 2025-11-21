@@ -17,19 +17,35 @@ logger = logging.getLogger(__name__)
 class LMStudioEmbeddingClient:
     """Client for generating embeddings via LM Studio API."""
     
-    def __init__(self, model: Optional[str] = None):
+    def __init__(self, model: Optional[str] = None, config_models: Optional[dict] = None):
         """
         Initialize the LM Studio embedding client.
         
         Args:
-            model: Optional model name to use. If not provided, reads from environment variable.
+            model: Optional model name to use. If not provided, reads from workflow config or environment variable.
+            config_models: Optional dict of agent models from workflow config (e.g., {"SigmaEmbeddingModel": "model_name"})
         
-        Reads configuration from environment variables:
+        Reads configuration in order:
+        1. model parameter (if provided)
+        2. config_models['SigmaEmbeddingModel'] (from workflow config)
+        3. Environment variable LMSTUDIO_EMBEDDING_MODEL
+        4. Default: "text-embedding-e5-base-v2"
+        
+        Also reads:
         - LMSTUDIO_EMBEDDING_URL: API endpoint URL
-        - LMSTUDIO_EMBEDDING_MODEL: Model name to use (if model parameter not provided)
         """
         self.url = os.getenv("LMSTUDIO_EMBEDDING_URL", "http://localhost:1234/v1/embeddings")
-        self.model = model or os.getenv("LMSTUDIO_EMBEDDING_MODEL", "text-embedding-e5-base-v2")
+        
+        # Get model from parameter, config, or environment
+        if model:
+            self.model = model
+        elif config_models and config_models.get('SigmaEmbeddingModel'):
+            self.model = config_models['SigmaEmbeddingModel']
+            logger.info(f"Using embedding model from workflow config: {self.model}")
+        else:
+            # Fall back to environment variable
+            self.model = os.getenv("LMSTUDIO_EMBEDDING_MODEL", "text-embedding-e5-base-v2")
+        
         self.timeout = 60  # 60 second timeout for embeddings
         self.max_retries = 3
         self.retry_delay = 1  # seconds

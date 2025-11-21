@@ -647,16 +647,29 @@ class TestRunner:
                     cmd,
                     env=env,
                     cwd=project_root,
-                    timeout=self.config.timeout
+                    timeout=self.config.timeout,
+                    capture_output=True,
+                    text=True
                 )
                 
                 pytest_success = result.returncode == 0
                 pytest_duration = time.time() - pytest_start_time
+                
+                # Parse test counts from output
+                pytest_counts = self._parse_pytest_output(result.stdout + result.stderr)
+                
                 self.results["pytest"] = {
                     "success": pytest_success,
                     "returncode": result.returncode,
-                    "duration": pytest_duration
+                    "duration": pytest_duration,
+                    "counts": pytest_counts
                 }
+                
+                # Print output
+                if result.stdout:
+                    print(result.stdout)
+                if result.stderr:
+                    print(result.stderr, file=sys.stderr)
                 
                 print()
                 print("="*80)
@@ -700,16 +713,29 @@ class TestRunner:
                         playwright_cmd,
                         env=env,
                         cwd=project_root,
-                        timeout=self.config.timeout
+                        timeout=self.config.timeout,
+                        capture_output=True,
+                        text=True
                     )
                     
                     playwright_success = result.returncode == 0
                     playwright_duration = time.time() - playwright_start_time
+                    
+                    # Parse test counts from output
+                    playwright_counts = self._parse_playwright_output(result.stdout + result.stderr)
+                    
                     self.results["playwright"] = {
                         "success": playwright_success,
                         "returncode": result.returncode,
-                        "duration": playwright_duration
+                        "duration": playwright_duration,
+                        "counts": playwright_counts
                     }
+                    
+                    # Print output
+                    if result.stdout:
+                        print(result.stdout)
+                    if result.stderr:
+                        print(result.stderr, file=sys.stderr)
                     
                     print()
                     print("="*80)
@@ -747,6 +773,50 @@ class TestRunner:
         finally:
             # Stop debugging components
             self.stop_debugging()
+    
+    def _parse_pytest_output(self, output: str) -> Dict[str, int]:
+        """Parse pytest output to extract test counts.
+        
+        Looks for patterns like: '= 445 failed, 758 passed, 53 skipped'
+        """
+        import re
+        counts = {"total": 0, "passed": 0, "failed": 0, "skipped": 0, "errors": 0}
+        
+        # Pattern: = X failed, Y passed, Z skipped
+        pattern = r'=\s*(\d+)\s+failed.*?(\d+)\s+passed.*?(\d+)\s+skipped'
+        match = re.search(pattern, output)
+        if match:
+            counts["failed"] = int(match.group(1))
+            counts["passed"] = int(match.group(2))
+            counts["skipped"] = int(match.group(3))
+            counts["total"] = counts["passed"] + counts["failed"] + counts["skipped"]
+        
+        # Also look for errors
+        error_pattern = r'(\d+)\s+errors?'
+        error_match = re.search(error_pattern, output)
+        if error_match:
+            counts["errors"] = int(error_match.group(1))
+        
+        return counts
+    
+    def _parse_playwright_output(self, output: str) -> Dict[str, int]:
+        """Parse Playwright output to extract test counts.
+        
+        Looks for patterns like: '15 failed, 2 skipped, 18 passed'
+        """
+        import re
+        counts = {"total": 0, "passed": 0, "failed": 0, "skipped": 0}
+        
+        # Pattern: X failed, Y skipped, Z passed
+        pattern = r'(\d+)\s+failed.*?(\d+)\s+skipped.*?(\d+)\s+passed'
+        match = re.search(pattern, output)
+        if match:
+            counts["failed"] = int(match.group(1))
+            counts["skipped"] = int(match.group(2))
+            counts["passed"] = int(match.group(3))
+            counts["total"] = counts["passed"] + counts["failed"] + counts["skipped"]
+        
+        return counts
     
     def _install_playwright_dependencies(self) -> bool:
         """Install Playwright and npm dependencies."""
@@ -822,8 +892,36 @@ class TestRunner:
         # Calculate duration
         duration = time.time() - self.start_time
         
-        # Print enhanced summary
-        self.output_formatter.print_summary()
+        # Aggregate test counts from pytest and playwright
+        total_tests = 0
+        total_passed = 0
+        total_failed = 0
+        total_skipped = 0
+        
+        if "pytest" in self.results and "counts" in self.results["pytest"]:
+            counts = self.results["pytest"]["counts"]
+            total_tests += counts.get("total", 0)
+            total_passed += counts.get("passed", 0)
+            total_failed += counts.get("failed", 0) + counts.get("errors", 0)
+            total_skipped += counts.get("skipped", 0)
+        
+        if "playwright" in self.results and "counts" in self.results["playwright"]:
+            counts = self.results["playwright"]["counts"]
+            total_tests += counts.get("total", 0)
+            total_passed += counts.get("passed", 0)
+            total_failed += counts.get("failed", 0)
+            total_skipped += counts.get("skipped", 0)
+        
+        # Print enhanced summary with parsed counts
+        if total_tests > 0:
+            self.output_formatter.print_summary(
+                total=total_tests,
+                passed=total_passed,
+                failed=total_failed,
+                skipped=total_skipped
+            )
+        else:
+            self.output_formatter.print_summary()
         
         # Print performance information if available
         if self.performance_profiler:

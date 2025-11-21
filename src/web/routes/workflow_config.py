@@ -85,7 +85,8 @@ async def get_workflow_config(request: Request):
                     version=1,
                     is_active=True,
                     description="Default configuration",
-                    sigma_fallback_enabled=False
+                    sigma_fallback_enabled=False,
+                    qa_enabled={}
                 )
                 db_session.add(config)
                 db_session.commit()
@@ -179,7 +180,7 @@ async def update_workflow_config(request: Request, config_update: WorkflowConfig
                 description=config_update.description or (current_config.description if current_config else "Updated configuration"),
                 agent_prompts=config_update.agent_prompts if config_update.agent_prompts is not None else (current_config.agent_prompts if current_config else None),
                 agent_models=merged_agent_models,
-                qa_enabled=config_update.qa_enabled if config_update.qa_enabled is not None else (current_config.qa_enabled if current_config else None),
+                qa_enabled=config_update.qa_enabled if config_update.qa_enabled is not None else (current_config.qa_enabled if current_config and current_config.qa_enabled is not None else {}),
                 sigma_fallback_enabled=sigma_fallback
             )
             
@@ -790,4 +791,3 @@ async def test_rank_agent(request: Request, test_request: TestRankAgentRequest):
         else:
             logger.error(f"Error testing Rank Agent: {e}", exc_info=True)
             raise HTTPException(status_code=500, detail=str(e))
-
