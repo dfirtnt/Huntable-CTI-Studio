@@ -39,7 +39,8 @@ class WorkflowTriggerService:
                     junk_filter_threshold=0.8,
                     version=1,
                     is_active=True,
-                    description="Default configuration"
+                    description="Default configuration",
+                    qa_enabled={}
                 )
                 self.db.add(config)
                 self.db.commit()
@@ -143,6 +144,7 @@ class WorkflowTriggerService:
                     'similarity_threshold': config.similarity_threshold,
                     'junk_filter_threshold': config.junk_filter_threshold,
                     'agent_models': config.agent_models,
+                    'qa_enabled': config.qa_enabled if config and config.qa_enabled is not None else {},
                     'config_id': config.id,
                     'config_version': config.version
                 } if config else None
@@ -161,4 +163,3 @@ class WorkflowTriggerService:
         except Exception as e:
             logger.error(f"Error triggering workflow for article {article_id}: {e}")
             return False
-

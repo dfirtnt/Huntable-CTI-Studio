@@ -2267,6 +2267,60 @@ Output valid JSON with keys: "status" ("pass" or "fail"), "feedback" (string exp
                     pass
                 
                 status = qa_result.get("status", "pass").lower() # Default to pass if parse fail to avoid loops
+                # Handle "needs_revision" as fail for retry logic
+                if status == "needs_revision":
+                    status = "fail"
+                
+                # Store QA result in the agent result for later retrieval (always store if QA ran)
+                if qa_prompt_config:  # QA was enabled, so store result even if parsing failed
+                    # Convert QA result format to match UI expectations
+                    qa_status = qa_result.get("status", "pass").lower()
+                    # Normalize status: "needs_revision" -> "needs_revision", "pass" -> "pass", "fail" -> "fail"
+                    if qa_status == "needs_revision":
+                        verdict = "needs_revision"
+                    elif qa_status == "pass":
+                        verdict = "pass"
+                    else:
+                        verdict = "needs_revision"
+                    
+                    # Extract feedback/summary from various possible fields
+                    feedback = qa_result.get("feedback") or qa_result.get("qa_corrections_applied") or qa_result.get("summary") or ""
+                    
+                    # Build issues list from corrected_commands if available
+                    issues = []
+                    if "corrected_commands" in qa_result:
+                        corrected = qa_result["corrected_commands"]
+                        for removed in corrected.get("removed", []):
+                            issues.append({
+                                "type": "compliance",
+                                "description": f"Removed: {removed.get('command', '')} - {removed.get('reason', '')}",
+                                "severity": "medium"
+                            })
+                        for added in corrected.get("added", []):
+                            issues.append({
+                                "type": "completeness",
+                                "description": f"Added: {added.get('command', '')} - Found in: {added.get('found_in', '')}",
+                                "severity": "low"
+                            })
+                    
+                    # Always store QA result when QA runs, even if parsing failed
+                    if not qa_result or len(qa_result) == 0:
+                        # QA parsing failed, store error result
+                        last_result["_qa_result"] = {
+                            "verdict": "needs_revision",
+                            "summary": "QA evaluation ran but response parsing failed",
+                            "status": "fail",
+                            "feedback": "QA response could not be parsed",
+                            "issues": [{"type": "compliance", "description": "QA response parsing failed", "severity": "medium"}]
+                        }
+                    else:
+                        last_result["_qa_result"] = {
+                            "verdict": verdict,
+                            "summary": feedback,
+                            "status": qa_status,
+                            "feedback": feedback,
+                            "issues": issues
+                        }
                 
                 if status == "pass":
                     logger.info(f"{agent_name} QA Passed on attempt {current_try}. Returning {len(last_result.get('cmdline_items', last_result.get('items', [])))} items")

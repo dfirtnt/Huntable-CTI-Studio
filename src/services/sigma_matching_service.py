@@ -34,17 +34,18 @@ SIMILARITY_WEIGHTS = {
 class SigmaMatchingService:
     """Service for matching articles and chunks to Sigma rules using semantic search."""
     
-    def __init__(self, db_session: Session):
+    def __init__(self, db_session: Session, config_models: Optional[Dict[str, str]] = None):
         """
         Initialize the matching service.
         
         Args:
             db_session: SQLAlchemy database session
+            config_models: Optional dict of agent models from workflow config (e.g., {"SigmaEmbeddingModel": "model_name"})
         """
         self.db = db_session
         self.embedding_service = EmbeddingService()  # For article embeddings
         try:
-            self.sigma_embedding_client = LMStudioEmbeddingClient()  # For SIGMA rule embeddings
+            self.sigma_embedding_client = LMStudioEmbeddingClient(config_models=config_models)  # For SIGMA rule embeddings
         except Exception as e:
             logger.warning(f"LM Studio client unavailable for SIGMA embeddings: {e}")
             self.sigma_embedding_client = None

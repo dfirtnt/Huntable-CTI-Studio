@@ -39,7 +39,7 @@ class TestThreatHuntingScorer:
         result = ThreatHuntingScorer.score_threat_hunting_content("Test Title", content)
         
         assert result['threat_hunting_score'] > 0
-        assert 'rundll32' in result['perfect_keyword_matches']
+        assert 'rundll32.exe' in result['perfect_keyword_matches']
         assert 'comspec' in result['perfect_keyword_matches']
         # .exe might be in good_keyword_matches due to the content
         assert len(result['good_keyword_matches']) >= 0
@@ -61,12 +61,12 @@ class TestThreatHuntingScorer:
 
     def test_score_threat_hunting_content_lolbas_executables(self):
         """Test scoring with LOLBAS executables."""
-        content = "This article discusses certutil and cmd.exe techniques."
+        content = "This article discusses certutil.exe and cmd.exe techniques."
         result = ThreatHuntingScorer.score_threat_hunting_content("Test Title", content)
         
         assert result['threat_hunting_score'] > 0
-        assert 'certutil' in result['lolbas_matches']
-        assert 'cmd' in result['lolbas_matches']
+        assert 'certutil.exe' in result['lolbas_matches']
+        assert 'cmd.exe' in result['lolbas_matches']
         # Cmd might be in perfect_keyword_matches as well
         assert len(result['perfect_keyword_matches']) >= 0
         # .exe might be in good_keyword_matches
@@ -99,7 +99,7 @@ class TestThreatHuntingScorer:
     def test_score_threat_hunting_content_mixed_keywords(self):
         """Test scoring with mixed keyword types."""
         content = """
-        This article discusses APT campaigns using rundll32.exe and certutil.
+        This article discusses APT campaigns using rundll32.exe and certutil.exe.
         It covers threat hunting techniques and event ID monitoring.
         This is not a tutorial or best practices guide.
         """
@@ -113,12 +113,12 @@ class TestThreatHuntingScorer:
 
     def test_score_threat_hunting_content_title_included(self):
         """Test that title is included in scoring."""
-        title = "PowerShell Attack Using rundll32"
+        title = "PowerShell Attack Using rundll32.exe"
         content = "This article discusses various techniques."
         result = ThreatHuntingScorer.score_threat_hunting_content(title, content)
         
         assert result['threat_hunting_score'] > 0
-        assert 'rundll32' in result['perfect_keyword_matches']
+        assert 'rundll32.exe' in result['perfect_keyword_matches']
 
     def test_score_threat_hunting_content_html_content(self):
         """Test scoring with HTML content."""
@@ -126,7 +126,7 @@ class TestThreatHuntingScorer:
         result = ThreatHuntingScorer.score_threat_hunting_content("Test Title", content)
         
         assert result['threat_hunting_score'] > 0
-        assert 'rundll32' in result['perfect_keyword_matches']
+        assert 'rundll32.exe' in result['perfect_keyword_matches']
         assert 'comspec' in result['perfect_keyword_matches']
 
     def test_score_threat_hunting_content_case_insensitive(self):
@@ -135,7 +135,7 @@ class TestThreatHuntingScorer:
         result = ThreatHuntingScorer.score_threat_hunting_content("Test Title", content)
         
         assert result['threat_hunting_score'] > 0
-        assert 'rundll32' in result['perfect_keyword_matches']
+        assert 'rundll32.exe' in result['perfect_keyword_matches']
         assert 'comspec' in result['perfect_keyword_matches']
 
     def test_score_threat_hunting_content_logarithmic_scoring(self):
@@ -145,7 +145,7 @@ class TestThreatHuntingScorer:
         result1 = ThreatHuntingScorer.score_threat_hunting_content("Test Title", content1)
         
         # Multiple perfect discriminators
-        content2 = "This article discusses rundll32.exe, comspec, msiexec, and wmic."
+        content2 = "This article discusses rundll32.exe, comspec, msiexec.exe, and wmic.exe."
         result2 = ThreatHuntingScorer.score_threat_hunting_content("Test Title", content2)
         
         # Score should increase but with diminishing returns
@@ -256,7 +256,7 @@ class TestThreatHuntingScorer:
         title = "APT29 Campaign Uses PowerShell and LOLBAS for Persistence"
         content = """
         This article describes an APT29 campaign that uses PowerShell techniques
-        including rundll32.exe and certutil for persistence. The threat actors
+        including rundll32.exe and certutil.exe for persistence. The threat actors
         use comspec environment variables and wmic commands to evade detection.
         
         The campaign targets Event ID 4624 and uses parent-child process relationships

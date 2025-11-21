@@ -372,6 +372,15 @@ function formatText(text, maxLength = 500) {
 }
 
 async function viewExecution(executionId) {
+    const modal = document.getElementById('executionModal');
+    const contentDiv = document.getElementById('executionDetailContent');
+    
+    if (!modal || !contentDiv) {
+        console.error('Modal elements not found. Modal:', !!modal, 'ContentDiv:', !!contentDiv);
+        alert('Error: Execution detail modal not found. Please refresh the page.');
+        return;
+    }
+    
     try {
         const response = await fetch(`/api/workflow/executions/${executionId}`);
         if (response.ok) {
@@ -484,12 +493,14 @@ async function viewExecution(executionId) {
                                         <div>• Observables: ${exec.extraction_result.observables?.length || 0}</div>
                                         ${exec.extraction_result.summary?.platforms_detected && exec.extraction_result.summary.platforms_detected.length > 0 ? `<div>• Platforms: ${exec.extraction_result.summary.platforms_detected.join(', ')}</div>` : ''}
                                     </div>
-                                    ${exec.extraction_result.observables && exec.extraction_result.observables.length > 0 ? `
+                                    ${(() => {
+                                        const observables = Array.isArray(exec.extraction_result.observables) ? exec.extraction_result.observables : [];
+                                        return observables.length > 0 ? `
                                         <details class="mt-2">
-                                            <summary class="cursor-pointer text-sm text-purple-600 dark:text-white hover:underline">View ${exec.extraction_result.observables.length} Observables</summary>
+                                            <summary class="cursor-pointer text-sm text-purple-600 dark:text-white hover:underline">View ${observables.length} Observables</summary>
                                             <div class="mt-2 max-h-64 overflow-y-auto">
                                                 <div class="space-y-2 text-xs bg-gray-50 dark:bg-gray-900 p-3 rounded border border-gray-200 dark:border-gray-700">
-                                                    ${exec.extraction_result.observables.slice(0, 20).map((obs, idx) => {
+                                                    ${observables.slice(0, 20).map((obs, idx) => {
                                                         const type = obs.type || 'Unknown';
                                                         const value = obs.value || '';
                                                         const platform = obs.platform || '';
@@ -501,11 +512,12 @@ async function viewExecution(executionId) {
                                                             ${sourceContext ? `<div class="text-gray-600 dark:text-gray-400 italic">Context: ${sourceContext}</div>` : ''}
                                                         </div>`;
                                                     }).join('')}
-                                                    ${exec.extraction_result.observables.length > 20 ? `<div class="text-gray-500 dark:text-gray-300">... and ${exec.extraction_result.observables.length - 20} more</div>` : ''}
+                                                    ${observables.length > 20 ? `<div class="text-gray-500 dark:text-gray-300">... and ${observables.length - 20} more</div>` : ''}
                                                 </div>
                                             </div>
                                         </details>
-                                    ` : ''}
+                                    ` : '';
+                                    })()}
                                     ${exec.extraction_result.raw_response ? `
                                         <details class="mt-2">
                                             <summary class="cursor-pointer text-sm text-blue-600 dark:text-white hover:underline">View Raw LLM Response</summary>
@@ -539,21 +551,32 @@ async function viewExecution(executionId) {
                                 const qaResults = exec.error_log?.qa_results || {};
                                 
                                 return subAgents.map(subAgent => {
-                                    const result = subresults[subAgent.key];
-                                    const items = result?.items || [];
-                                    const count = result?.count || items.length || 0;
-                                    const raw = result?.raw || {};
-                                    
-                                    // Get QA result for this sub-agent (check both agent name and QA name)
-                                    const qaResult = qaResults[subAgent.name] || qaResults[subAgent.qaName] || null;
-                                    const qaVerdict = qaResult?.verdict || qaResult?.status || null;
-                                    const qaFeedback = qaResult?.feedback || null;
-                                    const qaIssues = qaResult?.issues || [];
-                                    
-                                    return `
+                                    try {
+                                        const result = subresults[subAgent.key];
+                                        // Ensure items is always an array - check multiple ways
+                                        // Handle case where items is a string (e.g., process_lineage in execution 350)
+                                        let items = [];
+                                        if (result?.items !== undefined && result?.items !== null) {
+                                            if (Array.isArray(result.items)) {
+                                                items = result.items;
+                                            } else {
+                                                // If items is not an array (string, object, etc.), set to empty array
+                                                items = [];
+                                            }
+                                        }
+                                        const count = result?.count || items.length || 0;
+                                        const raw = result?.raw || {};
+                                        
+                                        // Get QA result for this sub-agent (check both agent name and QA name)
+                                        const qaResult = qaResults[subAgent.name] || qaResults[subAgent.qaName] || null;
+                                        const qaVerdict = qaResult?.verdict || qaResult?.status || null;
+                                        const qaFeedback = qaResult?.feedback || null;
+                                        const qaIssues = Array.isArray(qaResult?.issues) ? qaResult.issues : [];
+                                        
+                                        return `
                                         <details class="border border-cyan-200 dark:border-cyan-700 rounded-lg overflow-hidden">
-                                            <summary class="bg-cyan-50 dark:bg-cyan-900/30 px-4 py-3 cursor-pointer font-medium text-gray-900 dark:text-white hover:bg-cyan-100 dark:hover:bg-cyan-900/50">
-                                                ${subAgent.icon} ${subAgent.display} <span class="text-white">${count > 0 ? `(${count} items)` : '(0 items)'}</span>
+                                            <summary class="bg-cyan-50 dark:bg-cyan-900/30 px-4 py-3 cursor-pointer font-medium text-gray-900 dark:text-gray-50 hover:bg-cyan-100 dark:hover:bg-cyan-900/50">
+                                                ${subAgent.icon} ${subAgent.display} <span class="text-gray-700 dark:text-gray-100">${count > 0 ? `(${count} items)` : '(0 items)'}</span>
                                                 ${qaVerdict ? ` ${qaVerdict === 'pass' ? '✅' : qaVerdict === 'fail' ? '❌' : '⚠️'}` : ''}
                                             </summary>
                                             <div class="p-4 space-y-3 bg-white dark:bg-gray-800">
@@ -573,23 +596,28 @@ async function viewExecution(executionId) {
                                                         <div class="mt-1 text-sm">
                                                             <div>• Items Extracted: <strong>${count}</strong></div>
                                                         </div>
-                                                        ${items.length > 0 ? `
+                                                        ${(() => {
+                                                            // Use the items variable we already validated, not result.items
+                                                            // This ensures we use the array-safe version
+                                                            const safeItems = Array.isArray(items) ? items : [];
+                                                            return safeItems.length > 0 ? `
                                                             <details class="mt-2">
-                                                                <summary class="cursor-pointer text-sm text-purple-600 dark:text-white hover:underline">View ${items.length} Items</summary>
+                                                                <summary class="cursor-pointer text-sm text-purple-600 dark:text-white hover:underline">View ${safeItems.length} Items</summary>
                                                                 <div class="mt-2 max-h-64 overflow-y-auto">
                                                                     <div class="space-y-2 text-xs bg-gray-50 dark:bg-gray-900 p-3 rounded border border-gray-200 dark:border-gray-700">
-                                                                        ${items.slice(0, 20).map((item, idx) => {
+                                                                        ${safeItems.slice(0, 20).map((item, idx) => {
                                                                             const itemValue = typeof item === 'object' ? JSON.stringify(item, null, 2) : String(item);
                                                                             return `<div class="border-b border-gray-300 dark:border-gray-600 pb-2">
                                                                                 <div class="font-semibold text-gray-900 dark:text-white">${idx + 1}. Item</div>
                                                                                 <div class="text-gray-700 dark:text-gray-300 break-all whitespace-pre-wrap">${itemValue.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</div>
                                                                             </div>`;
                                                                         }).join('')}
-                                                                        ${items.length > 20 ? `<div class="text-gray-500 dark:text-gray-300">... and ${items.length - 20} more</div>` : ''}
+                                                                        ${safeItems.length > 20 ? `<div class="text-gray-500 dark:text-gray-300">... and ${safeItems.length - 20} more</div>` : ''}
                                                                     </div>
                                                                 </div>
                                                             </details>
-                                                        ` : ''}
+                                                        ` : '';
+                                                        })()}
                                                         ${raw && Object.keys(raw).length > 0 ? `
                                                             <details class="mt-2">
                                                                 <summary class="cursor-pointer text-sm text-blue-600 dark:text-white hover:underline">View Raw Agent Response</summary>
@@ -630,7 +658,24 @@ async function viewExecution(executionId) {
                                             </div>
                                         </details>
                                     `;
+                                    } catch (error) {
+                                        console.error(`Error rendering sub-agent ${subAgent.name}:`, error);
+                                        return `
+                                        <details class="border border-red-200 dark:border-red-700 rounded-lg overflow-hidden">
+                                            <summary class="bg-red-50 dark:bg-red-900/30 px-4 py-3 cursor-pointer font-medium text-red-900 dark:text-red-100">
+                                                ❌ ${subAgent.display} - Error: ${error.message}
+                                            </summary>
+                                            <div class="p-4 bg-white dark:bg-gray-800">
+                                                <pre class="text-xs text-red-600 dark:text-red-400">${error.stack || error.toString()}</pre>
+                                            </div>
+                                        </details>
+                                    `;
+                                    }
                                 }).join('')}
+                                } catch (error) {
+                                    console.error('Error rendering sub-agents:', error);
+                                    return `<div class="text-red-600 dark:text-red-400 p-4">Error rendering sub-agents: ${error.message}</div>`;
+                                }
                             })()}
                         </div>
                     </details>
@@ -689,17 +734,19 @@ async function viewExecution(executionId) {
                             </div>
                             <div>
                                 <strong class="text-gray-900 dark:text-white">Outputs:</strong>
-                                ${exec.sigma_rules && exec.sigma_rules.length > 0 ? `
+                                ${(() => {
+                                    const sigmaRules = Array.isArray(exec.sigma_rules) ? exec.sigma_rules : [];
+                                    return sigmaRules.length > 0 ? `
                                     <div class="mt-1 text-sm">
-                                        <div>• SIGMA Rules Generated: <strong>${exec.sigma_rules.length}</strong></div>
+                                        <div>• SIGMA Rules Generated: <strong>${sigmaRules.length}</strong></div>
                                     </div>
-                                    ${exec.sigma_rules.map((rule, idx) => {
+                                    ${sigmaRules.map((rule, idx) => {
                                         const ruleTitle = rule.title || 'Untitled';
                                         const ruleDescription = rule.description || '';
                                         const ruleDetection = rule.detection || {};
                                         const ruleLogsource = rule.logsource || {};
-                                        const ruleTags = rule.tags || [];
-                                        const ruleReferences = rule.references || [];
+                                        const ruleTags = Array.isArray(rule.tags) ? rule.tags : [];
+                                        const ruleReferences = Array.isArray(rule.references) ? rule.references : [];
                                         const ruleId = rule.id || '';
                                         const ruleStatus = rule.status || '';
                                         const ruleLevel = rule.level || '';
@@ -783,7 +830,8 @@ async function viewExecution(executionId) {
                                         </details>
                                         `;
                                     }).join('')}
-                                ` : '<span class="text-gray-400">No SIGMA rules generated</span>'}
+                                ` : '<span class="text-gray-400">No SIGMA rules generated</span>';
+                                    })()}
                                 
                                 ${(() => {
                                     // Get conversation log and validation results from error_log
@@ -936,9 +984,11 @@ async function viewExecution(executionId) {
                                                             <div class="text-sm text-gray-600 dark:text-gray-400">Max Similarity: ${((result.max_similarity || 0) * 100).toFixed(1)}%</div>
                                                             <div class="text-sm text-gray-600 dark:text-gray-400">Similar Rules Found: ${result.similar_rules?.length || 0}</div>
                                                         </div>
-                                                        ${result.similar_rules && result.similar_rules.length > 0 ? `
+                                                        ${(() => {
+                                                            const similarRules = Array.isArray(result.similar_rules) ? result.similar_rules : [];
+                                                            return similarRules.length > 0 ? `
                                                             <div class="mt-2 space-y-2">
-                                                                ${result.similar_rules.map((similarRule, ruleIdx) => `
+                                                                ${similarRules.map((similarRule, ruleIdx) => `
                                                                     <div class="border border-gray-300 dark:border-gray-600 rounded p-2 bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer transition-colors" 
                                                                          onclick="showSimilarRuleDetails(${ruleIdx}, ${idx})" 
                                                                          data-rule-data='${JSON.stringify(similarRule).replace(/'/g, "&#39;")}'>
@@ -1016,9 +1066,11 @@ async function viewExecution(executionId) {
                                     ${exec.queued_rules_count > 0 ? `
                                         <div>• Rules Queued: <span class="font-semibold text-purple-600 dark:text-purple-400 cursor-pointer hover:underline" onclick="navigateToQueuedRules(${exec.id}, ${JSON.stringify(exec.queued_rule_ids || [])})">${exec.queued_rules_count}</span></div>
                                         <div class="text-green-600 dark:text-green-400 mt-1">✅ Rules queued for review</div>
-                                        ${exec.queued_rule_ids && exec.queued_rule_ids.length > 0 ? `
+                                        ${(() => {
+                                            const queuedRuleIds = Array.isArray(exec.queued_rule_ids) ? exec.queued_rule_ids : [];
+                                            return queuedRuleIds.length > 0 ? `
                                             <div class="mt-2 space-y-1">
-                                                ${exec.queued_rule_ids.map((ruleId, idx) => `
+                                                ${queuedRuleIds.map((ruleId, idx) => `
                                                     <div class="text-xs">
                                                         <a href="/workflow#queue" 
                                                            onclick="const e = arguments[0] || window.event; e.preventDefault(); e.stopPropagation(); highlightQueuedRule(${ruleId}); return false;" 
@@ -1028,7 +1080,8 @@ async function viewExecution(executionId) {
                                 </div>
                                                 `).join('')}
                                             </div>
-                                        ` : ''}
+                                        ` : '';
+                                            })()}
                                     ` : exec.similarity_results !== null && exec.similarity_results !== undefined ? `
                                         <div>• Rules Queued: 0</div>
                                         ${exec.similarity_results.filter(r => (r.max_similarity || 0) < (config.similarity_threshold || 0.5)).length === 0 ? `
@@ -1118,13 +1171,27 @@ async function viewExecution(executionId) {
                 </div>
             `;
             
-            document.getElementById('executionDetailContent').innerHTML = content;
-            document.getElementById('executionModal').classList.remove('hidden');
+            contentDiv.innerHTML = content;
+            modal.classList.remove('hidden');
+        } else {
+            // Handle non-ok response
+            const errorText = await response.text();
+            let errorMessage = `Failed to load execution details (${response.status})`;
+            try {
+                const errorData = JSON.parse(errorText);
+                errorMessage = errorData.detail || errorMessage;
+            } catch (e) {
+                errorMessage = errorText || errorMessage;
+            }
+            contentDiv.innerHTML = 
+                `<div class="text-red-600 dark:text-red-400 p-4">Error loading execution details: ${errorMessage}</div>`;
+            modal.classList.remove('hidden');
         }
     } catch (error) {
         console.error('Error loading execution details:', error);
-        document.getElementById('executionDetailContent').innerHTML = 
-            `<div class="text-red-600 dark:text-red-400">Error loading execution details: ${error.message}</div>`;
+        contentDiv.innerHTML = 
+            `<div class="text-red-600 dark:text-red-400 p-4">Error loading execution details: ${error.message}</div>`;
+        modal.classList.remove('hidden');
     }
 }
 
@@ -1657,8 +1724,25 @@ function startLiveExecutionStream(executionId) {
                     
                 case 'qa_result':
                     const verdictIcon = data.verdict === 'pass' ? '✅' : data.verdict === 'critical_failure' ? '❌' : '⚠️';
-                    appendOutput(`\n${verdictIcon} QA Result - ${data.agent}: ${data.verdict.toUpperCase()}`, 
+                    const agentDisplayName = data.agent === 'extract_agent' ? 'Extraction Agent' : data.agent.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+                    appendOutput(`\n${verdictIcon} QA Result - ${agentDisplayName}: ${data.verdict.toUpperCase()}`, 
                         data.verdict === 'pass' ? 'text-green-400' : data.verdict === 'critical_failure' ? 'text-red-400' : 'text-yellow-400');
+                    if (data.summary) {
+                        const summaryPreview = data.summary.length > 200 ? data.summary.substring(0, 200) + '...' : data.summary;
+                        appendOutput(`  Summary: ${summaryPreview}`, 'text-gray-300');
+                    }
+                    if (data.issues && data.issues.length > 0) {
+                        appendOutput(`  Issues: ${data.issues.length} found`, 'text-yellow-300');
+                        data.issues.slice(0, 3).forEach((issue, idx) => {
+                            const issueText = typeof issue === 'string' ? issue : (issue.description || issue.type || JSON.stringify(issue));
+                            const preview = issueText.length > 150 ? issueText.substring(0, 150) + '...' : issueText;
+                            appendOutput(`    ${idx + 1}. ${preview}`, 'text-gray-400');
+                        });
+                        if (data.issues.length > 3) {
+                            appendOutput(`    ... and ${data.issues.length - 3} more`, 'text-gray-500');
+                        }
+                    }
+                    break;
                     if (data.summary) {
                         appendOutput(`  Summary: ${data.summary}`, 'text-gray-300');
                     }

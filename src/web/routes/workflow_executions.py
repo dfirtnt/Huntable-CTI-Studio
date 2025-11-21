@@ -384,9 +384,20 @@ async def stream_execution_updates(execution_id: int):
                                         'RankAgent': 'rank_article',
                                         'ExtractAgent': 'extract_agent',
                                         'SigmaAgent': 'generate_sigma',
-                                        'OSDetectionAgent': 'os_detection'
+                                        'OSDetectionAgent': 'os_detection',
+                                        # Extraction sub-agents
+                                        'CmdlineExtract': 'extract_agent',
+                                        'CmdLineQA': 'extract_agent',
+                                        'SigExtract': 'extract_agent',
+                                        'SigQA': 'extract_agent',
+                                        'EventCodeExtract': 'extract_agent',
+                                        'EventCodeQA': 'extract_agent',
+                                        'ProcTreeExtract': 'extract_agent',
+                                        'ProcTreeQA': 'extract_agent',
+                                        'RegExtract': 'extract_agent',
+                                        'RegQA': 'extract_agent'
                                     }
-                                    mapped_agent_name = agent_mapping.get(qa_agent_name, agent_name)
+                                    mapped_agent_name = agent_mapping.get(qa_agent_name, qa_agent_name)
                                     
                                     # Only send if this QA result is new or updated
                                     last_qa_result = last_qa_results.get(qa_agent_name)

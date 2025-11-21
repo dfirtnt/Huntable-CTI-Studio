@@ -58,11 +58,16 @@ export default defineConfig({
     },
   ],
 
+  /* Global setup to check web server health before tests */
+  globalSetup: require.resolve('./tests/playwright/global-setup.ts'),
+  
   /* Run your local dev server before starting the tests */
+  // Note: Server should be started manually or via Docker
   // webServer: {
-  //   command: 'npm run start',
-  //   url: 'http://127.0.0.1:3000',
+  //   command: 'python -m uvicorn src.web.modern_main:app --host 0.0.0.0 --port 8001',
+  //   url: 'http://localhost:8001/health',
   //   reuseExistingServer: !process.env.CI,
+  //   timeout: 60000,
   // },
 });
 

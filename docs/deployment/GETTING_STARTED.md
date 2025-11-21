@@ -138,14 +138,14 @@ docker-compose ps
 
 **Usage**:
 ```bash
-# Start test environment
-docker-compose -f docker-compose.test.yml up -d
+# Ensure production containers are running
+docker-compose up -d
 
-# Run tests
-python run_tests.py --docker --all
+# Run tests (tests execute within production containers)
+docker-compose exec web pytest tests/ -v
 
-# Clean up
-docker-compose -f docker-compose.test.yml down
+# Or use the test runner
+python run_tests.py --all
 ```
 
 ## Docker Architecture

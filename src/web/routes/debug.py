@@ -12,7 +12,7 @@ import numpy as np
 from fastapi import APIRouter, HTTPException
 
 from src.database.async_manager import async_db_manager
-from src.utils.gpt4o_optimizer import estimate_gpt4o_cost
+from src.utils.llm_optimizer import estimate_llm_cost, estimate_gpt4o_cost  # Backward compatibility
 from src.web.dependencies import get_content_filter, logger
 
 router = APIRouter(tags=["Debug"])

@@ -38,7 +38,7 @@ async def api_gpt4o_rank_optimized(article_id: int, request: Request):
             raise HTTPException(status_code=400, detail="Article content is required for analysis")
         
         # Import the optimizer
-        from src.utils.gpt4o_optimizer import optimize_article_content, estimate_gpt4o_cost
+        from src.utils.llm_optimizer import optimize_article_content, estimate_llm_cost, estimate_gpt4o_cost  # Backward compatibility
         
         # Optimize content if filtering is enabled
         if use_filtering:

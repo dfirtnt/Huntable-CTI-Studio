@@ -76,13 +76,17 @@ def rescore_ml(ctx: CLIContext, article_id: int, force: bool, dry_run: bool, met
                 console.print("🔄 Recalculating ML hunt scores for all articles with chunk analysis...")
                 
                 from src.database.models import ArticleTable, ChunkAnalysisResultTable
-                from sqlalchemy import distinct
+                from sqlalchemy import distinct, select
                 
                 # Get all articles that have chunk analysis results
-                articles_with_chunks = db.query(distinct(ChunkAnalysisResultTable.article_id)).subquery()
-                articles = db.query(ArticleTable).filter(
-                    ArticleTable.id.in_(db.query(articles_with_chunks.c.article_id))
-                ).all()
+                articles_with_chunks_subq = db.query(ChunkAnalysisResultTable.article_id).distinct().subquery()
+                article_ids = [row[0] for row in db.query(articles_with_chunks_subq.c.article_id).all()]
+                
+                if not article_ids:
+                    console.print("ℹ️  No articles with chunk analysis results found", style="blue")
+                    return
+                
+                articles = db.query(ArticleTable).filter(ArticleTable.id.in_(article_ids)).all()
                 
                 total_articles = len(articles)
                 

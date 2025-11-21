@@ -70,6 +70,7 @@ def mark_execution_completed(
         # Ensure we don't mutate shared instances in-place
         if not isinstance(existing_log, dict):
             existing_log = {}
+        # Merge termination payload, preserving ALL existing keys (especially qa_results, extract_agent, etc.)
         updated_log = {**existing_log, "termination": payload}
         execution.error_log = updated_log
 
