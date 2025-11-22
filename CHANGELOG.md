@@ -28,6 +28,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Consistent help UI pattern matching Junk Filter Threshold help button
 
 ### Changed
+- **Test Wrapper Configuration**: Updated test runner to exclude infrastructure and production data tests by default
+  - `run_tests.py` now automatically excludes `infrastructure`, `prod_data`, and `production_data` markers
+  - `conftest.py` auto-skips infrastructure and production data tests during collection
+  - Added `prod_data` and `production_data` markers to `pytest.ini`
+  - Tests requiring test infrastructure or production data access are now skipped automatically
 - **Workflow Configuration UI Reorganization**: Improved organization and accessibility of workflow configuration
   - Converted "Other Thresholds" section to collapsible "Junk Filter" dropdown panel at top of configuration
   - Moved Similarity Threshold from "Other Thresholds" to SIGMA Agent panel (under SIGMA Agent model selector)

@@ -501,12 +501,18 @@ class TestRunner:
             cmd.extend(["-m", marker_expr])
         
         # Exclude markers
+        # Always exclude infrastructure and production data tests by default
+        default_excludes = ["infrastructure", "prod_data", "production_data"]
         if self.config.exclude_markers:
-            exclude_expr = " and ".join([f"not {marker}" for marker in self.config.exclude_markers])
-            if self.config.markers:
-                cmd.extend(["-m", f"({marker_expr}) and ({exclude_expr})"])
-            else:
-                cmd.extend(["-m", exclude_expr])
+            all_excludes = default_excludes + self.config.exclude_markers
+        else:
+            all_excludes = default_excludes
+        
+        exclude_expr = " and ".join([f"not {marker}" for marker in all_excludes])
+        if self.config.markers:
+            cmd.extend(["-m", f"({marker_expr}) and ({exclude_expr})"])
+        else:
+            cmd.extend(["-m", exclude_expr])
         
         # Use virtual environment python (always set to venv)
         cmd[0] = self.venv_python
