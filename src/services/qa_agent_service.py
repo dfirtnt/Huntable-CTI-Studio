@@ -143,38 +143,38 @@ Please provide your evaluation in the following JSON format:
                 article_id=article.id if article else None,
                 metadata={"messages": converted_messages, "agent_name": agent_name}
             ) as generation:
-            # Override model if QA-specific model configured
-            qa_model_override = None
-            if config_obj and hasattr(config_obj, 'agent_models') and config_obj.agent_models:
-                qa_model_override = config_obj.agent_models.get(agent_name)
-                if not qa_model_override:
-                    qa_model_override = config_obj.agent_models.get(f"{agent_name}QA")
+                # Override model if QA-specific model configured
+                qa_model_override = None
+                if config_obj and hasattr(config_obj, 'agent_models') and config_obj.agent_models:
+                    qa_model_override = config_obj.agent_models.get(agent_name)
+                    if not qa_model_override:
+                        qa_model_override = config_obj.agent_models.get(f"{agent_name}QA")
 
-            target_model = qa_model_override or self.llm_service.model_extract
+                target_model = qa_model_override or self.llm_service.model_extract
 
-            response = await self.llm_service._post_lmstudio_chat(
-                payload=payload,
-                model_name=target_model,
-                timeout=300.0,
-                failure_context=f"QA evaluation for {agent_name}"
-            )
-            
-            # Parse response
-            response_text = response.get("choices", [{}])[0].get("message", {}).get("content", "")
-            
-            if generation:
-                log_llm_completion(
-                    generation=generation,
-                    input_messages=converted_messages,
-                    output=response_text or "",
-                    usage=response.get("usage", {}),
-                    metadata={"agent_name": agent_name, "qa_prompt": qa_prompt_dict}
+                response = await self.llm_service._post_lmstudio_chat(
+                    payload=payload,
+                    model_name=target_model,
+                    timeout=300.0,
+                    failure_context=f"QA evaluation for {agent_name}"
                 )
-            
-            # Try to extract JSON from response
-            qa_result = self._parse_qa_response(response_text)
-            
-            return qa_result
+                
+                # Parse response
+                response_text = response.get("choices", [{}])[0].get("message", {}).get("content", "")
+                
+                if generation:
+                    log_llm_completion(
+                        generation=generation,
+                        input_messages=converted_messages,
+                        output=response_text or "",
+                        usage=response.get("usage", {}),
+                        metadata={"agent_name": agent_name, "qa_prompt": qa_prompt_dict}
+                    )
+                
+                # Try to extract JSON from response
+                qa_result = self._parse_qa_response(response_text)
+                
+                return qa_result
             
         except Exception as e:
             logger.error(f"QA evaluation error for {agent_name}: {e}", exc_info=True)
