@@ -8,6 +8,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- **IndentationError in ContentFilter**: Fixed critical syntax error preventing web service startup
+  - Corrected indentation of sklearn imports in try/except block
+  - Web container now starts successfully and serves requests
+- **Workflow Configuration Section Order**: Reordered configuration panels to match workflow execution
+  - OS Detection Agent panel now appears before Junk Filter panel
+  - UI order now matches actual workflow step sequence (Step 0: OS Detection → Step 1: Junk Filter)
 - **Workflow Order in Configuration UI**: Fixed workflow overview to show correct 7-step order
   - Added OS Detection as Step 0 (was missing)
   - Renumbered all subsequent steps: Junk Filter (1), LLM Ranking (2), Extract Agent (3), Generate SIGMA (4), Similarity Search (5), Queue (6)
