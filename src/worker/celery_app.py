@@ -127,9 +127,8 @@ def check_all_sources(self):
     try:
         import asyncio
         from src.database.async_manager import AsyncDatabaseManager
-        from src.core.rss_parser import RSSParser
+        from src.core.fetcher import ContentFetcher
         from src.core.processor import ContentProcessor
-        from src.utils.http import HTTPClient
         
         async def run_source_check():
             """Run the actual source checking."""
@@ -159,72 +158,77 @@ def check_all_sources(self):
                 total_articles_saved = 0
                 total_articles_filtered = 0
                 
-                async with HTTPClient() as http_client:
-                    rss_parser = RSSParser(http_client)
-                    
+                async with ContentFetcher() as fetcher:
                     for source in active_sources:
                         start_time = time.time()
-                        success = False
+                        collection_success = False
+                        fetch_result = None
+                        articles = []
+                        error_msg = None
                         
                         try:
-                            # Parse RSS feed for new articles
-                            articles = await rss_parser.parse_feed(source)
+                            fetch_result = await fetcher.fetch_source(source)
+                            articles = fetch_result.articles or []
+                            collection_success = fetch_result.success
                             
-                            if articles:
+                            if collection_success and articles:
                                 total_articles_collected += len(articles)
-                                logger.info(f"  ✓ {source.name}: {len(articles)} articles collected")
+                                logger.info(
+                                    f"  ✓ {source.name}: {len(articles)} articles collected via {fetch_result.method}"
+                                )
                                 
-                                # Process articles through deduplication with source-specific config
-                                # Note: source.config is already a dict from database, not a Pydantic model
                                 source_config = source.config if source.config else None
-                                dedup_result = await processor.process_articles(articles, existing_hashes, source_config=source_config)
+                                dedup_result = await processor.process_articles(
+                                    articles,
+                                    existing_hashes,
+                                    existing_urls,
+                                    source_config=source_config
+                                )
                                 
-                                # Save deduplicated articles
+                                saved_count = 0
                                 if dedup_result.unique_articles:
                                     for article in dedup_result.unique_articles:
                                         try:
                                             await db.create_article(article)
-                                            total_articles_saved += 1
+                                            saved_count += 1
                                         except Exception as e:
                                             logger.error(f"Error storing article from {source.name}: {e}")
                                             continue
                                 
-                                # Log filtering statistics
                                 filtered_count = len(dedup_result.duplicates)
-                                duplicates_filtered = filtered_count
-                                
+                                total_articles_saved += saved_count
                                 total_articles_filtered += filtered_count
                                 
-                                logger.info(f"    - Saved: {len(dedup_result.unique_articles)} articles")
-                                logger.info(f"    - Duplicates filtered: {duplicates_filtered} articles")
-                                
-                                success = True
-                                
-                            else:
-                                logger.info(f"  ✓ {source.name}: 0 articles found")
-                                success = True
+                                logger.info(f"    - Saved: {saved_count} articles")
+                                logger.info(f"    - Duplicates filtered: {filtered_count} articles")
                             
+                            elif collection_success:
+                                logger.info(
+                                    f"  ✓ {source.name}: 0 articles found via {fetch_result.method}"
+                                )
+                            
+                            else:
+                                error_msg = fetch_result.error
+                                logger.error(f"  ✗ {source.name}: Fetch failed - {error_msg}")
+                        
                         except Exception as e:
+                            error_msg = str(e)
                             logger.error(f"  ✗ {source.name}: Error - {e}")
-                            success = False
                         
                         finally:
-                            # Update source health metrics
-                            response_time = time.time() - start_time
+                            response_time = (
+                                fetch_result.response_time if fetch_result else time.time() - start_time
+                            )
+                            method = fetch_result.method if fetch_result else "unknown"
+                            articles_found = len(articles)
+                            
                             try:
-                                await db.update_source_health(source.id, success, response_time)
+                                await db.update_source_health(source.id, collection_success, response_time)
                                 await db.update_source_article_count(source.id)
-                                
-                                # Record source check for historical tracking
-                                method = "rss"  # Default method for check_all_sources
-                                articles_found = len(articles) if articles else 0
-                                error_msg = None
-                                if not success:
-                                    error_msg = f"Failed to fetch articles from {source.name}"
                                 
                                 await db.record_source_check(
                                     source_id=source.id,
-                                    success=success,
+                                    success=collection_success,
                                     method=method,
                                     articles_found=articles_found,
                                     response_time=response_time,
