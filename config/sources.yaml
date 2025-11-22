@@ -61,7 +61,14 @@ sources:
         date_selectors:
           - "meta[property='article:published_time']::attr(content)"
           - "time[datetime]::attr(datetime)"
-        body_selectors: ["article", "main", ".content", ".post-content"]
+        body_selectors: [
+          ".blog-post__body",
+          "#hs_cos_wrapper_post_body",
+          "article",
+          "main",
+          ".content",
+          ".post-content"
+        ]
         author_selectors: ["meta[name='author']::attr(content)", ".author-name"]
     description: "MITRE ATT&CK technique analysis and threat simulation intelligence (Web scraping only)"
 
@@ -714,7 +721,7 @@ sources:
   - id: "assetnote_research"
     name: "Assetnote Research"
     url: "https://www.assetnote.io/resources/research/"
-    rss_url: null  # No RSS feed available at new location
+    rss_url: "https://www.assetnote.io/resources/research/rss.xml"  # Verified feed
     check_frequency: 1800  # 30 minutes
     active: true
     config:
@@ -749,6 +756,8 @@ sources:
           ".blog-post-content",
           "main article",
           ".research-content",
+          ".text-rich-text",
+          ".research-notes",
           "article",
           "main",
           ".content"
@@ -852,7 +861,17 @@ sources:
           - "meta[property='article:published_time']::attr(content)"
           - "time[datetime]::attr(datetime)"
           - ".blog-post-date"
-        body_selectors: ["article", "main", ".content", ".post-content", ".blog-content", ".blog-post-content"]
+        body_selectors: [
+          ".splunkBlogsArticle-body-content",
+          ".cmp-text",
+          ".rte-container",
+          "article",
+          "main",
+          ".content",
+          ".post-content",
+          ".blog-content",
+          ".blog-post-content"
+        ]
         author_selectors: ["meta[name='author']::attr(content)", ".author-name", ".blog-author"]
     description: "Splunk Security Blog - Threat research, security content, and detection engineering"
 

@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **Source health checks**: `check_all_sources` now uses the hierarchical `ContentFetcher` (RSS → modern scraping → legacy) with safer bookkeeping for articles/errors, improving health metrics and logging across all sources.
+- **Source scraping configs**: Updated selectors and discovery for Assetnote Research (verified RSS URL and Webflow containers), Picus Security Blog (HubSpot body selectors), and Splunk Security Blog (AEM containers) to improve extraction coverage.
+
+### Current Status & Next Steps
+- Assetnote, Picus, and Splunk remain failing due to JS-rendered/anti-bot content; selectors are in place but static fetch still returns empty. Next steps: add headless/JS-capable fetch (Playwright) or alternative article API path; retest and adjust min_content_length as needed.
+- Group-IB, NCSC UK, MSRC: still blocked (403/SPA/placeholder feeds). Next steps: investigate API/back-end endpoints or headless rendering; consider temporary deactivation if access remains blocked.
+
 ### Improved
 - **LMStudio Busy Error Handling**: Enhanced error messages and user experience when LMStudio is busy or unavailable
   - Updated LangFuse client to provide informative error messages when generator errors occur (often indicates LMStudio busy)
