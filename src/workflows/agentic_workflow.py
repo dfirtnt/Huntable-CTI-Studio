@@ -416,73 +416,13 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
             # Initialize service with configured embedding model
             service = OSDetectionService(model_name=embedding_model)
             
-            # Check if QA is enabled for OS Detection
-            config_obj = trigger_service.get_active_config()
-            qa_flags = (
-                config_obj.qa_enabled
-                if config_obj and config_obj.qa_enabled
-                else (state.get('config', {}).get('qa_enabled', {}) or {})
+            # Detect OS with configured fallback model
+            os_result = await service.detect_os(
+                content=content,
+                use_classifier=True,
+                use_fallback=True,
+                fallback_model=fallback_model
             )
-            qa_enabled = qa_flags.get("OSDetectionAgent", False)
-            
-            max_qa_retries = 5
-            qa_feedback = None
-            os_result = None
-            
-            # QA retry loop
-            for qa_attempt in range(max_qa_retries):
-                # Detect OS with configured fallback model
-                os_result = await service.detect_os(
-                    content=content,
-                    use_classifier=True,
-                    use_fallback=True,
-                    fallback_model=fallback_model,
-                    qa_feedback=qa_feedback
-                )
-                
-                # If QA not enabled, break after first attempt
-                if not qa_enabled:
-                    break
-                
-                # Run QA check
-                agent_models = config_obj.agent_models if config_obj else None
-                llm_service = LLMService(config_models=agent_models)
-                llm_service._current_execution_id = state['execution_id']
-                llm_service._current_article_id = article.id
-                qa_service = QAAgentService(llm_service=llm_service)
-                
-                # Get agent prompt for QA (OS Detection doesn't have a traditional prompt, use a description)
-                agent_prompt = "Detect the operating system (Windows, Linux, MacOS, multiple, or Unknown) from the article content."
-                
-                qa_result = await qa_service.evaluate_agent_output(
-                    article=article,
-                    agent_prompt=agent_prompt,
-                    agent_output=os_result,
-                    agent_name="OSDetectionAgent",
-                    config_obj=config_obj,
-                    execution_id=state['execution_id']
-                )
-                
-                # Store QA result in error_log
-                if execution:
-                    if execution.error_log is None:
-                        execution.error_log = {}
-                    if 'qa_results' not in execution.error_log:
-                        execution.error_log['qa_results'] = {}
-                    execution.error_log['qa_results']['OSDetectionAgent'] = qa_result
-                    flag_modified(execution, 'error_log')
-                    db_session.commit()
-                
-                # If QA passes, break
-                if qa_result.get('verdict') == 'pass':
-                    break
-                
-                # Generate feedback for retry
-                qa_feedback = await qa_service.generate_feedback(qa_result, "OSDetectionAgent")
-                
-                # If critical failure, raise error
-                if qa_result.get('verdict') == 'critical_failure' and qa_attempt == max_qa_retries - 1:
-                    raise ValueError(f"QA critical failure after {max_qa_retries} attempts: {qa_result.get('summary', 'Unknown error')}")
             
             detected_os = os_result.get('operating_system', 'Unknown') if os_result else 'Unknown'
             is_windows = detected_os == 'Windows'
