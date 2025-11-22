@@ -632,10 +632,6 @@ async def test_sub_agent(request: Request, test_request: TestSubAgentRequest):
                     with open(qa_path, 'r') as f:
                         qa_prompt_config = json.load(f)
             
-            # Check if QA is enabled for this agent
-            qa_enabled = config.qa_enabled or {}
-            use_qa = qa_enabled.get(agent_name, False) and qa_prompt_config
-            
             # Initialize LLM service
             from src.services.llm_service import LLMService
             agent_models = config.agent_models if config.agent_models else {}
@@ -654,12 +650,12 @@ async def test_sub_agent(request: Request, test_request: TestSubAgentRequest):
                 title=article.title,
                 url=article.canonical_url or "",
                 prompt_config=prompt_config,
-                qa_prompt_config=qa_prompt_config if use_qa else None,
-                max_retries=5,
+                qa_prompt_config=None,  # Ignore QA for test endpoint
+                max_retries=1,          # Single attempt for testing
                 execution_id=None,
                 model_name=agent_model,
                 temperature=float(agent_temperature),
-                qa_model_override=agent_models.get(qa_name)
+                qa_model_override=None
             )
             
             return {
@@ -667,7 +663,7 @@ async def test_sub_agent(request: Request, test_request: TestSubAgentRequest):
                 "agent_name": agent_name,
                 "article_id": test_request.article_id,
                 "article_title": article.title,
-                "qa_enabled": use_qa,
+                "qa_enabled": False,
                 "result": result
             }
             
