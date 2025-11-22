@@ -639,11 +639,8 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                         with open(qa_path, 'r') as f:
                             qa_config = json.load(f)
                     
-                    # Check if QA is enabled for this agent
-                    qa_enabled = (
-                        qa_flags.get(agent_name, qa_flags.get("ExtractAgent", False))
-                        and qa_config is not None
-                    )
+                    # Check if QA is enabled for this agent (no master ExtractAgent toggle)
+                    qa_enabled = qa_flags.get(agent_name, False) and qa_config is not None
                     
                     # Get model and temperature for this agent
                     model_key = f"{agent_name}_model"
@@ -737,6 +734,11 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
             # Tag and merge
             for cat, data in subresults.items():
                 items = data.get("items", [])
+                # Normalize non-list payloads (avoid iterating over strings character-by-character)
+                if items is None:
+                    items = []
+                elif not isinstance(items, list):
+                    items = [items]
                 if items:
                     content_summary.append(f"Extracted {cat.replace('_', ' ').title()}:")
                     for item in items:

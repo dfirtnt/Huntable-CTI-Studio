@@ -246,7 +246,6 @@
                         <div class="flex items-center gap-3">
                             <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Extract Agent</h3>
                             <span class="px-2 py-1 text-xs rounded-full bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300 font-medium">Supervisor</span>
-                            <span id="extract-agent-qa-badge" class="px-2 py-1 text-xs rounded-full bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300">QA: OFF</span>
                         </div>
                         <span id="extract-agent-panel-toggle" class="text-gray-700 dark:text-gray-200 text-lg font-medium transform transition-transform">▼</span>
                     </button>
@@ -255,27 +254,6 @@
                         <div id="extract-agent-model-container"></div>
                         <!-- Extract Agent Prompt -->
                         <div id="extract-agent-prompt-container"></div>
-                        <!-- Extract QA Agent Toggle -->
-                        <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
-                            <div class="flex items-center justify-between">
-                                <div>
-                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                                        Extract QA Agent
-                                    </label>
-                                    <p class="text-xs text-gray-500 dark:text-gray-400">
-                                        Enable QA validation with up to 5 retry attempts
-                                    </p>
-                                </div>
-                                <label class="relative inline-flex items-center cursor-pointer">
-                                    <input type="checkbox" 
-                                           id="qa-extractagent" 
-                                           name="qa_enabled[ExtractAgent]"
-                                           class="sr-only peer" 
-                                           onchange="updateQABadge('extract-agent')">
-                                    <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 dark:peer-focus:ring-purple-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-purple-600"></div>
-                                </label>
-                            </div>
-                        </div>
                         <!-- Extract QA Agent Prompt -->
                         <div id="extract-agent-qa-prompt-container" class="hidden"></div>
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1797,7 +1775,7 @@ window.updateQABadge = function(agentPrefix) {
     const badge = document.getElementById(badgeId);
     const checkboxId = agentPrefix === 'os-detection' ? 'qa-osdetectionagent' :
                       agentPrefix === 'rank-agent' ? 'qa-rankagent' :
-                      agentPrefix === 'extract-agent' ? 'qa-extractagent' :
+                      agentPrefix === 'cmdlineextract-agent' ? 'qa-cmdlineextract' :
                       agentPrefix === 'sigextract-agent' ? 'qa-sigextract' :
                       agentPrefix === 'eventcodeextract-agent' ? 'qa-eventcodeextract' :
                       agentPrefix === 'proctreeextract-agent' ? 'qa-proctreeextract' :
@@ -1900,9 +1878,8 @@ async function loadConfig() {
             if (currentConfig.similarity_threshold !== undefined) {
                 document.getElementById('similarityThreshold').value = currentConfig.similarity_threshold;
             }
-            if (currentConfig.description) {
-                document.getElementById('description').value = currentConfig.description;
-            }
+            // Description: default to blank on load (do not auto-fill from config)
+            document.getElementById('description').value = '';
             
             // Display current config
             const configDisplay = document.getElementById('configDisplay');
@@ -1983,7 +1960,7 @@ function setupQAEventListeners() {
     const qaCheckboxes = [
         { id: 'qa-osdetectionagent', prefix: 'os-detection' },
         { id: 'qa-rankagent', prefix: 'rank-agent' },
-        { id: 'qa-extractagent', prefix: 'extract-agent' },
+        { id: 'qa-cmdlineextract', prefix: 'cmdlineextract-agent' },
         { id: 'qa-sigextract', prefix: 'sigextract-agent' },
         { id: 'qa-eventcodeextract', prefix: 'eventcodeextract-agent' },
         { id: 'qa-proctreeextract', prefix: 'proctreeextract-agent' },
@@ -2109,13 +2086,14 @@ function renderAgentModels(lmstudioModels) {
                 </div>
                 <div>
                     <label for="osdetectionagent-fallback-model-2" class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Fallback Model (Optional)</label>
-                    <input type="text" 
-                           id="osdetectionagent-fallback-model-2" 
-                           name="agent_models[OSDetectionAgent_fallback]"
-                           value="${currentFallbackModel}"
-                           placeholder="Leave empty to use default"
-                           onchange="autoSaveModelChange()"
-                           class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-sm">
+                    <select id="osdetectionagent-fallback-model-2" 
+                            name="agent_models[OSDetectionAgent_fallback]"
+                            onchange="autoSaveModelChange()"
+                            class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-sm">
+                        <option value="">Use default</option>
+                        ${sortedModelIds.map(modelId => `<option value="${escapeHtml(modelId)}" ${currentFallbackModel === modelId ? 'selected' : ''}>${escapeHtml(modelId)}</option>`).join('')}
+                    </select>
+                    <p class="text-[10px] text-gray-500 dark:text-gray-400 mt-1">Leave blank to use primary OS model.</p>
                 </div>
             </div>
         `;
@@ -2756,7 +2734,7 @@ function loadQASettings2() {
     const agents = [
         { name: 'OSDetectionAgent', id: 'qa-osdetectionagent', prefix: 'os-detection' },
         { name: 'RankAgent', id: 'qa-rankagent', prefix: 'rank-agent' },
-        { name: 'ExtractAgent', id: 'qa-extractagent', prefix: 'extract-agent' },
+        { name: 'CmdlineExtract', id: 'qa-cmdlineextract', prefix: 'cmdlineextract-agent' },
         { name: 'SigExtract', id: 'qa-sigextract', prefix: 'sigextract-agent' },
         { name: 'EventCodeExtract', id: 'qa-eventcodeextract', prefix: 'eventcodeextract-agent' },
         { name: 'ProcTreeExtract', id: 'qa-proctreeextract', prefix: 'proctreeextract-agent' },
@@ -2938,7 +2916,7 @@ let originalConfigState = null;
 // Function to get current form state
 function getCurrentFormState() {
     const qaEnabled = {};
-    const agents = ['OSDetectionAgent', 'RankAgent', 'ExtractAgent', 'CmdlineExtract', 'SigExtract', 'EventCodeExtract', 'ProcTreeExtract', 'RegExtract', 'SigmaAgent'];
+    const agents = ['OSDetectionAgent', 'RankAgent', 'CmdlineExtract', 'SigExtract', 'EventCodeExtract', 'ProcTreeExtract', 'RegExtract', 'SigmaAgent'];
     agents.forEach(agentName => {
         const agentId = agentName.toLowerCase().replace(/\s+/g, '-');
         const checkbox = document.getElementById(`qa-${agentId}`);
@@ -3140,7 +3118,7 @@ function initializeChangeTracking() {
     });
     
     // Add change listeners to QA checkboxes
-    const agents = ['OSDetectionAgent', 'RankAgent', 'ExtractAgent', 'CmdlineExtract', 'SigExtract', 'EventCodeExtract', 'ProcTreeExtract', 'RegExtract', 'SigmaAgent'];
+    const agents = ['OSDetectionAgent', 'RankAgent', 'CmdlineExtract', 'SigExtract', 'EventCodeExtract', 'ProcTreeExtract', 'RegExtract', 'SigmaAgent'];
     agents.forEach(agentName => {
         const agentId = agentName.toLowerCase().replace(/\s+/g, '-');
         const checkbox = document.getElementById(`qa-${agentId}`);
@@ -3213,7 +3191,15 @@ if (workflowConfigForm) {
             ProcTreeExtract_temperature: parseFloat(document.getElementById('proctreeextract-temperature')?.value) || 0.0,
             RegExtract_model: document.getElementById('regextract-model')?.value.trim() || null,
             RegExtract_temperature: parseFloat(document.getElementById('regextract-temperature')?.value) || 0.0,
-            SigmaEmbeddingModel: document.getElementById('sigma-embedding-model')?.value.trim() || null
+            SigmaEmbeddingModel: document.getElementById('sigma-embedding-model')?.value.trim() || null,
+            // QA model overrides
+            RankAgentQA: document.getElementById('rankqa-model')?.value.trim() || null,
+            OSDetectionAgentQA: document.getElementById('osdetectionqa-model')?.value.trim() || null,
+            CmdLineQA: document.getElementById('cmdlineqa-model')?.value.trim() || null,
+            SigQA: document.getElementById('sigqa-model')?.value.trim() || null,
+            EventCodeQA: document.getElementById('eventcodeqa-model')?.value.trim() || null,
+            ProcTreeQA: document.getElementById('proctreeqa-model')?.value.trim() || null,
+            RegQA: document.getElementById('regqa-model')?.value.trim() || null
         },
         qa_enabled: qaEnabled,
         sigma_fallback_enabled: document.getElementById('sigma-fallback-enabled')?.checked || false
@@ -4629,6 +4615,15 @@ function showTriggerWorkflowModal() {
     document.getElementById('triggerWorkflowModal').classList.remove('hidden');
     document.getElementById('triggerArticleId').value = '';
     document.getElementById('triggerWorkflowMessage').classList.add('hidden');
+    
+    // Focus input field after modal is visible
+    setTimeout(() => {
+        const input = document.getElementById('triggerArticleId');
+        if (input) {
+            input.focus();
+            input.select();
+        }
+    }, 10);
 }
 
 function closeTriggerWorkflowModal() {
