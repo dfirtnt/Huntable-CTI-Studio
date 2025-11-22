@@ -46,6 +46,7 @@ rich==14.1.0
 pydantic==2.11.9
 pydantic-settings==2.11.0
 reportlab==4.2.5  # PDF generation
+python-dateutil==2.9.0  # Date parsing utilities
 
 # Security
 certifi==2025.11.12
