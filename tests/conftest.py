@@ -428,6 +428,13 @@ def pytest_collection_modifyitems(config, items):
         for item in items:
             if "integration" in item.keywords:
                 item.add_marker(pytest.mark.skip(reason="Integration tests disabled"))
+    
+    # Always skip infrastructure and production data tests
+    for item in items:
+        if "infrastructure" in item.keywords:
+            item.add_marker(pytest.mark.skip(reason="Infrastructure tests disabled - no test infra"))
+        if "prod_data" in item.keywords or "production_data" in item.keywords:
+            item.add_marker(pytest.mark.skip(reason="Production data tests disabled - no prod data access"))
 
 
 def pytest_runtest_setup(item):
