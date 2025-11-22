@@ -138,17 +138,26 @@ Please provide your evaluation in the following JSON format:
             # Call LMStudio API with Langfuse tracing
             with trace_llm_call(
                 name=f"qa_{agent_name.lower()}",
-                model=self.llm_service.model_extract,
+                model=target_model,
                 execution_id=execution_id,
                 article_id=article.id if article else None,
                 metadata={"messages": converted_messages, "agent_name": agent_name}
             ) as generation:
-                response = await self.llm_service._post_lmstudio_chat(
-                    payload=payload,
-                    model_name=self.llm_service.model_extract,
-                    timeout=300.0,
-                    failure_context=f"QA evaluation for {agent_name}"
-                )
+            # Override model if QA-specific model configured
+            qa_model_override = None
+            if config_obj and hasattr(config_obj, 'agent_models') and config_obj.agent_models:
+                qa_model_override = config_obj.agent_models.get(agent_name)
+                if not qa_model_override:
+                    qa_model_override = config_obj.agent_models.get(f"{agent_name}QA")
+
+            target_model = qa_model_override or self.llm_service.model_extract
+
+            response = await self.llm_service._post_lmstudio_chat(
+                payload=payload,
+                model_name=target_model,
+                timeout=300.0,
+                failure_context=f"QA evaluation for {agent_name}"
+            )
             
             # Parse response
             response_text = response.get("choices", [{}])[0].get("message", {}).get("content", "")
