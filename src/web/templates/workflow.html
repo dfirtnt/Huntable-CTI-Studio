@@ -122,6 +122,20 @@
                                 </label>
                             </div>
                         </div>
+                        <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+                            <label for="osdetectionqa-model" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                OS Detection QA Model
+                            </label>
+                            <select id="osdetectionqa-model"
+                                    name="agent_models[OSDetectionAgentQA]"
+                                    onchange="autoSaveModelChange()"
+                                    class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-sm">
+                                <option value="">Use OS Detection Agent model</option>
+                            </select>
+                            <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                                Optional override for QA evaluations.
+                            </p>
+                        </div>
                         <!-- OS Detection QA Agent Prompt -->
                         <div id="os-detection-qa-prompt-container" class="hidden"></div>
                     </div>
@@ -204,6 +218,20 @@
                                 </label>
                             </div>
                         </div>
+                        <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+                            <label for="rankqa-model" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                Rank QA Model
+                            </label>
+                            <select id="rankqa-model"
+                                    name="agent_models[RankAgentQA]"
+                                    onchange="autoSaveModelChange()"
+                                    class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-sm">
+                                <option value="">Use Rank Agent model</option>
+                            </select>
+                            <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                                Optional override for QA evaluations.
+                            </p>
+                        </div>
                         <!-- Rank QA Agent Prompt -->
                         <div id="rank-agent-qa-prompt-container" class="hidden">
                             <h4 class="text-md font-semibold text-gray-900 dark:text-white mb-3">Rank QA Agent Prompts</h4>
@@ -250,6 +278,63 @@
                         </div>
                         <!-- Extract QA Agent Prompt -->
                         <div id="extract-agent-qa-prompt-container" class="hidden"></div>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-3 border border-gray-200 dark:border-gray-700">
+                                <label for="cmdlineqa-model" class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                    CmdLine QA Model
+                                </label>
+                                <select id="cmdlineqa-model"
+                                        name="agent_models[CmdLineQA]"
+                                        onchange="autoSaveModelChange()"
+                                        class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-xs">
+                                    <option value="">Use Extract Agent model</option>
+                                </select>
+                            </div>
+                            <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-3 border border-gray-200 dark:border-gray-700">
+                                <label for="sigqa-model" class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                    Sig QA Model
+                                </label>
+                                <select id="sigqa-model"
+                                        name="agent_models[SigQA]"
+                                        onchange="autoSaveModelChange()"
+                                        class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-xs">
+                                    <option value="">Use Extract Agent model</option>
+                                </select>
+                            </div>
+                            <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-3 border border-gray-200 dark:border-gray-700">
+                                <label for="eventcodeqa-model" class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                    EventCode QA Model
+                                </label>
+                                <select id="eventcodeqa-model"
+                                        name="agent_models[EventCodeQA]"
+                                        onchange="autoSaveModelChange()"
+                                        class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-xs">
+                                    <option value="">Use Extract Agent model</option>
+                                </select>
+                            </div>
+                            <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-3 border border-gray-200 dark:border-gray-700">
+                                <label for="proctreeqa-model" class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                    ProcTree QA Model
+                                </label>
+                                <select id="proctreeqa-model"
+                                        name="agent_models[ProcTreeQA]"
+                                        onchange="autoSaveModelChange()"
+                                        class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-xs">
+                                    <option value="">Use Extract Agent model</option>
+                                </select>
+                            </div>
+                            <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-3 border border-gray-200 dark:border-gray-700">
+                                <label for="regqa-model" class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                    Reg QA Model
+                                </label>
+                                <select id="regqa-model"
+                                        name="agent_models[RegQA]"
+                                        onchange="autoSaveModelChange()"
+                                        class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-xs">
+                                    <option value="">Use Extract Agent model</option>
+                                </select>
+                            </div>
+                        </div>
                         
                         <!-- Sub-Agents Section -->
                         <div class="mt-6 pt-6 border-t-2 border-yellow-300 dark:border-yellow-700">
@@ -1925,23 +2010,28 @@ function renderAgentModels(lmstudioModels) {
             labels: { main: 'SIGMA Generator Agent' }
         }
     };
-    
+    const availableModelIds = lmstudioModels.map(m => typeof m === 'string' ? m : m.id);
+    const sortedModelIds = [...new Set(availableModelIds)].sort();
+
+    const buildOptions = (currentModel, placeholder) => {
+        const allModelIds = [...new Set([...sortedModelIds, ...(currentModel ? [currentModel] : [])])];
+        return [
+            `<option value="">${placeholder}</option>`,
+            ...allModelIds.map(modelId => {
+                const isSelected = currentModel === modelId ? 'selected' : '';
+                const isUnavailable = !availableModelIds.includes(modelId) ? ' (not in LM Studio)' : '';
+                return `<option value="${escapeHtml(modelId)}" ${isSelected}>${escapeHtml(modelId)}${isUnavailable}</option>`;
+            })
+        ].join('');
+    };
+
     // Render Rank Agent Model
     const rankContainer = document.getElementById('rank-agent-model-container');
     if (rankContainer) {
         const currentModel = agentModels['RankAgent'] || '';
         const currentTemperature = agentModels['RankAgent_temperature'] !== undefined ? agentModels['RankAgent_temperature'] : 0.0;
         // Models are returned as strings, not objects with .id property
-        const availableModelIds = lmstudioModels.map(m => typeof m === 'string' ? m : m.id);
-        
-        // Ensure current model is in the list (even if not in available models)
-        const allModelIds = [...new Set([...availableModelIds, ...(currentModel ? [currentModel] : [])])].sort();
-        
-        const modelOptions = allModelIds.map(modelId => {
-            const isSelected = currentModel === modelId ? 'selected' : '';
-            const isUnavailable = !availableModelIds.includes(modelId) ? ' (not in LM Studio)' : '';
-            return `<option value="${escapeHtml(modelId)}" ${isSelected}>${escapeHtml(modelId)}${isUnavailable}</option>`;
-        }).join('');
+        const modelOptions = buildOptions(currentModel, 'Select a model (required)');
         rankContainer.innerHTML = `
             <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
                 <label for="rankagent-model-2" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Rank Agent Model</label>
@@ -2082,6 +2172,24 @@ function renderAgentModels(lmstudioModels) {
             if (!select.getAttribute('onchange')) {
                 select.setAttribute('onchange', 'autoSaveModelChange()');
             }
+        }
+    });
+
+    const qaModelSelectors = [
+        { id: 'rankqa-model', placeholder: 'Use Rank Agent model', key: 'RankAgentQA' },
+        { id: 'osdetectionqa-model', placeholder: 'Use OS Detection Agent model', key: 'OSDetectionAgentQA' },
+        { id: 'cmdlineqa-model', placeholder: 'Use Extract Agent model', key: 'CmdLineQA' },
+        { id: 'sigqa-model', placeholder: 'Use Extract Agent model', key: 'SigQA' },
+        { id: 'eventcodeqa-model', placeholder: 'Use Extract Agent model', key: 'EventCodeQA' },
+        { id: 'proctreeqa-model', placeholder: 'Use Extract Agent model', key: 'ProcTreeQA' },
+        { id: 'regqa-model', placeholder: 'Use Extract Agent model', key: 'RegQA' }
+    ];
+
+    qaModelSelectors.forEach(selector => {
+        const selectEl = document.getElementById(selector.id);
+        if (selectEl) {
+            const currentModel = agentModels[selector.key] || '';
+            selectEl.innerHTML = buildOptions(currentModel, selector.placeholder);
         }
     });
 }
@@ -2840,7 +2948,24 @@ function getCurrentFormState() {
             agent_models[`${subAgent.name}_temperature`] = parseFloat(tempValue) || 0.0;
         }
     });
+
+    const qaModelFields = [
+        { name: 'RankAgentQA', id: 'rankqa-model' },
+        { name: 'OSDetectionAgentQA', id: 'osdetectionqa-model' },
+        { name: 'CmdLineQA', id: 'cmdlineqa-model' },
+        { name: 'SigQA', id: 'sigqa-model' },
+        { name: 'EventCodeQA', id: 'eventcodeqa-model' },
+        { name: 'ProcTreeQA', id: 'proctreeqa-model' },
+        { name: 'RegQA', id: 'regqa-model' }
+    ];
     
+    qaModelFields.forEach(field => {
+        const modelValue = document.getElementById(field.id)?.value;
+        if (modelValue) {
+            agent_models[field.name] = modelValue;
+        }
+    });
+   
     return {
         junk_filter_threshold: parseFloat(document.getElementById('junkFilterThreshold')?.value || '0'),
         ranking_threshold: parseFloat(document.getElementById('rankingThreshold')?.value || '0'),

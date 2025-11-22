@@ -806,6 +806,7 @@ Cannot process empty articles."""
                     agent_temperature = agent_models.get(temperature_key, 0.0)
                     
                     # Run Agent
+                    qa_model_override = agent_models.get(qa_name)
                     agent_result = await llm_service.run_extraction_agent(
                         agent_name=agent_name,
                         content=filtered_content,
@@ -816,7 +817,8 @@ Cannot process empty articles."""
                         max_retries=5,
                         execution_id=execution_id,
                         model_name=agent_model,
-                        temperature=float(agent_temperature)
+                        temperature=float(agent_temperature),
+                        qa_model_override=qa_model_override
                     )
                     
                     # Store Result

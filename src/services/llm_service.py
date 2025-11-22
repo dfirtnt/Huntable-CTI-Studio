@@ -1922,7 +1922,8 @@ CRITICAL: {instructions} If you are a reasoning model, you may include reasoning
         max_retries: int = 5,
         execution_id: Optional[int] = None,
         model_name: Optional[str] = None,
-        temperature: float = 0.0
+        temperature: float = 0.0,
+        qa_model_override: Optional[str] = None
     ) -> Dict[str, Any]:
         """
         Run a generic extraction agent with optional QA loop.
@@ -2196,6 +2197,7 @@ IMPORTANT: Your response must end with a valid JSON object matching the structur
                 qa_task = qa_prompt_config.get("objective", "Verify extraction.")
                 qa_criteria = json.dumps(qa_prompt_config.get("evaluation_criteria", []), indent=2)
                 
+                qa_model_to_use = qa_model_override or model_name
                 qa_prompt = f"""Task: {qa_task}
 
 Source Text:
@@ -2217,8 +2219,8 @@ Output valid JSON with keys: "status" ("pass" or "fail"), "feedback" (string exp
                 ]
                 
                 qa_payload = {
-                    "model": model_name, # Use same model for QA for now
-                    "messages": self._convert_messages_for_model(qa_messages, model_name),
+                    "model": qa_model_to_use, # Use override if provided
+                    "messages": self._convert_messages_for_model(qa_messages, qa_model_to_use),
                     "max_tokens": 1000,
                     "temperature": temperature
                 }
@@ -2226,7 +2228,7 @@ Output valid JSON with keys: "status" ("pass" or "fail"), "feedback" (string exp
                 # Trace QA call with Langfuse
                 with trace_llm_call(
                     name=f"{agent_name.lower()}_qa",
-                    model=model_name,
+                    model=qa_model_to_use,
                     execution_id=execution_id,
                     metadata={
                         "agent_name": agent_name,

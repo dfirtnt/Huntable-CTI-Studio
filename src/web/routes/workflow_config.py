@@ -658,7 +658,8 @@ async def test_sub_agent(request: Request, test_request: TestSubAgentRequest):
                 max_retries=5,
                 execution_id=None,
                 model_name=agent_model,
-                temperature=float(agent_temperature)
+                temperature=float(agent_temperature),
+                qa_model_override=agent_models.get(qa_name)
             )
             
             return {

@@ -654,6 +654,7 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                     agent_temperature = agent_models.get(temperature_key, 0.0) if agent_models else 0.0
                     
                     # Run Agent
+                    qa_model_override = agent_models.get(qa_name) if agent_models else None
                     agent_result = await llm_service.run_extraction_agent(
                         agent_name=agent_name,
                         content=filtered_content,
@@ -664,7 +665,8 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                         max_retries=5 if qa_enabled else 1,
                         execution_id=state['execution_id'],
                         model_name=agent_model,
-                        temperature=float(agent_temperature)
+                        temperature=float(agent_temperature),
+                        qa_model_override=qa_model_override
                     )
                     
                     # Store Result
