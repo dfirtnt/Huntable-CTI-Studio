@@ -83,18 +83,6 @@
                 </div>
             </div>
 
-            <!-- Description -->
-            <div>
-                <label for="description" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Description
-                </label>
-                <textarea id="description" 
-                          name="description"
-                          rows="2"
-                          class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white"
-                          placeholder="Optional description for this configuration version"></textarea>
-            </div>
-
             <!-- Current Config Display -->
             <div id="currentConfig" class="bg-gray-50 dark:bg-gray-900 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
                 <p class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Current Configuration:</p>
@@ -121,34 +109,38 @@
     <!-- Workflow Overview -->
     <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
         <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">📊 Workflow Overview</h2>
-        <div class="grid grid-cols-1 md:grid-cols-6 gap-4">
-            <div class="text-center p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+        <div class="grid grid-cols-1 md:grid-cols-7 gap-4">
+            <div class="text-center p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border-2 border-blue-300 dark:border-blue-600">
                 <div class="text-2xl font-bold text-blue-600 dark:text-blue-400">0</div>
+                <div class="text-xs text-gray-600 dark:text-gray-400 mt-1">OS Detection</div>
+            </div>
+            <div class="text-center p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                <div class="text-2xl font-bold text-blue-600 dark:text-blue-400">1</div>
                 <div class="text-xs text-gray-600 dark:text-gray-400 mt-1">Junk Filter</div>
             </div>
             <div class="text-center p-4 bg-green-50 dark:bg-green-900/20 rounded-lg">
-                <div class="text-2xl font-bold text-green-600 dark:text-green-400">1</div>
+                <div class="text-2xl font-bold text-green-600 dark:text-green-400">2</div>
                 <div class="text-xs text-gray-600 dark:text-gray-400 mt-1">LLM Ranking</div>
             </div>
             <div class="text-center p-4 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg">
-                <div class="text-2xl font-bold text-yellow-600 dark:text-yellow-400">2</div>
+                <div class="text-2xl font-bold text-yellow-600 dark:text-yellow-400">3</div>
                 <div class="text-xs text-gray-600 dark:text-gray-400 mt-1">Extract Agent</div>
             </div>
             <div class="text-center p-4 bg-orange-50 dark:bg-orange-900/20 rounded-lg">
-                <div class="text-2xl font-bold text-orange-600 dark:text-orange-400">3</div>
+                <div class="text-2xl font-bold text-orange-600 dark:text-orange-400">4</div>
                 <div class="text-xs text-gray-600 dark:text-gray-400 mt-1">Generate SIGMA</div>
             </div>
             <div class="text-center p-4 bg-pink-50 dark:bg-pink-900/20 rounded-lg">
-                <div class="text-2xl font-bold text-pink-600 dark:text-pink-400">4</div>
+                <div class="text-2xl font-bold text-pink-600 dark:text-pink-400">5</div>
                 <div class="text-xs text-gray-600 dark:text-gray-400 mt-1">Similarity Search</div>
             </div>
             <div class="text-center p-4 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
-                <div class="text-2xl font-bold text-purple-600 dark:text-purple-400">5</div>
+                <div class="text-2xl font-bold text-purple-600 dark:text-purple-400">6</div>
                 <div class="text-xs text-gray-600 dark:text-gray-400 mt-1">Queue</div>
             </div>
         </div>
         <p class="text-sm text-gray-600 dark:text-gray-400 mt-4">
-            Workflow automatically processes articles with hunt scores meeting the threshold through 6 steps.
+            Workflow automatically processes articles with hunt scores meeting the threshold through 7 steps.
         </p>
     </div>
 </div>
