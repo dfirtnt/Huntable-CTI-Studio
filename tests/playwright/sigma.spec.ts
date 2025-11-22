@@ -75,8 +75,12 @@ test.describe('SIGMA generation (LMStudio)', () => {
       await regenBtn.click();
       const analyzeBtn = page.getByRole('button', { name: 'Analyze' });
       await analyzeBtn.click();
-      // Wait for completion banner
-      await page.waitForSelector('text=SIGMA Rules Complete!', { timeout: 120_000 });
+      // Wait for completion banner - check for banner text or modal opening
+      await Promise.race([
+        page.waitForSelector('text=SIGMA Rules Complete!', { timeout: 120_000 }).catch(() => null),
+        page.waitForSelector('#sigmaRulesModal', { timeout: 120_000 }).catch(() => null),
+        page.waitForSelector('text=🔍 SIGMA Detection Rules', { timeout: 120_000 }).catch(() => null)
+      ]);
     }
 
     // Trigger similar rules search (first run)

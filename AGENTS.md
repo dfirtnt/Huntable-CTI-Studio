@@ -87,6 +87,7 @@ user_shortcuts:
     description: "Commit + push with full GitHub hygiene."
     workflow:
       - "Run mdu to sync Markdown docs post-update."
+      - "Update changelog.md"
       - "If modifying functions with branching logic or new CLI/API endpoints (smoke, UI, E2E), pause and suggest required pytest updates. Ask user if they want you to write those tests before proceeding."
       - "Scan for hardcoded secrets or credentials. Do not proceed if found."
       - "Ensure .gitignore and .env.example completeness."
@@ -95,7 +96,7 @@ user_shortcuts:
       - "Add docstrings, type hints, and remove debug prints."
       - "Verify repository cleanliness before final commit."
   lgl:
-    description: "Commit + push (lite, minimal checks)."
+    description: "Update changelog.md, Commit changes + push to main (lite, minimal checks)."
   rs:
     description: "Rescore all articles via CLI. Use --force"
   bs: 

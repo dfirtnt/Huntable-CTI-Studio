@@ -7,13 +7,53 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **Workflow Order in Configuration UI**: Fixed workflow overview to show correct 7-step order
+  - Added OS Detection as Step 0 (was missing)
+  - Renumbered all subsequent steps: Junk Filter (1), LLM Ranking (2), Extract Agent (3), Generate SIGMA (4), Similarity Search (5), Queue (6)
+  - Updated step count from 6 to 7 steps in description
+  - Workflow execution order matches UI display
+
+### Added
+- **Help Circles for All Agents**: Contextual help buttons with detailed information for all agent and sub-agent model selectors
+  - Help circles added to Rank Agent, Extract Agent, SIGMA Agent, and OS Detection Agent model selectors
+  - Help circles added to all sub-agents: CmdlineExtract, SigExtract, EventCodeExtract, ProcTreeExtract, RegExtract
+  - Comprehensive help text explaining each agent's purpose, configuration options, and recommendations
+  - Consistent help UI pattern matching Junk Filter Threshold help button
+
 ### Changed
+- **Workflow Configuration UI Reorganization**: Improved organization and accessibility of workflow configuration
+  - Converted "Other Thresholds" section to collapsible "Junk Filter" dropdown panel at top of configuration
+  - Moved Similarity Threshold from "Other Thresholds" to SIGMA Agent panel (under SIGMA Agent model selector)
+  - Moved QA model selectors from Extract Agent panel to their respective sub-agent panels:
+    * CmdLine QA Model → CmdlineExtract sub-agent panel
+    * Sig QA Model → SigExtract sub-agent panel
+    * EventCode QA Model → EventCodeExtract sub-agent panel
+    * ProcTree QA Model → ProcTreeExtract sub-agent panel
+    * Reg QA Model → RegExtract sub-agent panel
+  - Improved UI consistency with agent panel collapsible pattern
 - **Source health checks**: `check_all_sources` now uses the hierarchical `ContentFetcher` (RSS → modern scraping → legacy) with safer bookkeeping for articles/errors, improving health metrics and logging across all sources.
 - **Source scraping configs**: Updated selectors and discovery for Assetnote Research (verified RSS URL and Webflow containers), Picus Security Blog (HubSpot body selectors), and Splunk Security Blog (AEM containers) to improve extraction coverage.
 
 ### Current Status & Next Steps
 - Assetnote, Picus, and Splunk remain failing due to JS-rendered/anti-bot content; selectors are in place but static fetch still returns empty. Next steps: add headless/JS-capable fetch (Playwright) or alternative article API path; retest and adjust min_content_length as needed.
 - Group-IB, NCSC UK, MSRC: still blocked (403/SPA/placeholder feeds). Next steps: investigate API/back-end endpoints or headless rendering; consider temporary deactivation if access remains blocked.
+
+### Removed
+- **OS Detection QA Agent**: Removed QA validation system for OS Detection Agent
+  - Removed QA retry loop and evaluation logic from OS Detection workflow node
+  - Removed OS Detection QA toggle, model selector, and badge from UI
+  - Removed JavaScript references to OS Detection QA functionality
+  - OS Detection now runs without QA validation (single-pass detection)
+- **Description Field**: Removed optional description textarea from workflow configuration form
+  - Removed description field from workflow.html and workflow_config.html
+  - Removed JavaScript references to description field
+  - Backend continues to use default description values when not provided
+
+### Fixed
+- **QA Agent Indentation Error**: Fixed syntax error in qa_agent_service.py
+  - Corrected indentation of code block inside `with trace_llm_call()` statement
+  - Resolved "expected an indented block after 'with' statement" error
 
 ### Improved
 - **LMStudio Busy Error Handling**: Enhanced error messages and user experience when LMStudio is busy or unavailable

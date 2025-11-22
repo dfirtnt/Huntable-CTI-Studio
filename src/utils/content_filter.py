@@ -11,13 +11,24 @@ import hashlib
 import logging
 from typing import List, Dict, Tuple, Optional
 from dataclasses import dataclass
-from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.model_selection import train_test_split
-from sklearn.metrics import classification_report, accuracy_score
-import numpy as np
-import pandas as pd
 from pathlib import Path
+
+# Optional ML dependencies - make imports optional for test environments
+try:
+    from sklearn.feature_extraction.text import TfidfVectorizer
+    from sklearn.ensemble import RandomForestClassifier
+    from sklearn.model_selection import train_test_split
+    from sklearn.metrics import classification_report, accuracy_score
+    import numpy as np
+    import pandas as pd
+    SKLEARN_AVAILABLE = True
+except ImportError:
+    SKLEARN_AVAILABLE = False
+    # Create dummy classes for type hints
+    TfidfVectorizer = None
+    RandomForestClassifier = None
+    np = None
+    pd = None
 
 logger = logging.getLogger(__name__)
 
@@ -299,6 +310,12 @@ class ContentFilter:
     
     def train_model(self, training_data_path: str = "highlighted_text_classifications.csv"):
         """Train the ML model on annotated data."""
+        if not SKLEARN_AVAILABLE:
+            raise ImportError(
+                "scikit-learn is required for model training. "
+                "Install it with: pip install scikit-learn"
+            )
+        
         import time
         from sklearn.metrics import precision_score, recall_score, f1_score, classification_report
         
@@ -384,6 +401,10 @@ class ContentFilter:
     
     def load_model(self) -> bool:
         """Load pre-trained model."""
+        if not SKLEARN_AVAILABLE:
+            logger.warning("scikit-learn not available. Model loading skipped.")
+            return False
+        
         try:
             import joblib
             import os
@@ -417,7 +438,7 @@ class ContentFilter:
         Returns:
             (is_huntable, confidence_score)
         """
-        if not self.model:
+        if not SKLEARN_AVAILABLE or not self.model:
             # Fallback to pattern-based classification
             return self._pattern_based_classification(text, hunt_score)
         
