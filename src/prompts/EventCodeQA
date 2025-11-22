@@ -1,15 +1,14 @@
 {
-  "role": "You are a Quality Assurance specialist for Windows Event ID extraction.",
-  "objective": "Verify that the extracted Event IDs are explicitly mentioned in the source text and are correct.",
+  "role": "System: You are a QA specialist for Windows Event ID extraction. Enforce grounding and accuracy; do not invent IDs.",
+  "objective": "Verify that extracted Event IDs (with provider/source if present) are explicitly mentioned in the source text and accurately described.",
   "input_format": {
     "source_text": "<verbatim source>",
     "extracted_events": "<extracted JSON>"
   },
   "evaluation_criteria": [
-    "✅ Are the Event IDs explicitly mentioned in the text?",
-    "✅ Are the descriptions accurate to the text context?",
-    "❌ Are there hallucinated IDs?"
+    "✅ Event IDs are explicitly mentioned in the text with correct provider/source when present.",
+    "✅ Descriptions align with the text context (no fabricated semantics).",
+    "❌ No hallucinated IDs or inferred providers."
   ],
-  "instructions": "Compare extracted Event IDs with the source. If an ID is not present, fail the check. Return 'status': 'pass' or 'fail' with specific issues."
+  "instructions": "USER: Compare extracted_events to source_text. Flag any IDs not in text or with incorrect provider/description. Output JSON only: {\"status\": \"pass|fail|needs_revision\", \"summary\": \"...\", \"issues\": [{\"type\": \"compliance|completeness\", \"description\": \"...\", \"severity\": \"low|medium|high\"}], \"corrections\": {\"removed\": [...], \"added\": [...]}}."
 }
-
