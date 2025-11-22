@@ -127,29 +127,25 @@ class SigmaGenerationService:
                     if previous_errors:
                         error_feedback = "\n".join(previous_errors)
                         yaml_preview = f"\n\nYOUR PREVIOUS INVALID YAML:\n{previous_yaml}\n" if previous_yaml else ""
-                        
-                        current_prompt = f"""VALIDATION ERRORS FROM YOUR PREVIOUS ATTEMPT:
-{error_feedback}
-{yaml_preview}
-INSTRUCTIONS TO FIX ERRORS:
 
-If you see "logsource must be a dictionary" error:
-WRONG: logsource: Windows Event Log, Sysmon
-CORRECT:
-logsource:
-  category: process_creation
-  product: windows
-
-If you see "detection must be a dictionary" error:
-WRONG: detection: [selection, condition]
-CORRECT:
-detection:
-  selection:
-    CommandLine|contains: 'malware'
-  condition: selection
-
-Generate the corrected SIGMA rule for the article titled: "{article_title}"
-Output ONLY valid YAML starting with "title:"."""
+                        # Fail hard instead of generating degraded rules
+                        logger.error(f"SIGMA validation failed; aborting retries. Errors:\n{error_feedback}{yaml_preview}")
+                        return {
+                            'rules': [],
+                            'metadata': {
+                                'total_attempts': len(conversation_log),
+                                'valid_rules': 0,
+                                'validation_results': [
+                                    {
+                                        'is_valid': r.is_valid,
+                                        'errors': r.errors,
+                                        'warnings': r.warnings
+                                    } for r in validation_results
+                                ],
+                                'conversation_log': conversation_log
+                            },
+                            'errors': f"SIGMA validation failed: {error_feedback}"
+                        }
                     else:
                         break
                 
@@ -454,4 +450,3 @@ Output ONLY valid YAML starting with "title:"."""
             
             result = response.json()
             return result['choices'][0]['message']['content']
-

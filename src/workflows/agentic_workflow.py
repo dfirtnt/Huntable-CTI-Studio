@@ -924,59 +924,19 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
             # Generate SIGMA rules using service
             sigma_service = SigmaGenerationService(config_models=agent_models)
             
-            # QA retry loop
-            for qa_attempt in range(max_qa_retries):
-                generation_result = await sigma_service.generate_sigma_rules(
-                    article_title=article.title,
-                    article_content=content_to_use,
-                    source_name=source_name,
-                    url=article.canonical_url or "",
-                    ai_model='lmstudio',  # Use Deepseek-R1 via LMStudio
-                    max_attempts=3,
-                    min_confidence=0.9,  # Use high confidence for filtered content
-                    execution_id=state['execution_id'],
-                    article_id=state['article_id'],
-                    qa_feedback=qa_feedback
-                )
-                
-                # If QA not enabled, break after first attempt
-                if not qa_enabled:
-                    break
-                
-                # Run QA check
-                llm_service = LLMService(config_models=agent_models)
-                llm_service._current_execution_id = state['execution_id']
-                llm_service._current_article_id = article.id
-                qa_service = QAAgentService(llm_service=llm_service)
-                qa_result = await qa_service.evaluate_agent_output(
-                    article=article,
-                    agent_prompt=agent_prompt,
-                    agent_output=generation_result,
-                    agent_name="SigmaAgent",
-                    config_obj=config_obj,
-                    execution_id=state['execution_id']
-                )
-                
-                # Store QA result in error_log
-                if execution:
-                    if execution.error_log is None:
-                        execution.error_log = {}
-                    if 'qa_results' not in execution.error_log:
-                        execution.error_log['qa_results'] = {}
-                    execution.error_log['qa_results']['SigmaAgent'] = qa_result
-                    flag_modified(execution, 'error_log')
-                    db_session.commit()
-                
-                # If QA passes, break
-                if qa_result.get('verdict') == 'pass':
-                    break
-                
-                # Generate feedback for retry
-                qa_feedback = await qa_service.generate_feedback(qa_result, "SigmaAgent")
-                
-                # If critical failure, raise error
-                if qa_result.get('verdict') == 'critical_failure' and qa_attempt == max_qa_retries - 1:
-                    raise ValueError(f"QA critical failure after {max_qa_retries} attempts: {qa_result.get('summary', 'Unknown error')}")
+            # Single attempt; rely on pySigma validation instead of a Sigma QA agent
+            generation_result = await sigma_service.generate_sigma_rules(
+                article_title=article.title,
+                article_content=content_to_use,
+                source_name=source_name,
+                url=article.canonical_url or "",
+                ai_model='lmstudio',  # Use Deepseek-R1 via LMStudio
+                max_attempts=3,
+                min_confidence=0.9,  # Use high confidence for filtered content
+                execution_id=state['execution_id'],
+                article_id=state['article_id'],
+                qa_feedback=qa_feedback
+            )
             
             sigma_rules = generation_result.get('rules', []) if generation_result else []
             sigma_errors = generation_result.get('errors')
