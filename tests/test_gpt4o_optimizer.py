@@ -123,7 +123,7 @@ class TestLLMOptimizer:
     def test_get_cost_estimate_with_filtering(self, optimizer, sample_content):
         """Test cost estimation with filtering enabled."""
         # get_cost_estimate uses ContentFilter directly, not optimize_content
-            result = optimizer.get_cost_estimate(sample_content, use_filtering=True)
+        result = optimizer.get_cost_estimate(sample_content, use_filtering=True)
         
         assert result['filtering_enabled'] is True
         assert 'cost_savings' in result
