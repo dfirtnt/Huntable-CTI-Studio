@@ -75,16 +75,43 @@
     <div id="tab-content-config" class="tab-content hidden">
         <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mb-8">
             <form id="workflowConfigForm" class="space-y-6">
-                <!-- Description -->
-                    <div>
-                    <label for="description" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                        Description
-                    </label>
-                    <textarea id="description" 
-                              name="description"
-                              rows="2"
-                              class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white"
-                              placeholder="Optional description for this configuration version"></textarea>
+                <!-- Other Thresholds -->
+                <div class="border border-gray-200 dark:border-gray-700 rounded-lg">
+                    <button type="button" onclick="toggleCollapsible('other-thresholds-panel')" class="w-full flex items-center justify-between p-4 text-left hover:bg-gray-50 dark:hover:bg-gray-700 rounded-t-lg transition-colors">
+                        <div class="flex items-center gap-3">
+                            <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Junk Filter</h3>
+                        </div>
+                        <span id="other-thresholds-panel-toggle" class="text-gray-700 dark:text-gray-200 text-lg font-medium transform transition-transform">▼</span>
+                    </button>
+                    <div id="other-thresholds-panel-content" class="hidden p-4 border-t border-gray-200 dark:border-gray-700 space-y-4">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <!-- Junk Filter Threshold -->
+                            <div>
+                                <label for="junkFilterThreshold" class="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                    Junk Filter Threshold
+                                    <button type="button" 
+                                            onclick="showHelp('junkFilterThreshold')"
+                                            class="text-blue-500 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 focus:outline-none"
+                                            title="Help">
+                                        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                                            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/>
+                                        </svg>
+                                    </button>
+                                </label>
+                                <input type="number" 
+                                       id="junkFilterThreshold" 
+                                       name="junk_filter_threshold"
+                                       min="0" 
+                                       max="1" 
+                                       step="0.05"
+                                       required
+                                       oninput="validateThreshold(this, 0, 1)"
+                                       class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white">
+                                <p class="text-xs text-gray-500 dark:text-gray-300 mt-1">Min confidence (0-1) for content filtering</p>
+                                <p id="junkFilterThreshold-error" class="text-xs text-red-500 dark:text-red-400 mt-1 hidden"></p>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- OS Detection Agent Panel -->
@@ -92,7 +119,6 @@
                     <button type="button" onclick="toggleCollapsible('os-detection-panel')" class="w-full flex items-center justify-between p-4 text-left hover:bg-gray-50 dark:hover:bg-gray-700 rounded-t-lg transition-colors">
                         <div class="flex items-center gap-3">
                             <h3 class="text-lg font-semibold text-gray-900 dark:text-white">OS Detection Agent</h3>
-                            <span id="os-detection-qa-badge" class="px-2 py-1 text-xs rounded-full bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300">QA: OFF</span>
                         </div>
                         <span id="os-detection-panel-toggle" class="text-gray-700 dark:text-gray-200 text-lg font-medium transform transition-transform">▼</span>
                     </button>
@@ -101,43 +127,6 @@
                         <div id="os-detection-model-container"></div>
                         <!-- OS Detection Agent Prompt -->
                         <div id="os-detection-prompt-container"></div>
-                        <!-- OS Detection QA Agent Toggle -->
-                        <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
-                            <div class="flex items-center justify-between">
-                                <div>
-                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                                        OS Detection QA Agent
-                                    </label>
-                                    <p class="text-xs text-gray-500 dark:text-gray-400">
-                                        Enable QA validation with up to 5 retry attempts
-                                    </p>
-                                </div>
-                                <label class="relative inline-flex items-center cursor-pointer">
-                                    <input type="checkbox" 
-                                           id="qa-osdetectionagent" 
-                                           name="qa_enabled[OSDetectionAgent]"
-                                           class="sr-only peer" 
-                                           onchange="updateQABadge('os-detection')">
-                                    <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 dark:peer-focus:ring-purple-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-purple-600"></div>
-                                </label>
-                            </div>
-                        </div>
-                        <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
-                            <label for="osdetectionqa-model" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                                OS Detection QA Model
-                            </label>
-                            <select id="osdetectionqa-model"
-                                    name="agent_models[OSDetectionAgentQA]"
-                                    onchange="autoSaveModelChange()"
-                                    class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-sm">
-                                <option value="">Use OS Detection Agent model</option>
-                            </select>
-                            <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                                Optional override for QA evaluations.
-                            </p>
-                        </div>
-                        <!-- OS Detection QA Agent Prompt -->
-                        <div id="os-detection-qa-prompt-container" class="hidden"></div>
                     </div>
                 </div>
 
@@ -256,63 +245,6 @@
                         <div id="extract-agent-prompt-container"></div>
                         <!-- Extract QA Agent Prompt -->
                         <div id="extract-agent-qa-prompt-container" class="hidden"></div>
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-3 border border-gray-200 dark:border-gray-700">
-                                <label for="cmdlineqa-model" class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                                    CmdLine QA Model
-                                </label>
-                                <select id="cmdlineqa-model"
-                                        name="agent_models[CmdLineQA]"
-                                        onchange="autoSaveModelChange()"
-                                        class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-xs">
-                                    <option value="">Use Extract Agent model</option>
-                                </select>
-                            </div>
-                            <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-3 border border-gray-200 dark:border-gray-700">
-                                <label for="sigqa-model" class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                                    Sig QA Model
-                                </label>
-                                <select id="sigqa-model"
-                                        name="agent_models[SigQA]"
-                                        onchange="autoSaveModelChange()"
-                                        class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-xs">
-                                    <option value="">Use Extract Agent model</option>
-                                </select>
-                            </div>
-                            <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-3 border border-gray-200 dark:border-gray-700">
-                                <label for="eventcodeqa-model" class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                                    EventCode QA Model
-                                </label>
-                                <select id="eventcodeqa-model"
-                                        name="agent_models[EventCodeQA]"
-                                        onchange="autoSaveModelChange()"
-                                        class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-xs">
-                                    <option value="">Use Extract Agent model</option>
-                                </select>
-                            </div>
-                            <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-3 border border-gray-200 dark:border-gray-700">
-                                <label for="proctreeqa-model" class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                                    ProcTree QA Model
-                                </label>
-                                <select id="proctreeqa-model"
-                                        name="agent_models[ProcTreeQA]"
-                                        onchange="autoSaveModelChange()"
-                                        class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-xs">
-                                    <option value="">Use Extract Agent model</option>
-                                </select>
-                            </div>
-                            <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-3 border border-gray-200 dark:border-gray-700">
-                                <label for="regqa-model" class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                                    Reg QA Model
-                                </label>
-                                <select id="regqa-model"
-                                        name="agent_models[RegQA]"
-                                        onchange="autoSaveModelChange()"
-                                        class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-xs">
-                                    <option value="">Use Extract Agent model</option>
-                                </select>
-                            </div>
-                        </div>
                         
                         <!-- Sub-Agents Section -->
                         <div class="mt-6 pt-6 border-t-2 border-yellow-300 dark:border-yellow-700">
@@ -333,7 +265,17 @@
                                     <div id="cmdlineextract-agent-panel-content" class="hidden p-3 border-t border-gray-200 dark:border-gray-700 space-y-3">
                                         <!-- Model Selection -->
                                         <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-3 border border-gray-200 dark:border-gray-700">
-                                            <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">Model</label>
+                                            <label class="flex items-center gap-2 text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                                Model
+                                                <button type="button" 
+                                                        onclick="showHelp('cmdlineExtract')"
+                                                        class="text-blue-500 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 focus:outline-none"
+                                                        title="Help">
+                                                    <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                                                        <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/>
+                                                    </svg>
+                                                </button>
+                                            </label>
                                             <select id="cmdlineextract-model" name="agent_models[CmdlineExtract_model]" onchange="autoSaveModelChange()" class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-xs">
                                                 <option value="">Use Extract Agent Model</option>
                                             </select>
@@ -363,6 +305,16 @@
                                                 </label>
                                             </div>
                                         </div>
+                                        <!-- CmdLine QA Model -->
+                                        <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-3 border border-gray-200 dark:border-gray-700">
+                                            <label for="cmdlineqa-model" class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">CmdLine QA Model</label>
+                                            <select id="cmdlineqa-model"
+                                                    name="agent_models[CmdLineQA]"
+                                                    onchange="autoSaveModelChange()"
+                                                    class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-xs">
+                                                <option value="">Use Extract Agent model</option>
+                                            </select>
+                                        </div>
                                         <div id="cmdlineextract-agent-qa-prompt-container" class="hidden"></div>
                                     </div>
                                 </div>
@@ -379,7 +331,17 @@
                                     <div id="sigextract-agent-panel-content" class="hidden p-3 border-t border-gray-200 dark:border-gray-700 space-y-3">
                                         <!-- Model Selection -->
                                         <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-3 border border-gray-200 dark:border-gray-700">
-                                            <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">Model</label>
+                                            <label class="flex items-center gap-2 text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                                Model
+                                                <button type="button" 
+                                                        onclick="showHelp('sigExtract')"
+                                                        class="text-blue-500 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 focus:outline-none"
+                                                        title="Help">
+                                                    <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                                                        <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/>
+                                                    </svg>
+                                                </button>
+                                            </label>
                                             <select id="sigextract-model" name="agent_models[SigExtract_model]" onchange="autoSaveModelChange()" class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-xs">
                                                 <option value="">Use Extract Agent Model</option>
                                             </select>
@@ -409,6 +371,16 @@
                                                 </label>
                                             </div>
                                         </div>
+                                        <!-- Sig QA Model -->
+                                        <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-3 border border-gray-200 dark:border-gray-700">
+                                            <label for="sigqa-model" class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">Sig QA Model</label>
+                                            <select id="sigqa-model"
+                                                    name="agent_models[SigQA]"
+                                                    onchange="autoSaveModelChange()"
+                                                    class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-xs">
+                                                <option value="">Use Extract Agent model</option>
+                                            </select>
+                                        </div>
                                         <div id="sigextract-agent-qa-prompt-container" class="hidden"></div>
                                     </div>
                                 </div>
@@ -425,7 +397,17 @@
                                     <div id="eventcodeextract-agent-panel-content" class="hidden p-3 border-t border-gray-200 dark:border-gray-700 space-y-3">
                                         <!-- Model Selection -->
                                         <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-3 border border-gray-200 dark:border-gray-700">
-                                            <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">Model</label>
+                                            <label class="flex items-center gap-2 text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                                Model
+                                                <button type="button" 
+                                                        onclick="showHelp('eventCodeExtract')"
+                                                        class="text-blue-500 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 focus:outline-none"
+                                                        title="Help">
+                                                    <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                                                        <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/>
+                                                    </svg>
+                                                </button>
+                                            </label>
                                             <select id="eventcodeextract-model" name="agent_models[EventCodeExtract_model]" onchange="autoSaveModelChange()" class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-xs">
                                                 <option value="">Use Extract Agent Model</option>
                                             </select>
@@ -455,6 +437,16 @@
                                                 </label>
                                             </div>
                                         </div>
+                                        <!-- EventCode QA Model -->
+                                        <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-3 border border-gray-200 dark:border-gray-700">
+                                            <label for="eventcodeqa-model" class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">EventCode QA Model</label>
+                                            <select id="eventcodeqa-model"
+                                                    name="agent_models[EventCodeQA]"
+                                                    onchange="autoSaveModelChange()"
+                                                    class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-xs">
+                                                <option value="">Use Extract Agent model</option>
+                                            </select>
+                                        </div>
                                         <div id="eventcodeextract-agent-qa-prompt-container" class="hidden"></div>
                                     </div>
                                 </div>
@@ -471,7 +463,17 @@
                                     <div id="proctreeextract-agent-panel-content" class="hidden p-3 border-t border-gray-200 dark:border-gray-700 space-y-3">
                                         <!-- Model Selection -->
                                         <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-3 border border-gray-200 dark:border-gray-700">
-                                            <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">Model</label>
+                                            <label class="flex items-center gap-2 text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                                Model
+                                                <button type="button" 
+                                                        onclick="showHelp('procTreeExtract')"
+                                                        class="text-blue-500 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 focus:outline-none"
+                                                        title="Help">
+                                                    <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                                                        <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/>
+                                                    </svg>
+                                                </button>
+                                            </label>
                                             <select id="proctreeextract-model" name="agent_models[ProcTreeExtract_model]" onchange="autoSaveModelChange()" class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-xs">
                                                 <option value="">Use Extract Agent Model</option>
                                             </select>
@@ -501,6 +503,16 @@
                                                 </label>
                                             </div>
                                         </div>
+                                        <!-- ProcTree QA Model -->
+                                        <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-3 border border-gray-200 dark:border-gray-700">
+                                            <label for="proctreeqa-model" class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">ProcTree QA Model</label>
+                                            <select id="proctreeqa-model"
+                                                    name="agent_models[ProcTreeQA]"
+                                                    onchange="autoSaveModelChange()"
+                                                    class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-xs">
+                                                <option value="">Use Extract Agent model</option>
+                                            </select>
+                                        </div>
                                         <div id="proctreeextract-agent-qa-prompt-container" class="hidden"></div>
                                     </div>
                                 </div>
@@ -517,7 +529,17 @@
                                     <div id="regextract-agent-panel-content" class="hidden p-3 border-t border-gray-200 dark:border-gray-700 space-y-3">
                                         <!-- Model Selection -->
                                         <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-3 border border-gray-200 dark:border-gray-700">
-                                            <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">Model</label>
+                                            <label class="flex items-center gap-2 text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                                Model
+                                                <button type="button" 
+                                                        onclick="showHelp('regExtract')"
+                                                        class="text-blue-500 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 focus:outline-none"
+                                                        title="Help">
+                                                    <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                                                        <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/>
+                                                    </svg>
+                                                </button>
+                                            </label>
                                             <select id="regextract-model" name="agent_models[RegExtract_model]" onchange="autoSaveModelChange()" class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-xs">
                                                 <option value="">Use Extract Agent Model</option>
                                             </select>
@@ -547,6 +569,16 @@
                                                 </label>
                                             </div>
                                         </div>
+                                        <!-- Reg QA Model -->
+                                        <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-3 border border-gray-200 dark:border-gray-700">
+                                            <label for="regqa-model" class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">Reg QA Model</label>
+                                            <select id="regqa-model"
+                                                    name="agent_models[RegQA]"
+                                                    onchange="autoSaveModelChange()"
+                                                    class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-xs">
+                                                <option value="">Use Extract Agent model</option>
+                                            </select>
+                                        </div>
                                         <div id="regextract-agent-qa-prompt-container" class="hidden"></div>
                                     </div>
                                 </div>
@@ -567,6 +599,31 @@
                     <div id="sigma-agent-panel-content" class="hidden p-4 border-t border-gray-200 dark:border-gray-700 space-y-4">
                         <!-- SIGMA Agent Model -->
                         <div id="sigma-agent-model-container"></div>
+                        <!-- Similarity Threshold -->
+                        <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+                            <label for="similarityThreshold" class="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                Similarity Threshold
+                                <button type="button" 
+                                        onclick="showHelp('similarityThreshold')"
+                                        class="text-blue-500 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 focus:outline-none"
+                                        title="Help">
+                                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                                        <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/>
+                                    </svg>
+                                </button>
+                            </label>
+                            <input type="number" 
+                                   id="similarityThreshold" 
+                                   name="similarity_threshold"
+                                   min="0" 
+                                   max="1" 
+                                   step="0.05"
+                                   required
+                                   oninput="validateThreshold(this, 0, 1)"
+                                   class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white">
+                            <p class="text-xs text-gray-500 dark:text-gray-300 mt-1">Max similarity (0-1) to queue rule</p>
+                            <p id="similarityThreshold-error" class="text-xs text-red-500 dark:text-red-400 mt-1 hidden"></p>
+                        </div>
                         <!-- SIGMA Agent Prompt -->
                         <div id="sigma-agent-prompt-container"></div>
                         <!-- SIGMA QA Agent Toggle -->
@@ -629,64 +686,6 @@
                                 Select embedding model for SIGMA rule similarity search. Used by similarity_search step.
                             </p>
                         </div>
-                    </div>
-                </div>
-
-                <!-- Other Thresholds -->
-                <div class="border-t border-gray-200 dark:border-gray-700 pt-6 mt-6">
-                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Other Thresholds</h3>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <!-- Junk Filter Threshold -->
-                    <div>
-                        <label for="junkFilterThreshold" class="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                            Junk Filter Threshold
-                            <button type="button" 
-                                    onclick="showHelp('junkFilterThreshold')"
-                                    class="text-blue-500 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 focus:outline-none"
-                                    title="Help">
-                                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                                    <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/>
-                                </svg>
-                            </button>
-                        </label>
-                        <input type="number" 
-                               id="junkFilterThreshold" 
-                               name="junk_filter_threshold"
-                               min="0" 
-                               max="1" 
-                               step="0.05"
-                               required
-                               oninput="validateThreshold(this, 0, 1)"
-                               class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white">
-                        <p class="text-xs text-gray-500 dark:text-gray-300 mt-1">Min confidence (0-1) for content filtering</p>
-                        <p id="junkFilterThreshold-error" class="text-xs text-red-500 dark:text-red-400 mt-1 hidden"></p>
-                    </div>
-
-                    <!-- Similarity Threshold -->
-                    <div>
-                        <label for="similarityThreshold" class="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                            Similarity Threshold
-                            <button type="button" 
-                                    onclick="showHelp('similarityThreshold')"
-                                    class="text-blue-500 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 focus:outline-none"
-                                    title="Help">
-                                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                                    <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/>
-                                </svg>
-                            </button>
-                        </label>
-                        <input type="number" 
-                               id="similarityThreshold" 
-                               name="similarity_threshold"
-                               min="0" 
-                               max="1" 
-                               step="0.05"
-                               required
-                               oninput="validateThreshold(this, 0, 1)"
-                               class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white">
-                        <p class="text-xs text-gray-500 dark:text-gray-300 mt-1">Max similarity (0-1) to queue rule</p>
-                        <p id="similarityThreshold-error" class="text-xs text-red-500 dark:text-red-400 mt-1 hidden"></p>
-                    </div>
                     </div>
                 </div>
 
@@ -1773,8 +1772,7 @@ function validateThreshold(input, min, max) {
 window.updateQABadge = function(agentPrefix) {
     const badgeId = `${agentPrefix}-qa-badge`;
     const badge = document.getElementById(badgeId);
-    const checkboxId = agentPrefix === 'os-detection' ? 'qa-osdetectionagent' :
-                      agentPrefix === 'rank-agent' ? 'qa-rankagent' :
+    const checkboxId = agentPrefix === 'rank-agent' ? 'qa-rankagent' :
                       agentPrefix === 'cmdlineextract-agent' ? 'qa-cmdlineextract' :
                       agentPrefix === 'sigextract-agent' ? 'qa-sigextract' :
                       agentPrefix === 'eventcodeextract-agent' ? 'qa-eventcodeextract' :
@@ -1878,8 +1876,6 @@ async function loadConfig() {
             if (currentConfig.similarity_threshold !== undefined) {
                 document.getElementById('similarityThreshold').value = currentConfig.similarity_threshold;
             }
-            // Description: default to blank on load (do not auto-fill from config)
-            document.getElementById('description').value = '';
             
             // Display current config
             const configDisplay = document.getElementById('configDisplay');
@@ -1958,7 +1954,6 @@ async function loadConfig() {
 
 function setupQAEventListeners() {
     const qaCheckboxes = [
-        { id: 'qa-osdetectionagent', prefix: 'os-detection' },
         { id: 'qa-rankagent', prefix: 'rank-agent' },
         { id: 'qa-cmdlineextract', prefix: 'cmdlineextract-agent' },
         { id: 'qa-sigextract', prefix: 'sigextract-agent' },
@@ -2047,7 +2042,17 @@ function renderAgentModels(lmstudioModels) {
         const modelOptions = buildOptions(currentModel, 'Select a model (required)');
         rankContainer.innerHTML = `
             <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
-                <label for="rankagent-model-2" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Rank Agent Model</label>
+                <label class="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Rank Agent Model
+                    <button type="button" 
+                            onclick="showHelp('rankAgent')"
+                            class="text-blue-500 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 focus:outline-none"
+                            title="Help">
+                        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/>
+                        </svg>
+                    </button>
+                </label>
                 <select id="rankagent-model-2" 
                         name="agent_models[RankAgent]"
                         onchange="autoSaveModelChange()"
@@ -2073,7 +2078,17 @@ function renderAgentModels(lmstudioModels) {
         const currentFallbackModel = agentModels['OSDetectionAgent_fallback'] || '';
         osContainer.innerHTML = `
             <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
-                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">OS Detection Agent Model</label>
+                <label class="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+                    OS Detection Agent Model
+                    <button type="button" 
+                            onclick="showHelp('osDetectionAgent')"
+                            class="text-blue-500 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 focus:outline-none"
+                            title="Help">
+                        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/>
+                        </svg>
+                    </button>
+                </label>
                 <div class="mb-3">
                     <label for="osdetectionagent-embedding-model-2" class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Embedding Model</label>
                     <select id="osdetectionagent-embedding-model-2" 
@@ -2116,7 +2131,17 @@ function renderAgentModels(lmstudioModels) {
         }).join('');
         extractContainer.innerHTML = `
             <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
-                <label for="extractagent-model-2" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Extract Agent Model</label>
+                <label class="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Extract Agent Model
+                    <button type="button" 
+                            onclick="showHelp('extractAgent')"
+                            class="text-blue-500 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 focus:outline-none"
+                            title="Help">
+                        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/>
+                        </svg>
+                    </button>
+                </label>
                 <select id="extractagent-model-2" 
                         name="agent_models[ExtractAgent]"
                         onchange="autoSaveModelChange()"
@@ -2145,7 +2170,17 @@ function renderAgentModels(lmstudioModels) {
         }).join('');
         sigmaContainer.innerHTML = `
             <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
-                <label for="sigmaagent-model-2" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">SIGMA Generator Agent Model</label>
+                <label class="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    SIGMA Generator Agent Model
+                    <button type="button" 
+                            onclick="showHelp('sigmaAgent')"
+                            class="text-blue-500 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 focus:outline-none"
+                            title="Help">
+                        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/>
+                        </svg>
+                    </button>
+                </label>
                 <select id="sigmaagent-model-2" 
                         name="agent_models[SigmaAgent]"
                         onchange="autoSaveModelChange()"
@@ -2191,7 +2226,6 @@ function renderAgentModels(lmstudioModels) {
 
     const qaModelSelectors = [
         { id: 'rankqa-model', placeholder: 'Use Rank Agent model', key: 'RankAgentQA' },
-        { id: 'osdetectionqa-model', placeholder: 'Use OS Detection Agent model', key: 'OSDetectionAgentQA' },
         { id: 'cmdlineqa-model', placeholder: 'Use Extract Agent model', key: 'CmdLineQA' },
         { id: 'sigqa-model', placeholder: 'Use Extract Agent model', key: 'SigQA' },
         { id: 'eventcodeqa-model', placeholder: 'Use Extract Agent model', key: 'EventCodeQA' },
@@ -2732,7 +2766,6 @@ function loadQASettings2() {
     
     // Set checkboxes
     const agents = [
-        { name: 'OSDetectionAgent', id: 'qa-osdetectionagent', prefix: 'os-detection' },
         { name: 'RankAgent', id: 'qa-rankagent', prefix: 'rank-agent' },
         { name: 'CmdlineExtract', id: 'qa-cmdlineextract', prefix: 'cmdlineextract-agent' },
         { name: 'SigExtract', id: 'qa-sigextract', prefix: 'sigextract-agent' },
@@ -2770,8 +2803,7 @@ function editPrompt(agentName) {
     const qaEnabled = currentConfig?.qa_enabled || {};
     if (agentName === 'QAAgent' || (qaEnabled[agentName] && agentName !== 'QAAgent')) {
         // Re-render QA prompts if they're visible
-        const prefix = agentName === 'OSDetectionAgent' ? 'os-detection' :
-                      agentName === 'RankAgent' ? 'rank-agent' :
+        const prefix = agentName === 'RankAgent' ? 'rank-agent' :
                       agentName === 'ExtractAgent' ? 'extract-agent' :
                       agentName === 'SigmaAgent' ? 'sigma-agent' : null;
         if (prefix) {
@@ -2965,7 +2997,6 @@ function getCurrentFormState() {
 
     const qaModelFields = [
         { name: 'RankAgentQA', id: 'rankqa-model' },
-        { name: 'OSDetectionAgentQA', id: 'osdetectionqa-model' },
         { name: 'CmdLineQA', id: 'cmdlineqa-model' },
         { name: 'SigQA', id: 'sigqa-model' },
         { name: 'EventCodeQA', id: 'eventcodeqa-model' },
@@ -2984,7 +3015,6 @@ function getCurrentFormState() {
         junk_filter_threshold: parseFloat(document.getElementById('junkFilterThreshold')?.value || '0'),
         ranking_threshold: parseFloat(document.getElementById('rankingThreshold')?.value || '0'),
         similarity_threshold: parseFloat(document.getElementById('similarityThreshold')?.value || '0'),
-        description: document.getElementById('description')?.value || '',
         qa_enabled: qaEnabled,
         agent_models: agent_models
     };
@@ -3175,7 +3205,6 @@ if (workflowConfigForm) {
         junk_filter_threshold: parseFloat(document.getElementById('junkFilterThreshold').value),
         ranking_threshold: parseFloat(document.getElementById('rankingThreshold').value),
         similarity_threshold: parseFloat(document.getElementById('similarityThreshold').value),
-        description: document.getElementById('description').value,
         agent_models: {
             RankAgent: document.getElementById('rankagent-model-2')?.value.trim() || null,
             RankAgent_temperature: parseFloat(document.getElementById('rankagent-temperature')?.value) || 0.0,
@@ -3194,7 +3223,6 @@ if (workflowConfigForm) {
             SigmaEmbeddingModel: document.getElementById('sigma-embedding-model')?.value.trim() || null,
             // QA model overrides
             RankAgentQA: document.getElementById('rankqa-model')?.value.trim() || null,
-            OSDetectionAgentQA: document.getElementById('osdetectionqa-model')?.value.trim() || null,
             CmdLineQA: document.getElementById('cmdlineqa-model')?.value.trim() || null,
             SigQA: document.getElementById('sigqa-model')?.value.trim() || null,
             EventCodeQA: document.getElementById('eventcodeqa-model')?.value.trim() || null,
@@ -3255,9 +3283,6 @@ if (workflowConfigForm) {
             }
             if (updatedConfig.similarity_threshold !== undefined) {
                 document.getElementById('similarityThreshold').value = updatedConfig.similarity_threshold;
-            }
-            if (updatedConfig.description) {
-                document.getElementById('description').value = updatedConfig.description;
             }
             
             // Update config display
@@ -5124,6 +5149,190 @@ function showHelp(fieldName) {
                           <li>If similarity ≤ threshold: rule is queued (unique enough)</li>
                       </ul>
                       <p class="text-sm text-gray-600 dark:text-gray-400"><strong>Recommended:</strong> 0.4-0.6 (0.5 is balanced). Lower = stricter (fewer duplicates), Higher = more lenient (more rules queued)</p>`
+        },
+        'osDetectionAgent': {
+            title: 'OS Detection Agent Model',
+            content: `<p class="mb-2"><strong>Description:</strong></p>
+                      <p class="mb-2">Configures the models used for operating system detection from threat intelligence articles. OS detection determines which articles continue through the workflow (Windows-only by default).</p>
+                      <p class="mb-2"><strong>Embedding Model:</strong></p>
+                      <ul class="list-disc list-inside mb-2 space-y-1">
+                          <li><strong>CTI-BERT:</strong> Specialized for cybersecurity threat intelligence (default)</li>
+                          <li><strong>SEC-BERT:</strong> Security-focused embeddings, alternative option</li>
+                      </ul>
+                      <p class="mb-2"><strong>Fallback Model (Optional):</strong></p>
+                      <ul class="list-disc list-inside mb-2 space-y-1">
+                          <li>LLM model used when embedding-based detection has low confidence</li>
+                          <li>Leave blank to use the primary OS detection model</li>
+                          <li>Typically used for ambiguous cases or when embedding confidence is low</li>
+                      </ul>
+                      <p class="mb-2"><strong>How it works:</strong></p>
+                      <ul class="list-disc list-inside mb-2 space-y-1">
+                          <li>First attempts embedding-based classification (CTI-BERT or SEC-BERT)</li>
+                          <li>If confidence is low, falls back to LLM-based detection (if configured)</li>
+                          <li>Detects: Windows, Linux, MacOS, multiple, or Unknown</li>
+                          <li>Workflow continues only for Windows (or multiple if Windows is included)</li>
+                      </ul>
+                      <p class="text-sm text-gray-600 dark:text-gray-400"><strong>Recommended:</strong> Use CTI-BERT for embedding model. Configure fallback model only if you need LLM-based detection for low-confidence cases.</p>`
+        },
+        'rankAgent': {
+            title: 'Rank Agent Model',
+            content: `<p class="mb-2"><strong>Description:</strong></p>
+                      <p class="mb-2">The LLM model used to evaluate and rank articles for huntability. This agent determines whether an article contains actionable threat intelligence worth extracting.</p>
+                      <p class="mb-2"><strong>How it works:</strong></p>
+                      <ul class="list-disc list-inside mb-2 space-y-1">
+                          <li>After junk filtering, the Rank Agent evaluates the article</li>
+                          <li>Returns a score from 1-10 (10 = highly huntable)</li>
+                          <li>If score ≥ ranking threshold: workflow continues</li>
+                          <li>If score < ranking threshold: workflow stops</li>
+                      </ul>
+                      <p class="mb-2"><strong>Temperature:</strong></p>
+                      <ul class="list-disc list-inside mb-2 space-y-1">
+                          <li><strong>0.0:</strong> Deterministic, consistent rankings (recommended)</li>
+                          <li><strong>Higher values:</strong> More creative/varied rankings</li>
+                      </ul>
+                      <p class="text-sm text-gray-600 dark:text-gray-400"><strong>Recommended:</strong> Use a model optimized for classification/ranking tasks. Temperature 0.0 for consistent results.</p>`
+        },
+        'extractAgent': {
+            title: 'Extract Agent Model',
+            content: `<p class="mb-2"><strong>Description:</strong></p>
+                      <p class="mb-2">The LLM model used by the Extract Agent to extract behaviors, IOCs, and technical details from threat intelligence articles. This is the primary extraction model that orchestrates sub-agents.</p>
+                      <p class="mb-2"><strong>How it works:</strong></p>
+                      <ul class="list-disc list-inside mb-2 space-y-1">
+                          <li>Extract Agent analyzes article content for actionable intelligence</li>
+                          <li>Orchestrates specialized sub-agents (CmdlineExtract, SigExtract, etc.)</li>
+                          <li>Extracts: command lines, registry keys, file paths, process trees, event codes</li>
+                          <li>Outputs structured extraction results for SIGMA rule generation</li>
+                      </ul>
+                      <p class="mb-2"><strong>Sub-Agents:</strong></p>
+                      <ul class="list-disc list-inside mb-2 space-y-1">
+                          <li><strong>CmdlineExtract:</strong> Command line arguments and executions</li>
+                          <li><strong>SigExtract:</strong> Query/SIGMA rule patterns</li>
+                          <li><strong>EventCodeExtract:</strong> Windows Event IDs</li>
+                          <li><strong>ProcTreeExtract:</strong> Process lineage and relationships</li>
+                          <li><strong>RegExtract:</strong> Registry keys and values</li>
+                      </ul>
+                      <p class="text-sm text-gray-600 dark:text-gray-400"><strong>Recommended:</strong> Use a model with strong instruction-following and structured output capabilities.</p>`
+        },
+        'sigmaAgent': {
+            title: 'SIGMA Generator Agent Model',
+            content: `<p class="mb-2"><strong>Description:</strong></p>
+                      <p class="mb-2">The LLM model used to generate SIGMA detection rules from extracted behaviors and IOCs. Converts threat intelligence into actionable detection rules.</p>
+                      <p class="mb-2"><strong>How it works:</strong></p>
+                      <ul class="list-disc list-inside mb-2 space-y-1">
+                          <li>Receives extracted behaviors and IOCs from Extract Agent</li>
+                          <li>Generates SIGMA YAML rules following SIGMA specification</li>
+                          <li>Creates detection rules for Windows Event Logs, Sysmon, etc.</li>
+                          <li>Rules are then checked for similarity against existing rules</li>
+                          <li>Unique rules are queued for human review and PR submission</li>
+                      </ul>
+                      <p class="mb-2"><strong>Output Format:</strong></p>
+                      <ul class="list-disc list-inside mb-2 space-y-1">
+                          <li>YAML format following SIGMA specification</li>
+                          <li>Includes: title, description, detection logic, tags, falsepositives</li>
+                          <li>Compatible with SIEM systems (Splunk, Elastic, QRadar, etc.)</li>
+                      </ul>
+                      <p class="text-sm text-gray-600 dark:text-gray-400"><strong>Recommended:</strong> Use a model with strong code generation and YAML formatting capabilities. Should understand SIGMA rule structure and Windows event log fields.</p>`
+        },
+        'cmdlineExtract': {
+            title: 'CmdlineExtract Model',
+            content: `<p class="mb-2"><strong>Description:</strong></p>
+                      <p class="mb-2">Specialized sub-agent for extracting command line arguments and command executions from threat intelligence articles.</p>
+                      <p class="mb-2"><strong>What it extracts:</strong></p>
+                      <ul class="list-disc list-inside mb-2 space-y-1">
+                          <li>Command line arguments and switches</li>
+                          <li>Executable names and paths</li>
+                          <li>Command execution patterns</li>
+                          <li>PowerShell commands and scripts</li>
+                          <li>CMD and batch commands</li>
+                      </ul>
+                      <p class="mb-2"><strong>How it works:</strong></p>
+                      <ul class="list-disc list-inside mb-2 space-y-1">
+                          <li>Orchestrated by the Extract Agent supervisor</li>
+                          <li>Focuses specifically on command-line indicators</li>
+                          <li>Outputs structured command line data for SIGMA rules</li>
+                          <li>Can use Extract Agent model or override with dedicated model</li>
+                      </ul>
+                      <p class="text-sm text-gray-600 dark:text-gray-400"><strong>Recommended:</strong> Leave blank to use Extract Agent model, or specify a model optimized for command-line extraction if needed.</p>`
+        },
+        'sigExtract': {
+            title: 'SigExtract Model',
+            content: `<p class="mb-2"><strong>Description:</strong></p>
+                      <p class="mb-2">Specialized sub-agent for extracting query patterns and SIGMA-like detection logic from threat intelligence articles.</p>
+                      <p class="mb-2"><strong>What it extracts:</strong></p>
+                      <ul class="list-disc list-inside mb-2 space-y-1">
+                          <li>Query patterns and search logic</li>
+                          <li>SIGMA rule-like detection patterns</li>
+                          <li>Event log query structures</li>
+                          <li>Detection conditions and filters</li>
+                      </ul>
+                      <p class="mb-2"><strong>How it works:</strong></p>
+                      <ul class="list-disc list-inside mb-2 space-y-1">
+                          <li>Orchestrated by the Extract Agent supervisor</li>
+                          <li>Identifies detection patterns in threat intelligence</li>
+                          <li>Extracts query logic that can be converted to SIGMA rules</li>
+                          <li>Can use Extract Agent model or override with dedicated model</li>
+                      </ul>
+                      <p class="text-sm text-gray-600 dark:text-gray-400"><strong>Recommended:</strong> Leave blank to use Extract Agent model, or specify a model with strong pattern recognition capabilities.</p>`
+        },
+        'eventCodeExtract': {
+            title: 'EventCodeExtract Model',
+            content: `<p class="mb-2"><strong>Description:</strong></p>
+                      <p class="mb-2">Specialized sub-agent for extracting Windows Event IDs and event log references from threat intelligence articles.</p>
+                      <p class="mb-2"><strong>What it extracts:</strong></p>
+                      <ul class="list-disc list-inside mb-2 space-y-1">
+                          <li>Windows Event IDs (e.g., 4688, 4697, 4698)</li>
+                          <li>Sysmon Event IDs</li>
+                          <li>Event log references and descriptions</li>
+                          <li>Event-based detection patterns</li>
+                      </ul>
+                      <p class="mb-2"><strong>How it works:</strong></p>
+                      <ul class="list-disc list-inside mb-2 space-y-1">
+                          <li>Orchestrated by the Extract Agent supervisor</li>
+                          <li>Identifies Windows Event Log indicators</li>
+                          <li>Extracts event codes used in SIGMA detection rules</li>
+                          <li>Can use Extract Agent model or override with dedicated model</li>
+                      </ul>
+                      <p class="text-sm text-gray-600 dark:text-gray-400"><strong>Recommended:</strong> Leave blank to use Extract Agent model, or specify a model familiar with Windows Event Log structures.</p>`
+        },
+        'procTreeExtract': {
+            title: 'ProcTreeExtract Model',
+            content: `<p class="mb-2"><strong>Description:</strong></p>
+                      <p class="mb-2">Specialized sub-agent for extracting process lineage, parent-child relationships, and process tree structures from threat intelligence articles.</p>
+                      <p class="mb-2"><strong>What it extracts:</strong></p>
+                      <ul class="list-disc list-inside mb-2 space-y-1">
+                          <li>Process parent-child relationships</li>
+                          <li>Process execution chains</li>
+                          <li>Process lineage and hierarchies</li>
+                          <li>Process spawning patterns</li>
+                      </ul>
+                      <p class="mb-2"><strong>How it works:</strong></p>
+                      <ul class="list-disc list-inside mb-2 space-y-1">
+                          <li>Orchestrated by the Extract Agent supervisor</li>
+                          <li>Identifies process relationships and execution chains</li>
+                          <li>Extracts process tree data for SIGMA rule generation</li>
+                          <li>Can use Extract Agent model or override with dedicated model</li>
+                      </ul>
+                      <p class="text-sm text-gray-600 dark:text-gray-400"><strong>Recommended:</strong> Leave blank to use Extract Agent model, or specify a model with strong understanding of process relationships.</p>`
+        },
+        'regExtract': {
+            title: 'RegExtract Model',
+            content: `<p class="mb-2"><strong>Description:</strong></p>
+                      <p class="mb-2">Specialized sub-agent for extracting Windows Registry keys, values, and registry manipulation patterns from threat intelligence articles.</p>
+                      <p class="mb-2"><strong>What it extracts:</strong></p>
+                      <ul class="list-disc list-inside mb-2 space-y-1">
+                          <li>Registry key paths (HKCU, HKLM, HKEY_*)</li>
+                          <li>Registry value names and data</li>
+                          <li>Registry manipulation patterns</li>
+                          <li>Persistence and configuration registry entries</li>
+                      </ul>
+                      <p class="mb-2"><strong>How it works:</strong></p>
+                      <ul class="list-disc list-inside mb-2 space-y-1">
+                          <li>Orchestrated by the Extract Agent supervisor</li>
+                          <li>Identifies Windows Registry indicators</li>
+                          <li>Extracts registry data for SIGMA rule generation</li>
+                          <li>Can use Extract Agent model or override with dedicated model</li>
+                      </ul>
+                      <p class="text-sm text-gray-600 dark:text-gray-400"><strong>Recommended:</strong> Leave blank to use Extract Agent model, or specify a model familiar with Windows Registry structures.</p>`
         }
     };
     
