@@ -1461,6 +1461,21 @@ function renderAgentPrompts() {
         container.innerHTML = '<div class="text-center text-gray-500 dark:text-gray-400 py-4">No agent prompts found</div>';
         return;
     }
+
+    const parsePromptParts = (rawPrompt) => {
+        let system = '';
+        let user = rawPrompt || '';
+        try {
+            const parsed = JSON.parse(rawPrompt);
+            if (parsed && typeof parsed === 'object') {
+                system = parsed.system || '';
+                user = parsed.user || parsed.prompt || '';
+            }
+        } catch (e) {
+            // fallback: treat entire prompt as user content
+        }
+        return { system, user };
+    };
     
     // Display name mapping for agents
     const agentDisplayNames = {
@@ -1473,7 +1488,7 @@ function renderAgentPrompts() {
     
     container.innerHTML = Object.keys(agentPrompts).map(agentName => {
         const promptData = agentPrompts[agentName];
-        const prompt = promptData.prompt || '';
+        const promptParts = parsePromptParts(promptData.prompt || '');
         const instructions = promptData.instructions || '';
         const model = promptData.model || 'Not configured';
         const agentId = agentName.toLowerCase().replace(/\s+/g, '-');
@@ -1522,23 +1537,38 @@ function renderAgentPrompts() {
                         `}
                     </div>
                 ` : ''}
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Prompt</label>
-                    ${isEditing ? `
-                        <textarea id="${agentId}-prompt" 
-                                  rows="8"
-                                  class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-800 dark:text-white font-mono text-sm">${escapeHtml(prompt)}</textarea>
-                        <div class="mt-2">
-                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Change Description (optional)</label>
-                            <input type="text" id="${agentId}-change-description" 
-                                   placeholder="Describe what changed..."
-                                   class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-800 dark:text-white text-sm">
-                        </div>
-                    ` : `
-                        <div id="${agentId}-prompt-display" 
-                             class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-800 dark:text-white font-mono text-sm bg-white whitespace-pre-wrap max-h-96 overflow-y-auto">${escapeHtml(prompt)}</div>
-                    `}
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">System Prompt</label>
+                        ${isEditing ? `
+                            <textarea id="${agentId}-prompt-system" 
+                                      rows="6"
+                                      class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-800 dark:text-white font-mono text-sm">${escapeHtml(promptParts.system)}</textarea>
+                        ` : `
+                            <div id="${agentId}-prompt-system-display" 
+                                 class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-800 dark:text-white font-mono text-sm bg-white whitespace-pre-wrap max-h-64 overflow-y-auto">${escapeHtml(promptParts.system)}</div>
+                        `}
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">User Prompt</label>
+                        ${isEditing ? `
+                            <textarea id="${agentId}-prompt-user" 
+                                      rows="6"
+                                      class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-800 dark:text-white font-mono text-sm">${escapeHtml(promptParts.user)}</textarea>
+                        ` : `
+                            <div id="${agentId}-prompt-user-display" 
+                                 class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-800 dark:text-white font-mono text-sm bg-white whitespace-pre-wrap max-h-64 overflow-y-auto">${escapeHtml(promptParts.user)}</div>
+                        `}
+                    </div>
                 </div>
+                ${isEditing ? `
+                    <div class="mt-2">
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Change Description (optional)</label>
+                        <input type="text" id="${agentId}-change-description" 
+                               placeholder="Describe what changed..."
+                               class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-800 dark:text-white text-sm">
+                    </div>
+                ` : ''}
             </div>
         `;
     }).join('');
@@ -1564,18 +1594,24 @@ function escapeHtml(text) {
 
 async function saveAgentPrompt(agentName) {
     const agentId = agentName.toLowerCase().replace(/\s+/g, '-');
-    const promptElement = document.getElementById(`${agentId}-prompt`);
+    const promptSystemElement = document.getElementById(`${agentId}-prompt-system`);
+    const promptUserElement = document.getElementById(`${agentId}-prompt-user`);
     const instructionsElement = document.getElementById(`${agentId}-instructions`);
     const changeDescriptionElement = document.getElementById(`${agentId}-change-description`);
     
-    if (!promptElement) {
-        alert('Prompt element not found');
+    if (!promptSystemElement || !promptUserElement) {
+        alert('Prompt elements not found');
         return;
     }
     
+    const combinedPrompt = JSON.stringify({
+        system: promptSystemElement.value || "",
+        user: promptUserElement.value || ""
+    });
+
     const promptData = {
         agent_name: agentName,
-        prompt: promptElement.value,
+        prompt: combinedPrompt,
         instructions: instructionsElement ? instructionsElement.value : null,
         change_description: changeDescriptionElement ? changeDescriptionElement.value : null
     };
@@ -3519,6 +3555,7 @@ async function viewExecution(executionId) {
             // Step 0: OS Detection (runs first in workflow)
             // Check for OS detection data in error_log.os_detection_result, termination_details, or error_log.os_detection
             const osDetectionResult = exec.error_log?.os_detection_result;
+            // Prioritize os_detection_result over termination_details to ensure correct data source
             const osDetectionData = osDetectionResult || exec.termination_details || {};
             const osDetectionError = exec.error_log?.os_detection;
             const detectedOS = osDetectionData.detected_os || (osDetectionError ? null : undefined);
@@ -3529,10 +3566,20 @@ async function viewExecution(executionId) {
             // 3. There was an OS detection error
             // 4. Workflow has any steps (OS detection runs first, so it should always be present)
             if (osDetectionResult || detectedOS !== undefined || osDetectionError || exec.status !== 'pending') {
-                const osMethod = osDetectionData.detection_method || 'Unknown';
-                const osConfidence = osDetectionData.confidence || 'Unknown';
-                const osSimilarities = osDetectionData.similarities || {};
-                const osMaxSimilarity = osDetectionData.max_similarity;
+                // Read method from detection_method field, ensuring we don't accidentally use fallback model name
+                const osMethod = (osDetectionData.detection_method && typeof osDetectionData.detection_method === 'string') 
+                    ? osDetectionData.detection_method 
+                    : 'Unknown';
+                const osConfidence = (osDetectionData.confidence && typeof osDetectionData.confidence === 'string')
+                    ? osDetectionData.confidence
+                    : (osDetectionData.confidence !== undefined ? String(osDetectionData.confidence) : 'Unknown');
+                const osSimilarities = (osDetectionData.similarities && typeof osDetectionData.similarities === 'object')
+                    ? osDetectionData.similarities
+                    : {};
+                // Ensure max_similarity is a number, not null/undefined
+                const osMaxSimilarity = (typeof osDetectionData.max_similarity === 'number' && !isNaN(osDetectionData.max_similarity))
+                    ? osDetectionData.max_similarity
+                    : undefined;
                 const isWindows = detectedOS === 'Windows';
                 const workflowContinued = exec.extraction_result !== null && exec.extraction_result !== undefined;
                 
