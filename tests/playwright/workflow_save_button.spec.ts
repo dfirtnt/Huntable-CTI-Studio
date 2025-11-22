@@ -229,7 +229,8 @@ test.describe('Workflow Config Save Button', () => {
     await page.waitForTimeout(2000);
   });
 
-  test('should show success state after save', async ({ page }) => {
+  test.skip('should show success state after save', async ({ page }) => {
+    // DISABLED: Saves workflow configuration which may write to database or config files. No isolated test environment available.
     const saveButton = page.locator('#save-config-button');
     const rankingThreshold = page.locator('#rankingThreshold');
     
