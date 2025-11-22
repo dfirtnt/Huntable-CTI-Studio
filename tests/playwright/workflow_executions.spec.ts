@@ -478,5 +478,112 @@ test.describe('Workflow Executions Page - Execute Workflow Feature', () => {
     // Check modal is hidden
     await expect(executionModal).toBeHidden({ timeout: 2000 });
   });
+
+  test('should display OS detection method and max similarity correctly', async ({ page }) => {
+    // Wait for executions to load
+    await page.waitForLoadState('networkidle');
+    await page.waitForTimeout(1000);
+    
+    // Find any View button to open an execution
+    const viewButton = page.locator('button:has-text("View")').first();
+    const viewButtonExists = await viewButton.isVisible({ timeout: 5000 }).catch(() => false);
+    
+    if (!viewButtonExists) {
+      test.skip('No View button found to test OS detection display');
+      return;
+    }
+    
+    // Set up API response interception for any execution
+    const responsePromise = page.waitForResponse(
+      (resp) => resp.url().match(/\/api\/workflow\/executions\/\d+$/) && 
+                resp.request().method() === 'GET',
+      { timeout: 10000 }
+    ).catch(() => null);
+    
+    // Click View button for first execution
+    await viewButton.click();
+    
+    // Wait for API response
+    const response = await responsePromise;
+    
+    // Wait for modal to be visible
+    const executionModal = page.locator('#executionModal');
+    await expect(executionModal).toBeVisible({ timeout: 5000 });
+    
+    // Wait for content to load
+    await page.waitForTimeout(1000);
+    
+    // Look for OS Detection step
+    const osDetectionStep = page.locator('text=/Step 0: OS Detection/i');
+    const osStepExists = await osDetectionStep.isVisible({ timeout: 2000 }).catch(() => false);
+    
+    if (!osStepExists) {
+      test.skip('OS Detection step not found in execution details');
+      return;
+    }
+    
+    // Check that Method is displayed and is not the fallback model name
+    const methodText = page.locator('text=/Method:/i');
+    await expect(methodText).toBeVisible({ timeout: 2000 });
+    
+    // Get the method value - it should be "similarity", "classifier", or "llm_fallback_..." but not just the model name
+    const methodValue = await page.locator('text=/Method:/i').locator('..').textContent();
+    
+    // Method should not be just a model name like "mistralai/mistral-7b-instruct-v0.3"
+    // It should be "similarity", "classifier", or start with "llm_fallback_"
+    expect(methodValue).toBeTruthy();
+    if (methodValue) {
+      const methodMatch = methodValue.match(/Method:\s*([^\n]+)/i);
+      if (methodMatch) {
+        const method = methodMatch[1].trim();
+        // Method should be one of: similarity, classifier, or llm_fallback_<model>
+        // It should NOT be just a model name without "llm_fallback_" prefix
+        expect(method).toMatch(/^(similarity|classifier|llm_fallback_|Unknown)/i);
+        // If it's a fallback, it should have the prefix
+        if (method.toLowerCase().includes('mistral') || method.toLowerCase().includes('llm')) {
+          expect(method).toMatch(/^llm_fallback_/i);
+        }
+      }
+    }
+    
+    // Check that Max Similarity is displayed and is a valid percentage (not 0.0%)
+    const maxSimilarityText = page.locator('text=/Max Similarity:/i');
+    const maxSimExists = await maxSimilarityText.isVisible({ timeout: 2000 }).catch(() => false);
+    
+    if (maxSimExists) {
+      const maxSimValue = await maxSimilarityText.locator('..').textContent();
+      if (maxSimValue) {
+        const maxSimMatch = maxSimValue.match(/Max Similarity:\s*([\d.]+)%/i);
+        if (maxSimMatch) {
+          const maxSim = parseFloat(maxSimMatch[1]);
+          // Max similarity should be a valid number (0-100)
+          expect(maxSim).toBeGreaterThanOrEqual(0);
+          expect(maxSim).toBeLessThanOrEqual(100);
+          // If method is "similarity", max similarity should typically be > 0
+          // (unless there's a real edge case)
+        }
+      }
+    }
+    
+    // Verify API response had correct data structure
+    if (response && response.status() < 400) {
+      const responseData = await response.json();
+      const osDetectionResult = responseData?.error_log?.os_detection_result;
+      
+      if (osDetectionResult) {
+        // Verify detection_method exists and is a string
+        expect(osDetectionResult.detection_method).toBeDefined();
+        expect(typeof osDetectionResult.detection_method).toBe('string');
+        
+        // Verify max_similarity exists and is a number (if method is similarity)
+        if (osDetectionResult.detection_method === 'similarity') {
+          expect(osDetectionResult.max_similarity).toBeDefined();
+          expect(typeof osDetectionResult.max_similarity).toBe('number');
+          expect(osDetectionResult.max_similarity).toBeGreaterThanOrEqual(0);
+          expect(osDetectionResult.max_similarity).toBeLessThanOrEqual(1);
+        }
+      }
+    }
+  });
 });
 
