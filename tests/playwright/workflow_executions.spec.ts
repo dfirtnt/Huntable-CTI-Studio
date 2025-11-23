@@ -18,7 +18,7 @@ test.describe('Workflow Executions Page - Execute Workflow Feature', () => {
     });
     
     // Wait a bit for tab content to render
-    await page.waitForTimeout(500);
+        await page.waitForTimeout(500);
   });
 
   test('should find execute workflow button', async ({ page }) => {
