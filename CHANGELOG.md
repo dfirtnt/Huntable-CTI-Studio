@@ -24,6 +24,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Fixed Rank Agent model selector duplicate placeholder
   - Fixed all 6 QA model selectors (Rank QA, CmdLine QA, Sig QA, EventCode QA, ProcTree QA, Reg QA)
   - All dropdowns now display single placeholder option correctly
+- **Duplicate Model Entries in Dropdowns**: Fixed duplicate model entries (e.g., "Mistral7" and "Mistral7:2") in all model selector dropdowns
+  - Added normalization to remove numbered suffixes (`:2`, `:3`, etc.) from model IDs
+  - Deduplication now prefers base model names (without suffix) over numbered instances
+  - Applied to all dropdowns: Rank Agent, Extract Agent, Sigma Agent, OS Detection fallback, all sub-agents, and all QA model selectors
+  - Added Playwright tests to verify no duplicate models appear in dropdowns
 
 ### Added
 - **Help Circles for All Agents**: Contextual help buttons with detailed information for all agent and sub-agent model selectors
