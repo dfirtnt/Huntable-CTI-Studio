@@ -215,7 +215,6 @@
                                     name="agent_models[RankAgentQA]"
                                     onchange="autoSaveModelChange()"
                                     class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-sm">
-                                <option value="">Use Rank Agent model</option>
                             </select>
                             <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
                                 Optional override for QA evaluations.
@@ -312,7 +311,6 @@
                                                     name="agent_models[CmdLineQA]"
                                                     onchange="autoSaveModelChange()"
                                                     class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-xs">
-                                                <option value="">Use Extract Agent model</option>
                                             </select>
                                         </div>
                                         <div id="cmdlineextract-agent-qa-prompt-container" class="hidden"></div>
@@ -378,7 +376,6 @@
                                                     name="agent_models[SigQA]"
                                                     onchange="autoSaveModelChange()"
                                                     class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-xs">
-                                                <option value="">Use Extract Agent model</option>
                                             </select>
                                         </div>
                                         <div id="sigextract-agent-qa-prompt-container" class="hidden"></div>
@@ -444,7 +441,6 @@
                                                     name="agent_models[EventCodeQA]"
                                                     onchange="autoSaveModelChange()"
                                                     class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-xs">
-                                                <option value="">Use Extract Agent model</option>
                                             </select>
                                         </div>
                                         <div id="eventcodeextract-agent-qa-prompt-container" class="hidden"></div>
@@ -510,7 +506,6 @@
                                                     name="agent_models[ProcTreeQA]"
                                                     onchange="autoSaveModelChange()"
                                                     class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-xs">
-                                                <option value="">Use Extract Agent model</option>
                                             </select>
                                         </div>
                                         <div id="proctreeextract-agent-qa-prompt-container" class="hidden"></div>
@@ -576,7 +571,6 @@
                                                     name="agent_models[RegQA]"
                                                     onchange="autoSaveModelChange()"
                                                     class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-xs">
-                                                <option value="">Use Extract Agent model</option>
                                             </select>
                                         </div>
                                         <div id="regextract-agent-qa-prompt-container" class="hidden"></div>
@@ -1834,6 +1828,30 @@ window.updateQABadge = function(agentPrefix) {
 // Also make it available as a non-window function for event listeners
 const updateQABadge = window.updateQABadge;
 
+// Toggle fallback model enable/disable
+window.toggleFallbackModel = function() {
+    const toggle = document.getElementById('osdetectionagent-fallback-enabled');
+    const select = document.getElementById('osdetectionagent-fallback-model-2');
+    
+    if (!toggle || !select) {
+        console.error('toggleFallbackModel: Toggle or select element not found');
+        return;
+    }
+    
+    if (toggle.checked) {
+        // Enable the dropdown
+        select.disabled = false;
+    } else {
+        // Disable the dropdown and clear its value
+        select.disabled = true;
+        select.value = '';
+        // Trigger auto-save to persist the cleared value
+        if (typeof autoSaveModelChange === 'function') {
+            autoSaveModelChange();
+        }
+    }
+};
+
 function toggleCollapsible(panelId) {
     const content = document.getElementById(`${panelId}-content`);
     const toggle = document.getElementById(`${panelId}-toggle`);
@@ -2057,7 +2075,6 @@ function renderAgentModels(lmstudioModels) {
                         name="agent_models[RankAgent]"
                         onchange="autoSaveModelChange()"
                         class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-sm">
-                    <option value="">Select a model (required)</option>
                     ${modelOptions}
                 </select>
                 <p class="text-xs text-gray-500 dark:text-gray-300 mt-1">Required: Select a model from the dropdown</p>
@@ -2100,11 +2117,22 @@ function renderAgentModels(lmstudioModels) {
                     </select>
                 </div>
                 <div>
-                    <label for="osdetectionagent-fallback-model-2" class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Fallback Model (Optional)</label>
+                    <div class="flex items-center justify-between mb-1">
+                        <label for="osdetectionagent-fallback-model-2" class="block text-xs font-medium text-gray-600 dark:text-gray-400">Fallback Model (Optional)</label>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" 
+                                   id="osdetectionagent-fallback-enabled" 
+                                   class="sr-only peer" 
+                                   onchange="toggleFallbackModel()"
+                                   ${currentFallbackModel ? 'checked' : ''}>
+                            <div class="w-9 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-purple-300 dark:peer-focus:ring-purple-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-purple-600"></div>
+                        </label>
+                    </div>
                     <select id="osdetectionagent-fallback-model-2" 
                             name="agent_models[OSDetectionAgent_fallback]"
                             onchange="autoSaveModelChange()"
-                            class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-sm">
+                            class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-sm"
+                            ${currentFallbackModel ? '' : 'disabled'}>
                         <option value="">Use default</option>
                         ${sortedModelIds.map(modelId => `<option value="${escapeHtml(modelId)}" ${currentFallbackModel === modelId ? 'selected' : ''}>${escapeHtml(modelId)}</option>`).join('')}
                     </select>

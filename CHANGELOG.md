@@ -19,6 +19,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Renumbered all subsequent steps: Junk Filter (1), LLM Ranking (2), Extract Agent (3), Generate SIGMA (4), Similarity Search (5), Queue (6)
   - Updated step count from 6 to 7 steps in description
   - Workflow execution order matches UI display
+- **Duplicate Placeholder Options in Model Selectors**: Fixed duplicate placeholder options in all agent model selector dropdowns
+  - Removed hardcoded placeholder options that conflicted with `buildOptions()` function
+  - Fixed Rank Agent model selector duplicate placeholder
+  - Fixed all 6 QA model selectors (Rank QA, CmdLine QA, Sig QA, EventCode QA, ProcTree QA, Reg QA)
+  - All dropdowns now display single placeholder option correctly
 
 ### Added
 - **Help Circles for All Agents**: Contextual help buttons with detailed information for all agent and sub-agent model selectors
