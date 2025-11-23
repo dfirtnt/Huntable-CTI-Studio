@@ -53,6 +53,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - When enabled, user can select a custom fallback LLM model
   - Toggle state persists with workflow configuration
   - Matches existing toggle UI pattern used for QA agents
+- **Workflow Model Loader**: Added `utils/load_workflow_models.py` utility script
+  - Reads active workflow configuration from database
+  - Loads all configured models with 16384 context tokens
+  - Verifies each model can be loaded before workflow execution
+  - Helps prevent context length errors in production workflows
+- **Workflow Context Fix Documentation**: Added `docs/WORKFLOW_CONTEXT_FIX.md`
+  - Troubleshooting guide for context length errors
+  - Instructions for loading models with proper context
+  - Prevention strategies and troubleshooting tips
 
 ### Changed
 - **Test Wrapper Configuration**: Updated test runner to exclude infrastructure and production data tests by default
