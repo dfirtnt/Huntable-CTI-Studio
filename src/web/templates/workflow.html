@@ -2036,11 +2036,35 @@ function renderAgentModels(lmstudioModels) {
             labels: { main: 'SIGMA Generator Agent' }
         }
     };
+    
+    // Normalize model IDs by removing numbered suffixes (:2, :3, etc.) for deduplication
+    // LMStudio may return the same model multiple times with different instance numbers
+    const normalizeModelId = (modelId) => {
+        if (typeof modelId !== 'string') return modelId;
+        // Remove :2, :3, etc. suffixes that indicate multiple instances of the same model
+        return modelId.replace(/:\d+$/, '');
+    };
+    
     const availableModelIds = lmstudioModels.map(m => typeof m === 'string' ? m : m.id);
-    const sortedModelIds = [...new Set(availableModelIds)].sort();
+    
+    // Create a map of normalized -> original (prefer base model without suffix)
+    const modelMap = new Map();
+    for (const modelId of availableModelIds) {
+        const normalized = normalizeModelId(modelId);
+        // Prefer base model (without suffix) over numbered instances
+        if (!modelMap.has(normalized) || !modelId.includes(':')) {
+            modelMap.set(normalized, modelId);
+        }
+    }
+    
+    // Get unique models (using normalized deduplication)
+    const uniqueModelIds = Array.from(modelMap.values()).sort();
+    const sortedModelIds = uniqueModelIds;
 
     const buildOptions = (currentModel, placeholder) => {
-        const allModelIds = [...new Set([...sortedModelIds, ...(currentModel ? [currentModel] : [])])];
+        // Normalize current model for comparison
+        const normalizedCurrent = currentModel ? normalizeModelId(currentModel) : null;
+        const allModelIds = [...new Set([...sortedModelIds, ...(currentModel && !sortedModelIds.some(m => normalizeModelId(m) === normalizedCurrent) ? [currentModel] : [])])];
         return [
             `<option value="">${placeholder}</option>`,
             ...allModelIds.map(modelId => {
@@ -2146,15 +2170,8 @@ function renderAgentModels(lmstudioModels) {
     const extractContainer = document.getElementById('extract-agent-model-container');
     if (extractContainer) {
         const currentModel = agentModels['ExtractAgent'] || '';
-        // Models are returned as strings, not objects with .id property
-        // Sort models alphabetically
-        const sortedModels = [...lmstudioModels].sort((a, b) => {
-            const aId = typeof a === 'string' ? a : a.id;
-            const bId = typeof b === 'string' ? b : b.id;
-            return aId.localeCompare(bId);
-        });
-        const modelOptions = sortedModels.map(m => {
-            const modelId = typeof m === 'string' ? m : m.id;
+        // Use deduplicated sorted models
+        const modelOptions = sortedModelIds.map(modelId => {
             return `<option value="${escapeHtml(modelId)}" ${currentModel === modelId ? 'selected' : ''}>${escapeHtml(modelId)}</option>`;
         }).join('');
         extractContainer.innerHTML = `
@@ -2185,15 +2202,8 @@ function renderAgentModels(lmstudioModels) {
     const sigmaContainer = document.getElementById('sigma-agent-model-container');
     if (sigmaContainer) {
         const currentModel = agentModels['SigmaAgent'] || '';
-        // Models are returned as strings, not objects with .id property
-        // Sort models alphabetically
-        const sortedModels = [...lmstudioModels].sort((a, b) => {
-            const aId = typeof a === 'string' ? a : a.id;
-            const bId = typeof b === 'string' ? b : b.id;
-            return aId.localeCompare(bId);
-        });
-        const modelOptions = sortedModels.map(m => {
-            const modelId = typeof m === 'string' ? m : m.id;
+        // Use deduplicated sorted models
+        const modelOptions = sortedModelIds.map(modelId => {
             return `<option value="${escapeHtml(modelId)}" ${currentModel === modelId ? 'selected' : ''}>${escapeHtml(modelId)}</option>`;
         }).join('');
         sigmaContainer.innerHTML = `
@@ -2233,11 +2243,9 @@ function renderAgentModels(lmstudioModels) {
         const select = document.getElementById(subAgent.id);
         if (select) {
             const currentModel = agentModels[`${subAgent.name}_model`] || '';
-            // Models are returned as strings, not objects with .id property
-            const availableModelIds = lmstudioModels.map(m => typeof m === 'string' ? m : m.id);
-            
-            // Ensure current model is in the list (even if not in available models)
-            const allModelIds = [...new Set([...availableModelIds, ...(currentModel ? [currentModel] : [])])].sort();
+            // Use deduplicated sorted models, ensure current model is in the list
+            const normalizedCurrent = currentModel ? normalizeModelId(currentModel) : null;
+            const allModelIds = [...new Set([...sortedModelIds, ...(currentModel && !sortedModelIds.some(m => normalizeModelId(m) === normalizedCurrent) ? [currentModel] : [])])].sort();
             
             const modelOptions = allModelIds.map(modelId => {
                 const isSelected = currentModel === modelId ? 'selected' : '';
