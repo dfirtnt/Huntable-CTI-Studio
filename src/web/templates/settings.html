@@ -560,8 +560,10 @@
         // Load backup configuration
         loadBackupSettings();
         
-        // Load dynamic LMStudio models
-        loadLMStudioModels();
+        // Load dynamic LMStudio models (fire and forget - don't block page load)
+        loadLMStudioModels().catch(err => {
+            console.error('Error loading LMStudio models:', err);
+        });
         
         // Update API Configuration section visibility
         updateApiConfigurationVisibility();
@@ -757,6 +759,7 @@
             const lmstudioModelSelect = document.getElementById('lmstudioModel');
             lmstudioModelSelect.innerHTML = '<option value="">Error loading models</option>';
         }
+    }
     
     // Load backup settings
     function loadBackupSettings() {
@@ -1234,7 +1237,9 @@
     
     // Event listeners
     document.addEventListener('DOMContentLoaded', function() {
-        loadSettings();
+        loadSettings().catch(err => {
+            console.error('Error loading settings:', err);
+        });
         
         
         // AI model selection
@@ -1315,6 +1320,16 @@
                 });
             }
         });
+        
+        // Temperature slider event listener
+        const temperatureSlider = document.getElementById('aiTemperature');
+        const temperatureValue = document.getElementById('temperatureValue');
+        
+        if (temperatureSlider && temperatureValue) {
+            temperatureSlider.addEventListener('input', function() {
+                temperatureValue.textContent = this.value;
+            });
+        }
         
     });
     
@@ -1433,21 +1448,6 @@
         statusDisplay.classList.remove('hidden');
     }
     
-    function showNotification(message, type) {
-        // Simple notification system
-        const notification = document.createElement('div');
-        notification.className = `fixed top-4 right-4 p-4 rounded-md shadow-lg z-50 ${
-            type === 'success' ? 'bg-green-500 text-white' : 'bg-red-500 text-white'
-        }`;
-        notification.textContent = message;
-        document.body.appendChild(notification);
-        
-        setTimeout(() => {
-            notification.remove();
-        }, 3000);
-    }
-    
-    
     async function exportAnnotations() {
         const exportBtn = document.getElementById('exportAnnotationsBtn');
         const progressDiv = document.getElementById('exportProgress');
@@ -1516,17 +1516,5 @@
             notification.remove();
         }, 5000);
     }
-    
-    // Temperature slider event listener
-    document.addEventListener('DOMContentLoaded', function() {
-        const temperatureSlider = document.getElementById('aiTemperature');
-        const temperatureValue = document.getElementById('temperatureValue');
-        
-        if (temperatureSlider && temperatureValue) {
-            temperatureSlider.addEventListener('input', function() {
-                temperatureValue.textContent = this.value;
-            });
-        }
-    });
 </script>
 {% endblock %}

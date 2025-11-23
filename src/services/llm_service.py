@@ -386,10 +386,14 @@ class LLMService:
         }
         
         if not is_sufficient:
+            # Provide actionable error message with CLI command
+            cli_command = f"lms load {model_name} --context-length {threshold}"
             error_msg = (
                 f"LMStudio model '{model_name}' has context length of {context_length} tokens, "
-                f"which is below the required threshold of {threshold} tokens. "
-                f"Please increase the context length in LMStudio UI (Context tab) and reload the model."
+                f"which is below the required threshold of {threshold} tokens.\n"
+                f"Fix: Run this command to load the model with sufficient context:\n"
+                f"  {cli_command}\n"
+                f"Or manually: LMStudio UI → Load model → Context tab → Set to {threshold}+ tokens → Reload"
             )
             logger.error(error_msg)
             raise RuntimeError(error_msg)

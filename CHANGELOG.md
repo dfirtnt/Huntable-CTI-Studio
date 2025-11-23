@@ -36,6 +36,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Help circles added to all sub-agents: CmdlineExtract, SigExtract, EventCodeExtract, ProcTreeExtract, RegExtract
   - Comprehensive help text explaining each agent's purpose, configuration options, and recommendations
   - Consistent help UI pattern matching Junk Filter Threshold help button
+- **OS Detection Fallback Model Toggle**: Added toggle button to enable/disable fallback model selection for OS Detection Agent
+  - Toggle switch positioned next to "Fallback Model (Optional)" label
+  - When disabled, fallback model dropdown is disabled and value is cleared
+  - When enabled, user can select a custom fallback LLM model
+  - Toggle state persists with workflow configuration
+  - Matches existing toggle UI pattern used for QA agents
 
 ### Changed
 - **Test Wrapper Configuration**: Updated test runner to exclude infrastructure and production data tests by default

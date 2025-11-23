@@ -41,10 +41,10 @@ test.describe('AI/ML Assistant Help Buttons', () => {
       // Check for help button in IOC modal
       const helpButton = page.locator('#iocsModal button:has-text("Help"), #ctibertIOCsModal button:has-text("Help")').first();
       await expect(helpButton).toBeVisible({ timeout: 5_000 });
-      console.log('✅ IOC Modal help button visible');
-      
-      // Close IOC modal
-      await page.click('button:has-text("Close")');
+    console.log('✅ IOC Modal help button visible');
+    
+    // Close IOC modal
+    await page.click('button:has-text("Close")');
     } else {
       console.log('⏭️  Skipping IOC modal test - IOCs need to be extracted (async operation)');
     }
@@ -64,10 +64,10 @@ test.describe('AI/ML Assistant Help Buttons', () => {
       // Check for help button in SIGMA modal
       const sigmaHelpButton = page.locator('#sigmaRulesModal button:has-text("Help")').first();
       await expect(sigmaHelpButton).toBeVisible({ timeout: 5_000 });
-      console.log('✅ SIGMA Modal help button visible');
-      
-      // Close SIGMA modal
-      await page.click('button:has-text("Close")');
+    console.log('✅ SIGMA Modal help button visible');
+    
+    // Close SIGMA modal
+    await page.click('button:has-text("Close")');
     } else {
       console.log('⏭️  Skipping SIGMA modal test - article not marked as "chosen"');
     }
@@ -104,7 +104,7 @@ test.describe('AI/ML Assistant Help Buttons', () => {
     
     if (gpt4oButtonVisible) {
       await gpt4oButton.click();
-      
+    
       // Wait for modal to appear (either config or results screen)
       const modalAppeared = await Promise.race([
         page.waitForSelector('#gpt4oRankingModal', { timeout: 5_000 }).then(() => true).catch(() => false),
@@ -116,9 +116,9 @@ test.describe('AI/ML Assistant Help Buttons', () => {
         
         // Check if we're on configuration screen or results screen
         const isConfigScreen = await page.locator('text=GPT-4o Content Optimization').isVisible({ timeout: 2_000 }).catch(() => false);
-        
-        if (isConfigScreen) {
-          console.log('📊 GPT4o Ranking Modal: Configuration screen (no help button expected)');
+    
+    if (isConfigScreen) {
+      console.log('📊 GPT4o Ranking Modal: Configuration screen (no help button expected)');
           // Skip clicking Analyze - that would trigger async operation
           console.log('⏭️  Skipping GPT4o ranking analysis (async operation)');
         } else {
