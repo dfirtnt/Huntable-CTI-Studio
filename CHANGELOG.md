@@ -28,6 +28,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Added normalization to remove numbered suffixes (`:2`, `:3`, etc.) from model IDs
   - Deduplication now prefers base model names (without suffix) over numbered instances
   - Applied to all dropdowns: Rank Agent, Extract Agent, Sigma Agent, OS Detection fallback, all sub-agents, and all QA model selectors
+- **LLMService Context Length Detection**: Improved context length handling to trust detected values when reasonable
+  - Now uses model-specific context limits based on model size (1B: 2048, 3B: 4096, 7B/8B: 8192, 13B/14B: 16384, 32B: 32768)
+  - Trusts detected context when between 4096 and model max (with 10% safety margin)
+  - Only uses very conservative caps when detection is unreliable or too small
+  - Respects environment variable overrides completely
+  - Fixes issue where models loaded with 16384 context were only using 1536 tokens
   - Added Playwright tests to verify no duplicate models appear in dropdowns
 
 ### Added
