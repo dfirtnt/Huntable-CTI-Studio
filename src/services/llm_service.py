@@ -670,28 +670,53 @@ Score the article from 1-10 for SIGMA rule generation potential. Consider:
         # Reduce max_output_tokens when using conservative context caps
         max_output_tokens = 2000 if is_reasoning_model else 600  # Reduced from 2500/800
         
-        # Use fixed conservative context limits to avoid LM Studio configuration mismatches
-        # CRITICAL: LM Studio's actual configured context is often MUCH smaller than theoretical max
-        # Use very conservative caps that work even if LM Studio is configured with minimal context
-        MAX_SAFE_CONTEXT_REASONING = 4096  # Very conservative cap for reasoning models (works with 4096 or 8192 config)
-        MAX_SAFE_CONTEXT_NORMAL = 2048     # Very conservative cap for normal models (works with 2048 or 4096 config)
+        # Determine model-specific context limits based on model size
+        # These are reasonable maximums for each model size category
+        model_lower = model_name.lower()
+        if '1b' in model_lower:
+            model_max_context = 2048  # 1B models typically max at 2048
+        elif '3b' in model_lower or '2b' in model_lower:
+            model_max_context = 4096  # 3B models typically max at 4096
+        elif '7b' in model_lower or '8b' in model_lower:
+            model_max_context = 8192  # 7B/8B models often support 8192
+        elif '13b' in model_lower or '14b' in model_lower:
+            model_max_context = 16384  # 13B/14B models often support 16384
+        elif '32b' in model_lower or '30b' in model_lower:
+            model_max_context = 32768  # 32B models often support 32K+
+        else:
+            # Unknown model size - use conservative default
+            model_max_context = 4096 if is_reasoning_model else 2048
         
         try:
             context_check = await self.check_model_context_length(model_name=model_name)
             detected_length = context_check['context_length']
+            detection_method = context_check.get('method', 'unknown')
         except Exception as e:
             logger.warning(f"Could not get model context length: {e}")
-            detected_length = 32768  # Fallback
+            detected_length = model_max_context  # Use model-specific fallback
+            detection_method = 'fallback'
         
-        # Always use conservative caps regardless of detection
-        # LM Studio's actual configured context is often much smaller than detected/theoretical max
-        if is_reasoning_model:
-            actual_context_length = min(detected_length, MAX_SAFE_CONTEXT_REASONING)
+        # Trust detected context if it's reasonable (not too large, within model limits)
+        # Only use very conservative caps if detection seems unreliable
+        if detection_method == 'environment_override':
+            # Trust manual override completely
+            actual_context_length = detected_length
+        elif 4096 <= detected_length <= model_max_context:
+            # Detected context is in reasonable range - trust it (with small safety margin)
+            actual_context_length = int(detected_length * 0.90)  # 10% safety margin
+            logger.info(f"Trusting detected context {detected_length} for {model_name} (method: {detection_method})")
+        elif detected_length > model_max_context:
+            # Detected context exceeds model's likely max - cap to model max
+            actual_context_length = int(model_max_context * 0.90)
+            logger.warning(f"Detected context {detected_length} exceeds model max {model_max_context}, capping to {actual_context_length}")
         else:
-            actual_context_length = min(detected_length, MAX_SAFE_CONTEXT_NORMAL)
-        
-        # Apply additional safety margin (use 75% of the conservative cap - very aggressive)
-        actual_context_length = int(actual_context_length * 0.75)
+            # Detected context is very small or unreliable - use conservative model-specific cap
+            if is_reasoning_model:
+                conservative_cap = min(4096, model_max_context)
+            else:
+                conservative_cap = min(2048, model_max_context)
+            actual_context_length = int(conservative_cap * 0.75)  # 25% safety margin for unreliable detection
+            logger.warning(f"Using conservative context {actual_context_length} for {model_name} (detected: {detected_length}, method: {detection_method})")
         
         logger.info(
             f"Using very conservative context length {actual_context_length} for truncation "
