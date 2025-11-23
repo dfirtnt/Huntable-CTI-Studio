@@ -35,6 +35,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Respects environment variable overrides completely
   - Fixes issue where models loaded with 16384 context were only using 1536 tokens
   - Added Playwright tests to verify no duplicate models appear in dropdowns
+- **LLMService Context Length NameError**: Fixed `NameError: name 'MAX_SAFE_CONTEXT_NORMAL' is not defined` in Rank Agent testing
+  - Removed all references to `MAX_SAFE_CONTEXT_NORMAL` and `MAX_SAFE_CONTEXT_REASONING` constants
+  - Updated `rank_article`, `extract_behaviors`, and `extract_observables` methods to use consistent model-specific context detection
+  - Fixed logger statements to use new context detection variables
+  - All methods now use the same improved context length logic
 
 ### Added
 - **Help Circles for All Agents**: Contextual help buttons with detailed information for all agent and sub-agent model selectors
