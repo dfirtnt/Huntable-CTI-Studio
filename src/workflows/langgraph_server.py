@@ -801,9 +801,67 @@ Cannot process empty articles."""
                 ("RegExtract", "registry_keys", "RegQA")
             ]
             
+            # Determine disabled sub-agents (supports list or map in config)
+            disabled_agents_cfg = set()
+            extract_settings = {}
+            
+            # Try to get disabled agents from config_obj.agent_prompts
+            if config_obj:
+                logger.info(f"[Workflow {execution_id}] config_obj found. agent_prompts type: {type(config_obj.agent_prompts)}, is None: {config_obj.agent_prompts is None}")
+                if config_obj.agent_prompts is not None:
+                    logger.info(f"[Workflow {execution_id}] agent_prompts keys: {list(config_obj.agent_prompts.keys()) if isinstance(config_obj.agent_prompts, dict) else 'not a dict'}")
+                if config_obj.agent_prompts and isinstance(config_obj.agent_prompts, dict):
+                    extract_settings = (
+                        config_obj.agent_prompts.get("ExtractAgentSettings")
+                        or config_obj.agent_prompts.get("ExtractAgent")
+                        or {}
+                    )
+                    logger.info(f"[Workflow {execution_id}] Found extract_settings from agent_prompts: {extract_settings}")
+                else:
+                    logger.warning(f"[Workflow {execution_id}] agent_prompts not available or not a dict. agent_prompts type: {type(config_obj.agent_prompts)}, value: {config_obj.agent_prompts}")
+            else:
+                logger.warning(f"[Workflow {execution_id}] config_obj is None - cannot read disabled agents")
+            
+            # Fallback to state config if extract_settings is still empty
+            state_config = state.get('config', {}) if isinstance(state.get('config', {}), dict) else {}
+            if not extract_settings and isinstance(state_config.get('extract_agents_disabled'), (list, dict)):
+                extract_settings = {"disabled_agents": state_config.get('extract_agents_disabled')}
+                logger.debug(f"[Workflow {execution_id}] Found extract_settings from state config: {extract_settings}")
+
+            disabled_agents_value = (
+                extract_settings.get("disabled_agents")
+                or extract_settings.get("disabled_sub_agents")
+                or []
+            )
+            
+            logger.info(f"[Workflow {execution_id}] disabled_agents_value: {disabled_agents_value} (type: {type(disabled_agents_value)})")
+            
+            if isinstance(disabled_agents_value, dict):
+                disabled_agents_cfg = {
+                    name for name, enabled in disabled_agents_value.items()
+                    if enabled is False or (isinstance(enabled, str) and enabled.lower() == "false")
+                }
+            elif isinstance(disabled_agents_value, list):
+                disabled_agents_cfg = set(disabled_agents_value)
+            
+            logger.info(f"[Workflow {execution_id}] Final disabled_agents_cfg: {disabled_agents_cfg}")
+            logger.info(f"[Workflow {execution_id}] Sub-agents to process: {[name for name, _, _ in sub_agents]}")
+            
             prompts_dir = Path(__file__).parent.parent / "prompts"
             
             for agent_name, result_key, qa_name in sub_agents:
+                # Check if agent is disabled
+                if agent_name in disabled_agents_cfg:
+                    logger.info(f"[Workflow {execution_id}] ⚠️ {agent_name} is DISABLED via config; SKIPPING execution")
+                    subresults[result_key] = {
+                        "items": [],
+                        "count": 0,
+                        "raw": {"status": "disabled"}
+                    }
+                    continue
+                else:
+                    logger.info(f"[Workflow {execution_id}] ✓ {agent_name} is ENABLED; will execute")
+                
                 try:
                     # Load Prompts
                     prompt_path = prompts_dir / agent_name

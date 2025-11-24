@@ -75,20 +75,6 @@
     <div id="tab-content-config" class="tab-content hidden">
         <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mb-8">
             <form id="workflowConfigForm" class="space-y-6">
-                <!-- Workflow Description -->
-                <div class="border border-gray-200 dark:border-gray-700 rounded-lg">
-                    <div class="p-4 space-y-2">
-                        <label for="description" class="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300">
-                            Workflow Description
-                        </label>
-                        <textarea id="description"
-                                  name="description"
-                                  rows="2"
-                                  class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white text-sm"
-                                  placeholder="Optional notes about this config"></textarea>
-                        <p class="text-xs text-gray-500 dark:text-gray-400">Optional notes saved with this configuration version.</p>
-                    </div>
-                </div>
                 <!-- Other Thresholds -->
                 <div class="border border-gray-200 dark:border-gray-700 rounded-lg">
                     <button type="button" onclick="toggleCollapsible('other-thresholds-panel')" class="w-full flex items-center justify-between p-4 text-left hover:bg-gray-50 dark:hover:bg-gray-700 rounded-t-lg transition-colors">
@@ -1623,81 +1609,93 @@ function renderAgentPrompts() {
         const agentId = agentName.toLowerCase().replace(/\s+/g, '-');
         const isEditing = editingPrompts[agentName] || false;
         const displayName = agentDisplayNames[agentName] || agentName;
+        const panelId = `${agentId}-prompt-panel`;
         
         return `
-            <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
-                <div class="flex items-center justify-between mb-3">
-                    <div>
-                    <h4 class="text-md font-semibold text-gray-900 dark:text-white">${displayName}</h4>
-                        <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Model: <span class="font-mono">${escapeHtml(model)}</span></p>
+            <div class="border border-gray-200 dark:border-gray-700 rounded-lg mb-4">
+                <button type="button" onclick="toggleCollapsible('${panelId}')" class="w-full flex items-center justify-between p-3 text-left hover:bg-gray-50 dark:hover:bg-gray-700 rounded-t-lg transition-colors">
+                    <div class="flex items-center gap-3">
+                        <h4 class="text-md font-semibold text-gray-900 dark:text-white">${displayName}</h4>
+                        <span class="text-xs text-gray-500 dark:text-gray-400">Model: <span class="font-mono">${escapeHtml(model)}</span></span>
                     </div>
-                    <div class="flex gap-2">
+                    <span id="${panelId}-toggle" class="text-gray-700 dark:text-gray-200 text-sm font-medium transform transition-transform">▼</span>
+                </button>
+                <div id="${panelId}-content" class="hidden p-4 border-t border-gray-200 dark:border-gray-700">
+                    <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+                        <div class="flex items-center justify-between mb-3">
+                            <div>
+                                <h4 class="text-md font-semibold text-gray-900 dark:text-white">${displayName}</h4>
+                                <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Model: <span class="font-mono">${escapeHtml(model)}</span></p>
+                            </div>
+                            <div class="flex gap-2">
+                                ${isEditing ? `
+                                    <button onclick="cancelEditPrompt('${agentName}')" 
+                                            class="px-3 py-1 bg-gray-600 hover:bg-gray-700 text-white text-sm rounded-md transition-colors">
+                                        Cancel
+                                    </button>
+                                    <button onclick="saveAgentPrompt('${agentName}')" 
+                                            class="px-3 py-1 bg-purple-600 hover:bg-purple-700 text-white text-sm rounded-md transition-colors">
+                                        💾 Save
+                                    </button>
+                                ` : `
+                                    <button onclick="showPromptHistory('${agentName}')" 
+                                            class="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-md transition-colors">
+                                        📜 History
+                                    </button>
+                                    <button onclick="editPrompt('${agentName}')" 
+                                            class="px-3 py-1 bg-green-600 hover:bg-green-700 text-white text-sm rounded-md transition-colors">
+                                        ✏️ Edit
+                                    </button>
+                                `}
+                            </div>
+                        </div>
+                        ${instructions ? `
+                            <div class="mb-3">
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Instructions Template</label>
+                                ${isEditing ? `
+                                    <textarea id="${agentId}-instructions" 
+                                              rows="4"
+                                              class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-800 dark:text-white font-mono text-sm">${escapeHtml(instructions)}</textarea>
+                                ` : `
+                                    <div id="${agentId}-instructions-display" 
+                                         class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-800 dark:text-white font-mono text-sm bg-white whitespace-pre-wrap">${escapeHtml(instructions)}</div>
+                                `}
+                            </div>
+                        ` : ''}
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">System Prompt</label>
+                                ${isEditing ? `
+                                    <textarea id="${agentId}-prompt-system" 
+                                              rows="6"
+                                              class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-800 dark:text-white font-mono text-sm">${escapeHtml(promptParts.system)}</textarea>
+                                ` : `
+                                    <div id="${agentId}-prompt-system-display" 
+                                         class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-800 dark:text-white font-mono text-sm bg-white whitespace-pre-wrap max-h-64 overflow-y-auto">${escapeHtml(promptParts.system)}</div>
+                                `}
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">User Prompt</label>
+                                ${isEditing ? `
+                                    <textarea id="${agentId}-prompt-user" 
+                                              rows="6"
+                                              class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-800 dark:text-white font-mono text-sm">${escapeHtml(promptParts.user)}</textarea>
+                                ` : `
+                                    <div id="${agentId}-prompt-user-display" 
+                                         class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-800 dark:text-white font-mono text-sm bg-white whitespace-pre-wrap max-h-64 overflow-y-auto">${escapeHtml(promptParts.user)}</div>
+                                `}
+                            </div>
+                        </div>
                         ${isEditing ? `
-                            <button onclick="cancelEditPrompt('${agentName}')" 
-                                    class="px-3 py-1 bg-gray-600 hover:bg-gray-700 text-white text-sm rounded-md transition-colors">
-                                Cancel
-                            </button>
-                            <button onclick="saveAgentPrompt('${agentName}')" 
-                                    class="px-3 py-1 bg-purple-600 hover:bg-purple-700 text-white text-sm rounded-md transition-colors">
-                                💾 Save
-                            </button>
-                        ` : `
-                            <button onclick="showPromptHistory('${agentName}')" 
-                                    class="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-md transition-colors">
-                                📜 History
-                            </button>
-                            <button onclick="editPrompt('${agentName}')" 
-                                    class="px-3 py-1 bg-green-600 hover:bg-green-700 text-white text-sm rounded-md transition-colors">
-                                ✏️ Edit
-                            </button>
-                        `}
+                            <div class="mt-2">
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Change Description (optional)</label>
+                                <input type="text" id="${agentId}-change-description" 
+                                       placeholder="Describe what changed..."
+                                       class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-800 dark:text-white text-sm">
+                            </div>
+                        ` : ''}
                     </div>
                 </div>
-                ${instructions ? `
-                    <div class="mb-3">
-                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Instructions Template</label>
-                        ${isEditing ? `
-                            <textarea id="${agentId}-instructions" 
-                                      rows="4"
-                                      class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-800 dark:text-white font-mono text-sm">${escapeHtml(instructions)}</textarea>
-                        ` : `
-                            <div id="${agentId}-instructions-display" 
-                                 class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-800 dark:text-white font-mono text-sm bg-white whitespace-pre-wrap">${escapeHtml(instructions)}</div>
-                        `}
-                    </div>
-                ` : ''}
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">System Prompt</label>
-                        ${isEditing ? `
-                            <textarea id="${agentId}-prompt-system" 
-                                      rows="6"
-                                      class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-800 dark:text-white font-mono text-sm">${escapeHtml(promptParts.system)}</textarea>
-                        ` : `
-                            <div id="${agentId}-prompt-system-display" 
-                                 class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-800 dark:text-white font-mono text-sm bg-white whitespace-pre-wrap max-h-64 overflow-y-auto">${escapeHtml(promptParts.system)}</div>
-                        `}
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">User Prompt</label>
-                        ${isEditing ? `
-                            <textarea id="${agentId}-prompt-user" 
-                                      rows="6"
-                                      class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-800 dark:text-white font-mono text-sm">${escapeHtml(promptParts.user)}</textarea>
-                        ` : `
-                            <div id="${agentId}-prompt-user-display" 
-                                 class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-800 dark:text-white font-mono text-sm bg-white whitespace-pre-wrap max-h-64 overflow-y-auto">${escapeHtml(promptParts.user)}</div>
-                        `}
-                    </div>
-                </div>
-                ${isEditing ? `
-                    <div class="mt-2">
-                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Change Description (optional)</label>
-                        <input type="text" id="${agentId}-change-description" 
-                               placeholder="Describe what changed..."
-                               class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-800 dark:text-white text-sm">
-                    </div>
-                ` : ''}
             </div>
         `;
     }).join('');
@@ -2051,10 +2049,6 @@ async function loadConfig() {
             }
             if (currentConfig.similarity_threshold !== undefined) {
                 document.getElementById('similarityThreshold').value = currentConfig.similarity_threshold;
-            }
-            const descriptionField = document.getElementById('description');
-            if (descriptionField && currentConfig.description !== undefined) {
-                descriptionField.value = currentConfig.description || '';
             }
             
             // Display current config
@@ -2725,6 +2719,11 @@ window.autoSaveModelChange = async function autoSaveModelChange() {
         // Update save button state when models change (even though we auto-save, button should reflect changes)
         updateSaveButtonState();
         
+        // Refresh prompt displays immediately to show updated model values from dropdown
+        if (agentPrompts && Object.keys(agentPrompts).length > 0) {
+            renderAgentPrompts();
+        }
+        
         // Get current config to preserve other settings
         if (!currentConfig) {
             // Load config first if not available
@@ -2763,6 +2762,11 @@ window.autoSaveModelChange = async function autoSaveModelChange() {
             agentModels = updatedConfig.agent_models || {};
             console.log('✅ Model change auto-saved successfully');
             console.log('Updated config agent_models:', updatedConfig.agent_models);
+            
+            // Refresh prompt displays to show updated model values
+            if (agentPrompts && Object.keys(agentPrompts).length > 0) {
+                renderAgentPrompts();
+            }
             
             // Verify the saved value matches what we sent
             const savedRankModel = updatedConfig.agent_models?.RankAgent;
@@ -2866,68 +2870,115 @@ function renderAgentPrompts() {
     }
 }
 
+function getCurrentModelForAgent(agentName) {
+    // Map agent names to their dropdown select IDs
+    const modelSelectMap = {
+        'ExtractAgent': 'extractagent-model-2',
+        'RankAgent': 'rankagent-model-2',
+        'SigmaAgent': 'sigmaagent-model-2',
+        'CmdlineExtract': 'cmdlineextract-model',
+        'SigExtract': 'sigextract-model',
+        'EventCodeExtract': 'eventcodeextract-model',
+        'ProcTreeExtract': 'proctreeextract-model',
+        'RegExtract': 'regextract-model',
+        'OSDetectionAgent': 'osdetectionagent-embedding-model-2'
+    };
+    
+    const selectId = modelSelectMap[agentName];
+    if (selectId) {
+        const selectElement = document.getElementById(selectId);
+        if (selectElement) {
+            const value = selectElement.value?.trim();
+            // For sub-agents, if value is empty, they use ExtractAgent model
+            if (!value && ['CmdlineExtract', 'SigExtract', 'EventCodeExtract', 'ProcTreeExtract', 'RegExtract'].includes(agentName)) {
+                const extractModelSelect = document.getElementById('extractagent-model-2');
+                if (extractModelSelect && extractModelSelect.value && extractModelSelect.value.trim()) {
+                    return extractModelSelect.value.trim();
+                }
+            } else if (value) {
+                return value;
+            }
+        }
+    }
+    return null;
+}
+
 function renderSinglePrompt(agentName, promptData, prefix) {
     const prompt = promptData.prompt || '';
     const instructions = promptData.instructions || '';
-    const model = promptData.model || 'Not configured';
+    // Get current model from dropdown first, fall back to promptData.model
+    const currentModelFromDropdown = getCurrentModelForAgent(agentName);
+    const model = currentModelFromDropdown || promptData.model || 'Not configured';
     const agentId = agentName.toLowerCase().replace(/\s+/g, '-');
     const isEditing = editingPrompts[agentName] || false;
+    const panelId = `${prefix}-prompt-panel`;
     
     return `
-        <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
-            <div class="flex items-center justify-between mb-3">
-                <div>
-                    <p class="text-xs text-gray-500 dark:text-gray-400">Model: <span class="font-mono">${escapeHtml(model)}</span></p>
+        <div class="border border-gray-200 dark:border-gray-700 rounded-lg">
+            <button type="button" onclick="toggleCollapsible('${panelId}')" class="w-full flex items-center justify-between p-3 text-left hover:bg-gray-50 dark:hover:bg-gray-700 rounded-t-lg transition-colors">
+                <div class="flex items-center gap-3">
+                    <h4 class="text-sm font-semibold text-gray-900 dark:text-white">${escapeHtml(agentName)} Prompt</h4>
+                    <span class="text-xs text-gray-500 dark:text-gray-400">Model: <span class="font-mono">${escapeHtml(model)}</span></span>
                 </div>
-                <div class="flex gap-2">
-                    ${isEditing ? `
-                        <button onclick="cancelEditPrompt2('${agentName}')" 
-                                class="px-3 py-1 bg-gray-600 hover:bg-gray-700 text-white text-sm rounded-md transition-colors">
-                            Cancel
-                        </button>
-                        <button onclick="saveAgentPrompt2('${agentName}')" 
-                                class="px-3 py-1 bg-purple-600 hover:bg-purple-700 text-white text-sm rounded-md transition-colors">
-                            💾 Save
-                        </button>
-                    ` : `
-                        <button onclick="showPromptHistory('${agentName}')" 
-                                class="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-md transition-colors">
-                            📜 History
-                        </button>
-                        <button onclick="editPrompt('${agentName}')" 
-                                class="px-3 py-1 bg-green-600 hover:bg-green-700 text-white text-sm rounded-md transition-colors">
-                            ✏️ Edit
-                        </button>
-                    `}
-                </div>
-            </div>
-            ${instructions ? `
-                <div class="mb-3">
-                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Instructions Template</label>
-                    ${isEditing ? `
-                        <textarea id="${agentId}-instructions-2" 
-                                  rows="4"
-                                  class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-800 dark:text-white font-mono text-sm">${escapeHtml(instructions)}</textarea>
-                    ` : `
-                        <div class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-800 dark:text-white font-mono text-sm bg-white whitespace-pre-wrap max-h-48 overflow-y-auto">${escapeHtml(instructions)}</div>
-                    `}
-                </div>
-            ` : ''}
-            <div>
-                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Prompt</label>
-                ${isEditing ? `
-                    <textarea id="${agentId}-prompt-2" 
-                              rows="8"
-                              class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-800 dark:text-white font-mono text-sm">${escapeHtml(prompt)}</textarea>
-                    <div class="mt-2">
-                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Change Description (optional)</label>
-                        <input type="text" id="${agentId}-change-description-2" 
-                               placeholder="Describe what changed..."
-                               class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-800 dark:text-white text-sm">
+                <span id="${panelId}-toggle" class="text-gray-700 dark:text-gray-200 text-sm font-medium transform transition-transform">▼</span>
+            </button>
+            <div id="${panelId}-content" class="hidden p-4 border-t border-gray-200 dark:border-gray-700">
+                <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+                    <div class="flex items-center justify-between mb-3">
+                        <div>
+                            <p class="text-xs text-gray-500 dark:text-gray-400">Model: <span class="font-mono">${escapeHtml(model)}</span></p>
+                        </div>
+                        <div class="flex gap-2">
+                            ${isEditing ? `
+                                <button onclick="cancelEditPrompt2('${agentName}')" 
+                                        class="px-3 py-1 bg-gray-600 hover:bg-gray-700 text-white text-sm rounded-md transition-colors">
+                                    Cancel
+                                </button>
+                                <button onclick="saveAgentPrompt2('${agentName}')" 
+                                        class="px-3 py-1 bg-purple-600 hover:bg-purple-700 text-white text-sm rounded-md transition-colors">
+                                    💾 Save
+                                </button>
+                            ` : `
+                                <button onclick="showPromptHistory('${agentName}')" 
+                                        class="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-md transition-colors">
+                                    📜 History
+                                </button>
+                                <button onclick="editPrompt('${agentName}')" 
+                                        class="px-3 py-1 bg-green-600 hover:bg-green-700 text-white text-sm rounded-md transition-colors">
+                                    ✏️ Edit
+                                </button>
+                            `}
+                        </div>
                     </div>
-                ` : `
-                    <div class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-800 dark:text-white font-mono text-sm bg-white whitespace-pre-wrap max-h-96 overflow-y-auto">${escapeHtml(prompt)}</div>
-                `}
+                    ${instructions ? `
+                        <div class="mb-3">
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Instructions Template</label>
+                            ${isEditing ? `
+                                <textarea id="${agentId}-instructions-2" 
+                                          rows="4"
+                                          class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-800 dark:text-white font-mono text-sm">${escapeHtml(instructions)}</textarea>
+                            ` : `
+                                <div class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-800 dark:text-white font-mono text-sm bg-white whitespace-pre-wrap max-h-48 overflow-y-auto">${escapeHtml(instructions)}</div>
+                            `}
+                        </div>
+                    ` : ''}
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Prompt</label>
+                        ${isEditing ? `
+                            <textarea id="${agentId}-prompt-2" 
+                                      rows="8"
+                                      class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-800 dark:text-white font-mono text-sm">${escapeHtml(prompt)}</textarea>
+                            <div class="mt-2">
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Change Description (optional)</label>
+                                <input type="text" id="${agentId}-change-description-2" 
+                                       placeholder="Describe what changed..."
+                                       class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-800 dark:text-white text-sm">
+                            </div>
+                        ` : `
+                            <div class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-800 dark:text-white font-mono text-sm bg-white whitespace-pre-wrap max-h-96 overflow-y-auto">${escapeHtml(prompt)}</div>
+                        `}
+                    </div>
+                </div>
             </div>
         </div>
     `;
@@ -2943,62 +2994,74 @@ function renderQAPrompt(agentName, containerId) {
     const model = promptData.model || 'Not configured';
     const isEditing = editingPrompts[agentName] || false;
     const agentId = agentName.toLowerCase().replace(/\s+/g, '-');
+    const panelId = `${agentId}-qa-prompt-panel`;
     
     container.innerHTML = `
-        <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
-            <div class="flex items-center justify-between mb-3">
-                <div>
-                    <p class="text-xs text-gray-500 dark:text-gray-400">Model: <span class="font-mono">${escapeHtml(model)}</span></p>
+        <div class="border border-gray-200 dark:border-gray-700 rounded-lg">
+            <button type="button" onclick="toggleCollapsible('${panelId}')" class="w-full flex items-center justify-between p-3 text-left hover:bg-gray-50 dark:hover:bg-gray-700 rounded-t-lg transition-colors">
+                <div class="flex items-center gap-3">
+                    <h4 class="text-sm font-semibold text-gray-900 dark:text-white">${escapeHtml(agentName)} QA Prompt</h4>
+                    <span class="text-xs text-gray-500 dark:text-gray-400">Model: <span class="font-mono">${escapeHtml(model)}</span></span>
                 </div>
-                <div class="flex gap-2">
-                    ${isEditing ? `
-                        <button onclick="cancelEditPrompt2('${agentName}')" 
-                                class="px-3 py-1 bg-gray-600 hover:bg-gray-700 text-white text-sm rounded-md transition-colors">
-                            Cancel
-                        </button>
-                        <button onclick="saveAgentPrompt2('${agentName}')" 
-                                class="px-3 py-1 bg-purple-600 hover:bg-purple-700 text-white text-sm rounded-md transition-colors">
-                            💾 Save
-                        </button>
-                    ` : `
-                        <button onclick="showPromptHistory('${agentName}')" 
-                                class="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-md transition-colors">
-                            📜 History
-                        </button>
-                        <button onclick="editPrompt('${agentName}')" 
-                                class="px-3 py-1 bg-green-600 hover:bg-green-700 text-white text-sm rounded-md transition-colors">
-                            ✏️ Edit
-                        </button>
-                    `}
-                </div>
-            </div>
-            ${instructions ? `
-                <div class="mb-3">
-                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Instructions Template</label>
-                    ${isEditing ? `
-                        <textarea id="${agentId}-instructions-2" 
-                                  rows="4"
-                                  class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-800 dark:text-white font-mono text-sm">${escapeHtml(instructions)}</textarea>
-                    ` : `
-                        <div class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-800 dark:text-white font-mono text-sm bg-white whitespace-pre-wrap max-h-48 overflow-y-auto">${escapeHtml(instructions)}</div>
-                    `}
-                </div>
-            ` : ''}
-            <div>
-                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Prompt</label>
-                ${isEditing ? `
-                    <textarea id="${agentId}-prompt-2" 
-                              rows="8"
-                              class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-800 dark:text-white font-mono text-sm">${escapeHtml(prompt)}</textarea>
-                    <div class="mt-2">
-                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Change Description (optional)</label>
-                        <input type="text" id="${agentId}-change-description-2" 
-                               placeholder="Describe what changed..."
-                               class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-800 dark:text-white text-sm">
+                <span id="${panelId}-toggle" class="text-gray-700 dark:text-gray-200 text-sm font-medium transform transition-transform">▼</span>
+            </button>
+            <div id="${panelId}-content" class="hidden p-4 border-t border-gray-200 dark:border-gray-700">
+                <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+                    <div class="flex items-center justify-between mb-3">
+                        <div>
+                            <p class="text-xs text-gray-500 dark:text-gray-400">Model: <span class="font-mono">${escapeHtml(model)}</span></p>
+                        </div>
+                        <div class="flex gap-2">
+                            ${isEditing ? `
+                                <button onclick="cancelEditPrompt2('${agentName}')" 
+                                        class="px-3 py-1 bg-gray-600 hover:bg-gray-700 text-white text-sm rounded-md transition-colors">
+                                    Cancel
+                                </button>
+                                <button onclick="saveAgentPrompt2('${agentName}')" 
+                                        class="px-3 py-1 bg-purple-600 hover:bg-purple-700 text-white text-sm rounded-md transition-colors">
+                                    💾 Save
+                                </button>
+                            ` : `
+                                <button onclick="showPromptHistory('${agentName}')" 
+                                        class="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-md transition-colors">
+                                    📜 History
+                                </button>
+                                <button onclick="editPrompt('${agentName}')" 
+                                        class="px-3 py-1 bg-green-600 hover:bg-green-700 text-white text-sm rounded-md transition-colors">
+                                    ✏️ Edit
+                                </button>
+                            `}
+                        </div>
                     </div>
-                ` : `
-                    <div class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-800 dark:text-white font-mono text-sm bg-white whitespace-pre-wrap max-h-96 overflow-y-auto">${escapeHtml(prompt)}</div>
-                `}
+                    ${instructions ? `
+                        <div class="mb-3">
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Instructions Template</label>
+                            ${isEditing ? `
+                                <textarea id="${agentId}-instructions-2" 
+                                          rows="4"
+                                          class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-800 dark:text-white font-mono text-sm">${escapeHtml(instructions)}</textarea>
+                            ` : `
+                                <div class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-800 dark:text-white font-mono text-sm bg-white whitespace-pre-wrap max-h-48 overflow-y-auto">${escapeHtml(instructions)}</div>
+                            `}
+                        </div>
+                    ` : ''}
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Prompt</label>
+                        ${isEditing ? `
+                            <textarea id="${agentId}-prompt-2" 
+                                      rows="8"
+                                      class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-800 dark:text-white font-mono text-sm">${escapeHtml(prompt)}</textarea>
+                            <div class="mt-2">
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Change Description (optional)</label>
+                                <input type="text" id="${agentId}-change-description-2" 
+                                       placeholder="Describe what changed..."
+                                       class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-800 dark:text-white text-sm">
+                            </div>
+                        ` : `
+                            <div class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-800 dark:text-white font-mono text-sm bg-white whitespace-pre-wrap max-h-96 overflow-y-auto">${escapeHtml(prompt)}</div>
+                        `}
+                    </div>
+                </div>
             </div>
         </div>
     `;
@@ -3701,7 +3764,7 @@ function getCurrentFormState() {
         junk_filter_threshold: parseFloat(document.getElementById('junkFilterThreshold')?.value || '0'),
         ranking_threshold: parseFloat(document.getElementById('rankingThreshold')?.value || '0'),
         similarity_threshold: parseFloat(document.getElementById('similarityThreshold')?.value || '0'),
-        description: document.getElementById('description')?.value || '',
+        description: null,
         qa_enabled: qaEnabled,
         agent_models: agent_models,
         disabled_extract_agents: disabled_agents
@@ -3722,8 +3785,6 @@ function checkForUnsavedChanges() {
     if (Math.abs(currentState.ranking_threshold - originalState.ranking_threshold) > 0.0001) return true;
     if (Math.abs(currentState.similarity_threshold - originalState.similarity_threshold) > 0.0001) return true;
     
-    // Compare description
-    if (currentState.description !== originalState.description) return true;
     
     // Compare QA enabled settings
     const currentQA = currentState.qa_enabled;
@@ -3803,7 +3864,7 @@ function initializeChangeTracking() {
             junk_filter_threshold: currentConfig.junk_filter_threshold || 0,
             ranking_threshold: currentConfig.ranking_threshold || 0,
             similarity_threshold: currentConfig.similarity_threshold || 0,
-            description: currentConfig.description || '',
+            description: null,
             qa_enabled: currentConfig.qa_enabled || {},
             agent_models: currentConfig.agent_models || {},
             disabled_extract_agents: getDisabledExtractAgentsFromConfig(currentConfig)
@@ -3814,8 +3875,7 @@ function initializeChangeTracking() {
     const fields = [
         'junkFilterThreshold',
         'rankingThreshold',
-        'similarityThreshold',
-        'description'
+        'similarityThreshold'
     ];
     
     fields.forEach(fieldId => {
@@ -3910,7 +3970,7 @@ if (workflowConfigForm) {
         junk_filter_threshold: parseFloat(document.getElementById('junkFilterThreshold').value),
         ranking_threshold: parseFloat(document.getElementById('rankingThreshold').value),
         similarity_threshold: parseFloat(document.getElementById('similarityThreshold').value),
-        description: document.getElementById('description')?.value || null,
+        description: null,
         agent_models: {
             RankAgent: document.getElementById('rankagent-model-2')?.value.trim() || null,
             RankAgent_temperature: parseFloat(document.getElementById('rankagent-temperature')?.value) || 0.0,
@@ -3999,10 +4059,6 @@ if (workflowConfigForm) {
             }
             if (updatedConfig.similarity_threshold !== undefined) {
                 document.getElementById('similarityThreshold').value = updatedConfig.similarity_threshold;
-            }
-            const descriptionField = document.getElementById('description');
-            if (descriptionField && updatedConfig.description !== undefined) {
-                descriptionField.value = updatedConfig.description || '';
             }
             
             // Update config display
