@@ -1,10 +1,10 @@
 import { test, expect } from '@playwright/test';
 
 const BASE = process.env.CTI_SCRAPER_URL || 'http://localhost:8001';
-const TEST_ARTICLE_ID = '1427';
+const TEST_ARTICLE_ID = '2155';
 
-test.describe('Workflow Execution - Article 1427', () => {
-  test('should configure workflow and execute for article 1427', async ({ page }) => {
+test.describe('Workflow Execution - Article 2155', () => {
+  test('should configure workflow and execute for article 2155', async ({ page }) => {
     // Step 1: Navigate to workflow config page
     await page.goto(`${BASE}/workflow#config`);
     await page.waitForLoadState('networkidle');
@@ -130,8 +130,8 @@ test.describe('Workflow Execution - Article 1427', () => {
     // Wait for executions table to load
     await page.waitForSelector('#executionsTableBody', { timeout: 10000 });
     
-    // Look for execution with article 1427 - check in article link (2nd column, index 1)
-    // The article ID appears in a link like: <a href="/articles/1427">Article 1427</a>
+    // Look for execution with article 2155 - check in article link (2nd column, index 1)
+    // The article ID appears in a link like: <a href="/articles/2155">Article 2155</a>
     let executionRow = page.locator(`tr:has(a[href*="/articles/${TEST_ARTICLE_ID}"])`).first();
     
     // Also try finding by text content

@@ -568,13 +568,13 @@ async def rollback_agent_prompt(request: Request, agent_name: str, rollback_requ
 
 class TestSubAgentRequest(BaseModel):
     """Request model for testing a sub-agent."""
-    article_id: int = Field(1427, description="Article ID to test with")
+    article_id: int = Field(2155, description="Article ID to test with")
     agent_name: str = Field(..., description="Name of the sub-agent (e.g., SigExtract, EventCodeExtract)")
 
 
 class TestRankAgentRequest(BaseModel):
     """Request model for testing Rank Agent."""
-    article_id: int = Field(1427, description="Article ID to test with")
+    article_id: int = Field(2155, description="Article ID to test with")
 
 
 @router.post("/config/test-subagent")
@@ -673,18 +673,52 @@ async def test_sub_agent(request: Request, test_request: TestSubAgentRequest):
     except HTTPException:
         raise
     except Exception as e:
-        error_msg = str(e)
-        # Check if error is related to LMStudio being busy
+        error_msg = str(e).lower()
+        error_type = type(e).__name__
+        
+        # Check for chained exceptions - prioritize the original error over generator cleanup errors
+        original_error = e
+        if hasattr(e, '__cause__') and e.__cause__:
+            original_error = e.__cause__
+        elif hasattr(e, '__context__') and e.__context__:
+            original_error = e.__context__
+        
+        original_error_msg = str(original_error).lower()
+        
+        # If the original error is NOT a generator error, use that instead
+        if "generator" not in original_error_msg and "generator" in error_msg:
+            # Generator error is masking a real error - use the original error
+            error_msg = original_error_msg
+            error_type = type(original_error).__name__
+            e = original_error
+        
+        # Check if error is related to LMStudio being busy/unavailable
+        # Only flag as "busy" for genuine connection failures or timeouts, not connection attempts in progress
+        # Don't flag generator errors as busy if they're masking a real error (like 400)
+        is_generator_error_only = (
+            "generator didn't stop after throw" in error_msg and
+            "400" not in error_msg and
+            "context length" not in error_msg and
+            "invalid request" not in error_msg
+        )
+        
         is_lmstudio_busy = (
-            "generator didn't stop after throw" in error_msg.lower() or
-            "timeout" in error_msg.lower() or
-            "overloaded" in error_msg.lower() or
-            "cannot connect" in error_msg.lower() or
-            "connection" in error_msg.lower()
+            # Generator errors (Langfuse cleanup issues) - but only if not masking a real error
+            is_generator_error_only or
+            # Actual connection failures (refused, not reachable)
+            ("cannot connect" in error_msg and ("refused" in error_msg or "not reachable" in error_msg or "name resolution" in error_msg)) or
+            # Timeout errors (but not if it's a connection timeout during initial setup)
+            ("timeout" in error_msg and ("request timeout" in error_msg or "read timeout" in error_msg)) or
+            # Overloaded errors
+            "overloaded" in error_msg or
+            # HTTP 503/429 (service unavailable/too many requests)
+            ("503" in error_msg or "429" in error_msg) or
+            # Connection errors that are actual failures (not in-progress)
+            (error_type == "ConnectError" and "refused" in error_msg)
         )
         
         if is_lmstudio_busy:
-            logger.error(f"Error testing sub-agent (LMStudio may be busy): {e}", exc_info=True)
+            logger.warning(f"Error testing sub-agent (LMStudio may be busy): {e}")
             raise HTTPException(
                 status_code=503,
                 detail=(
@@ -695,7 +729,23 @@ async def test_sub_agent(request: Request, test_request: TestSubAgentRequest):
             )
         else:
             logger.error(f"Error testing sub-agent: {e}", exc_info=True)
-            raise HTTPException(status_code=500, detail=str(e))
+            # Format error message for better user experience
+            error_detail = str(e)
+            
+            # Extract key information from common error patterns
+            if "context length" in error_detail.lower():
+                # Extract the key message from JSON error if present
+                import re
+                json_match = re.search(r'"error":"([^"]+)"', error_detail)
+                if json_match:
+                    core_message = json_match.group(1)
+                    error_detail = f"Context length error: {core_message}"
+                else:
+                    # Fallback: extract the key part
+                    if "greater than the context length" in error_detail:
+                        error_detail = "The prompt is too long for the model's context window. Please increase the context length in LMStudio or use a shorter prompt."
+            
+            raise HTTPException(status_code=500, detail=error_detail)
 
 
 @router.post("/config/test-rankagent")
@@ -765,18 +815,52 @@ async def test_rank_agent(request: Request, test_request: TestRankAgentRequest):
     except HTTPException:
         raise
     except Exception as e:
-        error_msg = str(e)
-        # Check if error is related to LMStudio being busy
+        error_msg = str(e).lower()
+        error_type = type(e).__name__
+        
+        # Check for chained exceptions - prioritize the original error over generator cleanup errors
+        original_error = e
+        if hasattr(e, '__cause__') and e.__cause__:
+            original_error = e.__cause__
+        elif hasattr(e, '__context__') and e.__context__:
+            original_error = e.__context__
+        
+        original_error_msg = str(original_error).lower()
+        
+        # If the original error is NOT a generator error, use that instead
+        if "generator" not in original_error_msg and "generator" in error_msg:
+            # Generator error is masking a real error - use the original error
+            error_msg = original_error_msg
+            error_type = type(original_error).__name__
+            e = original_error
+        
+        # Check if error is related to LMStudio being busy/unavailable
+        # Only flag as "busy" for genuine connection failures or timeouts, not connection attempts in progress
+        # Don't flag generator errors as busy if they're masking a real error (like 400)
+        is_generator_error_only = (
+            "generator didn't stop after throw" in error_msg and
+            "400" not in error_msg and
+            "context length" not in error_msg and
+            "invalid request" not in error_msg
+        )
+        
         is_lmstudio_busy = (
-            "generator didn't stop after throw" in error_msg.lower() or
-            "timeout" in error_msg.lower() or
-            "overloaded" in error_msg.lower() or
-            "cannot connect" in error_msg.lower() or
-            "connection" in error_msg.lower()
+            # Generator errors (Langfuse cleanup issues) - but only if not masking a real error
+            is_generator_error_only or
+            # Actual connection failures (refused, not reachable)
+            ("cannot connect" in error_msg and ("refused" in error_msg or "not reachable" in error_msg or "name resolution" in error_msg)) or
+            # Timeout errors (but not if it's a connection timeout during initial setup)
+            ("timeout" in error_msg and ("request timeout" in error_msg or "read timeout" in error_msg)) or
+            # Overloaded errors
+            "overloaded" in error_msg or
+            # HTTP 503/429 (service unavailable/too many requests)
+            ("503" in error_msg or "429" in error_msg) or
+            # Connection errors that are actual failures (not in-progress)
+            (error_type == "ConnectError" and "refused" in error_msg)
         )
         
         if is_lmstudio_busy:
-            logger.error(f"Error testing Rank Agent (LMStudio may be busy): {e}", exc_info=True)
+            logger.warning(f"Error testing Rank Agent (LMStudio may be busy): {e}")
             raise HTTPException(
                 status_code=503,
                 detail=(
@@ -787,4 +871,20 @@ async def test_rank_agent(request: Request, test_request: TestRankAgentRequest):
             )
         else:
             logger.error(f"Error testing Rank Agent: {e}", exc_info=True)
-            raise HTTPException(status_code=500, detail=str(e))
+            # Format error message for better user experience
+            error_detail = str(e)
+            
+            # Extract key information from common error patterns
+            if "context length" in error_detail.lower():
+                # Extract the key message from JSON error if present
+                import re
+                json_match = re.search(r'"error":"([^"]+)"', error_detail)
+                if json_match:
+                    core_message = json_match.group(1)
+                    error_detail = f"Context length error: {core_message}"
+                else:
+                    # Fallback: extract the key part
+                    if "greater than the context length" in error_detail:
+                        error_detail = "The prompt is too long for the model's context window. Please increase the context length in LMStudio or use a shorter prompt."
+            
+            raise HTTPException(status_code=500, detail=error_detail)

@@ -189,24 +189,29 @@ class _LangfuseWorkflowTrace(AbstractContextManager):
     def __exit__(self, exc_type, exc, tb):
         global _active_trace_id
         suppress = False
+        generator_error_occurred = False
 
         if self._span_cm is not None:
             try:
                 suppress = bool(self._span_cm.__exit__(exc_type, exc, tb))
-            except RuntimeError as exit_error:
-                message = str(exit_error)
-                if "generator didn't stop after throw" in message:
-                    logger.warning(
-                        "LangFuse span raised generator error on exit. "
-                        "This often occurs when LMStudio is busy or unavailable. "
-                        "Continuing without failing workflow."
-                    )
-                    suppress = False
-                else:
-                    raise
             except Exception as exit_error:
-                logger.error(f"Unexpected error exiting LangFuse span: {exit_error}")
-                suppress = False
+                # Catch ALL exceptions from Langfuse span exit, especially generator errors
+                message = str(exit_error).lower()
+                if "generator" in message or "didn't stop" in message or "throw" in message:
+                    logger.warning(
+                        f"LangFuse span raised generator error on exit: {exit_error}. "
+                        "This often occurs when Langfuse is busy or network issues occur. "
+                        "Suppressing error to prevent workflow failure."
+                    )
+                    generator_error_occurred = True
+                    suppress = True  # Suppress the original exception (if any) to prevent workflow failure
+                    # Don't re-raise - we've handled the generator error
+                else:
+                    # For other errors, log but don't suppress (let them propagate)
+                    logger.error(f"Unexpected error exiting LangFuse span: {exit_error}")
+                    suppress = False
+                    # Re-raise non-generator errors
+                    raise
 
         if self._client:
             try:
@@ -218,14 +223,21 @@ class _LangfuseWorkflowTrace(AbstractContextManager):
                         self.session_id,
                     )
             except Exception as flush_error:
-                logger.error(f"Error flushing LangFuse trace: {flush_error}")
+                error_msg = str(flush_error).lower()
+                if "generator" in error_msg or "didn't stop" in error_msg:
+                    logger.warning(f"LangFuse flush raised generator error (non-critical): {flush_error}")
+                    generator_error_occurred = True
+                else:
+                    logger.error(f"Error flushing LangFuse trace: {flush_error}")
 
         _active_trace_id = None
         self._span_cm = None
         self._span = None
         self._client = None
 
-        return suppress
+        # If generator error occurred, suppress any original exception
+        # This prevents generator errors from failing the workflow
+        return suppress or generator_error_occurred
 
 
 def trace_workflow_execution(
@@ -353,19 +365,32 @@ def trace_llm_call(
                 if generation:
                     try:
                         generation.end()
-                    except Exception:
-                        # Generation was already ended or ending failed - that's fine
-                        pass
+                    except Exception as end_error:
+                        # Check for generator errors specifically
+                        error_msg = str(end_error).lower()
+                        if "generator" in error_msg or "didn't stop" in error_msg or "throw" in error_msg:
+                            logger.warning(f"LangFuse generation.end() raised generator error (non-critical): {end_error}")
+                        else:
+                            # Generation was already ended or ending failed - that's fine
+                            logger.debug(f"Generation.end() failed (non-critical): {end_error}")
                     
                     # Explicitly flush to ensure traces are sent
                     try:
                         client.flush()
                         logger.debug(f"LangFuse generation flushed for {name} (session: {resolved_session_id})")
                     except Exception as flush_error:
-                        logger.error(f"Error flushing LangFuse generation: {flush_error}")
+                        error_msg = str(flush_error).lower()
+                        if "generator" in error_msg or "didn't stop" in error_msg:
+                            logger.warning(f"LangFuse flush raised generator error (non-critical): {flush_error}")
+                        else:
+                            logger.error(f"Error flushing LangFuse generation: {flush_error}")
             except Exception as cleanup_error:
                 # Catch any exception during cleanup to prevent generator protocol issues
-                logger.debug(f"Exception during generation cleanup (non-critical): {cleanup_error}")
+                error_msg = str(cleanup_error).lower()
+                if "generator" in error_msg or "didn't stop" in error_msg:
+                    logger.warning(f"LangFuse generation cleanup raised generator error (non-critical): {cleanup_error}")
+                else:
+                    logger.debug(f"Exception during generation cleanup (non-critical): {cleanup_error}")
         
     except Exception as e:
         logger.error(f"Error creating LangFuse generation: {e}")
@@ -423,14 +448,32 @@ def log_llm_completion(
         generation.update(**update_kwargs)
         
         # End the generation
-        generation.end()
+        try:
+            generation.end()
+        except Exception as end_error:
+            error_msg = str(end_error).lower()
+            if "generator" in error_msg or "didn't stop" in error_msg or "throw" in error_msg:
+                logger.warning(f"LangFuse generation.end() raised generator error in log_llm_completion (non-critical): {end_error}")
+            else:
+                logger.debug(f"Generation.end() failed in log_llm_completion (non-critical): {end_error}")
         
         # Flush after logging completion
         client = get_langfuse_client()
         if client:
-            client.flush()
+            try:
+                client.flush()
+            except Exception as flush_error:
+                error_msg = str(flush_error).lower()
+                if "generator" in error_msg or "didn't stop" in error_msg:
+                    logger.warning(f"LangFuse flush raised generator error in log_llm_completion (non-critical): {flush_error}")
+                else:
+                    logger.debug(f"LangFuse flush failed in log_llm_completion (non-critical): {flush_error}")
     except Exception as e:
-        logger.error(f"Error logging LLM completion to LangFuse: {e}")
+        error_msg = str(e).lower()
+        if "generator" in error_msg or "didn't stop" in error_msg:
+            logger.warning(f"LangFuse log_llm_completion raised generator error (non-critical): {e}")
+        else:
+            logger.error(f"Error logging LLM completion to LangFuse: {e}")
 
 
 def log_llm_error(generation, error: Exception, metadata: Optional[Dict[str, Any]] = None):

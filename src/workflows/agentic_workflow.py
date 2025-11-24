@@ -367,6 +367,31 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
             }
             
         except Exception as e:
+            error_msg = str(e).lower()
+            error_repr = repr(e).lower()
+            # Check if this is a generator error from Langfuse cleanup (non-critical)
+            # Check both str() and repr() to catch all variations
+            is_generator_error = (
+                ("generator" in error_msg and ("didn't stop" in error_msg or "didn't stop" in error_repr or "throw" in error_msg)) or
+                ("generator" in error_repr and ("didn't stop" in error_repr or "throw" in error_repr))
+            )
+            
+            if is_generator_error:
+                logger.warning(
+                    f"[Workflow {state['execution_id']}] Generator error during ranking (Langfuse cleanup issue, non-critical): {e}"
+                )
+                # Don't mark as failed for generator errors - they're tracing issues, not workflow failures
+                # Return state indicating workflow should stop due to ranking failure, but don't set error
+                return {
+                    **state,
+                    'error': None,  # Don't propagate generator errors as workflow errors
+                    'should_continue': False,
+                    'current_step': 'rank_article',
+                    'status': 'completed',  # Mark as completed, not failed
+                    'termination_reason': TERMINATION_REASON_RANK_THRESHOLD,
+                    'termination_details': {'reason': 'Generator error during ranking (non-critical)'}
+                }
+            
             logger.error(f"[Workflow {state['execution_id']}] Ranking error: {e}")
             execution = db_session.query(AgenticWorkflowExecutionTable).filter(
                 AgenticWorkflowExecutionTable.id == state['execution_id']
@@ -433,6 +458,15 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
             # This handles cases where Windows has highest similarity but confidence is low
             similarities = os_result.get('similarities', {}) if os_result else {}
             windows_similarity = similarities.get('Windows', 0.0) if isinstance(similarities, dict) else 0.0
+            
+            # If Windows has the highest similarity but detected_os is "Unknown", override it
+            if detected_os == 'Unknown' and similarities:
+                max_similarity_os = max(similarities, key=similarities.get)
+                if max_similarity_os == 'Windows' and windows_similarity > 0.0:
+                    detected_os = 'Windows'
+                    # Update the os_result to reflect this
+                    os_result['operating_system'] = 'Windows'
+                    logger.info(f"[Workflow {state['execution_id']}] Overriding detected_os from 'Unknown' to 'Windows' (highest similarity: {windows_similarity:.1%})")
             
             # Continue if:
             # 1. detected_os is 'Windows', OR

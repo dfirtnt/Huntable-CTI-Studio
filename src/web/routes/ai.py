@@ -267,21 +267,37 @@ async def _post_lmstudio_chat(
                     timeout=timeout,
                 )
             except httpx.TimeoutException:
-                raise HTTPException(
-                    status_code=408,
-                    detail="LMStudio request timeout - the model may be slow or overloaded",
-                )
-            except httpx.ConnectError:
-                raise HTTPException(
-                    status_code=503,
-                    detail="Cannot connect to LMStudio service",
-                )
+                last_error_detail = f"Timeout connecting to {lmstudio_url}"
+                if idx == len(lmstudio_urls) - 1:
+                    # Last URL, raise timeout error
+                    raise HTTPException(
+                        status_code=408,
+                        detail="LMStudio request timeout - the model may be slow or overloaded",
+                    )
+                # Try next URL
+                logger.warning(f"LMStudio timeout at {lmstudio_url}, trying next URL...")
+                continue
+            except httpx.ConnectError as e:
+                last_error_detail = f"Cannot connect to {lmstudio_url}: {str(e)}"
+                if idx == len(lmstudio_urls) - 1:
+                    # Last URL, raise connection error
+                    raise HTTPException(
+                        status_code=503,
+                        detail=f"Cannot connect to LMStudio service. Tried: {', '.join(lmstudio_urls)}. Last error: {str(e)}",
+                    )
+                # Try next URL
+                logger.warning(f"LMStudio connection failed at {lmstudio_url}, trying next URL...")
+                continue
             except Exception as e:  # pragma: no cover - defensive logging
+                last_error_detail = f"Error at {lmstudio_url}: {str(e)}"
                 logger.error(f"LMStudio API request failed at {lmstudio_url}: {e}")
-                raise HTTPException(
-                    status_code=500,
-                    detail=f"{failure_context}: {str(e)}",
-                )
+                if idx == len(lmstudio_urls) - 1:
+                    raise HTTPException(
+                        status_code=500,
+                        detail=f"{failure_context}: {str(e)}",
+                    )
+                # Try next URL
+                continue
 
             if response.status_code == 200:
                 if idx > 0:
@@ -789,11 +805,57 @@ async def api_test_langfuse_connection(request: Request):
                     "message": "Langfuse Secret Key is required. Please configure it in Settings."
                 }
             
-            # Try to initialize Langfuse client
+            # Try to initialize Langfuse client and validate keys with actual API call
             try:
                 from langfuse import Langfuse
                 from langfuse.types import TraceContext
                 
+                # First, validate keys by making a direct API call to Langfuse
+                # This ensures we catch invalid keys immediately
+                base_url = host.rstrip('/')
+                # Use the traces endpoint which requires valid authentication
+                test_url = f"{base_url}/api/public/traces"
+                
+                async with httpx.AsyncClient(timeout=10.0) as client:
+                    # Test authentication by calling a protected endpoint
+                    # Langfuse uses Basic Auth with public_key:secret_key
+                    import base64
+                    auth_string = f"{public_key}:{secret_key}"
+                    auth_bytes = auth_string.encode('ascii')
+                    auth_b64 = base64.b64encode(auth_bytes).decode('ascii')
+                    
+                    auth_response = await client.get(
+                        test_url,
+                        headers={
+                            "Authorization": f"Basic {auth_b64}",
+                            "Content-Type": "application/json"
+                        },
+                        params={"limit": 1}  # Just get one trace to test auth
+                    )
+                    
+                    # If auth fails, the keys are invalid
+                    if auth_response.status_code == 401:
+                        return {
+                            "valid": False,
+                            "message": "Invalid Langfuse API keys. Please check your Secret Key and Public Key."
+                        }
+                    elif auth_response.status_code == 403:
+                        return {
+                            "valid": False,
+                            "message": "Langfuse API keys are not authorized. Please check your keys and permissions."
+                        }
+                    elif auth_response.status_code not in [200, 201]:
+                        # 200/201 means auth worked (even if no traces exist)
+                        try:
+                            error_detail = auth_response.json().get('message', auth_response.text[:200])
+                        except:
+                            error_detail = f"HTTP {auth_response.status_code}"
+                        return {
+                            "valid": False,
+                            "message": f"Langfuse API error: {error_detail}. Please check your Host URL and keys."
+                        }
+                
+                # If auth passed, also test the SDK client can create and flush data
                 langfuse_client = Langfuse(
                     public_key=public_key,
                     secret_key=secret_key,
@@ -821,7 +883,8 @@ async def api_test_langfuse_connection(request: Request):
                 
                 test_span.end()
                 
-                # Flush to ensure it's sent
+                # Flush to ensure it's sent and verify it succeeds
+                # This will raise an exception if keys are invalid
                 langfuse_client.flush()
                 
                 return {

@@ -147,8 +147,8 @@
                         </div>
                         <!-- Test Button -->
                         <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
-                            <button type="button" onclick="testRankAgent(1427)" class="w-full px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-md transition-colors">
-                                🧪 Test with Article 1427
+                            <button type="button" onclick="testRankAgent(2155)" class="w-full px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-md transition-colors">
+                                🧪 Test with Article 2155
                             </button>
                         </div>
                         <!-- Rank Agent Thresholds -->
@@ -287,8 +287,8 @@
                                         </div>
                                         <!-- Test Button -->
                                         <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-3 border border-gray-200 dark:border-gray-700">
-                                            <button type="button" onclick="testSubAgent('CmdlineExtract', 1427)" class="w-full px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded-md transition-colors">
-                                                🧪 Test with Article 1427
+                                            <button type="button" onclick="testSubAgent('CmdlineExtract', 2155)" class="w-full px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded-md transition-colors">
+                                                🧪 Test with Article 2155
                                             </button>
                                         </div>
                                         <div id="cmdlineextract-agent-prompt-container"></div>
@@ -352,8 +352,8 @@
                                         </div>
                                         <!-- Test Button -->
                                         <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-3 border border-gray-200 dark:border-gray-700">
-                                            <button type="button" onclick="testSubAgent('SigExtract', 1427)" class="w-full px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded-md transition-colors">
-                                                🧪 Test with Article 1427
+                                            <button type="button" onclick="testSubAgent('SigExtract', 2155)" class="w-full px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded-md transition-colors">
+                                                🧪 Test with Article 2155
                                             </button>
                                         </div>
                                         <div id="sigextract-agent-prompt-container"></div>
@@ -417,8 +417,8 @@
                                         </div>
                                         <!-- Test Button -->
                                         <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-3 border border-gray-200 dark:border-gray-700">
-                                            <button type="button" onclick="testSubAgent('EventCodeExtract', 1427)" class="w-full px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded-md transition-colors">
-                                                🧪 Test with Article 1427
+                                            <button type="button" onclick="testSubAgent('EventCodeExtract', 2155)" class="w-full px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded-md transition-colors">
+                                                🧪 Test with Article 2155
                                             </button>
                                         </div>
                                         <div id="eventcodeextract-agent-prompt-container"></div>
@@ -482,8 +482,8 @@
                                         </div>
                                         <!-- Test Button -->
                                         <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-3 border border-gray-200 dark:border-gray-700">
-                                            <button type="button" onclick="testSubAgent('ProcTreeExtract', 1427)" class="w-full px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded-md transition-colors">
-                                                🧪 Test with Article 1427
+                                            <button type="button" onclick="testSubAgent('ProcTreeExtract', 2155)" class="w-full px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded-md transition-colors">
+                                                🧪 Test with Article 2155
                                             </button>
                                         </div>
                                         <div id="proctreeextract-agent-prompt-container"></div>
@@ -547,8 +547,8 @@
                                         </div>
                                         <!-- Test Button -->
                                         <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-3 border border-gray-200 dark:border-gray-700">
-                                            <button type="button" onclick="testSubAgent('RegExtract', 1427)" class="w-full px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded-md transition-colors">
-                                                🧪 Test with Article 1427
+                                            <button type="button" onclick="testSubAgent('RegExtract', 2155)" class="w-full px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded-md transition-colors">
+                                                🧪 Test with Article 2155
                                             </button>
                                         </div>
                                         <div id="regextract-agent-prompt-container"></div>
@@ -3673,8 +3673,11 @@ async function viewExecution(executionId) {
                 const osMaxSimilarity = (typeof osDetectionData.max_similarity === 'number' && !isNaN(osDetectionData.max_similarity))
                     ? osDetectionData.max_similarity
                     : undefined;
-                const isWindows = detectedOS === 'Windows';
+                // Determine if Windows was detected:
+                // 1. detectedOS is 'Windows', OR
+                // 2. Workflow continued (which means Windows was detected or had highest similarity)
                 const workflowContinued = exec.extraction_result !== null && exec.extraction_result !== undefined;
+                const isWindows = detectedOS === 'Windows' || (workflowContinued && detectedOS !== 'Linux' && detectedOS !== 'MacOS');
                 
                 // Build similarities display
                 let similaritiesHtml = '';
@@ -4615,8 +4618,26 @@ async function debugInAgentChat(executionId) {
                     console.log('Debug Instructions:', info.instructions);
                 }
                 
+                // Show helpful message with search info
+                let message = 'Opening Langfuse trace...\n\n';
+                if (info.session_id) {
+                    message += `If the trace is not found (404), search for:\n`;
+                    message += `Session ID: ${info.session_id}\n`;
+                    if (info.trace_id) {
+                        message += `Trace ID: ${info.trace_id}\n`;
+                    }
+                    message += `\nUse the search/filter in Langfuse UI to find traces by session_id.`;
+                }
+                
                 // Open Langfuse trace directly in new tab
                 window.open(traceUrl, '_blank');
+                
+                // Show message after a brief delay (so it doesn't block the window.open)
+                setTimeout(() => {
+                    if (info.session_id || info.trace_id) {
+                        console.log(message);
+                    }
+                }, 500);
             } else {
                 alert('Unable to generate trace URL. Please check Langfuse configuration.');
             }
