@@ -798,6 +798,70 @@
                     </p>
                 </div>
 
+                <!-- Context Window Command Generator -->
+                <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mb-6 border border-gray-200 dark:border-gray-700">
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">🔧 LMStudio Context Window Commands</h3>
+                    <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">Generate commands to set context windows for all selected models in your terminal.</p>
+                    <div class="flex flex-wrap gap-3 items-end">
+                        <div class="flex-1 min-w-[200px]">
+                            <label for="context-window-length" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                Context Length (tokens)
+                            </label>
+                            <input type="number" 
+                                   id="context-window-length" 
+                                   value="16384" 
+                                   min="1024" 
+                                   max="1000000" 
+                                   step="1024"
+                                   class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white text-sm">
+                            <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                                Default: 16384 (16k). Common: 10240 (10k), 32768 (32k)
+                            </p>
+                        </div>
+                        <button type="button" 
+                                onclick="generateContextWindowCommands()" 
+                                class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-md transition-colors font-medium">
+                            📋 Generate Commands
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Context Window Commands Modal -->
+                <div id="context-window-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onclick="closeContextWindowModal(event)">
+                    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-4xl w-full mx-4 max-h-[90vh] flex flex-col" onclick="event.stopPropagation()">
+                        <div class="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
+                            <h3 class="text-xl font-semibold text-gray-900 dark:text-white">LMStudio Context Window Commands</h3>
+                            <button onclick="closeContextWindowModal()" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+                                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                                </svg>
+                            </button>
+                        </div>
+                        <div class="p-6 overflow-y-auto flex-1">
+                            <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                                Copy and run these commands in your terminal to set context windows for all selected models:
+                            </p>
+                            <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+                                <div class="flex justify-between items-center mb-2">
+                                    <label class="text-sm font-medium text-gray-700 dark:text-gray-300">Commands:</label>
+                                    <button onclick="copyContextWindowCommands()" class="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-md transition-colors">
+                                        📋 Copy All
+                                    </button>
+                                </div>
+                                <textarea id="context-window-commands" 
+                                          readonly
+                                          class="w-full h-64 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-800 dark:text-white font-mono text-sm"
+                                          style="font-family: 'Courier New', monospace;"></textarea>
+                            </div>
+                            <div class="mt-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                                <p class="text-sm text-blue-800 dark:text-blue-200">
+                                    <strong>Note:</strong> These commands use the <code class="px-1 py-0.5 bg-blue-100 dark:bg-blue-900/40 rounded">scripts/set_lmstudio_context.sh</code> script and require the LMStudio CLI (<code>lms</code>) to be installed on your host machine.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Current Config Display -->
                 <div id="currentConfig" class="bg-gray-50 dark:bg-gray-900 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
                     <p class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Current Configuration:</p>
@@ -3691,6 +3755,140 @@ async function saveAgentPrompt2(agentName) {
 
 // Track original config state for change detection
 let originalConfigState = null;
+
+// Function to check if a model is an embedding/text encoder (should be excluded)
+function isEmbeddingModel(modelName) {
+    if (!modelName) return false;
+    const lower = modelName.toLowerCase();
+    return lower.includes('bert') || 
+           lower.includes('embedding') || 
+           lower.includes('encoder') ||
+           lower.includes('text-embedding') ||
+           lower.includes('sentence-transformers') ||
+           lower.includes('all-mpnet') ||
+           lower.includes('e5-');
+}
+
+// Function to get all selected models from form (excluding embedding/text encoder models)
+function getAllSelectedModels() {
+    const models = new Set();
+    
+    // Main agent models
+    const rankModel = document.getElementById('rankagent-model-2')?.value.trim();
+    if (rankModel && !isEmbeddingModel(rankModel)) models.add(rankModel);
+    
+    const extractModel = document.getElementById('extractagent-model-2')?.value.trim();
+    if (extractModel && !isEmbeddingModel(extractModel)) models.add(extractModel);
+    
+    const sigmaModel = document.getElementById('sigmaagent-model-2')?.value.trim();
+    if (sigmaModel && !isEmbeddingModel(sigmaModel)) models.add(sigmaModel);
+    
+    // Sub-agent models (only if explicitly set, not using ExtractAgent model)
+    const subAgents = [
+        { name: 'CmdlineExtract', id: 'cmdlineextract-model' },
+        { name: 'SigExtract', id: 'sigextract-model' },
+        { name: 'EventCodeExtract', id: 'eventcodeextract-model' },
+        { name: 'ProcTreeExtract', id: 'proctreeextract-model' },
+        { name: 'RegExtract', id: 'regextract-model' }
+    ];
+    
+    subAgents.forEach(subAgent => {
+        const select = document.getElementById(subAgent.id);
+        if (select && select.value && select.value.trim()) {
+            const model = select.value.trim();
+            if (!isEmbeddingModel(model)) {
+                models.add(model);
+            }
+        }
+    });
+    
+    // OS Detection fallback model (exclude embedding model)
+    const osFallback = document.getElementById('osdetectionagent-fallback-model-2')?.value.trim();
+    if (osFallback && !isEmbeddingModel(osFallback)) models.add(osFallback);
+    
+    // Note: OS Detection embedding and Sigma embedding models are excluded (they're text encoders)
+    
+    return Array.from(models).sort();
+}
+
+// Generate context window commands for all selected models
+function generateContextWindowCommands() {
+    const models = getAllSelectedModels();
+    const contextLength = document.getElementById('context-window-length')?.value || '16384';
+    
+    if (models.length === 0) {
+        alert('No models selected. Please select at least one model from the dropdowns above.');
+        return;
+    }
+    
+    // Generate commands with unload step
+    const commands = [
+        '# Unload all currently loaded models first',
+        'lms unload --all',
+        '',
+        '# Load each model with specified context length'
+    ].concat(
+        models.map(model => {
+            return `./scripts/set_lmstudio_context.sh "${model}" ${contextLength}`;
+        })
+    ).join('\n');
+    
+    // Show modal with commands
+    const modal = document.getElementById('context-window-modal');
+    const textarea = document.getElementById('context-window-commands');
+    if (modal && textarea) {
+        textarea.value = commands;
+        modal.classList.remove('hidden');
+    }
+}
+
+// Close context window modal
+function closeContextWindowModal(event) {
+    if (event && event.target !== event.currentTarget && event.type !== 'keydown') {
+        return; // Don't close if clicking inside modal (unless Escape key)
+    }
+    if (event && event.type === 'keydown' && event.key !== 'Escape') {
+        return; // Only close on Escape key
+    }
+    const modal = document.getElementById('context-window-modal');
+    if (modal) {
+        modal.classList.add('hidden');
+    }
+}
+
+// Add Escape key listener for context window modal
+document.addEventListener('keydown', function(event) {
+    if (event.key === 'Escape') {
+        const modal = document.getElementById('context-window-modal');
+        if (modal && !modal.classList.contains('hidden')) {
+            closeContextWindowModal(event);
+        }
+    }
+});
+
+// Copy context window commands to clipboard
+function copyContextWindowCommands(event) {
+    const textarea = document.getElementById('context-window-commands');
+    if (textarea) {
+        textarea.select();
+        document.execCommand('copy');
+        
+        // Show feedback
+        const button = event ? event.target : document.querySelector('#context-window-modal button[onclick*="copyContextWindowCommands"]');
+        if (button) {
+            const originalText = button.textContent;
+            button.textContent = '✅ Copied!';
+            button.classList.add('bg-green-600', 'hover:bg-green-700');
+            button.classList.remove('bg-blue-600', 'hover:bg-blue-700');
+            
+            setTimeout(() => {
+                button.textContent = originalText;
+                button.classList.remove('bg-green-600', 'hover:bg-green-700');
+                button.classList.add('bg-blue-600', 'hover:bg-blue-700');
+            }, 2000);
+        }
+    }
+}
 
 // Function to get current form state
 function getCurrentFormState() {

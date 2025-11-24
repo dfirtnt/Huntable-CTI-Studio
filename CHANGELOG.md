@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **LMStudio Context Window Command Generator**: Added button on workflow config page to generate terminal commands for setting context windows
+  - Collects all selected LLM models from workflow configuration
+  - Excludes BERT and text encoder models (embedding models)
+  - Generates commands using `scripts/set_lmstudio_context.sh` script
+  - Includes unload command to clear existing models before loading
+  - Commands displayed in modal with copy-to-clipboard functionality
+  - Configurable context length (default: 16384 tokens)
+
 ### Fixed
 - **Disabled Sub-Agents Execution**: Fixed issue where disabled sub-agents were still being executed
   - Added disabled agents check to `langgraph_server.py` workflow execution path
@@ -18,6 +27,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Fixed model display mismatch where dropdown selection didn't match prompt display
   - Prompts now read current model from dropdown instead of cached config value
   - Model updates immediately refresh prompt displays
+- **LMStudio Context Script**: Updated `set_lmstudio_context.sh` to only unload specific model being loaded
+  - Prevents unloading all models when loading multiple models sequentially
+  - Checks if model is already loaded and unloads only that specific instance
+  - Handles model identifiers with suffixes (e.g., `:2`, `:3`) correctly
+  - Allows multiple models to remain loaded simultaneously
 - **QA Agent Toggle Logic**: QA Agents can no longer be enabled when their corresponding subagent is disabled
   - Added `updateQAStateForSubagent()` function to sync QA checkbox state with subagent enabled status
   - QA checkboxes are automatically disabled and unchecked when subagent is disabled
