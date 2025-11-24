@@ -484,7 +484,7 @@ class TestRunner:
         else:
             # Default test paths based on test type
             test_path_map = {
-                TestType.SMOKE: ["tests/smoke/"],
+                TestType.SMOKE: ["-m", "smoke"],
                 TestType.UNIT: ["tests/", "-m", "not (smoke or integration or api or ui or e2e or performance)"],
                 TestType.API: ["tests/api/"],
                 TestType.INTEGRATION: ["tests/integration/", "-m", "integration_workflow"],

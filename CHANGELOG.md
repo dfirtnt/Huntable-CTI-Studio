@@ -8,6 +8,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- **Disabled Sub-Agents Execution**: Fixed issue where disabled sub-agents were still being executed
+  - Added disabled agents check to `langgraph_server.py` workflow execution path
+  - Fixed duplicate try block that was preventing disabled check from working
+  - Disabled agents now properly skipped with empty results instead of executing
+  - Added comprehensive logging to track disabled agent configuration reading
+- **Workflow Config UI Improvements**:
+  - Made all agent prompts collapsible and collapsed by default on workflow config page
+  - Fixed model display mismatch where dropdown selection didn't match prompt display
+  - Prompts now read current model from dropdown instead of cached config value
+  - Model updates immediately refresh prompt displays
 - **QA Agent Toggle Logic**: QA Agents can no longer be enabled when their corresponding subagent is disabled
   - Added `updateQAStateForSubagent()` function to sync QA checkbox state with subagent enabled status
   - QA checkboxes are automatically disabled and unchecked when subagent is disabled
