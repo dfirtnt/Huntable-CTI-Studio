@@ -8,6 +8,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- **Redis Validation Blocking Smoke Tests**: Made Redis validation non-blocking for smoke tests
+  - Smoke tests now execute even if Redis connection fails
+  - Redis validation failures logged as warnings but don't block test execution
+  - Fixed smoke test path to use `tests/smoke/` directory instead of marker-based discovery
 - **IndentationError in ContentFilter**: Fixed critical syntax error preventing web service startup
   - Corrected indentation of sklearn imports in try/except block
   - Web container now starts successfully and serves requests
