@@ -340,6 +340,15 @@ test.describe('Workflow Config Save Button', () => {
 
   test('should track changes in all form fields', async ({ page }) => {
     const saveButton = page.locator('#save-config-button');
+
+    // Ensure Junk Filter panel is expanded
+    const junkPanelToggle = page.locator('#other-thresholds-panel-toggle');
+    const junkPanelContent = page.locator('#other-thresholds-panel-content');
+    const junkHidden = await junkPanelContent.evaluate(el => el.classList.contains('hidden')).catch(() => true);
+    if (junkHidden) {
+      await junkPanelToggle.click();
+      await page.waitForTimeout(300);
+    }
     
     // Test junk filter threshold
     const junkFilter = page.locator('#junkFilterThreshold');
@@ -350,7 +359,7 @@ test.describe('Workflow Config Save Button', () => {
     await expect(saveButton).toBeEnabled();
     
     // Reset
-    await page.locator('button:has-text("Reset")').click();
+    await page.getByRole('button', { name: 'Reset', exact: true }).click();
     await page.waitForTimeout(2000); // Wait for reset
     
     // Wait for config to reload
@@ -381,6 +390,20 @@ test.describe('Workflow Config Save Button', () => {
     }
     
     // Test similarity threshold
+    const sigmaToggle = page.locator('#sigma-agent-panel-toggle');
+    const sigmaContent = page.locator('#sigma-agent-panel-content');
+    const sigmaHidden = await sigmaContent.evaluate(el => el.classList.contains('hidden')).catch(() => true);
+    if (sigmaHidden) {
+      await sigmaToggle.click();
+      await page.waitForTimeout(300);
+    }
+    const junkPanelToggle2 = page.locator('#other-thresholds-panel-toggle');
+    const junkPanelContent2 = page.locator('#other-thresholds-panel-content');
+    const junkHidden2 = await junkPanelContent2.evaluate(el => el.classList.contains('hidden')).catch(() => true);
+    if (junkHidden2) {
+      await junkPanelToggle2.click();
+      await page.waitForTimeout(300);
+    }
     const similarity = page.locator('#similarityThreshold');
     await similarity.waitFor({ state: 'visible', timeout: 10000 });
     await similarity.fill('0.6');
@@ -494,5 +517,58 @@ test.describe('Workflow Config Save Button', () => {
       test.skip();
     }
   });
-});
 
+  test('should allow toggling extract sub-agent and saving config', async ({ page }) => {
+    const saveButton = page.locator('#save-config-button');
+
+    // Expand Extract Agent panel and Cmdline sub-panel
+    const extractPanelToggle = page.locator('#extract-agent-panel-toggle');
+    const extractPanelContent = page.locator('#extract-agent-panel-content');
+    const extractHidden = await extractPanelContent.evaluate(el => el.classList.contains('hidden')).catch(() => true);
+    if (extractHidden) {
+      await extractPanelToggle.click();
+      await page.waitForTimeout(300);
+    }
+    const cmdPanelToggle = page.locator('#cmdlineextract-agent-panel-toggle');
+    const cmdPanelContent = page.locator('#cmdlineextract-agent-panel-content');
+    const cmdHidden = await cmdPanelContent.evaluate(el => el.classList.contains('hidden')).catch(() => true);
+    if (cmdHidden) {
+      await cmdPanelToggle.click();
+      await page.waitForTimeout(300);
+    }
+
+    const toggle = page.locator('#toggle-cmdlineextract-enabled');
+    const toggleTrack = page.locator('#toggle-cmdlineextract-enabled + div');
+    await toggle.waitFor({ state: 'attached', timeout: 10000 });
+
+    const initialState = await toggle.isChecked();
+    const newState = !initialState;
+
+    // Toggle state
+    await toggleTrack.click({ position: { x: 5, y: 5 } });
+    await page.waitForTimeout(300);
+    expect(await toggle.isChecked()).toBe(newState);
+    await page.waitForTimeout(300);
+    await expect(saveButton).toBeEnabled();
+
+    // Save and wait for config PUT
+    const [response] = await Promise.all([
+      page.waitForResponse(resp => resp.url().includes('/api/workflow/config') && resp.request().method() === 'PUT'),
+      saveButton.click()
+    ]);
+    expect(response.ok()).toBeTruthy();
+
+    // Toggle back to original to avoid persisting changes
+    await toggleTrack.click({ position: { x: 5, y: 5 } });
+    await page.waitForTimeout(300);
+    expect(await toggle.isChecked()).toBe(initialState);
+    await page.waitForTimeout(300);
+    await expect(saveButton).toBeEnabled();
+
+    const [response2] = await Promise.all([
+      page.waitForResponse(resp => resp.url().includes('/api/workflow/config') && resp.request().method() === 'PUT'),
+      saveButton.click()
+    ]);
+    expect(response2.ok()).toBeTruthy();
+  });
+});

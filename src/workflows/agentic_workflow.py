@@ -611,9 +611,54 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
             
             # Initialize conversation log for extract_agent
             conversation_log = []
+            sub_agents_run = []
+            disabled_sub_agents = []
+
+            # Determine disabled sub-agents (supports list or map in config)
+            disabled_agents_cfg = set()
+            extract_settings = {}
+            if config_obj and isinstance(config_obj.agent_prompts, dict):
+                extract_settings = (
+                    config_obj.agent_prompts.get("ExtractAgentSettings")
+                    or config_obj.agent_prompts.get("ExtractAgent")
+                    or {}
+                )
+            state_config = state.get('config', {}) if isinstance(state.get('config', {}), dict) else {}
+            if not extract_settings and isinstance(state_config.get('extract_agents_disabled'), (list, dict)):
+                extract_settings = {"disabled_agents": state_config.get('extract_agents_disabled')}
+
+            disabled_agents_value = (
+                extract_settings.get("disabled_agents")
+                or extract_settings.get("disabled_sub_agents")
+                or []
+            )
+            if isinstance(disabled_agents_value, dict):
+                disabled_agents_cfg = {
+                    name for name, enabled in disabled_agents_value.items()
+                    if enabled is False or (isinstance(enabled, str) and enabled.lower() == "false")
+                }
+            elif isinstance(disabled_agents_value, list):
+                disabled_agents_cfg = set(disabled_agents_value)
             
             for agent_name, result_key, qa_name in sub_agents:
                 try:
+                    if agent_name in disabled_agents_cfg:
+                        logger.info(f"[Workflow {state['execution_id']}] {agent_name} disabled via config; skipping")
+                        subresults[result_key] = {
+                            "items": [],
+                            "count": 0,
+                            "raw": {"status": "disabled"}
+                        }
+                        conversation_log.append({
+                            'agent': agent_name,
+                            'items_count': 0,
+                            'result': {'status': 'disabled'}
+                        })
+                        disabled_sub_agents.append(agent_name)
+                        continue
+
+                    sub_agents_run.append(agent_name)
+
                     # Load Prompts
                     prompt_path = prompts_dir / agent_name
                     qa_path = prompts_dir / qa_name
@@ -782,7 +827,8 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                 # Merge extract_agent data, preserving existing qa_results and all other keys
                 execution.error_log['extract_agent'] = {
                     'conversation_log': conversation_log,
-                    'sub_agents_run': [agent[0] for agent in sub_agents]
+                    'sub_agents_run': sub_agents_run,
+                    'sub_agents_disabled': disabled_sub_agents
                 }
                 # Ensure qa_results is preserved (it should already be there from earlier commits in the loop)
                 if existing_qa_results:

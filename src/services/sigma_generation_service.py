@@ -104,50 +104,35 @@ class SigmaGenerationService:
             validation_results = []
             rules = []
             conversation_log = []
+            previous_errors_text = None
+            previous_yaml_preview = ""
             
             for attempt in range(max_attempts):
                 logger.info(f"SIGMA generation attempt {attempt + 1}/{max_attempts}")
                 
-                # Prepare prompt for this attempt
-                if attempt == 0:
-                    current_prompt = sigma_prompt
-                    # Add QA feedback if provided (only on first attempt)
-                    if qa_feedback:
-                        current_prompt = f"{qa_feedback}\n\n{current_prompt}"
-                else:
-                    # Include validation feedback
-                    previous_errors = []
-                    previous_yaml = ""
-                    for result in validation_results:
-                        if not result.is_valid and result.errors:
-                            previous_errors.extend(result.errors)
-                        if result.content_preview:
-                            previous_yaml = result.content_preview
-                    
-                    if previous_errors:
-                        error_feedback = "\n".join(previous_errors)
-                        yaml_preview = f"\n\nYOUR PREVIOUS INVALID YAML:\n{previous_yaml}\n" if previous_yaml else ""
-
-                        # Fail hard instead of generating degraded rules
-                        logger.error(f"SIGMA validation failed; aborting retries. Errors:\n{error_feedback}{yaml_preview}")
-                        return {
-                            'rules': [],
-                            'metadata': {
-                                'total_attempts': len(conversation_log),
-                                'valid_rules': 0,
-                                'validation_results': [
-                                    {
-                                        'is_valid': r.is_valid,
-                                        'errors': r.errors,
-                                        'warnings': r.warnings
-                                    } for r in validation_results
-                                ],
-                                'conversation_log': conversation_log
-                            },
-                            'errors': f"SIGMA validation failed: {error_feedback}"
-                        }
+                feedback_prefix = ""
+                if attempt > 0:
+                    feedback_parts = []
+                    if previous_errors_text:
+                        feedback_parts.append(f"Previous validation errors:\n{previous_errors_text}")
                     else:
-                        break
+                        feedback_parts.append(
+                            "Previous attempt failed validation or produced no YAML. "
+                            "Output strictly valid SIGMA YAML starting with 'title:' using 2-space indentation."
+                        )
+                    if previous_yaml_preview:
+                        feedback_parts.append(f"Previous YAML attempt:\n{previous_yaml_preview}")
+                    feedback_prefix = "\n\n".join(feedback_parts)
+                
+                # Prepare prompt for this attempt
+                if feedback_prefix:
+                    current_prompt = f"{feedback_prefix}\n\n{sigma_prompt}"
+                else:
+                    current_prompt = sigma_prompt
+                
+                # Add QA feedback if provided (only on first attempt)
+                if attempt == 0 and qa_feedback:
+                    current_prompt = f"{qa_feedback}\n\n{current_prompt}"
                 
                 # Call LLM API
                 try:
@@ -273,6 +258,24 @@ class SigmaGenerationService:
                 if attempt_rules:
                     rules.extend(attempt_rules)
                     break
+                
+                # Prepare validation feedback for next attempt
+                previous_errors = []
+                previous_yaml_preview = ""
+                for result in attempt_validation_results:
+                    if not result.is_valid and result.errors:
+                        previous_errors.extend(result.errors)
+                    if result.content_preview:
+                        previous_yaml_preview = result.content_preview
+                
+                # If nothing to feedback (e.g., no YAML detected), provide explicit guidance
+                if not previous_errors and not attempt_rules:
+                    previous_errors = [
+                        "No valid SIGMA YAML detected. Respond with YAML starting with 'title:' and include "
+                        "'logsource' and 'detection' mappings using 2-space indentation. Do not include prose."
+                    ]
+                
+                previous_errors_text = "\n".join(previous_errors) if previous_errors else None
             
             return {
                 'rules': rules,
@@ -288,7 +291,10 @@ class SigmaGenerationService:
                     ],
                     'conversation_log': conversation_log
                 },
-                'errors': None if rules else "No valid SIGMA rules could be generated"
+                'errors': None if rules else (
+                    f"No valid SIGMA rules could be generated. Last validation errors: {previous_errors_text}"
+                    if previous_errors_text else "No valid SIGMA rules could be generated"
+                )
             }
             
         except Exception as e:
