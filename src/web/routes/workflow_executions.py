@@ -383,17 +383,35 @@ async def stream_execution_updates(execution_id: int):
                                 if conversation_log and isinstance(conversation_log, list):
                                     # Only send new entries (entries not in last_error_log)
                                     for entry in conversation_log:
-                                        # Check if this entry is new (by attempt number)
+                                        # Check if this entry is new
+                                        # For extract_agent: use agent name + items_count as unique key
+                                        # For other agents: use attempt number
                                         is_new = True
                                         if isinstance(last_conversation_log, list):
                                             for last_entry in last_conversation_log:
                                                 if isinstance(last_entry, dict) and isinstance(entry, dict):
-                                                    if last_entry.get('attempt') == entry.get('attempt'):
+                                                    # Check by attempt number (for rank_article, generate_sigma)
+                                                    if last_entry.get('attempt') is not None and entry.get('attempt') is not None:
+                                                        if last_entry.get('attempt') == entry.get('attempt'):
+                                                            is_new = False
+                                                            break
+                                                    # Check by agent name + items_count (for extract_agent sub-agents)
+                                                    elif agent_name == 'extract_agent':
+                                                        if (last_entry.get('agent') == entry.get('agent') and 
+                                                            last_entry.get('items_count') == entry.get('items_count')):
+                                                            is_new = False
+                                                            break
+                                                    # Fallback: if both have no attempt and no agent, compare by index
+                                                    elif (last_entry.get('attempt') is None and entry.get('attempt') is None and
+                                                          last_entry.get('agent') is None and entry.get('agent') is None):
+                                                        # Same entry structure - consider duplicate
                                                         is_new = False
                                                         break
                                         
                                         if is_new and isinstance(entry, dict):
-                                            yield f"data: {json.dumps({'type': 'llm_interaction', 'agent': agent_name, 'messages': entry.get('messages', []), 'response': entry.get('llm_response', ''), 'attempt': entry.get('attempt', 1), 'score': entry.get('score'), 'discrete_huntables_count': entry.get('discrete_huntables_count'), 'timestamp': datetime.utcnow().isoformat()})}\n\n"
+                                            # For extract_agent sub-agents, use the sub-agent name
+                                            display_agent = entry.get('agent', agent_name) if agent_name == 'extract_agent' else agent_name
+                                            yield f"data: {json.dumps({'type': 'llm_interaction', 'agent': display_agent, 'messages': entry.get('messages', []), 'response': entry.get('llm_response', ''), 'attempt': entry.get('attempt', 1), 'score': entry.get('score'), 'discrete_huntables_count': entry.get('discrete_huntables_count') or entry.get('items_count'), 'timestamp': datetime.utcnow().isoformat()})}\n\n"
                         
                         # Check for QA results (moved outside agent loop for efficiency)
                         if 'qa_results' in current_error_log:
@@ -697,10 +715,8 @@ async def retry_workflow_execution(request: Request, execution_id: int, use_lang
                 # "Retry (Trace)" - Use direct execution with Langfuse tracing
                 # This ensures Langfuse traces are always created when using trace mode
                 logger.info(f"Running workflow directly with Langfuse tracing for execution {new_execution.id}")
-                new_execution.status = 'running'
-                new_execution.started_at = datetime.utcnow()
-                new_execution.current_step = 'junk_filter'
-                db_session.commit()
+                # Don't set status to 'running' here - let run_workflow do it
+                # run_workflow expects to find a 'pending' execution and will set it to 'running'
                 
                 # Run workflow directly (this will create Langfuse traces if enabled)
                 result = await run_workflow(execution.article_id, db_session)

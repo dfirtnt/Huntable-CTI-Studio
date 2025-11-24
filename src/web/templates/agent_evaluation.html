@@ -17,6 +17,51 @@
         </div>
     </div>
 
+    <!-- Subagents Section (ExtractAgent only) -->
+    {% if agent_name == 'ExtractAgent' %}
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mb-8">
+        <h2 class="text-2xl font-semibold text-gray-900 dark:text-white mb-4">Subagents</h2>
+        <p class="text-gray-600 dark:text-gray-400 mb-4">ExtractAgent uses specialized subagents for different extraction tasks:</p>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <a href="/evaluations/ExtractAgent/CmdlineExtract" class="bg-blue-50 dark:bg-blue-900 rounded-lg p-4 hover:bg-blue-100 dark:hover:bg-blue-800 transition-colors">
+                <div class="flex items-center justify-between mb-2">
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white">CmdlineExtract</h3>
+                    <span class="text-2xl">💻</span>
+                </div>
+                <p class="text-sm text-gray-600 dark:text-gray-400">Command-line patterns and executed commands</p>
+            </a>
+            <a href="/evaluations/ExtractAgent/SigExtract" class="bg-blue-50 dark:bg-blue-900 rounded-lg p-4 hover:bg-blue-100 dark:hover:bg-blue-800 transition-colors">
+                <div class="flex items-center justify-between mb-2">
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white">SigExtract</h3>
+                    <span class="text-2xl">🛡️</span>
+                </div>
+                <p class="text-sm text-gray-600 dark:text-gray-400">SIGMA query patterns and detection rules</p>
+            </a>
+            <a href="/evaluations/ExtractAgent/EventCodeExtract" class="bg-blue-50 dark:bg-blue-900 rounded-lg p-4 hover:bg-blue-100 dark:hover:bg-blue-800 transition-colors">
+                <div class="flex items-center justify-between mb-2">
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white">EventCodeExtract</h3>
+                    <span class="text-2xl">📋</span>
+                </div>
+                <p class="text-sm text-gray-600 dark:text-gray-400">Windows Event IDs and event log triggers</p>
+            </a>
+            <a href="/evaluations/ExtractAgent/ProcTreeExtract" class="bg-blue-50 dark:bg-blue-900 rounded-lg p-4 hover:bg-blue-100 dark:hover:bg-blue-800 transition-colors">
+                <div class="flex items-center justify-between mb-2">
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white">ProcTreeExtract</h3>
+                    <span class="text-2xl">🌳</span>
+                </div>
+                <p class="text-sm text-gray-600 dark:text-gray-400">Process lineage and parent-child relationships</p>
+            </a>
+            <a href="/evaluations/ExtractAgent/RegExtract" class="bg-blue-50 dark:bg-blue-900 rounded-lg p-4 hover:bg-blue-100 dark:hover:bg-blue-800 transition-colors">
+                <div class="flex items-center justify-between mb-2">
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white">RegExtract</h3>
+                    <span class="text-2xl">🔑</span>
+                </div>
+                <p class="text-sm text-gray-600 dark:text-gray-400">Registry keys and values for persistence</p>
+            </a>
+        </div>
+    </div>
+    {% endif %}
+
     <!-- Latest Evaluation Summary -->
     {% if latest %}
     <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mb-8">

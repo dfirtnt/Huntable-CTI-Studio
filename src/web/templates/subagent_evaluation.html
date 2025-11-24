@@ -1,0 +1,186 @@
+{% extends "base.html" %}
+
+{% block title %}{{ agent_name }} - {{ subagent_name }} Evaluations - Huntable CTI Scraper{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+    <!-- Header -->
+    <div class="mb-8">
+        <div class="flex items-center justify-between">
+            <div>
+                <h1 class="text-4xl font-bold text-gray-900 dark:text-white mb-2">{{ subagent_name }} Evaluations</h1>
+                <p class="text-gray-600 dark:text-gray-400">Subagent performance metrics for {{ agent_name }}</p>
+            </div>
+            <div class="flex gap-2">
+                <a href="/evaluations/{{ agent_name }}" class="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600">
+                    ← Back to {{ agent_name }}
+                </a>
+                <a href="/evaluations" class="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600">
+                    ← All Evaluations
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Subagent Info -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mb-8">
+        <h2 class="text-2xl font-semibold text-gray-900 dark:text-white mb-4">Subagent Information</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+                <div class="text-sm text-gray-500 dark:text-gray-400">Parent Agent</div>
+                <div class="text-lg font-semibold text-gray-900 dark:text-white">{{ agent_name }}</div>
+            </div>
+            <div>
+                <div class="text-sm text-gray-500 dark:text-gray-400">Subagent</div>
+                <div class="text-lg font-semibold text-gray-900 dark:text-white">{{ subagent_name }}</div>
+            </div>
+        </div>
+        
+        {% if subagent_name == 'CmdlineExtract' %}
+        <div class="mt-4 p-4 bg-blue-50 dark:bg-blue-900 rounded-lg">
+            <p class="text-sm text-gray-700 dark:text-gray-300">
+                <strong>Purpose:</strong> Extracts command-line patterns and executed command strings with flags and parameters.
+            </p>
+        </div>
+        {% elif subagent_name == 'SigExtract' %}
+        <div class="mt-4 p-4 bg-blue-50 dark:bg-blue-900 rounded-lg">
+            <p class="text-sm text-gray-700 dark:text-gray-300">
+                <strong>Purpose:</strong> Extracts SIGMA query patterns and detection rule fragments from articles.
+            </p>
+        </div>
+        {% elif subagent_name == 'EventCodeExtract' %}
+        <div class="mt-4 p-4 bg-blue-50 dark:bg-blue-900 rounded-lg">
+            <p class="text-sm text-gray-700 dark:text-gray-300">
+                <strong>Purpose:</strong> Extracts Windows Event IDs and event log triggers from articles.
+            </p>
+        </div>
+        {% elif subagent_name == 'ProcTreeExtract' %}
+        <div class="mt-4 p-4 bg-blue-50 dark:bg-blue-900 rounded-lg">
+            <p class="text-sm text-gray-700 dark:text-gray-300">
+                <strong>Purpose:</strong> Extracts process lineage patterns and parent-child process relationships.
+            </p>
+        </div>
+        {% elif subagent_name == 'RegExtract' %}
+        <div class="mt-4 p-4 bg-blue-50 dark:bg-blue-900 rounded-lg">
+            <p class="text-sm text-gray-700 dark:text-gray-300">
+                <strong>Purpose:</strong> Extracts registry key and value patterns used for persistence and configuration.
+            </p>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Latest Evaluation Summary -->
+    {% if latest %}
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mb-8">
+        <h2 class="text-2xl font-semibold text-gray-900 dark:text-white mb-4">Latest Evaluation</h2>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+            <div>
+                <div class="text-sm text-gray-500 dark:text-gray-400">Type</div>
+                <div class="text-lg font-semibold text-gray-900 dark:text-white">{{ latest.evaluation_type }}</div>
+            </div>
+            <div>
+                <div class="text-sm text-gray-500 dark:text-gray-400">Model</div>
+                <div class="text-lg font-semibold text-gray-900 dark:text-white">{{ latest.model_version or 'N/A' }}</div>
+            </div>
+            <div>
+                <div class="text-sm text-gray-500 dark:text-gray-400">Articles Tested</div>
+                <div class="text-lg font-semibold text-gray-900 dark:text-white">{{ latest.total_articles }}</div>
+            </div>
+        </div>
+        
+        <!-- Metrics Display -->
+        <div id="latest-metrics" class="mt-4">
+            <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-2">Key Metrics</h3>
+            <div class="bg-yellow-50 dark:bg-yellow-900 p-4 rounded-lg">
+                <p class="text-sm text-gray-700 dark:text-gray-300">
+                    <strong>Note:</strong> Subagent-specific metrics are tracked within the parent ExtractAgent evaluation results. 
+                    Check the parent agent evaluation for detailed subagent performance data.
+                </p>
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mb-8">
+        <div class="bg-yellow-50 dark:bg-yellow-900 p-4 rounded-lg">
+            <p class="text-sm text-gray-700 dark:text-gray-300">
+                <strong>No evaluations yet.</strong> Subagent performance is tracked as part of ExtractAgent evaluations. 
+                Run an ExtractAgent evaluation to see subagent metrics.
+            </p>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Evaluation History -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mb-8">
+        <h2 class="text-2xl font-semibold text-gray-900 dark:text-white mb-4">Evaluation History</h2>
+        <div class="bg-blue-50 dark:bg-blue-900 p-4 rounded-lg mb-4">
+            <p class="text-sm text-gray-700 dark:text-gray-300">
+                Subagent evaluations are included in the parent ExtractAgent evaluation results. 
+                View the parent agent evaluation to see detailed subagent metrics.
+            </p>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                <thead class="bg-gray-50 dark:bg-gray-900">
+                    <tr>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Type</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Model</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Articles</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Date</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="history-table" class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                    {% for eval in history %}
+                    <tr class="hover:bg-gray-50 dark:hover:bg-gray-700 {% if selected_evaluation and eval.id == selected_evaluation.id %}bg-blue-50 dark:bg-blue-900{% endif %}">
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">{{ eval.evaluation_type }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{{ eval.model_version or 'N/A' }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{{ eval.total_articles }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{{ eval.created_at[:10] if eval.created_at else 'N/A' }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm">
+                            <a href="/evaluations/{{ agent_name }}?evaluation_id={{ eval.id }}" class="text-blue-600 dark:text-blue-400 hover:underline mr-3">View Parent</a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                    {% if not history %}
+                    <tr>
+                        <td colspan="5" class="px-6 py-4 text-center text-gray-500 dark:text-gray-400">No evaluations found</td>
+                    </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Run Evaluation Section -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mt-8">
+        <h2 class="text-2xl font-semibold text-gray-900 dark:text-white mb-4">Run New Evaluation</h2>
+        <div class="bg-blue-50 dark:bg-blue-900 p-4 rounded-lg mb-4">
+            <p class="text-sm text-gray-700 dark:text-gray-300">
+                <strong>Note:</strong> Subagent evaluations are performed as part of ExtractAgent evaluations. 
+                Run an ExtractAgent evaluation to include {{ subagent_name }} metrics.
+            </p>
+        </div>
+        <div class="bg-gray-100 dark:bg-gray-900 p-4 rounded-lg font-mono text-sm">
+            <div class="text-gray-600 dark:text-gray-400 mb-2">Command:</div>
+            <div id="eval-command" class="text-gray-900 dark:text-white">
+                python scripts/eval_extract_agent.py --test-data &lt;your_dataset.json&gt; --evaluation-type baseline --save-to-db
+            </div>
+            <button onclick="copyCommand()" class="mt-2 px-3 py-1 bg-blue-600 text-white rounded text-xs hover:bg-blue-700">
+                Copy Command
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+function copyCommand() {
+    const command = document.getElementById('eval-command').textContent;
+    navigator.clipboard.writeText(command).then(() => {
+        alert('Command copied to clipboard!');
+    });
+}
+</script>
+{% endblock %}
+
+
