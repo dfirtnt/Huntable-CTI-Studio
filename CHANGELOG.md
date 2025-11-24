@@ -8,6 +8,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Comprehensive UI Test Coverage**: Added 17 new comprehensive UI test files covering all major pages (544 tests total)
+  - `test_workflow_comprehensive_ui.py`: 89 tests for workflow configuration, executions, and queue management
+  - `test_articles_advanced_ui.py`: 74 tests for advanced search, filtering, sorting, pagination, bulk actions, and classification modal
+  - `test_article_detail_advanced_ui.py`: 21 tests for article detail page features
+  - `test_analytics_comprehensive_ui.py`: 47 tests for analytics pages (main, scraper metrics, hunt metrics)
+  - `test_sources_comprehensive_ui.py`: 39 tests for source management, configuration, and adhoc scraping
+  - `test_settings_comprehensive_ui.py`: 39 tests for backup, AI/ML config, API config, and data export
+  - `test_chat_comprehensive_ui.py`: 57 tests for RAG chat interface, message display, article/rule results, YAML modal
+  - `test_dashboard_comprehensive_ui.py`: 37 tests for dashboard widgets, charts, and quick actions
+  - `test_pdf_upload_advanced_ui.py`: 19 tests for PDF upload functionality
+  - `test_health_checks_advanced_ui.py`: 20 tests for health check monitoring
+  - `test_diagnostics_advanced_ui.py`: 21 tests for system diagnostics page
+  - `test_jobs_advanced_ui.py`: 19 tests for job monitoring
+  - `test_cross_page_navigation_ui.py`: 15 tests for navigation and deep linking
+  - `test_error_handling_comprehensive_ui.py`: 16 tests for error scenarios
+  - `test_accessibility_comprehensive_ui.py`: 22 tests for keyboard navigation, ARIA, and screen reader compatibility
+  - `test_performance_comprehensive_ui.py`: 18 tests for page load and rendering performance
+  - `test_mobile_responsiveness_ui.py`: 30 tests for mobile layout and touch interactions
+  - All tests integrated into pytest suite and run via `run_tests.py ui` wrapper
+  - Tests follow existing patterns and use Playwright with pytest fixtures
 - **Subagent Evaluation Pages**: Added dedicated evaluation pages for ExtractAgent subagents
   - Created subagent evaluation pages at `/evaluations/ExtractAgent/{subagent_name}` for CmdlineExtract, SigExtract, EventCodeExtract, ProcTreeExtract, and RegExtract
   - Added subagent links section on ExtractAgent evaluation page with cards for each subagent
