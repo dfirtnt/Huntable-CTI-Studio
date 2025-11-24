@@ -2078,6 +2078,10 @@ IMPORTANT: Your response must end with a valid JSON object matching the structur
                     "temperature": temperature
                 }
                 
+                # Reasoning models need longer timeouts - they generate extensive reasoning + answer
+                is_reasoning_model = 'r1' in model_name.lower() or 'reasoning' in model_name.lower()
+                extraction_timeout = 600.0 if is_reasoning_model else 180.0
+                
                 # Trace LLM call with Langfuse (each sub-agent gets its own trace)
                 with trace_llm_call(
                     name=f"{agent_name.lower()}_extraction",
@@ -2094,6 +2098,7 @@ IMPORTANT: Your response must end with a valid JSON object matching the structur
                     response = await self._post_lmstudio_chat(
                         payload, 
                         model_name=model_name,
+                        timeout=extraction_timeout,
                         failure_context=f"{agent_name} extraction attempt {current_try}"
                     )
                     

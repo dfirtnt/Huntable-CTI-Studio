@@ -284,6 +284,13 @@ class OSDetectionService:
                 detected_os = max_os
         elif max_similarity > 0.6:
             detected_os = max_os
+        elif max_similarity > 0.5:
+            # If max similarity is > 0.5 and there's a clear winner (gap > 0.02), use that OS
+            # This handles cases where confidence is low but one OS is clearly dominant
+            if gap_to_second > 0.02:
+                detected_os = max_os
+            else:
+                detected_os = "Unknown"
         else:
             detected_os = "Unknown"
         

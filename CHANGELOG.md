@@ -8,6 +8,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Generator Error Handling**: Enhanced Langfuse trace cleanup to suppress generator protocol errors
+  - Generator errors during Langfuse cleanup no longer fail workflows
+  - Added comprehensive error suppression in trace context managers
+  - Generator errors are logged as warnings but don't propagate as workflow failures
+- **LMStudio Error Message Formatting**: Improved error message display for context length issues
+  - Context length errors now show formatted messages instead of raw JSON
+  - Error detection distinguishes between genuine "busy" conditions and other errors
+  - Better user experience with actionable error messages
+- **Playwright Test for Error Messages**: Added test to verify error message formatting
+  - Tests verify formatted error messages are displayed correctly
+  - Ensures "busy" errors don't appear for context length issues
+
+### Fixed
 - **ML Comparison Chart Enhancements**: Added zoom and scroll controls for evaluation metrics chart
   - Horizontal scrolling to view all model version history
   - Zoom in/out controls with preset levels (5, 10, 15, 20, 30, 50, all versions)
@@ -25,6 +38,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Database is authoritative source for source settings (active status, lookback_days, check_frequency) after initial setup
 
 ### Fixed
+- **Generator Errors Failing Workflows**: Fixed "generator didn't stop after throw()" errors causing workflow failures
+  - Generator errors from Langfuse cleanup are now suppressed and logged as warnings
+  - Workflows complete successfully even when Langfuse trace cleanup encounters generator protocol issues
+  - Fixed error handling in ranking node to detect and suppress generator errors
+- **LMStudio "Busy" False Positives**: Fixed incorrect "busy" error detection for context length issues
+  - Error detection now distinguishes between genuine connection failures and context length errors
+  - Context length errors show appropriate error messages instead of misleading "busy" messages
+  - Improved error detection logic to check for chained exceptions and prioritize original errors
+- **Context Length Configuration**: Fixed context length mismatch causing 400 errors
+  - Updated LMStudio context length override from 16384 to 4096 to match actual configured value
+  - Content truncation now works correctly with actual context length
+  - Ranking tests now succeed without context length errors
+- **Test Article IDs**: Updated all test buttons to use article 2155 instead of 1427
+  - RankAgent test button updated
+  - All sub-agent test buttons (CmdlineExtract, SigExtract, EventCodeExtract, ProcTreeExtract, RegExtract) updated
+  - Playwright test updated to use article 2155
+- **OS Detection Display Logic**: Fixed workflow continuation display when OS is detected as Windows
+  - UI now correctly shows "Continue" when Windows is detected even if initial detection was "Unknown"
+  - Fixed OS detection threshold logic to use 50% similarity with clear winner detection
+  - Workflow state correctly reflects continuation decision
 - **Redis Validation Blocking Smoke Tests**: Made Redis validation non-blocking for smoke tests
   - Smoke tests now execute even if Redis connection fails
   - Redis validation failures logged as warnings but don't block test execution

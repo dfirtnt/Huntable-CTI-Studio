@@ -310,7 +310,7 @@ async def stream_execution_updates(execution_id: int):
     - Progress indicators
     """
     async def event_generator():
-        db_manager = DatabaseManager()
+        db_manager = get_db_manager()  # Use singleton to prevent connection pool exhaustion
         last_step = None
         last_status = None
         last_error_log = None
@@ -858,30 +858,35 @@ async def get_workflow_debug_info(request: Request, execution_id: int):
             # Generate trace_id hash (same format as langfuse_client.py)
             import hashlib
             trace_id_hash = hashlib.md5(f"workflow_exec_{execution_id}".encode()).hexdigest()
+            session_id = f"workflow_exec_{execution_id}"
             
             # Debug logging
-            logger.debug(f"Langfuse debug info - host: {langfuse_host}, public_key present: {bool(langfuse_public_key)}, project_id: {langfuse_project_id}, trace_id: {trace_id_hash}")
+            logger.debug(f"Langfuse debug info - host: {langfuse_host}, public_key present: {bool(langfuse_public_key)}, project_id: {langfuse_project_id}, trace_id: {trace_id_hash}, session_id: {session_id}")
             
             # Always generate Langfuse trace URL (traces may exist even if keys aren't currently configured)
             # Normalize host URL (remove trailing slash)
             langfuse_host = langfuse_host.rstrip('/') if langfuse_host else "https://us.cloud.langfuse.com"
             
-            # Langfuse direct trace URL format
+            # Try direct trace URL first (may work if Langfuse used our trace_id)
+            # If that doesn't work (404), user can search by session_id
             if langfuse_project_id:
-                # Use project-specific direct trace URL
+                # Direct trace URL by trace_id
                 agent_chat_url = f"{langfuse_host}/project/{langfuse_project_id}/traces/{trace_id_hash}"
             else:
-                # Fallback to direct trace URL without project ID
+                # Direct trace URL without project_id
                 agent_chat_url = f"{langfuse_host}/traces/{trace_id_hash}"
             
             logger.info(f"🔗 Generated Langfuse trace URL: {agent_chat_url}")
-            logger.info(f"   Trace ID: {trace_id_hash} (execution #{execution_id})")
+            logger.info(f"   Trace ID: {trace_id_hash}, Session ID: {session_id} (execution #{execution_id})")
             
             if langfuse_public_key:
                 instructions = (
                     "Opening Langfuse trace for execution #{}.\n"
-                    "Trace ID: {}"
-                ).format(execution_id, trace_id_hash)
+                    "Trace ID: {}\n"
+                    "Session ID: {}\n"
+                    "If you get a 404, the trace may not exist or Langfuse may have used a different trace_id. "
+                    "Search for session_id '{}' in Langfuse UI."
+                ).format(execution_id, trace_id_hash, session_id, session_id)
             else:
                 # Warn user that Langfuse may not be configured, but still try to open trace
                 logger.warning(
@@ -892,14 +897,18 @@ async def get_workflow_debug_info(request: Request, execution_id: int):
                 instructions = (
                     "Opening Langfuse trace for execution #{}.\n"
                     "Trace ID: {}\n"
-                    "Note: Langfuse keys not configured. Trace will only exist if execution ran with Langfuse tracing enabled."
-                ).format(execution_id, trace_id_hash)
+                    "Session ID: {}\n"
+                    "Note: Langfuse keys not configured. Trace will only exist if execution ran with Langfuse tracing enabled. "
+                    "If you get a 404, search for session_id '{}' in Langfuse UI."
+                ).format(execution_id, trace_id_hash, session_id, session_id)
             
             return {
                 "execution_id": execution_id,
                 "article_id": execution.article_id,
                 "langgraph_server_url": langgraph_server_url,
                 "agent_chat_url": agent_chat_url,
+                "trace_id": trace_id_hash,
+                "session_id": session_id,
                 "thread_id": trace_id_hash,
                 "graph_id": "agentic_workflow",
                 "instructions": instructions,

@@ -626,6 +626,15 @@ Cannot process empty articles."""
             similarities = os_result.get('similarities', {}) if os_result else {}
             windows_similarity = similarities.get('Windows', 0.0) if isinstance(similarities, dict) else 0.0
             
+            # If Windows has the highest similarity but detected_os is "Unknown", override it
+            if detected_os == 'Unknown' and similarities:
+                max_similarity_os = max(similarities, key=similarities.get)
+                if max_similarity_os == 'Windows' and windows_similarity > 0.0:
+                    detected_os = 'Windows'
+                    # Update the os_result to reflect this
+                    os_result['operating_system'] = 'Windows'
+                    logger.info(f"[Workflow {execution_id}] Overriding detected_os from 'Unknown' to 'Windows' (highest similarity: {windows_similarity:.1%})")
+            
             # Continue if:
             # 1. detected_os is 'Windows', OR
             # 2. detected_os is 'multiple' and Windows is included, OR
