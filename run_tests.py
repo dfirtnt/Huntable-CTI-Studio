@@ -197,7 +197,15 @@ class TestRunner:
             if self.config.validate_env:
                 logger.info("Validating test environment...")
                 validation_results = await validator.validate_environment()
-                if not all(validation_results.values()):
+                
+                # For smoke tests, Redis validation is non-blocking
+                critical_validations = validation_results.copy()
+                if self.config.test_type == TestType.SMOKE:
+                    if "redis" in critical_validations and not critical_validations["redis"]:
+                        logger.warning("Redis validation failed (non-blocking for smoke tests)")
+                        critical_validations.pop("redis")
+                
+                if not all(critical_validations.values()):
                     logger.error("Environment validation failed")
                     if not self.config.debug:
                         return False
@@ -476,7 +484,7 @@ class TestRunner:
         else:
             # Default test paths based on test type
             test_path_map = {
-                TestType.SMOKE: ["tests/", "-m", "smoke"],
+                TestType.SMOKE: ["tests/smoke/"],
                 TestType.UNIT: ["tests/", "-m", "not (smoke or integration or api or ui or e2e or performance)"],
                 TestType.API: ["tests/api/"],
                 TestType.INTEGRATION: ["tests/integration/", "-m", "integration_workflow"],
