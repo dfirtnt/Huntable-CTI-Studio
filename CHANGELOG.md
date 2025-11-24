@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **QA Agent Toggle Logic**: QA Agents can no longer be enabled when their corresponding subagent is disabled
+  - Added `updateQAStateForSubagent()` function to sync QA checkbox state with subagent enabled status
+  - QA checkboxes are automatically disabled and unchecked when subagent is disabled
+  - Visual feedback added with opacity and cursor styling for disabled QA toggles
+  - Logic applies on page load, config sync, and manual toggle changes
+
 ### Added
 - **Comprehensive UI Test Coverage**: Added 17 new comprehensive UI test files covering all major pages (544 tests total)
   - `test_workflow_comprehensive_ui.py`: 89 tests for workflow configuration, executions, and queue management
