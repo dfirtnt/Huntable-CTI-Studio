@@ -72,6 +72,10 @@ services:
       - LMSTUDIO_MODEL_SIGMA=${LMSTUDIO_MODEL_SIGMA:-qwen/qwen3-4b-2507}
       - LMSTUDIO_EMBEDDING_URL=${LMSTUDIO_EMBEDDING_URL:-http://host.docker.internal:1234/v1/embeddings}
       - LMSTUDIO_EMBEDDING_MODEL=${LMSTUDIO_EMBEDDING_MODEL:-text-embedding-e5-base-v2}
+      # Context length overrides (LM Studio API doesn't report actual configured context)
+      - LMSTUDIO_CONTEXT_LENGTH_gemma_3n_e4b_it_text=16384
+      - LMSTUDIO_CONTEXT_LENGTH_deepseek_deepseek_r1_0528_qwen3_8b=16384
+      - LMSTUDIO_CONTEXT_LENGTH_qwen_qwen3_4b_2507=16384
       - LANGSMITH_API_KEY=${LANGSMITH_API_KEY}
       # - LANGGRAPH_SERVER_URL=${LANGGRAPH_SERVER_URL:-http://langgraph-server:2024}
       - TZ=America/New_York
@@ -124,6 +128,10 @@ services:
       - LMSTUDIO_MODEL_SIGMA=${LMSTUDIO_MODEL_SIGMA:-qwen/qwen3-4b-2507}
       - LMSTUDIO_EMBEDDING_URL=${LMSTUDIO_EMBEDDING_URL:-http://host.docker.internal:1234/v1/embeddings}
       - LMSTUDIO_EMBEDDING_MODEL=${LMSTUDIO_EMBEDDING_MODEL:-text-embedding-e5-base-v2}
+      # Context length overrides (LM Studio API doesn't report actual configured context)
+      - LMSTUDIO_CONTEXT_LENGTH_gemma_3n_e4b_it_text=16384
+      - LMSTUDIO_CONTEXT_LENGTH_deepseek_deepseek_r1_0528_qwen3_8b=16384
+      - LMSTUDIO_CONTEXT_LENGTH_qwen_qwen3_4b_2507=16384
     volumes:
       - ./src:/app/src
       - ./config:/app/config

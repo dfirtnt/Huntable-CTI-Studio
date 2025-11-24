@@ -127,7 +127,8 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                 raise ValueError(f"Article {article.id} has no content to filter")
             
             # Get junk filter threshold from config
-            junk_filter_threshold = state['config'].get('junk_filter_threshold', 0.8) if state.get('config') else 0.8
+            config = state.get('config')
+            junk_filter_threshold = config.get('junk_filter_threshold', 0.8) if config and isinstance(config, dict) else 0.8
             
             # Use configured filter threshold
             try:
@@ -321,7 +322,8 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                     raise ValueError(f"QA critical failure after {max_qa_retries} attempts: {qa_result.get('summary', 'Unknown error')}")
             
             ranking_score = ranking_result['score'] if ranking_result else 0.0
-            ranking_threshold = state['config'].get('ranking_threshold', 6.0) if state.get('config') else 6.0
+            config = state.get('config')
+            ranking_threshold = config.get('ranking_threshold', 6.0) if config and isinstance(config, dict) else 6.0
             should_continue = ranking_score >= ranking_threshold
             
             termination_reason = state.get('termination_reason')
@@ -409,7 +411,8 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
             from src.services.os_detection_service import OSDetectionService
             
             # Get OS detection config from workflow config
-            agent_models = state['config'].get('agent_models', {}) if state.get('config') else {}
+            config = state.get('config')
+            agent_models = config.get('agent_models', {}) if config and isinstance(config, dict) else {}
             embedding_model = agent_models.get('OSDetectionAgent_embedding', 'ibm-research/CTI-BERT')
             fallback_model = agent_models.get('OSDetectionAgent_fallback')
             
@@ -425,7 +428,21 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
             )
             
             detected_os = os_result.get('operating_system', 'Unknown') if os_result else 'Unknown'
-            is_windows = detected_os == 'Windows'
+            
+            # Check if Windows is detected or has the highest similarity
+            # This handles cases where Windows has highest similarity but confidence is low
+            similarities = os_result.get('similarities', {}) if os_result else {}
+            windows_similarity = similarities.get('Windows', 0.0) if isinstance(similarities, dict) else 0.0
+            
+            # Continue if:
+            # 1. detected_os is 'Windows', OR
+            # 2. detected_os is 'multiple' and Windows is included, OR
+            # 3. Windows has the highest similarity (even if confidence is low)
+            is_windows = (
+                detected_os == 'Windows' or
+                (detected_os == 'multiple' and windows_similarity > 0.0) or
+                (windows_similarity > 0.0 and windows_similarity == max(similarities.values()) if similarities else False)
+            )
             
             termination_reason = state.get('termination_reason')
             termination_details = state.get('termination_details')
@@ -723,7 +740,8 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
             # Store conversation log in execution.error_log (merge, don't overwrite)
             # Use the execution object we already have (don't refresh to avoid transaction isolation issues)
             if execution:
-                if execution.error_log is None:
+                # Ensure error_log is a dict
+                if execution.error_log is None or not isinstance(execution.error_log, dict):
                     execution.error_log = {}
                 # Preserve all existing keys (especially qa_results we stored earlier in the loop)
                 existing_qa_results = execution.error_log.get('qa_results', {})
@@ -1009,7 +1027,8 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
             
             similarity_results = []
             max_similarity = 0.0
-            similarity_threshold = state['config'].get('similarity_threshold', 0.5) if state.get('config') else 0.5
+            config = state.get('config')
+            similarity_threshold = config.get('similarity_threshold', 0.5) if config and isinstance(config, dict) else 0.5
             
             # Get config models for embedding model selection
             config_obj = trigger_service.get_active_config()
@@ -1112,7 +1131,8 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
             
             sigma_rules = state.get('sigma_rules', [])
             similarity_results = state.get('similarity_results')
-            similarity_threshold = state['config'].get('similarity_threshold', 0.5) if state.get('config') else 0.5
+            config = state.get('config')
+            similarity_threshold = config.get('similarity_threshold', 0.5) if config and isinstance(config, dict) else 0.5
             termination_reason = state.get('termination_reason')
             termination_details = state.get('termination_details')
             
@@ -1224,10 +1244,25 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
     
     def check_should_continue_after_os_detection(state: WorkflowState) -> str:
         """Check if workflow should continue after OS detection (only if Windows)."""
-        if state.get('should_continue', False) and state.get('detected_os') == 'Windows':
+        should_continue = state.get('should_continue', False)
+        detected_os = state.get('detected_os')
+        os_result = state.get('os_detection_result', {})
+        
+        # Check if Windows is detected or has highest similarity
+        if should_continue:
+            # Already determined to continue (Windows detected)
+            return "junk_filter"
+        elif detected_os == 'Windows':
             return "junk_filter"
         else:
-            return "end"
+            # Check if Windows has highest similarity even if detected_os is Unknown
+            similarities = os_result.get('similarities', {}) if isinstance(os_result, dict) else {}
+            if isinstance(similarities, dict) and similarities:
+                windows_sim = similarities.get('Windows', 0.0)
+                if windows_sim > 0.0 and windows_sim == max(similarities.values()):
+                    return "junk_filter"
+        
+        return "end"
     
     def check_should_continue_after_rank(state: WorkflowState) -> str:
         """Check if workflow should continue after ranking."""
@@ -1315,8 +1350,8 @@ async def run_workflow(article_id: int, db_session: Session) -> Dict[str, Any]:
             'ranking_threshold': config_obj.ranking_threshold if config_obj else 6.0,
             'similarity_threshold': config_obj.similarity_threshold if config_obj else 0.5,
             'junk_filter_threshold': config_obj.junk_filter_threshold if config_obj else 0.8,
-            'qa_enabled': config_obj.qa_enabled if config_obj and config_obj.qa_enabled else {},
-            'agent_models': config_obj.agent_models if config_obj else {}
+            'qa_enabled': config_obj.qa_enabled if config_obj and config_obj.qa_enabled and isinstance(config_obj.qa_enabled, dict) else {},
+            'agent_models': config_obj.agent_models if config_obj and config_obj.agent_models and isinstance(config_obj.agent_models, dict) else {}
         } if config_obj else {
             'min_hunt_score': 97.0,
             'ranking_threshold': 6.0,

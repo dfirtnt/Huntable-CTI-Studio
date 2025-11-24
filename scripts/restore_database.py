@@ -212,7 +212,7 @@ def restore_database(backup_path: Path, create_snapshot: bool = True, force: boo
         print("✅ Database restore completed successfully!")
         
         # Verify restore
-        verify_restore()
+        verify_restore(backup_info.get('metadata', {}))
         
         return True
         
@@ -235,8 +235,8 @@ def restore_snapshot(snapshot_path: Path) -> bool:
     print(f"🔄 Restoring from snapshot: {snapshot_path.name}")
     return restore_database(snapshot_path, create_snapshot=False, force=True)
 
-def verify_restore() -> None:
-    """Verify the restored database."""
+def verify_restore(backup_metadata: Optional[Dict[str, Any]] = None) -> None:
+    """Verify the restored database, including critical tables like ml_model_versions."""
     print("🔍 Verifying restore...")
     
     try:
@@ -257,6 +257,97 @@ def verify_restore() -> None:
         
         print(f"✅ Database connection verified")
         print(f"📊 Tables restored: {table_count}")
+        
+        # Verify ml_model_versions table exists and has data
+        try:
+            ml_versions_cmd = get_docker_exec_cmd(
+                'cti_postgres',
+                f"psql -U {DB_CONFIG['user']} -d {DB_CONFIG['database']} -c \"SELECT COUNT(*) FROM ml_model_versions;\" -t"
+            )
+            ml_versions_result = subprocess.run(ml_versions_cmd, capture_output=True, text=True, check=True)
+            ml_versions_count = ml_versions_result.stdout.strip()
+            
+            print(f"🤖 ML Model Versions restored: {ml_versions_count}")
+            
+            # Compare with backup metadata if available
+            if backup_metadata and 'ml_model_versions_count' in backup_metadata:
+                expected_count = backup_metadata['ml_model_versions_count'].strip()
+                if ml_versions_count == expected_count:
+                    print(f"✅ ML model metric history verified: {ml_versions_count} versions match backup")
+                else:
+                    print(f"⚠️  ML model version count mismatch: restored {ml_versions_count}, expected {expected_count}")
+        except subprocess.CalledProcessError:
+            print("⚠️  Could not verify ml_model_versions table (table may not exist in backup)")
+        except Exception as e:
+            print(f"⚠️  Error verifying ml_model_versions: {e}")
+        
+        # Verify agent config tables
+        try:
+            # Check agentic_workflow_config
+            agent_config_cmd = get_docker_exec_cmd(
+                'cti_postgres',
+                f"psql -U {DB_CONFIG['user']} -d {DB_CONFIG['database']} -c \"SELECT COUNT(*) FROM agentic_workflow_config;\" -t"
+            )
+            agent_config_result = subprocess.run(agent_config_cmd, capture_output=True, text=True, check=True)
+            agent_config_count = agent_config_result.stdout.strip()
+            print(f"⚙️  Agent Workflow Config restored: {agent_config_count} configuration(s)")
+            
+            # Check agent_prompt_versions
+            prompt_versions_cmd = get_docker_exec_cmd(
+                'cti_postgres',
+                f"psql -U {DB_CONFIG['user']} -d {DB_CONFIG['database']} -c \"SELECT COUNT(*) FROM agent_prompt_versions;\" -t"
+            )
+            prompt_versions_result = subprocess.run(prompt_versions_cmd, capture_output=True, text=True, check=True)
+            prompt_versions_count = prompt_versions_result.stdout.strip()
+            print(f"📝 Agent Prompt Versions restored: {prompt_versions_count} version(s)")
+            
+            # Check app_settings
+            app_settings_cmd = get_docker_exec_cmd(
+                'cti_postgres',
+                f"psql -U {DB_CONFIG['user']} -d {DB_CONFIG['database']} -c \"SELECT COUNT(*) FROM app_settings;\" -t"
+            )
+            app_settings_result = subprocess.run(app_settings_cmd, capture_output=True, text=True, check=True)
+            app_settings_count = app_settings_result.stdout.strip()
+            print(f"🔧 Application Settings restored: {app_settings_count} setting(s)")
+            
+        except subprocess.CalledProcessError:
+            print("⚠️  Could not verify agent config tables (tables may not exist in backup)")
+        except Exception as e:
+            print(f"⚠️  Error verifying agent config tables: {e}")
+        
+        # Verify source configurations
+        try:
+            # Check sources table
+            sources_cmd = get_docker_exec_cmd(
+                'cti_postgres',
+                f"psql -U {DB_CONFIG['user']} -d {DB_CONFIG['database']} -c \"SELECT COUNT(*) FROM sources;\" -t"
+            )
+            sources_result = subprocess.run(sources_cmd, capture_output=True, text=True, check=True)
+            sources_count = sources_result.stdout.strip()
+            
+            # Check active sources
+            active_sources_cmd = get_docker_exec_cmd(
+                'cti_postgres',
+                f"psql -U {DB_CONFIG['user']} -d {DB_CONFIG['database']} -c \"SELECT COUNT(*) FROM sources WHERE active = true;\" -t"
+            )
+            active_sources_result = subprocess.run(active_sources_cmd, capture_output=True, text=True, check=True)
+            active_sources_count = active_sources_result.stdout.strip()
+            
+            print(f"📰 Sources restored: {sources_count} source(s) ({active_sources_count} active)")
+            
+            # Check source_checks
+            source_checks_cmd = get_docker_exec_cmd(
+                'cti_postgres',
+                f"psql -U {DB_CONFIG['user']} -d {DB_CONFIG['database']} -c \"SELECT COUNT(*) FROM source_checks;\" -t"
+            )
+            source_checks_result = subprocess.run(source_checks_cmd, capture_output=True, text=True, check=True)
+            source_checks_count = source_checks_result.stdout.strip()
+            print(f"📊 Source Check History restored: {source_checks_count} check(s)")
+            
+        except subprocess.CalledProcessError:
+            print("⚠️  Could not verify source tables (tables may not exist in backup)")
+        except Exception as e:
+            print(f"⚠️  Error verifying source tables: {e}")
         
     except subprocess.CalledProcessError as e:
         print(f"⚠️  Verification failed: {e}")

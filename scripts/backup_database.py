@@ -4,6 +4,12 @@ Database Backup Script for CTI Scraper
 
 This script creates compressed backups of the PostgreSQL database
 with timestamp and metadata information.
+
+IMPORTANT: This backup includes ALL database tables, including:
+- ml_model_versions: ML model version history with evaluation metrics
+- All other application tables
+
+The backup uses pg_dump which captures the complete database schema and data.
 """
 
 import os
@@ -104,6 +110,15 @@ def create_backup(backup_dir: str = 'backups', compress: bool = True) -> str:
     
     try:
         # Create pg_dump command
+        # Note: pg_dump without --table or --exclude-table flags backs up ALL tables
+        # This ensures all tables are included:
+        # - ml_model_versions: ML model version history with evaluation metrics
+        # - agentic_workflow_config: Agent workflow configuration (thresholds, agent models, prompts, QA settings)
+        # - agent_prompt_versions: Agent prompt version history
+        # - app_settings: Application settings (user preferences)
+        # - sources: Source configurations (enabled status, lookback_days, check_frequency, config JSON)
+        # - source_checks: Source check history and health metrics
+        # - All other application tables
         dump_cmd = get_docker_exec_cmd(
             'cti_postgres',
             f"pg_dump -U {DB_CONFIG['user']} -d {DB_CONFIG['database']} --verbose --no-password"

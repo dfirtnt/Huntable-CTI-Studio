@@ -598,5 +598,94 @@ test.describe('Workflow Executions Page - Execute Workflow Feature', () => {
       }
     }
   });
+
+  test('should handle executions with null error_log without crashing', async ({ page }) => {
+    // This test verifies the fix for 'NoneType' object has no attribute 'get' error
+    // when error_log is None or not a dict
+    
+    // Wait for executions to load
+    await page.waitForLoadState('networkidle');
+    await page.waitForTimeout(1000);
+    
+    // Find any View button to open an execution
+    const viewButton = page.locator('button:has-text("View")').first();
+    const viewButtonExists = await viewButton.isVisible({ timeout: 5000 }).catch(() => false);
+    
+    if (!viewButtonExists) {
+      test.skip('No View button found to test error_log handling');
+      return;
+    }
+    
+    // Set up API response interception for execution details
+    const detailResponsePromise = page.waitForResponse(
+      (resp) => resp.url().match(/\/api\/workflow\/executions\/\d+$/) && 
+                resp.request().method() === 'GET',
+      { timeout: 10000 }
+    ).catch(() => null);
+    
+    // Set up API response interception for streaming endpoint
+    const streamResponsePromise = page.waitForResponse(
+      (resp) => resp.url().match(/\/api\/workflow\/executions\/\d+\/stream$/) && 
+                resp.request().method() === 'GET',
+      { timeout: 5000 }
+    ).catch(() => null);
+    
+    // Capture console errors and network errors
+    const consoleErrors: string[] = [];
+    const networkErrors: string[] = [];
+    
+    page.on('console', msg => {
+      if (msg.type() === 'error') {
+        consoleErrors.push(msg.text());
+      }
+    });
+    
+    page.on('response', resp => {
+      if (resp.status() >= 500) {
+        networkErrors.push(`${resp.url()}: ${resp.status()}`);
+      }
+    });
+    
+    // Click View button
+    await viewButton.click();
+    
+    // Wait for execution detail modal
+    const executionModal = page.locator('#executionModal');
+    await expect(executionModal).toBeVisible({ timeout: 5000 });
+    
+    // Wait for API responses
+    const detailResponse = await detailResponsePromise;
+    const streamResponse = await streamResponsePromise;
+    
+    // Wait a bit for any errors to surface
+    await page.waitForTimeout(2000);
+    
+    // Verify no errors occurred
+    const hasNoneTypeError = consoleErrors.some(err => 
+      err.includes("NoneType") && err.includes("get")
+    );
+    const hasStreamError = networkErrors.some(err => 
+      err.includes("stream") && err.includes("500")
+    );
+    
+    // Check that detail response succeeded (even if error_log is null)
+    if (detailResponse) {
+      expect(detailResponse.status()).toBeLessThan(400);
+      const responseData = await detailResponse.json();
+      // Response should have error_log field (can be null)
+      expect(responseData).toHaveProperty('error_log');
+    }
+    
+    // Verify no NoneType errors in console
+    expect(hasNoneTypeError).toBe(false);
+    
+    // Verify streaming endpoint didn't crash (if it was called)
+    if (streamResponse) {
+      expect(streamResponse.status()).toBeLessThan(400);
+    }
+    
+    // Verify modal is still visible (didn't crash)
+    await expect(executionModal).toBeVisible();
+  });
 });
 

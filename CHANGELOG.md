@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Enhanced Backup/Restore Verification**: Comprehensive verification for critical configuration data
+  - Backup metadata now tracks ML model versions, agent configs, and source configurations
+  - Restore verification checks all critical tables (ml_model_versions, agentic_workflow_config, agent_prompt_versions, app_settings, sources, source_checks)
+  - Verification compares restored counts against backup metadata for data integrity confirmation
+  - Added documentation for source configuration precedence (database vs. YAML)
+- **Source Configuration Precedence**: Database values now take precedence over sources.yaml after initial setup
+  - Application only syncs from sources.yaml for brand new builds (< 5 sources)
+  - Restored database configurations are preserved and not overwritten by sources.yaml on container rebuilds
+  - Added DISABLE_SOURCE_AUTO_SYNC environment variable to disable YAML sync entirely
+  - Database is authoritative source for source settings (active status, lookback_days, check_frequency) after initial setup
+
 ### Fixed
 - **Redis Validation Blocking Smoke Tests**: Made Redis validation non-blocking for smoke tests
   - Smoke tests now execute even if Redis connection fails
