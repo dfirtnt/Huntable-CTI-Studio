@@ -8,6 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **ML Comparison Chart Enhancements**: Added zoom and scroll controls for evaluation metrics chart
+  - Horizontal scrolling to view all model version history
+  - Zoom in/out controls with preset levels (5, 10, 15, 20, 30, 50, all versions)
+  - Fixed legend and chart title remain centered during scroll/zoom operations
+  - Default view shows latest models with ability to scroll left for history
 - **Enhanced Backup/Restore Verification**: Comprehensive verification for critical configuration data
   - Backup metadata now tracks ML model versions, agent configs, and source configurations
   - Restore verification checks all critical tables (ml_model_versions, agentic_workflow_config, agent_prompt_versions, app_settings, sources, source_checks)
