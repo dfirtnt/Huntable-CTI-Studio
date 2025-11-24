@@ -146,22 +146,60 @@
         <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
             <div class="flex items-center justify-between mb-4">
                 <h3 class="text-lg font-semibold text-gray-900 dark:text-white">🧪 Evaluation Metrics Over Time</h3>
-                <div class="relative group">
-                    <button class="text-gray-400 hover:text-gray-600 focus:outline-none" onclick="showMetricsHelp()">
-                        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"></path>
-                        </svg>
-                    </button>
-                    <div id="metricsHelpTooltip" class="absolute right-0 top-8 w-80 p-4 bg-gray-800 text-white text-sm rounded-lg shadow-lg opacity-0 invisible transition-all duration-200 z-50">
-                        <div class="absolute -top-1 right-4 w-2 h-2 bg-gray-800 transform rotate-45"></div>
-                        <div class="space-y-2">
-                            <div><strong>F1</strong> – Most balanced and widely used for classification benchmarks.</div>
-                            <div><strong>Recall</strong> – Prioritized when missing positives is costly (e.g., fraud, cancer detection).</div>
-                            <div><strong>Precision</strong> – Prioritized when false alarms are costly (e.g., spam filters, alerts).</div>
-                            <div><strong>Accuracy</strong> – Lowest priority; often misleading with imbalanced data.</div>
-                            <div class="pt-2 border-t border-gray-600"><strong>Priority:</strong> F1 > Recall ≈ Precision > Accuracy</div>
+                <div class="flex items-center gap-2">
+                    <div class="flex items-center gap-1 bg-gray-100 dark:bg-gray-700 rounded-lg p-1">
+                        <button id="zoomOutBtn" class="p-1.5 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 rounded focus:outline-none" title="Zoom Out (Show More History)">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM13 10H7"></path>
+                            </svg>
+                        </button>
+                        <span id="zoomLevel" class="px-2 text-xs text-gray-600 dark:text-gray-300 min-w-[60px] text-center">All</span>
+                        <button id="zoomInBtn" class="p-1.5 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 rounded focus:outline-none" title="Zoom In (Show Less History)">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v6m3-3H7"></path>
+                            </svg>
+                        </button>
+                    </div>
+                    <div class="relative group">
+                        <button class="text-gray-400 hover:text-gray-600 focus:outline-none" onclick="showMetricsHelp()">
+                            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"></path>
+                            </svg>
+                        </button>
+                        <div id="metricsHelpTooltip" class="absolute right-0 top-8 w-80 p-4 bg-gray-800 text-white text-sm rounded-lg shadow-lg opacity-0 invisible transition-all duration-200 z-50">
+                            <div class="absolute -top-1 right-4 w-2 h-2 bg-gray-800 transform rotate-45"></div>
+                            <div class="space-y-2">
+                                <div><strong>F1</strong> – Most balanced and widely used for classification benchmarks.</div>
+                                <div><strong>Recall</strong> – Prioritized when missing positives is costly (e.g., fraud, cancer detection).</div>
+                                <div><strong>Precision</strong> – Prioritized when false alarms are costly (e.g., spam filters, alerts).</div>
+                                <div><strong>Accuracy</strong> – Lowest priority; often misleading with imbalanced data.</div>
+                                <div class="pt-2 border-t border-gray-600"><strong>Priority:</strong> F1 > Recall ≈ Precision > Accuracy</div>
+                            </div>
                         </div>
                     </div>
+                </div>
+            </div>
+            <!-- Custom Title - Fixed and Centered -->
+            <div class="text-center mb-2">
+                <h4 class="text-sm font-semibold text-gray-700 dark:text-gray-300">Model Performance on Test Set (160 chunks)</h4>
+            </div>
+            <!-- Custom Legend - Fixed and Centered -->
+            <div class="flex justify-center items-center gap-6 mb-4 py-2">
+                <div class="flex items-center gap-2">
+                    <div class="w-4 h-4 rounded" style="background-color: rgba(75, 192, 192, 1);"></div>
+                    <span class="text-sm text-gray-700 dark:text-gray-300">Accuracy %</span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <div class="w-4 h-4 rounded" style="background-color: rgba(255, 99, 132, 1);"></div>
+                    <span class="text-sm text-gray-700 dark:text-gray-300">Precision %</span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <div class="w-4 h-4 rounded" style="background-color: rgba(54, 162, 235, 1);"></div>
+                    <span class="text-sm text-gray-700 dark:text-gray-300">Recall %</span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <div class="w-4 h-4 rounded" style="background-color: rgba(255, 206, 86, 1);"></div>
+                    <span class="text-sm text-gray-700 dark:text-gray-300">F1 Score %</span>
                 </div>
             </div>
             <div class="overflow-x-auto">
@@ -199,6 +237,12 @@
         let distributionChart = null;
         let evalAccuracyChart = null;
         let evalMetricsChart = null;
+        
+        // Zoom state
+        let zoomState = {
+            visibleCount: null, // null means show all
+            startIndex: null   // null means start from latest
+        };
 
         // Load initial data
         async function loadInitialData() {
@@ -307,7 +351,7 @@
             evalAccuracyChart = null;
         }
         
-        const timelineVersions = getAlignedVersionNumbers();
+        let timelineVersions = getAlignedVersionNumbers();
         const evaluatedVersionMap = new Map(
             currentData.modelVersions
                 .filter(v => v.has_evaluation)
@@ -318,6 +362,16 @@
             ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
             ctx.fillText('No timeline data available', 10, 50);
             return;
+        }
+        
+        // Apply zoom filter
+        if (zoomState.visibleCount !== null && zoomState.visibleCount < timelineVersions.length) {
+            const totalVersions = timelineVersions.length;
+            const startIdx = zoomState.startIndex !== null 
+                ? zoomState.startIndex 
+                : Math.max(0, totalVersions - zoomState.visibleCount);
+            const endIdx = startIdx + zoomState.visibleCount;
+            timelineVersions = timelineVersions.slice(startIdx, endIdx);
         }
         
         const accuracyPoints = timelineVersions.map(versionNumber => {
@@ -356,10 +410,12 @@
             return;
         }
         
-        // Set minimum width for chart container based on number of data points
+        // Set minimum width for chart container based on visible data points
         const chartContainer = document.getElementById('chartContainer');
+        const scrollContainer = chartContainer?.parentElement;
         if (chartContainer) {
-            const minWidth = Math.max(800, timelineVersions.length * 80);
+            const visibleCount = timelineVersions.length;
+            const minWidth = Math.max(800, visibleCount * 80);
             chartContainer.style.minWidth = minWidth + 'px';
         }
         
@@ -426,9 +482,11 @@
                         }
                 },
                 plugins: {
+                    legend: {
+                        display: false
+                    },
                     title: {
-                        display: true,
-                        text: 'Model Performance on Test Set (160 chunks)'
+                        display: false
                     },
                     tooltip: {
                         callbacks: {
@@ -444,6 +502,88 @@
                 }
                 }
             });
+            
+            // Scroll to show latest models by default
+            if (scrollContainer && timelineVersions.length > 0) {
+                // Wait for chart to render, then scroll to right
+                setTimeout(() => {
+                    scrollContainer.scrollLeft = scrollContainer.scrollWidth;
+                }, 100);
+            }
+            
+            updateZoomLevelDisplay();
+        }
+        
+        function updateZoomLevelDisplay() {
+            const zoomLevelEl = document.getElementById('zoomLevel');
+            if (!zoomLevelEl) return;
+            
+            const allVersions = getAlignedVersionNumbers();
+            const totalCount = allVersions.length;
+            
+            if (zoomState.visibleCount === null || zoomState.visibleCount >= totalCount) {
+                zoomLevelEl.textContent = `All (${totalCount})`;
+            } else {
+                zoomLevelEl.textContent = `${zoomState.visibleCount}/${totalCount}`;
+            }
+        }
+        
+        function zoomIn() {
+            const allVersions = getAlignedVersionNumbers();
+            const totalCount = allVersions.length;
+            
+            if (totalCount === 0) return;
+            
+            // Define zoom levels: 5, 10, 15, 20, 30, 50, then all
+            const zoomLevels = [5, 10, 15, 20, 30, 50, totalCount];
+            
+            if (zoomState.visibleCount === null) {
+                // Currently showing all, zoom to largest preset
+                zoomState.visibleCount = Math.min(50, totalCount);
+            } else {
+                // Find next smaller zoom level
+                const currentIdx = zoomLevels.findIndex(level => level >= zoomState.visibleCount);
+                if (currentIdx > 0) {
+                    zoomState.visibleCount = zoomLevels[currentIdx - 1];
+                } else {
+                    // Already at minimum zoom, do nothing
+                    return;
+                }
+            }
+            
+            // Keep showing latest models
+            zoomState.startIndex = null;
+            
+            updateEvalAccuracyChart();
+        }
+        
+        function zoomOut() {
+            const allVersions = getAlignedVersionNumbers();
+            const totalCount = allVersions.length;
+            
+            if (totalCount === 0) return;
+            
+            // Define zoom levels: 5, 10, 15, 20, 30, 50, then all
+            const zoomLevels = [5, 10, 15, 20, 30, 50, totalCount];
+            
+            if (zoomState.visibleCount === null) {
+                // Already showing all, do nothing
+                return;
+            }
+            
+            // Find next larger zoom level
+            const currentIdx = zoomLevels.findIndex(level => level > zoomState.visibleCount);
+            if (currentIdx !== -1) {
+                zoomState.visibleCount = zoomLevels[currentIdx];
+            } else {
+                // Show all
+                zoomState.visibleCount = null;
+            }
+            
+            // Keep showing latest models
+            zoomState.startIndex = null;
+            
+            updateEvalAccuracyChart();
         }
 
 
@@ -1121,6 +1261,16 @@
             document.getElementById('retrainModelBtn').addEventListener('click', retrainModel);
             document.getElementById('refreshRetrainBtn').addEventListener('click', refreshRetrainingStatus);
             document.getElementById('processEligibleBtn').addEventListener('click', processEligibleArticles);
+            
+            // Zoom controls
+            const zoomInBtn = document.getElementById('zoomInBtn');
+            const zoomOutBtn = document.getElementById('zoomOutBtn');
+            if (zoomInBtn) {
+                zoomInBtn.addEventListener('click', zoomIn);
+            }
+            if (zoomOutBtn) {
+                zoomOutBtn.addEventListener('click', zoomOut);
+            }
         });
     </script>
 {% endblock %}
