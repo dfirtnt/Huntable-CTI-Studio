@@ -75,6 +75,20 @@
     <div id="tab-content-config" class="tab-content hidden">
         <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mb-8">
             <form id="workflowConfigForm" class="space-y-6">
+                <!-- Workflow Description -->
+                <div class="border border-gray-200 dark:border-gray-700 rounded-lg">
+                    <div class="p-4 space-y-2">
+                        <label for="description" class="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                            Workflow Description
+                        </label>
+                        <textarea id="description"
+                                  name="description"
+                                  rows="2"
+                                  class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white text-sm"
+                                  placeholder="Optional notes about this config"></textarea>
+                        <p class="text-xs text-gray-500 dark:text-gray-400">Optional notes saved with this configuration version.</p>
+                    </div>
+                </div>
                 <!-- Other Thresholds -->
                 <div class="border border-gray-200 dark:border-gray-700 rounded-lg">
                     <button type="button" onclick="toggleCollapsible('other-thresholds-panel')" class="w-full flex items-center justify-between p-4 text-left hover:bg-gray-50 dark:hover:bg-gray-700 rounded-t-lg transition-colors">
@@ -219,6 +233,7 @@
                             <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
                                 Optional override for QA evaluations.
                             </p>
+                            <p class="text-xs text-blue-600 dark:text-blue-400 mt-2 font-medium">💡 Recommendation: Use <code class="px-1 py-0.5 bg-blue-50 dark:bg-blue-900/30 rounded">mistralai/mistral-7b-instruct-v0.3</code> for verification tasks. Alternative: <code class="px-1 py-0.5 bg-blue-50 dark:bg-blue-900/30 rounded">qwen/qwen2.5-coder-32b</code> for stronger JSON parsing.</p>
                         </div>
                         <!-- Rank QA Agent Prompt -->
                         <div id="rank-agent-qa-prompt-container" class="hidden">
@@ -257,11 +272,28 @@
                                     <button type="button" onclick="toggleCollapsible('cmdlineextract-agent-panel')" class="w-full flex items-center justify-between p-3 text-left hover:bg-gray-50 dark:hover:bg-gray-700 rounded-t-lg transition-colors">
                                         <div class="flex items-center gap-3">
                                             <h4 class="text-sm font-semibold text-gray-900 dark:text-white">CmdlineExtract (Command Line Extraction)</h4>
+                                            <span id="cmdlineextract-agent-enabled-pill" class="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">Enabled</span>
                                             <span id="cmdlineextract-agent-qa-badge" class="px-2 py-1 text-xs rounded-full bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300">QA: OFF</span>
                                         </div>
                                         <span id="cmdlineextract-agent-panel-toggle" class="text-gray-700 dark:text-gray-200 text-sm font-medium transform transition-transform">▼</span>
                                     </button>
                                     <div id="cmdlineextract-agent-panel-content" class="hidden p-3 border-t border-gray-200 dark:border-gray-700 space-y-3">
+                                        <!-- Enable/Disable Toggle -->
+                                        <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-3 border border-gray-200 dark:border-gray-700">
+                                            <div class="flex items-center justify-between">
+                                                <div>
+                                                    <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Enable CmdlineExtract</label>
+                                                    <p class="text-[10px] text-gray-500 dark:text-gray-400">Toggle off to skip this sub-agent (outputs 0 observables)</p>
+                                                </div>
+                                                <div class="flex items-center gap-2">
+                                                    <span id="cmdlineextract-agent-enabled-badge" class="px-2 py-1 text-[11px] rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">Enabled</span>
+                                                    <label class="relative inline-flex items-center cursor-pointer">
+                                                        <input type="checkbox" id="toggle-cmdlineextract-enabled" class="sr-only peer" onchange="handleExtractAgentToggle('CmdlineExtract')">
+                                                        <div class="w-10 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 dark:peer-focus:ring-purple-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-purple-600"></div>
+                                                    </label>
+                                                </div>
+                                            </div>
+                                        </div>
                                         <!-- Model Selection -->
                                         <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-3 border border-gray-200 dark:border-gray-700">
                                             <label class="flex items-center gap-2 text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -312,6 +344,7 @@
                                                     onchange="autoSaveModelChange()"
                                                     class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-xs">
                                             </select>
+                                            <p class="text-xs text-blue-600 dark:text-blue-400 mt-2 font-medium">💡 Recommendation: Use <code class="px-1 py-0.5 bg-blue-50 dark:bg-blue-900/30 rounded">mistralai/mistral-7b-instruct-v0.3</code> for verification tasks. Alternative: <code class="px-1 py-0.5 bg-blue-50 dark:bg-blue-900/30 rounded">qwen/qwen2.5-coder-32b</code> for stronger JSON parsing.</p>
                                         </div>
                                         <div id="cmdlineextract-agent-qa-prompt-container" class="hidden"></div>
                                     </div>
@@ -322,11 +355,28 @@
                                     <button type="button" onclick="toggleCollapsible('sigextract-agent-panel')" class="w-full flex items-center justify-between p-3 text-left hover:bg-gray-50 dark:hover:bg-gray-700 rounded-t-lg transition-colors">
                                         <div class="flex items-center gap-3">
                                             <h4 class="text-sm font-semibold text-gray-900 dark:text-white">SigExtract (Query Extraction)</h4>
+                                            <span id="sigextract-agent-enabled-pill" class="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">Enabled</span>
                                             <span id="sigextract-agent-qa-badge" class="px-2 py-1 text-xs rounded-full bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300">QA: OFF</span>
                                         </div>
                                         <span id="sigextract-agent-panel-toggle" class="text-gray-700 dark:text-gray-200 text-sm font-medium transform transition-transform">▼</span>
                                     </button>
                                     <div id="sigextract-agent-panel-content" class="hidden p-3 border-t border-gray-200 dark:border-gray-700 space-y-3">
+                                        <!-- Enable/Disable Toggle -->
+                                        <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-3 border border-gray-200 dark:border-gray-700">
+                                            <div class="flex items-center justify-between">
+                                                <div>
+                                                    <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Enable SigExtract</label>
+                                                    <p class="text-[10px] text-gray-500 dark:text-gray-400">Toggle off to skip this sub-agent (outputs 0 observables)</p>
+                                                </div>
+                                                <div class="flex items-center gap-2">
+                                                    <span id="sigextract-agent-enabled-badge" class="px-2 py-1 text-[11px] rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">Enabled</span>
+                                                    <label class="relative inline-flex items-center cursor-pointer">
+                                                        <input type="checkbox" id="toggle-sigextract-enabled" class="sr-only peer" onchange="handleExtractAgentToggle('SigExtract')">
+                                                        <div class="w-10 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 dark:peer-focus:ring-purple-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-purple-600"></div>
+                                                    </label>
+                                                </div>
+                                            </div>
+                                        </div>
                                         <!-- Model Selection -->
                                         <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-3 border border-gray-200 dark:border-gray-700">
                                             <label class="flex items-center gap-2 text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -377,6 +427,7 @@
                                                     onchange="autoSaveModelChange()"
                                                     class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-xs">
                                             </select>
+                                            <p class="text-xs text-blue-600 dark:text-blue-400 mt-2 font-medium">💡 Recommendation: Use <code class="px-1 py-0.5 bg-blue-50 dark:bg-blue-900/30 rounded">mistralai/mistral-7b-instruct-v0.3</code> for verification tasks. Alternative: <code class="px-1 py-0.5 bg-blue-50 dark:bg-blue-900/30 rounded">qwen/qwen2.5-coder-32b</code> for stronger JSON parsing.</p>
                                         </div>
                                         <div id="sigextract-agent-qa-prompt-container" class="hidden"></div>
                                     </div>
@@ -387,11 +438,28 @@
                                     <button type="button" onclick="toggleCollapsible('eventcodeextract-agent-panel')" class="w-full flex items-center justify-between p-3 text-left hover:bg-gray-50 dark:hover:bg-gray-700 rounded-t-lg transition-colors">
                                         <div class="flex items-center gap-3">
                                             <h4 class="text-sm font-semibold text-gray-900 dark:text-white">EventCodeExtract (Event ID Extraction)</h4>
+                                            <span id="eventcodeextract-agent-enabled-pill" class="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">Enabled</span>
                                             <span id="eventcodeextract-agent-qa-badge" class="px-2 py-1 text-xs rounded-full bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300">QA: OFF</span>
                                         </div>
                                         <span id="eventcodeextract-agent-panel-toggle" class="text-gray-700 dark:text-gray-200 text-sm font-medium transform transition-transform">▼</span>
                                     </button>
                                     <div id="eventcodeextract-agent-panel-content" class="hidden p-3 border-t border-gray-200 dark:border-gray-700 space-y-3">
+                                        <!-- Enable/Disable Toggle -->
+                                        <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-3 border border-gray-200 dark:border-gray-700">
+                                            <div class="flex items-center justify-between">
+                                                <div>
+                                                    <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Enable EventCodeExtract</label>
+                                                    <p class="text-[10px] text-gray-500 dark:text-gray-400">Toggle off to skip this sub-agent (outputs 0 observables)</p>
+                                                </div>
+                                                <div class="flex items-center gap-2">
+                                                    <span id="eventcodeextract-agent-enabled-badge" class="px-2 py-1 text-[11px] rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">Enabled</span>
+                                                    <label class="relative inline-flex items-center cursor-pointer">
+                                                        <input type="checkbox" id="toggle-eventcodeextract-enabled" class="sr-only peer" onchange="handleExtractAgentToggle('EventCodeExtract')">
+                                                        <div class="w-10 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 dark:peer-focus:ring-purple-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-purple-600"></div>
+                                                    </label>
+                                                </div>
+                                            </div>
+                                        </div>
                                         <!-- Model Selection -->
                                         <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-3 border border-gray-200 dark:border-gray-700">
                                             <label class="flex items-center gap-2 text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -442,6 +510,7 @@
                                                     onchange="autoSaveModelChange()"
                                                     class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-xs">
                                             </select>
+                                            <p class="text-xs text-blue-600 dark:text-blue-400 mt-2 font-medium">💡 Recommendation: Use <code class="px-1 py-0.5 bg-blue-50 dark:bg-blue-900/30 rounded">mistralai/mistral-7b-instruct-v0.3</code> for verification tasks. Alternative: <code class="px-1 py-0.5 bg-blue-50 dark:bg-blue-900/30 rounded">qwen/qwen2.5-coder-32b</code> for stronger JSON parsing.</p>
                                         </div>
                                         <div id="eventcodeextract-agent-qa-prompt-container" class="hidden"></div>
                                     </div>
@@ -452,11 +521,28 @@
                                     <button type="button" onclick="toggleCollapsible('proctreeextract-agent-panel')" class="w-full flex items-center justify-between p-3 text-left hover:bg-gray-50 dark:hover:bg-gray-700 rounded-t-lg transition-colors">
                                         <div class="flex items-center gap-3">
                                             <h4 class="text-sm font-semibold text-gray-900 dark:text-white">ProcTreeExtract (Process Lineage)</h4>
+                                            <span id="proctreeextract-agent-enabled-pill" class="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">Enabled</span>
                                             <span id="proctreeextract-agent-qa-badge" class="px-2 py-1 text-xs rounded-full bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300">QA: OFF</span>
                                         </div>
                                         <span id="proctreeextract-agent-panel-toggle" class="text-gray-700 dark:text-gray-200 text-sm font-medium transform transition-transform">▼</span>
                                     </button>
                                     <div id="proctreeextract-agent-panel-content" class="hidden p-3 border-t border-gray-200 dark:border-gray-700 space-y-3">
+                                        <!-- Enable/Disable Toggle -->
+                                        <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-3 border border-gray-200 dark:border-gray-700">
+                                            <div class="flex items-center justify-between">
+                                                <div>
+                                                    <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Enable ProcTreeExtract</label>
+                                                    <p class="text-[10px] text-gray-500 dark:text-gray-400">Toggle off to skip this sub-agent (outputs 0 observables)</p>
+                                                </div>
+                                                <div class="flex items-center gap-2">
+                                                    <span id="proctreeextract-agent-enabled-badge" class="px-2 py-1 text-[11px] rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">Enabled</span>
+                                                    <label class="relative inline-flex items-center cursor-pointer">
+                                                        <input type="checkbox" id="toggle-proctreeextract-enabled" class="sr-only peer" onchange="handleExtractAgentToggle('ProcTreeExtract')">
+                                                        <div class="w-10 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 dark:peer-focus:ring-purple-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-purple-600"></div>
+                                                    </label>
+                                                </div>
+                                            </div>
+                                        </div>
                                         <!-- Model Selection -->
                                         <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-3 border border-gray-200 dark:border-gray-700">
                                             <label class="flex items-center gap-2 text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -507,6 +593,7 @@
                                                     onchange="autoSaveModelChange()"
                                                     class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-xs">
                                             </select>
+                                            <p class="text-xs text-blue-600 dark:text-blue-400 mt-2 font-medium">💡 Recommendation: Use <code class="px-1 py-0.5 bg-blue-50 dark:bg-blue-900/30 rounded">mistralai/mistral-7b-instruct-v0.3</code> for verification tasks. Alternative: <code class="px-1 py-0.5 bg-blue-50 dark:bg-blue-900/30 rounded">qwen/qwen2.5-coder-32b</code> for stronger JSON parsing.</p>
                                         </div>
                                         <div id="proctreeextract-agent-qa-prompt-container" class="hidden"></div>
                                     </div>
@@ -517,11 +604,28 @@
                                     <button type="button" onclick="toggleCollapsible('regextract-agent-panel')" class="w-full flex items-center justify-between p-3 text-left hover:bg-gray-50 dark:hover:bg-gray-700 rounded-t-lg transition-colors">
                                         <div class="flex items-center gap-3">
                                             <h4 class="text-sm font-semibold text-gray-900 dark:text-white">RegExtract (Registry Extraction)</h4>
+                                            <span id="regextract-agent-enabled-pill" class="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">Enabled</span>
                                             <span id="regextract-agent-qa-badge" class="px-2 py-1 text-xs rounded-full bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300">QA: OFF</span>
                                         </div>
                                         <span id="regextract-agent-panel-toggle" class="text-gray-700 dark:text-gray-200 text-sm font-medium transform transition-transform">▼</span>
                                     </button>
                                     <div id="regextract-agent-panel-content" class="hidden p-3 border-t border-gray-200 dark:border-gray-700 space-y-3">
+                                        <!-- Enable/Disable Toggle -->
+                                        <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-3 border border-gray-200 dark:border-gray-700">
+                                            <div class="flex items-center justify-between">
+                                                <div>
+                                                    <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Enable RegExtract</label>
+                                                    <p class="text-[10px] text-gray-500 dark:text-gray-400">Toggle off to skip this sub-agent (outputs 0 observables)</p>
+                                                </div>
+                                                <div class="flex items-center gap-2">
+                                                    <span id="regextract-agent-enabled-badge" class="px-2 py-1 text-[11px] rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">Enabled</span>
+                                                    <label class="relative inline-flex items-center cursor-pointer">
+                                                        <input type="checkbox" id="toggle-regextract-enabled" class="sr-only peer" onchange="handleExtractAgentToggle('RegExtract')">
+                                                        <div class="w-10 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 dark:peer-focus:ring-purple-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-purple-600"></div>
+                                                    </label>
+                                                </div>
+                                            </div>
+                                        </div>
                                         <!-- Model Selection -->
                                         <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-3 border border-gray-200 dark:border-gray-700">
                                             <label class="flex items-center gap-2 text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -572,6 +676,7 @@
                                                     onchange="autoSaveModelChange()"
                                                     class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-xs">
                                             </select>
+                                            <p class="text-xs text-blue-600 dark:text-blue-400 mt-2 font-medium">💡 Recommendation: Use <code class="px-1 py-0.5 bg-blue-50 dark:bg-blue-900/30 rounded">mistralai/mistral-7b-instruct-v0.3</code> for verification tasks. Alternative: <code class="px-1 py-0.5 bg-blue-50 dark:bg-blue-900/30 rounded">qwen/qwen2.5-coder-32b</code> for stronger JSON parsing.</p>
                                         </div>
                                         <div id="regextract-agent-qa-prompt-container" class="hidden"></div>
                                     </div>
@@ -681,6 +786,30 @@
                             </p>
                         </div>
                     </div>
+                </div>
+
+                <!-- Preset Management -->
+                <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mb-6 border border-gray-200 dark:border-gray-700">
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">💾 Configuration Presets</h3>
+                    <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">Save and load complete workflow configurations as local files.</p>
+                    <div class="flex flex-wrap gap-3">
+                        <button type="button" 
+                                onclick="savePreset()" 
+                                class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors font-medium">
+                            💾 Save Preset
+                        </button>
+                        <label for="load-preset-input" class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md transition-colors font-medium cursor-pointer">
+                            📂 Load Preset
+                        </label>
+                        <input type="file" 
+                               id="load-preset-input" 
+                               accept=".json" 
+                               class="hidden" 
+                               onchange="loadPreset(event)">
+                    </div>
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-3">
+                        Presets include: thresholds, model selections, QA toggles, temperature settings, extract agent toggles, and sigma fallback settings.
+                    </p>
                 </div>
 
                 <!-- Current Config Display -->
@@ -1160,6 +1289,8 @@ function switchTab(tab) {
 let currentConfig = null;
 let agentPrompts = {};
 let agentModels = {};
+const extractSubAgents = ['CmdlineExtract', 'SigExtract', 'EventCodeExtract', 'ProcTreeExtract', 'RegExtract'];
+let disabledExtractAgents = new Set();
 
 function renderAgentModels() {
     const container = document.getElementById('agentModelsContainer');
@@ -1900,6 +2031,10 @@ async function loadConfig() {
             if (currentConfig.similarity_threshold !== undefined) {
                 document.getElementById('similarityThreshold').value = currentConfig.similarity_threshold;
             }
+            const descriptionField = document.getElementById('description');
+            if (descriptionField && currentConfig.description !== undefined) {
+                descriptionField.value = currentConfig.description || '';
+            }
             
             // Display current config
             const configDisplay = document.getElementById('configDisplay');
@@ -1926,6 +2061,7 @@ async function loadConfig() {
         
         // Load QA settings
         loadQASettings2();
+        syncExtractAgentTogglesFromConfig();
         
         // Load SIGMA fallback setting
         const sigmaFallbackCheckbox = document.getElementById('sigma-fallback-enabled');
@@ -2147,6 +2283,7 @@ function renderAgentModels(lmstudioModels) {
                     ${modelOptions}
                 </select>
                 <p class="text-xs text-gray-500 dark:text-gray-300 mt-1">Required: Select a model from the dropdown</p>
+                <p class="text-xs text-blue-600 dark:text-blue-400 mt-2 font-medium">💡 Recommendation: Use <code class="px-1 py-0.5 bg-blue-50 dark:bg-blue-900/30 rounded">codellama-7b-instruct</code> for consistent scoring. Alternative: <code class="px-1 py-0.5 bg-blue-50 dark:bg-blue-900/30 rounded">qwen/qwen2.5-coder-32b</code> if resources allow.</p>
                 ${sortedModelIds.length === 0 ? '<p class="text-xs text-orange-500 dark:text-orange-400 mt-1">⚠️ LM Studio is not available. Start LM Studio to load models.</p>' : ''}
                 
                 <!-- Temperature -->
@@ -2207,6 +2344,7 @@ function renderAgentModels(lmstudioModels) {
                         ${sortedModelIds.map(modelId => `<option value="${escapeHtml(modelId)}" ${currentFallbackModel === modelId ? 'selected' : ''}>${escapeHtml(modelId)}</option>`).join('')}
                     </select>
                     <p class="text-[10px] text-gray-500 dark:text-gray-400 mt-1">Leave blank to use primary OS model.</p>
+                    <p class="text-xs text-blue-600 dark:text-blue-400 mt-2 font-medium">💡 Recommendation: Use <code class="px-1 py-0.5 bg-blue-50 dark:bg-blue-900/30 rounded">mistralai/mistral-7b-instruct-v0.3</code> or <code class="px-1 py-0.5 bg-blue-50 dark:bg-blue-900/30 rounded">qwen/qwen3-4b-2507</code> for classification fallback.</p>
                 </div>
             </div>
         `;
@@ -2240,6 +2378,7 @@ function renderAgentModels(lmstudioModels) {
                     <option value="">Use default from Settings</option>
                     ${modelOptions}
                 </select>
+                <p class="text-xs text-blue-600 dark:text-blue-400 mt-2 font-medium">💡 Recommendation: Use <code class="px-1 py-0.5 bg-blue-50 dark:bg-blue-900/30 rounded">qwen/qwen2.5-coder-32b</code> for structured JSON extraction. Alternative: <code class="px-1 py-0.5 bg-blue-50 dark:bg-blue-900/30 rounded">codellama-7b-instruct</code> (7B, faster).</p>
             </div>
         `;
     }
@@ -2272,6 +2411,7 @@ function renderAgentModels(lmstudioModels) {
                     <option value="">Use default from Settings</option>
                     ${modelOptions}
                 </select>
+                <p class="text-xs text-blue-600 dark:text-blue-400 mt-2 font-medium">💡 Recommendation: Use <code class="px-1 py-0.5 bg-blue-50 dark:bg-blue-900/30 rounded">qwen/qwen2.5-coder-32b</code> for structured YAML generation. Alternative: <code class="px-1 py-0.5 bg-blue-50 dark:bg-blue-900/30 rounded">codellama-7b-instruct</code> (7B, faster). Avoid 4B models.</p>
             </div>
         `;
     }
@@ -2877,6 +3017,394 @@ function loadQASettings2() {
     });
 }
 
+function getDisabledExtractAgentsFromConfig(config) {
+    if (!config) return [];
+    const prompts = config.agent_prompts || {};
+    const extractSettings = prompts.ExtractAgentSettings || prompts.ExtractAgent || {};
+    const disabledRaw = extractSettings.disabled_agents || extractSettings.disabled_sub_agents || [];
+    
+    if (Array.isArray(disabledRaw)) {
+        return disabledRaw;
+    }
+    
+    if (disabledRaw && typeof disabledRaw === 'object') {
+        return Object.entries(disabledRaw)
+            .filter(([_, value]) => value === false || value === 0 || (typeof value === 'string' && value.toLowerCase() === 'false'))
+            .map(([key]) => key);
+    }
+    
+    return [];
+}
+
+function updateExtractAgentStatusBadge(agentName, enabled) {
+    const ids = [
+        `${agentName.toLowerCase()}-agent-enabled-badge`,
+        `${agentName.toLowerCase()}-agent-enabled-pill`
+    ];
+    ids.forEach(badgeId => {
+        const badge = document.getElementById(badgeId);
+        if (!badge) return;
+        badge.textContent = enabled ? 'Enabled' : 'Disabled';
+        badge.classList.remove('bg-green-100', 'text-green-800', 'dark:bg-green-900', 'dark:text-green-200', 'bg-red-100', 'text-red-800', 'dark:bg-red-900', 'dark:text-red-200');
+        if (enabled) {
+            badge.classList.add('bg-green-100', 'text-green-800', 'dark:bg-green-900', 'dark:text-green-200');
+        } else {
+            badge.classList.add('bg-red-100', 'text-red-800', 'dark:bg-red-900', 'dark:text-red-200');
+        }
+    });
+}
+
+function syncExtractAgentTogglesFromConfig() {
+    const disabled = new Set(getDisabledExtractAgentsFromConfig(currentConfig));
+    disabledExtractAgents = disabled;
+    
+    extractSubAgents.forEach(agentName => {
+        const checkbox = document.getElementById(`toggle-${agentName.toLowerCase()}-enabled`);
+        if (checkbox) {
+            const enabled = !disabled.has(agentName);
+            checkbox.checked = enabled;
+            void checkbox.offsetHeight;
+            checkbox.dispatchEvent(new Event('change', { bubbles: true }));
+            updateExtractAgentStatusBadge(agentName, enabled);
+        }
+    });
+}
+
+async function persistExtractAgentSettings() {
+    try {
+        if (!currentConfig) {
+            console.warn('No currentConfig loaded; cannot save extract toggles.');
+            return;
+        }
+        
+        const disabledList = Array.from(disabledExtractAgents);
+        const promptsSource = {
+            ...(currentConfig?.agent_prompts || {}),
+            ...(agentPrompts || {})
+        };
+        const promptsCopy = JSON.parse(JSON.stringify(promptsSource || {}));
+        const extractSettings = promptsCopy.ExtractAgentSettings ? { ...promptsCopy.ExtractAgentSettings } : {};
+        extractSettings.disabled_agents = disabledList;
+        promptsCopy.ExtractAgentSettings = extractSettings;
+        
+        const payload = {
+            min_hunt_score: currentConfig.min_hunt_score ?? 97.0,
+            ranking_threshold: currentConfig.ranking_threshold ?? 6.0,
+            similarity_threshold: currentConfig.similarity_threshold ?? 0.5,
+            junk_filter_threshold: currentConfig.junk_filter_threshold ?? 0.8,
+            description: currentConfig.description || null,
+            agent_models: currentConfig.agent_models || {},
+            qa_enabled: currentConfig.qa_enabled || {},
+            sigma_fallback_enabled: currentConfig.sigma_fallback_enabled ?? false,
+            agent_prompts: promptsCopy
+        };
+        
+        const response = await fetch('/api/workflow/config', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        
+        if (response.ok) {
+            const updatedConfig = await response.json();
+            currentConfig = updatedConfig;
+            agentPrompts = updatedConfig.agent_prompts || agentPrompts || {};
+            disabledExtractAgents = new Set(getDisabledExtractAgentsFromConfig(updatedConfig));
+            syncExtractAgentTogglesFromConfig();
+            console.log('✅ Extract sub-agent toggles saved', { disabled: Array.from(disabledExtractAgents) });
+        } else {
+            const error = await response.json().catch(() => ({}));
+            console.error('❌ Failed to save extract sub-agent toggles', error);
+            // Re-sync UI to last known good state
+            syncExtractAgentTogglesFromConfig();
+        }
+    } catch (error) {
+        console.error('Error saving extract sub-agent toggles', error);
+        syncExtractAgentTogglesFromConfig();
+    } finally {
+        updateSaveButtonState();
+    }
+}
+
+async function handleExtractAgentToggle(agentName) {
+    const checkbox = document.getElementById(`toggle-${agentName.toLowerCase()}-enabled`);
+    const enabled = checkbox ? checkbox.checked : true;
+    if (!enabled) {
+        disabledExtractAgents.add(agentName);
+    } else {
+        disabledExtractAgents.delete(agentName);
+    }
+    updateExtractAgentStatusBadge(agentName, enabled);
+    updateSaveButtonState();
+}
+
+// Preset Management Functions
+function getFullPresetState() {
+    // Get all form state
+    const formState = getCurrentFormState();
+    
+    // Get sigma fallback setting
+    const sigmaFallbackCheckbox = document.getElementById('sigma-fallback-enabled');
+    const sigma_fallback_enabled = sigmaFallbackCheckbox ? sigmaFallbackCheckbox.checked : false;
+    
+    // Get disabled extract agents
+    const disabled_agents = Array.from(disabledExtractAgents);
+    
+    // Get description if available
+    const description = currentConfig?.description || null;
+    
+    // Build complete preset
+    const preset = {
+        version: "1.0",
+        created_at: new Date().toISOString(),
+        description: description,
+        thresholds: {
+            junk_filter_threshold: formState.junk_filter_threshold,
+            ranking_threshold: formState.ranking_threshold,
+            similarity_threshold: formState.similarity_threshold
+        },
+        agent_models: formState.agent_models,
+        qa_enabled: formState.qa_enabled,
+        sigma_fallback_enabled: sigma_fallback_enabled,
+        extract_agent_settings: {
+            disabled_agents: disabled_agents
+        }
+    };
+    
+    return preset;
+}
+
+function savePreset() {
+    try {
+        const preset = getFullPresetState();
+        
+        // Prompt for preset name
+        const presetName = prompt('Enter a name for this preset:', `workflow-preset-${new Date().toISOString().split('T')[0]}`);
+        if (!presetName) {
+            return; // User cancelled
+        }
+        
+        // Clean preset name for filename
+        const filename = presetName.replace(/[^a-z0-9]/gi, '-').toLowerCase() + '.json';
+        
+        // Create blob and download
+        const blob = new Blob([JSON.stringify(preset, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        
+        // Show success message
+        alert(`✅ Preset saved as "${filename}"`);
+    } catch (error) {
+        console.error('Error saving preset:', error);
+        alert('❌ Error saving preset: ' + error.message);
+    }
+}
+
+async function loadPreset(event) {
+    const file = event.target.files[0];
+    if (!file) {
+        return;
+    }
+    
+    try {
+        const text = await file.text();
+        const preset = JSON.parse(text);
+        
+        // Validate preset structure
+        if (!preset.version || !preset.thresholds || !preset.agent_models) {
+            throw new Error('Invalid preset format. Missing required fields.');
+        }
+        
+        // Confirm load
+        const confirmed = confirm(
+            `Load preset "${file.name}"?\n\n` +
+            `This will replace all current settings:\n` +
+            `- Thresholds\n` +
+            `- Model selections\n` +
+            `- QA toggles\n` +
+            `- Temperature settings\n` +
+            `- Extract agent toggles\n` +
+            `- Sigma fallback setting\n\n` +
+            `Click OK to proceed or Cancel to abort.`
+        );
+        
+        if (!confirmed) {
+            event.target.value = ''; // Reset file input
+            return;
+        }
+        
+        // Apply preset
+        await applyPreset(preset);
+        
+        // Show success message
+        alert(`✅ Preset "${file.name}" loaded successfully!`);
+        
+        // Reset file input
+        event.target.value = '';
+    } catch (error) {
+        console.error('Error loading preset:', error);
+        alert('❌ Error loading preset: ' + error.message);
+        event.target.value = ''; // Reset file input
+    }
+}
+
+async function applyPreset(preset) {
+    try {
+        // Apply thresholds
+        if (preset.thresholds) {
+            const junkFilterInput = document.getElementById('junkFilterThreshold');
+            if (junkFilterInput && preset.thresholds.junk_filter_threshold !== undefined) {
+                junkFilterInput.value = preset.thresholds.junk_filter_threshold;
+            }
+            
+            const rankingInput = document.getElementById('rankingThreshold');
+            if (rankingInput && preset.thresholds.ranking_threshold !== undefined) {
+                rankingInput.value = preset.thresholds.ranking_threshold;
+            }
+            
+            const similarityInput = document.getElementById('similarityThreshold');
+            if (similarityInput && preset.thresholds.similarity_threshold !== undefined) {
+                similarityInput.value = preset.thresholds.similarity_threshold;
+            }
+        }
+        
+        // Apply agent models
+        if (preset.agent_models) {
+            // Rank Agent
+            const rankModelSelect = document.getElementById('rankagent-model-2');
+            if (rankModelSelect && preset.agent_models.RankAgent) {
+                rankModelSelect.value = preset.agent_models.RankAgent;
+            }
+            const rankTempInput = document.getElementById('rankagent-temperature');
+            if (rankTempInput && preset.agent_models.RankAgent_temperature !== undefined) {
+                rankTempInput.value = preset.agent_models.RankAgent_temperature;
+            }
+            
+            // Extract Agent
+            const extractModelSelect = document.getElementById('extractagent-model-2');
+            if (extractModelSelect && preset.agent_models.ExtractAgent) {
+                extractModelSelect.value = preset.agent_models.ExtractAgent;
+            }
+            
+            // Sigma Agent
+            const sigmaModelSelect = document.getElementById('sigmaagent-model-2');
+            if (sigmaModelSelect && preset.agent_models.SigmaAgent) {
+                sigmaModelSelect.value = preset.agent_models.SigmaAgent;
+            }
+            
+            // OS Detection
+            const osEmbeddingSelect = document.getElementById('osdetectionagent-embedding-model-2');
+            if (osEmbeddingSelect && preset.agent_models.OSDetectionAgent_embedding) {
+                osEmbeddingSelect.value = preset.agent_models.OSDetectionAgent_embedding;
+            }
+            const osFallbackSelect = document.getElementById('osdetectionagent-fallback-model-2');
+            if (osFallbackSelect && preset.agent_models.OSDetectionAgent_fallback) {
+                osFallbackSelect.value = preset.agent_models.OSDetectionAgent_fallback;
+            }
+            
+            // Sub-agents
+            const subAgents = [
+                { name: 'CmdlineExtract', id: 'cmdlineextract-model', tempId: 'cmdlineextract-temperature' },
+                { name: 'SigExtract', id: 'sigextract-model', tempId: 'sigextract-temperature' },
+                { name: 'EventCodeExtract', id: 'eventcodeextract-model', tempId: 'eventcodeextract-temperature' },
+                { name: 'ProcTreeExtract', id: 'proctreeextract-model', tempId: 'proctreeextract-temperature' },
+                { name: 'RegExtract', id: 'regextract-model', tempId: 'regextract-temperature' }
+            ];
+            
+            subAgents.forEach(subAgent => {
+                const modelKey = `${subAgent.name}_model`;
+                const tempKey = `${subAgent.name}_temperature`;
+                
+                const modelSelect = document.getElementById(subAgent.id);
+                if (modelSelect && preset.agent_models[modelKey]) {
+                    modelSelect.value = preset.agent_models[modelKey];
+                }
+                
+                const tempInput = document.getElementById(subAgent.tempId);
+                if (tempInput && preset.agent_models[tempKey] !== undefined) {
+                    tempInput.value = preset.agent_models[tempKey];
+                }
+            });
+            
+            // QA Models
+            const qaModelFields = [
+                { name: 'RankAgentQA', id: 'rankqa-model' },
+                { name: 'CmdLineQA', id: 'cmdlineqa-model' },
+                { name: 'SigQA', id: 'sigqa-model' },
+                { name: 'EventCodeQA', id: 'eventcodeqa-model' },
+                { name: 'ProcTreeQA', id: 'proctreeqa-model' },
+                { name: 'RegQA', id: 'regqa-model' }
+            ];
+            
+            qaModelFields.forEach(field => {
+                const select = document.getElementById(field.id);
+                if (select && preset.agent_models[field.name]) {
+                    select.value = preset.agent_models[field.name];
+                }
+            });
+        }
+        
+        // Apply QA enabled toggles
+        if (preset.qa_enabled) {
+            const agents = ['OSDetectionAgent', 'RankAgent', 'CmdlineExtract', 'SigExtract', 'EventCodeExtract', 'ProcTreeExtract', 'RegExtract', 'SigmaAgent'];
+            agents.forEach(agentName => {
+                const agentId = agentName.toLowerCase().replace(/\s+/g, '-');
+                const checkbox = document.getElementById(`qa-${agentId}`);
+                if (checkbox && preset.qa_enabled[agentName] !== undefined) {
+                    checkbox.checked = preset.qa_enabled[agentName];
+                    // Trigger change event to update badges
+                    checkbox.dispatchEvent(new Event('change', { bubbles: true }));
+                }
+            });
+        }
+        
+        // Apply sigma fallback
+        if (preset.sigma_fallback_enabled !== undefined) {
+            const sigmaFallbackCheckbox = document.getElementById('sigma-fallback-enabled');
+            if (sigmaFallbackCheckbox) {
+                sigmaFallbackCheckbox.checked = preset.sigma_fallback_enabled;
+            }
+        }
+        
+        // Apply extract agent toggles
+        if (preset.extract_agent_settings && preset.extract_agent_settings.disabled_agents) {
+            const disabledList = preset.extract_agent_settings.disabled_agents;
+            disabledExtractAgents = new Set(disabledList);
+            
+            extractSubAgents.forEach(agentName => {
+                const checkbox = document.getElementById(`toggle-${agentName.toLowerCase()}-enabled`);
+                if (checkbox) {
+                    const enabled = !disabledList.includes(agentName);
+                    checkbox.checked = enabled;
+                    checkbox.dispatchEvent(new Event('change', { bubbles: true }));
+                    updateExtractAgentStatusBadge(agentName, enabled);
+                }
+            });
+        }
+        
+        // Trigger auto-save handlers to update UI state
+        if (typeof autoSaveModelChange === 'function') {
+            autoSaveModelChange();
+        }
+        
+        // Update save button state
+        if (typeof updateSaveButtonState === 'function') {
+            updateSaveButtonState();
+        }
+        
+        console.log('✅ Preset applied successfully');
+    } catch (error) {
+        console.error('Error applying preset:', error);
+        throw error;
+    }
+}
+
 // Prompt editing functions
 function editPrompt(agentName) {
     editingPrompts[agentName] = true;
@@ -3093,12 +3621,16 @@ function getCurrentFormState() {
         }
     });
    
+    const disabled_agents = Array.from(disabledExtractAgents || []);
+
     return {
         junk_filter_threshold: parseFloat(document.getElementById('junkFilterThreshold')?.value || '0'),
         ranking_threshold: parseFloat(document.getElementById('rankingThreshold')?.value || '0'),
         similarity_threshold: parseFloat(document.getElementById('similarityThreshold')?.value || '0'),
+        description: document.getElementById('description')?.value || '',
         qa_enabled: qaEnabled,
-        agent_models: agent_models
+        agent_models: agent_models,
+        disabled_extract_agents: disabled_agents
     };
 }
 
@@ -3127,6 +3659,14 @@ function checkForUnsavedChanges() {
     }
     for (const agentName of Object.keys(originalQA)) {
         if (currentQA[agentName] !== originalQA[agentName]) return true;
+    }
+
+    // Compare disabled extract agents
+    const currentDisabled = new Set(currentState.disabled_extract_agents || []);
+    const originalDisabled = new Set((originalState.disabled_extract_agents || []));
+    if (currentDisabled.size !== originalDisabled.size) return true;
+    for (const name of currentDisabled) {
+        if (!originalDisabled.has(name)) return true;
     }
     
     // Compare agent_models - check all keys including sub-agent models and temperatures
@@ -3191,7 +3731,8 @@ function initializeChangeTracking() {
             similarity_threshold: currentConfig.similarity_threshold || 0,
             description: currentConfig.description || '',
             qa_enabled: currentConfig.qa_enabled || {},
-            agent_models: currentConfig.agent_models || {}
+            agent_models: currentConfig.agent_models || {},
+            disabled_extract_agents: getDisabledExtractAgentsFromConfig(currentConfig)
         };
     }
     
@@ -3236,6 +3777,14 @@ function initializeChangeTracking() {
         const checkbox = document.getElementById(`qa-${agentId}`);
         if (checkbox) {
             checkbox.addEventListener('change', updateSaveButtonState);
+        }
+    });
+    
+    // Add change listeners to extract sub-agent enable toggles
+    extractSubAgents.forEach(agentName => {
+        const toggle = document.getElementById(`toggle-${agentName.toLowerCase()}-enabled`);
+        if (toggle) {
+            toggle.addEventListener('change', updateSaveButtonState);
         }
     });
     
@@ -3287,6 +3836,7 @@ if (workflowConfigForm) {
         junk_filter_threshold: parseFloat(document.getElementById('junkFilterThreshold').value),
         ranking_threshold: parseFloat(document.getElementById('rankingThreshold').value),
         similarity_threshold: parseFloat(document.getElementById('similarityThreshold').value),
+        description: document.getElementById('description')?.value || null,
         agent_models: {
             RankAgent: document.getElementById('rankagent-model-2')?.value.trim() || null,
             RankAgent_temperature: parseFloat(document.getElementById('rankagent-temperature')?.value) || 0.0,
@@ -3314,6 +3864,16 @@ if (workflowConfigForm) {
         qa_enabled: qaEnabled,
         sigma_fallback_enabled: document.getElementById('sigma-fallback-enabled')?.checked || false
     };
+    
+    // Merge agent_prompts and include disabled extract agents
+    const promptsSource = {
+        ...(currentConfig?.agent_prompts || {}),
+        ...(agentPrompts || {})
+    };
+    const extractSettings = promptsSource.ExtractAgentSettings ? { ...promptsSource.ExtractAgentSettings } : {};
+    extractSettings.disabled_agents = Array.from(disabledExtractAgents || []);
+    promptsSource.ExtractAgentSettings = extractSettings;
+    formData.agent_prompts = promptsSource;
     
     // Validate RankAgent model is set
     if (!formData.agent_models.RankAgent) {
@@ -3366,6 +3926,10 @@ if (workflowConfigForm) {
             if (updatedConfig.similarity_threshold !== undefined) {
                 document.getElementById('similarityThreshold').value = updatedConfig.similarity_threshold;
             }
+            const descriptionField = document.getElementById('description');
+            if (descriptionField && updatedConfig.description !== undefined) {
+                descriptionField.value = updatedConfig.description || '';
+            }
             
             // Update config display
             const configDisplay = document.getElementById('configDisplay');
@@ -3383,31 +3947,50 @@ if (workflowConfigForm) {
             
             // Update agentModels global variable with the saved config before reloading
             agentModels = updatedConfig.agent_models || {};
+            disabledExtractAgents = new Set(getDisabledExtractAgentsFromConfig(updatedConfig));
+            syncExtractAgentTogglesFromConfig();
             
-            // Reload agent models and prompts (these might have changed)
-            await loadAgentModels();
-            await loadAgentPrompts();
-            
-            // Restore QA settings from the saved config
-            loadQASettings2();
-            
-            // Setup event listeners
-            setupQAEventListeners();
-            
-            // Initialize change tracking after save
-            initializeChangeTracking();
-            
-            // Show success state
+            // Show success state immediately (don't wait for reloads)
             saveButton.textContent = '✓ Saved!';
             saveButton.classList.remove('bg-purple-600', 'hover:bg-purple-700');
             saveButton.classList.add('bg-green-600');
             
+            // Restore button state after 2 seconds, regardless of reload status
             setTimeout(() => {
                 saveButton.textContent = originalButtonText;
                 saveButton.classList.remove('bg-green-600');
                 saveButton.classList.add('bg-purple-600', 'hover:bg-purple-700');
+                saveButton.disabled = false;
                 updateSaveButtonState();
             }, 2000);
+            
+            // Reload agent models and prompts in background (with timeout protection)
+            Promise.race([
+                Promise.all([
+                    loadAgentModels().catch(err => {
+                        console.warn('Error reloading agent models after save:', err);
+                    }),
+                    loadAgentPrompts().catch(err => {
+                        console.warn('Error reloading agent prompts after save:', err);
+                    })
+                ]),
+                new Promise(resolve => setTimeout(resolve, 10000)) // 10 second timeout
+            ]).then(() => {
+                // Restore QA settings from the saved config
+                loadQASettings2();
+                
+                // Setup event listeners
+                setupQAEventListeners();
+                
+                // Initialize change tracking after save
+                initializeChangeTracking();
+            }).catch(err => {
+                console.warn('Error in post-save reload:', err);
+                // Still restore UI state even if reloads fail
+                loadQASettings2();
+                setupQAEventListeners();
+                initializeChangeTracking();
+            });
         } else {
             const error = await response.json();
             // Handle error detail - could be string, array, or object
