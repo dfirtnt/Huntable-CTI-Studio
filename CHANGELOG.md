@@ -8,6 +8,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Subagent Evaluation Pages**: Added dedicated evaluation pages for ExtractAgent subagents
+  - Created subagent evaluation pages at `/evaluations/ExtractAgent/{subagent_name}` for CmdlineExtract, SigExtract, EventCodeExtract, ProcTreeExtract, and RegExtract
+  - Added subagent links section on ExtractAgent evaluation page with cards for each subagent
+  - Subagent pages show purpose, evaluation history, and link back to parent agent
+- **SIGMA Test Pages Navigation**: Moved SIGMA A/B Test and SIGMA Similarity Test links from main navigation to Evaluations page
+  - Links now appear as cards on the Evaluations page alongside agent evaluation cards
+  - Removed from main navigation bar for cleaner interface
 - **Generator Error Handling**: Enhanced Langfuse trace cleanup to suppress generator protocol errors
   - Generator errors during Langfuse cleanup no longer fail workflows
   - Added comprehensive error suppression in trace context managers
