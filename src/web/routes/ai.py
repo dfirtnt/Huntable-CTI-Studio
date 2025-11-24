@@ -210,6 +210,17 @@ def _lmstudio_url_candidates() -> List[str]:
     if not normalized.lower().endswith("/v1"):
         candidates.append(f"{normalized}/v1")
 
+    # If URL contains localhost, also try host.docker.internal (for Docker containers)
+    if "localhost" in normalized.lower() or "127.0.0.1" in normalized:
+        docker_url = normalized.replace("localhost", "host.docker.internal").replace("127.0.0.1", "host.docker.internal")
+        if docker_url not in candidates:
+            candidates.append(docker_url)
+        # Also try with /v1 if not already there
+        if not docker_url.lower().endswith("/v1"):
+            docker_url_v1 = f"{docker_url}/v1"
+            if docker_url_v1 not in candidates:
+                candidates.append(docker_url_v1)
+
     # Preserve order while removing duplicates
     seen = set()
     unique_candidates = []

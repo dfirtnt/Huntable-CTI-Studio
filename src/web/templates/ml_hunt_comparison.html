@@ -164,7 +164,11 @@
                     </div>
                 </div>
             </div>
-            <canvas id="evalAccuracyChart" width="400" height="200"></canvas>
+            <div class="overflow-x-auto">
+                <div id="chartContainer" style="min-width: 100%; height: 400px; position: relative;">
+                    <canvas id="evalAccuracyChart"></canvas>
+                </div>
+            </div>
         </div>
     </div>
 </div>
@@ -188,10 +192,7 @@
                 .map(v => v.version_number);
             const combinedSet = new Set([...classificationVersions, ...evaluatedVersions]);
             const combined = Array.from(combinedSet).sort((a, b) => a - b);
-            if (combined.length <= 9) {
-                return combined;
-            }
-            return combined.slice(-9);
+            return combined;
         }
 
         // Chart instances for proper cleanup
@@ -355,6 +356,13 @@
             return;
         }
         
+        // Set minimum width for chart container based on number of data points
+        const chartContainer = document.getElementById('chartContainer');
+        if (chartContainer) {
+            const minWidth = Math.max(800, timelineVersions.length * 80);
+            chartContainer.style.minWidth = minWidth + 'px';
+        }
+        
             evalAccuracyChart = new Chart(ctx, {
             type: 'line',
                 data: {
@@ -399,6 +407,7 @@
                 },
                 options: {
                     responsive: true,
+                    maintainAspectRatio: false,
                     scales: {
                         y: {
                             beginAtZero: true,
@@ -408,15 +417,19 @@
                                     return value + '%';
                                 }
                             }
+                        },
+                        x: {
+                            ticks: {
+                                maxRotation: 45,
+                                minRotation: 45
+                            }
                         }
                 },
                 plugins: {
                     title: {
                         display: true,
                         text: 'Model Performance on Test Set (160 chunks)'
-                    }
-                },
-                plugins: {
+                    },
                     tooltip: {
                         callbacks: {
                             label: function(context) {

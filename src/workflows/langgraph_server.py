@@ -620,7 +620,21 @@ Cannot process empty articles."""
             )
             
             detected_os = os_result.get('operating_system', 'Unknown')
-            is_windows = detected_os == 'Windows'
+            
+            # Check if Windows is detected or has the highest similarity
+            # This handles cases where Windows has highest similarity but confidence is low
+            similarities = os_result.get('similarities', {}) if os_result else {}
+            windows_similarity = similarities.get('Windows', 0.0) if isinstance(similarities, dict) else 0.0
+            
+            # Continue if:
+            # 1. detected_os is 'Windows', OR
+            # 2. detected_os is 'multiple' and Windows is included, OR
+            # 3. Windows has the highest similarity (even if confidence is low)
+            is_windows = (
+                detected_os == 'Windows' or
+                (detected_os == 'multiple' and windows_similarity > 0.0) or
+                (windows_similarity > 0.0 and windows_similarity == max(similarities.values()) if similarities else False)
+            )
             
             termination_reason = state.get('termination_reason')
             termination_details = state.get('termination_details')

@@ -62,16 +62,28 @@ Comprehensive guide for CTI Scraper backup and restore operations, including dat
 ### Components Backed Up
 
 #### Database-Only Backup
-- PostgreSQL database dump (compressed)
-- Metadata JSON file
+- PostgreSQL database dump (compressed) - **includes ALL tables**
+  - **ml_model_versions**: ML model version history with evaluation metrics (accuracy, precision, recall, F1 scores)
+  - **agentic_workflow_config**: Agent workflow configuration (thresholds, agent models, prompts, QA settings)
+  - **agent_prompt_versions**: Agent prompt version history
+  - **app_settings**: Application settings (user preferences, API keys, LLM configurations)
+  - **agent_evaluations**: Agent evaluation results and performance metrics
+  - **sources**: Source configurations (enabled/disabled status, lookback_days, check_frequency, RSS URLs, config JSON)
+  - **source_checks**: Source check history and health metrics
+  - All other application tables
+- Metadata JSON file (includes ml_model_versions count for verification)
 
 #### Full System Backup
 1. **Database** - PostgreSQL dump with metadata
 2. **ML Models** - Trained models (`models/` directory)
 3. **Configuration** - Source configs and settings (`config/` directory)
+   - **`config/sources.yaml`** - Source definitions (⚠️ Can overwrite database on sync)
+   - Other configuration files
 4. **Training Data** - User feedback and training datasets (`outputs/` directory)
 5. **Docker Volumes** - Persistent data (postgres_data, redis_data, ollama_data)
 6. **Logs** - Application logs (`logs/` directory)
+
+**✅ Source Configuration**: Database values are the source of truth. `config/sources.yaml` is only used for brand new builds (< 5 sources). After restore, database settings are automatically preserved. See [Source Configuration Precedence](./SOURCE_CONFIG_PRECEDENCE.md) for details.
 
 ### Backup Structure
 
@@ -104,10 +116,12 @@ backups/system_backup_20251010_103000/
 ### Features
 
 - **Automatic Compression**: gzip compression (~70-80% reduction)
-- **Metadata Tracking**: JSON metadata with database stats
+- **Metadata Tracking**: JSON metadata with database stats (including ml_model_versions count)
 - **Timestamped Filenames**: `cti_scraper_backup_YYYYMMDD_HHMMSS.sql.gz`
 - **Docker Integration**: Seamless container integration
 - **Safety Checks**: Pre-restore validation and snapshots
+- **Complete Table Coverage**: All tables backed up, including ml_model_versions for ML metric history
+- **Restore Verification**: Automatically verifies ml_model_versions count matches backup metadata
 
 ### Commands
 
@@ -150,10 +164,13 @@ python3 scripts/restore_database.py backup.sql.gz --no-snapshot
 {
   "database_size": "15.2 MB",
   "table_stats": "table_name | inserts | updates | deletes",
+  "ml_model_versions_count": "5",
   "backup_timestamp": "2025-09-07T13:46:53.394736",
   "postgres_version": "15-alpine"
 }
 ```
+
+**Note**: The `ml_model_versions_count` field is used during restore verification to ensure ML model metric history is correctly restored.
 
 ---
 

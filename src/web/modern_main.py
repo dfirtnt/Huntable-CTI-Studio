@@ -42,8 +42,18 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
     try:
         existing_identifiers = await async_db_manager.list_source_identifiers()
-
-        if not existing_identifiers or len(existing_identifiers) < 5:
+        
+        # Check if auto-sync is disabled via environment variable
+        disable_auto_sync = os.getenv("DISABLE_SOURCE_AUTO_SYNC", "false").lower() in ("true", "1", "yes")
+        
+        # Only sync from YAML for brand new builds (initial setup)
+        # Database values take precedence for existing installations
+        if disable_auto_sync:
+            logger.info(
+                "Source auto-sync disabled via DISABLE_SOURCE_AUTO_SYNC. Using database values only."
+            )
+        elif not existing_identifiers or len(existing_identifiers) < 5:
+            # Brand new build: seed from YAML
             config_path = Path(os.getenv("SOURCES_CONFIG", "config/sources.yaml"))
             if config_path.exists():
                 logger.info(
@@ -56,8 +66,10 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             else:
                 logger.warning("Source config seed file missing: %s", config_path)
         else:
+            # Existing installation: use database values, skip YAML sync
             logger.info(
-                "Skipping YAML sync; %d sources already present",
+                "Using database source configurations (%d sources). YAML sync skipped. "
+                "Database values take precedence. Use 'sync-sources' CLI command to sync from YAML if needed.",
                 len(existing_identifiers),
             )
 

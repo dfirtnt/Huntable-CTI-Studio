@@ -21,6 +21,16 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/workflow", tags=["workflow"])
 
+# Singleton DatabaseManager instance to prevent connection pool exhaustion
+_db_manager: Optional[DatabaseManager] = None
+
+def get_db_manager() -> DatabaseManager:
+    """Get or create singleton DatabaseManager instance."""
+    global _db_manager
+    if _db_manager is None:
+        _db_manager = DatabaseManager()
+    return _db_manager
+
 
 class ExecutionResponse(BaseModel):
     """Response model for workflow execution."""
@@ -71,11 +81,11 @@ async def list_workflow_executions(
     request: Request,
     article_id: Optional[int] = None,
     status: Optional[str] = None,
-    limit: int = 50
+    limit: int = 500
 ):
     """List workflow executions with accurate counts."""
     try:
-        db_manager = DatabaseManager()
+        db_manager = get_db_manager()
         db_session = db_manager.get_session()
         
         try:
@@ -148,7 +158,7 @@ async def list_workflow_executions(
 async def get_workflow_execution(request: Request, execution_id: int):
     """Get detailed workflow execution information."""
     try:
-        db_manager = DatabaseManager()
+        db_manager = get_db_manager()
         db_session = db_manager.get_session()
         
         try:
@@ -230,7 +240,7 @@ async def cleanup_stale_executions(
     and marks them as failed with an appropriate error message.
     """
     try:
-        db_manager = DatabaseManager()
+        db_manager = get_db_manager()
         db_session = db_manager.get_session()
         
         try:
@@ -346,14 +356,24 @@ async def stream_execution_updates(execution_id: int):
                     
                     # Send LLM interaction updates from error_log
                     if current_error_log and current_error_log != last_error_log:
-                        # Create a deep copy to track what we've sent
-                        if last_error_log is None:
+                        # Normalize current_error_log to dict if it's not already
+                        if not isinstance(current_error_log, dict):
+                            current_error_log = {}
+                        
+                        # Normalize last_error_log to dict if it's not already
+                        if last_error_log is None or not isinstance(last_error_log, dict):
                             last_error_log = {}
                         
                         # Check for LLM interactions in each agent's error_log entry
                         for agent_name in ['rank_article', 'extract_agent', 'generate_sigma', 'os_detection']:
                             agent_log = current_error_log.get(agent_name, {})
                             last_agent_log = last_error_log.get(agent_name, {})
+                            
+                            # Ensure agent_log is a dict
+                            if not isinstance(agent_log, dict):
+                                agent_log = {}
+                            if not isinstance(last_agent_log, dict):
+                                last_agent_log = {}
                             
                             # Check for conversation_log (Rank, Extract, SIGMA, etc.)
                             if 'conversation_log' in agent_log:
@@ -365,20 +385,28 @@ async def stream_execution_updates(execution_id: int):
                                     for entry in conversation_log:
                                         # Check if this entry is new (by attempt number)
                                         is_new = True
-                                        for last_entry in last_conversation_log:
-                                            if last_entry.get('attempt') == entry.get('attempt'):
-                                                is_new = False
-                                                break
+                                        if isinstance(last_conversation_log, list):
+                                            for last_entry in last_conversation_log:
+                                                if isinstance(last_entry, dict) and isinstance(entry, dict):
+                                                    if last_entry.get('attempt') == entry.get('attempt'):
+                                                        is_new = False
+                                                        break
                                         
-                                        if is_new:
+                                        if is_new and isinstance(entry, dict):
                                             yield f"data: {json.dumps({'type': 'llm_interaction', 'agent': agent_name, 'messages': entry.get('messages', []), 'response': entry.get('llm_response', ''), 'attempt': entry.get('attempt', 1), 'score': entry.get('score'), 'discrete_huntables_count': entry.get('discrete_huntables_count'), 'timestamp': datetime.utcnow().isoformat()})}\n\n"
+                        
+                        # Check for QA results (moved outside agent loop for efficiency)
+                        if 'qa_results' in current_error_log:
+                            qa_results = current_error_log['qa_results']
+                            last_qa_results = last_error_log.get('qa_results', {})
                             
-                            # Check for QA results
-                            if 'qa_results' in current_error_log:
-                                qa_results = current_error_log['qa_results']
-                                last_qa_results = last_error_log.get('qa_results', {})
-                                
+                            # Ensure qa_results is a dict before iterating
+                            if isinstance(qa_results, dict) and isinstance(last_qa_results, dict):
                                 for qa_agent_name, qa_result in qa_results.items():
+                                    # Ensure qa_result is a dict
+                                    if not isinstance(qa_result, dict):
+                                        continue
+                                    
                                     # Map QA agent names to workflow agent names
                                     agent_mapping = {
                                         'RankAgent': 'rank_article',
@@ -401,7 +429,7 @@ async def stream_execution_updates(execution_id: int):
                                     
                                     # Only send if this QA result is new or updated
                                     last_qa_result = last_qa_results.get(qa_agent_name)
-                                    if not last_qa_result or last_qa_result.get('verdict') != qa_result.get('verdict'):
+                                    if not isinstance(last_qa_result, dict) or last_qa_result.get('verdict') != qa_result.get('verdict'):
                                         yield f"data: {json.dumps({'type': 'qa_result', 'agent': mapped_agent_name, 'verdict': qa_result.get('verdict'), 'summary': qa_result.get('summary'), 'issues': qa_result.get('issues', []), 'timestamp': datetime.utcnow().isoformat()})}\n\n"
                         
                         # Update last_error_log after processing
@@ -444,7 +472,7 @@ async def trigger_stuck_executions(request: Request):
         import asyncio
         from src.workflows.agentic_workflow import run_workflow
         
-        db_manager = DatabaseManager()
+        db_manager = get_db_manager()
         db_session = db_manager.get_session()
         
         try:
@@ -513,7 +541,7 @@ async def _trigger_via_langgraph_server(article_id: int, execution_id: int, lang
     try:
         # Get article and config
         from src.services.workflow_trigger_service import WorkflowTriggerService
-        db_manager = DatabaseManager()
+        db_manager = get_db_manager()
         db_session = db_manager.get_session()
         
         try:
@@ -638,7 +666,7 @@ async def retry_workflow_execution(request: Request, execution_id: int, use_lang
         from src.worker.celery_app import trigger_agentic_workflow
         from src.workflows.agentic_workflow import run_workflow
         
-        db_manager = DatabaseManager()
+        db_manager = get_db_manager()
         db_session = db_manager.get_session()
         
         try:
@@ -715,7 +743,7 @@ async def cancel_workflow_execution(request: Request, execution_id: int):
     The actual Celery task may continue running until it completes or times out.
     """
     try:
-        db_manager = DatabaseManager()
+        db_manager = get_db_manager()
         db_session = db_manager.get_session()
         
         try:
@@ -794,7 +822,7 @@ async def get_workflow_debug_info(request: Request, execution_id: int):
     """Get debug information for opening execution in Agent Chat UI."""
     import os
     try:
-        db_manager = DatabaseManager()
+        db_manager = get_db_manager()
         db_session = db_manager.get_session()
         
         try:
@@ -814,7 +842,7 @@ async def get_workflow_debug_info(request: Request, execution_id: int):
                 db_session, 
                 "LANGFUSE_HOST", 
                 "LANGFUSE_HOST", 
-                "https://cloud.langfuse.com"
+                "https://us.cloud.langfuse.com"
             )
             langfuse_public_key = _get_langfuse_setting(
                 db_session,
@@ -826,76 +854,53 @@ async def get_workflow_debug_info(request: Request, execution_id: int):
                 "LANGFUSE_PROJECT_ID",
                 "LANGFUSE_PROJECT_ID"
             )
-            trace_id = f"workflow_exec_{execution_id}"
+            
+            # Generate trace_id hash (same format as langfuse_client.py)
+            import hashlib
+            trace_id_hash = hashlib.md5(f"workflow_exec_{execution_id}".encode()).hexdigest()
             
             # Debug logging
-            logger.debug(f"Langfuse debug info - host: {langfuse_host}, public_key present: {bool(langfuse_public_key)}, project_id: {langfuse_project_id}, trace_id: {trace_id}")
+            logger.debug(f"Langfuse debug info - host: {langfuse_host}, public_key present: {bool(langfuse_public_key)}, project_id: {langfuse_project_id}, trace_id: {trace_id_hash}")
+            
+            # Always generate Langfuse trace URL (traces may exist even if keys aren't currently configured)
+            # Normalize host URL (remove trailing slash)
+            langfuse_host = langfuse_host.rstrip('/') if langfuse_host else "https://us.cloud.langfuse.com"
+            
+            # Langfuse direct trace URL format
+            if langfuse_project_id:
+                # Use project-specific direct trace URL
+                agent_chat_url = f"{langfuse_host}/project/{langfuse_project_id}/traces/{trace_id_hash}"
+            else:
+                # Fallback to direct trace URL without project ID
+                agent_chat_url = f"{langfuse_host}/traces/{trace_id_hash}"
+            
+            logger.info(f"🔗 Generated Langfuse trace URL: {agent_chat_url}")
+            logger.info(f"   Trace ID: {trace_id_hash} (execution #{execution_id})")
             
             if langfuse_public_key:
-                # Use Langfuse for debugging
-                # Normalize host URL (remove trailing slash)
-                langfuse_host = langfuse_host.rstrip('/') if langfuse_host else "https://cloud.langfuse.com"
-                
-                # Langfuse trace URL format:
-                # Use search by session_id instead of direct trace link, since traces may not exist
-                # if execution ran via Celery (no tracing). Search URL will show any traces for that session.
-                session_id = f"workflow_exec_{execution_id}"
-                if langfuse_project_id:
-                    # Use project-specific URL format - search by session_id
-                    agent_chat_url = f"{langfuse_host}/project/{langfuse_project_id}/traces?sessionId={session_id}"
-                else:
-                    # Fallback to search format without project ID
-                    agent_chat_url = f"{langfuse_host}/traces?sessionId={session_id}"
-                
-                logger.info(f"🔗 Generated Langfuse URL: {agent_chat_url}")
-                logger.info(f"   Note: Trace may not exist if execution #{execution_id} didn't run with Langfuse tracing enabled")
-                
-                # Check if using localhost Langfuse
-                if "localhost" in langfuse_host or "127.0.0.1" in langfuse_host:
-                    instructions = (
-                        "Opening Langfuse for execution #{}.\n\n"
-                        "✅ LOCALHOST ACCESS:\n"
-                        "• Using: {}\n"
-                        "• Make sure Langfuse is running\n"
-                        "• Traces are created automatically when workflows execute\n\n"
-                        "⚠️ NOTE:\n"
-                        "• Traces only appear if execution ran with Langfuse tracing enabled\n"
-                        "• Use the 'View' button to see execution details from the database\n"
-                    ).format(execution_id, langfuse_host)
-                else:
-                    instructions = (
-                        "Opening Langfuse for execution #{}.\n\n"
-                        "⚠️ IMPORTANT NOTES:\n"
-                        "• Traces only appear if the execution ran with Langfuse tracing enabled\n"
-                        "• Most executions run via Celery (fast, no traces)\n"
-                        "• Only executions via 'Retry (Trace)' button create Langfuse traces\n\n"
-                        "If trace not found:\n"
-                        "• Use the 'View' button to see execution details from the database\n"
-                        "• Use 'Retry (Trace)' button to create a new execution with tracing\n"
-                        "• Check Langfuse traces list for any traces with session 'workflow_exec_{}'"
-                    ).format(execution_id, execution_id)
+                instructions = (
+                    "Opening Langfuse trace for execution #{}.\n"
+                    "Trace ID: {}"
+                ).format(execution_id, trace_id_hash)
             else:
-                # Fallback to open-source Agent Chat UI
+                # Warn user that Langfuse may not be configured, but still try to open trace
                 logger.warning(
-                    f"⚠️ Langfuse not configured for execution {execution_id}. "
-                    f"Host: {langfuse_host}, Public Key: {'present' if langfuse_public_key else 'missing'}. "
-                    f"Falling back to Agent Chat UI. "
+                    f"⚠️ Langfuse keys not configured for execution {execution_id}. "
+                    f"Opening trace URL anyway - trace may exist if execution ran with Langfuse enabled. "
                     f"Configure Langfuse in Settings page or set LANGFUSE_PUBLIC_KEY/LANGFUSE_SECRET_KEY in environment."
                 )
-                agent_chat_base = os.getenv("AGENT_CHAT_UI_URL", "https://chat.langchain.com")
-                thread_id = f"workflow_exec_{execution_id}"
-                agent_chat_url = f"{agent_chat_base}/?graph=agentic_workflow&thread={thread_id}&server={langgraph_server_url}"
                 instructions = (
-                    "Opening Agent Chat UI. Note: Langfuse is preferred for debugging. "
-                    "Configure Langfuse API keys in the Settings page to use Langfuse tracing."
-                )
+                    "Opening Langfuse trace for execution #{}.\n"
+                    "Trace ID: {}\n"
+                    "Note: Langfuse keys not configured. Trace will only exist if execution ran with Langfuse tracing enabled."
+                ).format(execution_id, trace_id_hash)
             
             return {
                 "execution_id": execution_id,
                 "article_id": execution.article_id,
                 "langgraph_server_url": langgraph_server_url,
                 "agent_chat_url": agent_chat_url,
-                "thread_id": trace_id,
+                "thread_id": trace_id_hash,
                 "graph_id": "agentic_workflow",
                 "instructions": instructions,
                 "uses_langsmith": bool(langfuse_public_key)  # Keep field name for backwards compatibility
@@ -923,11 +928,44 @@ async def trigger_workflow_for_article(request: Request, article_id: int, use_la
         import os
         from src.services.workflow_trigger_service import WorkflowTriggerService
         
-        db_manager = DatabaseManager()
+        db_manager = get_db_manager()
         db_session = db_manager.get_session()
         
         try:
             trigger_service = WorkflowTriggerService(db_session)
+            
+            # Check for existing active executions BEFORE triggering
+            # Also check for stuck pending executions (older than 5 minutes)
+            from datetime import timedelta
+            cutoff_time = datetime.utcnow() - timedelta(minutes=5)
+            
+            existing_execution = db_session.query(AgenticWorkflowExecutionTable).filter(
+                AgenticWorkflowExecutionTable.article_id == article_id,
+                AgenticWorkflowExecutionTable.status.in_(['pending', 'running'])
+            ).first()
+            
+            if existing_execution:
+                # Check if it's a stuck pending execution (older than 5 minutes and never started)
+                if (existing_execution.status == 'pending' and 
+                    existing_execution.created_at < cutoff_time and 
+                    existing_execution.started_at is None):
+                    logger.warning(
+                        f"Found stuck pending execution {existing_execution.id} for article {article_id} "
+                        f"(created {existing_execution.created_at}, never started). Marking as failed."
+                    )
+                    existing_execution.status = 'failed'
+                    existing_execution.error_message = (
+                        existing_execution.error_message or 
+                        f"Execution stuck in pending status for more than 5 minutes (created: {existing_execution.created_at})"
+                    )
+                    existing_execution.completed_at = datetime.utcnow()
+                    db_session.commit()
+                    # Continue to create new execution
+                else:
+                    raise HTTPException(
+                        status_code=400, 
+                        detail=f"Article {article_id} already has an active workflow execution (ID: {existing_execution.id})"
+                    )
             
             if trigger_service.trigger_workflow(article_id):
                 # Get the newly created execution
@@ -991,43 +1029,11 @@ async def trigger_workflow_for_article(request: Request, article_id: int, use_la
                     "via_langgraph_server": False
                 }
             else:
-                # Check why it failed (hunt score threshold check is DISABLED)
+                # trigger_workflow returned False - this should not happen if we checked above
+                # But handle it gracefully
                 article = db_session.query(ArticleTable).filter(ArticleTable.id == article_id).first()
                 if not article:
                     raise HTTPException(status_code=404, detail=f"Article {article_id} not found")
-                
-                # Check if already has active execution
-                # Also check for stuck pending executions (older than 5 minutes)
-                from datetime import timedelta
-                cutoff_time = datetime.utcnow() - timedelta(minutes=5)
-                
-                existing_execution = db_session.query(AgenticWorkflowExecutionTable).filter(
-                    AgenticWorkflowExecutionTable.article_id == article_id,
-                    AgenticWorkflowExecutionTable.status.in_(['pending', 'running'])
-                ).first()
-                
-                if existing_execution:
-                    # Check if it's a stuck pending execution (older than 5 minutes and never started)
-                    if (existing_execution.status == 'pending' and 
-                        existing_execution.created_at < cutoff_time and 
-                        existing_execution.started_at is None):
-                        logger.warning(
-                            f"Found stuck pending execution {existing_execution.id} for article {article_id} "
-                            f"(created {existing_execution.created_at}, never started). Marking as failed."
-                        )
-                        existing_execution.status = 'failed'
-                        existing_execution.error_message = (
-                            existing_execution.error_message or 
-                            f"Execution stuck in pending status for more than 5 minutes (created: {existing_execution.created_at})"
-                        )
-                        existing_execution.completed_at = datetime.utcnow()
-                        db_session.commit()
-                        # Continue to create new execution
-                    else:
-                        raise HTTPException(
-                            status_code=400, 
-                            detail=f"Article {article_id} already has an active workflow execution (ID: {existing_execution.id})"
-                        )
                 
                 # Should not reach here if trigger_workflow logic is correct
                 # But if it does, it's not a hunt score issue (threshold check disabled)

@@ -1,0 +1,1 @@
+ibm/granite-3.1-8b,gemma-3n-e4b-it-text,google/gemma-2-9b,microsoft/phi-4-reasoning-plus,qwen/qwen3-vl-8b,meta-llama-3-13b-instruct,deepseek/deepseek-r1-0528-qwen3-8b,qwen/qwen2.5-coder-32b,qwen2-7b-instruct,phi-3-mini-3.8b-instructiontuned-alpaca,llama-3.2-1b-instruct,openai/gpt-oss-20b

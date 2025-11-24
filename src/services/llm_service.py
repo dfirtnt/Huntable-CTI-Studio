@@ -194,6 +194,16 @@ class LLMService:
             "http://127.0.0.1:1234/v1",
         ]
         
+        # If URL contains localhost or 127.0.0.1, also try host.docker.internal (for Docker containers)
+        if "localhost" in self.lmstudio_url.lower() or "127.0.0.1" in self.lmstudio_url:
+            docker_url = self.lmstudio_url.replace("localhost", "host.docker.internal").replace("127.0.0.1", "host.docker.internal")
+            if docker_url not in candidates:
+                candidates.append(docker_url)
+        
+        # Also add host.docker.internal as fallback
+        if "http://host.docker.internal:1234/v1" not in candidates:
+            candidates.append("http://host.docker.internal:1234/v1")
+        
         # Remove duplicates while preserving order
         seen = set()
         unique_candidates = []
@@ -2020,7 +2030,7 @@ CRITICAL: {instructions} If you are a reasoning model, you may include reasoning
         if not model_name:
             model_name = self.model_extract
         
-        while current_try <= max_retries:
+        while current_try < max_retries:
             current_try += 1
             
             # 1. Run Extraction
