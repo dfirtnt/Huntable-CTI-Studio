@@ -27,7 +27,7 @@ Server starts on `http://localhost:2024`
 3. Add to `.env`: `LANGSMITH_API_KEY=your_key_here`
 4. Restart langgraph-server: `docker-compose restart langgraph-server`
 
-**Note:** Works perfectly without LangSmith too! The built-in UI provides full debugging capabilities.
+**Note:** Works perfectly without LangSmith! However, the **🔍 Debug** button opens LangFuse traces (post-execution viewing), not interactive step-into debugging. For step-into debugging, use LangSmith Studio or Local Agent Chat UI.
 
 ### 4. Open Agent Chat UI (Optional)
 
@@ -48,14 +48,19 @@ pnpm dev
 
 ### 5. Debug from Operational UI
 
-**Built-in UI (Works without LangSmith):**
+**Debug Button (🔍 Debug):**
 1. Go to **Workflow > Executions** in your FastAPI UI
 2. Click **🔍 Debug** on any execution
-3. View comprehensive debug details in modal
+3. Opens LangFuse trace viewer (post-execution analysis)
+   - **Note:** Traces only exist if execution ran with LangFuse tracing enabled
+   - If trace not found, search for `session_id: workflow_exec_{execution_id}` in LangFuse UI
 
-**Or use LangSmith Studio (if configured):**
-- Click **🔍 Debug** and it will open LangSmith Studio
-- Or manually visit: https://smith.langchain.com/studio/?baseUrl=http://localhost:2024
+**For Step-Into Debugging:**
+- **Option A:** Use LangSmith Studio (if `LANGSMITH_API_KEY` configured)
+  - Manually visit: https://smith.langchain.com/studio/?baseUrl=http://localhost:2024
+  - Connect with Graph ID: `agentic_workflow`, Thread: `workflow_exec_{execution_id}`
+- **Option B:** Use Local Agent Chat UI (see Setup section)
+  - Connect with Server: `http://localhost:2024`, Graph: `agentic_workflow`, Thread: `workflow_exec_{execution_id}`
 
 ## 📋 What You Get
 

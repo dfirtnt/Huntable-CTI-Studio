@@ -25,7 +25,7 @@ The agentic workflow is exposed via LangGraph's HTTP server, enabling:
 
 3. **Operational UI** (`src/web/templates/workflow.html`)
    - Manages configuration, monitoring, queue
-   - "Debug" buttons launch Agent Chat UI for specific executions
+   - "Debug" buttons open LangFuse traces for post-execution analysis
 
 4. **Agent Chat UI** (hosted or local)
    - Interactive debugging interface
@@ -105,10 +105,21 @@ pnpm dev
 
 ### From Operational UI
 
+**Debug Button (🔍 Debug):**
 1. Navigate to **Workflow > Executions** tab
 2. Find an execution (running, completed, or failed)
 3. Click **🔍 Debug** button
-4. Agent Chat UI opens with execution context
+4. Opens LangFuse trace viewer in new tab (post-execution analysis)
+   - **Note:** Traces only exist if execution ran with LangFuse tracing enabled
+   - If trace not found (404), search for `session_id: workflow_exec_{execution_id}` in LangFuse UI
+
+**For Step-Into Debugging:**
+- Use LangSmith Studio (see Setup section) or Local Agent Chat UI
+- Connect to LangGraph server manually with thread ID: `workflow_exec_{execution_id}`
+
+### Execution Observability Toggle
+
+Within **Workflow > Executions**, enable the **Show extract observable counts** toggle to insert CmdLine#, ProcTree#, Reg#, Signature#, and EventID# columns immediately after the ranking score. Each column shows the count of observables the ExtractAgent reported for that sub-agent (derived from `extraction_result.subresults` or the consolidated observable list), making it easier to spot which telemetry categories drove a workflow execution.
 
 ### Direct Access
 
@@ -212,11 +223,17 @@ Returns:
   "execution_id": 123,
   "article_id": 456,
   "langgraph_server_url": "http://localhost:2024",
-  "agent_chat_url": "https://chat.langchain.com/?graph=agentic_workflow&thread=workflow_exec_123&server=http://localhost:2024",
+  "agent_chat_url": "https://us.cloud.langfuse.com/traces/{trace_id_hash}",
+  "trace_id": "{trace_id_hash}",
+  "session_id": "workflow_exec_123",
   "thread_id": "workflow_exec_123",
-  "graph_id": "agentic_workflow"
+  "graph_id": "agentic_workflow",
+  "instructions": "Opening Langfuse trace...",
+  "uses_langsmith": false
 }
 ```
+
+**Note:** `agent_chat_url` is actually a LangFuse trace URL, not an Agent Chat UI URL. For step-into debugging, use LangSmith Studio or Local Agent Chat UI with the provided `thread_id` and `langgraph_server_url`.
 
 ## Troubleshooting
 
@@ -269,4 +286,3 @@ Returns:
 - [LangGraph Documentation](https://docs.langchain.com/langgraph)
 - [Agent Chat UI Documentation](https://docs.langchain.com/oss/python/langchain/ui)
 - [LangGraph Checkpointing](https://langchain-ai.github.io/langgraph/how-tos/persistence/)
-
