@@ -2,12 +2,17 @@
 # CTI Scraper Test Runner (DEPRECATED)
 # 
 # ⚠️  DEPRECATION NOTICE ⚠️
-# This script is deprecated and will be removed in a future version.
+# This script is deprecated and will be removed in Q2 2025.
 # Please use the Python test runner instead:
 #   python run_tests.py [options] [test_type]
 #
 # This script is maintained for backward compatibility only.
 # All new development should use the Python interface.
+#
+# Migration Timeline:
+# - Q1 2025: Deprecation notice (current)
+# - Q2 2025: Script removal
+# - Use 'python run_tests.py' for all test execution needs
 
 set -e
 
@@ -190,8 +195,9 @@ if [[ "$INSTALL" == true ]]; then
 fi
 
 # Show deprecation warning
-print_deprecation "This script is deprecated. Please use 'python run_tests.py' instead."
-print_warning "The shell interface will be removed in a future version."
+print_deprecation "This script is deprecated and will be removed in Q2 2025."
+print_deprecation "Please use 'python run_tests.py' instead."
+print_warning "The shell interface will be removed in Q2 2025."
 echo ""
 
 # Run the tests

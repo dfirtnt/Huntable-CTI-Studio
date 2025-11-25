@@ -64,7 +64,8 @@ docker exec cti_web python -m pytest tests/integration/test_retraining_integrati
 ### Test Scripts
 
 - **`run_tests.py`**: Unified Python test runner with multiple execution modes
-- **`run_tests.sh`**: Shell wrapper for common test scenarios
+- **`run_tests.sh`**: Shell wrapper for common test scenarios (⚠️ DEPRECATED - see deprecation notice)
+- **`scripts/run_tests_by_group.py`**: Grouped test execution script (executes tests by group and reports broken tests)
 - **`pytest.ini`**: Pytest configuration file
 
 ### Test Stack Overview
@@ -107,6 +108,7 @@ docker exec cti_web python -m pytest tests/integration/test_retraining_integrati
 | **ML Feedback** | `./scripts/run_ml_feedback_tests.sh`         | Regression and feedback loop stability |
 | **Integration Workflow** | `pytest tests/integration -m integration_workflow -v` | End-to-end workflow tests |
 | **Security**    | `pytest tests/security -v`                   | Bandit, safety, and dependency checks  |
+| **Grouped Execution** | `python scripts/run_tests_by_group.py` | Execute tests by group with failure reporting |
 | **Performance** | `pytest tests/performance -v`                | Load and profiling tests               |
 | **Allure Reports** | `python run_tests.py --all`                | Generate comprehensive test reports     |
 | **CI/CD**       | *GitHub Actions*                             | Auto-tests on push/pull requests       |
@@ -573,6 +575,44 @@ pytest tests/test_models.py::TestArticleModel::test_article_creation -v -s
 - **Network:** API requests and responses
 - **Elements:** DOM structure
 - **Sources:** Breakpoints for frontend debugging
+
+## Test Data Safety
+
+### Overview
+
+**All tests are verified to be non-impactful to production database data and application configuration files.**
+
+### Safety Guarantees
+
+1. **Database Isolation**: All integration tests use `cti_scraper_test` database (not production `cti_scraper`)
+2. **Transaction Rollback**: All database changes are rolled back after each test
+3. **Config Read-Only**: Tests only read config files, never write to them
+4. **ML Model Protection**: All ML model retraining tests are disabled
+5. **Default Exclusions**: Tests marked `prod_data`/`production_data` are excluded by default
+
+### Protection Mechanisms
+
+**Test Database Usage:**
+- Integration tests use `cti_scraper_test` database
+- Default connection: `postgresql+asyncpg://cti_user:cti_pass@localhost:5432/cti_scraper_test`
+- Transaction rollback fixture prevents data persistence
+
+**Configuration File Protection:**
+- Tests only read from `config/sources.yaml` (no writes)
+- No tests modify configuration files
+
+**ML Model Protection:**
+- All retraining tests are disabled per `TEST_MUTATION_AUDIT.md`
+- Tests marked `prod_data`/`production_data` are excluded by default
+
+**UI Tests Safety:**
+- UI tests connect to `localhost:8001` (application instance)
+- No database writes from UI tests
+- No config file modifications from UI tests
+
+### Verification
+
+See `docs/TEST_DATA_SAFETY.md` for complete data safety audit results and verification commands.
 
 ## Test Data Management
 

@@ -128,6 +128,55 @@ pip install pre-commit
 pre-commit install
 ```
 
+## File Organization
+
+### Directory Structure
+
+Organize files according to their purpose and lifecycle:
+
+```
+CTIScraper/
+├── utils/temp/              # Temporary scripts (ephemeral, one-off)
+│   ├── debug_*.py          # Debug scripts
+│   ├── test_*.py           # One-off test scripts
+│   ├── analyze_*.py        # Temporary analysis scripts
+│   └── score_*.py          # Temporary evaluation scripts
+│
+├── scripts/                 # Reusable utility scripts (kept in repo)
+│   ├── testing/            # Test utilities
+│   ├── analysis/           # Analysis tools
+│   ├── maintenance/        # Maintenance scripts (fix_*.py)
+│   └── shell/              # Shell utilities
+│
+├── outputs/                 # Generated reports/outputs (.gitignored)
+│   ├── reports/           # Analysis reports (.md, .html, .json)
+│   ├── exports/           # Data exports (.csv, .json)
+│   └── benchmarks/        # Benchmark results
+│
+├── logs/                   # Log files (.gitignored)
+│
+└── data/                   # Test/data files (.gitignored)
+```
+
+### Classification Rules
+
+| Type | Location | Git Status | Purpose |
+|------|----------|------------|---------|
+| **Temporary scripts** | `utils/temp/` | Tracked | One-off debug/test/analysis scripts |
+| **Reusable scripts** | `scripts/` | Tracked | Production utilities, maintenance tools |
+| **Reports** | `outputs/reports/` | Ignored | Generated markdown/HTML/JSON reports |
+| **Exports** | `outputs/exports/` | Ignored | CSV/JSON data exports |
+| **Benchmarks** | `outputs/benchmarks/` | Ignored | Benchmark results |
+| **Logs** | `logs/` | Ignored | Application logs |
+| **Test artifacts** | `test-results/`, `allure-results/` | Ignored | Test outputs |
+
+### Guidelines
+
+- **Temporary scripts** (`utils/temp/`): One-off scripts for debugging, testing, or analysis. These are tracked in git but may be cleaned up periodically.
+- **Reusable scripts** (`scripts/`): Production utilities, maintenance tools, and scripts used regularly. Organized by purpose in subdirectories.
+- **Generated outputs** (`outputs/`): All generated reports, exports, and benchmarks go here. Automatically ignored by git.
+- **Root-level files**: Keep only essential project files (README, docker-compose.yml, etc.) at the root. Move temporary or utility scripts to appropriate directories.
+
 ## Testing
 
 **For comprehensive testing documentation, see [Testing Guide](tests/TESTING.md)**

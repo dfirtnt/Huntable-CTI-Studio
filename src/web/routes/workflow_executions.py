@@ -8,7 +8,7 @@ import json
 from typing import List, Dict, Any, Optional
 from fastapi import APIRouter, HTTPException, Request, Query
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 from sqlalchemy import or_, and_
 from datetime import datetime, timedelta
@@ -32,6 +32,46 @@ def get_db_manager() -> DatabaseManager:
     return _db_manager
 
 
+def calculate_extraction_counts(extraction_result: Optional[Dict[str, Any]]) -> Dict[str, int]:
+    """
+    Derive observable counts from extract agent results.
+    Prefers explicit subresult counts; falls back to counting observables by type.
+    """
+    keys = ["cmdline", "process_lineage", "registry_keys", "sigma_queries", "event_ids"]
+    counts = {key: 0 for key in keys}
+    
+    if not extraction_result or not isinstance(extraction_result, dict):
+        return counts
+    
+    subresults = extraction_result.get("subresults", {})
+    if isinstance(subresults, dict):
+        for key in keys:
+            sub = subresults.get(key, {})
+            if isinstance(sub, dict):
+                sub_count = sub.get("count")
+                if isinstance(sub_count, int):
+                    counts[key] = sub_count
+                    continue
+                items = sub.get("items")
+                if isinstance(items, list):
+                    counts[key] = len(items)
+    
+    # Only fall back to observables when we don't already have a positive count
+    observables = extraction_result.get("observables", [])
+    if isinstance(observables, list):
+        fallback_counts: Dict[str, int] = {}
+        for obs in observables:
+            if isinstance(obs, dict):
+                obs_type = obs.get("type")
+                if obs_type in keys:
+                    fallback_counts[obs_type] = fallback_counts.get(obs_type, 0) + 1
+        for key in keys:
+            if counts[key] == 0 and key in fallback_counts:
+                counts[key] = fallback_counts[key]
+    
+    return counts
+
+
 class ExecutionResponse(BaseModel):
     """Response model for workflow execution."""
     id: int
@@ -50,6 +90,7 @@ class ExecutionResponse(BaseModel):
     updated_at: str
     termination_reason: Optional[str] = None
     termination_details: Optional[Dict[str, Any]] = None
+    extraction_counts: Dict[str, int] = Field(default_factory=dict)
 
 
 class ExecutionDetailResponse(ExecutionResponse):
@@ -135,7 +176,8 @@ async def list_workflow_executions(
                     created_at=execution.created_at.isoformat(),
                     updated_at=execution.updated_at.isoformat(),
                     termination_reason=term_reason,
-                    termination_details=term_details
+                    termination_details=term_details,
+                    extraction_counts=calculate_extraction_counts(execution.extraction_result)
                 ))
             
             return ExecutionListResponse(
@@ -216,7 +258,8 @@ async def get_workflow_execution(request: Request, execution_id: int):
                 article_content=article_content,
                 article_content_preview=article_content_preview,
                 termination_reason=term_reason,
-                termination_details=term_details
+                termination_details=term_details,
+                extraction_counts=calculate_extraction_counts(execution.extraction_result)
             )
         finally:
             db_session.close()

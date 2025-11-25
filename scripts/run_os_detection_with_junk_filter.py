@@ -12,13 +12,12 @@ project_root = Path(__file__).parent
 sys.path.insert(0, str(project_root))
 
 from src.database.manager import DatabaseManager
-from src.database.models import ArticleTable
 from src.services.os_detection_service import OSDetectionService
 from src.utils.content_filter import ContentFilter
 from src.services.workflow_trigger_service import WorkflowTriggerService
 
-# Article IDs from the top 10 highest-scored articles
-ARTICLE_IDS = [1017, 1909, 1123, 1050, 2062, 632, 1788, 1860, 2291, 2377]
+# Article IDs from the 10 articles
+ARTICLE_IDS = [2244, 2255, 2262, 2300, 2308, 2331, 2337, 2380, 2387, 2389]
 
 JUNK_FILTER_THRESHOLD = 0.8
 
@@ -50,8 +49,8 @@ async def run_os_detection_with_junk_filter():
         
         for article_id in ARTICLE_IDS:
             # Get article
-            article = db_session.query(ArticleTable).filter(
-                ArticleTable.id == article_id
+            article = db_session.query(db_manager.ArticleTable).filter(
+                db_manager.ArticleTable.id == article_id
             ).first()
             
             if not article:

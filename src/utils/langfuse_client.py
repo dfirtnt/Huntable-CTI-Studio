@@ -357,14 +357,23 @@ def trace_llm_call(
         
         generation = client.start_generation(**generation_kwargs)
         
+        # Track if we've already ended the generation to avoid double-ending
+        generation_ended = False
+        
         try:
             yield generation
         finally:
             # Defensive cleanup - catch ALL exceptions to prevent generator protocol issues
+            # This ensures the generator properly handles exceptions via Python's generator protocol
             try:
-                if generation:
+                # Check if generation has already been ended (by log_llm_completion or log_llm_error)
+                already_ended = hasattr(generation, '_langfuse_ended') and generation._langfuse_ended
+                
+                if generation and not generation_ended and not already_ended:
                     try:
                         generation.end()
+                        generation_ended = True
+                        generation._langfuse_ended = True
                     except Exception as end_error:
                         # Check for generator errors specifically
                         error_msg = str(end_error).lower()
@@ -386,6 +395,7 @@ def trace_llm_call(
                             logger.error(f"Error flushing LangFuse generation: {flush_error}")
             except Exception as cleanup_error:
                 # Catch any exception during cleanup to prevent generator protocol issues
+                # CRITICAL: Don't re-raise cleanup errors - they interfere with generator protocol
                 error_msg = str(cleanup_error).lower()
                 if "generator" in error_msg or "didn't stop" in error_msg:
                     logger.warning(f"LangFuse generation cleanup raised generator error (non-critical): {cleanup_error}")
@@ -447,15 +457,9 @@ def log_llm_completion(
         
         generation.update(**update_kwargs)
         
-        # End the generation
-        try:
-            generation.end()
-        except Exception as end_error:
-            error_msg = str(end_error).lower()
-            if "generator" in error_msg or "didn't stop" in error_msg or "throw" in error_msg:
-                logger.warning(f"LangFuse generation.end() raised generator error in log_llm_completion (non-critical): {end_error}")
-            else:
-                logger.debug(f"Generation.end() failed in log_llm_completion (non-critical): {end_error}")
+        # Don't end the generation here - let the context manager in trace_llm_call handle it
+        # Ending here and then again in the finally block causes generator protocol issues
+        # The context manager will properly end the generation when the with block exits
         
         # Flush after logging completion
         client = get_langfuse_client()
@@ -482,7 +486,8 @@ def log_llm_error(generation, error: Exception, metadata: Optional[Dict[str, Any
         return
     
     try:
-        # Mark generation as ended so trace_llm_call finally block doesn't try to end it again
+        # Update generation with error info, but don't end it here
+        # Let the context manager in trace_llm_call handle ending to avoid generator protocol issues
         generation.update(
             level="ERROR",
             status_message=str(error),
@@ -491,14 +496,35 @@ def log_llm_error(generation, error: Exception, metadata: Optional[Dict[str, Any
                 "error_type": type(error).__name__
             }
         )
-        generation.end()
+        # Mark as ended using a custom attribute to prevent double-ending
+        if not hasattr(generation, '_langfuse_ended'):
+            try:
+                generation.end()
+                generation._langfuse_ended = True
+            except Exception as end_error:
+                error_msg = str(end_error).lower()
+                if "generator" in error_msg or "didn't stop" in error_msg or "throw" in error_msg:
+                    logger.warning(f"LangFuse generation.end() raised generator error in log_llm_error (non-critical): {end_error}")
+                else:
+                    logger.debug(f"Generation.end() failed in log_llm_error (non-critical): {end_error}")
         
         # Flush after logging error
         client = get_langfuse_client()
         if client:
-            client.flush()
+            try:
+                client.flush()
+            except Exception as flush_error:
+                error_msg = str(flush_error).lower()
+                if "generator" in error_msg or "didn't stop" in error_msg:
+                    logger.warning(f"LangFuse flush raised generator error in log_llm_error (non-critical): {flush_error}")
+                else:
+                    logger.debug(f"LangFuse flush failed in log_llm_error (non-critical): {flush_error}")
     except Exception as e:
-        logger.error(f"Error logging LLM error to LangFuse: {e}")
+        error_msg = str(e).lower()
+        if "generator" in error_msg or "didn't stop" in error_msg:
+            logger.warning(f"LangFuse log_llm_error raised generator error (non-critical): {e}")
+        else:
+            logger.error(f"Error logging LLM error to LangFuse: {e}")
 
 
 def log_workflow_step(

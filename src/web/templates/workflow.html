@@ -961,8 +961,8 @@
 
     <!-- Executions Tab -->
     <div id="tab-content-executions" class="tab-content hidden">
-        <div class="mb-6 flex items-center justify-between">
-            <div class="flex space-x-4">
+        <div class="mb-6 flex items-center justify-between gap-4 flex-wrap">
+            <div class="flex flex-wrap items-center gap-3">
                 <button onclick="refreshExecutions()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors">
                     🔄 Refresh
                 </button>
@@ -983,6 +983,13 @@
                     <option value="failed">Failed</option>
                 </select>
             </div>
+            <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+                <input type="checkbox" 
+                       id="observableCountsToggle" 
+                       onchange="toggleObservableCounts(event)"
+                       class="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 dark:border-gray-600 rounded">
+                <span class="select-none">Show extract observable counts</span>
+            </label>
         </div>
 
         <!-- Workflow Visualization -->
@@ -1093,7 +1100,7 @@
         <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg overflow-x-auto">
             <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                 <thead class="bg-gray-50 dark:bg-gray-900">
-                    <tr>
+                    <tr id="executionsHeaderRow">
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">ID</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Article</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Status</th>
@@ -1296,6 +1303,14 @@ let currentTab = 'config';
 // Executions data - declared early to avoid "before initialization" errors
 let executions = [];
 let totalExecutions = 0;
+let showObservableCounts = false;
+const observableCountColumns = [
+    { key: 'cmdline', label: 'CmdLine#' },
+    { key: 'process_lineage', label: 'ProcTree#' },
+    { key: 'registry_keys', label: 'Reg#' },
+    { key: 'sigma_queries', label: 'Signature#' },
+    { key: 'event_ids', label: 'EventID#' }
+];
 
 // Queue data - declared early to avoid "before initialization" errors
 let queue = [];
@@ -4423,8 +4438,40 @@ function highlightCurrentStep(step) {
     }
 }
 
+function getExecutionTableColumnCount() {
+    const baseColumns = 7; // ID, Article, Status, Step, Rank, Created, Actions
+    return showObservableCounts ? baseColumns + observableCountColumns.length : baseColumns;
+}
+
+function renderExecutionHeader() {
+    const headerRow = document.getElementById('executionsHeaderRow');
+    if (!headerRow) return;
+    
+    const headerClass = 'px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider';
+    const baseHeaders = [
+        'ID',
+        'Article',
+        'Status',
+        'Current Step',
+        'Ranking Score'
+    ];
+    const tailHeaders = ['Created', 'Actions'];
+    
+    const countHeaders = showObservableCounts ? observableCountColumns.map(col => col.label) : [];
+    const allHeaders = [...baseHeaders, ...countHeaders, ...tailHeaders];
+    
+    headerRow.innerHTML = allHeaders.map(text => `<th class="${headerClass}">${text}</th>`).join('');
+}
+
+function formatObservableCount(exec, key) {
+    const counts = exec?.extraction_counts || {};
+    const value = counts[key];
+    return typeof value === 'number' ? value : 0;
+}
+
 async function loadExecutions() {
     try {
+        renderExecutionHeader();
         const statusFilterEl = document.getElementById('statusFilter');
         const statusFilter = statusFilterEl ? statusFilterEl.value : '';
         const url = statusFilter ? `/api/workflow/executions?status=${statusFilter}` : '/api/workflow/executions';
@@ -4440,14 +4487,18 @@ async function loadExecutions() {
             console.error('Failed to load executions:', response.status, response.statusText);
             const tbody = document.getElementById('executionsTableBody');
             if (tbody) {
-                tbody.innerHTML = '<tr><td colspan="7" class="px-6 py-4 text-center text-red-500">Error loading executions</td></tr>';
+                const columns = getExecutionTableColumnCount();
+                renderExecutionHeader();
+                tbody.innerHTML = `<tr><td colspan="${columns}" class="px-6 py-4 text-center text-red-500">Error loading executions</td></tr>`;
             }
         }
     } catch (error) {
         console.error('Error loading executions:', error);
         const tbody = document.getElementById('executionsTableBody');
         if (tbody) {
-            tbody.innerHTML = '<tr><td colspan="7" class="px-6 py-4 text-center text-red-500">Error: ' + error.message + '</td></tr>';
+            const columns = getExecutionTableColumnCount();
+            renderExecutionHeader();
+            tbody.innerHTML = `<tr><td colspan="${columns}" class="px-6 py-4 text-center text-red-500">Error: ${error.message}</td></tr>`;
         }
     }
 }
@@ -4459,8 +4510,11 @@ function renderExecutions() {
         return;
     }
     
+    renderExecutionHeader();
+    const columns = getExecutionTableColumnCount();
+    
     if (executions.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="7" class="px-6 py-4 text-center text-gray-500">No executions found</td></tr>';
+        tbody.innerHTML = `<tr><td colspan="${columns}" class="px-6 py-4 text-center text-gray-500">No executions found</td></tr>`;
         return;
     }
     
@@ -4479,6 +4533,11 @@ function renderExecutions() {
             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
                 ${exec.ranking_score ? exec.ranking_score.toFixed(1) : '-'}
             </td>
+            ${showObservableCounts ? observableCountColumns.map(col => `
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100 text-center">
+                    ${formatObservableCount(exec, col.key)}
+                </td>
+            `).join('') : ''}
             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">
                 ${parseUTCDate(exec.created_at).toLocaleString('en-US', { dateStyle: 'short', timeStyle: 'short' })}
             </td>
@@ -4493,6 +4552,11 @@ function renderExecutions() {
             </td>
         </tr>
     `).join('');
+}
+
+function toggleObservableCounts(event) {
+    showObservableCounts = !!event?.target?.checked;
+    renderExecutions();
 }
 
 function updateStats(data) {

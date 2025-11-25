@@ -33,7 +33,22 @@ environment:
   docker_first: true
     - When building application code it will always be run in Docker. 
     - When writing scripts, tests or other utilities, you may use local python venv.
-      - Temporary scripts should be saved under utils/temp/ 
+  file_organization:
+    structure:
+      utils_temp: "utils/temp/ - Temporary scripts (ephemeral, one-off debug/test/analysis/score scripts)"
+      scripts: "scripts/ - Reusable utility scripts (production utilities, maintenance tools)"
+      scripts_subdirs: ["testing/", "analysis/", "maintenance/", "shell/"]
+      outputs: "outputs/ - Generated reports/outputs (.gitignored)"
+      outputs_subdirs: ["reports/", "exports/", "benchmarks/"]
+      logs: "logs/ - Log files (.gitignored)"
+      data: "data/ - Test/data files (.gitignored)"
+    rules:
+      - "Temporary scripts (debug_*.py, test_*.py, analyze_*.py, score_*.py) → utils/temp/"
+      - "Reusable scripts → scripts/ (organized by purpose in subdirectories)"
+      - "Fix scripts (fix_*.py) → scripts/maintenance/"
+      - "Generated reports/exports/benchmarks → outputs/ (automatically ignored)"
+      - "Keep root level clean - only essential project files (README, docker-compose.yml, run_tests.py, etc.)"
+      - "Never create temporary files at root level"
   database:
     container: "cti_postgres"
     name: "cti_scraper"
