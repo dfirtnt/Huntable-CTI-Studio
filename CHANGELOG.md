@@ -8,6 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- **Documentation: LangGraph Debug Button Behavior**: Corrected documentation to accurately reflect debug button functionality
+  - Fixed `docs/LANGGRAPH_INTEGRATION.md` and `docs/LANGGRAPH_QUICKSTART.md` to state that debug button opens LangFuse traces (post-execution viewing), not Agent Chat UI
+  - Clarified that step-into debugging requires manual setup with LangSmith Studio or Local Agent Chat UI
+  - Updated API response example to show actual LangFuse trace URL format
+  - Added notes about trace availability (only exists if execution ran with LangFuse tracing enabled)
 - **Browser Extension Manual Source Creation**: Fixed duplicate key violations when creating manual source from browser extension
   - Changed manual source lookup from name-based (`LIKE '%manual%'`) to identifier-based (`identifier='manual'`) to match unique constraint
   - Implemented atomic `INSERT ... ON CONFLICT DO NOTHING` pattern using PostgreSQL's native upsert for race condition handling
@@ -87,6 +92,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Playwright Test for Error Messages**: Added test to verify error message formatting
   - Tests verify formatted error messages are displayed correctly
   - Ensures "busy" errors don't appear for context length issues
+
+- **Workflow Executions observability toggle**: Added toggle for showing extract observable counts in the executions table
+  - Execution API now exposes an `extraction_counts` map populated from `extraction_result.subresults` or the merged observable list, covering Cmdline, ProcTree, Reg, Signature, and EventID sub-agents
+  - The toggle inserts CmdLine#/ProcTree#/Reg#/Signature#/EventID# columns immediately after the ranking score so teams can quickly see which telemetry families produced observables
 
 ### Fixed
 - **ML Comparison Chart Enhancements**: Added zoom and scroll controls for evaluation metrics chart
