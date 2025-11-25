@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **Browser Extension Manual Source Creation**: Fixed duplicate key violations when creating manual source from browser extension
+  - Changed manual source lookup from name-based (`LIKE '%manual%'`) to identifier-based (`identifier='manual'`) to match unique constraint
+  - Implemented atomic `INSERT ... ON CONFLICT DO NOTHING` pattern using PostgreSQL's native upsert for race condition handling
+  - Added proper `IntegrityError` handling for both identifier conflicts and primary key sequence issues
+  - Fixed missing required database fields (`consecutive_failures`, `total_articles`, `average_response_time`, `created_at`, `updated_at`) in manual source creation
+  - Added retry logic with fresh session queries to handle concurrent requests
+  - Applied same fix to PDF upload endpoint for consistency
+  - Fixed PostgreSQL sequence sync issue that was causing primary key conflicts
+
 ### Added
 - **LMStudio Context Window Command Generator**: Added button on workflow config page to generate terminal commands for setting context windows
   - Collects all selected LLM models from workflow configuration

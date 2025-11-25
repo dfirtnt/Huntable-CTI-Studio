@@ -105,35 +105,102 @@ async def _scrape_single_url(url: str, title: Optional[str], force_scrape: bool)
     from src.database.manager import DatabaseManager
     from src.models.article import ArticleCreate
     from src.database.models import SourceTable, ArticleTable
-    from sqlalchemy import func
     
     sync_db_manager = DatabaseManager()
     
-    # Get or create manual source
+    # Get or create manual source (handles race conditions using PostgreSQL ON CONFLICT)
+    from sqlalchemy.dialects.postgresql import insert as pg_insert
+    from sqlalchemy.exc import IntegrityError
+    
+    manual_source_id = None
+    
+    # First, try to get existing manual source
     with sync_db_manager.get_session() as session:
-        # Look for manual source (case-insensitive)
         manual_source = session.query(SourceTable).filter(
-            func.lower(SourceTable.name).like('%manual%')
+            SourceTable.identifier == 'manual'
         ).first()
-        
-        if not manual_source:
-            # Create manual source if it doesn't exist
-            manual_source = SourceTable(
-                identifier='manual',
-                name='Manual',
-                url='manual://scraped',
-                rss_url=None,
-                check_frequency=3600,
-                lookback_days=180,
-                active=True,
-                config={}
-            )
-            session.add(manual_source)
-            session.commit()
-            session.refresh(manual_source)
-            logger.info(f"Created manual source with ID: {manual_source.id}")
-        
-        manual_source_id = manual_source.id
+        if manual_source:
+            manual_source_id = manual_source.id
+    
+    # If not found, create it using atomic INSERT ... ON CONFLICT
+    if not manual_source_id:
+        with sync_db_manager.get_session() as session:
+            try:
+                # Use PostgreSQL INSERT ... ON CONFLICT DO NOTHING for atomic upsert
+                now = datetime.utcnow()
+                stmt = pg_insert(SourceTable).values(
+                    identifier='manual',
+                    name='Manual',
+                    url='manual://scraped',
+                    rss_url=None,
+                    check_frequency=3600,
+                    lookback_days=180,
+                    active=True,
+                    config={},
+                    consecutive_failures=0,
+                    total_articles=0,
+                    average_response_time=0.0,
+                    created_at=now,
+                    updated_at=now
+                ).on_conflict_do_nothing(index_elements=['identifier'])
+                
+                session.execute(stmt)
+                session.commit()
+                
+                # Query in fresh session to get the source (handles race conditions)
+                manual_source = session.query(SourceTable).filter(
+                    SourceTable.identifier == 'manual'
+                ).first()
+                
+                if manual_source:
+                    manual_source_id = manual_source.id
+                    logger.info(f"Created or found manual source with ID: {manual_source_id}")
+                else:
+                    # If still not found, query again in a completely fresh session
+                    # (in case another transaction created it)
+                    with sync_db_manager.get_session() as fresh_session:
+                        manual_source = fresh_session.query(SourceTable).filter(
+                            SourceTable.identifier == 'manual'
+                        ).first()
+                        if manual_source:
+                            manual_source_id = manual_source.id
+                            logger.info(f"Found manual source in fresh session with ID: {manual_source_id}")
+                        else:
+                            raise HTTPException(status_code=500, detail="Failed to create manual source - database constraint violation")
+                            
+            except HTTPException:
+                raise
+            except IntegrityError as exc:
+                # Handle both identifier conflicts and primary key conflicts (sequence issues)
+                session.rollback()
+                logger.warning(f"IntegrityError creating manual source (likely race condition or sequence issue): {exc}")
+                # Query for existing source - it might have been created by another request
+                with sync_db_manager.get_session() as retry_session:
+                    manual_source = retry_session.query(SourceTable).filter(
+                        SourceTable.identifier == 'manual'
+                    ).first()
+                    if manual_source:
+                        manual_source_id = manual_source.id
+                        logger.info(f"Found manual source after IntegrityError with ID: {manual_source_id}")
+                    else:
+                        # If still not found, raise the original error
+                        raise HTTPException(status_code=500, detail=f"Failed to get or create manual source: {exc}")
+            except Exception as exc:
+                session.rollback()
+                logger.error(f"Error creating manual source: {exc}")
+                # Try one more time to get existing source
+                with sync_db_manager.get_session() as retry_session:
+                    manual_source = retry_session.query(SourceTable).filter(
+                        SourceTable.identifier == 'manual'
+                    ).first()
+                    if manual_source:
+                        manual_source_id = manual_source.id
+                        logger.info(f"Found manual source after error with ID: {manual_source_id}")
+                    else:
+                        raise HTTPException(status_code=500, detail=f"Failed to get or create manual source: {exc}")
+    
+    if not manual_source_id:
+        raise HTTPException(status_code=500, detail="Failed to get or create manual source")
     
     # Check for existing URL if force_scrape is False
     if not force_scrape:
