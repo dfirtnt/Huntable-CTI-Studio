@@ -17,6 +17,7 @@ A comprehensive threat intelligence aggregation and analysis platform designed f
 - SIGMA rule system: AI-powered rule generation with similarity matching against 3,000+ community rules.
 - OS Detection: Automated operating system detection for threat intelligence articles (Windows/Linux/MacOS).
 - Agentic Workflow: 7-step LangGraph-based automated pipeline (Junk Filter → Ranking → OS Detection → Extraction → SIGMA → Similarity → Queue).
+- Workflow Executions observability: Execution table now includes a toggle to surface CmdLine/ProcTree/Reg/Signature/EventID observable counts derived from ExtractAgent sub-agent results.
 
 ## 🏗️ Architecture
 - **Core Components**: FastAPI, PostgreSQL (with pgvector), Redis, Celery workers, LangGraph server, and Docker.

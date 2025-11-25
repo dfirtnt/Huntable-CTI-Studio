@@ -122,12 +122,22 @@ Please provide your evaluation in the following JSON format:
                 {"role": "user", "content": user_message}
             ]
             
+            # Determine target model for QA evaluation
+            # Override model if QA-specific model configured
+            qa_model_override = None
+            if config_obj and hasattr(config_obj, 'agent_models') and config_obj.agent_models:
+                qa_model_override = config_obj.agent_models.get(agent_name)
+                if not qa_model_override:
+                    qa_model_override = config_obj.agent_models.get(f"{agent_name}QA")
+
+            target_model = qa_model_override or self.llm_service.model_extract
+            
             # Convert messages for model compatibility
-            converted_messages = self.llm_service._convert_messages_for_model(messages, self.llm_service.model_extract)
+            converted_messages = self.llm_service._convert_messages_for_model(messages, target_model)
             
             # Create payload for LMStudio API
             payload = {
-                "model": self.llm_service.model_extract,
+                "model": target_model,
                 "messages": converted_messages,
                 "max_tokens": 2000,  # Enough for detailed QA evaluation
                 "temperature": 0.1,  # Low temperature for consistent evaluation
@@ -143,14 +153,6 @@ Please provide your evaluation in the following JSON format:
                 article_id=article.id if article else None,
                 metadata={"messages": converted_messages, "agent_name": agent_name}
             ) as generation:
-                # Override model if QA-specific model configured
-                qa_model_override = None
-                if config_obj and hasattr(config_obj, 'agent_models') and config_obj.agent_models:
-                    qa_model_override = config_obj.agent_models.get(agent_name)
-                    if not qa_model_override:
-                        qa_model_override = config_obj.agent_models.get(f"{agent_name}QA")
-
-                target_model = qa_model_override or self.llm_service.model_extract
 
                 response = await self.llm_service._post_lmstudio_chat(
                     payload=payload,

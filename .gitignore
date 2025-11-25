@@ -206,7 +206,9 @@ tramp
 # Project specific
 outputs/
 test_*.html
+# Temporary scripts (root level only - utils/temp/ scripts are tracked)
 debug_*.py
+!utils/temp/debug_*.py
 *_test.py
 !src/web/routes/sigma_ab_test.py  # Allow SIGMA A/B test route
 !src/web/routes/sigma_similarity_test.py  # Allow SIGMA similarity test route
@@ -214,10 +216,11 @@ debug_*.py
 debug_*.log
 *.test
 *.spec
-# Exclude project test files
+# Exclude project test files (root level only - tests/ and utils/temp/ scripts are tracked)
 test_*.py
 !test_chunk_deduplication_simple.py
 !tests/**/test_*.py
+!utils/temp/test_*.py
 
 # Downloaded PDF reports
 Downloaded_PDF_Reports/
