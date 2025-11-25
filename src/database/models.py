@@ -468,6 +468,9 @@ class AgenticWorkflowConfigTable(Base):
     # Default False (no fallback - SIGMA only generates from extracted observables)
     sigma_fallback_enabled = Column(Boolean, nullable=False, default=False)
     
+    # QA Agent max retries: Maximum number of times QA Agent will give feedback to counterpart agent
+    qa_max_retries = Column(Integer, nullable=False, default=5)
+    
     # Timestamps
     created_at = Column(DateTime, nullable=False, default=func.now())
     updated_at = Column(DateTime, nullable=False, default=func.now(), onupdate=func.now())

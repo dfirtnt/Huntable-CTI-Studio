@@ -228,7 +228,8 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
             # Check if QA is enabled for Rank Agent
             qa_enabled = qa_flags.get("RankAgent", False)
             
-            max_qa_retries = 5
+            # Get QA max retries from config
+            max_qa_retries = config_obj.qa_max_retries if config_obj and hasattr(config_obj, 'qa_max_retries') else 5
             qa_feedback = None
             ranking_result = None
             
@@ -935,7 +936,8 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
             # Check if QA is enabled for Sigma Agent
             qa_enabled = qa_flags.get("SigmaAgent", False)
             
-            max_qa_retries = 5
+            # Get QA max retries from config
+            max_qa_retries = config_obj.qa_max_retries if config_obj and hasattr(config_obj, 'qa_max_retries') else 5
             qa_feedback = None
             generation_result = None
             

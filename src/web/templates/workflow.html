@@ -114,6 +114,45 @@
                     </div>
                 </div>
 
+                <!-- QA Settings Panel -->
+                <div class="border border-gray-200 dark:border-gray-700 rounded-lg">
+                    <button type="button" onclick="toggleCollapsible('qa-settings-panel')" class="w-full flex items-center justify-between p-4 text-left hover:bg-gray-50 dark:hover:bg-gray-700 rounded-t-lg transition-colors">
+                        <div class="flex items-center gap-3">
+                            <h3 class="text-lg font-semibold text-gray-900 dark:text-white">QA Settings</h3>
+                        </div>
+                        <span id="qa-settings-panel-toggle" class="text-gray-700 dark:text-gray-200 text-lg font-medium transform transition-transform">▼</span>
+                    </button>
+                    <div id="qa-settings-panel-content" class="hidden p-4 border-t border-gray-200 dark:border-gray-700 space-y-4">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <!-- QA Max Retries -->
+                            <div>
+                                <label for="qaMaxRetries" class="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                    QA Max Retries
+                                    <button type="button" 
+                                            onclick="showHelp('qaMaxRetries')"
+                                            class="text-blue-500 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 focus:outline-none"
+                                            title="Help">
+                                        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                                            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/>
+                                        </svg>
+                                    </button>
+                                </label>
+                                <input type="number" 
+                                       id="qaMaxRetries" 
+                                       name="qa_max_retries"
+                                       min="1" 
+                                       max="20" 
+                                       step="1"
+                                       required
+                                       oninput="validateThreshold(this, 1, 20)"
+                                       class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white">
+                                <p class="text-xs text-gray-500 dark:text-gray-300 mt-1">Maximum number of times QA Agent will give feedback to counterpart agent (1-20)</p>
+                                <p id="qaMaxRetries-error" class="text-xs text-red-500 dark:text-red-400 mt-1 hidden"></p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- OS Detection Agent Panel -->
                 <div class="border border-gray-200 dark:border-gray-700 rounded-lg">
                     <button type="button" onclick="toggleCollapsible('os-detection-panel')" class="w-full flex items-center justify-between p-4 text-left hover:bg-gray-50 dark:hover:bg-gray-700 rounded-t-lg transition-colors">
@@ -145,11 +184,16 @@
                             <h4 class="text-md font-semibold text-gray-900 dark:text-white mb-3">Rank Agent Model</h4>
                             <div id="rank-agent-model-container"></div>
                         </div>
-                        <!-- Test Button -->
+                        <!-- Test Buttons -->
                         <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
-                            <button type="button" onclick="testRankAgent(2155)" class="w-full px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-md transition-colors">
-                                🧪 Test with Article 2155
-                            </button>
+                            <div class="flex gap-2">
+                                <button type="button" onclick="testRankAgent(2155)" class="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-md transition-colors">
+                                    🧪 Test with Article 2155
+                                </button>
+                                <button type="button" onclick="const id = promptForArticleId(2155); if (id) testRankAgent(id);" class="flex-1 px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-md transition-colors">
+                                    🎯 Test with Custom Article
+                                </button>
+                            </div>
                         </div>
                         <!-- Rank Agent Thresholds -->
                         <div>
@@ -220,6 +264,21 @@
                                 Optional override for QA evaluations.
                             </p>
                             <p class="text-xs text-blue-600 dark:text-blue-400 mt-2 font-medium">💡 Recommendation: Use <code class="px-1 py-0.5 bg-blue-50 dark:bg-blue-900/30 rounded">mistralai/mistral-7b-instruct-v0.3</code> for verification tasks. Alternative: <code class="px-1 py-0.5 bg-blue-50 dark:bg-blue-900/30 rounded">qwen/qwen2.5-coder-32b</code> for stronger JSON parsing.</p>
+                            <div class="mt-3">
+                                <label for="rankqa-temperature" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                    Rank QA Temperature
+                                </label>
+                                <input type="number" 
+                                       id="rankqa-temperature" 
+                                       name="agent_models[RankAgentQA_temperature]"
+                                       min="0" 
+                                       max="2" 
+                                       step="0.1"
+                                       value="0.1"
+                                       onchange="autoSaveModelChange()"
+                                       class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white">
+                                <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Temperature for QA evaluation (0.0-2.0, default: 0.1)</p>
+                            </div>
                         </div>
                         <!-- Rank QA Agent Prompt -->
                         <div id="rank-agent-qa-prompt-container" class="hidden">
@@ -303,11 +362,16 @@
                                             <input type="number" id="cmdlineextract-temperature" name="agent_models[CmdlineExtract_temperature]" min="0" max="2" step="0.1" value="0.0" onchange="autoSaveModelChange()" class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white text-xs">
                                             <p class="text-[10px] text-gray-500 dark:text-gray-400 mt-1">0.0 = deterministic, higher = more creative</p>
                                         </div>
-                                        <!-- Test Button -->
+                                        <!-- Test Buttons -->
                                         <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-3 border border-gray-200 dark:border-gray-700">
-                                            <button type="button" onclick="testSubAgent('CmdlineExtract', 2155)" class="w-full px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded-md transition-colors">
-                                                🧪 Test with Article 2155
-                                            </button>
+                                            <div class="flex gap-2">
+                                                <button type="button" onclick="testSubAgent('CmdlineExtract', 2155)" class="flex-1 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded-md transition-colors">
+                                                    🧪 Test with Article 2155
+                                                </button>
+                                                <button type="button" onclick="const id = promptForArticleId(2155); if (id) testSubAgent('CmdlineExtract', id);" class="flex-1 px-3 py-2 bg-green-600 hover:bg-green-700 text-white text-xs font-medium rounded-md transition-colors">
+                                                    🎯 Custom
+                                                </button>
+                                            </div>
                                         </div>
                                         <div id="cmdlineextract-agent-prompt-container"></div>
                                         <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-3 border border-gray-200 dark:border-gray-700">
@@ -331,6 +395,18 @@
                                                     class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-xs">
                                             </select>
                                             <p class="text-xs text-blue-600 dark:text-blue-400 mt-2 font-medium">💡 Recommendation: Use <code class="px-1 py-0.5 bg-blue-50 dark:bg-blue-900/30 rounded">mistralai/mistral-7b-instruct-v0.3</code> for verification tasks. Alternative: <code class="px-1 py-0.5 bg-blue-50 dark:bg-blue-900/30 rounded">qwen/qwen2.5-coder-32b</code> for stronger JSON parsing.</p>
+                                            <div class="mt-2">
+                                                <label for="cmdlineqa-temperature" class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Temperature</label>
+                                                <input type="number" 
+                                                       id="cmdlineqa-temperature" 
+                                                       name="agent_models[CmdLineQA_temperature]"
+                                                       min="0" 
+                                                       max="2" 
+                                                       step="0.1"
+                                                       value="0.1"
+                                                       onchange="autoSaveModelChange()"
+                                                       class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white text-xs">
+                                            </div>
                                         </div>
                                         <div id="cmdlineextract-agent-qa-prompt-container" class="hidden"></div>
                                     </div>
@@ -386,11 +462,16 @@
                                             <input type="number" id="sigextract-temperature" name="agent_models[SigExtract_temperature]" min="0" max="2" step="0.1" value="0.0" onchange="autoSaveModelChange()" class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white text-xs">
                                             <p class="text-[10px] text-gray-500 dark:text-gray-400 mt-1">0.0 = deterministic, higher = more creative</p>
                                         </div>
-                                        <!-- Test Button -->
+                                        <!-- Test Buttons -->
                                         <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-3 border border-gray-200 dark:border-gray-700">
-                                            <button type="button" onclick="testSubAgent('SigExtract', 2155)" class="w-full px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded-md transition-colors">
-                                                🧪 Test with Article 2155
-                                            </button>
+                                            <div class="flex gap-2">
+                                                <button type="button" onclick="testSubAgent('SigExtract', 2155)" class="flex-1 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded-md transition-colors">
+                                                    🧪 Test with Article 2155
+                                                </button>
+                                                <button type="button" onclick="const id = promptForArticleId(2155); if (id) testSubAgent('SigExtract', id);" class="flex-1 px-3 py-2 bg-green-600 hover:bg-green-700 text-white text-xs font-medium rounded-md transition-colors">
+                                                    🎯 Custom
+                                                </button>
+                                            </div>
                                         </div>
                                         <div id="sigextract-agent-prompt-container"></div>
                                         <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-3 border border-gray-200 dark:border-gray-700">
@@ -414,6 +495,18 @@
                                                     class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-xs">
                                             </select>
                                             <p class="text-xs text-blue-600 dark:text-blue-400 mt-2 font-medium">💡 Recommendation: Use <code class="px-1 py-0.5 bg-blue-50 dark:bg-blue-900/30 rounded">mistralai/mistral-7b-instruct-v0.3</code> for verification tasks. Alternative: <code class="px-1 py-0.5 bg-blue-50 dark:bg-blue-900/30 rounded">qwen/qwen2.5-coder-32b</code> for stronger JSON parsing.</p>
+                                            <div class="mt-2">
+                                                <label for="sigqa-temperature" class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Temperature</label>
+                                                <input type="number" 
+                                                       id="sigqa-temperature" 
+                                                       name="agent_models[SigQA_temperature]"
+                                                       min="0" 
+                                                       max="2" 
+                                                       step="0.1"
+                                                       value="0.1"
+                                                       onchange="autoSaveModelChange()"
+                                                       class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white text-xs">
+                                            </div>
                                         </div>
                                         <div id="sigextract-agent-qa-prompt-container" class="hidden"></div>
                                     </div>
@@ -469,11 +562,16 @@
                                             <input type="number" id="eventcodeextract-temperature" name="agent_models[EventCodeExtract_temperature]" min="0" max="2" step="0.1" value="0.0" onchange="autoSaveModelChange()" class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white text-xs">
                                             <p class="text-[10px] text-gray-500 dark:text-gray-400 mt-1">0.0 = deterministic, higher = more creative</p>
                                         </div>
-                                        <!-- Test Button -->
+                                        <!-- Test Buttons -->
                                         <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-3 border border-gray-200 dark:border-gray-700">
-                                            <button type="button" onclick="testSubAgent('EventCodeExtract', 2155)" class="w-full px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded-md transition-colors">
-                                                🧪 Test with Article 2155
-                                            </button>
+                                            <div class="flex gap-2">
+                                                <button type="button" onclick="testSubAgent('EventCodeExtract', 2155)" class="flex-1 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded-md transition-colors">
+                                                    🧪 Test with Article 2155
+                                                </button>
+                                                <button type="button" onclick="const id = promptForArticleId(2155); if (id) testSubAgent('EventCodeExtract', id);" class="flex-1 px-3 py-2 bg-green-600 hover:bg-green-700 text-white text-xs font-medium rounded-md transition-colors">
+                                                    🎯 Custom
+                                                </button>
+                                            </div>
                                         </div>
                                         <div id="eventcodeextract-agent-prompt-container"></div>
                                         <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-3 border border-gray-200 dark:border-gray-700">
@@ -497,6 +595,18 @@
                                                     class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-xs">
                                             </select>
                                             <p class="text-xs text-blue-600 dark:text-blue-400 mt-2 font-medium">💡 Recommendation: Use <code class="px-1 py-0.5 bg-blue-50 dark:bg-blue-900/30 rounded">mistralai/mistral-7b-instruct-v0.3</code> for verification tasks. Alternative: <code class="px-1 py-0.5 bg-blue-50 dark:bg-blue-900/30 rounded">qwen/qwen2.5-coder-32b</code> for stronger JSON parsing.</p>
+                                            <div class="mt-2">
+                                                <label for="eventcodeqa-temperature" class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Temperature</label>
+                                                <input type="number" 
+                                                       id="eventcodeqa-temperature" 
+                                                       name="agent_models[EventCodeQA_temperature]"
+                                                       min="0" 
+                                                       max="2" 
+                                                       step="0.1"
+                                                       value="0.1"
+                                                       onchange="autoSaveModelChange()"
+                                                       class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white text-xs">
+                                            </div>
                                         </div>
                                         <div id="eventcodeextract-agent-qa-prompt-container" class="hidden"></div>
                                     </div>
@@ -552,11 +662,16 @@
                                             <input type="number" id="proctreeextract-temperature" name="agent_models[ProcTreeExtract_temperature]" min="0" max="2" step="0.1" value="0.0" onchange="autoSaveModelChange()" class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white text-xs">
                                             <p class="text-[10px] text-gray-500 dark:text-gray-400 mt-1">0.0 = deterministic, higher = more creative</p>
                                         </div>
-                                        <!-- Test Button -->
+                                        <!-- Test Buttons -->
                                         <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-3 border border-gray-200 dark:border-gray-700">
-                                            <button type="button" onclick="testSubAgent('ProcTreeExtract', 2155)" class="w-full px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded-md transition-colors">
-                                                🧪 Test with Article 2155
-                                            </button>
+                                            <div class="flex gap-2">
+                                                <button type="button" onclick="testSubAgent('ProcTreeExtract', 2155)" class="flex-1 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded-md transition-colors">
+                                                    🧪 Test with Article 2155
+                                                </button>
+                                                <button type="button" onclick="const id = promptForArticleId(2155); if (id) testSubAgent('ProcTreeExtract', id);" class="flex-1 px-3 py-2 bg-green-600 hover:bg-green-700 text-white text-xs font-medium rounded-md transition-colors">
+                                                    🎯 Custom
+                                                </button>
+                                            </div>
                                         </div>
                                         <div id="proctreeextract-agent-prompt-container"></div>
                                         <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-3 border border-gray-200 dark:border-gray-700">
@@ -580,6 +695,18 @@
                                                     class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-xs">
                                             </select>
                                             <p class="text-xs text-blue-600 dark:text-blue-400 mt-2 font-medium">💡 Recommendation: Use <code class="px-1 py-0.5 bg-blue-50 dark:bg-blue-900/30 rounded">mistralai/mistral-7b-instruct-v0.3</code> for verification tasks. Alternative: <code class="px-1 py-0.5 bg-blue-50 dark:bg-blue-900/30 rounded">qwen/qwen2.5-coder-32b</code> for stronger JSON parsing.</p>
+                                            <div class="mt-2">
+                                                <label for="proctreeqa-temperature" class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Temperature</label>
+                                                <input type="number" 
+                                                       id="proctreeqa-temperature" 
+                                                       name="agent_models[ProcTreeQA_temperature]"
+                                                       min="0" 
+                                                       max="2" 
+                                                       step="0.1"
+                                                       value="0.1"
+                                                       onchange="autoSaveModelChange()"
+                                                       class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white text-xs">
+                                            </div>
                                         </div>
                                         <div id="proctreeextract-agent-qa-prompt-container" class="hidden"></div>
                                     </div>
@@ -635,11 +762,16 @@
                                             <input type="number" id="regextract-temperature" name="agent_models[RegExtract_temperature]" min="0" max="2" step="0.1" value="0.0" onchange="autoSaveModelChange()" class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white text-xs">
                                             <p class="text-[10px] text-gray-500 dark:text-gray-400 mt-1">0.0 = deterministic, higher = more creative</p>
                                         </div>
-                                        <!-- Test Button -->
+                                        <!-- Test Buttons -->
                                         <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-3 border border-gray-200 dark:border-gray-700">
-                                            <button type="button" onclick="testSubAgent('RegExtract', 2155)" class="w-full px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded-md transition-colors">
-                                                🧪 Test with Article 2155
-                                            </button>
+                                            <div class="flex gap-2">
+                                                <button type="button" onclick="testSubAgent('RegExtract', 2155)" class="flex-1 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded-md transition-colors">
+                                                    🧪 Test with Article 2155
+                                                </button>
+                                                <button type="button" onclick="const id = promptForArticleId(2155); if (id) testSubAgent('RegExtract', id);" class="flex-1 px-3 py-2 bg-green-600 hover:bg-green-700 text-white text-xs font-medium rounded-md transition-colors">
+                                                    🎯 Custom
+                                                </button>
+                                            </div>
                                         </div>
                                         <div id="regextract-agent-prompt-container"></div>
                                         <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-3 border border-gray-200 dark:border-gray-700">
@@ -663,6 +795,18 @@
                                                     class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-xs">
                                             </select>
                                             <p class="text-xs text-blue-600 dark:text-blue-400 mt-2 font-medium">💡 Recommendation: Use <code class="px-1 py-0.5 bg-blue-50 dark:bg-blue-900/30 rounded">mistralai/mistral-7b-instruct-v0.3</code> for verification tasks. Alternative: <code class="px-1 py-0.5 bg-blue-50 dark:bg-blue-900/30 rounded">qwen/qwen2.5-coder-32b</code> for stronger JSON parsing.</p>
+                                            <div class="mt-2">
+                                                <label for="regqa-temperature" class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Temperature</label>
+                                                <input type="number" 
+                                                       id="regqa-temperature" 
+                                                       name="agent_models[RegQA_temperature]"
+                                                       min="0" 
+                                                       max="2" 
+                                                       step="0.1"
+                                                       value="0.1"
+                                                       onchange="autoSaveModelChange()"
+                                                       class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white text-xs">
+                                            </div>
                                         </div>
                                         <div id="regextract-agent-qa-prompt-container" class="hidden"></div>
                                     </div>
@@ -1405,6 +1549,16 @@ function renderAgentModels() {
         if (agentName === 'OSDetectionAgent') {
             const currentEmbeddingModel = (agentModels && agentModels['OSDetectionAgent_embedding']) || 'ibm-research/CTI-BERT';
             const currentFallbackModel = (agentModels && agentModels['OSDetectionAgent_fallback']) || '';
+            const currentSelectedOS = (agentModels && agentModels['OSDetectionAgent_selected_os']) || ['Windows'];
+            const selectedOSArray = Array.isArray(currentSelectedOS) ? currentSelectedOS : (currentSelectedOS ? [currentSelectedOS] : ['Windows']);
+            
+            const osOptions = ['Windows', 'Linux', 'MacOS', 'Network', 'Other', 'All'];
+            const isWindowsChecked = selectedOSArray.includes('Windows') || selectedOSArray.includes('All');
+            const isLinuxChecked = selectedOSArray.includes('Linux') || selectedOSArray.includes('All');
+            const isMacOSChecked = selectedOSArray.includes('MacOS') || selectedOSArray.includes('All');
+            const isNetworkChecked = selectedOSArray.includes('Network') || selectedOSArray.includes('All');
+            const isOtherChecked = selectedOSArray.includes('Other') || selectedOSArray.includes('All');
+            const isAllChecked = selectedOSArray.includes('All');
             
             return `
                 <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
@@ -1431,7 +1585,7 @@ function renderAgentModels() {
                     </div>
                     
                     <!-- Fallback LLM Model Selection -->
-                    <div>
+                    <div class="mb-3">
                         <label for="${agentId}-fallback-model" class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
                             Fallback LLM Model
                         </label>
@@ -1443,6 +1597,78 @@ function renderAgentModels() {
                         </select>
                         <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
                             Optional - LLM fallback when embedding confidence is low (defaults to mistralai/mistral-7b-instruct-v0.3)
+                        </p>
+                    </div>
+                    
+                    <!-- OS Selection -->
+                    <div>
+                        <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-2">
+                            Target Operating Systems
+                        </label>
+                        <div class="space-y-2">
+                            <label class="flex items-center">
+                                <input type="checkbox" 
+                                       id="${agentId}-os-windows" 
+                                       name="os_selection[]" 
+                                       value="Windows"
+                                       ${isWindowsChecked ? 'checked' : ''}
+                                       onchange="updateOSSelection()"
+                                       class="w-4 h-4 text-purple-600 bg-gray-100 border-gray-300 rounded focus:ring-purple-500 dark:focus:ring-purple-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600">
+                                <span class="ml-2 text-sm text-gray-700 dark:text-gray-300">Windows</span>
+                            </label>
+                            <label class="flex items-center opacity-50 cursor-not-allowed">
+                                <input type="checkbox" 
+                                       id="${agentId}-os-linux" 
+                                       name="os_selection[]" 
+                                       value="Linux"
+                                       ${isLinuxChecked ? 'checked' : ''}
+                                       disabled
+                                       class="w-4 h-4 text-purple-600 bg-gray-100 border-gray-300 rounded focus:ring-purple-500 dark:focus:ring-purple-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600">
+                                <span class="ml-2 text-sm text-gray-700 dark:text-gray-300">Linux</span>
+                            </label>
+                            <label class="flex items-center opacity-50 cursor-not-allowed">
+                                <input type="checkbox" 
+                                       id="${agentId}-os-macos" 
+                                       name="os_selection[]" 
+                                       value="MacOS"
+                                       ${isMacOSChecked ? 'checked' : ''}
+                                       disabled
+                                       class="w-4 h-4 text-purple-600 bg-gray-100 border-gray-300 rounded focus:ring-purple-500 dark:focus:ring-purple-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600">
+                                <span class="ml-2 text-sm text-gray-700 dark:text-gray-300">MacOS</span>
+                            </label>
+                            <label class="flex items-center opacity-50 cursor-not-allowed">
+                                <input type="checkbox" 
+                                       id="${agentId}-os-network" 
+                                       name="os_selection[]" 
+                                       value="Network"
+                                       ${isNetworkChecked ? 'checked' : ''}
+                                       disabled
+                                       class="w-4 h-4 text-purple-600 bg-gray-100 border-gray-300 rounded focus:ring-purple-500 dark:focus:ring-purple-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600">
+                                <span class="ml-2 text-sm text-gray-700 dark:text-gray-300">Network</span>
+                            </label>
+                            <label class="flex items-center opacity-50 cursor-not-allowed">
+                                <input type="checkbox" 
+                                       id="${agentId}-os-other" 
+                                       name="os_selection[]" 
+                                       value="Other"
+                                       ${isOtherChecked ? 'checked' : ''}
+                                       disabled
+                                       class="w-4 h-4 text-purple-600 bg-gray-100 border-gray-300 rounded focus:ring-purple-500 dark:focus:ring-purple-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600">
+                                <span class="ml-2 text-sm text-gray-700 dark:text-gray-300">Other</span>
+                            </label>
+                            <label class="flex items-center opacity-50 cursor-not-allowed">
+                                <input type="checkbox" 
+                                       id="${agentId}-os-all" 
+                                       name="os_selection[]" 
+                                       value="All"
+                                       ${isAllChecked ? 'checked' : ''}
+                                       disabled
+                                       class="w-4 h-4 text-purple-600 bg-gray-100 border-gray-300 rounded focus:ring-purple-500 dark:focus:ring-purple-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600">
+                                <span class="ml-2 text-sm text-gray-700 dark:text-gray-300">All</span>
+                            </label>
+                        </div>
+                        <p class="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                            Select target operating systems for detection (stub - only Windows enabled)
                         </p>
                     </div>
                 </div>
@@ -2129,6 +2355,12 @@ async function loadConfig() {
             if (currentConfig.similarity_threshold !== undefined) {
                 document.getElementById('similarityThreshold').value = currentConfig.similarity_threshold;
             }
+            if (currentConfig.qa_max_retries !== undefined) {
+                const qaMaxRetriesInput = document.getElementById('qaMaxRetries');
+                if (qaMaxRetriesInput) {
+                    qaMaxRetriesInput.value = currentConfig.qa_max_retries;
+                }
+            }
             
             // Display current config
             const configDisplay = document.getElementById('configDisplay');
@@ -2394,6 +2626,16 @@ function renderAgentModels(lmstudioModels) {
     if (osContainer) {
         const currentEmbeddingModel = agentModels['OSDetectionAgent_embedding'] || 'ibm-research/CTI-BERT';
         const currentFallbackModel = agentModels['OSDetectionAgent_fallback'] || '';
+        const currentSelectedOS = agentModels['OSDetectionAgent_selected_os'] || ['Windows'];
+        const selectedOSArray = Array.isArray(currentSelectedOS) ? currentSelectedOS : (currentSelectedOS ? [currentSelectedOS] : ['Windows']);
+        
+        const isWindowsChecked = selectedOSArray.includes('Windows') || selectedOSArray.includes('All');
+        const isLinuxChecked = selectedOSArray.includes('Linux') || selectedOSArray.includes('All');
+        const isMacOSChecked = selectedOSArray.includes('MacOS') || selectedOSArray.includes('All');
+        const isNetworkChecked = selectedOSArray.includes('Network') || selectedOSArray.includes('All');
+        const isOtherChecked = selectedOSArray.includes('Other') || selectedOSArray.includes('All');
+        const isAllChecked = selectedOSArray.includes('All');
+        
         osContainer.innerHTML = `
             <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
                 <label class="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
@@ -2417,7 +2659,7 @@ function renderAgentModels(lmstudioModels) {
                         <option value="nlpaueb/sec-bert-base" ${currentEmbeddingModel === 'nlpaueb/sec-bert-base' ? 'selected' : ''}>SEC-BERT</option>
                     </select>
                 </div>
-                <div>
+                <div class="mb-3">
                     <div class="flex items-center justify-between mb-1">
                         <label for="osdetectionagent-fallback-model-2" class="block text-xs font-medium text-gray-600 dark:text-gray-400">Fallback Model (Optional)</label>
                         <label class="relative inline-flex items-center cursor-pointer">
@@ -2439,6 +2681,76 @@ function renderAgentModels(lmstudioModels) {
                     </select>
                     <p class="text-[10px] text-gray-500 dark:text-gray-400 mt-1">Leave blank to use primary OS model.</p>
                     <p class="text-xs text-blue-600 dark:text-blue-400 mt-2 font-medium">💡 Recommendation: Use <code class="px-1 py-0.5 bg-blue-50 dark:bg-blue-900/30 rounded">mistralai/mistral-7b-instruct-v0.3</code> or <code class="px-1 py-0.5 bg-blue-50 dark:bg-blue-900/30 rounded">qwen/qwen3-4b-2507</code> for classification fallback.</p>
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-2">
+                        Target Operating Systems
+                    </label>
+                    <div class="space-y-2">
+                        <label class="flex items-center">
+                            <input type="checkbox" 
+                                   id="osdetectionagent-os-windows" 
+                                   name="os_selection[]" 
+                                   value="Windows"
+                                   ${isWindowsChecked ? 'checked' : ''}
+                                   onchange="updateOSSelection()"
+                                   class="w-4 h-4 text-purple-600 bg-gray-100 border-gray-300 rounded focus:ring-purple-500 dark:focus:ring-purple-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600">
+                            <span class="ml-2 text-sm text-gray-700 dark:text-gray-300">Windows</span>
+                        </label>
+                        <label class="flex items-center opacity-50 cursor-not-allowed">
+                            <input type="checkbox" 
+                                   id="osdetectionagent-os-linux" 
+                                   name="os_selection[]" 
+                                   value="Linux"
+                                   ${isLinuxChecked ? 'checked' : ''}
+                                   disabled
+                                   class="w-4 h-4 text-purple-600 bg-gray-100 border-gray-300 rounded focus:ring-purple-500 dark:focus:ring-purple-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600">
+                            <span class="ml-2 text-sm text-gray-700 dark:text-gray-300">Linux</span>
+                        </label>
+                        <label class="flex items-center opacity-50 cursor-not-allowed">
+                            <input type="checkbox" 
+                                   id="osdetectionagent-os-macos" 
+                                   name="os_selection[]" 
+                                   value="MacOS"
+                                   ${isMacOSChecked ? 'checked' : ''}
+                                   disabled
+                                   class="w-4 h-4 text-purple-600 bg-gray-100 border-gray-300 rounded focus:ring-purple-500 dark:focus:ring-purple-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600">
+                            <span class="ml-2 text-sm text-gray-700 dark:text-gray-300">MacOS</span>
+                        </label>
+                        <label class="flex items-center opacity-50 cursor-not-allowed">
+                            <input type="checkbox" 
+                                   id="osdetectionagent-os-network" 
+                                   name="os_selection[]" 
+                                   value="Network"
+                                   ${isNetworkChecked ? 'checked' : ''}
+                                   disabled
+                                   class="w-4 h-4 text-purple-600 bg-gray-100 border-gray-300 rounded focus:ring-purple-500 dark:focus:ring-purple-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600">
+                            <span class="ml-2 text-sm text-gray-700 dark:text-gray-300">Network</span>
+                        </label>
+                        <label class="flex items-center opacity-50 cursor-not-allowed">
+                            <input type="checkbox" 
+                                   id="osdetectionagent-os-other" 
+                                   name="os_selection[]" 
+                                   value="Other"
+                                   ${isOtherChecked ? 'checked' : ''}
+                                   disabled
+                                   class="w-4 h-4 text-purple-600 bg-gray-100 border-gray-300 rounded focus:ring-purple-500 dark:focus:ring-purple-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600">
+                            <span class="ml-2 text-sm text-gray-700 dark:text-gray-300">Other</span>
+                        </label>
+                        <label class="flex items-center opacity-50 cursor-not-allowed">
+                            <input type="checkbox" 
+                                   id="osdetectionagent-os-all" 
+                                   name="os_selection[]" 
+                                   value="All"
+                                   ${isAllChecked ? 'checked' : ''}
+                                   disabled
+                                   class="w-4 h-4 text-purple-600 bg-gray-100 border-gray-300 rounded focus:ring-purple-500 dark:focus:ring-purple-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600">
+                            <span class="ml-2 text-sm text-gray-700 dark:text-gray-300">All</span>
+                        </label>
+                    </div>
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                        Select target operating systems for detection (stub - only Windows enabled)
+                    </p>
                 </div>
             </div>
         `;
@@ -2555,6 +2867,14 @@ function renderAgentModels(lmstudioModels) {
             const currentModel = agentModels[selector.key] || '';
             selectEl.innerHTML = buildOptions(currentModel, selector.placeholder);
         }
+        
+        // Load QA temperature
+        const tempKey = `${selector.key}_temperature`;
+        const tempId = selector.id.replace('-model', '-temperature');
+        const tempInput = document.getElementById(tempId);
+        if (tempInput && agentModels[tempKey] !== undefined) {
+            tempInput.value = agentModels[tempKey];
+        }
     });
 }
 
@@ -2620,8 +2940,31 @@ function closeTestModal() {
     }
 }
 
+function promptForArticleId(defaultId = 2155) {
+    const articleId = prompt(`Enter article ID to test with:`, defaultId.toString());
+    if (articleId === null) return null; // User cancelled
+    const parsedId = parseInt(articleId, 10);
+    if (isNaN(parsedId) || parsedId <= 0) {
+        alert('Please enter a valid article ID (positive number)');
+        return null;
+    }
+    return parsedId;
+}
+
+function getContentFilterSettings() {
+    const junkFilterThreshold = parseFloat(document.getElementById('junkFilterThreshold')?.value || '0.8');
+    // Content filter is enabled by default, check if there's a toggle (if not, assume enabled)
+    const useJunkFilter = true; // Always use content filter based on user's request
+    return {
+        use_junk_filter: useJunkFilter,
+        junk_filter_threshold: junkFilterThreshold
+    };
+}
+
 async function testSubAgent(agentName, articleId) {
     showTestModal(agentName, articleId);
+    
+    const filterSettings = getContentFilterSettings();
     
     try {
         const response = await fetch('/api/workflow/config/test-subagent', {
@@ -2629,7 +2972,9 @@ async function testSubAgent(agentName, articleId) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 agent_name: agentName,
-                article_id: articleId
+                article_id: articleId,
+                use_junk_filter: filterSettings.use_junk_filter,
+                junk_filter_threshold: filterSettings.junk_filter_threshold
             })
         });
         
@@ -2684,12 +3029,16 @@ async function testSubAgent(agentName, articleId) {
 async function testRankAgent(articleId) {
     showTestModal('RankAgent', articleId);
     
+    const filterSettings = getContentFilterSettings();
+    
     try {
         const response = await fetch('/api/workflow/config/test-rankagent', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                article_id: articleId
+                article_id: articleId,
+                use_junk_filter: filterSettings.use_junk_filter,
+                junk_filter_threshold: filterSettings.junk_filter_threshold
             })
         });
         
@@ -2742,6 +3091,11 @@ async function testRankAgent(articleId) {
 }
 
 // Auto-save model changes immediately
+window.updateOSSelection = async function updateOSSelection() {
+    // Trigger auto-save when OS selection changes
+    await autoSaveModelChange();
+}
+
 window.autoSaveModelChange = async function autoSaveModelChange() {
     try {
         // Collect all current agent_models values
@@ -2757,11 +3111,20 @@ window.autoSaveModelChange = async function autoSaveModelChange() {
             });
         }
         
+        // Collect OS selections
+        const osCheckboxes = document.querySelectorAll('input[name="os_selection[]"]:not([disabled])');
+        const selectedOS = Array.from(osCheckboxes)
+            .filter(cb => cb.checked)
+            .map(cb => cb.value);
+        // Default to Windows if nothing selected
+        const osSelection = selectedOS.length > 0 ? selectedOS : ['Windows'];
+        
         const agentModelsData = {
             RankAgent: rankModelValue,
             RankAgent_temperature: parseFloat(document.getElementById('rankagent-temperature')?.value) || 0.0,
             OSDetectionAgent_embedding: document.getElementById('osdetectionagent-embedding-model-2')?.value.trim() || 'ibm-research/CTI-BERT',
             OSDetectionAgent_fallback: document.getElementById('osdetectionagent-fallback-model-2')?.value.trim() || null,
+            OSDetectionAgent_selected_os: osSelection,
             ExtractAgent: document.getElementById('extractagent-model-2')?.value.trim() || null,
             SigmaAgent: document.getElementById('sigmaagent-model-2')?.value.trim() || null,
             CmdlineExtract_model: document.getElementById('cmdlineextract-model')?.value.trim() || null,
@@ -3550,18 +3913,25 @@ async function applyPreset(preset) {
             
             // QA Models
             const qaModelFields = [
-                { name: 'RankAgentQA', id: 'rankqa-model' },
-                { name: 'CmdLineQA', id: 'cmdlineqa-model' },
-                { name: 'SigQA', id: 'sigqa-model' },
-                { name: 'EventCodeQA', id: 'eventcodeqa-model' },
-                { name: 'ProcTreeQA', id: 'proctreeqa-model' },
-                { name: 'RegQA', id: 'regqa-model' }
+                { name: 'RankAgentQA', id: 'rankqa-model', tempId: 'rankqa-temperature' },
+                { name: 'CmdLineQA', id: 'cmdlineqa-model', tempId: 'cmdlineqa-temperature' },
+                { name: 'SigQA', id: 'sigqa-model', tempId: 'sigqa-temperature' },
+                { name: 'EventCodeQA', id: 'eventcodeqa-model', tempId: 'eventcodeqa-temperature' },
+                { name: 'ProcTreeQA', id: 'proctreeqa-model', tempId: 'proctreeqa-temperature' },
+                { name: 'RegQA', id: 'regqa-model', tempId: 'regqa-temperature' }
             ];
             
             qaModelFields.forEach(field => {
                 const select = document.getElementById(field.id);
                 if (select && preset.agent_models[field.name]) {
                     select.value = preset.agent_models[field.name];
+                }
+                
+                // Load QA temperature
+                const tempKey = `${field.name}_temperature`;
+                const tempInput = document.getElementById(field.tempId);
+                if (tempInput && preset.agent_models[tempKey] !== undefined) {
+                    tempInput.value = preset.agent_models[tempKey];
                 }
             });
         }
@@ -3956,18 +4326,24 @@ function getCurrentFormState() {
     });
 
     const qaModelFields = [
-        { name: 'RankAgentQA', id: 'rankqa-model' },
-        { name: 'CmdLineQA', id: 'cmdlineqa-model' },
-        { name: 'SigQA', id: 'sigqa-model' },
-        { name: 'EventCodeQA', id: 'eventcodeqa-model' },
-        { name: 'ProcTreeQA', id: 'proctreeqa-model' },
-        { name: 'RegQA', id: 'regqa-model' }
+        { name: 'RankAgentQA', id: 'rankqa-model', tempId: 'rankqa-temperature' },
+        { name: 'CmdLineQA', id: 'cmdlineqa-model', tempId: 'cmdlineqa-temperature' },
+        { name: 'SigQA', id: 'sigqa-model', tempId: 'sigqa-temperature' },
+        { name: 'EventCodeQA', id: 'eventcodeqa-model', tempId: 'eventcodeqa-temperature' },
+        { name: 'ProcTreeQA', id: 'proctreeqa-model', tempId: 'proctreeqa-temperature' },
+        { name: 'RegQA', id: 'regqa-model', tempId: 'regqa-temperature' }
     ];
     
     qaModelFields.forEach(field => {
         const modelValue = document.getElementById(field.id)?.value;
         if (modelValue) {
             agent_models[field.name] = modelValue;
+        }
+        
+        // Get QA temperature
+        const tempValue = document.getElementById(field.tempId)?.value;
+        if (tempValue !== undefined) {
+            agent_models[`${field.name}_temperature`] = parseFloat(tempValue) || 0.1;
         }
     });
    
@@ -4203,13 +4579,20 @@ if (workflowConfigForm) {
             // QA model overrides
             RankAgentQA: document.getElementById('rankqa-model')?.value.trim() || null,
             CmdLineQA: document.getElementById('cmdlineqa-model')?.value.trim() || null,
+            CmdLineQA_temperature: parseFloat(document.getElementById('cmdlineqa-temperature')?.value) || 0.1,
             SigQA: document.getElementById('sigqa-model')?.value.trim() || null,
+            SigQA_temperature: parseFloat(document.getElementById('sigqa-temperature')?.value) || 0.1,
             EventCodeQA: document.getElementById('eventcodeqa-model')?.value.trim() || null,
+            EventCodeQA_temperature: parseFloat(document.getElementById('eventcodeqa-temperature')?.value) || 0.1,
             ProcTreeQA: document.getElementById('proctreeqa-model')?.value.trim() || null,
-            RegQA: document.getElementById('regqa-model')?.value.trim() || null
+            ProcTreeQA_temperature: parseFloat(document.getElementById('proctreeqa-temperature')?.value) || 0.1,
+            RegQA: document.getElementById('regqa-model')?.value.trim() || null,
+            RegQA_temperature: parseFloat(document.getElementById('regqa-temperature')?.value) || 0.1,
+            RankAgentQA_temperature: parseFloat(document.getElementById('rankqa-temperature')?.value) || 0.1
         },
         qa_enabled: qaEnabled,
-        sigma_fallback_enabled: document.getElementById('sigma-fallback-enabled')?.checked || false
+        sigma_fallback_enabled: document.getElementById('sigma-fallback-enabled')?.checked || false,
+        qa_max_retries: parseInt(document.getElementById('qaMaxRetries')?.value) || 5
     };
     
     // Merge agent_prompts and include disabled extract agents
@@ -6389,12 +6772,13 @@ function showHelp(fieldName) {
                       </ul>
                       <p class="mb-2"><strong>How it works:</strong></p>
                       <ul class="list-disc list-inside mb-2 space-y-1">
-                          <li>First attempts embedding-based classification (CTI-BERT or SEC-BERT)</li>
-                          <li>If confidence is low, falls back to LLM-based detection (if configured)</li>
+                          <li><strong>Step 1:</strong> Checks for Windows OS keywords (executables, paths, registry, etc.) - if ≥3 matches found, immediately returns Windows</li>
+                          <li><strong>Step 2:</strong> If <3 keyword matches, falls back to embedding-based classification (CTI-BERT or SEC-BERT)</li>
+                          <li><strong>Step 3:</strong> If embedding confidence is low, falls back to LLM-based detection (if configured)</li>
                           <li>Detects: Windows, Linux, MacOS, multiple, or Unknown</li>
                           <li>Workflow continues only for Windows (or multiple if Windows is included)</li>
                       </ul>
-                      <p class="text-sm text-gray-600 dark:text-gray-400"><strong>Recommended:</strong> Use CTI-BERT for embedding model. Configure fallback model only if you need LLM-based detection for low-confidence cases.</p>`
+                      <p class="text-sm text-gray-600 dark:text-gray-400"><strong>Recommended:</strong> Use CTI-BERT for embedding model. The keyword-first approach provides fast Windows detection for articles with clear Windows indicators, while BERT handles ambiguous cases. Configure fallback model only if you need LLM-based detection for low-confidence cases.</p>`
         },
         'rankAgent': {
             title: 'Rank Agent Model',
