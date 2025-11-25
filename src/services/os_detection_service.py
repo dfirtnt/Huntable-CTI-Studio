@@ -29,6 +29,26 @@ transformers_logging.set_verbosity_error()
 # OS labels
 OS_LABELS = ["Windows", "Linux", "MacOS", "multiple", "Unknown"]
 
+# Windows OS keyword indicators (for fast keyword-based detection)
+WINDOWS_OS_KEYWORDS = [
+    # Windows executables
+    'powershell.exe', 'cmd.exe', 'wmic.exe', 'reg.exe', 'rundll32.exe',
+    'msiexec.exe', 'svchost.exe', 'lsass.exe', 'winlogon.exe', 'conhost.exe',
+    'wscript.exe', 'services.exe', 'findstr.exe', 'comspec',
+    # Windows paths & environment
+    'C:\\', 'D:\\', '%WINDIR%', '%wintmp%', '%APPDATA%', '%TEMP%',
+    '\\temp\\', '\\pipe\\', 'system32', 'programdata', 'appdata',
+    # Windows registry
+    'hklm', 'hkcu', 'HKEY',
+    # Windows file extensions
+    '.exe', '.dll', '.bat', '.ps1', '.lnk',
+    # Windows-specific patterns
+    'Event ID', 'EventCode', 'Sysmon', 'Windows Event Logs',
+    'WMI', 'schtasks', 'scheduled tasks',
+    # Windows commands
+    'icacls', 'attrib', 'tasklist', 'systeminfo',
+]
+
 # OS-specific indicator texts for embedding comparison
 OS_INDICATORS = {
     "Windows": [
@@ -154,6 +174,45 @@ class OSDetectionService:
         # Normalize
         embedding = embedding / np.linalg.norm(embedding)
         return embedding
+    
+    def _check_windows_keywords(self, content: str, min_matches: int = 3) -> Optional[Dict[str, Any]]:
+        """
+        Check for Windows OS keywords in content.
+        
+        Args:
+            content: Article content
+            min_matches: Minimum number of keyword matches required to return Windows
+        
+        Returns:
+            Dict with operating_system='Windows' if >= min_matches, None otherwise
+        """
+        if not content:
+            return None
+        
+        content_lower = content.lower()
+        matches = []
+        
+        # Check string keywords
+        for keyword in WINDOWS_OS_KEYWORDS:
+            keyword_lower = keyword.lower()
+            # Use word boundaries for better matching
+            if keyword_lower in content_lower:
+                matches.append(keyword)
+        
+        match_count = len(matches)
+        
+        if match_count >= min_matches:
+            logger.info(f"Windows OS detected via keywords: {match_count} matches (threshold: {min_matches})")
+            return {
+                'operating_system': 'Windows',
+                'method': 'keyword_match',
+                'confidence': 'high',
+                'keyword_matches': match_count,
+                'matched_keywords': matches[:10]  # Return first 10 matches
+            }
+        
+        logger.debug(f"Windows keyword check: {match_count} matches (threshold: {min_matches}), falling back to BERT")
+        return None
     
     def _precompute_os_embeddings(self):
         """Pre-compute embeddings for OS indicators."""
@@ -396,28 +455,42 @@ Output only the OS label: Windows, Linux, MacOS, or multiple"""
         use_fallback: bool = True,
         fallback_model: Optional[str] = None,
         force_fallback: bool = False,
-        qa_feedback: Optional[str] = None
+        qa_feedback: Optional[str] = None,
+        min_windows_keywords: int = 3
     ) -> Dict[str, Any]:
         """
         Detect OS from content.
         
+        Detection order:
+        1. Windows keyword check (>= min_windows_keywords matches → Windows)
+        2. BERT classifier (if available)
+        3. BERT similarity-based detection
+        4. LLM fallback (if enabled)
+        
         Args:
             content: Article content
-            use_classifier: Try to use trained classifier first
+            use_classifier: Try to use trained classifier first (after keyword check)
             use_fallback: Fall back to LLM if classifier/similarity fails
             fallback_model: Optional LLM model name for fallback (defaults to mistralai/mistral-7b-instruct-v0.3)
             force_fallback: Always use LLM fallback regardless of confidence (for testing)
+            qa_feedback: Optional QA feedback for LLM fallback
+            min_windows_keywords: Minimum Windows keyword matches to return Windows (default: 3)
         
         Returns:
             Dict with operating_system, method, and confidence
         """
-        # Try classifier first if available
+        # Step 1: Check Windows keywords first
+        keyword_result = self._check_windows_keywords(content, min_matches=min_windows_keywords)
+        if keyword_result:
+            return keyword_result
+        
+        # Step 2: Try classifier if available
         if use_classifier:
             result = self._detect_with_classifier(content)
             if result:
                 return result
         
-        # Fall back to similarity-based detection
+        # Step 3: Fall back to similarity-based detection
         result = self._detect_with_similarity(content)
         
         # If force_fallback is enabled, always use LLM fallback
@@ -426,7 +499,7 @@ Output only the OS label: Windows, Linux, MacOS, or multiple"""
             if llm_result:
                 return llm_result
         
-        # If similarity confidence is low and fallback is enabled, try LLM fallback
+        # Step 4: If similarity confidence is low and fallback is enabled, try LLM fallback
         if use_fallback and result.get("confidence") == "low":
             logger.info(f"Similarity confidence is low ({result.get('max_similarity', 'unknown')}), attempting LLM fallback...")
             llm_result = await self._detect_with_llm_fallback(content, fallback_model=fallback_model, qa_feedback=qa_feedback)
