@@ -1728,8 +1728,8 @@ async def api_extract_observables(article_id: int, request: Request):
         
         monitor_task = asyncio.create_task(monitor_disconnection())
         
-        # QA retry loop (max 5 attempts)
-        max_qa_retries = 5
+        # QA retry loop - get max retries from config
+        max_qa_retries = config_obj.qa_max_retries if config_obj and hasattr(config_obj, 'qa_max_retries') else 5
         qa_feedback = None
         extraction_result = None
         qa_results = {}

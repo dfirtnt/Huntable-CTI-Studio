@@ -677,8 +677,8 @@ Score the article from 1-10 for SIGMA rule generation potential. Consider:
         # But keep conservative to avoid exceeding context
         # Reasoning can use 1000-2000 tokens, final answer needs ~100 tokens
         is_reasoning_model = 'r1' in model_name.lower() or 'reasoning' in model_name.lower()
-        # Reduce max_output_tokens when using conservative context caps
-        max_output_tokens = 2000 if is_reasoning_model else 600  # Reduced from 2500/800
+        # Increase max_output_tokens to prevent truncation (non-reasoning models need more space for detailed analysis)
+        max_output_tokens = 2000 if is_reasoning_model else 2000  # Increased from 600 to prevent truncation
         
         # Determine model-specific context limits based on model size
         # These are reasonable maximums for each model size category

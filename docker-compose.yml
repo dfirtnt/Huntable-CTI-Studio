@@ -81,6 +81,7 @@ services:
       - TZ=America/New_York
     ports:
       - "8001:8001"
+      - "${LANGGRAPH_PORT:-2024}:2024"
     volumes:
       - ./src:/app/src
       - ./config:/app/config
@@ -92,7 +93,6 @@ services:
       - ./scripts:/app/scripts
       - ./allure-results:/app/allure-results
       - ./test-results:/app/test-results
-      - ./langgraph.json:/app/langgraph.json
       - /var/run/docker.sock:/var/run/docker.sock
       - /var/db/timezone/zoneinfo/America/New_York:/etc/localtime:ro
     depends_on:

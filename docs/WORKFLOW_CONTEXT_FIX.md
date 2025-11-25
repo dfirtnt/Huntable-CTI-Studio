@@ -12,6 +12,15 @@ which is below the required threshold of 16384 tokens.
 
 Models in LMStudio are loaded with default context lengths (often 2048-4096 tokens), but the workflow requires 16384 tokens for proper operation.
 
+**Important:** Not all models support 16384 tokens:
+- **1B-2B models:** Max ~2048 tokens
+- **3B-4B models:** Max ~4096 tokens  
+- **7B-8B models:** Max ~8192 tokens ⚠️ (below workflow requirement)
+- **13B-14B models:** Max ~16384 tokens ✅ (meets workflow requirement)
+- **32B+ models:** Max ~32768 tokens ✅✅ (exceeds workflow requirement)
+
+**For 7B/8B models:** The workflow will automatically truncate content to fit within 8192 tokens, but this may reduce analysis quality. Consider using 13B+ models for full article analysis.
+
 ## Solution
 
 ### Option 1: Load All Workflow Models (Recommended)
@@ -24,23 +33,32 @@ python utils/load_workflow_models.py
 
 This script:
 - Reads active workflow configuration from database
-- Loads all configured models with 16384 context tokens
+- Loads each model with **model-appropriate context length** (not forced to 16384)
+  - 8B models: 8192 tokens (their maximum)
+  - 13B+ models: 16384 tokens (workflow requirement)
 - Verifies each model can be loaded
+- Warns if any models are below the 16384 token workflow requirement
 
-**Note:** Models are loaded one at a time and unloaded after each test to verify they can be loaded. The workflow will load models on-demand during execution.
+**Note:** Models are loaded one at a time and unloaded after each test to verify they can be loaded. The workflow will load models on-demand during execution. Models with <16384 tokens will automatically truncate content.
 
 ### Option 2: Load Specific Model
 
-If you know which model is failing, load it manually:
+If you know which model is failing, load it with **model-appropriate context length**:
 
+**For 8B models (max 8192):**
 ```bash
-lms load gemma-3n-e4b-it-text --context-length 16384
+lms load meta-llama-3-8b-instruct --context-length 8192
 ```
 
-Or use the utility script:
-
+**For 13B+ models (supports 16384):**
 ```bash
-python utils/load_lmstudio_models.py gemma-3n-e4b-it-text --context-length 16384
+lms load qwen2.5-14b-instruct --context-length 16384
+```
+
+Or use the utility script (automatically detects model size):
+```bash
+python utils/load_lmstudio_models.py meta-llama-3-8b-instruct --context-length 8192
+python utils/load_lmstudio_models.py qwen2.5-14b-instruct --context-length 16384
 ```
 
 ### Option 3: Load All Models from Environment
@@ -84,9 +102,11 @@ If model fails to load due to resource constraints:
 
 ### Context Still Too Small
 If workflow still fails after loading:
-- Verify context length: `lms ps` should show 16384 in CONTEXT column
-- Check if model supports 16384 (some small models may not)
-- Consider using a different model that supports larger context
+- Verify context length: `lms ps` should show the model's maximum in CONTEXT column
+- **8B models:** Can only support 8192 tokens (workflow will truncate content automatically)
+- **13B+ models:** Should show 16384+ tokens
+- If using 8B models, the workflow will work but may truncate large articles
+- Consider using 13B+ models (`qwen2.5-14b-instruct`, `mistral-7b-instruct` with 16K config) for full article analysis
 
 ## Related Files
 

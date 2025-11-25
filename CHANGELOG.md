@@ -8,6 +8,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **OS Detection Agent OS Selection**: Added OS selection checkboxes to OS Detection Agent configuration
+  - Options: Windows, Linux, MacOS, Network, Other, All
+  - Windows enabled by default; other options disabled (stub implementation)
+  - Selections stored in `agent_models.OSDetectionAgent_selected_os` array
+  - Auto-saves when OS selection changes
+- **QA Max Retries Configuration**: Added `qa_max_retries` field to workflow configuration
+  - Configurable maximum QA retry attempts (1-20, default: 5)
+  - Added database migration script `scripts/migrate_add_qa_max_retries.sh`
+  - UI field in QA Settings panel on workflow config page
+
+### Fixed
+- **Database Migration**: Fixed missing `qa_max_retries` column in `agentic_workflow_config` table
+  - Created migration to add column with default value of 5
+  - Resolved SQL errors when querying workflow configuration
+
+### Added
 - **File Organization Structure**: Implemented standardized file organization for temporary scripts, reports, and utilities
   - Created directory structure: `utils/temp/` (temporary scripts), `scripts/` (reusable utilities), `outputs/` (reports/exports/benchmarks)
   - Moved 84 temporary scripts from root level to appropriate directories

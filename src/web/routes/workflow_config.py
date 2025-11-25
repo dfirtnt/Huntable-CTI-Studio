@@ -31,6 +31,7 @@ class WorkflowConfigResponse(BaseModel):
     agent_models: Optional[Dict[str, Any]] = None  # Changed from Dict[str, str] to allow None values
     qa_enabled: Optional[Dict[str, bool]] = None
     sigma_fallback_enabled: bool = False
+    qa_max_retries: int = 5
     created_at: str
     updated_at: str
 
@@ -46,6 +47,7 @@ class WorkflowConfigUpdate(BaseModel):
     agent_models: Optional[Dict[str, Any]] = None  # Changed from Dict[str, str] to allow numeric temperatures
     qa_enabled: Optional[Dict[str, bool]] = None
     sigma_fallback_enabled: Optional[bool] = False
+    qa_max_retries: Optional[int] = Field(None, ge=1, le=20, description="Maximum QA retry attempts (1-20)")
 
 
 class AgentPromptUpdate(BaseModel):
@@ -86,7 +88,8 @@ async def get_workflow_config(request: Request):
                     is_active=True,
                     description="Default configuration",
                     sigma_fallback_enabled=False,
-                    qa_enabled={}
+                    qa_enabled={},
+                    qa_max_retries=5
                 )
                 db_session.add(config)
                 db_session.commit()
@@ -111,6 +114,7 @@ async def get_workflow_config(request: Request):
                 agent_models=agent_models,
                 qa_enabled=qa_enabled,
                 sigma_fallback_enabled=config.sigma_fallback_enabled if hasattr(config, 'sigma_fallback_enabled') else False,
+                qa_max_retries=config.qa_max_retries if hasattr(config, 'qa_max_retries') else 5,
                 created_at=config.created_at.isoformat(),
                 updated_at=config.updated_at.isoformat()
             )
@@ -155,6 +159,11 @@ async def update_workflow_config(request: Request, config_update: WorkflowConfig
             
             # Create new config version
             sigma_fallback = config_update.sigma_fallback_enabled if config_update.sigma_fallback_enabled is not None else (current_config.sigma_fallback_enabled if current_config and hasattr(current_config, 'sigma_fallback_enabled') else False)
+            qa_max_retries = config_update.qa_max_retries if config_update.qa_max_retries is not None else (current_config.qa_max_retries if current_config and hasattr(current_config, 'qa_max_retries') else 5)
+            
+            # Validate qa_max_retries
+            if not (1 <= qa_max_retries <= 20):
+                raise HTTPException(status_code=400, detail=f"QA max retries must be between 1 and 20, got {qa_max_retries}")
             
             # Merge agent_models instead of replacing (preserve existing models when updating)
             merged_agent_models = None
@@ -181,7 +190,8 @@ async def update_workflow_config(request: Request, config_update: WorkflowConfig
                 agent_prompts=config_update.agent_prompts if config_update.agent_prompts is not None else (current_config.agent_prompts if current_config else None),
                 agent_models=merged_agent_models,
                 qa_enabled=config_update.qa_enabled if config_update.qa_enabled is not None else (current_config.qa_enabled if current_config and current_config.qa_enabled is not None else {}),
-                sigma_fallback_enabled=sigma_fallback
+                sigma_fallback_enabled=sigma_fallback,
+                qa_max_retries=qa_max_retries
             )
             
             db_session.add(new_config)
@@ -203,6 +213,7 @@ async def update_workflow_config(request: Request, config_update: WorkflowConfig
                 agent_models=new_config.agent_models,
                 qa_enabled=new_config.qa_enabled,
                 sigma_fallback_enabled=new_config.sigma_fallback_enabled,
+                qa_max_retries=new_config.qa_max_retries,
                 created_at=new_config.created_at.isoformat(),
                 updated_at=new_config.updated_at.isoformat()
             )
@@ -407,7 +418,8 @@ async def update_agent_prompts(request: Request, prompt_update: AgentPromptUpdat
                 description=current_config.description or "Updated configuration",
                 agent_prompts=agent_prompts,
                 agent_models=current_config.agent_models.copy() if current_config.agent_models else {},
-                qa_enabled=current_config.qa_enabled.copy() if current_config.qa_enabled else {}
+                qa_enabled=current_config.qa_enabled.copy() if current_config.qa_enabled else {},
+                qa_max_retries=current_config.qa_max_retries if hasattr(current_config, 'qa_max_retries') else 5
             )
             
             db_session.add(new_config)
@@ -529,7 +541,8 @@ async def rollback_agent_prompt(request: Request, agent_name: str, rollback_requ
                 version=new_version,
                 is_active=True,
                 description=current_config.description or "Rolled back configuration",
-                agent_prompts=agent_prompts
+                agent_prompts=agent_prompts,
+                qa_max_retries=current_config.qa_max_retries if hasattr(current_config, 'qa_max_retries') else 5
             )
             
             db_session.add(new_config)
@@ -570,11 +583,15 @@ class TestSubAgentRequest(BaseModel):
     """Request model for testing a sub-agent."""
     article_id: int = Field(2155, description="Article ID to test with")
     agent_name: str = Field(..., description="Name of the sub-agent (e.g., SigExtract, EventCodeExtract)")
+    use_junk_filter: bool = Field(True, description="Whether to apply content filtering")
+    junk_filter_threshold: float = Field(0.8, description="Content filter confidence threshold")
 
 
 class TestRankAgentRequest(BaseModel):
     """Request model for testing Rank Agent."""
     article_id: int = Field(2155, description="Article ID to test with")
+    use_junk_filter: bool = Field(True, description="Whether to apply content filtering")
+    junk_filter_threshold: float = Field(0.8, description="Content filter confidence threshold")
 
 
 @router.post("/config/test-subagent")
@@ -637,6 +654,20 @@ async def test_sub_agent(request: Request, test_request: TestSubAgentRequest):
             agent_models = config.agent_models if config.agent_models else {}
             llm_service = LLMService(config_models=agent_models)
             
+            # Apply content filtering if enabled
+            content_to_use = article.content
+            if test_request.use_junk_filter:
+                from src.utils.content_filter import ContentFilter
+                content_filter = ContentFilter()
+                hunt_score = article.article_metadata.get('threat_hunting_score', 0) if article.article_metadata else 0
+                filter_result = content_filter.filter_content(
+                    article.content,
+                    min_confidence=test_request.junk_filter_threshold,
+                    hunt_score=hunt_score,
+                    article_id=article.id
+                )
+                content_to_use = filter_result.filtered_content or article.content
+            
             # Get model and temperature for this agent
             model_key = f"{agent_name}_model"
             temperature_key = f"{agent_name}_temperature"
@@ -646,7 +677,7 @@ async def test_sub_agent(request: Request, test_request: TestSubAgentRequest):
             # Run extraction agent
             result = await llm_service.run_extraction_agent(
                 agent_name=agent_name,
-                content=article.content,
+                content=content_to_use,
                 title=article.title,
                 url=article.canonical_url or "",
                 prompt_config=prompt_config,
@@ -782,6 +813,20 @@ async def test_rank_agent(request: Request, test_request: TestRankAgentRequest):
             logger.info(f"Using RankAgent model: {rank_model}")
             llm_service = LLMService(config_models=agent_models)
             
+            # Apply content filtering if enabled
+            content_to_use = article.content
+            if test_request.use_junk_filter:
+                from src.utils.content_filter import ContentFilter
+                content_filter = ContentFilter()
+                hunt_score = article.article_metadata.get('threat_hunting_score', 0) if article.article_metadata else 0
+                filter_result = content_filter.filter_content(
+                    article.content,
+                    min_confidence=test_request.junk_filter_threshold,
+                    hunt_score=hunt_score,
+                    article_id=article.id
+                )
+                content_to_use = filter_result.filtered_content or article.content
+            
             # Get source name
             source_name = article.source.name if article.source else "Unknown"
             
@@ -793,7 +838,7 @@ async def test_rank_agent(request: Request, test_request: TestRankAgentRequest):
             # Run ranking
             ranking_result = await llm_service.rank_article(
                 title=article.title,
-                content=article.content,
+                content=content_to_use,
                 source=source_name,
                 url=article.canonical_url or "",
                 prompt_template_path=str(prompt_file) if prompt_file.exists() else None,

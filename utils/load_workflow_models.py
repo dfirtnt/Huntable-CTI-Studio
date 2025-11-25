@@ -3,7 +3,7 @@
 Load all models configured in the active workflow configuration with proper context length.
 
 This script reads the active workflow config from the database and loads all configured
-models with 16384 context tokens (required for workflow execution).
+models with appropriate context tokens based on model size capabilities.
 
 Usage:
     python utils/load_workflow_models.py
@@ -16,7 +16,22 @@ import time
 import json
 from pathlib import Path
 
-CONTEXT_LENGTH = 16384  # Required context length for workflow
+# Model-specific context length limits (based on actual model capabilities)
+# These match the limits defined in src/services/llm_service.py
+MODEL_CONTEXT_LIMITS = {
+    '1b': 2048,      # 1B models typically max at 2048
+    '2b': 4096,     # 2B models typically max at 4096
+    '3b': 4096,     # 3B models typically max at 4096
+    '7b': 8192,     # 7B models typically max at 8192
+    '8b': 8192,     # 8B models typically max at 8192
+    '13b': 16384,   # 13B models typically support 16384
+    '14b': 16384,   # 14B models typically support 16384
+    '32b': 32768,   # 32B models typically support 32K+
+    '30b': 32768,   # 30B models typically support 32K+
+}
+
+# Workflow minimum requirement (for models that support it)
+WORKFLOW_MIN_CONTEXT = 16384  # Required for full article analysis
 
 def find_lms_cli():
     """Find LMStudio CLI command."""
@@ -45,6 +60,21 @@ def unload_all_models(lms_cmd: str):
                 time.sleep(2)
     except:
         pass
+
+def get_model_context_length(model_name: str) -> int:
+    """Determine appropriate context length for a model based on its size."""
+    model_lower = model_name.lower()
+    
+    # Check for specific model size indicators
+    for size_key, max_context in MODEL_CONTEXT_LIMITS.items():
+        if size_key in model_lower:
+            # Use the model's max capability, but cap at workflow requirement if model supports it
+            return min(max_context, WORKFLOW_MIN_CONTEXT) if max_context >= WORKFLOW_MIN_CONTEXT else max_context
+    
+    # Default: use workflow minimum for unknown models (they might be larger)
+    # But warn that we're guessing
+    print(f"  ⚠️  Unknown model size for {model_name}, using workflow minimum {WORKFLOW_MIN_CONTEXT}")
+    return WORKFLOW_MIN_CONTEXT
 
 def load_model(lms_cmd: str, model_name: str, context_length: int) -> bool:
     """Load a model with specified context length."""
@@ -168,9 +198,16 @@ def main():
     # Load each model (one at a time, unload after each)
     success_count = 0
     failed_models = []
+    context_warnings = []
     
     for model in sorted(models_to_load):
-        if load_model(lms_cmd, model, CONTEXT_LENGTH):
+        # Determine appropriate context length for this model
+        model_context = get_model_context_length(model)
+        
+        if model_context < WORKFLOW_MIN_CONTEXT:
+            context_warnings.append(f"{model}: {model_context} tokens (below workflow minimum {WORKFLOW_MIN_CONTEXT})")
+        
+        if load_model(lms_cmd, model, model_context):
             success_count += 1
             # Unload after loading to free memory for next model
             unload_all_models(lms_cmd)
@@ -181,17 +218,27 @@ def main():
     # Summary
     print("=" * 80)
     print(f"Summary: {success_count}/{len(models_to_load)} models can be loaded")
+    
+    if context_warnings:
+        print(f"\n⚠️  Models with context below workflow minimum ({WORKFLOW_MIN_CONTEXT} tokens):")
+        for warning in context_warnings:
+            print(f"  - {warning}")
+        print("\nNote: These models may truncate content or fail on large articles.")
+        print("      Consider using 13B+ models for full article analysis.")
+    
     if failed_models:
-        print(f"\n⚠️  Models that failed to load:")
+        print(f"\n❌ Models that failed to load:")
         for model in failed_models:
             print(f"  - {model}")
         print("\nNote: These models may need manual loading or have resource constraints.")
         print("      The workflow will auto-load models as needed during execution.")
-    else:
-        print("\n✅ All models can be loaded successfully!")
+    
+    if not failed_models and not context_warnings:
+        print("\n✅ All models can be loaded successfully with appropriate context lengths!")
     
     print("\n💡 Tip: Models are loaded on-demand during workflow execution.")
     print("   The workflow will load the required model with proper context when needed.")
+    print(f"   Models with <{WORKFLOW_MIN_CONTEXT} tokens will automatically truncate content.")
 
 if __name__ == "__main__":
     main()
