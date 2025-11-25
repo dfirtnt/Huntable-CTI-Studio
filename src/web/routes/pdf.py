@@ -62,7 +62,7 @@ async def api_pdf_upload(file: UploadFile = File(...)):
 
             async with async_db_manager.get_session() as session:
                 manual_source = await session.execute(
-                    select(SourceTable).where(SourceTable.name.ilike("%manual%"))
+                    select(SourceTable).where(SourceTable.identifier == 'manual')
                 )
                 manual_source_obj = manual_source.scalar_one_or_none()
                 if not manual_source_obj:
