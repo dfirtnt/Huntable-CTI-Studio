@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **File Organization Structure**: Implemented standardized file organization for temporary scripts, reports, and utilities
+  - Created directory structure: `utils/temp/` (temporary scripts), `scripts/` (reusable utilities), `outputs/` (reports/exports/benchmarks)
+  - Moved 84 temporary scripts from root level to appropriate directories
+  - Updated `.gitignore` to properly handle temporary files while tracking `utils/temp/` scripts
+  - Added file organization guidelines to `CONTRIBUTING.md` and `AGENTS.md`
+  - Organized scripts by purpose: `scripts/maintenance/` (fix scripts), `scripts/testing/`, `scripts/analysis/`
+
 ### Fixed
 - **Documentation: LangGraph Debug Button Behavior**: Corrected documentation to accurately reflect debug button functionality
   - Fixed `docs/LANGGRAPH_INTEGRATION.md` and `docs/LANGGRAPH_QUICKSTART.md` to state that debug button opens LangFuse traces (post-execution viewing), not Agent Chat UI
