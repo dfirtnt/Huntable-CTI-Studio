@@ -20,6 +20,10 @@ logger = logging.getLogger(__name__)
 
 class DatabaseManager:
     """Database manager for efficient operations with conflict resolution."""
+
+    # Reuse engines/sessionmakers per connection string to avoid creating new pools on every instantiation
+    _engine_cache: Dict[str, Any] = {}
+    _session_cache: Dict[str, sessionmaker] = {}
     
     def __init__(
         self,
@@ -32,6 +36,16 @@ class DatabaseManager:
         if "+asyncpg" in database_url:
             database_url = database_url.replace("+asyncpg", "")
             logger.info("Converted asyncpg URL to psycopg2 for synchronous operations")
+
+        cache_key = f"{database_url}|{pool_size}|{max_overflow}|{echo}"
+
+        # If we've already created an engine for this connection string, reuse it to prevent connection storms
+        if cache_key in self._engine_cache:
+            self.database_url = database_url
+            self.echo = echo
+            self.engine = self._engine_cache[cache_key]
+            self.SessionLocal = self._session_cache[cache_key]
+            return
 
         self.database_url = database_url
         self.echo = echo
@@ -56,6 +70,10 @@ class DatabaseManager:
         
         # Create session factory
         self.SessionLocal = sessionmaker(bind=self.engine)
+
+        # Cache engine/sessionmaker for reuse across requests
+        self._engine_cache[cache_key] = self.engine
+        self._session_cache[cache_key] = self.SessionLocal
         
         # Initialize database
         self.create_tables()

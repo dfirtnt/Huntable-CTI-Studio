@@ -19,6 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - UI field in QA Settings panel on workflow config page
 
 ### Fixed
+- **Evaluation DB connections**: Cached synchronous DB engine/session to prevent opening new pools on each request and exhausting Postgres connections when visiting evaluation pages
 - **Database Migration**: Fixed missing `qa_max_retries` column in `agentic_workflow_config` table
   - Created migration to add column with default value of 5
   - Resolved SQL errors when querying workflow configuration
@@ -61,6 +62,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Fixed duplicate try block that was preventing disabled check from working
   - Disabled agents now properly skipped with empty results instead of executing
   - Added comprehensive logging to track disabled agent configuration reading
+- **LMStudio Context Limits**: Context command generator now respects model-specific limits and disabled agents
+  - Skips disabled sub-agent models when generating commands
+  - Caps to LMStudio-reported limits when present
+  - Manual cap added for `meta-llama-3-8b-instruct` (8192 tokens)
 - **Workflow Config UI Improvements**:
   - Made all agent prompts collapsible and collapsed by default on workflow config page
   - Fixed model display mismatch where dropdown selection didn't match prompt display
