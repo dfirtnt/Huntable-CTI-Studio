@@ -8,6 +8,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Distilled Model Detection Modal**: Added Distilled Model Detection feature to AI/ML Assistant
+  - Comprehensive modal explaining DistilBERT-style model approach for commandline detection
+  - Overview of 10-30× faster inference compared to LLM-based extraction
+  - Architecture options (sentence-level vs token-level classification)
+  - Inference pipeline documentation and benefits
+  - Placeholder functions for test detection and training guide
+  - Dark mode support with responsive layout
+- **DistilBERT Commandline Detection Test Script**: Created test script for evaluating DistilBERT models
+  - `utils/temp/test_distilbert_cmdline_detection.py` - Tests DistilBERT/CTI-BERT for Windows commandline detection
+  - Supports NER-based and pattern-matching fallback approaches
+  - Can compare against eval dataset for precision/recall/F1 metrics
+  - Configurable model selection and article filtering
 - **OS Detection Agent OS Selection**: Added OS selection checkboxes to OS Detection Agent configuration
   - Options: Windows, Linux, MacOS, Network, Other, All
   - Windows enabled by default; other options disabled (stub implementation)
