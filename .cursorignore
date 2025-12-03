@@ -1,6 +1,7 @@
 # Large model files and directories
 models/
 *.gguf
+*.mlx
 *.bin
 *.safetensors
 *.pkl
@@ -14,6 +15,7 @@ venv-ml/
 venv/
 env/
 .env/
+venv-*/
 
 # Backup directories
 backup_old_architecture/
@@ -75,3 +77,11 @@ archived/
 # Cache directories
 .pytest_cache/
 .cache/
+__pycache__/
+
+#PyTest results
+test-results/
+allure-*/
+
+#UI Elements
+node_modules/

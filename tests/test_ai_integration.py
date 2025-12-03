@@ -6,7 +6,7 @@ import json
 from unittest.mock import Mock, patch, AsyncMock
 from typing import Dict, Any, List
 
-from src.utils.gpt4o_optimizer import GPT4oContentOptimizer
+from src.utils.llm_optimizer import LLMOptimizer as GPT4oContentOptimizer
 from src.utils.ioc_extractor import HybridIOCExtractor
 from src.services.sigma_validator import SigmaValidator
 from ollama_cti_workflow import generate_sigma_rules

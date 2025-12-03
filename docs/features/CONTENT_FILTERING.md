@@ -396,7 +396,7 @@ print(f"Filtered content: {result.filtered_content}")
 ### API Integration
 
 ```python
-from src.utils.gpt4o_optimizer import optimize_article_content
+from src.utils.llm_optimizer import optimize_article_content
 
 # Optimize content for GPT-4o
 optimization_result = await optimize_article_content(
