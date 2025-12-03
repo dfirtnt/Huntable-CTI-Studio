@@ -31,6 +31,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - UI field in QA Settings panel on workflow config page
 
 ### Fixed
+- **Web Application Startup**: Fixed ImportError preventing application startup
+  - Removed non-existent `test_scrape` import from route registration
+  - Restored missing `dashboard.html.orig` template from git history
+  - Dashboard page now loads correctly at root URL
 - **Evaluation DB connections**: Cached synchronous DB engine/session to prevent opening new pools on each request and exhausting Postgres connections when visiting evaluation pages
 - **Database Migration**: Fixed missing `qa_max_retries` column in `agentic_workflow_config` table
   - Created migration to add column with default value of 5
