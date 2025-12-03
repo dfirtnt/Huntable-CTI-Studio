@@ -151,6 +151,6 @@ Benefits:
 ### January 2025 - MDU Update
 - **OS Detection**: Added comprehensive documentation for OS detection system
 - **Workflow Steps**: Updated to reflect correct 7-step agentic workflow (including OS Detection as Step 1.5)
-- **Docker Services**: Added LangGraph Server and LangFlow to architecture documentation
+- **Docker Services**: Added LangGraph Server to architecture documentation
 - **API Endpoints**: Updated count to 133+ endpoints
 - **Feature Index**: Added OS Detection and Workflow System to component navigation

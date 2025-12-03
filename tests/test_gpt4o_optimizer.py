@@ -303,61 +303,49 @@ class TestConvenienceFunctions:
         assert result['total_requests'] == 5
         mock_stats.assert_called_once()
 
-    def test_backward_compatibility_class_alias(self):
-        """Test that GPT4oContentOptimizer is an alias for LLMOptimizer."""
-        from src.utils.gpt4o_optimizer import GPT4oContentOptimizer
+    def test_migration_path_class_alias(self):
+        """Test migration path: GPT4oContentOptimizer should use LLMOptimizer."""
         from src.utils.llm_optimizer import LLMOptimizer
         
-        # Verify they are the same class
-        assert GPT4oContentOptimizer == LLMOptimizer, 'Class alias failed'
+        # Verify LLMOptimizer works as expected
+        instance = LLMOptimizer()
         
-        # Verify instances work the same way
-        old_instance = GPT4oContentOptimizer()
-        new_instance = LLMOptimizer()
+        assert hasattr(instance, 'content_filter')
+        assert hasattr(instance, 'filter_stats')
         
-        assert hasattr(old_instance, 'content_filter')
-        assert hasattr(new_instance, 'content_filter')
-        assert hasattr(old_instance, 'filter_stats')
-        assert hasattr(new_instance, 'filter_stats')
+        # Note: gpt4o_optimizer.py has been removed. All code should use llm_optimizer directly.
 
-    def test_backward_compatibility_instance_alias(self):
-        """Test that gpt4o_optimizer is an alias for llm_optimizer."""
-        from src.utils.gpt4o_optimizer import gpt4o_optimizer
+    def test_migration_path_instance(self):
+        """Test migration path: use llm_optimizer instance directly."""
         from src.utils.llm_optimizer import llm_optimizer
         
-        # Verify they are the same instance
-        assert gpt4o_optimizer == llm_optimizer, 'Instance alias failed'
-        
-        # Verify they have the same methods
-        assert hasattr(gpt4o_optimizer, 'optimize_content')
+        # Verify it has the expected methods
         assert hasattr(llm_optimizer, 'optimize_content')
-        assert hasattr(gpt4o_optimizer, 'get_cost_estimate')
         assert hasattr(llm_optimizer, 'get_cost_estimate')
 
-    def test_backward_compatibility_imports(self):
-        """Test that old imports from gpt4o_optimizer still work."""
-        # Test that we can import everything from the old module
-        from src.utils.gpt4o_optimizer import (
-            GPT4oContentOptimizer,
-            gpt4o_optimizer,
+    def test_migration_path_imports(self):
+        """Test that all functionality is available from llm_optimizer."""
+        from src.utils.llm_optimizer import (
+            LLMOptimizer,
+            llm_optimizer,
             optimize_article_content,
             estimate_gpt4o_cost,
             get_optimization_stats
         )
         
         # Verify all imports are valid
-        assert GPT4oContentOptimizer is not None
-        assert gpt4o_optimizer is not None
+        assert LLMOptimizer is not None
+        assert llm_optimizer is not None
         assert optimize_article_content is not None
         assert estimate_gpt4o_cost is not None
         assert get_optimization_stats is not None
 
-    def test_backward_compatibility_legacy_method(self):
-        """Test that optimize_content_for_gpt4o legacy function works."""
-        from src.utils.gpt4o_optimizer import optimize_content_for_gpt4o
+    def test_migration_path_legacy_method(self):
+        """Test that optimize_content functionality is available via llm_optimizer."""
+        from src.utils.llm_optimizer import llm_optimizer
         
-        # Verify the function exists and is callable
-        assert callable(optimize_content_for_gpt4o)
+        # Verify the method exists and is callable
+        assert callable(llm_optimizer.optimize_content)
         
         # Note: We don't test the actual execution here as it requires model loading
         # The integration tests cover actual functionality

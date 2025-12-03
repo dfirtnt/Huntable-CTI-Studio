@@ -69,11 +69,6 @@ The CTI Scraper uses a microservices architecture with the following components:
     - Eliminates data inconsistency between CLI and web operations
     - Available via Docker profiles (`tools`)
 
-11. **LangFlow** (`langflow`) - Optional
-    - Visual workflow management for LangChain/LangGraph
-    - Interactive UI for workflow design and debugging
-    - Port 7860 (configurable)
-
 
 ## Environment Configurations
 
@@ -140,7 +135,6 @@ Services communicate using Docker service names:
 For development and external access:
 - Web UI: `localhost:8001`
 - LangGraph Server: `localhost:2024` (configurable via LANGGRAPH_PORT)
-- LangFlow UI: `localhost:7860` (optional, configurable via LANGFLOW_PORT)
 - Database: `postgres:5432` (Docker container)
 - Redis: `redis:6379` (Docker container)
 - Ollama: `cti_ollama:11434` (Docker container)

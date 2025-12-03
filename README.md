@@ -42,7 +42,6 @@ A comprehensive threat intelligence aggregation and analysis platform designed f
    - **Web Interface**: [http://localhost:8001](http://localhost:8001)
    - **API Documentation**: [http://localhost:8001/docs](http://localhost:8001/docs)
    - **LangGraph Server**: [http://localhost:2024](http://localhost:2024) (workflow debugging)
-   - **LangFlow UI**: [http://localhost:7860](http://localhost:7860) (optional, visual workflow management)
 
 ## 📚 Documentation
 - **[Getting Started Guide](docs/deployment/GETTING_STARTED.md)**: Quick deployment guide.

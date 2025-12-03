@@ -22,10 +22,6 @@ from src.database.async_manager import async_db_manager
 from src.services.source_sync import SourceSyncService
 from src.web.dependencies import DEFAULT_SOURCE_USER_AGENT, logger, templates
 from src.web.routes import register_routes
-from src.web.utils.openai_helpers import (
-    build_openai_payload as _build_openai_payload,
-    extract_openai_summary as _extract_openai_summary,
-)
 
 
 @asynccontextmanager
