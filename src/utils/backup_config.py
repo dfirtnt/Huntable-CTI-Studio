@@ -45,7 +45,7 @@ class BackupConfig:
     docker_volumes: bool = True
     
     # Docker volume settings
-    volume_list: List[str] = field(default_factory=lambda: ["postgres_data", "redis_data", "ollama_data"])
+    volume_list: List[str] = field(default_factory=lambda: ["postgres_data", "redis_data"])
     stop_containers: bool = True
     
     # Verification settings

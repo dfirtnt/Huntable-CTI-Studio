@@ -63,7 +63,6 @@ def ai_test_config():
     return {
         'openai_api_key': openai_key,
         'anthropic_api_key': anthropic_key,
-        'ollama_endpoint': os.getenv('OLLAMA_ENDPOINT', 'http://localhost:11434'),
         'test_timeout': 30.0,
         'max_retries': 3
     }
@@ -165,22 +164,6 @@ def mock_ai_responses():
                 '''
             }]
         },
-        'ollama': """
-        title: APT29 PowerShell Execution
-        description: Detects APT29 PowerShell execution patterns
-        logsource:
-          category: process_creation
-          product: windows
-        detection:
-          selection:
-            Image: powershell.exe
-            CommandLine: '*EncodedCommand*'
-          condition: selection
-        level: high
-        tags:
-          - attack.execution
-          - attack.t1059.001
-        """
     }
 
 

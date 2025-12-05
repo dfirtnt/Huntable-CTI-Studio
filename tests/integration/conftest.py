@@ -4,7 +4,14 @@ Provides fixtures for Celery workers, test database with rollback, and external 
 """
 
 import pytest
-import pytest_asyncio
+try:
+    import pytest_asyncio
+except ImportError:
+    # Fallback if pytest_asyncio not available
+    class _PytestAsyncioStub:
+        def fixture(self, *args, **kwargs):
+            return pytest.fixture(*args, **kwargs)
+    pytest_asyncio = _PytestAsyncioStub()
 import asyncio
 import subprocess
 import time

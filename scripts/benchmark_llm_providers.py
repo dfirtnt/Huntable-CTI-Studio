@@ -2,7 +2,7 @@
 """
 Comprehensive LLM Provider Benchmark Script
 
-Tests all 6 LLM providers (OpenAI, Anthropic, Ollama, LM Studio, MLX, llama.cpp)
+Tests all 5 LLM providers (OpenAI, Anthropic, LM Studio, MLX, llama.cpp)
 across different model sizes and measures performance metrics.
 
 Usage:
@@ -113,8 +113,6 @@ class LLMBenchmark:
             return {'available': False, 'reason': 'OpenAI API key not configured'}
         elif provider == "anthropic" and not self.service.anthropic_api_key:
             return {'available': False, 'reason': 'Anthropic API key not configured'}
-        elif provider == "ollama" and not self.service._is_ollama_available():
-            return {'available': False, 'reason': 'Ollama service not available'}
         elif provider == "lmstudio" and not self.service._is_lmstudio_available():
             return {'available': False, 'reason': 'LM Studio service not available'}
         elif provider == "mlx" and not self.service._is_mlx_available():
@@ -168,7 +166,7 @@ class LLMBenchmark:
     async def run_benchmark(self, providers: Optional[List[str]] = None, quick: bool = False) -> Dict[str, Any]:
         """Run comprehensive benchmark across all providers."""
         if providers is None:
-            providers = ['openai', 'anthropic', 'ollama', 'lmstudio', 'mlx', 'llamacpp']
+            providers = ['openai', 'anthropic', 'lmstudio', 'mlx', 'llamacpp']
         
         console.print(Panel.fit(
             "[bold blue]LLM Provider Performance Benchmark[/bold blue]\n"

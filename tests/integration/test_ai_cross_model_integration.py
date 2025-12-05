@@ -13,7 +13,6 @@ try:
     from src.utils.llm_optimizer import LLMOptimizer as GPT4oContentOptimizer
     from src.utils.ioc_extractor import HybridIOCExtractor
     from src.services.sigma_validator import SigmaValidator
-    from ollama_cti_workflow import generate_sigma_rules
 except ImportError:
     # Mock imports for testing without full dependencies
     GPT4oContentOptimizer = None
@@ -124,25 +123,6 @@ class TestAICrossModelIntegration:
             }]
         }
 
-    @pytest.fixture
-    def mock_ollama_response(self):
-        """Create mock Ollama response."""
-        return """
-        title: APT29 PowerShell Execution
-        description: Detects APT29 PowerShell execution patterns
-        logsource:
-          category: process_creation
-          product: windows
-        detection:
-          selection:
-            Image: powershell.exe
-            CommandLine: '*EncodedCommand*'
-          condition: selection
-        level: high
-        tags:
-          - attack.execution
-          - attack.t1059.001
-        """
 
     @pytest.mark.asyncio
     async def test_model_switching_chatgpt_to_anthropic(self, sample_threat_article, mock_openai_response, mock_anthropic_response):
@@ -174,35 +154,6 @@ class TestAICrossModelIntegration:
         assert '8' in chatgpt_result and '9' in anthropic_result
 
     @pytest.mark.asyncio
-    async def test_model_switching_anthropic_to_ollama(self, sample_threat_article, mock_anthropic_response, mock_ollama_response):
-        """Test switching from Anthropic to Ollama model."""
-        # Test Anthropic first
-        with patch('httpx.AsyncClient') as mock_client:
-            mock_response = Mock()
-            mock_response.status_code = 200
-            mock_response.json.return_value = mock_anthropic_response
-            mock_client.return_value.__aenter__.return_value.post.return_value = mock_response
-            
-            anthropic_result = mock_anthropic_response['content'][0]['text']
-            assert 'SIGMA HUNTABILITY SCORE: 9' in anthropic_result
-        
-        # Test Ollama
-        with patch('subprocess.run') as mock_subprocess:
-            mock_result = Mock()
-            mock_result.returncode = 0
-            mock_result.stdout = mock_ollama_response
-            mock_result.stderr = ""
-            mock_subprocess.return_value = mock_result
-            
-            ollama_result = generate_sigma_rules(sample_threat_article['content'])
-            assert "title: APT29 PowerShell Execution" in ollama_result
-        
-        # Verify different output formats
-        assert anthropic_result != ollama_result
-        assert 'SIGMA HUNTABILITY SCORE' in anthropic_result
-        assert 'title: APT29 PowerShell Execution' in ollama_result
-
-    @pytest.mark.asyncio
     async def test_model_fallback_openai_failure(self, sample_threat_article, mock_anthropic_response):
         """Test fallback from OpenAI to Anthropic when OpenAI fails."""
         # Mock OpenAI failure
@@ -231,8 +182,8 @@ class TestAICrossModelIntegration:
             assert 'SIGMA HUNTABILITY SCORE: 9' in anthropic_result
 
     @pytest.mark.asyncio
-    async def test_model_fallback_anthropic_failure(self, sample_threat_article, mock_ollama_response):
-        """Test fallback from Anthropic to Ollama when Anthropic fails."""
+    async def test_model_fallback_anthropic_failure(self, sample_threat_article):
+        """Test handling of Anthropic failures."""
         # Mock Anthropic failure
         with patch('httpx.AsyncClient') as mock_client:
             mock_response = Mock()
@@ -245,34 +196,10 @@ class TestAICrossModelIntegration:
                 raise Exception("Rate limit exceeded")
             except Exception as e:
                 assert "Rate limit exceeded" in str(e)
-        
-        # Test fallback to Ollama
-        with patch('subprocess.run') as mock_subprocess:
-            mock_result = Mock()
-            mock_result.returncode = 0
-            mock_result.stdout = mock_ollama_response
-            mock_result.stderr = ""
-            mock_subprocess.return_value = mock_result
-            
-            # Fallback should work
-            ollama_result = generate_sigma_rules(sample_threat_article['content'])
-            assert "title: APT29 PowerShell Execution" in ollama_result
 
     @pytest.mark.asyncio
-    async def test_model_fallback_ollama_failure(self, sample_threat_article, mock_openai_response):
-        """Test fallback from Ollama to OpenAI when Ollama fails."""
-        # Mock Ollama failure
-        with patch('subprocess.run') as mock_subprocess:
-            mock_result = Mock()
-            mock_result.returncode = 1
-            mock_result.stdout = ""
-            mock_result.stderr = "Model not found"
-            mock_subprocess.return_value = mock_result
-            
-            # Should handle Ollama failure gracefully
-            result = generate_sigma_rules(sample_threat_article['content'])
-            assert result is None
-        
+    async def test_model_fallback_openai_available(self, sample_threat_article, mock_openai_response):
+        """Test fallback to OpenAI when other providers fail."""
         # Test fallback to OpenAI
         with patch('httpx.AsyncClient') as mock_client:
             mock_response = Mock()
@@ -291,7 +218,6 @@ class TestAICrossModelIntegration:
         model_limits = {
             'chatgpt': 50000,  # 50KB
             'anthropic': 100000,  # 100KB
-            'ollama': 200000  # 200KB
         }
         
         # Test content within limits
@@ -305,7 +231,6 @@ class TestAICrossModelIntegration:
         
         assert len(large_content) > model_limits['chatgpt']
         assert len(large_content) > model_limits['anthropic']
-        assert len(large_content) <= model_limits['ollama']
 
     @pytest.mark.asyncio
     async def test_model_specific_feature_support(self, sample_threat_article):
@@ -349,17 +274,6 @@ class TestAICrossModelIntegration:
             long_content = "x" * 80000  # 80KB - within Claude's limit
             assert len(long_content) <= 100000  # Claude's limit
         
-        # Test Ollama specific features
-        with patch('subprocess.run') as mock_subprocess:
-            mock_result = Mock()
-            mock_result.returncode = 0
-            mock_result.stdout = "Ollama local processing"
-            mock_result.stderr = ""
-            mock_subprocess.return_value = mock_result
-            
-            # Ollama should work offline
-            result = generate_sigma_rules(sample_threat_article['content'])
-            assert result is not None
 
     @pytest.mark.asyncio
     async def test_concurrent_model_requests(self, sample_threat_article):
@@ -386,26 +300,15 @@ class TestAICrossModelIntegration:
                 mock_client.return_value.__aenter__.return_value.post.return_value = mock_response
                 return "Anthropic response"
         
-        async def mock_ollama_request():
-            with patch('subprocess.run') as mock_subprocess:
-                mock_result = Mock()
-                mock_result.returncode = 0
-                mock_result.stdout = "Ollama response"
-                mock_result.stderr = ""
-                mock_subprocess.return_value = mock_result
-                return generate_sigma_rules(sample_threat_article['content'])
-        
         # Run concurrent requests
         results = await asyncio.gather(
             mock_openai_request(),
-            mock_anthropic_request(),
-            mock_ollama_request()
+            mock_anthropic_request()
         )
         
-        assert len(results) == 3
+        assert len(results) == 2
         assert "OpenAI response" in results
         assert "Anthropic response" in results
-        assert "Ollama response" in results
 
     @pytest.mark.asyncio
     async def test_model_performance_comparison(self, sample_threat_article):
@@ -435,22 +338,11 @@ class TestAICrossModelIntegration:
                 await asyncio.sleep(0.2)  # Simulate 200ms response
                 return "Anthropic response"
         
-        async def mock_ollama_request():
-            with patch('subprocess.run') as mock_subprocess:
-                mock_result = Mock()
-                mock_result.returncode = 0
-                mock_result.stdout = "Ollama response"
-                mock_result.stderr = ""
-                mock_subprocess.return_value = mock_result
-                await asyncio.sleep(0.5)  # Simulate 500ms response
-                return generate_sigma_rules(sample_threat_article['content'])
-        
         # Measure performance
         start_time = time.time()
         
         openai_result = await mock_openai_request()
         anthropic_result = await mock_anthropic_request()
-        ollama_result = await mock_ollama_request()
         
         end_time = time.time()
         total_time = end_time - start_time
@@ -458,10 +350,9 @@ class TestAICrossModelIntegration:
         # Verify results
         assert openai_result == "OpenAI response"
         assert anthropic_result == "Anthropic response"
-        assert ollama_result is not None
         
         # Total time should be sum of individual times (sequential execution)
-        assert total_time >= 0.8  # 0.1 + 0.2 + 0.5
+        assert total_time >= 0.3  # 0.1 + 0.2
 
     @pytest.mark.asyncio
     async def test_model_configuration_validation(self):
@@ -470,35 +361,26 @@ class TestAICrossModelIntegration:
         valid_configs = [
             {'model': 'chatgpt', 'api_key': 'sk-test123', 'endpoint': 'https://api.openai.com/v1/chat/completions'},
             {'model': 'anthropic', 'api_key': 'sk-ant-test123', 'endpoint': 'https://api.anthropic.com/v1/messages'},
-            {'model': 'ollama', 'endpoint': 'http://localhost:11434', 'model_name': 'phi3-cti-hunt'}
         ]
         
         for config in valid_configs:
             assert 'model' in config
-            assert config['model'] in ['chatgpt', 'anthropic', 'ollama']
-            
-            if config['model'] in ['chatgpt', 'anthropic']:
-                assert 'api_key' in config
-                assert config['api_key'].startswith('sk-')
-            
-            if config['model'] == 'ollama':
-                assert 'model_name' in config
+            assert config['model'] in ['chatgpt', 'anthropic']
+            assert 'api_key' in config
+            assert config['api_key'].startswith('sk-')
         
         # Test invalid configurations
         invalid_configs = [
             {'model': 'invalid_model'},
             {'model': 'chatgpt'},  # Missing API key
             {'model': 'anthropic', 'api_key': 'invalid_key'},  # Invalid API key format
-            {'model': 'ollama'}  # Missing model name
         ]
         
         for config in invalid_configs:
-            if config['model'] not in ['chatgpt', 'anthropic', 'ollama']:
+            if config['model'] not in ['chatgpt', 'anthropic']:
                 assert config['model'] == 'invalid_model'
             elif config['model'] in ['chatgpt', 'anthropic'] and 'api_key' not in config:
                 assert 'api_key' not in config
-            elif config['model'] == 'ollama' and 'model_name' not in config:
-                assert 'model_name' not in config
 
     @pytest.mark.asyncio
     async def test_model_error_handling_consistency(self, sample_threat_article):
@@ -526,17 +408,6 @@ class TestAICrossModelIntegration:
                 raise Exception("Anthropic API Error: Rate limit exceeded")
             except Exception as e:
                 assert "Anthropic API Error" in str(e)
-        
-        # Test Ollama error handling
-        with patch('subprocess.run') as mock_subprocess:
-            mock_result = Mock()
-            mock_result.returncode = 1
-            mock_result.stdout = ""
-            mock_result.stderr = "Model not found"
-            mock_subprocess.return_value = mock_result
-            
-            result = generate_sigma_rules(sample_threat_article['content'])
-            assert result is None
         
         # All models should handle errors gracefully
         assert True  # If we reach here, all error handling worked

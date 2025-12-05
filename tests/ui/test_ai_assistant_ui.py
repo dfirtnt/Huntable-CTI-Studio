@@ -229,7 +229,7 @@ class TestAIAssistantUI:
         # Verify all model options are present
         expect(ai_model_select.locator("option:has-text('ChatGPT (OpenAI)')")).to_be_visible()
         expect(ai_model_select.locator("option:has-text('Claude (Anthropic)')")).to_be_visible()
-        expect(ai_model_select.locator("option:has-text('Llama (Local Ollama)')")).to_be_visible()
+        expect(ai_model_select.locator("option:has-text('LMStudio (Local)')")).to_be_visible()
     
     @pytest.mark.ui
     @pytest.mark.ai

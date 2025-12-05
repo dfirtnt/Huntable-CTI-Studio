@@ -25,7 +25,7 @@ echo ""
 
 # Start just the core services without nginx
 echo "🐳 Starting Docker containers..."
-docker-compose -f docker-compose.mobile.yml up -d postgres redis web worker scheduler ollama
+docker-compose -f docker-compose.mobile.yml up -d postgres redis web worker scheduler
 
 # Wait for services to be ready
 echo "⏳ Waiting for services to start..."
@@ -67,4 +67,3 @@ echo "   Web App:     http://localhost:8001"
 echo "   Mobile:      http://$LOCAL_IP:8001"
 echo "   Database:    localhost:5433"
 echo "   Redis:       localhost:6380"
-echo "   Ollama:      localhost:11435"

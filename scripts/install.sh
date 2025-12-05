@@ -197,7 +197,6 @@ show_post_install_info() {
     echo "   • Web Interface: http://localhost:8001"
     echo "   • Database: PostgreSQL on port 5432"
     echo "   • Redis: Redis on port 6379"
-    echo "   • Ollama: Ollama on port 11434"
     echo ""
     echo "🔧 Management Commands:"
     echo "   • Start services: docker-compose up -d"

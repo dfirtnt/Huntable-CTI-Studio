@@ -105,7 +105,12 @@ async def test_environment_validation():
 @pytest_asyncio.fixture
 async def async_client(test_environment_config) -> AsyncGenerator[httpx.AsyncClient, None]:
     """Async HTTP client for API testing."""
-    base_url = f"http://127.0.0.1:{test_environment_config.test_port}"
+    # Fallback to default port if test_environment_config is None
+    if test_environment_config is None:
+        port = int(os.getenv("TEST_PORT", "8001"))
+    else:
+        port = test_environment_config.test_port
+    base_url = f"http://127.0.0.1:{port}"
     timeout = httpx.Timeout(60.0)  # Increased timeout for RAG operations
     async with httpx.AsyncClient(base_url=base_url, timeout=timeout) as client:
         yield client

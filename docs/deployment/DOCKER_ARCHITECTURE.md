@@ -32,11 +32,9 @@ The CTI Scraper uses a microservices architecture with the following components:
    - Manages periodic task scheduling
    - Triggers source checks and maintenance tasks
 
-6. **Multi-Provider LLM Service** (`cti_ollama`)
-   - Local Ollama service with Llama 3.2 1B model for content analysis
-   - Supports OpenAI GPT-4o and Anthropic Claude integration
+6. **Multi-Provider LLM Service**
+   - Supports OpenAI GPT-4o, Anthropic Claude, and LMStudio integration
    - Auto-fallback between providers based on availability
-   - Configured for parallel processing (3 concurrent requests, 2 loaded models)
    - Supports multiple AI endpoints: summaries, SIGMA rules, rankings, and RAG chat
    - RAG generation service with conversation context and response synthesis
 
@@ -57,7 +55,7 @@ The CTI Scraper uses a microservices architecture with the following components:
    - Supports time-travel debugging and state inspection
 
 9. **RAG Generation Service** (`llm_generation_service`)
-   - Multi-provider LLM integration (OpenAI, Anthropic, Ollama)
+   - Multi-provider LLM integration (OpenAI, Anthropic, LMStudio)
    - Conversational AI with context memory
    - Synthesized response generation instead of raw chunks
    - Auto-fallback between providers
@@ -128,7 +126,6 @@ Services communicate using Docker service names:
 - Redis: `redis:6379`
 - Web API: `web:8001`
 - LangGraph Server: `langgraph-server:2024`
-- Ollama: `cti_ollama:11434`
 
 ### External Access (Port Mapping)
 
@@ -137,18 +134,6 @@ For development and external access:
 - LangGraph Server: `localhost:2024` (configurable via LANGGRAPH_PORT)
 - Database: `postgres:5432` (Docker container)
 - Redis: `redis:6379` (Docker container)
-- Ollama: `cti_ollama:11434` (Docker container)
-
-### Ollama Configuration
-
-The Ollama service is configured for optimal performance with multiple AI endpoints:
-
-```yaml
-environment:
-  - OLLAMA_NUM_PARALLEL=3      # Allow 3 concurrent requests
-  - OLLAMA_MAX_LOADED_MODELS=2 # Keep 2 models loaded in memory
-  - OLLAMA_MAX_QUEUE=512       # Queue size for requests
-```
 
 **Supported AI Endpoints:**
 - Custom prompts (`/api/articles/{id}/custom-prompt`)
@@ -197,7 +182,6 @@ The CLI tool was previously running locally with SQLite, causing:
 
 - **PostgreSQL Data**: `postgres_data` (persistent storage)
 - **Redis Data**: `redis_data` (persistent storage)
-- **Ollama Models**: `ollama_data` (persistent storage)
 
 ### Backup Strategy
 
@@ -220,7 +204,6 @@ All services include health checks:
 - PostgreSQL: `pg_isready`
 - Redis: `redis-cli ping`
 - Web: `curl /health`
-- Ollama: `curl /api/tags`
 
 ### Monitoring Commands
 

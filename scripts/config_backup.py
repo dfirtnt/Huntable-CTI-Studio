@@ -415,7 +415,7 @@ def create_template(output_file: str) -> None:
             "docker_volumes": True
         },
         "docker_volumes": {
-            "volumes": ["postgres_data", "redis_data", "ollama_data"],
+            "volumes": ["postgres_data", "redis_data"],
             "stop_containers": True
         },
         "verification": {

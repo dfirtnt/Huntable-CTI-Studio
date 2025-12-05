@@ -115,7 +115,7 @@ class HybridIOCExtractor:
             raw_iocs: Raw IOCs extracted by iocextract
             content: Article content (already filtered at API endpoint level if LLM validation enabled)
             api_key: API key (optional for local models)
-            ai_model: AI model to use ('chatgpt', 'anthropic', 'lmstudio', 'ollama', 'tinyllama')
+            ai_model: AI model to use ('chatgpt', 'anthropic', 'lmstudio')
             
         Returns:
             Tuple of (validated_iocs, prompt, response)
@@ -257,24 +257,6 @@ Output format (return ONLY this JSON structure):
                     # Check for cancellation after the request
                     if cancellation_event and cancellation_event.is_set():
                         raise asyncio.CancelledError("IOC validation cancelled by client")
-                elif ai_model in ['ollama', 'tinyllama']:
-                    # Use Ollama API
-                    ollama_url = os.getenv('LLM_API_URL', 'http://cti_ollama:11434')
-                    ollama_model = os.getenv('LLM_MODEL', 'llama3.2:1b') if ai_model == 'ollama' else 'tinyllama'
-                    
-                    response = await client.post(
-                        f"{ollama_url}/api/generate",
-                        json={
-                            "model": ollama_model,
-                            "prompt": f"You are a cybersecurity analyst specializing in IOC validation. Validate and categorize IOCs from threat intelligence articles and return them in valid JSON format only. NEVER include explanatory text, comments, or markdown formatting. Return ONLY the JSON object.\n\n{prompt}",
-                            "stream": False,
-                            "options": {
-                                "temperature": 0.1,
-                                "num_predict": 2048
-                            }
-                        },
-                        timeout=120.0
-                    )
                 else:
                     # Use ChatGPT API for validation
                     chatgpt_api_url = os.getenv('CHATGPT_API_URL', 'https://api.openai.com/v1/chat/completions')
@@ -309,11 +291,8 @@ Output format (return ONLY this JSON structure):
                 
                 result = response.json()
                 
-                # Handle different response formats
-                if ai_model in ['ollama', 'tinyllama']:
-                    validated_json = result.get('response', '')
-                else:
-                    validated_json = result['choices'][0]['message']['content']
+                # Handle response format
+                validated_json = result['choices'][0]['message']['content']
                 
                 # Parse the validated JSON
                 try:

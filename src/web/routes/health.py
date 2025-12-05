@@ -160,27 +160,6 @@ async def api_services_health() -> Dict[str, Any]:
                 "error": str(redis_exc),
             }
 
-        # Check Ollama
-        try:
-            async with httpx.AsyncClient() as client:
-                response = await client.get("http://ollama:11434/api/tags", timeout=5.0)
-                if response.status_code == 200:
-                    models_data = response.json()
-                    services_status["ollama"] = {
-                        "status": "healthy",
-                        "models_available": len(models_data.get("models", [])),
-                        "models": [model["name"] for model in models_data.get("models", [])],
-                    }
-                else:
-                    services_status["ollama"] = {
-                        "status": "unhealthy",
-                        "error": f"HTTP {response.status_code}",
-                    }
-        except Exception as ollama_exc:
-            services_status["ollama"] = {
-                "status": "unhealthy",
-                "error": str(ollama_exc),
-            }
 
         # Check LMStudio
         try:

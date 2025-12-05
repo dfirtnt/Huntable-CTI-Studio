@@ -1,6 +1,6 @@
 """
 Real API integration tests for AI Assistant features.
-Tests actual API calls to OpenAI, Anthropic, and Ollama services.
+Tests actual API calls to OpenAI and Anthropic services.
 Requires test API keys and proper environment setup.
 """
 import pytest
@@ -15,7 +15,6 @@ from unittest.mock import patch
 try:
     from src.utils.llm_optimizer import LLMOptimizer as GPT4oContentOptimizer
     from src.utils.ioc_extractor import HybridIOCExtractor
-    from ollama_cti_workflow import generate_sigma_rules
 except ImportError:
     # Mock imports for testing without full dependencies
     GPT4oContentOptimizer = None
@@ -74,18 +73,6 @@ class TestAIRealAPIIntegration:
         if not api_key:
             pytest.skip("ANTHROPIC_API_KEY not set - skipping Anthropic integration tests")
         return api_key
-
-    @pytest.fixture
-    def ollama_available(self):
-        """Check if Ollama is available."""
-        try:
-            result = subprocess.run(['ollama', '--version'], 
-                                  capture_output=True, text=True, timeout=5)
-            if result.returncode == 0:
-                return True
-        except (subprocess.TimeoutExpired, FileNotFoundError):
-            pass
-        pytest.skip("Ollama not available - skipping Ollama integration tests")
 
     @pytest.mark.integration
     @pytest.mark.ai
@@ -185,36 +172,6 @@ class TestAIRealAPIIntegration:
                 pytest.fail("Anthropic API call timed out")
             except httpx.HTTPStatusError as e:
                 pytest.fail(f"Anthropic API returned error: {e.response.status_code}")
-
-    @pytest.mark.integration
-    @pytest.mark.ai
-    @pytest.mark.asyncio
-    async def test_ollama_real_api_call(self, sample_threat_article, ollama_available):
-        """Test real Ollama API call."""
-        # Check if Ollama is running
-        try:
-            result = subprocess.run(['ollama', 'list'], 
-                                  capture_output=True, text=True, timeout=10)
-            if result.returncode != 0:
-                pytest.skip("Ollama not running - skipping Ollama integration tests")
-        except (subprocess.TimeoutExpired, FileNotFoundError):
-            pytest.skip("Ollama not available - skipping Ollama integration tests")
-        
-        # Test with a common model (adjust as needed)
-        model_name = "llama2"  # or "phi3" or whatever model is available
-        
-        try:
-            result = generate_sigma_rules(sample_threat_article['content'], model_name=model_name)
-            
-            # Verify result
-            assert result is not None
-            assert len(result) > 0
-            
-            # Check if result contains SIGMA rule elements
-            assert any(keyword in result.lower() for keyword in ['title', 'description', 'detection', 'logsource'])
-            
-        except Exception as e:
-            pytest.skip(f"Ollama model {model_name} not available or failed: {e}")
 
     @pytest.mark.integration
     @pytest.mark.ai
@@ -477,11 +434,7 @@ class TestAIRealAPIIntegration:
             except Exception as e:
                 pytest.skip(f"Real API integration failed: {e}")
         
-        # Step 4: SIGMA Rule Generation (if Ollama available)
-        try:
-            sigma_rules = generate_sigma_rules(sample_threat_article['content'])
-            if sigma_rules:
-                assert len(sigma_rules) > 0
+        # Step 4: SIGMA Rule Generation (removed - no longer supported)
                 assert any(keyword in sigma_rules.lower() for keyword in ['title', 'detection', 'logsource'])
         except Exception:
             # SIGMA rule generation is optional

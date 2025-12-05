@@ -10,7 +10,6 @@ This guide explains how to run multiple instances of CTIScraper simultaneously w
 | Web App | 8001 | 8002 | cti_web_dev2 |
 | PostgreSQL | 5432 | 5433 | cti_postgres_dev2 |
 | Redis | 6379 | 6380 | cti_redis_dev2 |
-| Ollama | 11434 | 11435 | cti_ollama_dev2 |
 
 ## Setup Instructions
 
@@ -92,8 +91,7 @@ docker-compose -f docker-compose.dev2.yml down
 
 Each instance uses separate Docker volumes:
 - `postgres_data_dev2`
-- `redis_data_dev2` 
-- `ollama_data_dev2`
+- `redis_data_dev2`
 
 This ensures complete data isolation between instances.
 
@@ -115,7 +113,3 @@ lsof -i :11435
 ### Container Name Conflicts
 All Dev2 containers use `_dev2` suffix to avoid naming conflicts with the original instance.
 
-### Memory Considerations
-Ollama requires significant memory. Ensure your system has enough RAM for multiple instances:
-- Dev2 Ollama: 8GB reserved, 16GB limit
-- Original Ollama: 8GB reserved, 16GB limit

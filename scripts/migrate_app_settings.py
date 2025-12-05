@@ -63,7 +63,7 @@ def run_migration():
                 INSERT INTO app_settings (key, value, description, category)
                 VALUES
                     ('lmstudio_model', NULL, 'LMStudio model name (overrides LMSTUDIO_MODEL env var)', 'llm'),
-                    ('default_ai_model', NULL, 'Default AI model for analysis (chatgpt, anthropic, lmstudio, ollama)', 'llm'),
+                    ('default_ai_model', NULL, 'Default AI model for analysis (chatgpt, anthropic, lmstudio)', 'llm'),
                     ('ai_temperature', '0.3', 'Temperature for AI model responses', 'llm')
                 ON CONFLICT (key) DO NOTHING;
             """))

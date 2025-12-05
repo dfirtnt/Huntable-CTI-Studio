@@ -134,7 +134,6 @@ nltk==3.9.2
 notebook==7.4.7
 notebook_shim==0.2.4
 numpy==2.3.3
-ollama==0.6.0
 openai==2.1.0
 packaging==24.2
 pandas==2.3.3
