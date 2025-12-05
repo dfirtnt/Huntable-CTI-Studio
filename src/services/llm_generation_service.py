@@ -2,7 +2,7 @@
 LLM Generation Service for RAG
 
 Provides LLM-based response generation for RAG queries using multiple providers.
-Supports OpenAI, Ollama, and Anthropic Claude.
+Supports OpenAI, Anthropic Claude, and LMStudio.
 """
 
 import os
@@ -22,8 +22,6 @@ class LLMGenerationService:
         """Initialize the LLM generation service."""
         self.openai_api_key = os.getenv("OPENAI_API_KEY")
         self.anthropic_api_key = os.getenv("ANTHROPIC_API_KEY")
-        self.ollama_url = os.getenv("LLM_API_URL", "http://cti_ollama:11434")
-        self.ollama_model = os.getenv("LLM_MODEL", "llama3.2:1b")
         
         # LMStudio configuration
         self.lmstudio_url = os.getenv("LMSTUDIO_API_URL", "http://host.docker.internal:1234/v1")
@@ -46,7 +44,7 @@ class LLMGenerationService:
             query: User's original query
             retrieved_chunks: List of retrieved article chunks
             conversation_history: Previous conversation context
-            provider: LLM provider ("openai", "anthropic", "ollama", "auto")
+            provider: LLM provider ("openai", "anthropic", "lmstudio", "auto")
             retrieved_rules: List of retrieved Sigma rules
 
         Returns:
@@ -224,10 +222,6 @@ You analyze retrieved CTI article content and Sigma detection rules to answer us
             return "gpt-4o-mini"
         if provider == "anthropic":
             return "claude-sonnet-4-5"
-        if provider == "ollama":
-            return self.ollama_model
-        if provider == "tinyllama":
-            return "tinyllama"
         if provider == "lmstudio":
             # Try to get from database settings first, fallback to env var
             try:
@@ -264,9 +258,6 @@ You analyze retrieved CTI article content and Sigma detection rules to answer us
             "claude-haiku": "anthropic",
             "claude3": "anthropic",
             "anthropic": "anthropic",
-            "ollama": "ollama",
-            "llama": "ollama",
-            "llama3": "ollama",
             "tinyllama": "tinyllama",
             "lmstudio": "lmstudio",
             "template": "template",
@@ -284,8 +275,6 @@ You analyze retrieved CTI article content and Sigma detection rules to answer us
         mapping = {
             "openai": "OpenAI",
             "anthropic": "Claude",
-            "ollama": "Ollama",
-            "tinyllama": "Ollama",
             "lmstudio": "LM Studio",
             "template": "Template",
             "auto": "Auto",
@@ -302,12 +291,7 @@ You analyze retrieved CTI article content and Sigma detection rules to answer us
         base_provider = provider
         detail = model_name or ""
 
-        if provider == "tinyllama":
-            base_provider = "ollama"
-            detail = "tinyllama"
-        elif provider == "ollama":
-            detail = model_name or self.ollama_model or "ollama-model"
-        elif provider == "lmstudio":
+        if provider == "lmstudio":
             detail = model_name or self.lmstudio_model or "local-model"
         elif provider == "template":
             base_provider = "template"
@@ -348,12 +332,6 @@ You analyze retrieved CTI article content and Sigma detection rules to answer us
                 return "anthropic"
             raise ValueError("Anthropic provider requested but API key is missing")
 
-        if normalized == "tinyllama":
-            return "tinyllama"
-
-        if normalized == "ollama":
-            return "ollama"
-
         if normalized == "lmstudio":
             return "lmstudio"
 
@@ -378,10 +356,8 @@ You analyze retrieved CTI article content and Sigma detection rules to answer us
         ):
             return "lmstudio"
 
-        if "tinyllama" not in excluded and self.ollama_model == "tinyllama":
-            return "tinyllama"
-
-        return "ollama"
+        # No fallback available
+        raise ValueError("No LLM provider available. Please configure OpenAI, Anthropic, or LMStudio.")
     
     async def _call_llm(
         self, 
@@ -395,10 +371,6 @@ You analyze retrieved CTI article content and Sigma detection rules to answer us
             return await self._call_openai(system_prompt, user_prompt)
         elif provider == "anthropic":
             return await self._call_anthropic(system_prompt, user_prompt)
-        elif provider == "ollama":
-            return await self._call_ollama(system_prompt, user_prompt)
-        elif provider == "tinyllama":
-            return await self._call_ollama_with_model(system_prompt, user_prompt, "tinyllama")
         elif provider == "lmstudio":
             return await self._call_lmstudio(system_prompt, user_prompt)
         else:
@@ -611,60 +583,6 @@ You analyze retrieved CTI article content and Sigma detection rules to answer us
                 logger.warning(f"Could not parse retry-after header: {retry_after_header}, using 30s default")
                 return 30.0
     
-    async def _call_ollama(self, system_prompt: str, user_prompt: str) -> str:
-        """Call local Ollama API."""
-        full_prompt = f"{system_prompt}\n\n{user_prompt}"
-        
-        async with httpx.AsyncClient() as client:
-            response = await client.post(
-                f"{self.ollama_url}/api/generate",
-                json={
-                    "model": self.ollama_model,
-                    "prompt": full_prompt,
-                    "stream": False,
-                    "options": {
-                        "temperature": 0.3,
-                        "num_predict": 2000
-                    }
-                },
-                timeout=120.0
-            )
-            
-            if response.status_code != 200:
-                error_detail = response.text
-                logger.error(f"Ollama API error: {error_detail}")
-                raise RuntimeError(f"Ollama API error: {error_detail}")
-            
-            result = response.json()
-            return result['response']
-    
-    async def _call_ollama_with_model(self, system_prompt: str, user_prompt: str, model_name: str) -> str:
-        """Call Ollama API with specific model."""
-        full_prompt = f"{system_prompt}\n\n{user_prompt}"
-        
-        async with httpx.AsyncClient() as client:
-            response = await client.post(
-                f"{self.ollama_url}/api/generate",
-                json={
-                    "model": model_name,
-                    "prompt": full_prompt,
-                    "stream": False,
-                    "options": {
-                        "temperature": 0.3,
-                        "num_predict": 2000
-                    }
-                },
-                timeout=120.0
-            )
-            
-            if response.status_code != 200:
-                error_detail = response.text
-                logger.error(f"Ollama API error for {model_name}: {error_detail}")
-                raise RuntimeError(f"Ollama API error for {model_name}: {error_detail}")
-            
-            result = response.json()
-            return result['response']
-    
     async def _call_lmstudio(self, system_prompt: str, user_prompt: str) -> str:
         """Call LMStudio API (OpenAI-compatible) with recommended settings."""
         # Get recommended settings (temperature 0.0 for deterministic scoring, top_p 0.9, seed 42)
@@ -713,7 +631,6 @@ You analyze retrieved CTI article content and Sigma detection rules to answer us
         if self.anthropic_api_key:
             providers.append("anthropic")
         
-        providers.append("ollama")  # Always available if Ollama is running
         providers.append("lmstudio")  # Always available if LMStudio is running
         
         return providers

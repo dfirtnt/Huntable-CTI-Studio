@@ -7,7 +7,7 @@
 # This script provides an interactive guided setup for CTI Scraper, including:
 #
 # Features:
-# - Interactive LLM configuration (Ollama, LM Studio, OpenAI, Anthropic)
+# - Interactive LLM configuration (LM Studio, OpenAI, Anthropic)
 # - Secure password generation for PostgreSQL and Redis
 # - Optional API key configuration
 # - Automated backup setup
@@ -125,20 +125,10 @@ configure_llm() {
     print_header "LLM Configuration"
     
     echo -e "${CYAN}CTI Scraper supports multiple LLM options:${NC}"
-    echo "  1. Ollama - Self-hosted local LLM (recommended)"
-    echo "  2. LM Studio - Desktop LLM manager"
-    echo "  3. OpenAI API - Cloud-based GPT models"
-    echo "  4. Anthropic Claude API - Cloud-based Claude models"
+    echo "  1. LM Studio - Desktop LLM manager (recommended for local)"
+    echo "  2. OpenAI API - Cloud-based GPT models"
+    echo "  3. Anthropic Claude API - Cloud-based Claude models"
     echo ""
-    
-    # Prompt for Ollama
-    if prompt_yes_no "Do you want to use Ollama for local LLM?" "yes"; then
-        USE_OLLAMA=true
-        print_status "Ollama will be enabled"
-    else
-        USE_OLLAMA=false
-        print_warning "Ollama will be disabled"
-    fi
     
     # Prompt for LM Studio
     if prompt_yes_no "Do you want to use LM Studio for local LLM?" "no"; then
@@ -253,12 +243,6 @@ create_env_file() {
         else
             sed -i 's|LLM_API_URL=.*|LLM_API_URL=http://host.docker.internal:1234/v1|g' .env
         fi
-    elif [[ "$USE_OLLAMA" == "true" ]]; then
-        if [[ "$(uname)" == "Darwin" ]]; then
-            sed -i '' 's|LLM_API_URL=.*|LLM_API_URL=http://cti_ollama:11434|g' .env
-        else
-            sed -i 's|LLM_API_URL=.*|LLM_API_URL=http://cti_ollama:11434|g' .env
-        fi
     fi
     
     print_status ".env file created with your configuration"
@@ -341,7 +325,7 @@ start_services() {
     print_status "Building Docker images..."
     docker-compose build
     
-    # Start services (all services will start, Ollama will be skipped if not enabled)
+    # Start services
     print_status "Starting services..."
     docker-compose up -d
     
@@ -382,11 +366,11 @@ start_services() {
         echo "   3. Load your preferred model in LM Studio"
     fi
     
-    if [[ "$USE_OLLAMA" == "false" && "$USE_LMSTUDIO" == "false" ]]; then
+    if [[ "$USE_LMSTUDIO" == "false" ]]; then
         echo ""
         echo -e "${YELLOW}⚠️  No LLM Configured:${NC}"
         echo "   Services will start without LLM support."
-        echo "   Configure Ollama, LM Studio, or API keys in .env to enable LLM features."
+        echo "   Configure LM Studio or API keys in .env to enable LLM features."
     fi
 }
 
@@ -463,10 +447,6 @@ show_post_install_info() {
     echo "   • Database: PostgreSQL on port 5432"
     echo "   • Redis: Redis on port 6379"
     
-    # Show LLM-specific information
-    if [[ "$USE_OLLAMA" == "true" ]]; then
-        echo "   • Ollama: Ollama on port 11434"
-    fi
     
     if [[ "$USE_LMSTUDIO" == "true" ]]; then
         echo "   • LM Studio: Connect to http://host.docker.internal:1234"
@@ -488,14 +468,6 @@ show_post_install_info() {
     echo "   • Check status: docker-compose ps"
     echo ""
     
-    if [[ "$USE_OLLAMA" == "true" ]]; then
-        echo "🤖 Ollama Commands:"
-        echo "   • Pull model: docker exec cti_ollama ollama pull llama3.2:1b"
-        echo "   • List models: docker exec cti_ollama ollama list"
-        echo "   • View logs: docker logs cti_ollama"
-        echo ""
-    fi
-    
     echo "💾 Backup Commands:"
     echo "   • Create backup: ./scripts/backup_restore.sh create"
     echo "   • List backups: ./scripts/backup_restore.sh list"
@@ -503,8 +475,8 @@ show_post_install_info() {
     echo ""
     echo "⚠️  Next Steps:"
     
-    if [[ "$USE_OLLAMA" == "true" ]]; then
-        echo "   1. Pull a model in Ollama: docker exec cti_ollama ollama pull llama3.2:1b"
+    if [[ "$USE_LMSTUDIO" == "true" ]]; then
+        echo "   1. Start LM Studio and load a model"
         echo "   2. Access web interface: http://localhost:8001"
     else
         echo "   1. Access web interface: http://localhost:8001"
@@ -524,7 +496,6 @@ main() {
     NON_INTERACTIVE=false
     
     # Initialize LLM configuration defaults
-    USE_OLLAMA=true
     USE_LMSTUDIO=false
     OPENAI_API_KEY=""
     ANTHROPIC_API_KEY=""

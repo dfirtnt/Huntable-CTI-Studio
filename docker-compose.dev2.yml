@@ -51,11 +51,9 @@ services:
       - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
       - ENVIRONMENT=development
       - LOG_LEVEL=DEBUG
-      - LLM_API_URL=http://cti_ollama:11434
       - LLM_MODEL=llama3.2:1b
       - LLM_TEMPERATURE=0.3
       - LLM_MAX_TOKENS=2048
-      - OLLAMA_CONTENT_LIMIT=1000000
       - CHATGPT_CONTENT_LIMIT=1000000
       - USE_LLM_RESPONSES=true
       - ANTHROPIC_API_URL=https://api.anthropic.com/v1/messages
@@ -140,36 +138,6 @@ services:
     restart: unless-stopped
     command: celery -A src.worker.celery_app beat --loglevel=debug
 
-  # Ollama for GPT OSS 20B
-  ollama:
-    image: ollama/ollama:latest
-    container_name: cti_ollama_dev2
-    ports:
-      - "11435:11434"
-    volumes:
-      - ollama_data_dev2:/root/.ollama
-    environment:
-      - OLLAMA_HOST=0.0.0.0
-      - OLLAMA_ORIGINS=*
-      - OLLAMA_NUM_PARALLEL=3
-      - OLLAMA_MAX_LOADED_MODELS=2
-      - OLLAMA_MAX_QUEUE=512
-    networks:
-      - cti_network_dev2
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "ollama", "list"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 60s
-    deploy:
-      resources:
-        reservations:
-          memory: 8G
-        limits:
-          memory: 16G
-
   # CLI Tool Service
   cli:
     build:
@@ -205,8 +173,6 @@ volumes:
   postgres_data_dev2:
     driver: local
   redis_data_dev2:
-    driver: local
-  ollama_data_dev2:
     driver: local
 
 networks:

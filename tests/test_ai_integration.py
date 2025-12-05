@@ -9,7 +9,6 @@ from typing import Dict, Any, List
 from src.utils.llm_optimizer import LLMOptimizer as GPT4oContentOptimizer
 from src.utils.ioc_extractor import HybridIOCExtractor
 from src.services.sigma_validator import SigmaValidator
-from ollama_cti_workflow import generate_sigma_rules
 
 
 class TestAIIntegration:
@@ -434,12 +433,6 @@ class TestAIIntegration:
             
             assert result['success'] is False
             assert 'error' in result
-        
-        # Test with subprocess errors
-        import subprocess
-        with patch('subprocess.run', side_effect=subprocess.TimeoutExpired("ollama", 30)):
-            sigma_rules = generate_sigma_rules(sample_threat_article['content'])
-            assert sigma_rules is None
         
         # Test with validation errors
         validator = SigmaValidator()

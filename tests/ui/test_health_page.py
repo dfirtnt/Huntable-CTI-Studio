@@ -97,7 +97,7 @@ class TestHealthPage:
                 route.fulfill(
                     status=200,
                     content_type="application/json",
-                    body='{"status": "healthy", "timestamp": "2024-01-01T00:00:00", "services": {"redis": {"status": "healthy"}, "ollama": {"status": "healthy"}}}'
+                    body='{"status": "healthy", "timestamp": "2024-01-01T00:00:00", "services": {"redis": {"status": "healthy"}}}'
                 )
             elif endpoint == '/celery':
                 route.fulfill(
@@ -193,7 +193,7 @@ class TestHealthPage:
             route.fulfill(
                 status=200,
                 content_type="application/json",
-                body='{"status": "healthy", "timestamp": "2024-01-01T00:00:00", "services": {"redis": {"status": "healthy", "info": {"used_memory": 1024}}, "ollama": {"status": "healthy", "models_available": 2, "models": ["llama2", "codellama"]}}}'
+                    body='{"status": "healthy", "timestamp": "2024-01-01T00:00:00", "services": {"redis": {"status": "healthy", "info": {"used_memory": 1024}}}}'
             )
 
         page.route("**/api/health/services", mock_services_health)
@@ -207,7 +207,6 @@ class TestHealthPage:
         # Wait for content to update and check for success indicators
         services_content = page.locator("#servicesHealthContent")
         expect(services_content).to_contain_text("REDIS")
-        expect(services_content).to_contain_text("OLLAMA")
 
     @pytest.mark.ui
     

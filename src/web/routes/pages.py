@@ -461,7 +461,6 @@ async def article_detail(request: Request, article_id: int):
                 "request": request,
                 "article": article,
                 "source": source,
-                "ollama_content_limit": int(os.getenv("OLLAMA_CONTENT_LIMIT", "1000000")),
                 "chatgpt_content_limit": int(os.getenv("CHATGPT_CONTENT_LIMIT", "1000000")),
                 "anthropic_content_limit": int(os.getenv("ANTHROPIC_CONTENT_LIMIT", "1000000")),
                 "content_filtering_enabled": os.getenv("CONTENT_FILTERING_ENABLED", "true").lower()

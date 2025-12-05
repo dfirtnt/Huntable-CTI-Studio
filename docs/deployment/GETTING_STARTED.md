@@ -180,11 +180,11 @@ python run_tests.py --all
 - **Features**: Automated source checks, maintenance tasks
 - **Schedule**: Daily source checks, weekly maintenance
 
-#### 6. Multi-Provider LLM Service (`cti_ollama`)
+#### 6. Multi-Provider LLM Service
 - **Purpose**: AI-powered content analysis
-- **Features**: Local Ollama, OpenAI GPT-4o, Anthropic Claude
+- **Features**: LMStudio (local), OpenAI GPT-4o, Anthropic Claude
 - **Capabilities**: Summaries, SIGMA rules, rankings, RAG chat
-- **Models**: Llama 3.2 1B (local), GPT-4o, Claude
+- **Models**: LMStudio models (local), GPT-4o, Claude
 
 #### 7. Automated Backup System
 - **Purpose**: Data protection and recovery
@@ -244,9 +244,9 @@ ANTHROPIC_API_KEY=sk-ant-your-key
 
 #### AI Configuration
 ```bash
-# Ollama (local AI)
-OLLAMA_BASE_URL=http://cti_ollama:11434
-OLLAMA_MODEL=llama3.2:1b
+# LMStudio (local AI)
+LMSTUDIO_API_URL=http://host.docker.internal:1234/v1
+LMSTUDIO_MODEL=deepseek/deepseek-r1-0528-qwen3-8b
 
 # OpenAI (optional)
 OPENAI_API_KEY=sk-your-key
@@ -349,7 +349,6 @@ cti_redis           redis:7-alpine      Up
 cti_web             cti_scraper         Up
 cti_worker          cti_scraper         Up
 cti_scheduler       cti_scraper         Up
-cti_ollama          ollama/ollama       Up
 ```
 
 #### Database Connectivity
@@ -455,14 +454,11 @@ docker stats
 
 #### AI Service Issues
 ```bash
-# Check Ollama status
-docker-compose exec cti_ollama ollama list
+# Check LMStudio status (if running locally)
+# Verify LMStudio is running on host at http://localhost:1234
 
-# Restart AI service
-docker-compose restart cti_ollama
-
-# Check AI logs
-docker-compose logs cti_ollama
+# Check AI logs in web container
+docker-compose logs web | grep -i llm
 ```
 
 ### Debug Commands

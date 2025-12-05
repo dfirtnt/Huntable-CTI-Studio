@@ -729,10 +729,7 @@ async function updateServicesHealth() {
                             </div>
                             ${serviceData.status === 'healthy' ? `
                                 <div class="text-right text-sm text-gray-700">
-                                    ${serviceName === 'ollama' ? `
-                                        <p class="font-medium">${serviceData.models_available} models available</p>
-                                        <p class="text-xs text-gray-600">${serviceData.models.join(', ')}</p>
-                                    ` : serviceName === 'lmstudio' ? `
+                                    ${serviceName === 'lmstudio' ? `
                                         <p class="font-medium">${serviceData.models_available} models available</p>
                                         <p class="text-xs text-gray-600">${serviceData.models.slice(0, 3).join(', ')}${serviceData.models.length > 3 ? '...' : ''}</p>
                                     ` : serviceName === 'langgraph' ? `

@@ -53,11 +53,9 @@ services:
       - REDIS_URL=redis://redis:6379/0
       - ENVIRONMENT=development
       - LOG_LEVEL=DEBUG
-      - LLM_API_URL=http://cti_ollama:11434
       - LLM_MODEL=tinyllama
       - LLM_TEMPERATURE=0.3
       - LLM_MAX_TOKENS=2048
-      - OLLAMA_CONTENT_LIMIT=1000000
       - CHATGPT_CONTENT_LIMIT=1000000
       - USE_LLM_RESPONSES=true
       - OPENAI_API_KEY=${OPENAI_API_KEY}
@@ -231,36 +229,6 @@ services:
       retries: 3
       start_period: 30s
 
-  # Ollama for GPT OSS 20B
-  ollama:
-    image: ollama/ollama:latest
-    container_name: cti_ollama
-    ports:
-      - "11434:11434"
-    volumes:
-      - ollama_data:/root/.ollama
-    environment:
-      - OLLAMA_HOST=0.0.0.0
-      - OLLAMA_ORIGINS=*
-      - OLLAMA_NUM_PARALLEL=3
-      - OLLAMA_MAX_LOADED_MODELS=2
-      - OLLAMA_MAX_QUEUE=512
-    networks:
-      - cti_network
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "ollama", "list"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 60s
-    deploy:
-      resources:
-        reservations:
-          memory: 8G
-        limits:
-          memory: 16G
-
   # CLI Tool Service
   cli:
     build:
@@ -297,8 +265,6 @@ volumes:
   postgres_data:
     driver: local
   redis_data:
-    driver: local
-  ollama_data:
     driver: local
 
 networks:

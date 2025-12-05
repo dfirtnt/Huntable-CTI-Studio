@@ -9,9 +9,8 @@ CTI Scraper now supports 6 LLM providers with a performance-optimized fallback c
 1. **MLX** (Apple Metal) - Fastest for Apple Silicon
 2. **llama.cpp** (Metal backend) - Highly optimized C++ inference
 3. **LM Studio** (OpenAI-compatible) - User-friendly GUI with server mode
-4. **Ollama** (Docker) - Current default, containerized
-5. **OpenAI** (Cloud) - GPT-4o-mini API
-6. **Anthropic** (Cloud) - Claude Haiku API
+4. **OpenAI** (Cloud) - GPT-4o-mini API
+5. **Anthropic** (Cloud) - Claude Haiku API
 
 ## Expected Performance Improvements
 
@@ -20,7 +19,6 @@ CTI Scraper now supports 6 LLM providers with a performance-optimized fallback c
 | **MLX** | 2-3s | 5-8s | Medium | Maximum speed on Apple Silicon |
 | **llama.cpp** | 2-4s | 6-10s | Medium | Balanced speed and compatibility |
 | **LM Studio** | 3-5s | 8-12s | Low | Easy setup with GUI |
-| **Ollama** | 10-15s | 20-30s | Low | Docker compatibility |
 
 ## Setup Instructions
 
@@ -181,8 +179,7 @@ The system uses an intelligent fallback chain:
 1. **MLX** (if enabled and available)
 2. **llama.cpp** (if enabled and available)
 3. **LM Studio** (if enabled and available)
-4. **Ollama** (if available)
-5. **Cloud APIs** (OpenAI/Anthropic)
+4. **Cloud APIs** (OpenAI/Anthropic)
 
 ## Troubleshooting
 

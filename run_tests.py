@@ -504,8 +504,7 @@ class TestRunner:
                 if self.config.test_type == TestType.SMOKE:
                     cmd.extend([
                         "--ignore=tests/test_ai_integration.py",
-                        "--ignore=tests/test_database.py",
-                        "--ignore=tests/test_ollama_integration.py"
+                        "--ignore=tests/test_database.py"
                     ])
             else:
                 cmd.append("tests/")

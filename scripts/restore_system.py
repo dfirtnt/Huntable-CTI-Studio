@@ -40,7 +40,7 @@ DB_CONFIG = {
 }
 
 # Docker volume names
-DOCKER_VOLUMES = ['postgres_data', 'redis_data', 'ollama_data']
+DOCKER_VOLUMES = ['postgres_data', 'redis_data']
 
 def get_docker_exec_cmd(container_name: str, command: str) -> list:
     """Generate docker exec command for running commands in container."""
@@ -350,9 +350,6 @@ def restore_docker_volume(backup_path: Path, volume_name: str,
             containers_to_stop = ['cti_postgres']
         elif volume_name == 'redis_data':
             containers_to_stop = ['cti_redis']
-        elif volume_name == 'ollama_data':
-            containers_to_stop = ['cti_ollama']
-        
         if containers_to_stop:
             if not stop_containers(containers_to_stop):
                 return False
