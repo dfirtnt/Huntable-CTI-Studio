@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **Smoke Test Failures**: Fixed test fixture and syntax errors preventing smoke tests from running
+  - Fixed `async_client` fixture in `tests/conftest.py` to handle `None` test_environment_config with fallback to port 8001
+  - Fixed `pytest_asyncio` import error in `tests/integration/conftest.py` with graceful fallback
+  - Fixed syntax error in `tests/integration/test_ai_real_api_integration.py` (orphaned try/except block)
+  - Smoke tests now collect and run successfully (8 passed, 5 UI failures identified as application issues)
+
 ### Added
 - **Distilled Model Detection Modal**: Added Distilled Model Detection feature to AI/ML Assistant
   - Comprehensive modal explaining DistilBERT-style model approach for commandline detection

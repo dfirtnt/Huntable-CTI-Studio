@@ -435,10 +435,7 @@ class TestAIRealAPIIntegration:
                 pytest.skip(f"Real API integration failed: {e}")
         
         # Step 4: SIGMA Rule Generation (removed - no longer supported)
-                assert any(keyword in sigma_rules.lower() for keyword in ['title', 'detection', 'logsource'])
-        except Exception:
-            # SIGMA rule generation is optional
-            pass
+        # SIGMA rule generation functionality has been removed from the codebase
         
         # Verify overall workflow completed
         assert True  # If we reach here, the workflow completed successfully
