@@ -19,6 +19,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - UI field in QA Settings panel on workflow config page
 
 ### Fixed
+- **Web Server Import Error**: Fixed ImportError preventing web application startup
+  - Removed non-existent `test_scrape` module from route imports in `src/web/routes/__init__.py`
+  - Removed `test_scrape.router` registration that was causing circular import error
+  - Web container now starts successfully and serves requests on port 8001
 - **Database Migration**: Fixed missing `qa_max_retries` column in `agentic_workflow_config` table
   - Created migration to add column with default value of 5
   - Resolved SQL errors when querying workflow configuration
