@@ -30,6 +30,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Added database migration script `scripts/migrate_add_qa_max_retries.sh`
   - UI field in QA Settings panel on workflow config page
 
+### Removed
+- **cti-agent-chat Directory**: Removed unused `cti-agent-chat/` directory and all references
+  - Removed local LangGraph Agent Chat UI application (never integrated into workflow)
+  - Updated documentation to only reference LangSmith Studio for debugging
+  - Removed "Option B: Deploy Local UI" sections from `docs/LANGGRAPH_INTEGRATION.md` and `docs/LANGGRAPH_QUICKSTART.md`
+  - Updated `scripts/start_langgraph_server.sh` to only reference LangSmith Studio URLs
+
 ### Fixed
 - **Web Application Startup**: Fixed ImportError preventing application startup
   - Removed non-existent `test_scrape` import from route registration
@@ -51,7 +58,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - **Documentation: LangGraph Debug Button Behavior**: Corrected documentation to accurately reflect debug button functionality
   - Fixed `docs/LANGGRAPH_INTEGRATION.md` and `docs/LANGGRAPH_QUICKSTART.md` to state that debug button opens LangFuse traces (post-execution viewing), not Agent Chat UI
-  - Clarified that step-into debugging requires manual setup with LangSmith Studio or Local Agent Chat UI
+  - Clarified that step-into debugging requires manual setup with LangSmith Studio
   - Updated API response example to show actual LangFuse trace URL format
   - Added notes about trace availability (only exists if execution ran with LangFuse tracing enabled)
 - **Browser Extension Manual Source Creation**: Fixed duplicate key violations when creating manual source from browser extension

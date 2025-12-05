@@ -27,24 +27,16 @@ Server starts on `http://localhost:2024`
 3. Add to `.env`: `LANGSMITH_API_KEY=your_key_here`
 4. Restart langgraph-server: `docker-compose restart langgraph-server`
 
-**Note:** Works perfectly without LangSmith! However, the **🔍 Debug** button opens LangFuse traces (post-execution viewing), not interactive step-into debugging. For step-into debugging, use LangSmith Studio or Local Agent Chat UI.
+**Note:** Works perfectly without LangSmith! However, the **🔍 Debug** button opens LangFuse traces (post-execution viewing), not interactive step-into debugging. For step-into debugging, use LangSmith Studio.
 
 ### 4. Open Agent Chat UI (Optional)
 
-**Option A: Use LangSmith Studio (FREE)**
+**Use LangSmith Studio (FREE)**
 1. Visit https://smith.langchain.com/studio/?baseUrl=http://localhost:2024
 2. Create a workspace (free with Developer plan)
 3. Connect to your workflow:
    - **Graph ID**: `agentic_workflow`
    - **Server URL**: `http://localhost:2024`
-
-**Option B: Use Local UI**
-```bash
-npx create-agent-chat-app --project-name cti-chat
-cd cti-chat
-pnpm install
-pnpm dev
-```
 
 ### 5. Debug from Operational UI
 
@@ -56,11 +48,9 @@ pnpm dev
    - If trace not found, search for `session_id: workflow_exec_{execution_id}` in LangFuse UI
 
 **For Step-Into Debugging:**
-- **Option A:** Use LangSmith Studio (if `LANGSMITH_API_KEY` configured)
+- Use LangSmith Studio (if `LANGSMITH_API_KEY` configured)
   - Manually visit: https://smith.langchain.com/studio/?baseUrl=http://localhost:2024
   - Connect with Graph ID: `agentic_workflow`, Thread: `workflow_exec_{execution_id}`
-- **Option B:** Use Local Agent Chat UI (see Setup section)
-  - Connect with Server: `http://localhost:2024`, Graph: `agentic_workflow`, Thread: `workflow_exec_{execution_id}`
 
 ## 📋 What You Get
 

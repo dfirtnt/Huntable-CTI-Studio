@@ -83,7 +83,7 @@ The server will:
 
 ### 4. Connect Agent Chat UI
 
-**Option A: Use LangSmith Studio (FREE Developer Plan)**
+**Use LangSmith Studio (FREE Developer Plan)**
 1. Sign up for free Developer plan at https://smith.langchain.com
 2. Get your API key from https://smith.langchain.com/settings
 3. Add `LANGSMITH_API_KEY` to your `.env`
@@ -92,14 +92,6 @@ The server will:
 6. Connect to workflow:
    - **Graph ID**: `agentic_workflow`
    - **Server URL**: `http://localhost:2024`
-
-**Option B: Deploy Local UI**
-```bash
-npx create-agent-chat-app --project-name cti-agent-chat
-cd cti-agent-chat
-pnpm install
-pnpm dev
-```
 
 ## Usage
 
@@ -114,7 +106,7 @@ pnpm dev
    - If trace not found (404), search for `session_id: workflow_exec_{execution_id}` in LangFuse UI
 
 **For Step-Into Debugging:**
-- Use LangSmith Studio (see Setup section) or Local Agent Chat UI
+- Use LangSmith Studio (see Setup section)
 - Connect to LangGraph server manually with thread ID: `workflow_exec_{execution_id}`
 
 ### Execution Observability Toggle
@@ -233,7 +225,7 @@ Returns:
 }
 ```
 
-**Note:** `agent_chat_url` is actually a LangFuse trace URL, not an Agent Chat UI URL. For step-into debugging, use LangSmith Studio or Local Agent Chat UI with the provided `thread_id` and `langgraph_server_url`.
+**Note:** `agent_chat_url` is actually a LangFuse trace URL, not an Agent Chat UI URL. For step-into debugging, use LangSmith Studio with the provided `thread_id` and `langgraph_server_url`.
 
 ## Troubleshooting
 
