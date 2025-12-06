@@ -111,22 +111,22 @@ python run_tests.py --all
 ### Development Workflow
 ```bash
 # Quick feedback loop
-./run_tests.sh smoke
+python run_tests.py --smoke
 
 # Component testing
-./run_tests.sh unit
+python run_tests.py --unit
 
 # Feature testing
-./run_tests.sh api
+python run_tests.py --api
 ```
 
 ### Pre-commit Testing
 ```bash
 # Complete test suite
-./run_tests.sh all --coverage
+python run_tests.py --all --coverage
 
 # Docker validation
-./run_tests.sh all --coverage --docker
+python run_tests.py --all --coverage --docker
 ```
 
 ## 9. Troubleshooting
@@ -177,7 +177,6 @@ Check for conflicts on ports 8001, 5432, 6379
 
 ### Essential Files
 - `run_tests.py` - Main test runner
-- `run_tests.sh` - Shell wrapper
 - `pytest.ini` - Configuration
 - `tests/` - Test directory
 

@@ -8,6 +8,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **UI Tests for Dashboard Functionality**: Added comprehensive UI tests for dashboard features
+  - `test_article_volume_charts_display`: Verifies Article Volume section displays daily and hourly charts with proper canvas dimensions
+  - `test_high_score_articles_section_display`: Tests High-Score Articles section shows 10 cards with proper navigation links
+  - `test_copy_urls_button_functionality`: Validates Copy URLs button copies article URLs to clipboard with success notifications
+  - `test_run_health_checks_navigation_and_execution`: Tests Run Health Checks button navigation and automatic/manual check execution
+  - `test_agents_navigation_to_workflow_page`: Verifies Agents button navigates to workflow/AI assistant page
+  - `test_article_ai_assistant_button_functionality`: Tests AL/ML Assistant button on article pages opens modal correctly
 - **OS Detection Agent OS Selection**: Added OS selection checkboxes to OS Detection Agent configuration
   - Options: Windows, Linux, MacOS, Network, Other, All
   - Windows enabled by default; other options disabled (stub implementation)
@@ -389,7 +396,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Enhanced Test Reporting: Comprehensive test execution reports with ML/AI debugging capabilities
   - Visual Test Tracking: Professional test reporting system for development and CI/CD pipelines
   - Allure Management Script: `./manage_allure.sh` for easy container management
-- **Unified Testing Interface**: New `run_tests.py` and `run_tests.sh` for standardized test execution
+- **Unified Testing Interface**: New `run_tests.py` for standardized test execution
   - Docker Testing Support: Added `--docker` flag for containerized test execution
   - Virtual Environment Documentation: Comprehensive guide for `venv-test`, `venv-lg`, and `venv-ml`
   - Testing Workflow Guide: Complete documentation for different execution contexts and test categories
@@ -654,7 +661,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Color-coded validation feedback (green for valid, red for invalid)
   - Visual indicators for retry attempts vs. final attempt
   - Detailed error and warning messages from pySigma validator
-- **Unified Testing Interface**: New `run_tests.py` and `run_tests.sh` for standardized test execution
+- **Unified Testing Interface**: New `run_tests.py` for standardized test execution
 - **Docker Testing Support**: Added `--docker` flag for containerized test execution
 - **Virtual Environment Documentation**: Comprehensive guide for `venv-test`, `venv-lg`, and `venv-ml`
 - **Testing Workflow Guide**: Complete documentation for different execution contexts and test categories

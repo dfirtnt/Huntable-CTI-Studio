@@ -67,23 +67,17 @@ cp env.example .env
 ```bash
 # Quick health check (recommended first step)
 python run_tests.py --smoke
-./run_tests.sh smoke
 
 # Run all tests with coverage
 python run_tests.py --all --coverage
-./run_tests.sh all --coverage
 
 # Run specific test categories
 python run_tests.py --unit
 python run_tests.py --api
 python run_tests.py --integration
-./run_tests.sh unit
-./run_tests.sh api
-./run_tests.sh integration
 
 # Docker-based testing
 python run_tests.py --docker --integration
-./run_tests.sh integration --docker
 
 # Install test dependencies
 python run_tests.py --install

@@ -57,19 +57,15 @@ tests/
 ```bash
 # Run lightweight integration tests
 python run_tests.py --integration
-./run_tests.sh integration
 
 # Run full integration tests (Docker-based)
 python run_tests.py --docker --integration
-./run_tests.sh integration --docker
 
 # Run unit tests
 python run_tests.py --unit
-./run_tests.sh unit
 
 # Run smoke tests (quick health check)
 python run_tests.py --smoke
-./run_tests.sh smoke
 ```
 
 ### Using the Legacy Test Runner
