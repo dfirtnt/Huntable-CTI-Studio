@@ -169,7 +169,6 @@ python3 run_tests.py e2e             # End-to-end tests
 
 ### Runners
 - `run_tests.py` - Unified Python test runner
-- `run_tests.sh` - Shell wrapper (deprecated)
 - `run_integration_tests.sh` - Integration-specific runner
 
 ### Configuration

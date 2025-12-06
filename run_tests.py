@@ -500,13 +500,6 @@ class TestRunner:
             
             if self.config.test_type in test_path_map:
                 cmd.extend(test_path_map[self.config.test_type])
-                # For smoke tests, ignore problematic test files that have import errors
-                if self.config.test_type == TestType.SMOKE:
-                    cmd.extend([
-                        "--ignore=tests/test_ai_integration.py",
-                        "--ignore=tests/test_database.py",
-                        "--ignore=tests/test_ollama_integration.py"
-                    ])
             else:
                 cmd.append("tests/")
         
