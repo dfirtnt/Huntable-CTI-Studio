@@ -37,6 +37,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Configurable maximum QA retry attempts (1-20, default: 5)
   - Added database migration script `scripts/migrate_add_qa_max_retries.sh`
   - UI field in QA Settings panel on workflow config page
+- **PDF Upload Manual Source**: Added automatic creation of manual source for PDF uploads
+  - Previously failed with "Manual source not found in database" error
+  - Now creates manual source on-demand if it doesn't exist
+  - Added `scripts/ensure_manual_source.py` utility script
+
+### Changed
+- **Merged Health Checks and Diagnostics Pages**: Combined `/health-checks` and `/diags` into single comprehensive diagnostics page
+  - New page at `/diags` includes all job monitoring, health checks, and ingestion analytics
+  - Removed redundant `/health-checks` page and route
+  - Updated dashboard navigation to use merged diagnostics page
 
 ### Fixed
 - **Web Server Import Error**: Fixed ImportError preventing web application startup

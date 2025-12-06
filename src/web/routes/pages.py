@@ -24,12 +24,6 @@ async def chat_page(request: Request):
     return templates.TemplateResponse("chat.html", {"request": request})
 
 
-@router.get("/health-checks", response_class=HTMLResponse)
-async def health_checks_page(request: Request):
-    """Health checks monitoring page."""
-    return templates.TemplateResponse("health_checks.html", {"request": request})
-
-
 @router.get("/", response_class=HTMLResponse)
 @router.get("/dashboard", response_class=HTMLResponse)
 async def dashboard(request: Request):
@@ -90,7 +84,7 @@ async def settings_page(request: Request):
 
 @router.get("/diags", response_class=HTMLResponse)
 async def diags_page(request: Request):
-    """System diagnostics page combining jobs and health monitoring."""
+    """System diagnostics and health monitoring page combining jobs, health checks, and analytics."""
     try:
         return templates.TemplateResponse(
             "diags.html", {"request": request, "environment": ENVIRONMENT}
@@ -256,12 +250,16 @@ async def articles_list(
 
         if source_id:
             filtered_articles = [
-                article for article in filtered_articles if article.source_id == source_id
+                article
+                for article in filtered_articles
+                if article.source_id == source_id
             ]
         elif source and source.isdigit():
             source_id = int(source)
             filtered_articles = [
-                article for article in filtered_articles if article.source_id == source_id
+                article
+                for article in filtered_articles
+                if article.source_id == source_id
             ]
 
         if classification and classification in ["chosen", "rejected", "unclassified"]:
@@ -278,15 +276,14 @@ async def articles_list(
                     article
                     for article in filtered_articles
                     if article.article_metadata
-                    and article.article_metadata.get("training_category") == classification
+                    and article.article_metadata.get("training_category")
+                    == classification
                 ]
 
         if threat_hunting_range:
             try:
                 if "-" in threat_hunting_range:
-                    min_score, max_score = map(
-                        float, threat_hunting_range.split("-")
-                    )
+                    min_score, max_score = map(float, threat_hunting_range.split("-"))
                     filtered_articles = [
                         article
                         for article in filtered_articles
@@ -300,18 +297,14 @@ async def articles_list(
 
         if sort_by == "threat_hunting_score":
             filtered_articles.sort(
-                key=lambda x: float(
-                    x.article_metadata.get("threat_hunting_score", 0)
-                )
+                key=lambda x: float(x.article_metadata.get("threat_hunting_score", 0))
                 if x.article_metadata and x.article_metadata.get("threat_hunting_score")
                 else 0,
                 reverse=(sort_order == "desc"),
             )
         elif sort_by == "annotation_count":
             filtered_articles.sort(
-                key=lambda x: int(
-                    x.article_metadata.get("annotation_count", 0)
-                )
+                key=lambda x: int(x.article_metadata.get("annotation_count", 0))
                 if x.article_metadata
                 and x.article_metadata.get("annotation_count") is not None
                 else 0,
@@ -332,9 +325,7 @@ async def articles_list(
                     filtered_articles.sort(
                         key=lambda x: (
                             getattr(x, sort_by, ""),
-                            -float(
-                                x.article_metadata.get("threat_hunting_score", 0)
-                            )
+                            -float(x.article_metadata.get("threat_hunting_score", 0))
                             if x.article_metadata
                             and x.article_metadata.get("threat_hunting_score")
                             else 0,
@@ -345,9 +336,7 @@ async def articles_list(
                     filtered_articles.sort(
                         key=lambda x: (
                             getattr(x, sort_by, ""),
-                            float(
-                                x.article_metadata.get("threat_hunting_score", 0)
-                            )
+                            float(x.article_metadata.get("threat_hunting_score", 0))
                             if x.article_metadata
                             and x.article_metadata.get("threat_hunting_score")
                             else 0,
@@ -359,7 +348,8 @@ async def articles_list(
                     key=lambda x: float(
                         x.article_metadata.get("threat_hunting_score", 0)
                     )
-                    if x.article_metadata and x.article_metadata.get("threat_hunting_score")
+                    if x.article_metadata
+                    and x.article_metadata.get("threat_hunting_score")
                     else 0,
                     reverse=True,
                 )
@@ -461,10 +451,18 @@ async def article_detail(request: Request, article_id: int):
                 "request": request,
                 "article": article,
                 "source": source,
-                "ollama_content_limit": int(os.getenv("OLLAMA_CONTENT_LIMIT", "1000000")),
-                "chatgpt_content_limit": int(os.getenv("CHATGPT_CONTENT_LIMIT", "1000000")),
-                "anthropic_content_limit": int(os.getenv("ANTHROPIC_CONTENT_LIMIT", "1000000")),
-                "content_filtering_enabled": os.getenv("CONTENT_FILTERING_ENABLED", "true").lower()
+                "ollama_content_limit": int(
+                    os.getenv("OLLAMA_CONTENT_LIMIT", "1000000")
+                ),
+                "chatgpt_content_limit": int(
+                    os.getenv("CHATGPT_CONTENT_LIMIT", "1000000")
+                ),
+                "anthropic_content_limit": int(
+                    os.getenv("ANTHROPIC_CONTENT_LIMIT", "1000000")
+                ),
+                "content_filtering_enabled": os.getenv(
+                    "CONTENT_FILTERING_ENABLED", "true"
+                ).lower()
                 == "true",
                 "content_filtering_confidence": float(
                     os.getenv("CONTENT_FILTERING_CONFIDENCE", "0.7")
@@ -520,7 +518,9 @@ async def sigma_ab_test_page(request: Request):
 async def sigma_similarity_test_page(request: Request):
     """SIGMA rule cosine similarity testing interface."""
     try:
-        return templates.TemplateResponse("sigma_similarity_test.html", {"request": request})
+        return templates.TemplateResponse(
+            "sigma_similarity_test.html", {"request": request}
+        )
     except Exception as exc:
         logger.error("SIGMA similarity test page error: %s", exc)
         return templates.TemplateResponse(
@@ -528,4 +528,3 @@ async def sigma_similarity_test_page(request: Request):
             {"request": request, "error": str(exc)},
             status_code=500,
         )
-
