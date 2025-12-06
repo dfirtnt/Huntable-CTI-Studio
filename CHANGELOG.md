@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **Backup System Critical Bug**: Fixed automated system backup failures that were creating empty backup files
+  - Root cause: Hardcoded `/app/backups` path didn't exist in containers
+  - Solution: Made backup directory configurable and added proper Docker exec calls
+  - Result: System backups now create valid database backups with actual data
+- **Sources Page Conflicting Metrics**: Fixed sources showing "0 articles collected" while displaying quality metrics
+  - Root cause: Article counting query filtered `archived == false` but articles had `archived = NULL`
+  - Solution: Updated query to count articles where `archived IS NULL OR archived = false`
+  - Result: Sources now display accurate article counts matching their quality metrics
+- **Database Restore Functionality**: Fixed restore script to work with Docker containers
+  - Added proper environment variable passing and host specifications
+  - Restore operations now work correctly with containerized database
+
 ### Added
 - **UI Tests for Dashboard Functionality**: Added comprehensive UI tests for dashboard features
   - `test_article_volume_charts_display`: Verifies Article Volume section displays daily and hourly charts with proper canvas dimensions
