@@ -33,6 +33,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Database Migration**: Fixed missing `qa_max_retries` column in `agentic_workflow_config` table
   - Created migration to add column with default value of 5
   - Resolved SQL errors when querying workflow configuration
+- **Test Infrastructure Cleanup**: Added skip decorators to tests requiring separate infrastructure
+  - Skipped external API integration tests (`test_ai_real_api_integration.py`) that make real calls to OpenAI/Anthropic/Ollama
+  - Skipped workflow execution tests (`workflow_executions.spec.ts`) requiring Celery workers
+  - Skipped workflow save button tests (`workflow_save_button.spec.ts`) requiring isolated config environment
+  - Prevents production data modification and external API costs in single-instance setup
 
 ### Added
 - **File Organization Structure**: Implemented standardized file organization for temporary scripts, reports, and utilities
