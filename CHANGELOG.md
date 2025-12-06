@@ -42,6 +42,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Added "SAFE for single-instance" labels to tests that can run without external infrastructure
   - Added "LIMITED" labels to tests with some functionality skipped due to infrastructure requirements
   - Updated examples to recommend safe test types for single-instance usage
+- **Transparent Docker Auto-Selection**: Added automatic Docker/localhost context selection based on test requirements
+  - New `--context auto` option (now default) automatically chooses execution environment
+  - UI/API/integration tests automatically run in Docker containers
+  - Unit/smoke tests run locally when dependencies are available
+  - Eliminates need for users to manually specify `--docker` for different test types
 
 ### Added
 - **File Organization Structure**: Implemented standardized file organization for temporary scripts, reports, and utilities

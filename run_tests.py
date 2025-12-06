@@ -21,10 +21,10 @@ Infrastructure Notes:
 
 Usage:
     python run_tests.py --help                    # Show all options
-    python run_tests.py smoke                     # Quick health check (safe tests only)
-    python run_tests.py unit                      # Unit tests (recommended for single-instance)
-    python run_tests.py ui                        # UI tests (safe for single-instance)
-    python run_tests.py all --coverage            # Full suite (includes skipped infrastructure tests)
+    python run_tests.py smoke                     # Quick health check (auto-detects Docker/localhost)
+    python run_tests.py unit                      # Unit tests (runs locally if possible)
+    python run_tests.py ui                        # UI tests (auto-uses Docker for Playwright)
+    python run_tests.py api                       # API tests (auto-uses Docker for web server)
     python run_tests.py --debug --verbose         # Debug mode with verbose output
 """
 
@@ -119,6 +119,7 @@ class ExecutionContext(Enum):
     LOCALHOST = "localhost"
     DOCKER = "docker"
     CI = "ci"
+    AUTO = "auto"  # Automatically choose based on test requirements
 
 
 @dataclass
@@ -520,6 +521,39 @@ class TestRunner:
                 logger.exception("Full traceback:")
             return False
 
+    def _requires_docker(self, test_type: TestType) -> bool:
+        """Determine if a test type requires Docker execution."""
+        # Test types that require Docker (full application stack)
+        docker_required = {
+            TestType.API,  # Needs running web server
+            TestType.INTEGRATION,  # Needs database, Redis, full stack
+            TestType.UI,  # Needs Playwright + running web server
+            TestType.E2E,  # Needs full application stack
+            TestType.AI,  # May need external services
+            TestType.AI_UI,  # Needs UI + AI services
+            TestType.AI_INTEGRATION,  # Needs integration environment
+            TestType.ALL,  # Full test suite
+            TestType.COVERAGE,  # Coverage requires full environment
+        }
+
+        return test_type in docker_required
+
+    def _get_effective_context(self, test_type: TestType) -> ExecutionContext:
+        """Get the effective execution context, auto-selecting Docker when needed."""
+        if self.config.context == ExecutionContext.AUTO:
+            if self._requires_docker(test_type):
+                logger.info(
+                    f"Auto-selecting Docker context for {test_type.value} tests (requires full application stack)"
+                )
+                return ExecutionContext.DOCKER
+            else:
+                logger.info(
+                    f"Auto-selecting localhost context for {test_type.value} tests"
+                )
+                return ExecutionContext.LOCALHOST
+        else:
+            return self.config.context
+
     def _build_pytest_command(self) -> List[str]:
         """Build pytest command based on configuration."""
         cmd = ["python3", "-m", "pytest"]
@@ -593,8 +627,15 @@ class TestRunner:
         cmd[0] = self.venv_python
 
         # Add execution context specific options
-        if self.config.context == ExecutionContext.DOCKER:
+        effective_context = self._get_effective_context(self.config.test_type)
+        if effective_context == ExecutionContext.DOCKER:
+            logger.info("Running tests in Docker container (cti_web)")
             cmd = ["docker", "exec", "cti_web"] + cmd
+        elif effective_context == ExecutionContext.AUTO:
+            # This shouldn't happen as _get_effective_context should resolve AUTO
+            logger.warning("Auto context not resolved, defaulting to localhost")
+        else:
+            logger.info("Running tests on localhost")
 
         # Add parallel execution
         if self.config.parallel:
@@ -1184,6 +1225,7 @@ def parse_arguments() -> TestConfig:
 Execution Contexts:
   localhost    Run tests locally using virtual environment (default)
   docker       Run tests inside Docker containers
+  auto         Automatically choose Docker or localhost based on test requirements (recommended)
   ci           Run tests in CI/CD environment
 
 Test Types:
@@ -1201,11 +1243,12 @@ Test Types:
   coverage     Tests with coverage report
 
 Examples:
-  python run_tests.py smoke                    # Quick health check (safe tests only)
-  python run_tests.py unit --fail-fast         # Unit tests with fail-fast (recommended for single-instance)
-  python run_tests.py ui                       # UI tests (safe for single-instance)
+  python run_tests.py smoke                    # Quick health check (auto-detects environment)
+  python run_tests.py unit --fail-fast         # Unit tests (runs locally if dependencies available)
+  python run_tests.py ui                       # UI tests (auto-uses Docker for Playwright)
+  python run_tests.py api                      # API tests (auto-uses Docker for web server)
   python run_tests.py --debug --verbose        # Debug mode with verbose output
-  python run_tests.py all --coverage           # Full suite (includes skipped infrastructure tests)
+  python run_tests.py --context localhost unit # Force localhost execution
         """,
     )
 
@@ -1221,9 +1264,10 @@ Examples:
     # Execution context
     parser.add_argument(
         "--context",
-        choices=[c.value for c in ExecutionContext],
-        default="localhost",
-        help="Execution context",
+        type=str,
+        choices=["localhost", "docker", "auto", "ci"],
+        default="auto",
+        help="Execution context (auto=recommended)",
     )
     parser.add_argument(
         "--docker", action="store_true", help="Run tests in Docker containers"
@@ -1285,6 +1329,8 @@ Examples:
         context = ExecutionContext.DOCKER
     elif args.ci:
         context = ExecutionContext.CI
+    elif args.context == "auto":
+        context = ExecutionContext.AUTO
     else:
         context = ExecutionContext(args.context)
 
