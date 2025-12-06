@@ -38,6 +38,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Skipped workflow execution tests (`workflow_executions.spec.ts`) requiring Celery workers
   - Skipped workflow save button tests (`workflow_save_button.spec.ts`) requiring isolated config environment
   - Prevents production data modification and external API costs in single-instance setup
+- **Test Runner Help Documentation**: Updated `run_tests.py` help output to clearly indicate test safety for single-instance environments
+  - Added "SAFE for single-instance" labels to tests that can run without external infrastructure
+  - Added "LIMITED" labels to tests with some functionality skipped due to infrastructure requirements
+  - Updated examples to recommend safe test types for single-instance usage
 
 ### Added
 - **File Organization Structure**: Implemented standardized file organization for temporary scripts, reports, and utilities
