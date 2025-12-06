@@ -634,6 +634,7 @@ class AsyncDatabaseManager:
 
     async def update_source_article_count(self, source_id: int):
         """Update the total articles count for a source."""
+        logger.info(f"Starting update_source_article_count for source {source_id}")
         try:
             async with self.get_session() as session:
                 # Count articles for this source
