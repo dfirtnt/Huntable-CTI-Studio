@@ -280,24 +280,7 @@
         </div>
     </div>
 
-    <!-- Performance Insights -->
-    <div class="bg-gradient-to-r from-purple-50 to-blue-50 dark:from-purple-900 dark:to-blue-900 rounded-lg shadow p-6">
-        <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">💡 Performance Insights</h3>
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            <div>
-                <h4 class="font-medium text-gray-900 dark:text-white mb-2">Top Performing Categories</h4>
-                <div class="space-y-2" id="topCategories">
-                    <!-- Content will be loaded dynamically -->
-                </div>
-            </div>
-            <div>
-                <h4 class="font-medium text-gray-900 dark:text-white mb-2">Recommendations</h4>
-                <div class="space-y-2 text-sm text-gray-600 dark:text-gray-300" id="recommendations">
-                    <!-- Content will be loaded dynamically -->
-                </div>
-            </div>
-        </div>
-    </div>
+
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -366,10 +349,7 @@ async function loadAdditionalAnalytics() {
         const recentData = await recentResponse.json();
         renderRecentHighScoreArticles(recentData);
 
-        // Load performance insights
-        const insightsResponse = await fetch('/api/analytics/hunt/performance-insights');
-        const insightsData = await insightsResponse.json();
-        renderPerformanceInsights(insightsData);
+
 
     } catch (error) {
         console.error('Failed to load additional analytics:', error);
@@ -602,37 +582,7 @@ function renderRecentHighScoreArticles(data) {
     });
 }
 
-function renderPerformanceInsights(data) {
-    // Top categories
-    const categoriesContainer = document.getElementById('topCategories');
-    categoriesContainer.innerHTML = '';
-    
-    data.top_categories?.forEach(category => {
-        const categoryDiv = document.createElement('div');
-        categoryDiv.className = 'flex items-center justify-between text-sm';
-        categoryDiv.innerHTML = `
-            <span class="text-gray-700 dark:text-gray-300">${category.name}</span>
-            <span class="font-medium text-gray-900 dark:text-white">${category.count}</span>
-        `;
-        categoriesContainer.appendChild(categoryDiv);
-    });
 
-    // Recommendations
-    const recommendationsContainer = document.getElementById('recommendations');
-    recommendationsContainer.innerHTML = '';
-    
-    data.recommendations?.forEach(recommendation => {
-        const recDiv = document.createElement('div');
-        recDiv.className = 'flex items-start';
-        recDiv.innerHTML = `
-            <div class="flex-shrink-0 mr-2 mt-1">
-                <div class="w-2 h-2 bg-blue-500 rounded-full"></div>
-            </div>
-            <p class="text-sm">${recommendation}</p>
-        `;
-        recommendationsContainer.appendChild(recDiv);
-    });
-}
 
 // Toggle functionality for Keyword Performance Analysis panel
 document.addEventListener('DOMContentLoaded', function() {
