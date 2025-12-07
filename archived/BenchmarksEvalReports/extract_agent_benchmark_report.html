@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Extract Agent Benchmark Results</title>
+    <meta charset="UTF-8">
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif; margin: 0; padding: 20px; background: #f5f5f5; }
+        .container { max-width: 1400px; margin: 0 auto; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+        h1 { color: #2c3e50; border-bottom: 3px solid #3498db; padding-bottom: 15px; margin-top: 0; }
+        h2 { color: #34495e; margin-top: 40px; border-bottom: 2px solid #ecf0f1; padding-bottom: 10px; }
+        .meta { color: #7f8c8d; margin: 20px 0; font-size: 14px; }
+        table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+        th { background: #34495e; color: white; padding: 12px; text-align: left; font-weight: 600; }
+        td { padding: 10px 12px; border-bottom: 1px solid #ecf0f1; }
+        tr:hover { background: #f8f9fa; }
+        .status-ok { color: #27ae60; font-weight: bold; }
+        .status-warn { color: #f39c12; font-weight: bold; }
+        .status-error { color: #e74c3c; font-weight: bold; }
+        .bar-container { display: flex; align-items: center; margin: 5px 0; }
+        .bar-label { width: 250px; font-size: 13px; font-weight: 500; }
+        .bar-wrapper { flex: 1; height: 25px; background: #ecf0f1; border-radius: 4px; position: relative; overflow: hidden; }
+        .bar { height: 100%; background: linear-gradient(90deg, #3498db, #2980b9); display: flex; align-items: center; justify-content: flex-end; padding-right: 8px; color: white; font-size: 11px; font-weight: bold; transition: width 0.3s; }
+        .bar-value { width: 80px; text-align: right; font-family: monospace; font-size: 13px; margin-left: 10px; }
+        .highlight { background: #d4edda; border-left: 4px solid #28a745; padding: 15px; margin: 20px 0; }
+        .warning { background: #fff3cd; border-left: 4px solid #ffc107; padding: 15px; margin: 20px 0; }
+        .error-box { background: #f8d7da; border-left: 4px solid #dc3545; padding: 15px; margin: 20px 0; }
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin: 20px 0; }
+        .stat-card { background: #f8f9fa; padding: 15px; border-radius: 6px; border-left: 4px solid #3498db; }
+        .stat-label { font-size: 12px; color: #7f8c8d; text-transform: uppercase; }
+        .stat-value { font-size: 24px; font-weight: bold; color: #2c3e50; margin-top: 5px; }
+        .comparison-table { font-size: 13px; }
+        .comparison-table td { text-align: center; }
+        .comparison-table th { white-space: nowrap; position: relative; }
+        .comparison-table th.rotated { 
+            height: 140px; 
+            vertical-align: bottom; 
+            padding: 0;
+            padding-bottom: 5px;
+            text-align: left;
+        }
+        .comparison-table th.rotated > div {
+            transform: rotate(-45deg);
+            transform-origin: left bottom;
+            position: absolute;
+            left: 50%;
+            bottom: 0;
+            width: 200px;
+            margin-left: -100px;
+            text-align: left;
+            white-space: nowrap;
+            padding: 5px;
+        }
+        .model-name { font-weight: 600; color: #2c3e50; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Extract Agent Benchmark Results</h1>
+        <div class="meta">
+            <strong>Generated:</strong> 2025-01-27 (Updated: Sonnet 4.5, GPT-4o, GPT-4o-mini reruns)<br>
+            <strong>Test Articles:</strong> 6 articles (IDs: 1974, 1909, 1866, 1860, 1937, 1794)<br>
+            <strong>Runs per Model:</strong> 1 run per article (deterministic: temp=0, top_p=1)
+        </div>
+
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-label">Models Tested</div>
+                <div class="stat-value">6</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Complete Models</div>
+                <div class="stat-value">4</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Total Observables</div>
+                <div class="stat-value">324</div>
+            </div>
+        </div>
+
+        <h2>Model Comparison</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Model</th>
+                    <th>Articles</th>
+                    <th>JSON Valid %</th>
+                    <th>Avg Count</th>
+                    <th>Total Count</th>
+                    <th>Std Dev</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody>
+
+                <tr>
+                    <td class="model-name">Claude Sonnet 4.5</td>
+                    <td>6/6</td>
+                    <td>100.0%</td>
+                    <td>16.3</td>
+                    <td>98</td>
+                    <td>10.18</td>
+                    <td><span class="status-ok">✅ Complete</span></td>
+                </tr>
+
+                <tr>
+                    <td class="model-name">qwen-qwen2.5-coder-14b</td>
+                    <td>4/4</td>
+                    <td>100.0%</td>
+                    <td>12.5</td>
+                    <td>50</td>
+                    <td>10.38</td>
+                    <td><span class="status-error">❌ Incomplete</span></td>
+                </tr>
+
+                <tr>
+                    <td class="model-name">GPT-4o</td>
+                    <td>6/6</td>
+                    <td>100.0%</td>
+                    <td>8.2</td>
+                    <td>49</td>
+                    <td>4.71</td>
+                    <td><span class="status-ok">✅ Complete</span></td>
+                </tr>
+
+                <tr>
+                    <td class="model-name">GPT-4o-mini</td>
+                    <td>6/6</td>
+                    <td>100.0%</td>
+                    <td>6.0</td>
+                    <td>36</td>
+                    <td>2.08</td>
+                    <td><span class="status-ok">✅ Complete</span></td>
+                </tr>
+
+                <tr>
+                    <td class="model-name">mistral-7b-instruct-v0.3</td>
+                    <td>5/5</td>
+                    <td>100.0%</td>
+                    <td>6.0</td>
+                    <td>30</td>
+                    <td>2.35</td>
+                    <td><span class="status-error">❌ Incomplete</span></td>
+                </tr>
+
+                <tr>
+                    <td class="model-name">qwen2-7b-instruct</td>
+                    <td>6/6</td>
+                    <td>100.0%</td>
+                    <td>3.8</td>
+                    <td>23</td>
+                    <td>2.56</td>
+                    <td><span class="status-ok">✅ Complete</span></td>
+                </tr>
+
+            </tbody>
+        </table>
+
+        <h2>Per-Article Comparison</h2>
+        <table class="comparison-table">
+            <thead>
+                <tr>
+                    <th>Article ID</th>
+<th class="rotated"><div>Claude Sonnet 4.5</div></th>
+<th class="rotated"><div>qwen-qwen2.5-coder-14b</div></th>
+<th class="rotated"><div>GPT-4o</div></th>
+<th class="rotated"><div>GPT-4o-mini</div></th>
+<th class="rotated"><div>mistral-7b-instruct-v0.3</div></th>
+<th class="rotated"><div>qwen2-7b-instruct</div></th>
+
+                </tr>
+            </thead>
+            <tbody>
+<tr><td><strong>1794</strong></td><td>8</td><td style="color: #95a5a6;">N/A</td><td>4</td><td>4</td><td>5</td><td>3</td></tr>
+<tr><td><strong>1860</strong></td><td>31</td><td>28</td><td>14</td><td>6</td><td>6</td><td>6</td></tr>
+<tr><td><strong>1866</strong></td><td>13</td><td>6</td><td>4</td><td>4</td><td>4</td><td>2</td></tr>
+<tr><td><strong>1909</strong></td><td>30</td><td style="color: #95a5a6;">N/A</td><td>15</td><td>7</td><td style="color: #95a5a6;">N/A</td><td>8</td></tr>
+<tr><td><strong>1937</strong></td><td>8</td><td>8</td><td>4</td><td>5</td><td>5</td><td>2</td></tr>
+<tr><td><strong>1974</strong></td><td>8</td><td>8</td><td>8</td><td>10</td><td>10</td><td>2</td></tr>
+
+            </tbody>
+        </table>
+
+        <h2>Extraction Volume Comparison</h2>
+        <p style="color: #7f8c8d; font-size: 14px;">Total observables extracted per model</p>
+
+        <div class="bar-container">
+            <div class="bar-label">Claude Sonnet 4.5</div>
+            <div class="bar-wrapper">
+                <div class="bar" style="width: 100.0%;">98</div>
+            </div>
+            <div class="bar-value">98</div>
+        </div>
+
+        <div class="bar-container">
+            <div class="bar-label">qwen-qwen2.5-coder-14b</div>
+            <div class="bar-wrapper">
+                <div class="bar" style="width: 51.0%;">50</div>
+            </div>
+            <div class="bar-value">50</div>
+        </div>
+
+        <div class="bar-container">
+            <div class="bar-label">GPT-4o</div>
+            <div class="bar-wrapper">
+                <div class="bar" style="width: 50.0%;">49</div>
+            </div>
+            <div class="bar-value">49</div>
+        </div>
+
+        <div class="bar-container">
+            <div class="bar-label">GPT-4o-mini</div>
+            <div class="bar-wrapper">
+                <div class="bar" style="width: 36.7%;">36</div>
+            </div>
+            <div class="bar-value">36</div>
+        </div>
+
+        <div class="bar-container">
+            <div class="bar-label">mistral-7b-instruct-v0.3</div>
+            <div class="bar-wrapper">
+                <div class="bar" style="width: 30.6%;">30</div>
+            </div>
+            <div class="bar-value">30</div>
+        </div>
+
+        <div class="bar-container">
+            <div class="bar-label">qwen2-7b-instruct</div>
+            <div class="bar-wrapper">
+                <div class="bar" style="width: 23.5%;">23</div>
+            </div>
+            <div class="bar-value">23</div>
+        </div>
+
+        <h2>Recommendations</h2>
+
+        <div class="highlight">
+            <strong>✅ Production Ready Models:</strong>
+            <ul>
+<li><strong>Claude Sonnet 4.5</strong> - Complete coverage (6/6), 100% JSON validity</li>
+<li><strong>GPT-4o</strong> - Complete coverage (6/6), 100% JSON validity</li>
+<li><strong>GPT-4o-mini</strong> - Complete coverage (6/6), 100% JSON validity</li>
+<li><strong>qwen2-7b-instruct</strong> - Complete coverage (6/6), 100% JSON validity</li>
+
+            </ul>
+        </div>
+
+        <div class="warning">
+            <strong>⚠️ Incomplete Models:</strong>
+            <ul>
+<li><strong>mistral-7b-instruct-v0.3</strong> - 5/6 articles completed</li>
+<li><strong>qwen-qwen2.5-coder-14b</strong> - 4/6 articles completed</li>
+
+            </ul>
+        </div>
+
+    </div>
+</body>
+</html>

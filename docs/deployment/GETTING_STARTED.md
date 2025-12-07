@@ -180,9 +180,9 @@ python run_tests.py --all
 - **Features**: Automated source checks, maintenance tasks
 - **Schedule**: Daily source checks, weekly maintenance
 
-#### 6. Multi-Provider LLM Service (`cti_ollama`)
-- **Purpose**: AI-powered content analysis
-- **Features**: Local Ollama, OpenAI GPT-4o, Anthropic Claude
+#### 6. Multi-Provider LLM Service
+
+- **Features**: OpenAI GPT-4o, Anthropic Claude
 - **Capabilities**: Summaries, SIGMA rules, rankings, RAG chat
 - **Models**: Llama 3.2 1B (local), GPT-4o, Claude
 
@@ -244,9 +244,7 @@ ANTHROPIC_API_KEY=sk-ant-your-key
 
 #### AI Configuration
 ```bash
-# Ollama (local AI)
-OLLAMA_BASE_URL=http://cti_ollama:11434
-OLLAMA_MODEL=llama3.2:1b
+# Ollama support removed - use OpenAI or Anthropic instead
 
 # OpenAI (optional)
 OPENAI_API_KEY=sk-your-key
@@ -349,7 +347,7 @@ cti_redis           redis:7-alpine      Up
 cti_web             cti_scraper         Up
 cti_worker          cti_scraper         Up
 cti_scheduler       cti_scraper         Up
-cti_ollama          ollama/ollama       Up
+
 ```
 
 #### Database Connectivity
@@ -455,14 +453,7 @@ docker stats
 
 #### AI Service Issues
 ```bash
-# Check Ollama status
-docker-compose exec cti_ollama ollama list
 
-# Restart AI service
-docker-compose restart cti_ollama
-
-# Check AI logs
-docker-compose logs cti_ollama
 ```
 
 ### Debug Commands

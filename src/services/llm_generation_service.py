@@ -647,11 +647,14 @@ You analyze retrieved CTI article content and Sigma detection rules to answer us
             payload["seed"] = seed
 
         async with httpx.AsyncClient() as client:
+            # For LM Studio, read timeout must be long enough to allow prompt processing
+            # before any response data is sent.
+            read_timeout = 600.0
             response = await client.post(
                 f"{self.lmstudio_url}/chat/completions",
                 headers={"Content-Type": "application/json"},
                 json=payload,
-                timeout=120.0,
+                timeout=httpx.Timeout(120.0, connect=30.0, read=read_timeout),
             )
 
             if response.status_code != 200:

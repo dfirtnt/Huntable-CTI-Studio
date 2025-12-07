@@ -236,12 +236,15 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
             # Get source name
             source_name = article.source.name if article.source else "Unknown"
             
-            # Get agent prompt for QA
+            # Get agent prompt from config (for both ranking and QA)
+            rank_prompt_template = None
             agent_prompt = "Rank the article from 1-10 for SIGMA huntability based on telemetry observables, behavioral patterns, and detection rule feasibility."
             if config_obj and config_obj.agent_prompts and "RankAgent" in config_obj.agent_prompts:
                 rank_prompt_data = config_obj.agent_prompts["RankAgent"]
                 if isinstance(rank_prompt_data.get("prompt"), str):
-                    agent_prompt = rank_prompt_data["prompt"][:5000]  # Truncate for QA context
+                    rank_prompt_template = rank_prompt_data["prompt"]
+                    agent_prompt = rank_prompt_template[:5000]  # Truncate for QA context
+                    logger.info(f"Using RankAgent prompt from workflow config (length: {len(rank_prompt_template)} chars)")
             
             # Initialize conversation log for rank_article
             conversation_log = []
@@ -254,6 +257,7 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                     content=filtered_content,
                     source=source_name,
                     url=article.canonical_url or "",
+                    prompt_template=rank_prompt_template,
                     execution_id=state['execution_id'],
                     article_id=article.id,
                     qa_feedback=qa_feedback
@@ -608,8 +612,6 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                 ("RegExtract", "registry_keys", "RegQA")
             ]
             
-            prompts_dir = Path(__file__).parent.parent / "prompts"
-            
             # Initialize conversation log for extract_agent
             conversation_log = []
             sub_agents_run = []
@@ -680,24 +682,49 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
 
                     sub_agents_run.append(agent_name)
 
-                    # Load Prompts
-                    prompt_path = prompts_dir / agent_name
-                    qa_path = prompts_dir / qa_name
-
-                    if prompt_path.exists():
-                        with open(prompt_path, 'r') as f:
-                            prompt_config = json.load(f)
-                    else:
-                        logger.warning(f"Prompt file missing for {agent_name}, skipping")
-                        continue
-                        
+                    # Load Prompts from config only (no file fallback)
+                    prompt_config = None
                     qa_config = None
-                    if qa_path.exists():
-                        with open(qa_path, 'r') as f:
-                            qa_config = json.load(f)
                     
-                    # Check if QA is enabled for this agent (no master ExtractAgent toggle)
-                    qa_enabled = qa_flags.get(agent_name, False) and qa_config is not None
+                    # Get prompt from config
+                    if not config_obj or not config_obj.agent_prompts or agent_name not in config_obj.agent_prompts:
+                        logger.error(f"{agent_name} prompt not found in workflow config, skipping")
+                        continue
+                    
+                    agent_prompt_data = config_obj.agent_prompts[agent_name]
+                    if not isinstance(agent_prompt_data.get("prompt"), str):
+                        logger.error(f"{agent_name} prompt in config is not a string, skipping")
+                        continue
+                    
+                    try:
+                        prompt_config = json.loads(agent_prompt_data["prompt"])
+                        logger.info(f"Using {agent_name} prompt from workflow config (length: {len(agent_prompt_data['prompt'])} chars)")
+                    except json.JSONDecodeError as e:
+                        logger.error(f"Failed to parse {agent_name} prompt from config as JSON: {e}, skipping")
+                        continue
+                    
+                    # Get QA prompt from config (optional - only if QA is enabled)
+                    qa_enabled = qa_flags.get(agent_name, False)
+                    if qa_enabled:
+                        if qa_name not in config_obj.agent_prompts:
+                            logger.warning(f"{qa_name} prompt not found in config but QA is enabled for {agent_name}, disabling QA")
+                            qa_enabled = False
+                        else:
+                            qa_prompt_data = config_obj.agent_prompts[qa_name]
+                            if isinstance(qa_prompt_data.get("prompt"), str):
+                                try:
+                                    qa_config = json.loads(qa_prompt_data["prompt"])
+                                    logger.info(f"Using {qa_name} prompt from workflow config (length: {len(qa_prompt_data['prompt'])} chars)")
+                                except json.JSONDecodeError as e:
+                                    logger.warning(f"Failed to parse {qa_name} prompt from config as JSON: {e}, disabling QA")
+                                    qa_enabled = False
+                                    qa_config = None
+                            else:
+                                logger.warning(f"{qa_name} prompt in config is not a string, disabling QA")
+                                qa_enabled = False
+                                qa_config = None
+                    
+                    # QA enabled flag is set above when loading QA config
                     
                     # Get model and temperature for this agent
                     model_key = f"{agent_name}_model"

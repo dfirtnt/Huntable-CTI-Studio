@@ -25,7 +25,7 @@ The CTI Scraper implements a comprehensive RAG system that combines semantic sea
    - **Chunk Strategy**: Uses `article_annotations` table for fine-grained retrieval
 
 4. **LLM Generation Service** (`src/services/llm_generation_service.py`)
-   - **Multi-Provider**: OpenAI GPT-4o, Anthropic Claude, Ollama
+   - **Multi-Provider**: OpenAI GPT-4o, Anthropic Claude
    - **Auto-Selection**: Automatically chooses best available provider
    - **Fallback**: Graceful degradation to template responses
    - **Context Management**: Conversation history integration
@@ -45,7 +45,7 @@ The CTI Scraper implements a comprehensive RAG system that combines semantic sea
 ### Multi-Provider LLM Support
 - **OpenAI GPT-4o**: Primary provider for high-quality analysis
 - **Anthropic Claude**: Alternative provider with different strengths
-- **Ollama**: Local LLM for privacy-sensitive environments
+- **Local Models**: Support removed - use OpenAI or Anthropic for cloud-based AI
 - **Template Fallback**: Structured responses when LLM unavailable
 
 ### Semantic Search
@@ -100,8 +100,6 @@ The CTI Scraper implements a comprehensive RAG system that combines semantic sea
 ### Environment Variables
 - `OPENAI_API_KEY`: OpenAI API key for GPT-4o access
 - `ANTHROPIC_API_KEY`: Anthropic API key for Claude access
-- `LLM_API_URL`: Ollama service URL (default: http://cti_ollama:11434)
-- `LLM_MODEL`: Ollama model name (default: llama3.2:1b)
 
 ### Frontend Configuration
 - **LLM Provider Selection**: Dropdown to choose provider
@@ -147,7 +145,7 @@ You analyze retrieved CTI article content to answer user questions about threat 
 - **Template Mode**: < 2 seconds
 - **OpenAI GPT-4o**: 3-5 seconds
 - **Anthropic Claude**: 4-6 seconds
-- **Ollama Local**: 10-30 seconds (depending on model size)
+- **Local Models**: Support removed
 
 ### Quality Metrics
 - **Relevance**: 60-95% similarity scores for retrieved content
@@ -159,7 +157,7 @@ You analyze retrieved CTI article content to answer user questions about threat 
 
 ### Common Issues
 1. **LLM Timeout**: Falls back to template responses
-2. **API Key Missing**: Uses Ollama or template mode
+2. **API Key Missing**: Uses template mode
 3. **No Results**: Adjust similarity threshold or query
 4. **Slow Responses**: Check LLM provider status
 

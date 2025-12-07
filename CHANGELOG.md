@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+- **API Key Exposure**: Removed scripts containing hardcoded API keys from version control
+  - `scripts/eval_observables_count_multiple_models.py` and `scripts/get_full_extract_results.py`
+  - Added to .gitignore to prevent future commits
+  - Scripts remain on disk for local development but are no longer tracked
+
+### Changed
+- **Settings Page**: Removed Ollama model references (llama3.2:1b, tinyllama:1.1b) from recommended models list
+- **Scraper Metrics Page**: Removed "Article Ingestion Analytics" section to streamline the interface
+
 ### Fixed
 - **Backup System Critical Bug**: Fixed automated system backup failures that were creating empty backup files
   - Root cause: Hardcoded `/app/backups` path didn't exist in containers
