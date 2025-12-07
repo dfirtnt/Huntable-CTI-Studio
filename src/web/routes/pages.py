@@ -451,9 +451,6 @@ async def article_detail(request: Request, article_id: int):
                 "request": request,
                 "article": article,
                 "source": source,
-                "ollama_content_limit": int(
-                    os.getenv("OLLAMA_CONTENT_LIMIT", "1000000")
-                ),
                 "chatgpt_content_limit": int(
                     os.getenv("CHATGPT_CONTENT_LIMIT", "1000000")
                 ),

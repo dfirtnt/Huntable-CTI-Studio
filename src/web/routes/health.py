@@ -112,7 +112,9 @@ async def api_deduplication_health() -> Dict[str, Any]:
             "timestamp": datetime.now().isoformat(),
             "deduplication": {
                 "exact_duplicates": {
-                    "content_hash_duplicates": dedup_stats.get("content_hash_duplicates", 0),
+                    "content_hash_duplicates": dedup_stats.get(
+                        "content_hash_duplicates", 0
+                    ),
                     "duplicate_details": dedup_stats.get("duplicate_details", []),
                 },
                 "near_duplicates": {
@@ -160,31 +162,11 @@ async def api_services_health() -> Dict[str, Any]:
                 "error": str(redis_exc),
             }
 
-        # Check Ollama
-        try:
-            async with httpx.AsyncClient() as client:
-                response = await client.get("http://ollama:11434/api/tags", timeout=5.0)
-                if response.status_code == 200:
-                    models_data = response.json()
-                    services_status["ollama"] = {
-                        "status": "healthy",
-                        "models_available": len(models_data.get("models", [])),
-                        "models": [model["name"] for model in models_data.get("models", [])],
-                    }
-                else:
-                    services_status["ollama"] = {
-                        "status": "unhealthy",
-                        "error": f"HTTP {response.status_code}",
-                    }
-        except Exception as ollama_exc:
-            services_status["ollama"] = {
-                "status": "unhealthy",
-                "error": str(ollama_exc),
-            }
-
         # Check LMStudio
         try:
-            lmstudio_url = os.getenv("LMSTUDIO_API_URL", "http://host.docker.internal:1234/v1")
+            lmstudio_url = os.getenv(
+                "LMSTUDIO_API_URL", "http://host.docker.internal:1234/v1"
+            )
             async with httpx.AsyncClient() as client:
                 response = await client.get(f"{lmstudio_url}/models", timeout=5.0)
                 if response.status_code == 200:
@@ -192,7 +174,10 @@ async def api_services_health() -> Dict[str, Any]:
                     services_status["lmstudio"] = {
                         "status": "healthy",
                         "models_available": len(models_data.get("data", [])),
-                        "models": [model.get("id", "unknown") for model in models_data.get("data", [])],
+                        "models": [
+                            model.get("id", "unknown")
+                            for model in models_data.get("data", [])
+                        ],
                     }
                 else:
                     services_status["lmstudio"] = {
@@ -211,8 +196,11 @@ async def api_services_health() -> Dict[str, Any]:
 
         # Check LangFuse
         try:
-            from src.utils.langfuse_client import get_langfuse_client, is_langfuse_enabled
-            
+            from src.utils.langfuse_client import (
+                get_langfuse_client,
+                is_langfuse_enabled,
+            )
+
             if is_langfuse_enabled():
                 client = get_langfuse_client()
                 if client:
@@ -330,4 +318,3 @@ async def api_ingestion_health() -> Dict[str, Any]:
             "timestamp": datetime.now().isoformat(),
             "error": str(exc),
         }
-
