@@ -2,6 +2,7 @@
 Pytest configuration for AI Assistant tests.
 Provides fixtures and configuration specific to AI testing.
 """
+
 import pytest
 import os
 import asyncio
@@ -20,52 +21,61 @@ def event_loop():
 def ai_test_config():
     """Configuration for AI tests."""
     import getpass
-    
+
     # Check for API keys in environment
-    openai_key_env = os.getenv('OPENAI_API_KEY')
-    anthropic_key_env = os.getenv('ANTHROPIC_API_KEY')
-    
+    openai_key_env = os.getenv("OPENAI_API_KEY")
+    anthropic_key_env = os.getenv("ANTHROPIC_API_KEY")
+
     # Always prompt for explicit authorization
-    print("\n" + "="*70)
+    print("\n" + "=" * 70)
     print("AI API Key Authorization for Tests")
-    print("="*70)
+    print("=" * 70)
     print("These tests may use external AI APIs (OpenAI, Anthropic) which incur costs.")
-    print("="*70)
-    
+    print("=" * 70)
+
     # Prompt for OpenAI API key authorization
     if openai_key_env:
         print(f"\n✓ OPENAI_API_KEY found in environment ({openai_key_env[:10]}...)")
-        response = input("Authorize use of OpenAI API key for these tests? [y/N]: ").strip().lower()
-        openai_key = openai_key_env if response == 'y' else None
+        response = (
+            input("Authorize use of OpenAI API key for these tests? [y/N]: ")
+            .strip()
+            .lower()
+        )
+        openai_key = openai_key_env if response == "y" else None
     else:
         print("\n⚠️  OPENAI_API_KEY not found in environment.")
         response = input("Enter OpenAI API key (or press Enter to skip): ").strip()
         openai_key = response if response else None
-    
+
     # Prompt for Anthropic API key authorization
     if anthropic_key_env:
-        print(f"\n✓ ANTHROPIC_API_KEY found in environment ({anthropic_key_env[:10]}...)")
-        response = input("Authorize use of Anthropic API key for these tests? [y/N]: ").strip().lower()
-        anthropic_key = anthropic_key_env if response == 'y' else None
+        print(
+            f"\n✓ ANTHROPIC_API_KEY found in environment ({anthropic_key_env[:10]}...)"
+        )
+        response = (
+            input("Authorize use of Anthropic API key for these tests? [y/N]: ")
+            .strip()
+            .lower()
+        )
+        anthropic_key = anthropic_key_env if response == "y" else None
     else:
         print("\n⚠️  ANTHROPIC_API_KEY not found in environment.")
         response = input("Enter Anthropic API key (or press Enter to skip): ").strip()
         anthropic_key = response if response else None
-    
+
     # Summary
     if openai_key or anthropic_key:
         print("\n✓ API keys authorized for this test session.")
     else:
         print("\n⚠️  No API keys authorized. Tests will use mocked responses.")
-    
-    print("="*70 + "\n")
-    
+
+    print("=" * 70 + "\n")
+
     return {
-        'openai_api_key': openai_key,
-        'anthropic_api_key': anthropic_key,
-        'ollama_endpoint': os.getenv('OLLAMA_ENDPOINT', 'http://localhost:11434'),
-        'test_timeout': 30.0,
-        'max_retries': 3
+        "openai_api_key": openai_key,
+        "anthropic_api_key": anthropic_key,
+        "test_timeout": 30.0,
+        "max_retries": 3,
     }
 
 
@@ -107,10 +117,11 @@ def sample_large_content():
 def mock_ai_responses():
     """Mock AI responses for testing."""
     return {
-        'openai': {
-            'choices': [{
-                'message': {
-                    'content': '''
+        "openai": {
+            "choices": [
+                {
+                    "message": {
+                        "content": """
                     SIGMA HUNTABILITY SCORE: 8
                     
                     CATEGORY BREAKDOWN:
@@ -132,13 +143,15 @@ def mock_ai_responses():
                     
                     RULE FEASIBILITY:
                     High - Multiple detection rules can be created immediately
-                    '''
+                    """
+                    }
                 }
-            }]
+            ]
         },
-        'anthropic': {
-            'content': [{
-                'text': '''
+        "anthropic": {
+            "content": [
+                {
+                    "text": """
                 SIGMA HUNTABILITY SCORE: 9
                 
                 CATEGORY BREAKDOWN:
@@ -162,43 +175,20 @@ def mock_ai_responses():
                 
                 RULE FEASIBILITY:
                 Very High - Multiple high-quality detection rules can be created
-                '''
-            }]
+                """
+                }
+            ]
         },
-        'ollama': """
-        title: APT29 PowerShell Execution
-        description: Detects APT29 PowerShell execution patterns
-        logsource:
-          category: process_creation
-          product: windows
-        detection:
-          selection:
-            Image: powershell.exe
-            CommandLine: '*EncodedCommand*'
-          condition: selection
-        level: high
-        tags:
-          - attack.execution
-          - attack.t1059.001
-        """
     }
 
 
 # Pytest markers for AI tests
 def pytest_configure(config):
     """Configure pytest markers for AI tests."""
-    config.addinivalue_line(
-        "markers", "ai: mark test as AI-related"
-    )
-    config.addinivalue_line(
-        "markers", "integration: mark test as integration test"
-    )
-    config.addinivalue_line(
-        "markers", "ui: mark test as UI test"
-    )
-    config.addinivalue_line(
-        "markers", "slow: mark test as slow running"
-    )
+    config.addinivalue_line("markers", "ai: mark test as AI-related")
+    config.addinivalue_line("markers", "integration: mark test as integration test")
+    config.addinivalue_line("markers", "ui: mark test as UI test")
+    config.addinivalue_line("markers", "slow: mark test as slow running")
 
 
 def pytest_collection_modifyitems(config, items):
@@ -211,7 +201,7 @@ def pytest_collection_modifyitems(config, items):
             item.add_marker(pytest.mark.integration)
         if "ui" in item.nodeid.lower():
             item.add_marker(pytest.mark.ui)
-        
+
         # Add slow marker for real API tests
         if "real_api" in item.nodeid.lower():
             item.add_marker(pytest.mark.slow)

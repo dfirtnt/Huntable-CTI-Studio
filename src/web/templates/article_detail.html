@@ -3415,15 +3415,14 @@ Please provide a detailed analysis based on the article content and the user's s
         
         // Check content size limits
         const contentLength = {{ article.content|length if article.content else 0 }};
-        const contentLimit = aiModel === 'chatgpt' ? {{ chatgpt_content_limit }} : 
-                           aiModel === 'anthropic' ? {{ anthropic_content_limit }} : {{ ollama_content_limit }};
-        
+        const contentLimit = aiModel === 'chatgpt' ? {{ chatgpt_content_limit }} :
+                           aiModel === 'anthropic' ? {{ anthropic_content_limit }} : {{ chatgpt_content_limit }};
+
         if (contentLength > contentLimit) {
-            const modelName = aiModel === 'chatgpt' ? 'ChatGPT' : 
-                            aiModel === 'anthropic' ? 'Claude' : 
+            const modelName = aiModel === 'chatgpt' ? 'ChatGPT' :
+                            aiModel === 'anthropic' ? 'Claude' :
                             aiModel === 'tinyllama' ? 'TinyLlama' :
-                            aiModel === 'lmstudio' ? (lmstudioModelName || 'LMStudio') :
-                            aiModel === 'ollama' ? 'Ollama' : 'LLM';
+                            aiModel === 'lmstudio' ? (lmstudioModelName || 'LMStudio') : 'LLM';
             showNotification(`Article too large for ${modelName}. Content: ${contentLength.toLocaleString()} chars, limit: ${contentLimit.toLocaleString()} chars.`, 'warning');
             return;
         }
@@ -3583,8 +3582,6 @@ Please provide a detailed analysis based on the article content and the user's s
             modelDisplayText = 'Claude (Anthropic)';
         } else if (aiModel === 'tinyllama') {
             modelDisplayText = 'TinyLlama (Local Ollama)';
-        } else if (aiModel === 'ollama') {
-            modelDisplayText = 'Ollama (Local)';
         } else if (aiModel === 'lmstudio') {
             modelDisplayText = lmstudioModelName ? `LMStudio → ${lmstudioModelName}` : 'LMStudio (Local)';
         } else {
@@ -8677,8 +8674,8 @@ ${JSON.stringify(rule.logsource, null, 2)}
         
         // Check content size limits
         const contentLength = {{ article.content|length if article.content else 0 }};
-        const contentLimit = aiModel === 'chatgpt' ? {{ chatgpt_content_limit }} : 
-                           aiModel === 'anthropic' ? {{ anthropic_content_limit }} : {{ ollama_content_limit }};
+        const contentLimit = aiModel === 'chatgpt' ? {{ chatgpt_content_limit }} :
+                           aiModel === 'anthropic' ? {{ anthropic_content_limit }} : {{ chatgpt_content_limit }};
         
         if (contentLength > contentLimit) {
             // Disable button and add explanation

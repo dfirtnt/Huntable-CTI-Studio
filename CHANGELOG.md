@@ -48,6 +48,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Removed redundant `/health-checks` page and route
   - Updated dashboard navigation to use merged diagnostics page
 
+### Removed
+- **Complete Ollama Integration Removal**: Removed all Ollama code, references, and documentation
+  - Removed Ollama Docker service and configuration
+  - Removed Ollama API endpoints and health checks
+  - Removed Ollama UI options from settings and article detail pages
+  - Removed Ollama methods from LLM generation service
+  - Removed Ollama test files and test references
+  - Cleaned up all Ollama environment variables and configurations
+  - Updated available AI models to exclude Ollama options
+
 ### Fixed
 - **Web Server Import Error**: Fixed ImportError preventing web application startup
   - Removed non-existent `test_scrape` module from route imports in `src/web/routes/__init__.py`

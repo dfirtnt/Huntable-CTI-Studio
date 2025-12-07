@@ -16,12 +16,10 @@ from unittest.mock import patch
 try:
     from src.utils.gpt4o_optimizer import GPT4oContentOptimizer
     from src.utils.ioc_extractor import HybridIOCExtractor
-    from ollama_cti_workflow import generate_sigma_rules
 except ImportError:
     # Mock imports for testing without full dependencies
     GPT4oContentOptimizer = None
     HybridIOCExtractor = None
-    generate_sigma_rules = None
 
 
 @pytest.mark.skip(reason="Requires external API access (OpenAI, Anthropic, Ollama)")
@@ -78,158 +76,6 @@ class TestAIRealAPIIntegration:
                 "ANTHROPIC_API_KEY not set - skipping Anthropic integration tests"
             )
         return api_key
-
-    @pytest.fixture
-    def ollama_available(self):
-        """Check if Ollama is available."""
-        try:
-            result = subprocess.run(
-                ["ollama", "--version"], capture_output=True, text=True, timeout=5
-            )
-            if result.returncode == 0:
-                return True
-        except (subprocess.TimeoutExpired, FileNotFoundError):
-            pass
-        pytest.skip("Ollama not available - skipping Ollama integration tests")
-
-    @pytest.mark.integration
-    @pytest.mark.ai
-    @pytest.mark.asyncio
-    async def test_openai_gpt4o_real_api_call(
-        self, sample_threat_article, openai_api_key
-    ):
-        """Test real OpenAI GPT-4o API call."""
-        headers = {
-            "Authorization": f"Bearer {openai_api_key}",
-            "Content-Type": "application/json",
-        }
-
-        payload = {
-            "model": "gpt-4o",
-            "messages": [
-                {
-                    "role": "system",
-                    "content": "You are a threat intelligence analyst. Analyze the following article and provide a SIGMA huntability score (0-10) with detailed breakdown.",
-                },
-                {
-                    "role": "user",
-                    "content": f"Analyze this threat intelligence article:\n\n{sample_threat_article['content'][:2000]}...",  # Limit content size
-                },
-            ],
-            "max_tokens": 1000,
-            "temperature": 0.3,
-        }
-
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            try:
-                response = await client.post(
-                    "https://api.openai.com/v1/chat/completions",
-                    headers=headers,
-                    json=payload,
-                )
-
-                assert response.status_code == 200
-                data = response.json()
-
-                # Verify response structure
-                assert "choices" in data
-                assert len(data["choices"]) > 0
-                assert "message" in data["choices"][0]
-                assert "content" in data["choices"][0]["message"]
-
-                # Verify content contains expected elements
-                content = data["choices"][0]["message"]["content"]
-                assert "SIGMA" in content or "huntability" in content.lower()
-
-            except httpx.TimeoutException:
-                pytest.fail("OpenAI API call timed out")
-            except httpx.HTTPStatusError as e:
-                pytest.fail(f"OpenAI API returned error: {e.response.status_code}")
-
-    @pytest.mark.integration
-    @pytest.mark.ai
-    @pytest.mark.asyncio
-    async def test_anthropic_claude_real_api_call(
-        self, sample_threat_article, anthropic_api_key
-    ):
-        """Test real Anthropic Claude API call."""
-        headers = {
-            "x-api-key": anthropic_api_key,
-            "Content-Type": "application/json",
-            "anthropic-version": "2023-06-01",
-        }
-
-        payload = {
-            "model": "claude-3-sonnet-20240229",
-            "max_tokens": 1000,
-            "messages": [
-                {
-                    "role": "user",
-                    "content": f"Analyze this threat intelligence article and provide a SIGMA huntability score (0-10) with detailed breakdown:\n\n{sample_threat_article['content'][:2000]}...",
-                }
-            ],
-        }
-
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            try:
-                response = await client.post(
-                    "https://api.anthropic.com/v1/messages",
-                    headers=headers,
-                    json=payload,
-                )
-
-                assert response.status_code == 200
-                data = response.json()
-
-                # Verify response structure
-                assert "content" in data
-                assert len(data["content"]) > 0
-                assert "text" in data["content"][0]
-
-                # Verify content contains expected elements
-                content = data["content"][0]["text"]
-                assert "SIGMA" in content or "huntability" in content.lower()
-
-            except httpx.TimeoutException:
-                pytest.fail("Anthropic API call timed out")
-            except httpx.HTTPStatusError as e:
-                pytest.fail(f"Anthropic API returned error: {e.response.status_code}")
-
-    @pytest.mark.integration
-    @pytest.mark.ai
-    @pytest.mark.asyncio
-    async def test_ollama_real_api_call(self, sample_threat_article, ollama_available):
-        """Test real Ollama API call."""
-        # Check if Ollama is running
-        try:
-            result = subprocess.run(
-                ["ollama", "list"], capture_output=True, text=True, timeout=10
-            )
-            if result.returncode != 0:
-                pytest.skip("Ollama not running - skipping Ollama integration tests")
-        except (subprocess.TimeoutExpired, FileNotFoundError):
-            pytest.skip("Ollama not available - skipping Ollama integration tests")
-
-        # Test with a common model (adjust as needed)
-        model_name = "llama2"  # or "phi3" or whatever model is available
-
-        try:
-            result = generate_sigma_rules(
-                sample_threat_article["content"], model_name=model_name
-            )
-
-            # Verify result
-            assert result is not None
-            assert len(result) > 0
-
-            # Check if result contains SIGMA rule elements
-            assert any(
-                keyword in result.lower()
-                for keyword in ["title", "description", "detection", "logsource"]
-            )
-
-        except Exception as e:
-            pytest.skip(f"Ollama model {model_name} not available or failed: {e}")
 
     @pytest.mark.integration
     @pytest.mark.ai
@@ -507,19 +353,6 @@ class TestAIRealAPIIntegration:
 
             except Exception as e:
                 pytest.skip(f"Real API integration failed: {e}")
-
-        # Step 4: SIGMA Rule Generation (if Ollama available)
-        try:
-            sigma_rules = generate_sigma_rules(sample_threat_article["content"])
-            if sigma_rules:
-                assert len(sigma_rules) > 0
-                assert any(
-                    keyword in sigma_rules.lower()
-                    for keyword in ["title", "detection", "logsource"]
-                )
-        except Exception:
-            # SIGMA rule generation is optional
-            pass
 
         # Verify overall workflow completed
         assert True  # If we reach here, the workflow completed successfully

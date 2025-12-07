@@ -623,19 +623,21 @@ class TestRunner:
         else:
             cmd.extend(["-m", exclude_expr])
 
-        # Use virtual environment python (always set to venv)
-        cmd[0] = self.venv_python
-
         # Add execution context specific options
         effective_context = self._get_effective_context(self.config.test_type)
         if effective_context == ExecutionContext.DOCKER:
             logger.info("Running tests in Docker container (cti_web)")
+            # Use system Python in Docker container, not virtual environment
+            cmd[0] = "/usr/local/bin/python3"
             cmd = ["docker", "exec", "cti_web"] + cmd
-        elif effective_context == ExecutionContext.AUTO:
-            # This shouldn't happen as _get_effective_context should resolve AUTO
-            logger.warning("Auto context not resolved, defaulting to localhost")
         else:
-            logger.info("Running tests on localhost")
+            # Use virtual environment python for localhost execution
+            cmd[0] = self.venv_python
+            if effective_context == ExecutionContext.AUTO:
+                # This shouldn't happen as _get_effective_context should resolve AUTO
+                logger.warning("Auto context not resolved, defaulting to localhost")
+            else:
+                logger.info("Running tests on localhost")
 
         # Add parallel execution
         if self.config.parallel:
