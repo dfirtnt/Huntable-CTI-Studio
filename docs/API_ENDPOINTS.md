@@ -28,7 +28,7 @@ The CTI Scraper provides **133+ API endpoints** across multiple categories:
 - `GET /api/health` - API health check
 - `GET /api/health/database` - Database health with statistics
 - `GET /api/health/deduplication` - Deduplication system health
-- `GET /api/health/services` - External services health (Redis, Ollama)
+- `GET /api/health/services` - External services health (Redis)
 - `GET /api/health/celery` - Celery workers health
 - `GET /api/health/ingestion` - Ingestion analytics health
 - `GET /api/metrics/health` - Metrics health check
@@ -41,7 +41,7 @@ The CTI Scraper provides **133+ API endpoints** across multiple categories:
     - `message` (string): User query
     - `conversation_history` (array): Previous conversation context
     - `use_llm_generation` (boolean): Enable LLM synthesis (default: true)
-    - `llm_provider` (string): LLM provider ("auto", "openai", "anthropic", "ollama", "template")
+    - `llm_provider` (string): LLM provider ("auto", "openai", "anthropic", "template")
     - `max_results` (integer): Maximum results to retrieve (default: 10)
     - `similarity_threshold` (float): Similarity threshold (default: 0.3)
     - `use_chunks` (boolean): Use chunk-level search (default: false)

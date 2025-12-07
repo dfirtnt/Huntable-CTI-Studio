@@ -388,7 +388,10 @@ Output only the OS label: Windows, Linux, MacOS, or multiple"""
             is_reasoning_model = 'deepseek-r1' in model_name.lower() or 'r1' in model_name.lower()
             max_tokens = 500 if is_reasoning_model else 50
             
-            async with httpx.AsyncClient(timeout=60.0) as client:
+            # For LM Studio, read timeout must be long enough to allow prompt processing
+            # before any response data is sent.
+            read_timeout = 600.0
+            async with httpx.AsyncClient(timeout=httpx.Timeout(60.0, connect=30.0, read=read_timeout)) as client:
                 response = await client.post(
                     f"{lmstudio_url}/chat/completions",
                     headers={"Content-Type": "application/json"},

@@ -14,7 +14,7 @@
 
 | File System | Database Agent | Status | Usage |
 |------------|----------------|--------|-------|
-| `ObservablesCountAgent` | ❌ None | **Not in workflow config** | Used in evaluation scripts (`eval_observables_count_multiple_models.py`) |
+| `ObservablesCountAgent` | ❌ None | **Not in workflow config** | Used in evaluation scripts (local utility script) |
 | `ExtractObservables` | ❌ None | **Not mapped** | Unknown usage |
 
 ## Utility/Support Prompts (Not Agents)

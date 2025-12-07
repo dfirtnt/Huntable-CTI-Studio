@@ -8,7 +8,7 @@ import os
 import tempfile
 from datetime import datetime
 
-import PyPDF2
+import pypdf
 from fastapi import APIRouter, File, HTTPException, UploadFile
 
 from src.database.async_manager import async_db_manager
@@ -45,7 +45,7 @@ async def api_pdf_upload(file: UploadFile = File(...)):
 
             text_content = ""
             with open(temp_file_path, "rb") as pdf_file:
-                pdf_reader = PyPDF2.PdfReader(pdf_file)
+                pdf_reader = pypdf.PdfReader(pdf_file)
                 page_count = len(pdf_reader.pages)
 
                 for page_num, page in enumerate(pdf_reader.pages, 1):

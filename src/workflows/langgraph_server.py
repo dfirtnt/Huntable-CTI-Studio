@@ -472,15 +472,24 @@ Cannot process empty articles."""
             # Get source name
             source_name = article.source.name if article.source else "Unknown"
             
+            # Get RankAgent prompt from config only (no file fallback)
+            if not config_obj or not config_obj.agent_prompts or "RankAgent" not in config_obj.agent_prompts:
+                raise ValueError("RankAgent prompt not found in workflow config. Please configure it in the workflow settings.")
+            
+            rank_prompt_data = config_obj.agent_prompts["RankAgent"]
+            if not isinstance(rank_prompt_data.get("prompt"), str):
+                raise ValueError("RankAgent prompt in config is not a string. Please check the workflow configuration.")
+            
+            rank_prompt_template = rank_prompt_data["prompt"]
+            logger.info(f"[Workflow {execution_id}] Using RankAgent prompt from config (length: {len(rank_prompt_template)} chars)")
+            
             # Rank article using LLM
-            # Use relative path for prompt (works in Docker and local)
-            prompt_file = Path(__file__).parent.parent / "prompts" / "lmstudio_sigma_ranking.txt"
             ranking_result = await llm_service.rank_article(
                 title=article.title,
                 content=filtered_content,
                 source=source_name,
                 url=article.canonical_url or "",
-                prompt_template_path=str(prompt_file) if prompt_file.exists() else None
+                prompt_template=rank_prompt_template
             )
             
             ranking_score = ranking_result['score']
@@ -847,8 +856,6 @@ Cannot process empty articles."""
             logger.info(f"[Workflow {execution_id}] Final disabled_agents_cfg: {disabled_agents_cfg}")
             logger.info(f"[Workflow {execution_id}] Sub-agents to process: {[name for name, _, _ in sub_agents]}")
             
-            prompts_dir = Path(__file__).parent.parent / "prompts"
-            
             for agent_name, result_key, qa_name in sub_agents:
                 # Check if agent is disabled
                 if agent_name in disabled_agents_cfg:
@@ -863,21 +870,40 @@ Cannot process empty articles."""
                     logger.info(f"[Workflow {execution_id}] ✓ {agent_name} is ENABLED; will execute")
                 
                 try:
-                    # Load Prompts
-                    prompt_path = prompts_dir / agent_name
-                    qa_path = prompts_dir / qa_name
-
-                    if prompt_path.exists():
-                        with open(prompt_path, 'r') as f:
-                            prompt_config = json.load(f)
-                    else:
-                        logger.warning(f"Prompt file missing for {agent_name}")
-                        continue
-                        
+                    # Load Prompts from config only (no file fallback)
+                    prompt_config = None
                     qa_config = None
-                    if qa_path.exists():
-                        with open(qa_path, 'r') as f:
-                            qa_config = json.load(f)
+                    
+                    # Get prompt from config
+                    if not config_obj or not config_obj.agent_prompts or agent_name not in config_obj.agent_prompts:
+                        logger.error(f"[Workflow {execution_id}] {agent_name} prompt not found in workflow config, skipping")
+                        continue
+                    
+                    agent_prompt_data = config_obj.agent_prompts[agent_name]
+                    if not isinstance(agent_prompt_data.get("prompt"), str):
+                        logger.error(f"[Workflow {execution_id}] {agent_name} prompt in config is not a string, skipping")
+                        continue
+                    
+                    try:
+                        prompt_config = json.loads(agent_prompt_data["prompt"])
+                        logger.info(f"[Workflow {execution_id}] Using {agent_name} prompt from workflow config (length: {len(agent_prompt_data['prompt'])} chars)")
+                    except json.JSONDecodeError as e:
+                        logger.error(f"[Workflow {execution_id}] Failed to parse {agent_name} prompt from config as JSON: {e}, skipping")
+                        continue
+                    
+                    # Get QA prompt from config (optional - QA may not be configured)
+                    if qa_name in config_obj.agent_prompts:
+                        qa_prompt_data = config_obj.agent_prompts[qa_name]
+                        if isinstance(qa_prompt_data.get("prompt"), str):
+                            try:
+                                qa_config = json.loads(qa_prompt_data["prompt"])
+                                logger.info(f"[Workflow {execution_id}] Using {qa_name} prompt from workflow config (length: {len(qa_prompt_data['prompt'])} chars)")
+                            except json.JSONDecodeError as e:
+                                logger.warning(f"[Workflow {execution_id}] Failed to parse {qa_name} prompt from config as JSON: {e}, QA disabled")
+                                qa_config = None
+                        else:
+                            logger.warning(f"[Workflow {execution_id}] {qa_name} prompt in config is not a string, QA disabled")
+                            qa_config = None
                     
                     # Get model and temperature for this agent
                     agent_models = config_obj.agent_models if config_obj and config_obj.agent_models else {}

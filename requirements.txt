@@ -56,7 +56,7 @@ python-multipart==0.0.20
 cryptography==46.0.3  # Enhanced encryption
 
 # PDF processing
-PyPDF2==3.0.1
+pypdf==6.4.0
 
 # SIGMA rule validation and repository management
 pysigma==0.11.23

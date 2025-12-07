@@ -276,11 +276,14 @@ async def _post_lmstudio_chat(
                 f"({failure_context}) attempt {idx + 1}/{len(lmstudio_urls)}"
             )
             try:
+                # For LM Studio, read timeout must be long enough to allow prompt processing
+                # before any response data is sent.
+                read_timeout = 600.0
                 response = await client.post(
                     f"{lmstudio_url}/chat/completions",
                     headers={"Content-Type": "application/json"},
                     json=payload,
-                    timeout=timeout,
+                    timeout=httpx.Timeout(timeout, connect=30.0, read=read_timeout),
                 )
             except httpx.TimeoutException:
                 last_error_detail = f"Timeout connecting to {lmstudio_url}"

@@ -194,13 +194,16 @@ Output format (return ONLY this JSON structure):
                     
                     # Create the request task
                     async def make_request():
+                        # For LM Studio, read timeout must be long enough to allow prompt processing
+                        # before any response data is sent.
+                        read_timeout = 600.0
                         return await client.post(
                             f"{lmstudio_url}/chat/completions",
                             headers={
                                 "Content-Type": "application/json"
                             },
                             json=payload,
-                            timeout=120.0
+                            timeout=httpx.Timeout(120.0, connect=30.0, read=read_timeout)
                         )
                     
                     request_task = asyncio.create_task(make_request())
