@@ -6,17 +6,15 @@
 
 ### 🚀 Getting Started
 - **[Quick Start Guide](QUICK_START.md)** - Run your first test in 5 minutes
-- **[Running Tests Guide](RUNNING_TESTS.md)** - Complete command reference
-- **[Comprehensive Testing Guide](TESTING.md)** - Full testing documentation (804 lines)
+- **[Comprehensive Testing Guide](TESTING.md)** - Full testing documentation
 
 ### 📊 Test Status & Inventory
-- **[Test Index](TEST_INDEX.md)** - Complete inventory of all 685+ tests
+- **[Test Index](TEST_INDEX.md)** - Complete inventory and status
 - **[Skipped Tests](SKIPPED_TESTS.md)** - Track tests needing fixes
 - **[Root Test Summary](../../TEST_COVERAGE_SUMMARY.md)** - Coverage analysis
 
 ### 🔬 Specialized Testing
-- **[AI Testing](AI_TESTING.md)** - AI Assistant and multi-model testing
-- **[ML Feedback Testing](ML_FEEDBACK_TESTING.md)** - Regression prevention tests
+- **[AI Testing](AI_TESTS_README.md)** - AI Assistant and multi-model testing
 - **[Smoke Tests](smoke/README.md)** - Quick health checks (~15s)
 - **[E2E Tests](e2e/README.md)** - End-to-end workflow testing
 - **[Integration Tests](integration/README.md)** - System integration testing
@@ -50,14 +48,12 @@ cat tests/TESTING.md
 tests/
 ├── README.md                    ← YOU ARE HERE (entry point)
 ├── QUICK_START.md               ← 5-minute onboarding
-├── RUNNING_TESTS.md             ← Command reference
-├── TESTING.md                   ← Comprehensive guide (804 lines)
+├── TESTING.md                   ← Comprehensive guide
 │
 ├── TEST_INDEX.md                ← Complete test inventory
 ├── SKIPPED_TESTS.md             ← Tests needing fixes
 │
-├── AI_TESTING.md                ← AI-specific testing
-├── ML_FEEDBACK_TESTING.md       ← ML regression tests
+├── AI_TESTS_README.md           ← AI-specific testing
 │
 ├── smoke/                       ← Quick health checks
 │   ├── README.md
@@ -83,9 +79,8 @@ tests/
 
 **Essential reading:**
 1. Quick Start (5 min)
-2. Running Tests (5 min)
-3. Test Index (overview)
-4. Comprehensive Guide (as needed)
+2. Test Index (overview)
+3. Comprehensive Guide (as needed)
 
 ### 🧪 Test Engineers
 **Start with:** `TEST_INDEX.md` → `SKIPPED_TESTS.md` → `TESTING.md`
@@ -149,16 +144,14 @@ python3 run_tests.py e2e             # End-to-end tests
 ## 📚 Documentation Details
 
 ### Core Guides
-- **QUICK_START.md** (196 lines) - Fast onboarding for new users
-- **RUNNING_TESTS.md** - Commands, options, troubleshooting
-- **TESTING.md** (804 lines) - Comprehensive testing documentation
-- **TEST_INDEX.md** (239 lines) - Complete test inventory with status
-- **SKIPPED_TESTS.md** (235 lines) - Tests needing async mock fixes
+- **QUICK_START.md** - Fast onboarding for new users
+- **TESTING.md** - Comprehensive testing documentation
+- **TEST_INDEX.md** - Complete test inventory with status
+- **SKIPPED_TESTS.md** - Tests needing async mock fixes
 
 ### Specialized Testing
-- **AI_TESTING.md** - AI Assistant, multi-model, API integration tests
-- **ML_FEEDBACK_TESTING.md** - 3 critical regression prevention tests
-- **smoke/README.md** - Health check tests (26 tests, ~15s)
+- **AI_TESTS_README.md** - AI Assistant, multi-model, API integration tests
+- **smoke/README.md** - Health check tests (~15s)
 - **e2e/README.md** - Browser automation with Playwright
 
 ### Test Infrastructure
@@ -187,8 +180,7 @@ python3 run_tests.py e2e             # End-to-end tests
 ### Day 2: Deep Dive (1 hour)
 1. TESTING.md (sections 1-5) - 30 min
 2. SKIPPED_TESTS.md - 10 min
-3. AI_TESTING.md - 10 min
-4. ML_FEEDBACK_TESTING.md - 10 min
+3. AI_TESTS_README.md - 10 min
 
 ### Day 3: Specialized (as needed)
 1. smoke/README.md

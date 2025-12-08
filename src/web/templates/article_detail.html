@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}{{ article.title[:50] }}... - Huntable CTI Scraper{% endblock %}
+{% block title %}{{ article.title[:50] }}... - Huntable Detection Studio{% endblock %}
 
 {% block content %}
 <div class="container mx-auto px-4 py-8">
@@ -4034,7 +4034,7 @@ Please provide a detailed analysis based on the article content and the user's s
             
             // Add author name for SIGMA rules
             if (type === 'sigma') {
-                const sigmaAuthor = settings.sigmaAuthor || 'Huntable CTI Scraper User';
+                const sigmaAuthor = settings.sigmaAuthor || 'Huntable Detection Studio User';
                 requestBody.author_name = sigmaAuthor;
             }
             

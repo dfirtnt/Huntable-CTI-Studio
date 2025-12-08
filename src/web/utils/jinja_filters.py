@@ -1,5 +1,5 @@
 """
-Reusable Jinja filter functions for the CTI Scraper web UI.
+Reusable Jinja filter functions for the Huntable Detection Studio web UI.
 
 Separated from the main application module to simplify imports and
 keep template-specific helpers in a dedicated location.

@@ -2,6 +2,11 @@
 
 This directory contains end-to-end tests for the CTIScraper web application using Playwright.
 
+## Status
+- Phase 1 (critical workflows) ✅ complete: classification, annotation, AI assistant, RAG chat, ML feedback
+- Phase 2 (feature workflows) ✅ complete: sources, backups, PDF upload, ML vs Hunt dashboard, advanced search
+- Phase 3 (edge cases) ✅ complete: article navigation, settings/config pages
+
 ## Test Files
 
 ### Phase 1: High Priority - Critical User Workflows
@@ -64,5 +69,3 @@ Test fixtures for sample data are located in `fixtures/`:
 - `test_articles.py` - Sample article data
 
 ## Documentation
-
-See `E2E_TEST_SUITE_EXPANSION.md` for implementation progress and status.

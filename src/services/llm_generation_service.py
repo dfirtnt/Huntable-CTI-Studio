@@ -28,6 +28,7 @@ class LLMGenerationService:
             "LMSTUDIO_API_URL", "http://host.docker.internal:1234/v1"
         )
         self.lmstudio_model = os.getenv("LMSTUDIO_MODEL", "deepseek-r1-qwen3-8b")
+        self.last_lmstudio_model: Optional[str] = None
 
         logger.info("Initialized LLM Generation Service")
 
@@ -85,6 +86,15 @@ class LLMGenerationService:
                 user_prompt=user_prompt,
                 provider=selected_provider,
             )
+
+            # If LMStudio returned a specific model name, prefer it for display
+            if selected_provider == "lmstudio" and self.last_lmstudio_model:
+                model_name = self.last_lmstudio_model
+                model_display_name = self._build_model_display(
+                    selected_provider,
+                    model_name,
+                    requested_provider,
+                )
 
             return {
                 "response": response,
@@ -663,6 +673,8 @@ You analyze retrieved CTI article content and Sigma detection rules to answer us
                 raise RuntimeError(f"LMStudio API error: {error_detail}")
 
             result = response.json()
+            # Capture actual model used by LMStudio for accurate UI display
+            self.last_lmstudio_model = result.get("model") or self.lmstudio_model
             return result["choices"][0]["message"]["content"]
 
     def get_available_providers(self) -> List[str]:

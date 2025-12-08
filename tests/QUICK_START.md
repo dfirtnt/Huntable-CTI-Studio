@@ -156,8 +156,7 @@ Check for conflicts on ports 8001, 5432, 6379
 ## 10. Next Steps
 
 - **Learn more**: See [Testing Guide](TESTING.md) for comprehensive documentation
-- **ML Testing**: See [ML Feedback Tests](ML_FEEDBACK_TESTING.md) for regression prevention
-- **Advanced**: See [Advanced Testing](docs/development/ADVANCED_TESTING.md) for API, E2E, and performance testing
+- **ML Testing**: Run `./scripts/run_ml_feedback_tests.sh` for regression prevention
 
 ## Quick Reference
 

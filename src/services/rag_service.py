@@ -296,43 +296,49 @@ class RAGService:
             
             # Generate query embedding using SIGMA embedding model (e5-base-v2)
             query_embedding = self.sigma_embedding_service.generate_embedding(query)
-            embedding_str = '[' + ','.join(map(str, query_embedding)) + ']'
-            zero_vector = '[' + ','.join(['0.0'] * 768) + ']'
+            zero_vector = [0.0] * 768
             
             # Get database session
             async with self.db_manager.get_session() as session:
-                from sqlalchemy import text, select
-                from src.database.models import SigmaRuleTable
+                from sqlalchemy import Integer, bindparam, text
+                from pgvector.sqlalchemy import Vector
                 
-                # Build query using section embeddings (signature embedding for detection logic focus)
-                stmt = select(
-                    SigmaRuleTable.id,
-                    SigmaRuleTable.rule_id,
-                    SigmaRuleTable.title,
-                    SigmaRuleTable.description,
-                    SigmaRuleTable.tags,
-                    SigmaRuleTable.level,
-                    SigmaRuleTable.status,
-                    SigmaRuleTable.file_path,
-                    text("""
+                # Use raw SQL text to avoid asyncpg parameter parsing issues with ::vector casts
+                stmt = text("""
+                    SELECT 
+                        sr.id,
+                        sr.rule_id,
+                        sr.title,
+                        sr.description,
+                        sr.tags,
+                        sr.level,
+                        sr.status,
+                        sr.file_path,
                         CASE 
-                            WHEN logsource_embedding IS NOT NULL AND :query_vector != :zero_vec
-                                THEN 1 - (logsource_embedding <=> :query_vector::vector) 
-                            WHEN embedding IS NOT NULL AND :query_vector != :zero_vec
-                                THEN 1 - (embedding <=> :query_vector::vector)
+                            WHEN sr.logsource_embedding IS NOT NULL AND :embedding != :zero_vec
+                                THEN 1 - (sr.logsource_embedding <=> :embedding) 
+                            WHEN sr.embedding IS NOT NULL AND :embedding != :zero_vec
+                                THEN 1 - (sr.embedding <=> :embedding)
                             ELSE 0.0 
                         END AS signature_sim
-                    """)
-                ).where(
-                    (SigmaRuleTable.logsource_embedding.is_not(None)) |
-                    (SigmaRuleTable.embedding.is_not(None))
-                ).order_by(
-                    text("signature_sim DESC")
-                ).limit(top_k)
+                    FROM sigma_rules sr
+                    WHERE sr.logsource_embedding IS NOT NULL OR sr.embedding IS NOT NULL
+                    ORDER BY signature_sim DESC
+                    LIMIT :limit
+                """).bindparams(
+                    bindparam("embedding", type_=Vector(768)),
+                    bindparam("zero_vec", type_=Vector(768)),
+                    bindparam("limit", type_=Integer),
+                )
                 
                 # Execute query with vector binding
                 result = await session.execute(
-                    stmt.params(query_vector=embedding_str, zero_vec=zero_vector)
+                    stmt,
+                    {
+                        'embedding': query_embedding,
+                        'zero_vec': zero_vector,
+                        'limit': top_k
+                    }
                 )
                 
                 rules = []

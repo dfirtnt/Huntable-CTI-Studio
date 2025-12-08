@@ -1,5 +1,5 @@
 """
-HTML page routes for the CTI Scraper application.
+HTML page routes for the Huntable Detection Studio application.
 """
 
 from __future__ import annotations

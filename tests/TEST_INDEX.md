@@ -317,7 +317,7 @@ Fix async mock configurations for:
 - **`TEST_INDEX.md`** - This comprehensive index
 - **`SKIPPED_TESTS.md`** - Detailed skipped test information
 - **`AI_TESTING.md`** - AI Assistant test documentation
-- **`AI_PRIORITY_1_TESTS_IMPLEMENTATION.md`** - AI test implementation summary
+- **`AI_TESTS_README.md`** - AI test coverage and execution
 
 ### Quick Reference
 - **Total Tests**: 1200+

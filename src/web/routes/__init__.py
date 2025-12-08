@@ -1,5 +1,5 @@
 """
-Router registration helpers for the CTI Scraper FastAPI application.
+Router registration helpers for the Huntable Detection Studio FastAPI application.
 
 Individual router modules should expose an ``router`` instance that is
 included from :func:`register_routes`.

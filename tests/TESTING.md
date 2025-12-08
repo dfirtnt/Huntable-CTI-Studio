@@ -571,7 +571,7 @@ pytest tests/test_models.py::TestArticleModel::test_article_creation -v -s
 1. **Database Isolation**: All integration tests use `cti_scraper_test` database (not production `cti_scraper`)
 2. **Transaction Rollback**: All database changes are rolled back after each test
 3. **Config Read-Only**: Tests only read config files, never write to them
-4. **ML Model Protection**: All ML model retraining tests are disabled
+4. **ML Model Protection**: All ML model retraining tests are disabled/skipped by default
 5. **Default Exclusions**: Tests marked `prod_data`/`production_data` are excluded by default
 
 ### Protection Mechanisms
@@ -586,7 +586,7 @@ pytest tests/test_models.py::TestArticleModel::test_article_creation -v -s
 - No tests modify configuration files
 
 **ML Model Protection:**
-- All retraining tests are disabled per `TEST_MUTATION_AUDIT.md`
+- Retraining-oriented tests are skipped by default (see `tests/SKIPPED_TESTS.md` for current list)
 - Tests marked `prod_data`/`production_data` are excluded by default
 
 **UI Tests Safety:**
@@ -786,9 +786,8 @@ docker-compose ps
 
 ### Additional Documentation
 
-- **`AI_PRIORITY_1_TESTS_IMPLEMENTATION.md`** - AI test implementation summary
+- **`AI_TESTS_README.md`** - AI test coverage and execution
 - **`SKIPPED_TESTS.md`** - Detailed skipped test information
-- **`AI_PRIORITY_1_TESTS_IMPLEMENTATION.md`** - AI test implementation summary
 
 ### Test Priorities
 
