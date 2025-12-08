@@ -281,23 +281,36 @@ class TestAIAssistantUI:
         """Test that SIGMA rules are enabled for chosen articles."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         
+        article_id = 634
+        article_url = f"{base_url}/articles/{article_id}"
+        classification_url = f"{base_url}/api/articles/{article_id}/classify"
+
         # Navigate to an article
-        page.goto(f"{base_url}/articles/634")
-        
-        # Mark article as chosen
-        page.click("button:has-text('Mark as Chosen')")
-        expect(page.locator("text=Article marked as chosen successfully!")).to_be_visible()
-        
-        # Click AI Assistant button
-        page.click("button:has-text('AI Assistant')")
-        
-        # Verify SIGMA rules button is enabled
-        sigma_button = page.locator("button:has-text('Generate SIGMA Rules')")
-        expect(sigma_button).to_be_enabled()
-        
-        # Clean up - mark as unclassified
-        page.click("button:has-text('Mark as Unclassified')")
-        expect(page.locator("text=Article marked as unclassified successfully!")).to_be_visible()
+        page.goto(article_url)
+
+        response = page.request.post(
+            classification_url,
+            data=json.dumps({"category": "chosen"}),
+            headers={"Content-Type": "application/json"}
+        )
+        assert response.ok
+
+        try:
+            page.reload()
+            # Click AI Assistant button
+            page.click("button:has-text('AI Assistant')")
+
+            # Verify SIGMA rules button is enabled
+            sigma_button = page.locator("button:has-text('Generate SIGMA Rules')")
+            expect(sigma_button).to_be_enabled()
+        finally:
+            revert_response = page.request.post(
+                classification_url,
+                data=json.dumps({"category": "unclassified"}),
+                headers={"Content-Type": "application/json"}
+            )
+            assert revert_response.ok
+            page.reload()
     
     @pytest.mark.ui
     @pytest.mark.ai
@@ -433,7 +446,8 @@ class TestAIAssistantUI:
                     window.articleData = {{
                         id: 999,
                         article_metadata: {{
-                            threat_hunting_score: 25
+                            threat_hunting_score: 25,
+                            training_category: 'chosen'
                         }}
                     }};
                 </script>
@@ -444,10 +458,8 @@ class TestAIAssistantUI:
         
         # Navigate to the mocked article
         page.goto(f"{base_url}/articles/999")
-        
-        # Mark as chosen first
-        page.click("button:has-text('Mark as Chosen')")
-        
+        page.evaluate("localStorage.setItem('currentArticleClassification', 'chosen')")
+
         # Click AI Assistant button
         page.click("button:has-text('AI Assistant')")
         

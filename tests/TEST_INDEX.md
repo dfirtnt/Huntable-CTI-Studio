@@ -74,7 +74,6 @@
 | `test_ai_assistant_ui.py` | 17 | ✅ Passing | AI Assistant interface |
 | `test_analytics_pages_ui.py` | 11 | ✅ Passing | Analytics dashboard pages (Hunt Metrics, Scraper Metrics, ML Comparison) |
 | `test_analytics_ui.py` | 20 | ✅ Passing | Analytics main page and navigation |
-| `test_article_classification.py` | 9 | ✅ Passing | Article classification UI |
 | `test_article_interactions_ui.py` | 10 | ✅ Passing | Article list interactions and detail page |
 | `test_collect_now_button.py` | 9 | ✅ Passing | Collection button functionality |
 | `test_dashboard_functionality.py` | 11 | ✅ Passing | Dashboard functionality and flows |

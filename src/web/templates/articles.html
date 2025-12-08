@@ -25,7 +25,7 @@
                 </svg>
             </button>
         </div>
-        <div id="filtersContent" class="hidden" data-filters-active="{{ 'true' if filters.search or filters.source or filters.classification or filters.threat_hunting_range or filters.title_only else 'false' }}">
+        <div id="filtersContent" class="hidden" data-filters-active="{{ 'true' if filters.search or filters.source or filters.threat_hunting_range or filters.title_only else 'false' }}">
         <form method="GET">
             <!-- Hidden inputs to preserve sort parameters -->
             <input type="hidden" name="sort_by" value="{{ filters.sort_by or 'published_at' }}">
@@ -1354,27 +1354,37 @@
         const filtersIcon = filtersToggle?.querySelector('svg');
 
         if (filtersToggle && filtersContent && filtersIcon) {
+            const filtersPanelStateKey = 'cti_articles_filters_panel_open';
             const filtersActive = filtersContent.dataset.filtersActive === 'true';
+            let shouldStartOpen = filtersActive;
 
-            // Expand on load when filters are already applied
-            if (filtersActive) {
-                filtersContent.classList.remove('hidden');
-                filtersIcon.style.transform = 'rotate(0deg)';
-                filtersToggle.setAttribute('aria-expanded', 'true');
+            try {
+                const storedState = sessionStorage.getItem(filtersPanelStateKey);
+                if (storedState !== null) {
+                    shouldStartOpen = storedState === 'true';
+                }
+            } catch (sessionError) {
+                // sessionStorage may be disabled in strict browsers, ignore
             }
+
+            const setFiltersPanelState = (open) => {
+                filtersContent.classList.toggle('hidden', !open);
+                filtersIcon.style.transform = open ? 'rotate(0deg)' : 'rotate(180deg)';
+                filtersToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+
+                try {
+                    sessionStorage.setItem(filtersPanelStateKey, open ? 'true' : 'false');
+                } catch (sessionError) {
+                    // sessionStorage may be disabled, silently ignore
+                }
+            };
+
+            // Keep the panel collapsed on first load
+            setFiltersPanelState(shouldStartOpen);
 
             filtersToggle.addEventListener('click', function() {
                 const isHidden = filtersContent.classList.contains('hidden');
-
-                if (isHidden) {
-                    filtersContent.classList.remove('hidden');
-                    filtersIcon.style.transform = 'rotate(0deg)';
-                    filtersToggle.setAttribute('aria-expanded', 'true');
-                } else {
-                    filtersContent.classList.add('hidden');
-                    filtersIcon.style.transform = 'rotate(180deg)';
-                    filtersToggle.setAttribute('aria-expanded', 'false');
-                }
+                setFiltersPanelState(isHidden);
             });
         }
     });
