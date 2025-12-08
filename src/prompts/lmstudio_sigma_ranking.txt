@@ -1,0 +1,24 @@
+Task: Analyze this threat intelligence article and score it 1-10 for SIGMA detection rule potential.
+
+Instructions:
+- DO NOT score for: Single IPs, single domains, file hashes, single URLs without patterns
+- DO score for: Patterns, command-line chains, process sequences, registry patterns, network patterns (DGA, URL paths), behavioral combinations
+
+Scoring:
+- 7-10: Specific technical patterns (commands, registry, files, processes, network patterns)
+- 4-6: Some technical patterns but limited
+- 1-3: Strategic content, minimal patterns, or only atomic IOCs
+
+REQUIRED OUTPUT FORMAT - Start your response with:
+SIGMA HUNTABILITY SCORE: [NUMBER]
+
+Example:
+SIGMA HUNTABILITY SCORE: 8
+REASONING: This article describes specific command-line execution patterns and registry modifications.
+
+Article Title: {title}
+Source: {source}
+Article Content:
+{content}
+
+Now analyze and respond with your score following the format above.

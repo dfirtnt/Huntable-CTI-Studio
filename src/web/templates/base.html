@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Huntable CTI Scraper - Threat Intelligence Platform{% endblock %}</title>
+    
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/x-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🛡️</text></svg>">
+    
+    <!-- Tailwind CSS via CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- HTMX for dynamic interactions -->
+    <script src="https://unpkg.com/htmx.org@1.9.6"></script>
+    
+    <!-- Chart.js for visualizations -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <!-- React for components -->
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+    <!-- Text Annotation System -->
+    <script src="/static/js/annotation-manager.js"></script>
+    <script src="/static/js/mobile-simple.js"></script>
+    
+    <!-- Custom styles -->
+    <style>
+        .gradient-bg {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        .card-hover {
+            transition: all 0.3s ease;
+        }
+        .card-hover:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+        }
+        .card {
+            position: relative;
+            overflow: hidden;
+            box-sizing: border-box;
+        }
+        .quality-excellent { background-color: #10b981; }
+        
+        /* Chat layout improvements */
+        #rag-chat-container {
+            min-height: 500px;
+            max-height: calc(100vh - 120px);
+        }
+        
+        @media (max-height: 600px) {
+            #rag-chat-container {
+                height: calc(100vh - 100px) !important;
+            }
+        }
+        
+        /* Ultra-compact article links */
+        .article-link-compact {
+            line-height: 1.2;
+            padding: 2px 4px;
+            margin: 1px 0;
+        }
+        
+        .article-link-compact a {
+            font-size: 11px;
+            line-height: 1.1;
+        }
+        
+        /* Collapsible article links */
+        .article-collapsible {
+            transition: all 0.2s ease-in-out;
+        }
+        
+        .article-collapsible:hover {
+            background-color: #374151;
+        }
+        .quality-good { background-color: #3b82f6; }
+        .quality-fair { background-color: #f59e0b; }
+        .quality-limited { background-color: #ef4444; }
+        .priority-high { background-color: #ef4444; }
+        .priority-medium { background-color: #f59e0b; }
+        .priority-low { background-color: #10b981; }
+        
+        /* Environment banner styles */
+        .env-banner-dev {
+            background: linear-gradient(90deg, #10b981, #059669);
+            color: white;
+        }
+        .env-banner-prod {
+            background: linear-gradient(90deg, #ef4444, #dc2626);
+            color: white;
+        }
+        .env-banner-test {
+            background: linear-gradient(90deg, #f59e0b, #d97706);
+            color: white;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 dark:bg-gray-900 min-h-screen flex flex-col">
+    <!-- Environment Banner -->
+    <div id="environment-banner" class="w-full py-2 text-center text-sm font-medium">
+        <!-- Banner content will be populated by JavaScript -->
+    </div>
+    
+    <!-- Navigation -->
+    <nav class="gradient-bg text-white shadow-lg">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0">
+                        <a href="/" class="block cursor-pointer hover:opacity-80 transition-opacity">
+                            <h1 class="text-xl font-bold">🛡️ Huntable<br>CTI Scraper</h1>
+                        </a>
+                    </div>
+                    <div class="hidden md:block ml-10">
+                        <div class="flex items-baseline space-x-4">
+                            <a href="/articles" class="px-3 py-2 rounded-md text-sm font-medium hover:bg-white hover:bg-opacity-20 transition-colors">
+                                Articles
+                            </a>
+                            <a href="/sources" class="px-3 py-2 rounded-md text-sm font-medium hover:bg-white hover:bg-opacity-20 transition-colors">
+                                Sources
+                            </a>
+                            <a href="/analytics" class="px-3 py-2 rounded-md text-sm font-medium hover:bg-white hover:bg-opacity-20 transition-colors">
+                                📊 Analytics
+                            </a>
+                            <a href="/diags" class="px-3 py-2 rounded-md text-sm font-medium hover:bg-white hover:bg-opacity-20 transition-colors">
+                                🔧 Diags
+                            </a>
+                            <a href="/workflow" class="px-3 py-2 rounded-md text-sm font-medium hover:bg-white hover:bg-opacity-20 transition-colors">
+                                🤖 Agents
+                            </a>
+                            <a href="/evaluations" class="px-3 py-2 rounded-md text-sm font-medium hover:bg-white hover:bg-opacity-20 transition-colors">
+                                📈 Evaluations
+                            </a>
+                            <a href="/settings" class="px-3 py-2 rounded-md text-sm font-medium hover:bg-white hover:bg-opacity-20 transition-colors">
+                                ⚙️ Settings
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                <div class="flex items-center">
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="flex-1">
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-gray-800 text-white mt-auto">
+        <div class="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
+            <div class="text-center text-sm text-gray-300">
+                <p>&copy; 2025 Huntable CTI Scraper. Cyber Threat Intelligence aggregation and TTP Workbench platform.</p>
+                <p class="mt-2">Built with FastAPI, Python, and modern web technologies.</p>
+            </div>
+        </div>
+    </footer>
+
+    <!-- JavaScript -->
+    <script>
+        // Global utility functions
+        function formatDate(dateString) {
+            if (!dateString) return 'Unknown';
+            const date = new Date(dateString);
+            return date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
+        }
+
+        function truncateText(text, maxLength = 100) {
+            if (text.length <= maxLength) return text;
+            return text.substring(0, maxLength) + '...';
+        }
+
+        function getQualityColor(score) {
+            if (score >= 60) return 'quality-excellent';
+            if (score >= 45) return 'quality-good';
+            if (score >= 30) return 'quality-fair';
+            return 'quality-limited';
+        }
+
+        function getPriorityColor(priority) {
+            switch(priority.toLowerCase()) {
+                case 'high': return 'priority-high';
+                case 'medium': return 'priority-medium';
+                case 'low': return 'priority-low';
+                default: return 'bg-gray-500';
+            }
+        }
+
+        // Environment detection and banner
+        function detectEnvironment() {
+            const hostname = window.location.hostname;
+            const port = window.location.port;
+            const pathname = window.location.pathname;
+            
+            // Get environment from server-side context (if available)
+            const serverEnvironment = '{{ environment }}' || 'unknown';
+            
+            let environment = serverEnvironment;
+            let bannerClass = '';
+            let bannerText = '';
+            
+            // Determine banner styling based on environment
+            switch(environment.toLowerCase()) {
+                case 'development':
+                    bannerClass = 'env-banner-dev';
+                    bannerText = '🔧 DEVELOPMENT ENVIRONMENT - Local Development Server';
+                    break;
+                case 'production':
+                    bannerClass = 'env-banner-prod';
+                    bannerText = '🚀 PRODUCTION ENVIRONMENT - Live Production Server';
+                    break;
+                case 'test':
+                    bannerClass = 'env-banner-test';
+                    bannerText = '🧪 TEST ENVIRONMENT - Testing & CI/CD';
+                    break;
+                default:
+                    // Fallback to client-side detection
+                    if (port === '8001' || port === '') {
+                        if (hostname === 'localhost' || hostname === '127.0.0.1') {
+                            bannerClass = 'env-banner-dev';
+                            bannerText = '🔧 DEVELOPMENT ENVIRONMENT - Local Development Server';
+                        } else {
+                            bannerClass = 'env-banner-prod';
+                            bannerText = '🚀 PRODUCTION ENVIRONMENT - Live Production Server';
+                        }
+                    } else if (port === '5433' || pathname.includes('test')) {
+                        bannerClass = 'env-banner-test';
+                        bannerText = '🧪 TEST ENVIRONMENT - Testing & CI/CD';
+                    } else {
+                        bannerClass = 'env-banner-dev';
+                        bannerText = '❓ UNKNOWN ENVIRONMENT - Check Configuration';
+                    }
+            }
+            
+            // Update banner
+            const banner = document.getElementById('environment-banner');
+            if (banner) {
+                banner.className = `w-full py-2 text-center text-sm font-medium ${bannerClass}`;
+                banner.innerHTML = `
+                    <div class="flex items-center justify-center space-x-2">
+                        <span>${bannerText}</span>
+                        <span class="text-xs opacity-75">(${hostname}:${port || '80'})</span>
+                    </div>
+                `;
+            }
+        }
+        
+        // Initialize environment banner on page load
+        document.addEventListener('DOMContentLoaded', detectEnvironment);
+        
+        // Auto-refresh dashboard safely every 60 seconds (data-only refresh if available)
+        if (window.location.pathname === '/') {
+            setInterval(() => {
+                if (typeof window.loadDashboardData === 'function') {
+                    // Prefer in-place data refresh to avoid destroying scripts/components
+                    window.loadDashboardData();
+                } else {
+                    // Fallback: full page reload ensures scripts re-execute
+                    window.location.reload();
+                }
+            }, 60000);
+        }
+        
+        // Cross-page AI completion notification system
+        function showCompletionBanner(type, typeText, typeIcon, articleId, articleTitle) {
+            // Create completion banner
+            const banner = document.createElement('div');
+            banner.id = 'completionBanner';
+            banner.className = 'fixed top-4 right-4 z-50 p-4 rounded-md shadow-lg max-w-sm bg-green-500 text-white';
+            
+            banner.innerHTML = `
+                <div class="flex items-center space-x-2">
+                    <span class="text-lg">${typeIcon}</span>
+                    <div class="flex-1">
+                        <div class="font-medium">${typeText} Complete!</div>
+                        <div class="text-sm opacity-90">Article: ${articleTitle.length > 30 ? articleTitle.substring(0, 30) + '...' : articleTitle}</div>
+                        <a href="/articles/${articleId}#${type}" class="text-sm underline hover:no-underline">View Results →</a>
+                    </div>
+                    <button onclick="this.parentElement.parentElement.remove()" class="text-white hover:text-gray-200">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </button>
+                </div>
+            `;
+            
+            // Add to page
+            document.body.appendChild(banner);
+            
+            // Remove after 10 seconds
+            setTimeout(() => {
+                const bannerElement = document.getElementById('completionBanner');
+                if (bannerElement) {
+                    bannerElement.remove();
+                }
+            }, 10000);
+        }
+        
+        function checkPendingCompletions() {
+            const pendingCompletions = JSON.parse(localStorage.getItem('pendingCompletions') || '[]');
+            
+            pendingCompletions.forEach(completion => {
+                // Show completion banner
+                showCompletionBanner(completion.type, completion.typeText, completion.typeIcon, completion.articleId, completion.articleTitle);
+            });
+            
+            // Clear pending completions after showing them
+            localStorage.removeItem('pendingCompletions');
+        }
+        
+        // Check for pending completions on page load
+        document.addEventListener('DOMContentLoaded', checkPendingCompletions);
+    </script>
+
+    {% block scripts %}{% endblock %}
+</body>
+</html>

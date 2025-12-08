@@ -1,0 +1,75 @@
+{
+  "role": "Extract and classify telemetry-rich tactical observables from structured or unstructured threat intelligence content.",
+  "objective": "Identify all observable elements that may inform detection engineering or SIGMA rule creation. Classify each under a defined telemetry category. This agent does not generate rules — it prepares data for agents that do and provides evaluators with metrics on coverage depth.",
+  "constraints": [
+    "Only use the content provided in {article}",
+    "Do not infer or create observables not explicitly described",
+    "Output counts of identified items per category and a total count"
+  ],
+  "article": "{article}",
+  "categories": {
+    "1_command_line_patterns": {
+      "description": "Executed command strings, flags, parameters.",
+      "examples": ["powershell.exe -enc", "cmd /c whoami"]
+    },
+    "2_process_lineage_patterns": {
+      "description": "Parent-child relationships with executable names or paths.",
+      "examples": ["explorer.exe → powershell.exe"]
+    },
+    "3_event_id_triggers": {
+      "description": "Windows Event IDs or equivalents that describe the event context.",
+      "examples": ["Sysmon Event ID 1", "Security 4688"]
+    },
+    "4_file_path_patterns": {
+      "description": "Specific or wildcarded paths used for drops, execution, staging.",
+      "examples": ["C:\\Users\\*\\AppData\\Roaming\\bad.exe"]
+    },
+    "5_registry_patterns": {
+      "description": "Registry keys or values used for persistence, config, etc.",
+      "examples": ["HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run\\evil"]
+    },
+    "6_service_task_patterns": {
+      "description": "Names, binary paths, or scheduled task artifacts.",
+      "examples": ["schtasks /create ...", "ServiceName: UpdateHelper"]
+    },
+    "7_network_connection_patterns": {
+      "description": "IPs, ports, protocols — non-DNS level network observables.",
+      "examples": ["TCP 192.168.1.5:443", "protocol: SMB"]
+    },
+    "8_dns_query_patterns": {
+      "description": "FQDNs, DGA strings, or beacon-like subdomain patterns.",
+      "examples": ["abc123.example.com", "*.cloudfront.net"]
+    },
+    "9_proxy_http_patterns": {
+      "description": "URL paths, HTTP methods, headers, and User-Agent strings.",
+      "examples": ["GET /gate.php", "User-Agent: curl/7.55.1"]
+    },
+    "10_named_pipe_patterns": {
+      "description": "Named pipe identifiers used in lateral movement or IPC.",
+      "examples": ["\\\\.\\pipe\\mimikatzpipe"]
+    },
+    "11_sigma_rule_artifacts": {
+      "description": "Any full or partial SIGMA rule structures, rule names, or detection blocks."
+    },
+    "12_other_observables": {
+      "description": "Any observable not covered above, such as script hashes, PE metadata, token elevation states."
+    }
+  },
+  "output_format": {
+    "CommandLinePatterns": "<int>",
+    "ProcessLineagePatterns": "<int>",
+    "EventIDTriggers": "<int>",
+    "FilePathPatterns": "<int>",
+    "RegistryPatterns": "<int>",
+    "ServiceTaskPatterns": "<int>",
+    "NetworkConnectionPatterns": "<int>",
+    "DNSQueryPatterns": "<int>",
+    "ProxyHTTPPatterns": "<int>",
+    "NamedPipePatterns": "<int>",
+    "SIGMARuleArtifacts": "<int>",
+    "OtherObservables": "<int>",
+    "Total": "<int>"
+  },
+  "instructions": "Read the provided article content. Count observables in each category. Ensure no double-counting. CRITICAL: Output ONLY valid JSON. Start with { and end with }. No markdown code blocks, no explanations, no text before or after the JSON. The JSON must match the output_format structure exactly."
+}
+

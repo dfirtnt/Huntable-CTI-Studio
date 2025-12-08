@@ -1,0 +1,78 @@
+# CTI Scraper Dependencies
+# Pinned versions for reproducible builds
+# Last updated: 2025-01-29
+# Security audit: Updated all packages to latest versions
+# Phase 1 security updates: 2025-01-29 (certifi, charset-normalizer, cryptography)
+
+# Core scraping and processing
+requests==2.32.5
+aiohttp==3.12.15
+httpx==0.28.1
+brotli>=1.0.0  # Brotli decompression support for httpx
+beautifulsoup4==4.14.2
+lxml==6.0.2
+feedparser==6.0.12
+extruct==0.18.0
+iocextract==1.16.1
+
+# Data processing and storage
+pandas==2.3.3
+numpy==2.3.3
+sqlalchemy[asyncio]==2.0.43
+asyncpg==0.30.0
+PyYAML==6.0.3
+psycopg2-binary==2.9.10
+alembic==1.16.5
+
+# Web framework and server
+fastapi==0.120.0
+uvicorn[standard]==0.37.0
+jinja2==3.1.6
+
+# Background task processing
+celery==5.5.3
+redis==7.0.0
+
+# Classification and ML
+scikit-learn==1.7.2
+lightgbm==4.6.0
+joblib==1.5.2
+spacy>=3.7.0  # Sentence splitting (sentencizer component only, ~2MB)
+
+# Utilities
+click==8.3.0
+rich==14.1.0
+pydantic==2.11.9
+pydantic-settings==2.11.0
+reportlab==4.2.5  # PDF generation
+python-dateutil==2.9.0  # Date parsing utilities
+
+# Security
+certifi==2025.11.12
+urllib3==2.5.0
+charset-normalizer==3.4.4
+python-multipart==0.0.20
+cryptography==46.0.3  # Enhanced encryption
+
+# PDF processing
+pypdf==6.4.0
+
+# SIGMA rule validation and repository management
+pysigma==0.11.23
+GitPython==3.1.43
+
+# Additional AI/ML dependencies for enhanced features
+torch>=2.0.0  # For advanced ML models
+transformers>=4.21.0  # For LLM integration
+accelerate>=0.20.0  # For model optimization
+openai>=1.0.0  # Official OpenAI client
+tiktoken>=0.5.0  # Token counting utilities
+sentence-transformers>=2.2.2  # For semantic embeddings
+pgvector>=0.4.0  # PostgreSQL vector extension support
+
+# Agentic workflow
+langgraph>=0.2.0  # LangGraph for agentic workflow orchestration
+langgraph-checkpoint>=0.2.0  # LangGraph checkpointing for state persistence
+langgraph-checkpoint-postgres>=0.2.0  # PostgreSQL checkpoint backend for LangGraph
+langgraph-cli>=0.4.0  # LangGraph CLI for HTTP server
+langfuse>=2.0.0  # Langfuse for LLM observability and tracing

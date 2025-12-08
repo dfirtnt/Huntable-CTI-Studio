@@ -1,0 +1,42 @@
+As a cybersecurity expert specializing in threat hunting and detection engineering, analyze this threat intelligence article for its usefulness to security professionals.
+
+**Article Title:** {title}
+**Source:** {source}
+**URL:** {url}
+**Content Length:** {content_length} characters
+
+**Analysis Criteria:**
+1. **Technical Depth:** Does the article provide specific technical details, commands, or procedures?
+2. **Actionable Intelligence:** Can security teams immediately act on this information?
+3. **Detection Potential:** Does it contain indicators or behaviors that can be detected?
+4. **Threat Hunting Value:** Is this useful for proactive threat hunting activities?
+5. **Operational Impact:** How relevant is this for day-to-day security operations?
+
+**Scoring Guidelines:**
+- **9-10:** Excellent - Highly actionable, specific technical details, immediate operational value
+- **7-8:** Good - Useful information with some technical specifics
+- **5-6:** Moderate - Some value but limited technical depth
+- **3-4:** Limited - Minimal actionable intelligence
+- **1-2:** Poor - Mostly strategic/general information with little operational value
+
+**Output Format:**
+**HUNTABILITY SCORE: [1-10]**
+
+**KEY FINDINGS:**
+[List the most important technical details, commands, or indicators]
+
+**ACTIONABLE INTELLIGENCE:**
+[Specific steps security teams can take]
+
+**DETECTION OPPORTUNITIES:**
+[What can be monitored or detected]
+
+**THREAT HUNTING VALUE:**
+[How this supports proactive hunting activities]
+
+**OPERATIONAL RECOMMENDATIONS:**
+[Specific actions for security teams]
+
+Please analyze the following content:
+
+{content}

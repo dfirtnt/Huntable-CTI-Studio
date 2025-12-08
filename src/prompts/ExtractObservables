@@ -1,0 +1,58 @@
+{
+  "task": "Extract only command-line executions observable in Windows EDR/SIEM telemetry.",
+  "rules": {
+    "exclude": [
+      "atomic IOCs (IPs, domains, hashes, emails)",
+      "EventIDs",
+      "process trees",
+      "parent-child relationships",
+      "registry paths",
+      "file paths",
+      "services",
+      "network indicators"
+    ],
+    "include": [
+      "command-line executions only"
+    ]
+  },
+  "log_sources": [
+    "Windows Security Log",
+    "Sysmon",
+    "Windows PowerShell"
+  ],
+  "output_format": {
+    "observables": [
+      {
+        "type": "process_cmdline",
+        "value": "<string>",
+        "platform": "Windows",
+        "source_context": "<short text excerpt from original>"
+      }
+    ],
+    "summary": {
+      "count": "<int: number of unique discrete observables>",
+      "source_url": "<string>",
+      "platforms_detected": [
+        "Windows"
+      ]
+    }
+  },
+  "instructions": "Output valid, deduplicated JSON only. Use exact strings or <placeholder> where needed. No markdown or prose. Do not output anything except command-line strings.",
+  "example": {
+    "observables": [
+      {
+        "type": "process_cmdline",
+        "value": "powershell.exe -enc <base64string>",
+        "platform": "Windows",
+        "source_context": "Encoded PowerShell execution."
+      }
+    ],
+    "summary": {
+      "count": 1,
+      "source_url": "https://example.com/threat-report",
+      "platforms_detected": [
+        "Windows"
+      ]
+    }
+  }
+}

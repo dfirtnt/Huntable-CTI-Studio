@@ -1,0 +1,1225 @@
+{% extends "base.html" %}
+
+{% block title %}Sources - Huntable CTI Scraper{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+    <div class="mb-8">
+        <nav class="flex mb-4" aria-label="Breadcrumb">
+            <ol class="inline-flex items-center space-x-1 md:space-x-3">
+                <li class="inline-flex items-center">
+                    <a href="/" class="text-gray-700 hover:text-blue-600 dark:text-gray-300 dark:hover:text-blue-400">Home</a>
+                </li>
+                <li>
+                    <div class="flex items-center">
+                        <svg class="w-6 h-6 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd"></path>
+                        </svg>
+                        <span class="ml-1 text-gray-500 md:ml-2 dark:text-gray-400">Sources</span>
+                    </div>
+                </li>
+            </ol>
+        </nav>
+        
+        <h1 class="text-3xl font-bold text-gray-900 dark:text-white mb-2">🔗 Threat Intelligence Sources</h1>
+        <p class="text-gray-600 dark:text-gray-400">Manage and monitor your threat intelligence collection sources</p>
+    </div>
+
+    <!-- Database Status Banner -->
+    <div id="dbStatusBanner" class="hidden bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
+        <div class="flex items-center">
+            <div class="flex-shrink-0">
+                <span class="text-yellow-400 text-lg">⚠️</span>
+            </div>
+            <div class="ml-3">
+                <h3 class="text-sm font-medium text-yellow-800">Database Status</h3>
+                <p class="text-sm text-yellow-700">
+                    The database is experiencing temporary locking issues. 
+                    Source status changes may not persist until you refresh the page.
+                </p>
+            </div>
+            <div class="ml-auto pl-3">
+                <button onclick="window.location.reload()" 
+                        class="bg-yellow-100 text-yellow-800 rounded-md px-3 py-1 text-sm font-medium hover:bg-yellow-200">
+                    🔄 Refresh
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Sources List -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+        <div class="mb-6">
+            <div class="flex items-center justify-between">
+                <div>
+                    <h2 class="text-xl font-semibold text-gray-900 dark:text-white">🔗 Configured Sources</h2>
+                    <p class="text-sm text-gray-500 dark:text-gray-400">All threat intelligence sources and their current status</p>
+                </div>
+                <div class="text-right">
+                    <p class="text-xs text-gray-500 dark:text-gray-400">Sorted by</p>
+                    <p class="text-sm font-medium text-purple-600 dark:text-purple-400">Hunt Score (highest first)</p>
+                </div>
+            </div>
+        </div>
+
+        {% if sources %}
+        <div class="space-y-4">
+            {% for source in sources %}
+            {% if source.name.lower() != 'manual' %}
+            <div class="p-6 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg hover:shadow-md transition-all duration-200">
+                <div class="flex items-start justify-between">
+                    <div class="flex-1 min-w-0">
+                        <div class="flex items-center space-x-2 mb-2">
+                            <!-- Article count indicator -->
+                            <div class="flex items-center justify-center w-6 h-6 bg-green-100 text-green-800 text-xs font-bold rounded-full" 
+                                 aria-label="{{ source.total_articles or 0 }} articles collected">
+                                {{ source.total_articles or 0 }}
+                            </div>
+                            <h4 class="text-lg font-medium text-gray-900 dark:text-white">
+                                <a href="/articles?source_id={{ source.id }}" 
+                                   class="text-blue-600 hover:text-blue-800 hover:underline transition-colors"
+                                   aria-label="View articles from {{ source.name }}">
+                                    {{ source.name }}
+                                </a>
+                            </h4>
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium 
+                                         {% if source.active %}bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200{% else %}bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200{% endif %}"
+                                  aria-label="Source status: {% if source.active %}Active{% else %}Inactive{% endif %}">
+                                {% if source.active %}Active{% else %}Inactive{% endif %}
+                            </span>
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-3">
+                            <div>
+                                <p class="text-sm text-gray-500 dark:text-gray-400">URL</p>
+                                <p class="text-sm font-medium text-gray-900 dark:text-white break-all">{{ source.url }}</p>
+                            </div>
+                            {% if source.rss_url %}
+                            <div>
+                                <p class="text-sm text-gray-500 dark:text-gray-400">RSS Feed</p>
+                                <p class="text-sm font-medium text-gray-900 dark:text-white break-all">{{ source.rss_url }}</p>
+                            </div>
+                            {% endif %}
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-3">
+                            <div>
+                                <p class="text-sm text-gray-500 dark:text-gray-400">Collection Method</p>
+                                <p class="text-sm font-medium text-gray-900 dark:text-white">
+                                    {% if source.rss_url %}RSS Feed{% else %}Web Scraping{% endif %}
+                                </p>
+                            </div>
+                            <div>
+                                <p class="text-sm text-gray-500 dark:text-gray-400">Last Check</p>
+                                <p class="text-sm font-medium text-gray-900 dark:text-white">
+                                    {% if source.last_check %}{{ source.last_check.strftime('%Y-%m-%d %H:%M') }}{% else %}Never{% endif %}
+                                </p>
+                            </div>
+                            <div>
+                                <p class="text-sm text-gray-500 dark:text-gray-400">Articles Collected</p>
+                                <p class="text-sm font-medium text-gray-900 dark:text-white">{{ source.total_articles or 0 }}</p>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-3">
+                            <div>
+                                <p class="text-sm text-gray-500 dark:text-gray-400">Check Frequency</p>
+                                <p class="text-sm font-medium text-gray-900 dark:text-gray-100">{{ source.check_frequency // 60 }} minutes</p>
+                            </div>
+                            <div>
+                                <p class="text-sm text-gray-500 dark:text-gray-400">Lookback Window</p>
+                                <p class="text-sm font-medium text-gray-900 dark:text-gray-100">{{ source.lookback_days }} days</p>
+                            </div>
+                            <div>
+                                <p class="text-sm text-gray-500 dark:text-gray-400">Min Content Length</p>
+                                <p class="text-sm font-medium text-gray-900 dark:text-gray-100">
+                                    {% if source.config and source.config.min_content_length %}
+                                        {{ source.config.min_content_length }} chars
+                                    {% else %}
+                                        <span class="text-gray-400">200 chars (default)</span>
+                                    {% endif %}
+                                </p>
+                            </div>
+                        </div>
+
+                        <!-- Quality Metrics -->
+                        {% if source.id in quality_stats and quality_stats[source.id].total_articles > 0 %}
+                        {% set stat = quality_stats[source.id] %}
+                        <div class="bg-gray-100 dark:bg-gray-700 rounded-lg p-3 mb-3" role="region" aria-labelledby="quality-metrics-{{ source.id }}">
+                            <h5 id="quality-metrics-{{ source.id }}" class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">📊 Quality Metrics</h5>
+                            <div class="grid grid-cols-2 md:grid-cols-5 gap-3" role="group" aria-label="Quality metrics for {{ source.name }}">
+                                <div>
+                                    <p class="text-xs text-gray-500 dark:text-gray-400">Total Articles</p>
+                                    <p class="text-sm font-medium text-gray-900 dark:text-white" aria-label="{{ stat.total_articles }} total articles">{{ stat.total_articles }}</p>
+                                </div>
+                                <div>
+                                    <p class="text-xs text-gray-500 dark:text-gray-400">Rejected</p>
+                                    <p class="text-sm font-medium text-red-600 dark:text-red-400" aria-label="{{ stat.rejected_count }} rejected articles ({{ stat.rejection_rate }}%)">{{ stat.rejected_count }} ({{ stat.rejection_rate }}%)</p>
+                                </div>
+                                <div>
+                                    <p class="text-xs text-gray-500 dark:text-gray-400">Chosen</p>
+                                    <p class="text-sm font-medium text-green-600 dark:text-green-400" aria-label="{{ stat.chosen_count }} chosen articles ({{ stat.acceptance_rate }}%)">{{ stat.chosen_count }} ({{ stat.acceptance_rate }}%)</p>
+                                </div>
+                                <div>
+                                    <p class="text-xs text-gray-500 dark:text-gray-400">Unclassified</p>
+                                    <p class="text-sm font-medium text-gray-600 dark:text-gray-400" aria-label="{{ stat.unclassified_count }} unclassified articles">{{ stat.unclassified_count }}</p>
+                                </div>
+                                <div>
+                                    <p class="text-xs text-gray-500 dark:text-gray-400">Avg Hunt Score</p>
+                                    {% if source.id in hunt_score_lookup %}
+                                        {% set hunt_score = hunt_score_lookup[source.id] %}
+                                        <p class="text-sm font-medium text-purple-600 dark:text-purple-400" aria-label="Average hunt score: {{ hunt_score.avg_hunt_score }} out of 100">{{ hunt_score.avg_hunt_score }}/100</p>
+                                    {% else %}
+                                        <p class="text-sm font-medium text-gray-400 dark:text-gray-500">No scores</p>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        {% endif %}
+
+                        {% if source.description %}
+                        <div class="mb-3">
+                            <p class="text-sm text-gray-500 dark:text-gray-400">Description</p>
+                            <p class="text-sm text-gray-900 dark:text-gray-100">{{ source.description }}</p>
+                        </div>
+                        {% endif %}
+
+                        <div class="flex items-center space-x-2">
+                            <button onclick="collectFromSource({{ source.id }})" 
+                                    class="inline-flex items-center px-3 py-1.5 bg-blue-600 text-white rounded text-xs font-medium hover:bg-blue-700 transition-colors"
+                                    aria-label="Collect articles from {{ source.name }}"
+                                    title="Collect articles from {{ source.name }}">
+                                <span class="mr-2" aria-hidden="true">🚀</span>
+                                Collect Now
+                            </button>
+
+                            <button onclick="openSourceConfig({{ source.id }}, {{ source.lookback_days }}, {{ source.check_frequency // 60 }}, {{ source.config.min_content_length if source.config and source.config.min_content_length else 200 }})" 
+                                    class="inline-flex items-center px-3 py-1.5 border border-gray-300 rounded text-xs font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
+                                    aria-label="Configure {{ source.name }} settings"
+                                    title="Configure {{ source.name }} settings">
+                                <span class="mr-2" aria-hidden="true">⚙️</span>
+                                Configure
+                            </button>
+
+                            <button onclick="toggleSourceStatus({{ source.id }})" 
+                                    class="inline-flex items-center px-3 py-1.5 border border-gray-300 rounded text-xs font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
+                                    aria-label="Toggle {{ source.name }} active status"
+                                    title="Toggle {{ source.name }} active status">
+                                <span class="mr-2" aria-hidden="true">🔄</span>
+                                Toggle Status
+                            </button>
+
+                            <button onclick="showSourceStats({{ source.id }})" 
+                                    class="inline-flex items-center px-3 py-1.5 border border-gray-300 rounded text-xs font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
+                                    aria-label="View {{ source.name }} statistics"
+                                    title="View {{ source.name }} statistics">
+                                <span class="mr-2" aria-hidden="true">📊</span>
+                                Stats
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="text-center py-12">
+            <div class="text-gray-400 dark:text-gray-500 text-6xl mb-4">🔗</div>
+            <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-2">No sources configured</h3>
+            <p class="text-gray-500 dark:text-gray-400">Configure threat intelligence sources to start collecting data.</p>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Manual Source Panel -->
+    {% for source in sources %}
+    {% if source.name.lower() == 'manual' %}
+    <div class="bg-blue-50 dark:bg-blue-900 border border-blue-200 dark:border-blue-700 rounded-lg shadow-sm">
+        <div class="px-6 py-4 border-b border-blue-200 dark:border-blue-700">
+            <h3 class="text-lg font-medium text-blue-900 dark:text-blue-100">📝 Manual Source</h3>
+            <p class="text-sm text-blue-600 dark:text-blue-300">For manually added articles and content</p>
+        </div>
+        
+        <div class="px-6 py-4">
+            <div class="flex items-start justify-between">
+                <div class="flex-1 min-w-0">
+                    <div class="flex items-center space-x-2 mb-2">
+                        <h4 class="text-lg font-medium text-gray-900 dark:text-white">
+                            <a href="/articles?source_id={{ source.id }}" class="text-blue-600 hover:text-blue-800 hover:underline transition-colors">
+                                {{ source.name }}
+                            </a>
+                        </h4>
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium 
+                                     {% if source.active %}bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200{% else %}bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200{% endif %}">
+                            {% if source.active %}Active{% else %}Inactive{% endif %}
+                        </span>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-3">
+                        <div>
+                            <p class="text-sm text-gray-500 dark:text-gray-400">URL</p>
+                            <p class="text-sm font-medium text-gray-900 dark:text-white break-all">{{ source.url or 'N/A' }}</p>
+                        </div>
+                        <div>
+                            <p class="text-sm text-gray-500 dark:text-gray-400">Collection Method</p>
+                            <p class="text-sm font-medium text-gray-900 dark:text-white">Manual Entry</p>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-3">
+                        <div>
+                            <p class="text-sm text-gray-500 dark:text-gray-400">Last Check</p>
+                            <p class="text-sm font-medium text-gray-900 dark:text-gray-100">
+                                {% if source.last_check %}{{ source.last_check.strftime('%Y-%m-%d %H:%M') }}{% else %}Never{% endif %}
+                            </p>
+                        </div>
+                        <div>
+                            <p class="text-sm text-gray-500 dark:text-gray-400">Lookback Window</p>
+                            <p class="text-sm font-medium text-gray-900 dark:text-gray-100">{{ source.lookback_days }} days</p>
+                        </div>
+                        <div>
+                            <p class="text-sm text-gray-500 dark:text-gray-400">Articles Collected</p>
+                            <p class="text-sm font-medium text-gray-900 dark:text-gray-100">{{ source.total_articles or 0 }}</p>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-3">
+                        <div>
+                            <p class="text-sm text-gray-500 dark:text-gray-400">Min Content Length</p>
+                            <p class="text-sm font-medium text-gray-900 dark:text-gray-100">
+                                {% if source.config and source.config.min_content_length %}
+                                    {{ source.config.min_content_length }} chars
+                                {% else %}
+                                    <span class="text-gray-400">200 chars (default)</span>
+                                {% endif %}
+                            </p>
+                        </div>
+                        <div>
+                            <p class="text-sm text-gray-500 dark:text-gray-400">Check Frequency</p>
+                            <p class="text-sm font-medium text-gray-900 dark:text-gray-100">{{ source.check_frequency // 60 }} minutes</p>
+                        </div>
+                    </div>
+
+                    <!-- Quality Metrics -->
+                    {% if source.id in quality_stats and quality_stats[source.id].total_articles > 0 %}
+                    {% set stat = quality_stats[source.id] %}
+                    <div class="bg-gray-100 dark:bg-gray-700 rounded-lg p-3 mb-3" style="background-color: #f1f3f4;">
+                        <h5 class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">📊 Quality Metrics</h5>
+                        <div class="grid grid-cols-2 md:grid-cols-5 gap-3">
+                            <div>
+                                <p class="text-xs text-gray-500 dark:text-gray-400">Total Articles</p>
+                                <p class="text-sm font-medium text-gray-900 dark:text-gray-100">{{ stat.total_articles }}</p>
+                            </div>
+                            <div>
+                                <p class="text-xs text-gray-500 dark:text-gray-400">Rejected</p>
+                                <p class="text-sm font-medium text-red-600">{{ stat.rejected_count }} ({{ stat.rejection_rate }}%)</p>
+                            </div>
+                            <div>
+                                <p class="text-xs text-gray-500 dark:text-gray-400">Chosen</p>
+                                <p class="text-sm font-medium text-green-600">{{ stat.chosen_count }} ({{ stat.acceptance_rate }}%)</p>
+                            </div>
+                            <div>
+                                <p class="text-xs text-gray-500 dark:text-gray-400">Unclassified</p>
+                                <p class="text-sm font-medium text-gray-600">{{ stat.unclassified_count }}</p>
+                            </div>
+                            <div>
+                                <p class="text-xs text-gray-500 dark:text-gray-400">Avg Hunt Score</p>
+                                {% if source.id in hunt_score_lookup %}
+                                    {% set hunt_score = hunt_score_lookup[source.id] %}
+                                    <p class="text-sm font-medium text-purple-600">{{ hunt_score.avg_hunt_score }}/100</p>
+                                {% else %}
+                                    <p class="text-sm font-medium text-gray-400">No scores</p>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <div class="flex items-center space-x-2">
+                        <button onclick="showSourceStats({{ source.id }})" class="inline-flex items-center px-3 py-1.5 border border-gray-300 rounded text-xs font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors">
+                            <span class="mr-2">📊</span>
+                            Stats
+                        </button>
+                        
+                        <span class="text-xs text-gray-400 px-2 py-1">
+                            ⚙️ Configure and 🔄 Toggle Status disabled for Manual source
+                        </span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+    {% endfor %}
+
+    <!-- PDF Upload Section -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mt-8" style="background-color: #1c2230;">
+        <div class="flex items-center justify-between">
+            <div>
+                <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-2">📄 Upload PDF Reports</h2>
+                <p class="text-sm text-gray-500 dark:text-gray-400" style="color: #a3b7d0;">
+                    Upload PDF threat intelligence reports to automatically extract and analyze content
+                </p>
+            </div>
+            <div>
+                <a href="/pdf-upload" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
+                    <span class="mr-2">📄</span>
+                    Upload PDF
+                </a>
+            </div>
+        </div>
+    </div>
+
+<!-- Modal for displaying results -->
+<div id="resultModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden z-50">
+    <div class="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+        <div class="fixed inset-0 transition-opacity" aria-hidden="true">
+            <div class="absolute inset-0 bg-gray-500 opacity-75"></div>
+        </div>
+        <div class="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+            <div class="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                <div class="flex items-start">
+                    <div class="mt-3 text-center sm:mt-0 sm:text-left">
+                        <h3 class="text-lg leading-6 font-medium text-gray-900 dark:text-white" id="modalTitle">
+                            Source Action Result
+                        </h3>
+                        <div class="mt-2">
+                            <div id="modalContent" class="text-sm text-gray-500 dark:text-gray-400">
+                                <!-- Content will be populated by JavaScript -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+                <button type="button" onclick="closeModal()" class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-blue-600 text-base font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:ml-3 sm:w-auto sm:text-sm">
+                    Close
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+
+
+async function showSourceStats(sourceId) {
+    try {
+        showLoadingModal('Loading Stats', 'Fetching source statistics...');
+        
+        const response = await fetch(`/api/sources/${sourceId}/stats`);
+        const stats = await response.json();
+        
+        if (response.ok) {
+            let content = `<div class="space-y-3">`;
+            content += `<p><strong>Source:</strong> ${stats.source_name}</p>`;
+            content += `<p><strong>Status:</strong> <span class="${stats.active ? 'text-green-600' : 'text-red-600'}">${stats.active ? 'Active' : 'Inactive'}</span></p>`;
+            content += `<p><strong>Collection Method:</strong> ${stats.collection_method}</p>`;
+            content += `<p><strong>Total Articles:</strong> ${stats.total_articles}</p>`;
+            content += `<p><strong>Average Content Length:</strong> ${stats.avg_content_length} characters</p>`;
+            content += `<p><strong>Average Threat Hunting Score:</strong> ${stats.avg_threat_hunting_score}/100</p>`;
+            content += `<p><strong>Last Check:</strong> ${stats.last_check ? new Date(stats.last_check).toLocaleString() : 'Never'}</p>`;
+            
+            if (Object.keys(stats.articles_by_date).length > 0) {
+                content += `<div class="mt-4"><strong>Recent Activity:</strong></div>`;
+                content += `<div class="max-h-32 overflow-y-auto">`;
+                const sortedDates = Object.keys(stats.articles_by_date).sort().reverse().slice(0, 10);
+                for (const date of sortedDates) {
+                    content += `<p class="text-xs">${date}: ${stats.articles_by_date[date]} articles</p>`;
+                }
+                content += `</div>`;
+            }
+            content += `</div>`;
+            
+            showModal('Source Statistics', content);
+        } else {
+            showModal('Stats Error', `<p class="text-red-600">Failed to load stats: ${stats.detail || 'Unknown error'}</p>`);
+        }
+    } catch (error) {
+        showModal('Stats Error', `<p class="text-red-600">Error loading stats: ${error.message}</p>`);
+    }
+}
+
+async function toggleSourceStatus(sourceId) {
+    try {
+        showLoadingModal('Updating Source', 'Toggling source status...');
+        
+        const response = await fetch(`/api/sources/${sourceId}/toggle`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        });
+        
+        const result = await response.json();
+        
+        if (response.ok) {
+            let content = `<div class="space-y-3">`;
+            content += `<p><strong>Source:</strong> ${result.source_name}</p>`;
+            content += `<p><strong>Previous Status:</strong> ${result.old_status ? 'Active' : 'Inactive'}</p>`;
+            content += `<p><strong>New Status:</strong> <span class="${result.new_status ? 'text-green-600' : 'text-red-600'}">${result.new_status ? 'Active' : 'Inactive'}</span></p>`;
+            content += `<p class="text-sm text-gray-500 dark:text-gray-400">${result.message}</p>`;
+            
+            if (result.success) {
+                content += `<div class="mt-3 p-3 bg-green-50 border border-green-200 rounded">`;
+                content += `<p class="text-sm text-green-800">✅ Status updated successfully!</p>`;
+                content += `</div>`;
+            }
+            
+            if (result.note) {
+                content += `<div class="mt-3 p-3 bg-yellow-50 border border-yellow-200 rounded">`;
+                content += `<p class="text-sm text-yellow-800"><strong>Note:</strong> ${result.note}</p>`;
+                content += `</div>`;
+            }
+            content += `</div>`;
+            
+            showModal('Source Status Updated', content);
+            
+            // Auto-refresh the page if database was updated
+            if (result.database_updated) {
+                setTimeout(() => {
+                    window.location.reload();
+                }, 2000);
+            } else {
+                // If database update failed, show a manual refresh button and status banner
+                setTimeout(() => {
+                    const modalContent = document.getElementById('modalContent');
+                    if (modalContent) {
+                        modalContent.innerHTML += `
+                            <div class="mt-4 p-3 bg-blue-50 border border-blue-200 rounded">
+                                <p class="text-sm text-blue-800">
+                                    <strong>Manual Refresh Required:</strong> 
+                                    Click the refresh button below to see current status.
+                                </p>
+                                <button onclick="window.location.reload()" 
+                                        class="mt-2 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
+                                    🔄 Refresh Page
+                                </button>
+                            </div>
+                        `;
+                    }
+                    
+                    // Show the database status banner
+                    const banner = document.getElementById('dbStatusBanner');
+                    if (banner) {
+                        banner.classList.remove('hidden');
+                    }
+                }, 1000);
+            }
+        } else {
+            showModal('Update Failed', `<p class="text-red-600">Failed to update source: ${result.detail || 'Unknown error'}</p>`);
+        }
+    } catch (error) {
+        showModal('Update Error', `<p class="text-red-600">Error updating source: ${error.message}</p>`);
+    }
+}
+
+function showModal(title, content) {
+    document.getElementById('modalTitle').textContent = title;
+    document.getElementById('modalContent').innerHTML = content;
+    document.getElementById('resultModal').classList.remove('hidden');
+}
+
+function showLoadingModal(title, message) {
+    showModal(title, `<div class="flex items-center space-x-3"><div class="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600"></div><span>${message}</span></div>`);
+}
+
+function closeModal() {
+    document.getElementById('resultModal').classList.add('hidden');
+}
+
+// Close modal when clicking outside
+const resultModal = document.getElementById('resultModal');
+if (resultModal) {
+    resultModal.addEventListener('click', function(e) {
+        if (e.target === this) {
+            closeModal();
+        }
+    });
+}
+
+// Close modal with ESC key
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+        const modal = document.getElementById('resultModal');
+        if (modal && !modal.classList.contains('hidden')) {
+            closeModal();
+        }
+    }
+});
+</script>
+
+<!-- Source Configuration Modal -->
+<div id="sourceConfigModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden z-50">
+    <div class="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+        <div class="fixed inset-0 transition-opacity" aria-hidden="true">
+            <div class="absolute inset-0 bg-gray-500 opacity-75"></div>
+        </div>
+        <div class="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+            <div class="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                <div class="flex items-start">
+                    <div class="mt-3 text-center sm:mt-0 sm:text-left w-full">
+                        <h3 class="text-lg leading-6 font-medium text-gray-900 dark:text-white" id="sourceConfigModalTitle">
+                            Configure Source Settings
+                        </h3>
+                        <div class="mt-4 space-y-6">
+                            <!-- Lookback Window Configuration -->
+                            <div>
+                                <label for="configLookbackDays" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                    Lookback Window (days)
+                                </label>
+                                <input type="number" id="configLookbackDays" min="1" max="365" 
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                                       placeholder="Enter days (1-365)">
+                                <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                                    How many days back this source should look for articles.
+                                </p>
+                            </div>
+
+                            <!-- Check Frequency Configuration -->
+                            <div>
+                                <label for="configCheckFrequency" class="block text-sm font-medium text-gray-700 mb-2">
+                                    Check Frequency (minutes)
+                                </label>
+                                <input type="number" id="configCheckFrequency" min="1" max="1440" 
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                                       placeholder="Enter minutes (1-1440)">
+                                <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                                    How often this source should be checked for new content (minimum 1 minute).
+                                </p>
+                            </div>
+
+                            <!-- Minimum Content Length Configuration -->
+                            <div>
+                                <label for="configMinContentLength" class="block text-sm font-medium text-gray-700 mb-2">
+                                    Minimum Content Length (characters)
+                                </label>
+                                <input type="number" id="configMinContentLength" min="0" 
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                                       placeholder="Enter minimum characters">
+                                <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                                    Articles shorter than this length will be filtered out.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+                <button type="button" id="saveSourceConfigBtn" 
+                        class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-blue-600 text-base font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:ml-3 sm:w-auto sm:text-sm">
+                    Save Changes
+                </button>
+                <button type="button" id="cancelSourceConfigBtn" 
+                        class="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm">
+                    Cancel
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let currentSourceId = null;
+
+function openSourceConfig(sourceId, currentDays, currentCheckFrequencyMinutes, currentMinLength) {
+    currentSourceId = sourceId;
+    document.getElementById('configLookbackDays').value = currentDays;
+    document.getElementById('configCheckFrequency').value = currentCheckFrequencyMinutes;
+    document.getElementById('configMinContentLength').value = currentMinLength;
+    document.getElementById('sourceConfigModal').classList.remove('hidden');
+}
+
+function closeSourceConfig() {
+    document.getElementById('sourceConfigModal').classList.add('hidden');
+    currentSourceId = null;
+}
+
+// Close source config modal when clicking outside
+const sourceConfigModalClick = document.getElementById('sourceConfigModal');
+if (sourceConfigModalClick) {
+    sourceConfigModalClick.addEventListener('click', function(e) {
+        if (e.target === this) {
+            closeSourceConfig();
+        }
+    });
+}
+
+// Close source config modal with ESC key
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+        const modal = document.getElementById('sourceConfigModal');
+        if (modal && !modal.classList.contains('hidden')) {
+            closeSourceConfig();
+        }
+    }
+});
+
+function saveSourceConfig() {
+    const days = parseInt(document.getElementById('configLookbackDays').value);
+    const checkFrequencyMinutes = parseInt(document.getElementById('configCheckFrequency').value);
+    const minLength = parseInt(document.getElementById('configMinContentLength').value);
+    
+    if (!days || days < 1 || days > 365) {
+        alert('Please enter a valid number between 1 and 365 days for lookback window.');
+        return;
+    }
+    
+    if (!checkFrequencyMinutes || checkFrequencyMinutes < 1 || checkFrequencyMinutes > 1440) {
+        alert('Please enter a valid number between 1 and 1440 minutes for check frequency.');
+        return;
+    }
+    
+    if (!minLength || minLength < 0) {
+        alert('Please enter a valid non-negative number for minimum content length.');
+        return;
+    }
+    
+    // Show loading state
+    const saveBtn = document.getElementById('saveSourceConfigBtn');
+    const originalText = saveBtn.textContent;
+    saveBtn.textContent = 'Saving...';
+    saveBtn.disabled = true;
+    
+    // Update all three settings
+    Promise.all([
+        fetch(`/api/sources/${currentSourceId}/lookback`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ lookback_days: days })
+        }),
+        fetch(`/api/sources/${currentSourceId}/check_frequency`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ check_frequency: checkFrequencyMinutes * 60 }) // Convert minutes to seconds
+        }),
+        fetch(`/api/sources/${currentSourceId}/min_content_length`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ min_content_length: minLength })
+        })
+    ])
+    .then(responses => Promise.all(responses.map(r => r.json())))
+    .then(results => {
+        if (results.every(r => r.success)) {
+            showNotification('Source configuration updated successfully!', 'success');
+            closeSourceConfig();
+            // Refresh the page to show updated values
+            setTimeout(() => window.location.reload(), 1000);
+        } else {
+            throw new Error('Failed to update one or more settings');
+        }
+    })
+    .catch(error => {
+        console.error('Error updating source configuration:', error);
+        showNotification('Failed to update source configuration: ' + error.message, 'error');
+    })
+    .finally(() => {
+        saveBtn.textContent = originalText;
+        saveBtn.disabled = false;
+    });
+}
+
+function showNotification(message, type = 'info') {
+    // Create notification element
+    const notification = document.createElement('div');
+    notification.className = `fixed top-4 right-4 z-50 p-4 rounded-md shadow-lg ${
+        type === 'success' ? 'bg-green-500 text-white' : 
+        type === 'error' ? 'bg-red-500 text-white' : 
+        'bg-blue-500 text-white'
+    }`;
+    notification.textContent = message;
+    
+    document.body.appendChild(notification);
+    
+    // Remove after 3 seconds
+    setTimeout(() => {
+        notification.remove();
+    }, 3000);
+}
+
+// Adhoc URL scraping functions
+function handleAdhocUrlSubmit(event) {
+    event.preventDefault();
+    event.stopPropagation();
+    
+    console.log('Form submitted, processing batch URLs...');
+    
+    const urlText = document.getElementById('adhocUrl').value.trim();
+    const title = document.getElementById('adhocTitle').value.trim();
+    const forceScrape = document.getElementById('adhocForceScrape').checked;
+    
+    if (!urlText) {
+        showNotification('Please enter at least one URL', 'error');
+        return false;
+    }
+    
+    // Parse URLs from textarea (split by newlines, filter empty lines)
+    const urls = urlText.split('\n')
+        .map(line => line.trim())
+        .filter(line => line.length > 0);
+    
+    if (urls.length === 0) {
+        showNotification('Please enter at least one valid URL', 'error');
+        return;
+    }
+    
+    // Basic URL validation
+    const urlPattern = /^https?:\/\/.+/;
+    const invalidUrls = urls.filter(url => !urlPattern.test(url));
+    if (invalidUrls.length > 0) {
+        showNotification(`Invalid URLs detected: ${invalidUrls.join(', ')}`, 'error');
+        return;
+    }
+    
+    // Show loading state
+    const submitBtn = document.getElementById('scrapeUrlBtn');
+    const statusDiv = document.getElementById('scrapingStatus');
+    const statusText = document.getElementById('scrapingStatusText');
+    
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = `<span class="mr-2">⏳</span>Scraping ${urls.length} URL${urls.length > 1 ? 's' : ''}...`;
+    statusDiv.classList.remove('hidden');
+    statusText.textContent = `Processing ${urls.length} URL${urls.length > 1 ? 's' : ''}...`;
+    
+    // Prepare request data
+    const requestData = {
+        urls: urls,
+        force_scrape: forceScrape
+    };
+    
+    if (title) {
+        requestData.title = title;
+    }
+    
+    // Send batch scraping request
+    console.log('Sending batch request with', urls.length, 'URLs');
+    fetch('/api/scrape-url', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestData)
+    })
+    .then(response => {
+        console.log('Received response:', response.status, response.statusText);
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        return response.json();
+    })
+    .then(data => {
+        console.log('Batch scraping result:', data);
+        if (data.success) {
+            const total = data.total || urls.length;
+            const successful = data.successful || 0;
+            const failed = data.failed || 0;
+            
+            statusText.textContent = `Batch complete: ${successful} succeeded, ${failed} failed`;
+            
+            let message = `Batch scraping completed: ${successful} of ${total} URL${total > 1 ? 's' : ''} processed successfully`;
+            if (failed > 0) {
+                message += `. ${failed} failed.`;
+                if (data.results) {
+                    const failedResults = data.results.filter(r => !r.success);
+                    console.warn('Failed URLs:', failedResults);
+                    
+                    // Show detailed errors for first few failures
+                    const errorDetails = failedResults.slice(0, 3).map(r => {
+                        const errorMsg = r.error || 'Unknown error';
+                        const shortUrl = r.url.length > 60 ? r.url.substring(0, 60) + '...' : r.url;
+                        return `${shortUrl}: ${errorMsg}`;
+                    }).join('\n');
+                    
+                    if (failedResults.length > 3) {
+                        message += `\n\nFirst errors:\n${errorDetails}\n... and ${failedResults.length - 3} more`;
+                    } else {
+                        message += `\n\nErrors:\n${errorDetails}`;
+                    }
+                }
+            }
+            showNotification(message, failed === 0 ? 'success' : 'warning');
+            
+            // Clear form
+            document.getElementById('adhocUrl').value = '';
+            document.getElementById('adhocTitle').value = '';
+            document.getElementById('adhocForceScrape').checked = false;
+            
+            // Hide status after delay
+            setTimeout(() => {
+                statusDiv.classList.add('hidden');
+            }, 3000);
+            
+            // Optionally redirect to the first successful article
+            if (data.results && data.results.length > 0 && data.results[0].article_id) {
+                setTimeout(() => {
+                    window.location.href = `/articles/${data.results[0].article_id}`;
+                }, 2000);
+            }
+        } else {
+            throw new Error(data.error || 'Failed to scrape URLs');
+        }
+    })
+    .catch(error => {
+        console.error('Error scraping URLs:', error);
+        statusText.textContent = 'Batch scraping failed';
+        const errorMsg = error.message || 'Unknown error occurred';
+        showNotification('Failed to scrape URLs: ' + errorMsg, 'error');
+        console.error('Full error details:', error);
+        
+        // Hide status after delay
+        setTimeout(() => {
+            statusDiv.classList.add('hidden');
+        }, 5000);
+    })
+    .finally(() => {
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = '<span class="mr-2">🔍</span>Scrape URLs';
+        console.log('Batch scraping request completed');
+    });
+    
+    return false; // Prevent form submission
+}
+
+// Event listeners with null checks
+const saveConfigBtn = document.getElementById('saveSourceConfigBtn');
+if (saveConfigBtn) saveConfigBtn.addEventListener('click', saveSourceConfig);
+
+const cancelConfigBtn = document.getElementById('cancelSourceConfigBtn');
+if (cancelConfigBtn) cancelConfigBtn.addEventListener('click', closeSourceConfig);
+
+// Attach event listeners when DOM is ready
+function attachAdhocUrlListeners() {
+    const adhocUrlForm = document.getElementById('adhocUrlForm');
+    if (adhocUrlForm) {
+        console.log('Attaching submit listener to form');
+        adhocUrlForm.addEventListener('submit', handleAdhocUrlSubmit);
+    } else {
+        console.warn('adhocUrlForm not found');
+    }
+
+    const adhocUrl = document.getElementById('adhocUrl');
+    if (adhocUrl) {
+        adhocUrl.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+                e.preventDefault();
+                handleAdhocUrlSubmit(e);
+            }
+        });
+    }
+
+    const adhocTitle = document.getElementById('adhocTitle');
+    if (adhocTitle) {
+        adhocTitle.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+                e.preventDefault();
+                handleAdhocUrlSubmit(e);
+            }
+        });
+    }
+}
+
+// Try attaching immediately, or wait for DOM
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', attachAdhocUrlListeners);
+} else {
+    // DOM already loaded
+    attachAdhocUrlListeners();
+}
+
+const configLookbackDays = document.getElementById('configLookbackDays');
+if (configLookbackDays) configLookbackDays.addEventListener('keypress', function(e) {
+    if (e.key === 'Enter') {
+        saveSourceConfig();
+    }
+});
+
+const configCheckFrequency = document.getElementById('configCheckFrequency');
+if (configCheckFrequency) configCheckFrequency.addEventListener('keypress', function(e) {
+    if (e.key === 'Enter') {
+        saveSourceConfig();
+    }
+});
+
+const configMinContentLength = document.getElementById('configMinContentLength');
+if (configMinContentLength) configMinContentLength.addEventListener('keypress', function(e) {
+    if (e.key === 'Enter') {
+        saveSourceConfig();
+    }
+});
+
+// Manual collection function
+function collectFromSource(sourceId) {
+    const statusDiv = document.getElementById('collectionStatus');
+    const statusText = document.getElementById('collectionStatusText');
+    const terminalOutput = document.getElementById('terminalOutput');
+    const terminalContent = document.getElementById('terminalContent');
+    const spinner = statusDiv.querySelector('.animate-spin');
+    
+    // Get source name from the button's parent container
+    const button = document.querySelector(`button[onclick="collectFromSource(${sourceId})"]`);
+    const sourceCard = button.closest('.bg-white');
+    // Find the h4 with the source name that contains the correct source_id in the href
+    const sourceNameLink = sourceCard.querySelector(`h4 a[href="/articles?source_id=${sourceId}"]`);
+    const sourceName = sourceNameLink ? sourceNameLink.textContent.trim() : 'Unknown Source';
+    
+    // Show status
+    statusDiv.classList.remove('hidden');
+    statusText.textContent = `Starting collection for ${sourceName}...`;
+    terminalOutput.classList.add('hidden');
+    terminalContent.innerHTML = '<div class="text-gray-400">Waiting for output...</div>';
+    
+    // Make API call
+    fetch(`/api/sources/${sourceId}/collect`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            statusText.textContent = `Collection in progress for ${sourceName}...`;
+            terminalOutput.classList.remove('hidden');
+                // showNotification(`Collection task started for ${sourceName}`, 'success');
+            
+            // Start monitoring task progress
+            monitorTaskProgress(data.task_id, sourceId, sourceName);
+        } else {
+            throw new Error(data.error || 'Failed to start collection');
+        }
+    })
+    .catch(error => {
+        console.error('Error starting collection:', error);
+        statusText.textContent = 'Collection failed to start';
+        spinner.classList.add('hidden');
+        showNotification('Failed to start collection: ' + error.message, 'error');
+        
+        // Hide status after delay
+        setTimeout(() => {
+            statusDiv.classList.add('hidden');
+        }, 5000);
+    });
+}
+
+// Monitor task progress
+function monitorTaskProgress(taskId, sourceId, sourceName) {
+    const statusText = document.getElementById('collectionStatusText');
+    const terminalContent = document.getElementById('terminalContent');
+    const spinner = document.getElementById('collectionStatus').querySelector('.animate-spin');
+    
+    const pollInterval = setInterval(() => {
+        fetch(`/api/tasks/${taskId}/status`)
+        .then(response => response.json())
+        .then(data => {
+            // Update terminal output with task status
+            const timestamp = new Date().toLocaleTimeString();
+            let logEntry = `[${timestamp}] `;
+            
+            switch(data.status) {
+                case 'PENDING':
+                    logEntry += 'Task queued, waiting to start...';
+                    break;
+                case 'STARTED':
+                    logEntry += 'Task started, collecting from source...';
+                    break;
+                case 'SUCCESS':
+                    logEntry += `✅ Collection completed successfully!`;
+                    if (data.result && data.result.articles_collected) {
+                        logEntry += ` Collected ${data.result.articles_collected} articles.`;
+                    }
+                    if (data.result && data.result.articles_saved !== undefined) {
+                        logEntry += ` Saved ${data.result.articles_saved} new articles.`;
+                    }
+                    if (data.result && data.result.articles_filtered !== undefined) {
+                        logEntry += ` Filtered ${data.result.articles_filtered} duplicates.`;
+                    }
+                    statusText.textContent = `Collection completed successfully for ${sourceName}!`;
+                    spinner.classList.add('hidden');
+                    clearInterval(pollInterval);
+                    break;
+                case 'FAILURE':
+                    logEntry += `❌ Collection failed: ${data.error || 'Unknown error'}`;
+                    statusText.textContent = `Collection failed for ${sourceName}`;
+                    spinner.classList.add('hidden');
+                    clearInterval(pollInterval);
+                    break;
+                case 'RETRY':
+                    logEntry += 'Task retrying...';
+                    break;
+                case 'REVOKED':
+                    logEntry += 'Task was cancelled';
+                    statusText.textContent = `Collection cancelled for ${sourceName}`;
+                    spinner.classList.add('hidden');
+                    clearInterval(pollInterval);
+                    break;
+                default:
+                    logEntry += `Status: ${data.status}`;
+            }
+            
+            // Add log entry to terminal
+            const logDiv = document.createElement('div');
+            logDiv.textContent = logEntry;
+            terminalContent.appendChild(logDiv);
+            
+            // Auto-scroll to bottom
+            const terminalOutput = document.getElementById('terminalOutput');
+            const terminalDiv = terminalOutput.querySelector('.bg-black');
+            terminalDiv.scrollTop = terminalDiv.scrollHeight;
+            
+            // Stop polling if task is complete
+            if (data.ready) {
+                clearInterval(pollInterval);
+            }
+        })
+        .catch(error => {
+            console.error('Error monitoring task:', error);
+            const timestamp = new Date().toLocaleTimeString();
+            const logDiv = document.createElement('div');
+            logDiv.textContent = `[${timestamp}] ❌ Error monitoring task: ${error.message}`;
+            logDiv.className = 'text-red-400';
+            terminalContent.appendChild(logDiv);
+        });
+    }, 2000); // Poll every 2 seconds
+    
+    // Add close button functionality
+    document.getElementById('closeCollectionStatus').onclick = () => {
+        clearInterval(pollInterval);
+        document.getElementById('collectionStatus').classList.add('hidden');
+    };
+}
+
+</script>
+
+    <!-- Manual URL Scraping Section -->
+    <div class="bg-white rounded-lg shadow-sm p-6" style="background-color: #1c2230;">
+        <div class="flex items-center justify-between mb-4">
+            <div>
+                <h2 class="text-xl font-bold text-gray-900 dark:text-white" style="color: #f1f5f9;">Manual URL Scraping</h2>
+                <p class="mt-1 text-sm text-gray-600" style="color: #a3b7d0;">Add one or more URLs (one per line) for batch scraping and analysis</p>
+            </div>
+        </div>
+        
+        <form id="adhocUrlForm" class="space-y-4" method="post" action="javascript:void(0);" onsubmit="return false;">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label for="adhocUrl" class="block text-sm font-medium text-gray-700 mb-2" style="color: #f1f5f9;">
+                        Article URLs (one per line)
+                    </label>
+                    <textarea id="adhocUrl" name="url" rows="6" required
+                           class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 font-mono text-sm"
+                           placeholder="https://example.com/article1&#10;https://example.com/article2&#10;https://example.com/article3"></textarea>
+                    <p class="mt-1 text-xs text-gray-500" style="color: #a3b7d0;">
+                        Enter one or more URLs (one per line). Each URL will be scraped and processed.
+                    </p>
+                    <div class="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-md" style="background-color: #374151; border-color: #4b5563;">
+                        <div class="flex items-start">
+                            <div class="flex-shrink-0">
+                                <span class="text-blue-600 text-sm" style="color: #3b82f6;">ℹ️</span>
+                            </div>
+                            <div class="ml-2">
+                                <p class="text-xs text-blue-800" style="color: #a3b7d0;">
+                                    <strong>Tip:</strong> Verify the URL opens correctly in your browser first. Some URLs may redirect to different domains or pages.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div>
+                    <label for="adhocTitle" class="block text-sm font-medium text-gray-700 mb-2" style="color: #f1f5f9;">
+                        Custom Title (Optional)
+                    </label>
+                    <input type="text" id="adhocTitle" name="title"
+                           class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                           placeholder="Leave empty to auto-detect">
+                    <p class="mt-1 text-xs text-gray-500" style="color: #a3b7d0;">
+                        Override the auto-detected title if needed
+                    </p>
+                </div>
+            </div>
+            
+            <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-4">
+                    <label class="flex items-center">
+                        <input type="checkbox" id="adhocForceScrape" name="force_scrape" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                        <span class="ml-2 text-sm text-gray-700" style="color: #f1f5f9;">Force scrape even if URL exists</span>
+                        <div class="relative ml-2 group">
+                            <span class="inline-flex items-center justify-center w-4 h-4 text-xs font-medium text-gray-500 bg-gray-200 rounded-full cursor-help hover:bg-gray-300 transition-colors">?</span>
+                            <div class="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 text-xs text-white bg-gray-800 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-10">
+                                Override duplicate URL check and scrape even if this URL already exists in the database
+                                <div class="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-800"></div>
+                            </div>
+                        </div>
+                    </label>
+                </div>
+                
+                <button type="submit" id="scrapeUrlBtn"
+                        onclick="event.preventDefault(); event.stopPropagation(); handleAdhocUrlSubmit(event); return false;"
+                        class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500" style="background: linear-gradient(135deg, #6366f1, #8b5cf6);">
+                    <span class="mr-2">🔍</span>
+                    Scrape URLs
+                </button>
+            </div>
+        </form>
+        
+        <!-- Scraping Status -->
+        <div id="scrapingStatus" class="mt-4 hidden">
+            <div class="bg-blue-50 border border-blue-200 rounded-md p-4" style="background-color: #374151; border-color: #4b5563;">
+                <div class="flex items-center">
+                    <div class="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-3" style="border-color: #3b82f6;"></div>
+                    <span class="text-sm text-blue-800" id="scrapingStatusText" style="color: #a3b7d0;">Scraping URL...</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Ensure form handler is attached after form exists -->
+    <script>
+    (function() {
+        const adhocUrlForm = document.getElementById('adhocUrlForm');
+        if (adhocUrlForm) {
+            console.log('✓ Form found, attaching submit handler');
+            adhocUrlForm.addEventListener('submit', function(e) {
+                console.log('Form submit event caught');
+                e.preventDefault();
+                e.stopPropagation();
+                if (typeof handleAdhocUrlSubmit === 'function') {
+                    handleAdhocUrlSubmit(e);
+                } else {
+                    console.error('handleAdhocUrlSubmit function not found');
+                }
+                return false;
+            });
+        } else {
+            console.error('✗ adhocUrlForm not found when script executed');
+        }
+    })();
+    </script>
+
+    <!-- Collection Status - Fixed Position -->
+    <div id="collectionStatus" class="fixed top-4 right-4 z-50 w-96 hidden">
+        <div class="bg-blue-50 border border-blue-200 rounded-md p-4 shadow-lg" style="background-color: #374151; border-color: #4b5563;">
+            <div class="flex items-center justify-between mb-3">
+                <div class="flex items-center">
+                    <div class="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-3" style="border-color: #3b82f6;"></div>
+                    <span class="text-sm text-blue-800" id="collectionStatusText" style="color: #a3b7d0;">Starting collection...</span>
+                </div>
+                <button id="closeCollectionStatus" class="text-blue-600 hover:text-blue-800 text-sm font-medium" style="color: #3b82f6;">
+                    ✕ Close
+                </button>
+            </div>
+            
+            <!-- Terminal Output -->
+            <div id="terminalOutput" class="hidden">
+                <div class="bg-black text-green-400 p-3 rounded font-mono text-xs max-h-64 overflow-y-auto">
+                    <div id="terminalContent">
+                        <div class="text-gray-400">Waiting for output...</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+{% endblock %}

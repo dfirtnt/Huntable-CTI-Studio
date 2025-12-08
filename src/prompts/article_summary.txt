@@ -1,0 +1,34 @@
+Please provide a comprehensive summary of this threat intelligence article.
+
+**Article Title:** {title}
+**Source:** {source}
+**URL:** {url}
+
+**Summary Requirements:**
+1. **Key Points:** Main findings and conclusions
+2. **Technical Details:** Specific commands, tools, or techniques mentioned
+3. **Threat Actors:** Any groups or individuals identified
+4. **Attack Vectors:** Methods or techniques described
+5. **Indicators:** IOCs, behaviors, or patterns mentioned
+6. **Impact:** Potential risks or consequences
+7. **Recommendations:** Suggested defensive actions
+
+**Output Format:**
+**EXECUTIVE SUMMARY:**
+[2-3 sentence overview]
+
+**KEY FINDINGS:**
+[Bullet points of main discoveries]
+
+**TECHNICAL DETAILS:**
+[Specific technical information]
+
+**THREAT INTELLIGENCE:**
+[Actors, campaigns, or attribution]
+
+**DEFENSIVE RECOMMENDATIONS:**
+[Actionable security measures]
+
+Please analyze the following content:
+
+{content}

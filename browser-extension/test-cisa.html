@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test CISA-like Page</title>
+</head>
+<body>
+    <header class="usa-header">
+        <nav class="usa-nav">
+            <div class="usa-nav__inner">
+                <button class="usa-nav__close">
+                    <img src="/assets/img/close.svg" alt="close">
+                </button>
+            </div>
+        </nav>
+    </header>
+
+    <main id="main-content">
+        <div class="usa-prose">
+            <h1>#StopRansomware: Rhysida Ransomware</h1>
+            
+            <div class="field--name-body">
+                <p><strong>Summary</strong></p>
+                <p>This joint Cybersecurity Advisory is part of an ongoing #StopRansomware effort to publish advisories for network defenders detailing various ransomware variants and ransomware threat actors. These #StopRansomware advisories include recently and historically observed tactics, techniques, and procedures (TTPs) and indicators of compromise (IOCs) to help organizations protect against ransomware.</p>
+                
+                <p>The Federal Bureau of Investigation (FBI), Cybersecurity and Infrastructure Security Agency (CISA), and the Multi-State Information Sharing and Analysis Center (MS-ISAC) are releasing this joint advisory to disseminate known Rhysida ransomware IOCs and TTPs identified through investigations as recently as December 2024. Rhysida has predominately been deployed against the education, healthcare, manufacturing, information technology, and government sectors since May 2023.</p>
+                
+                <p>The information in this advisory is derived from related incident response investigations and malware analysis of samples discovered on victim networks.</p>
+                
+                <h2>Technical Details</h2>
+                <p>Threat actors leveraging Rhysida ransomware are known to impact "targets of opportunity," including victims in the education, healthcare, manufacturing, information technology, and government sectors. Open source reporting details similarities between Vice Society (DEV-0832) activity and the actors observed deploying Rhysida ransomware.</p>
+                
+                <h3>Initial Access</h3>
+                <p>Rhysida actors have been observed leveraging external-facing remote services to initially access and persist within a network. Remote services, such as virtual private networks (VPNs), allow users to connect to internal enterprise network resources from external locations. Rhysida actors have commonly been observed authenticating to internal VPN access points with compromised valid credentials, notably due to organizations lacking MFA enabled by default.</p>
+                
+                <h3>Living off the Land</h3>
+                <p>Analysis identified Rhysida actors using living off the land techniques, such as creating Remote Desktop Protocol (RDP) connections for lateral movement, establishing VPN access, and utilizing PowerShell. Living off the land techniques include using native (built into the operating system) network administration tools to perform operations.</p>
+                
+                <p>This allows the actors to evade detection by blending in with normal Windows systems and network activities. Ipconfig, whoami, nltest, and several net commands have been used to enumerate victim environments and gather information about domains.</p>
+                
+                <h2>Mitigations</h2>
+                <p>FBI, CISA, and the MS-ISAC recommend implementing the following mitigations to reduce the likelihood and impact of Rhysida ransomware incidents:</p>
+                
+                <ul>
+                    <li>Prioritize remediating known exploited vulnerabilities.</li>
+                    <li>Enable multifactor authentication (MFA) for all services to the extent possible, particularly for webmail, VPN, and accounts that access critical systems.</li>
+                    <li>Segment networks to prevent the spread of ransomware.</li>
+                    <li>Implement a recovery plan to maintain and retain multiple copies of sensitive or proprietary data and servers in a physically separate, segmented, and secure location.</li>
+                    <li>Maintain offline backups of data and regularly maintain backups and their restoration (daily or weekly at minimum).</li>
+                </ul>
+            </div>
+        </div>
+    </main>
+
+    <footer class="usa-footer">
+        <div class="usa-footer__inner">
+            <p>Cybersecurity & Infrastructure Security Agency</p>
+        </div>
+    </footer>
+</body>
+</html>
