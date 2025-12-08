@@ -34,122 +34,6 @@
         </div>
     </div>
 
-    <!-- Workflow Visualization -->
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mb-6">
-        <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">🔀 LangGraph Workflow State Machine</h2>
-        <div id="workflowVisualization" class="relative bg-gray-50 dark:bg-gray-900 rounded-lg p-4">
-            <svg viewBox="0 0 900 350" class="w-full h-auto">
-                <defs>
-                    <marker id="arrowhead" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
-                        <polygon points="0 0, 10 3, 0 6" fill="#6b7280"/>
-                    </marker>
-                    <filter id="glow">
-                        <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
-                        <feMerge>
-                            <feMergeNode in="coloredBlur"/>
-                            <feMergeNode in="SourceGraphic"/>
-                        </feMerge>
-                    </filter>
-                </defs>
-                
-                <!-- Edges/Arrows -->
-                <g stroke="#6b7280" stroke-width="2" fill="none" marker-end="url(#arrowhead)">
-                    <!-- Step 0 -> Step 1 -->
-                    <line x1="150" y1="175" x2="250" y2="175"/>
-                    <!-- Step 1 -> Decision -->
-                    <line x1="350" y1="175" x2="420" y2="175"/>
-                    <!-- Decision -> Step 2 (if continue) -->
-                    <line x1="440" y1="165" x2="540" y2="100"/>
-                    <text x="490" y="130" fill="#10b981" font-size="10">Score ≥ 6</text>
-                    <!-- Step 2 -> Step 3 -->
-                    <line x1="640" y1="125" x2="740" y2="125"/>
-                    <!-- Step 3 -> Step 4 -->
-                    <line x1="790" y1="155" x2="790" y2="220"/>
-                    <!-- Step 4 -> Step 5 -->
-                    <line x1="540" y1="250" x2="440" y2="250"/>
-                    <!-- Decision -> End (if stop) -->
-                    <line x1="440" y1="185" x2="440" y2="300" stroke-dasharray="5,5"/>
-                    <line x1="440" y1="300" x2="900" y2="300" stroke-dasharray="5,5"/>
-                    <text x="670" y="295" fill="#ef4444" font-size="10">Score &lt; 6 → End</text>
-                </g>
-                
-                <!-- Nodes -->
-                <g id="workflowNodes">
-                    <!-- Step 0: Junk Filter -->
-                    <rect x="50" y="145" width="100" height="60" rx="8" fill="#3b82f6" class="workflow-node" data-step="junk_filter"/>
-                    <text x="100" y="165" text-anchor="middle" fill="white" font-weight="bold" font-size="11">Step 0</text>
-                    <text x="100" y="185" text-anchor="middle" fill="white" font-size="10">Junk Filter</text>
-                    
-                    <!-- Step 1: Rank Article -->
-                    <rect x="250" y="145" width="100" height="60" rx="8" fill="#10b981" class="workflow-node" data-step="rank_article"/>
-                    <text x="300" y="165" text-anchor="middle" fill="white" font-weight="bold" font-size="11">Step 1</text>
-                    <text x="300" y="185" text-anchor="middle" fill="white" font-size="10">LLM Ranking</text>
-                    
-                    <!-- Conditional Decision Diamond -->
-                    <polygon points="420,175 460,155 460,195 420,215" fill="#f59e0b" stroke="#92400e" stroke-width="2"/>
-                    <text x="440" y="178" text-anchor="middle" fill="white" font-weight="bold" font-size="9">≥6?</text>
-                    
-                    <!-- Step 2: Extract Agent -->
-                    <rect x="540" y="70" width="100" height="60" rx="8" fill="#f59e0b" class="workflow-node" data-step="extract_agent"/>
-                    <text x="590" y="90" text-anchor="middle" fill="white" font-weight="bold" font-size="11">Step 2</text>
-                    <text x="590" y="110" text-anchor="middle" fill="white" font-size="10">Extract</text>
-                    
-                    <!-- Step 3: Generate SIGMA -->
-                    <rect x="740" y="95" width="100" height="60" rx="8" fill="#ef4444" class="workflow-node" data-step="generate_sigma"/>
-                    <text x="790" y="115" text-anchor="middle" fill="white" font-weight="bold" font-size="11">Step 3</text>
-                    <text x="790" y="135" text-anchor="middle" fill="white" font-size="10">Generate</text>
-                    <text x="790" y="150" text-anchor="middle" fill="white" font-size="10">SIGMA</text>
-                    
-                    <!-- Step 4: Similarity Search -->
-                    <rect x="540" y="220" width="100" height="60" rx="8" fill="#ec4899" class="workflow-node" data-step="similarity_search"/>
-                    <text x="590" y="240" text-anchor="middle" fill="white" font-weight="bold" font-size="11">Step 4</text>
-                    <text x="590" y="260" text-anchor="middle" fill="white" font-size="10">Similarity</text>
-                    
-                    <!-- Step 5: Queue -->
-                    <rect x="340" y="220" width="100" height="60" rx="8" fill="#8b5cf6" class="workflow-node" data-step="promote_to_queue"/>
-                    <text x="390" y="240" text-anchor="middle" fill="white" font-weight="bold" font-size="11">Step 5</text>
-                    <text x="390" y="260" text-anchor="middle" fill="white" font-size="10">Queue</text>
-                    
-                    <!-- Queue -> End -->
-                    <line x1="340" y1="250" x2="200" y2="300" stroke-dasharray="3,3"/>
-                    <line x1="200" y1="300" x2="900" y2="300" stroke-dasharray="3,3"/>
-                    
-                    <!-- End Node -->
-                    <circle cx="900" cy="300" r="25" fill="#6b7280"/>
-                    <text x="900" y="306" text-anchor="middle" fill="white" font-weight="bold" font-size="12">END</text>
-                </g>
-            </svg>
-            
-            <!-- Legend -->
-            <div class="mt-4 grid grid-cols-6 gap-2 text-xs">
-                <div class="flex items-center space-x-2">
-                    <div class="w-4 h-4 bg-blue-500 rounded"></div>
-                    <span class="text-gray-900 dark:text-white">Filter</span>
-                </div>
-                <div class="flex items-center space-x-2">
-                    <div class="w-4 h-4 bg-green-500 rounded"></div>
-                    <span class="text-gray-900 dark:text-white">Rank</span>
-                </div>
-                <div class="flex items-center space-x-2">
-                    <div class="w-4 h-4 bg-yellow-500 rounded"></div>
-                    <span class="text-gray-900 dark:text-white">Extract</span>
-                </div>
-                <div class="flex items-center space-x-2">
-                    <div class="w-4 h-4 bg-red-500 rounded"></div>
-                    <span class="text-gray-900 dark:text-white">SIGMA</span>
-                </div>
-                <div class="flex items-center space-x-2">
-                    <div class="w-4 h-4 bg-pink-500 rounded"></div>
-                    <span class="text-gray-900 dark:text-white">Similarity</span>
-                </div>
-                <div class="flex items-center space-x-2">
-                    <div class="w-4 h-4 bg-purple-500 rounded"></div>
-                    <span class="text-gray-900 dark:text-white">Queue</span>
-                </div>
-            </div>
-        </div>
-    </div>
-
     <!-- Statistics -->
     <div id="executionStats" class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
         <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
@@ -337,25 +221,6 @@ function updateStats(data) {
     document.getElementById('failedExecutions').textContent = stats.failed;
 }
 
-function highlightCurrentStep(step) {
-    // Remove all highlights
-    document.querySelectorAll('.workflow-node').forEach(node => {
-        node.style.filter = 'none';
-        node.style.stroke = 'none';
-        node.style.strokeWidth = '0';
-    });
-    
-    // Highlight current step
-    if (step) {
-        const node = document.querySelector(`[data-step="${step}"]`);
-        if (node) {
-            node.style.filter = 'url(#glow)';
-            node.style.stroke = '#fbbf24';
-            node.style.strokeWidth = '3';
-        }
-    }
-}
-
 function formatJSON(obj) {
     if (!obj) return '<span class="text-gray-400">null</span>';
     return '<pre class="bg-gray-50 dark:bg-gray-900 p-3 rounded text-xs overflow-x-auto border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300">' + 
@@ -385,9 +250,6 @@ async function viewExecution(executionId) {
         const response = await fetch(`/api/workflow/executions/${executionId}`);
         if (response.ok) {
             const exec = await response.json();
-            
-            // Highlight current step in visualization
-            highlightCurrentStep(exec.current_step);
             
             const config = exec.config_snapshot || {};
             
@@ -1802,4 +1664,3 @@ function startLiveExecutionStream(executionId) {
 }
 </script>
 {% endblock %}
-

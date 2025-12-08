@@ -109,9 +109,9 @@ The server will:
 - Use LangSmith Studio (see Setup section)
 - Connect to LangGraph server manually with thread ID: `workflow_exec_{execution_id}`
 
-### Execution Observability Toggle
+### Execution Observability Toggle (Unreleased)
 
-Within **Workflow > Executions**, enable the **Show extract observable counts** toggle to insert CmdLine#, ProcTree#, Reg#, Signature#, and EventID# columns immediately after the ranking score. Each column shows the count of observables the ExtractAgent reported for that sub-agent (derived from `extraction_result.subresults` or the consolidated observable list), making it easier to spot which telemetry categories drove a workflow execution.
+The **Show extract observable counts** toggle is an unreleased feature. The underlying logic remains in the codebase, but the control is currently hidden from the UI while we validate it. When enabled in the future, it will insert CmdLine#, ProcTree#, Reg#, Signature#, and EventID# columns immediately after the ranking score to show observables reported by the ExtractAgent.
 
 ### Direct Access
 

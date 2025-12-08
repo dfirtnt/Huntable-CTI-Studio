@@ -1083,61 +1083,6 @@ class TestWorkflowExecutionsTabActions:
         # Filter should trigger filterExecutions() function
 
 
-class TestWorkflowExecutionsTabVisualization:
-    """Test workflow visualization in Executions tab."""
-    
-    @pytest.mark.ui
-    @pytest.mark.workflow
-    def test_workflow_visualization_toggle(self, page: Page):
-        """Test workflow visualization toggle."""
-        base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
-        page.goto(f"{base_url}/workflow")
-        page.wait_for_load_state("networkidle")
-        
-        page.locator("#tab-executions").click()
-        page.wait_for_timeout(500)
-        
-        # Find visualization toggle button
-        viz_toggle = page.locator("button:has-text('LangGraph Workflow State Machine')")
-        expect(viz_toggle).to_be_visible()
-        
-        # Get initial state
-        viz_content = page.locator("#workflowVisualization")
-        initial_state = viz_content.is_visible()
-        
-        # Click toggle
-        viz_toggle.click()
-        page.wait_for_timeout(300)
-        
-        # Verify state changed
-        new_state = viz_content.is_visible()
-        assert initial_state != new_state, "Visualization toggle should change visibility"
-    
-    @pytest.mark.ui
-    @pytest.mark.workflow
-    def test_workflow_svg_diagram(self, page: Page):
-        """Test that workflow SVG diagram renders."""
-        base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
-        page.goto(f"{base_url}/workflow")
-        page.wait_for_load_state("networkidle")
-        
-        page.locator("#tab-executions").click()
-        page.wait_for_timeout(500)
-        
-        # Expand visualization
-        viz_toggle = page.locator("button:has-text('LangGraph Workflow State Machine')")
-        viz_toggle.click()
-        page.wait_for_timeout(300)
-        
-        # Find SVG element
-        svg_element = page.locator("#workflowVisualization svg")
-        expect(svg_element).to_be_visible()
-        
-        # Verify workflow nodes exist
-        nodes = page.locator("#workflowNodes")
-        expect(nodes).to_be_visible()
-
-
 class TestWorkflowExecutionsTabStatistics:
     """Test execution statistics display."""
     
@@ -2068,4 +2013,3 @@ class TestWorkflowQueueAPI:
             
             # Verify additional API call was made
             assert len(api_calls) > initial_call_count, "Filter change should trigger API call"
-

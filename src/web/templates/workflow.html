@@ -1127,97 +1127,14 @@
                     <option value="failed">Failed</option>
                 </select>
             </div>
-            <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+            <!-- Unreleased feature: extract observable counts toggle kept but hidden from UI -->
+            <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 hidden" aria-hidden="true">
                 <input type="checkbox" 
                        id="observableCountsToggle" 
                        onchange="toggleObservableCounts(event)"
                        class="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 dark:border-gray-600 rounded">
                 <span class="select-none">Show extract observable counts</span>
             </label>
-        </div>
-
-        <!-- Workflow Visualization -->
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg mb-6">
-            <button onclick="toggleWorkflowVisualization()" class="w-full flex items-center justify-between p-6 text-left hover:bg-gray-50 dark:hover:bg-gray-700 rounded-t-lg transition-colors">
-                <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100">🔀 LangGraph Workflow State Machine</h2>
-                <span id="workflowVizToggle" class="text-gray-700 dark:text-gray-200 text-lg font-medium transform transition-transform">▼</span>
-            </button>
-            <div id="workflowVisualization" class="hidden p-6 pt-0">
-                <div class="relative bg-gray-50 dark:bg-gray-950 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
-                <svg viewBox="0 0 900 350" class="w-full h-auto">
-                    <defs>
-                        <marker id="arrowhead" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
-                            <polygon points="0 0, 10 3, 0 6" fill="#6b7280"/>
-                        </marker>
-                        <filter id="glow">
-                            <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
-                            <feMerge>
-                                <feMergeNode in="coloredBlur"/>
-                                <feMergeNode in="SourceGraphic"/>
-                            </feMerge>
-                        </filter>
-                    </defs>
-                    
-                    <!-- Edges/Arrows -->
-                    <g stroke="#6b7280" stroke-width="2" fill="none" marker-end="url(#arrowhead)">
-                        <line x1="150" y1="175" x2="250" y2="175"/>
-                        <text x="200" y="170" fill="#06b6d4" font-size="10">Windows?</text>
-                        <line x1="350" y1="175" x2="420" y2="175"/>
-                        <line x1="440" y1="165" x2="540" y2="100"/>
-                        <text x="490" y="130" fill="#10b981" font-size="10">Score ≥ 6</text>
-                        <line x1="640" y1="125" x2="740" y2="125"/>
-                        <line x1="790" y1="155" x2="790" y2="220"/>
-                        <line x1="540" y1="250" x2="440" y2="250"/>
-                        <line x1="340" y1="250" x2="200" y2="300" stroke-dasharray="3,3"/>
-                        <line x1="200" y1="300" x2="900" y2="300" stroke-dasharray="3,3"/>
-                        <line x1="440" y1="185" x2="440" y2="300" stroke-dasharray="5,5"/>
-                        <line x1="440" y1="300" x2="900" y2="300" stroke-dasharray="5,5"/>
-                        <line x1="50" y1="175" x2="100" y2="175"/>
-                        <line x1="50" y1="300" x2="900" y2="300" stroke-dasharray="5,5"/>
-                        <text x="670" y="295" fill="#ef4444" font-size="10">Score &lt; 6 → End</text>
-                        <text x="25" y="295" fill="#ef4444" font-size="10">Non-Win → End</text>
-                    </g>
-                    
-                    <!-- Nodes -->
-                    <g id="workflowNodes">
-                        <rect x="0" y="145" width="100" height="60" rx="8" fill="#06b6d4" class="workflow-node" data-step="os_detection"/>
-                        <text x="50" y="165" text-anchor="middle" fill="white" font-weight="bold" font-size="11">Step 0</text>
-                        <text x="50" y="185" text-anchor="middle" fill="white" font-size="10">OS Detect</text>
-                        
-                        <rect x="150" y="145" width="100" height="60" rx="8" fill="#3b82f6" class="workflow-node" data-step="junk_filter"/>
-                        <text x="200" y="165" text-anchor="middle" fill="white" font-weight="bold" font-size="11">Step 1</text>
-                        <text x="200" y="185" text-anchor="middle" fill="white" font-size="10">Junk Filter</text>
-                        
-                        <rect x="250" y="145" width="100" height="60" rx="8" fill="#10b981" class="workflow-node" data-step="rank_article"/>
-                        <text x="300" y="165" text-anchor="middle" fill="white" font-weight="bold" font-size="11">Step 2</text>
-                        <text x="300" y="185" text-anchor="middle" fill="white" font-size="10">LLM Rank</text>
-                        
-                        <polygon points="420,175 460,155 460,195 420,215" fill="#f59e0b" stroke="#92400e" stroke-width="2"/>
-                        <text x="440" y="178" text-anchor="middle" fill="white" font-weight="bold" font-size="9">≥6?</text>
-                        
-                        <rect x="540" y="70" width="100" height="60" rx="8" fill="#f59e0b" class="workflow-node" data-step="extract_agent"/>
-                        <text x="590" y="90" text-anchor="middle" fill="white" font-weight="bold" font-size="11">Step 3</text>
-                        <text x="590" y="110" text-anchor="middle" fill="white" font-size="10">Extract</text>
-                        
-                        <rect x="740" y="95" width="100" height="60" rx="8" fill="#ef4444" class="workflow-node" data-step="generate_sigma"/>
-                        <text x="790" y="115" text-anchor="middle" fill="white" font-weight="bold" font-size="11">Step 4</text>
-                        <text x="790" y="135" text-anchor="middle" fill="white" font-size="10">Generate</text>
-                        <text x="790" y="150" text-anchor="middle" fill="white" font-size="10">SIGMA</text>
-                        
-                        <rect x="540" y="220" width="100" height="60" rx="8" fill="#ec4899" class="workflow-node" data-step="similarity_search"/>
-                        <text x="590" y="240" text-anchor="middle" fill="white" font-weight="bold" font-size="11">Step 5</text>
-                        <text x="590" y="260" text-anchor="middle" fill="white" font-size="10">Similarity</text>
-                        
-                        <rect x="340" y="220" width="100" height="60" rx="8" fill="#8b5cf6" class="workflow-node" data-step="promote_to_queue"/>
-                        <text x="390" y="240" text-anchor="middle" fill="white" font-weight="bold" font-size="11">Step 6</text>
-                        <text x="390" y="260" text-anchor="middle" fill="white" font-size="10">Queue</text>
-                        
-                        <circle cx="900" cy="300" r="25" fill="#6b7280"/>
-                        <text x="900" y="306" text-anchor="middle" fill="white" font-weight="bold" font-size="12">END</text>
-                    </g>
-                </svg>
-                </div>
-            </div>
         </div>
 
         <!-- Statistics -->
@@ -6279,19 +6196,6 @@ async function cleanupStaleExecutions() {
 
 function refreshExecutions() {
     loadExecutions();
-}
-
-function toggleWorkflowVisualization() {
-    const viz = document.getElementById('workflowVisualization');
-    const toggle = document.getElementById('workflowVizToggle');
-    
-    if (viz.classList.contains('hidden')) {
-        viz.classList.remove('hidden');
-        toggle.textContent = '▲';
-    } else {
-        viz.classList.add('hidden');
-        toggle.textContent = '▼';
-    }
 }
 
 // Queue Functions

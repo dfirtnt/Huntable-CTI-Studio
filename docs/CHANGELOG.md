@@ -18,6 +18,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Scripts remain on disk for local development but are no longer tracked
 
 ### Changed
+- **Navigation Bar Alignment**: Centered primary navigation links with balanced spacing while retaining the brand anchor.
+- **Dashboard Header**: Removed the “Huntable Detection Studio & Workbench” title for a leaner landing header.
 - **Settings Page**: Removed Ollama model references (llama3.2:1b, tinyllama:1.1b) from recommended models list
 - **Scraper Metrics Page**: Removed "Article Ingestion Analytics" section to streamline the interface
 
@@ -63,6 +65,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Updated dashboard navigation to use merged diagnostics page
 
 ### Removed
+- **Workflow Executions Visualization Panel**: Removed the LangGraph state machine panel and toggle from the Executions tab (UI and tests).
+- **Evaluations UI**: Removed the Evaluations navigation entry and disabled evaluation UI routes.
 - **Complete Ollama Integration Removal**: Removed all Ollama code, references, and documentation
   - Removed Ollama Docker service and configuration
   - Removed Ollama API endpoints and health checks
