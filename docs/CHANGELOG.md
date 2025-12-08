@@ -21,6 +21,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Navigation Bar Alignment**: Centered primary navigation links with balanced spacing while retaining the brand anchor.
 - **Dashboard Header**: Removed the “Huntable Detection Studio & Workbench” title for a leaner landing header.
 - **Articles Page Filters**: Filters panel is now collapsible with state persistence; removed classification filter to streamline search inputs.
+- **Articles Page UI Simplification**: Removed classification filter, bulk classification actions, and classification display badges to streamline article management.
+- **Article Detail Page UI Cleanup**: Consolidated action buttons layout and removed observables help modal for streamlined interface.
+- **Sources Page UI Cleanup**: Removed quality metrics display sections (total articles, rejected/chosen/unclassified counts, average hunt scores) to simplify source cards.
 - **Settings Page**: Removed Ollama model references (llama3.2:1b, tinyllama:1.1b) from recommended models list
 - **Scraper Metrics Page**: Removed "Article Ingestion Analytics" section to streamline the interface
 
