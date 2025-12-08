@@ -357,10 +357,7 @@ class ContentFilter:
         if chunk_size <= 0:
             chunk_size = max(1, len(content))
 
-        step = chunk_size - overlap
-        if step <= 0:
-            step = max(1, chunk_size)
-
+        overlap = max(0, overlap)
         chunks = []
         start = 0
 
@@ -378,7 +375,19 @@ class ContentFilter:
             if chunk_text:
                 chunks.append((start, end, chunk_text))
 
-            start = start + step
+            chunk_length = end - start
+
+            # Determine the next chunk start while preserving overlap without creating gaps.
+            if chunk_length > overlap:
+                next_start = end - overlap
+            else:
+                next_start = end
+
+            # Ensure we always progress forward to avoid infinite loops.
+            if next_start <= start:
+                next_start = start + 1
+
+            start = next_start
 
         return chunks
 
