@@ -152,14 +152,10 @@ class RankAgentEvaluator(BaseAgentEvaluator):
             
             agent_prompt_data = config_obj.agent_prompts["RankAgent"]
             
-            # Parse prompt JSON
-            prompt_config_dict = None
+            # Get prompt template string
+            rank_prompt_template = None
             if isinstance(agent_prompt_data.get("prompt"), str):
-                prompt_config_dict = json.loads(agent_prompt_data["prompt"])
-            elif isinstance(agent_prompt_data.get("prompt"), dict):
-                prompt_config_dict = agent_prompt_data["prompt"]
-            
-            instructions_template_str = agent_prompt_data.get("instructions")
+                rank_prompt_template = agent_prompt_data["prompt"]
         finally:
             db_session.close()
         
@@ -169,9 +165,9 @@ class RankAgentEvaluator(BaseAgentEvaluator):
             ranking_result = await llm_service.rank_article(
                 title=article.title,
                 content=article.content or "",
+                source=article.source.name if article.source else "Unknown",
                 url=article.canonical_url or "",
-                prompt_config_dict=prompt_config_dict,
-                instructions_template_str=instructions_template_str,
+                prompt_template=rank_prompt_template,
                 article_id=article.id
             )
             processing_time = time.time() - start_time

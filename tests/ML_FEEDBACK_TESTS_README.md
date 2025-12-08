@@ -79,7 +79,7 @@ docker exec cti_web python -m pytest tests/integration/test_retraining_integrati
 ### Integration with Existing Test Suite
 ```bash
 # Run with existing test infrastructure
-./run_tests.sh integration
+python run_tests.py --integration
 ```
 
 ## What These Tests Catch

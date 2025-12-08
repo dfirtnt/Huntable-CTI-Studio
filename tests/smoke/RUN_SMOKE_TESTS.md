@@ -10,19 +10,17 @@ python3 run_tests.py smoke
 
 This automatically:
 - Uses the correct virtual environment
-- Runs all 26 smoke tests
+- Runs all 15 smoke tests
 - Completes in ~15 seconds
 
 ## What Gets Tested
 
 Smoke tests verify critical system functionality:
-- ✓ Health endpoints and database connectivity
-- ✓ Core services (Redis, Celery, Ollama)
-- ✓ Data pipeline and source management
-- ✓ ML services (RAG, embeddings)
-- ✓ Search, analytics, and export features
-- ✓ Background jobs and task queues
-- ✓ Performance and concurrency
+- ✓ API endpoints (dashboard, articles, sources, quick actions)
+- ✓ System startup and health
+- ✓ UI navigation flows
+- ✓ Article classification operations
+- ✓ RAG chat interface
 
 ## Detailed Output
 
@@ -43,11 +41,16 @@ python3 run_tests.py smoke --debug
 If you prefer to use pytest directly:
 
 ```bash
-.venv/bin/python -m pytest tests/smoke/test_critical_smoke_tests.py -m smoke -v
+# Run all smoke tests
+.venv/bin/python -m pytest tests/ -m smoke -v
+
+# Run specific test file
+.venv/bin/python -m pytest tests/api/test_endpoints.py -m smoke -v
+.venv/bin/python -m pytest tests/ui/test_ui_flows.py -m smoke -v
 ```
 
 ## Expected Results
 
 - **Duration:** ~15-20 seconds
-- **Tests:** 26 passed
-- **Coverage:** System health, services, data pipeline, ML, security, jobs, search, analytics
+- **Tests:** 15 passed
+- **Coverage:** API endpoints, system health, UI flows, article operations, ML services

@@ -7,26 +7,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+- **API Key Exposure**: Removed scripts containing hardcoded API keys from version control
+  - `scripts/eval_observables_count_multiple_models.py` and `scripts/get_full_extract_results.py`
+  - Added to .gitignore to prevent future commits
+  - Scripts remain on disk for local development but are no longer tracked
+
+### Changed
+- **Settings Page**: Removed Ollama model references (llama3.2:1b, tinyllama:1.1b) from recommended models list
+- **Scraper Metrics Page**: Removed "Article Ingestion Analytics" section to streamline the interface
+
 ### Fixed
-- **Smoke Test Failures**: Fixed test fixture and syntax errors preventing smoke tests from running
-  - Fixed `async_client` fixture in `tests/conftest.py` to handle `None` test_environment_config with fallback to port 8001
-  - Fixed `pytest_asyncio` import error in `tests/integration/conftest.py` with graceful fallback
-  - Fixed syntax error in `tests/integration/test_ai_real_api_integration.py` (orphaned try/except block)
-  - Smoke tests now collect and run successfully (8 passed, 5 UI failures identified as application issues)
+- **Backup System Critical Bug**: Fixed automated system backup failures that were creating empty backup files
+  - Root cause: Hardcoded `/app/backups` path didn't exist in containers
+  - Solution: Made backup directory configurable and added proper Docker exec calls
+  - Result: System backups now create valid database backups with actual data
+- **Sources Page Conflicting Metrics**: Fixed sources showing "0 articles collected" while displaying quality metrics
+  - Root cause: Article counting query filtered `archived == false` but articles had `archived = NULL`
+  - Solution: Updated query to count articles where `archived IS NULL OR archived = false`
+  - Result: Sources now display accurate article counts matching their quality metrics
+- **Database Restore Functionality**: Fixed restore script to work with Docker containers
+  - Added proper environment variable passing and host specifications
+  - Restore operations now work correctly with containerized database
 
 ### Added
-- **Distilled Model Detection Modal**: Added Distilled Model Detection feature to AI/ML Assistant
-  - Comprehensive modal explaining DistilBERT-style model approach for commandline detection
-  - Overview of 10-30× faster inference compared to LLM-based extraction
-  - Architecture options (sentence-level vs token-level classification)
-  - Inference pipeline documentation and benefits
-  - Placeholder functions for test detection and training guide
-  - Dark mode support with responsive layout
-- **DistilBERT Commandline Detection Test Script**: Created test script for evaluating DistilBERT models
-  - `utils/temp/test_distilbert_cmdline_detection.py` - Tests DistilBERT/CTI-BERT for Windows commandline detection
-  - Supports NER-based and pattern-matching fallback approaches
-  - Can compare against eval dataset for precision/recall/F1 metrics
-  - Configurable model selection and article filtering
+- **UI Tests for Dashboard Functionality**: Added comprehensive UI tests for dashboard features
+  - `test_article_volume_charts_display`: Verifies Article Volume section displays daily and hourly charts with proper canvas dimensions
+  - `test_high_score_articles_section_display`: Tests High-Score Articles section shows 10 cards with proper navigation links
+  - `test_copy_urls_button_functionality`: Validates Copy URLs button copies article URLs to clipboard with success notifications
+  - `test_run_health_checks_navigation_and_execution`: Tests Run Health Checks button navigation and automatic/manual check execution
+  - `test_agents_navigation_to_workflow_page`: Verifies Agents button navigates to workflow/AI assistant page
+  - `test_article_ai_assistant_button_functionality`: Tests AL/ML Assistant button on article pages opens modal correctly
 - **OS Detection Agent OS Selection**: Added OS selection checkboxes to OS Detection Agent configuration
   - Options: Windows, Linux, MacOS, Network, Other, All
   - Windows enabled by default; other options disabled (stub implementation)
@@ -36,23 +47,49 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Configurable maximum QA retry attempts (1-20, default: 5)
   - Added database migration script `scripts/migrate_add_qa_max_retries.sh`
   - UI field in QA Settings panel on workflow config page
+- **PDF Upload Manual Source**: Added automatic creation of manual source for PDF uploads
+  - Previously failed with "Manual source not found in database" error
+  - Now creates manual source on-demand if it doesn't exist
+  - Added `scripts/ensure_manual_source.py` utility script
+
+### Changed
+- **Merged Health Checks and Diagnostics Pages**: Combined `/health-checks` and `/diags` into single comprehensive diagnostics page
+  - New page at `/diags` includes all job monitoring, health checks, and ingestion analytics
+  - Removed redundant `/health-checks` page and route
+  - Updated dashboard navigation to use merged diagnostics page
 
 ### Removed
-- **cti-agent-chat Directory**: Removed unused `cti-agent-chat/` directory and all references
-  - Removed local LangGraph Agent Chat UI application (never integrated into workflow)
-  - Updated documentation to only reference LangSmith Studio for debugging
-  - Removed "Option B: Deploy Local UI" sections from `docs/LANGGRAPH_INTEGRATION.md` and `docs/LANGGRAPH_QUICKSTART.md`
-  - Updated `scripts/start_langgraph_server.sh` to only reference LangSmith Studio URLs
+- **Complete Ollama Integration Removal**: Removed all Ollama code, references, and documentation
+  - Removed Ollama Docker service and configuration
+  - Removed Ollama API endpoints and health checks
+  - Removed Ollama UI options from settings and article detail pages
+  - Removed Ollama methods from LLM generation service
+  - Removed Ollama test files and test references
+  - Cleaned up all Ollama environment variables and configurations
+  - Updated available AI models to exclude Ollama options
 
 ### Fixed
-- **Web Application Startup**: Fixed ImportError preventing application startup
-  - Removed non-existent `test_scrape` import from route registration
-  - Restored missing `dashboard.html.orig` template from git history
-  - Dashboard page now loads correctly at root URL
-- **Evaluation DB connections**: Cached synchronous DB engine/session to prevent opening new pools on each request and exhausting Postgres connections when visiting evaluation pages
+- **Web Server Import Error**: Fixed ImportError preventing web application startup
+  - Removed non-existent `test_scrape` module from route imports in `src/web/routes/__init__.py`
+  - Removed `test_scrape.router` registration that was causing circular import error
+  - Web container now starts successfully and serves requests on port 8001
 - **Database Migration**: Fixed missing `qa_max_retries` column in `agentic_workflow_config` table
   - Created migration to add column with default value of 5
   - Resolved SQL errors when querying workflow configuration
+- **Test Infrastructure Cleanup**: Added skip decorators to tests requiring separate infrastructure
+  - Skipped external API integration tests (`test_ai_real_api_integration.py`) that make real calls to OpenAI/Anthropic/Ollama
+  - Skipped workflow execution tests (`workflow_executions.spec.ts`) requiring Celery workers
+  - Skipped workflow save button tests (`workflow_save_button.spec.ts`) requiring isolated config environment
+  - Prevents production data modification and external API costs in single-instance setup
+- **Test Runner Help Documentation**: Updated `run_tests.py` help output to clearly indicate test safety for single-instance environments
+  - Added "SAFE for single-instance" labels to tests that can run without external infrastructure
+  - Added "LIMITED" labels to tests with some functionality skipped due to infrastructure requirements
+  - Updated examples to recommend safe test types for single-instance usage
+- **Transparent Docker Auto-Selection**: Added automatic Docker/localhost context selection based on test requirements
+  - New `--context auto` option (now default) automatically chooses execution environment
+  - UI/API/integration tests automatically run in Docker containers
+  - Unit/smoke tests run locally when dependencies are available
+  - Eliminates need for users to manually specify `--docker` for different test types
 
 ### Added
 - **File Organization Structure**: Implemented standardized file organization for temporary scripts, reports, and utilities
@@ -65,7 +102,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - **Documentation: LangGraph Debug Button Behavior**: Corrected documentation to accurately reflect debug button functionality
   - Fixed `docs/LANGGRAPH_INTEGRATION.md` and `docs/LANGGRAPH_QUICKSTART.md` to state that debug button opens LangFuse traces (post-execution viewing), not Agent Chat UI
-  - Clarified that step-into debugging requires manual setup with LangSmith Studio
+  - Clarified that step-into debugging requires manual setup with LangSmith Studio or Local Agent Chat UI
   - Updated API response example to show actual LangFuse trace URL format
   - Added notes about trace availability (only exists if execution ran with LangFuse tracing enabled)
 - **Browser Extension Manual Source Creation**: Fixed duplicate key violations when creating manual source from browser extension
@@ -92,10 +129,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Fixed duplicate try block that was preventing disabled check from working
   - Disabled agents now properly skipped with empty results instead of executing
   - Added comprehensive logging to track disabled agent configuration reading
-- **LMStudio Context Limits**: Context command generator now respects model-specific limits and disabled agents
-  - Skips disabled sub-agent models when generating commands
-  - Caps to LMStudio-reported limits when present
-  - Manual cap added for `meta-llama-3-8b-instruct` (8192 tokens)
 - **Workflow Config UI Improvements**:
   - Made all agent prompts collapsible and collapsed by default on workflow config page
   - Fixed model display mismatch where dropdown selection didn't match prompt display
@@ -420,7 +453,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Enhanced Test Reporting: Comprehensive test execution reports with ML/AI debugging capabilities
   - Visual Test Tracking: Professional test reporting system for development and CI/CD pipelines
   - Allure Management Script: `./manage_allure.sh` for easy container management
-- **Unified Testing Interface**: New `run_tests.py` and `run_tests.sh` for standardized test execution
+- **Unified Testing Interface**: New `run_tests.py` for standardized test execution
   - Docker Testing Support: Added `--docker` flag for containerized test execution
   - Virtual Environment Documentation: Comprehensive guide for `venv-test`, `venv-lg`, and `venv-ml`
   - Testing Workflow Guide: Complete documentation for different execution contexts and test categories
@@ -685,7 +718,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Color-coded validation feedback (green for valid, red for invalid)
   - Visual indicators for retry attempts vs. final attempt
   - Detailed error and warning messages from pySigma validator
-- **Unified Testing Interface**: New `run_tests.py` and `run_tests.sh` for standardized test execution
+- **Unified Testing Interface**: New `run_tests.py` for standardized test execution
 - **Docker Testing Support**: Added `--docker` flag for containerized test execution
 - **Virtual Environment Documentation**: Comprehensive guide for `venv-test`, `venv-lg`, and `venv-ml`
 - **Testing Workflow Guide**: Complete documentation for different execution contexts and test categories

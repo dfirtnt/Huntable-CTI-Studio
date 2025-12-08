@@ -1,4 +1,4 @@
-lgl"""
+"""
 Tests for database modules in src/database/.
 """
 

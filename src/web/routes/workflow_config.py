@@ -830,10 +830,22 @@ async def test_rank_agent(request: Request, test_request: TestRankAgentRequest):
             # Get source name
             source_name = article.source.name if article.source else "Unknown"
             
-            # Load ranking prompt
-            from pathlib import Path
-            prompts_dir = Path(__file__).parent.parent.parent / "prompts"
-            prompt_file = prompts_dir / "lmstudio_sigma_ranking.txt"
+            # Get prompt from config only (no file fallback)
+            if not config.agent_prompts or "RankAgent" not in config.agent_prompts:
+                raise HTTPException(
+                    status_code=400,
+                    detail="RankAgent prompt not found in workflow config. Please configure it in the workflow settings."
+                )
+            
+            rank_prompt_data = config.agent_prompts["RankAgent"]
+            if not isinstance(rank_prompt_data.get("prompt"), str):
+                raise HTTPException(
+                    status_code=400,
+                    detail="RankAgent prompt in config is not a string. Please check the workflow configuration."
+                )
+            
+            rank_prompt_template = rank_prompt_data["prompt"]
+            logger.info(f"Using RankAgent prompt from config (length: {len(rank_prompt_template)} chars)")
             
             # Run ranking
             ranking_result = await llm_service.rank_article(
@@ -841,7 +853,7 @@ async def test_rank_agent(request: Request, test_request: TestRankAgentRequest):
                 content=content_to_use,
                 source=source_name,
                 url=article.canonical_url or "",
-                prompt_template_path=str(prompt_file) if prompt_file.exists() else None,
+                prompt_template=rank_prompt_template,
                 execution_id=None,
                 article_id=test_request.article_id
             )

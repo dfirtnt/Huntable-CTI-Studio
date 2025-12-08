@@ -304,6 +304,7 @@
                             <li><u><strong>Usage Guidance:</strong> Model selected in this page are used as defaultfor certain AI Modals where no other model is used. </li></u>
                             <li><strong>GPT-4o-mini:</strong> Fast, high-quality responses, cost-efficient (requires OpenAI API key)</li>
                             <li><strong>Claude Sonnet 4.5:</strong> Advanced reasoning, cybersecurity-optimized, long context (requires Anthropic API key)</li>
+
                             <li><strong>llama-3.2-1b-instruct:</strong> Local model via LMStudio, no API costs</li>
                         </ul>
                     </div>
@@ -660,7 +661,7 @@
             if (testApiKeyBtn) {
                 testApiKeyBtn.style.display = 'inline-flex';
             }
-        } else if (aiModel === 'lmstudio') {
+            } else if (aiModel === 'lmstudio') {
             // Show API section for LMStudio but hide API key inputs
             apiSection.style.display = 'block';
             openaiSection.style.display = 'none';
@@ -896,12 +897,13 @@
     }
     
     
-    // Test API key (OpenAI or Anthropic) or LMStudio connection
+    // Test API key (OpenAI or Anthropic) or Ollama connection
     async function testApiKey() {
         const aiModel = document.getElementById('aiModel').value;
         const statusElement = document.getElementById('apiKeyStatus');
         const testButton = document.getElementById('testApiKey');
         
+
         
         // Handle LMStudio (no API key required)
         if (aiModel === 'lmstudio') {
