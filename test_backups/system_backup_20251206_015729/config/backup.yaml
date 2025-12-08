@@ -1,0 +1,193 @@
+# CTI Scraper Backup Configuration
+# This file contains default backup settings that can be overridden
+
+# Backup schedule
+schedule:
+  # Daily backup time (24-hour format)
+  backup_time: "02:00"
+  
+  # Weekly cleanup time (24-hour format)
+  cleanup_time: "03:00"
+  
+  # Day of week for cleanup (0=Sunday, 1=Monday, etc.)
+  cleanup_day: 0
+
+# Retention policy
+retention:
+  # Number of daily backups to keep
+  daily: 7
+  
+  # Number of weekly backups to keep
+  weekly: 4
+  
+  # Number of monthly backups to keep
+  monthly: 3
+  
+  # Maximum total backup size in GB
+  max_size_gb: 50
+
+# Backup settings
+backup:
+  # Default backup directory
+  directory: "backups"
+  
+  # Enable compression by default
+  compress: true
+  
+  # Enable file validation by default
+  verify: true
+  
+  # Backup type: full, database, files
+  type: "full"
+
+# Components to backup
+components:
+  # Database backup
+  database: true
+  
+  # ML models
+  models: true
+  
+  # Configuration files
+  config: true
+  
+  # Training data and outputs
+  outputs: true
+  
+  # Application logs
+  logs: true
+  
+  # Docker volumes
+  docker_volumes: true
+
+# Docker volume settings
+docker_volumes:
+  # List of volumes to backup
+  volumes:
+    - "postgres_data"
+    - "redis_data"
+    - "ollama_data"
+  
+  # Stop containers during volume backup
+  stop_containers: true
+
+# Verification settings
+verification:
+  # Enable checksum validation
+  checksums: true
+  
+  # Test database restore during verification
+  test_restore: false
+  
+  # Critical file patterns to validate
+  critical_patterns:
+    models:
+      - "*.pkl"
+      - "*.joblib"
+      - "*.h5"
+      - "*.onnx"
+    config:
+      - "*.yaml"
+      - "*.yml"
+      - "*.json"
+    outputs:
+      - "*.csv"
+      - "*.json"
+      - "*.txt"
+    training_data:
+      - "*.csv"
+      - "*.json"
+
+# Logging settings
+logging:
+  # Backup log file
+  log_file: "logs/backup.log"
+  
+  # Log level: DEBUG, INFO, WARNING, ERROR
+  level: "INFO"
+  
+  # Enable log rotation
+  rotate: true
+  
+  # Number of log files to keep
+  keep_logs: 30
+
+# Notification settings (future enhancement)
+notifications:
+  # Enable notifications
+  enabled: false
+  
+  # Notification methods
+  methods:
+    - "email"
+    - "slack"
+    - "webhook"
+  
+  # Notification events
+  events:
+    - "backup_success"
+    - "backup_failure"
+    - "cleanup_completed"
+    - "verification_failed"
+
+# Security settings
+security:
+  # Encrypt backup files
+  encrypt: false
+  
+  # Encryption key file (if encrypt is true)
+  key_file: "backup.key"
+  
+  # Backup file permissions
+  file_permissions: "0644"
+  
+  # Directory permissions
+  dir_permissions: "0755"
+
+# Performance settings
+performance:
+  # Number of parallel backup threads
+  max_threads: 4
+  
+  # Backup timeout in seconds
+  timeout: 300
+  
+  # Enable progress reporting
+  progress: true
+  
+  # Chunk size for large file transfers
+  chunk_size: 4096
+
+# Environment-specific overrides
+environments:
+  development:
+    retention:
+      daily: 3
+      weekly: 2
+      monthly: 1
+    backup:
+      verify: false
+    logging:
+      level: "DEBUG"
+  
+  production:
+    retention:
+      daily: 7
+      weekly: 4
+      monthly: 3
+    backup:
+      verify: true
+    logging:
+      level: "INFO"
+    security:
+      encrypt: true
+  
+  testing:
+    retention:
+      daily: 1
+      weekly: 1
+      monthly: 1
+    backup:
+      verify: false
+    logging:
+      level: "DEBUG"

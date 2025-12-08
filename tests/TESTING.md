@@ -28,7 +28,6 @@ Comprehensive testing documentation for the CTI Scraper application, covering al
 ```bash
 # Quick smoke test
 python run_tests.py --smoke
-./run_tests.sh smoke
 ```
 
 ### Install Test Dependencies
@@ -36,7 +35,6 @@ python run_tests.py --smoke
 ```bash
 # Install test dependencies
 python run_tests.py --install
-./run_tests.sh --install
 ```
 
 ### Run Full Test Suite
@@ -44,7 +42,6 @@ python run_tests.py --install
 ```bash
 # Complete test suite with coverage
 python run_tests.py --all --coverage
-./run_tests.sh all --coverage
 ```
 
 ### Run ML Feedback Tests (Essential Regression Prevention)
@@ -64,7 +61,6 @@ docker exec cti_web python -m pytest tests/integration/test_retraining_integrati
 ### Test Scripts
 
 - **`run_tests.py`**: Unified Python test runner with multiple execution modes
-- **`run_tests.sh`**: Shell wrapper for common test scenarios (⚠️ DEPRECATED - see deprecation notice)
 - **`scripts/run_tests_by_group.py`**: Grouped test execution script (executes tests by group and reports broken tests)
 - **`pytest.ini`**: Pytest configuration file
 
@@ -130,13 +126,6 @@ python run_tests.py --integration
 python run_tests.py --ui
 python run_tests.py --all --coverage
 
-# Using unified script
-./run_tests.sh smoke
-./run_tests.sh unit
-./run_tests.sh api
-./run_tests.sh integration
-./run_tests.sh ui
-./run_tests.sh all --coverage
 ```
 
 ### Docker Testing
@@ -151,10 +140,6 @@ python run_tests.py --docker --smoke
 python run_tests.py --docker --integration
 python run_tests.py --docker --all --coverage
 
-# Using unified script
-./run_tests.sh smoke --docker
-./run_tests.sh integration --docker
-./run_tests.sh all --coverage --docker
 ```
 
 ### CI/CD Testing
@@ -505,7 +490,6 @@ jobs:
 ```bash
 # Simulate CI pipeline locally
 python run_tests.py --ci
-./run_tests.sh ci
 
 # Simulate CI environment
 export CI=true

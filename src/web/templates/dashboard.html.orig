@@ -462,8 +462,8 @@
             // Set flag to auto-run checks when health checks page loads
             sessionStorage.setItem('autoRunHealthChecks', 'true');
             
-            // Navigate to health checks page
-            window.location.href = '/health-checks';
+            // Navigate to diagnostics page
+            window.location.href = '/diags';
         } catch (error) {
             showNotification(`Navigation failed: ${error.message}`, 'error');
         }

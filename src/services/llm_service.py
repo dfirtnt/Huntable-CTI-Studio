@@ -263,6 +263,8 @@ class LLMService:
         detection_method = None
         
         # Method 1: Try to get context length from /models endpoint
+        # NOTE: This endpoint often returns theoretical max, not actual configured length
+        # So we only trust it if it's a reasonable value (not >65536)
         async with httpx.AsyncClient() as client:
             for lmstudio_url in lmstudio_urls:
                 try:
@@ -276,40 +278,41 @@ class LLMService:
                                 detected_context = model.get("context_length") or model.get("context_length_max")
                                 if detected_context:
                                     # If detected context is very large (>65536), it's likely theoretical max
-                                    # LM Studio often configures smaller context lengths in practice
-                                    # Use conservative estimate for large contexts
+                                    # Don't trust it - we'll use Method 2 (test request) instead
                                     if detected_context > 65536:
-                                        logger.warning(
-                                            f"Detected large context length ({detected_context}) for {model_name}. "
-                                            f"This may be theoretical max, not configured length. Using conservative estimate."
+                                        logger.debug(
+                                            f"/models endpoint returned theoretical max ({detected_context}) for {model_name}. "
+                                            f"Ignoring and will test actual configured length via request."
                                         )
-                                        # Use much smaller conservative estimate for very large contexts
-                                        # Reasoning models: cap at 16384, non-reasoning: cap at 8192
-                                        is_reasoning = 'r1' in model_name.lower() or 'reasoning' in model_name.lower()
-                                        context_length = min(16384 if is_reasoning else 8192, detected_context // 16)
-                                        detection_method = "api_models_endpoint_conservative"
-                                    else:
+                                        # Don't set context_length here - let Method 2 test it
+                                    elif detected_context >= threshold:
+                                        # Reasonable value that meets threshold - trust it
                                         context_length = detected_context
                                         detection_method = "api_models_endpoint"
-                                    break
+                                        logger.info(
+                                            f"Detected {model_name} context length ({context_length} tokens) from /models endpoint"
+                                        )
+                                        break
+                                    else:
+                                        # Value is below threshold - might be wrong, but log it
+                                        logger.warning(
+                                            f"/models endpoint returned {detected_context} for {model_name}, "
+                                            f"which is below threshold {threshold}. Will verify with test request."
+                                        )
+                                        # Don't trust it - let Method 2 verify
                         if context_length:
                             break
                 except httpx.HTTPError:
                     continue
         
-        # Method 2: If not found in /models, try to infer from test request
-        # Use binary search to find actual context length
+        # Method 2: Test actual configured context length with a real request
+        # This is more reliable than /models endpoint which may return theoretical max
         if context_length is None:
             async with httpx.AsyncClient() as client:
                 for lmstudio_url in lmstudio_urls:
                     try:
-                        # Binary search for actual context length
-                        # Start with threshold, then try larger values
-                        low = threshold
-                        high = 131072  # Max reasonable context (128K)
-                        found_limit = None
-                        
-                        # First, verify threshold works
+                        # Test if threshold-sized context works
+                        # Use longer timeout to allow for prompt processing (600s read timeout)
                         test_content = "x" * (threshold * 4)  # ~4 chars per token
                         test_payload = {
                             "model": model_name,
@@ -317,73 +320,97 @@ class LLMService:
                             "max_tokens": 10
                         }
                         
+                        # Use longer timeout for test requests (600s read timeout like other LM Studio calls)
+                        read_timeout = 600.0
                         response = await client.post(
                             f"{lmstudio_url}/chat/completions",
                             json=test_payload,
-                            timeout=10.0
+                            timeout=httpx.Timeout(60.0, connect=30.0, read=read_timeout)
                         )
                         
                         if response.status_code == 200:
-                            # Threshold works, try to find upper bound
-                            # Test progressively larger values
-                            test_values = [16384, 32768, 65536, 98304, 131072]
-                            for test_val in test_values:
-                                if test_val <= low:
-                                    continue
-                                test_content = "x" * (test_val * 4)
-                                test_payload = {
-                                    "model": model_name,
-                                    "messages": [{"role": "user", "content": test_content}],
-                                    "max_tokens": 10
-                                }
-                                try:
-                                    test_response = await client.post(
-                                        f"{lmstudio_url}/chat/completions",
-                                        json=test_payload,
-                                        timeout=10.0
-                                    )
-                                    if test_response.status_code == 200:
-                                        found_limit = test_val
-                                    else:
-                                        # Parse error for actual limit
-                                        error_text = test_response.text.lower()
-                                        if "context length" in error_text or "context overflow" in error_text:
-                                            match = re.search(r'(\d+)\s*tokens?', error_text)
-                                            if match:
-                                                found_limit = int(match.group(1))
-                                                break
-                                        break  # This size failed, use previous successful value
-                                except httpx.HTTPError:
-                                    break  # Network error, use previous value
-                            
-                            context_length = found_limit if found_limit else threshold
-                            detection_method = "test_request_binary_search"
+                            # Threshold works - model has at least this much context
+                            # Trust that it's configured correctly and use threshold as minimum
+                            context_length = threshold
+                            detection_method = "test_request_threshold_verified"
+                            logger.info(
+                                f"Verified {model_name} supports threshold context length ({threshold} tokens) via test request"
+                            )
+                            break
                         elif response.status_code == 400:
-                            # Parse error message for context length info
+                            # Parse error message for actual configured context length
                             error_text = response.text.lower()
                             if "context length" in error_text or "context overflow" in error_text:
-                                # Try to extract number from error
-                                match = re.search(r'(\d+)\s*tokens?', error_text)
+                                # Try to extract the actual configured length from error
+                                # Error format: "context length of only X tokens"
+                                match = re.search(r'context length of (?:only )?(\d+)\s*tokens?', error_text)
                                 if match:
                                     context_length = int(match.group(1))
                                     detection_method = "error_message_parsing"
+                                    logger.info(
+                                        f"Detected {model_name} context length ({context_length} tokens) from error message"
+                                    )
                                     break
-                        
-                        if context_length:
-                            break
-                    except httpx.HTTPError:
+                                # Alternative: "greater than the context length of X tokens"
+                                match = re.search(r'context length of (\d+)\s*tokens?', error_text)
+                                if match:
+                                    context_length = int(match.group(1))
+                                    detection_method = "error_message_parsing"
+                                    logger.info(
+                                        f"Detected {model_name} context length ({context_length} tokens) from error message"
+                                    )
+                                    break
+                    except httpx.TimeoutException:
+                        # Test request timed out - this might mean the context is too large
+                        # or the model is slow. Don't fail here, try next URL or fall back.
+                        logger.warning(f"Context length test request timed out for {model_name} at {lmstudio_url}")
+                        continue
+                    except httpx.HTTPError as e:
+                        logger.debug(f"Context length test request failed for {model_name} at {lmstudio_url}: {e}")
                         continue
         
-        # Method 3: Fallback - use MAX_CONTEXT_TOKENS as estimate if model is reasoning model
+        # Method 3: Fallback - infer from model name patterns
         if context_length is None:
-            is_reasoning = 'r1' in model_name.lower() or 'reasoning' in model_name.lower()
-            context_length = MAX_CONTEXT_TOKENS if is_reasoning else 4096  # Conservative fallback
-            detection_method = "fallback_estimate"
-            logger.warning(
-                f"Could not determine context length for {model_name}. "
-                f"Using fallback estimate: {context_length} tokens "
-                f"(reasoning_model={is_reasoning})"
-            )
+            # Try to infer from model size in name (14b, 8b, etc.)
+            model_lower = model_name.lower()
+            inferred_context = None
+            
+            # Check for model size patterns
+            if '14b' in model_lower or '13b' in model_lower:
+                inferred_context = 16384  # 13B-14B models typically support 16K
+            elif '30b' in model_lower or '32b' in model_lower:
+                inferred_context = 32768  # 30B-32B models typically support 32K
+            elif '8b' in model_lower or '7b' in model_lower:
+                inferred_context = 8192  # 7B-8B models typically support 8K
+            elif '4b' in model_lower or '3b' in model_lower:
+                inferred_context = 4096  # 3B-4B models typically support 4K
+            elif '1b' in model_lower or '2b' in model_lower:
+                inferred_context = 2048  # 1B-2B models typically support 2K
+            
+            # Check if it's a reasoning model (often have larger context)
+            is_reasoning = 'r1' in model_lower or 'reasoning' in model_lower
+            if is_reasoning and inferred_context:
+                # Reasoning models often configured with larger context
+                inferred_context = max(inferred_context, 16384)
+            
+            if inferred_context:
+                context_length = inferred_context
+                detection_method = "fallback_model_name_inference"
+                logger.warning(
+                    f"Could not determine context length for {model_name} via API. "
+                    f"Inferred {context_length} tokens from model name pattern. "
+                    f"This may be incorrect - verify in LMStudio UI."
+                )
+            else:
+                # Last resort: use conservative defaults
+                context_length = MAX_CONTEXT_TOKENS if is_reasoning else 4096
+                detection_method = "fallback_conservative"
+                logger.warning(
+                    f"Could not determine context length for {model_name}. "
+                    f"Using conservative fallback: {context_length} tokens "
+                    f"(reasoning_model={is_reasoning}). "
+                    f"Verify actual context length in LMStudio UI."
+                )
         
         is_sufficient = context_length >= threshold
         
@@ -451,11 +478,14 @@ class LLMService:
         
         async def make_request(client: httpx.AsyncClient, url: str) -> httpx.Response:
             """Make the HTTP request as a cancellable task."""
+            # For LM Studio, read timeout must be long enough to allow prompt processing
+            # before any response data is sent.
+            read_timeout = 600.0
             return await client.post(
                 f"{url}/chat/completions",
                 headers={"Content-Type": "application/json"},
                 json=payload,
-                timeout=httpx.Timeout(timeout, connect=30.0, read=timeout),
+                timeout=httpx.Timeout(timeout, connect=30.0, read=read_timeout),
             )
         
         # Use longer connect timeout to allow DNS resolution and connection establishment
@@ -606,6 +636,7 @@ class LLMService:
         source: str,
         url: str,
         prompt_template_path: Optional[str] = None,
+        prompt_template: Optional[str] = None,
         execution_id: Optional[int] = None,
         article_id: Optional[int] = None,
         qa_feedback: Optional[str] = None
@@ -618,49 +649,18 @@ class LLMService:
             content: Article content (filtered)
             source: Article source name
             url: Article URL
-            prompt_template_path: Optional path to ranking prompt template
+            prompt_template_path: Optional path to ranking prompt template file
+            prompt_template: Optional prompt template string (takes precedence over prompt_template_path)
         
         Returns:
             Dict with 'score' (1-10 float) and 'reasoning' (str)
         """
-        # Load ranking prompt template (async file read)
-        if prompt_template_path and Path(prompt_template_path).exists():
-            prompt_template = await asyncio.to_thread(self._read_file_sync, prompt_template_path)
-        else:
-            # Use default ranking prompt (reuse from existing prompts)
-            # Try multiple possible locations
-            possible_paths = [
-                Path(__file__).parent.parent / "prompts" / "gpt4o_sigma_ranking.txt",
-                Path(__file__).parent.parent / "prompts" / "lmstudio_sigma_ranking.txt",
-                Path("src/prompts/gpt4o_sigma_ranking.txt"),
-                Path("src/prompts/lmstudio_sigma_ranking.txt"),
-            ]
-            
-            prompt_template = None
-            for prompt_file in possible_paths:
-                if prompt_file.exists():
-                    prompt_template = await asyncio.to_thread(self._read_file_sync, str(prompt_file))
-                    logger.info(f"Loaded ranking prompt from: {prompt_file}")
-                    break
-            
-            if not prompt_template:
-                # Fallback to simple prompt if files not found
-                logger.warning("No ranking prompt file found, using fallback prompt")
-                prompt_template = """You are a cybersecurity detection engineer. Analyze this threat intelligence article and provide a SIGMA huntability score using telemetry-focused criteria.
-
-Title: {title}
-Source: {source}
-URL: {url}
-
-Content:
-{content}
-
-Score the article from 1-10 for SIGMA rule generation potential. Consider:
-- Telemetry observables (command-line, process chains, Event IDs)
-- Behavioral patterns (not atomic IOCs)
-- Detection rule feasibility
-
-**SIGMA HUNTABILITY SCORE: [1-10]**"""
+        # Use provided prompt template only (no file fallback)
+        if not prompt_template:
+            raise ValueError("RankAgent prompt_template must be provided from workflow config. No file fallback available.")
+        
+        prompt_template_str = prompt_template
+        logger.info(f"Using RankAgent prompt from workflow config (length: {len(prompt_template_str)} chars)")
         
         # Get actual model context length to use for truncation
         # IMPORTANT: LM Studio's configured context may be much smaller than detected/theoretical max
@@ -736,7 +736,7 @@ Score the article from 1-10 for SIGMA rule generation potential. Consider:
         
         # Estimate prompt overhead more accurately
         # Account for: template text + title + source + URL + system message + formatting
-        base_prompt_tokens = self._estimate_tokens(prompt_template.format(
+        base_prompt_tokens = self._estimate_tokens(prompt_template_str.format(
             title=title,
             source=source,
             url=url,
@@ -784,7 +784,7 @@ Score the article from 1-10 for SIGMA rule generation potential. Consider:
             )
         
         # Format prompt with truncated content
-        prompt_text = prompt_template.format(
+        prompt_text = prompt_template_str.format(
             title=title,
             source=source,
             url=url,

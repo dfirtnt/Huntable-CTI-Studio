@@ -1,6 +1,7 @@
 """
 Unit tests for the Health page components.
 """
+
 import pytest
 import os
 from unittest.mock import AsyncMock, patch, MagicMock
@@ -11,124 +12,121 @@ class TestHealthPage:
     """Test the Health page functionality."""
 
     @pytest.mark.ui
-    
     def test_health_page_loads(self, page: Page):
         """Test that the Health page loads correctly."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/health-checks")
-        
+
         # Check page title and header
         expect(page).to_have_title("Health Checks - CTI Scraper")
         expect(page.locator("h1").nth(1)).to_contain_text("🏥 System Health Checks")
-        
+
         # Check description
-        expect(page.locator("p").first).to_contain_text("Monitor system performance, deduplication, and service health")
+        expect(page.locator("p").first).to_contain_text(
+            "Monitor system performance, deduplication, and service health"
+        )
 
     @pytest.mark.ui
-    
     def test_health_check_buttons_visible(self, page: Page):
         """Test that all health check buttons are visible."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/health-checks")
-        
+
         # Check all health check buttons are visible
         buttons = [
             "runAllChecks",
-            "runDatabaseCheck", 
+            "runDatabaseCheck",
             "runDeduplicationCheck",
             "runServicesCheck",
             "runCeleryCheck",
-            "runIngestionCheck"
+            "runIngestionCheck",
         ]
-        
+
         for button_id in buttons:
             button = page.locator(f"#{button_id}")
             expect(button).to_be_visible()
 
     @pytest.mark.ui
-    
     def test_health_check_sections_visible(self, page: Page):
         """Test that all health check sections are visible."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/health-checks")
-        
+
         # Check all health check sections are visible
         sections = [
             "databaseHealthContent",
-            "deduplicationHealthContent", 
+            "deduplicationHealthContent",
             "servicesHealthContent",
             "celeryHealthContent",
-            "ingestionAnalyticsContent"
+            "ingestionAnalyticsContent",
         ]
-        
+
         for section_id in sections:
             section = page.locator(f"#{section_id}")
             expect(section).to_be_visible()
 
     @pytest.mark.ui
-    
     def test_run_all_checks_button_click(self, page: Page):
         """Test that Run All Checks button triggers all health checks."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
-        
+
         # Mock all health check API responses
         async def mock_health_check(route, request):
-            endpoint = request.url.split('/api/health')[-1]
-            if endpoint == '':
+            endpoint = request.url.split("/api/health")[-1]
+            if endpoint == "":
                 # Overall health check
                 route.fulfill(
                     status=200,
                     content_type="application/json",
-                    body='{"status": "healthy", "timestamp": "2024-01-01T00:00:00", "database": {"status": "connected", "sources": 5, "articles": 100}, "version": "2.0.0"}'
+                    body='{"status": "healthy", "timestamp": "2024-01-01T00:00:00", "database": {"status": "connected", "sources": 5, "articles": 100}, "version": "2.0.0"}',
                 )
-            elif endpoint == '/database':
+            elif endpoint == "/database":
                 route.fulfill(
                     status=200,
                     content_type="application/json",
-                    body='{"status": "healthy", "timestamp": "2024-01-01T00:00:00", "database": {"status": "connected", "sources": 5, "articles": 100, "duplicates": 10}}'
+                    body='{"status": "healthy", "timestamp": "2024-01-01T00:00:00", "database": {"status": "connected", "sources": 5, "articles": 100, "duplicates": 10}}',
                 )
-            elif endpoint == '/deduplication':
+            elif endpoint == "/deduplication":
                 route.fulfill(
                     status=200,
                     content_type="application/json",
-                    body='{"status": "healthy", "timestamp": "2024-01-01T00:00:00", "deduplication": {"status": "healthy", "similarity_threshold": 0.85, "total_hashes": 1000}}'
+                    body='{"status": "healthy", "timestamp": "2024-01-01T00:00:00", "deduplication": {"status": "healthy", "similarity_threshold": 0.85, "total_hashes": 1000}}',
                 )
-            elif endpoint == '/services':
+            elif endpoint == "/services":
                 route.fulfill(
                     status=200,
                     content_type="application/json",
-                    body='{"status": "healthy", "timestamp": "2024-01-01T00:00:00", "services": {"redis": {"status": "healthy"}}}'
+                    body='{"status": "healthy", "timestamp": "2024-01-01T00:00:00", "services": {"redis": {"status": "healthy"}}}',
                 )
-            elif endpoint == '/celery':
+            elif endpoint == "/celery":
                 route.fulfill(
                     status=200,
                     content_type="application/json",
-                    body='{"status": "healthy", "timestamp": "2024-01-01T00:00:00", "celery": {"workers": {"status": "healthy", "active_workers": 2}}}'
+                    body='{"status": "healthy", "timestamp": "2024-01-01T00:00:00", "celery": {"workers": {"status": "healthy", "active_workers": 2}}}',
                 )
-            elif endpoint == '/ingestion':
+            elif endpoint == "/ingestion":
                 route.fulfill(
                     status=200,
                     content_type="application/json",
-                    body='{"status": "healthy", "timestamp": "2024-01-01T00:00:00", "analytics": {"total_articles": 100, "recent_articles": 10}}'
+                    body='{"status": "healthy", "timestamp": "2024-01-01T00:00:00", "analytics": {"total_articles": 100, "recent_articles": 10}}',
                 )
             else:
                 route.fulfill(status=404)
-        
+
         page.route("**/api/health*", mock_health_check)
-        
+
         page.goto(f"{base_url}/health-checks")
-        
+
         # Click Run All Checks button
         run_all_button = page.locator("#runAllChecks")
         run_all_button.click()
-        
+
         # Wait for loading overlay to appear and disappear
         loading_overlay = page.locator("#loadingOverlay")
         expect(loading_overlay).to_be_visible()
         expect(loading_overlay).to_be_hidden()
 
     @pytest.mark.ui
-    
     def test_database_health_check(self, page: Page):
         """Test database health check functionality."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
@@ -138,7 +136,7 @@ class TestHealthPage:
             route.fulfill(
                 status=200,
                 content_type="application/json",
-                body='{"status": "healthy", "timestamp": "2024-01-01T00:00:00", "database": {"connection": "connected", "total_articles": 100, "total_sources": 5, "simhash": {"coverage": "95%"}, "deduplication": {"total_articles": 100, "unique_urls": 95, "duplicate_rate": "5%"}, "performance": [{"test": "articles_query", "query_time_ms": 45, "rows_returned": 100}]}}'
+                body='{"status": "healthy", "timestamp": "2024-01-01T00:00:00", "database": {"connection": "connected", "total_articles": 100, "total_sources": 5, "simhash": {"coverage": "95%"}, "deduplication": {"total_articles": 100, "unique_urls": 95, "duplicate_rate": "5%"}, "performance": [{"test": "articles_query", "query_time_ms": 45, "rows_returned": 100}]}}',
             )
 
         page.route("**/api/health/database", mock_database_health)
@@ -156,7 +154,6 @@ class TestHealthPage:
         expect(db_content).to_contain_text("connected")
 
     @pytest.mark.ui
-    
     def test_deduplication_health_check(self, page: Page):
         """Test deduplication health check functionality."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
@@ -166,7 +163,7 @@ class TestHealthPage:
             route.fulfill(
                 status=200,
                 content_type="application/json",
-                body='{"status": "healthy", "timestamp": "2024-01-01T00:00:00", "deduplication": {"exact_duplicates": {"content_hash_duplicates": 0, "duplicate_details": []}, "near_duplicates": {"potential_near_duplicates": 0, "simhash_coverage": "95%"}, "simhash_buckets": {"bucket_distribution": [{"bucket_id": 1, "articles_count": 10}], "most_active_bucket": [1, 10]}}}'
+                body='{"status": "healthy", "timestamp": "2024-01-01T00:00:00", "deduplication": {"exact_duplicates": {"content_hash_duplicates": 0, "duplicate_details": []}, "near_duplicates": {"potential_near_duplicates": 0, "simhash_coverage": "95%"}, "simhash_buckets": {"bucket_distribution": [{"bucket_id": 1, "articles_count": 10}], "most_active_bucket": [1, 10]}}}',
             )
 
         page.route("**/api/health/deduplication", mock_deduplication_health)
@@ -183,7 +180,6 @@ class TestHealthPage:
         expect(dedup_content).to_contain_text("0")
 
     @pytest.mark.ui
-    
     def test_services_health_check(self, page: Page):
         """Test services health check functionality."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
@@ -193,7 +189,7 @@ class TestHealthPage:
             route.fulfill(
                 status=200,
                 content_type="application/json",
-                    body='{"status": "healthy", "timestamp": "2024-01-01T00:00:00", "services": {"redis": {"status": "healthy", "info": {"used_memory": 1024}}}}'
+                body='{"status": "healthy", "timestamp": "2024-01-01T00:00:00", "services": {"redis": {"status": "healthy", "info": {"used_memory": 1024}}}}',
             )
 
         page.route("**/api/health/services", mock_services_health)
@@ -207,35 +203,34 @@ class TestHealthPage:
         # Wait for content to update and check for success indicators
         services_content = page.locator("#servicesHealthContent")
         expect(services_content).to_contain_text("REDIS")
+        expect(services_content).to_contain_text("OLLAMA")
 
     @pytest.mark.ui
-    
     def test_celery_health_check(self, page: Page):
         """Test Celery health check functionality."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
-        
+
         # Mock Celery health check response
         async def mock_celery_health(route, request):
             route.fulfill(
                 status=200,
                 content_type="application/json",
-                body='{"status": "healthy", "timestamp": "2024-01-01T00:00:00", "celery": {"workers": {"status": "healthy", "active_workers": 2}, "broker": {"status": "healthy"}}}'
+                body='{"status": "healthy", "timestamp": "2024-01-01T00:00:00", "celery": {"workers": {"status": "healthy", "active_workers": 2}, "broker": {"status": "healthy"}}}',
             )
-        
+
         page.route("**/api/health/celery", mock_celery_health)
-        
+
         page.goto(f"{base_url}/health-checks")
-        
+
         # Click Celery Health button
         celery_button = page.locator("#runCeleryCheck")
         celery_button.click()
-        
+
         # Check that Celery health content is updated
         celery_content = page.locator("#celeryHealthContent")
         expect(celery_content).to_contain_text("healthy")
 
     @pytest.mark.ui
-    
     def test_ingestion_analytics_check(self, page: Page):
         """Test ingestion analytics check functionality."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
@@ -245,7 +240,7 @@ class TestHealthPage:
             route.fulfill(
                 status=200,
                 content_type="application/json",
-                body='{"status": "healthy", "timestamp": "2024-01-01T00:00:00", "ingestion": {"total_stats": {"total_articles": 100, "total_sources": 5, "earliest_article": "2024-01-01T00:00:00", "latest_article": "2024-01-01T23:59:59"}, "daily_trends": [{"date": "2024-01-01", "articles_count": 5, "sources_count": 2}], "hunt_score_ranges": [{"date": "2024-01-01", "excellent": 2, "good": 1, "moderate": 1, "low": 1, "minimal": 0}], "hourly_distribution": [{"hour": 0, "articles_count": 1}], "source_breakdown": [{"source_name": "Test Source", "articles_count": 5, "avg_hunt_score": 75.5, "chosen_ratio": "60%", "chosen_count": 3, "rejected_ratio": "20%", "rejected_count": 1, "unclassified_ratio": "20%", "unclassified_count": 1}]}}'
+                body='{"status": "healthy", "timestamp": "2024-01-01T00:00:00", "ingestion": {"total_stats": {"total_articles": 100, "total_sources": 5, "earliest_article": "2024-01-01T00:00:00", "latest_article": "2024-01-01T23:59:59"}, "daily_trends": [{"date": "2024-01-01", "articles_count": 5, "sources_count": 2}], "hunt_score_ranges": [{"date": "2024-01-01", "excellent": 2, "good": 1, "moderate": 1, "low": 1, "minimal": 0}], "hourly_distribution": [{"hour": 0, "articles_count": 1}], "source_breakdown": [{"source_name": "Test Source", "articles_count": 5, "avg_hunt_score": 75.5, "chosen_ratio": "60%", "chosen_count": 3, "rejected_ratio": "20%", "rejected_count": 1, "unclassified_ratio": "20%", "unclassified_count": 1}]}}',
             )
 
         page.route("**/api/health/ingestion", mock_ingestion_analytics)
@@ -262,7 +257,6 @@ class TestHealthPage:
         expect(ingestion_content).to_contain_text("100")
 
     @pytest.mark.ui
-    
     def test_health_check_error_handling(self, page: Page):
         """Test health check error handling."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
@@ -272,7 +266,7 @@ class TestHealthPage:
             route.fulfill(
                 status=500,
                 content_type="application/json",
-                body='{"status": "error", "error": "Service unavailable"}'
+                body='{"status": "error", "error": "Service unavailable"}',
             )
 
         page.route("**/api/health/database", mock_health_error)
@@ -289,53 +283,52 @@ class TestHealthPage:
         expect(db_content).to_contain_text("Service unavailable")
 
     @pytest.mark.ui
-    
     def test_loading_overlay_functionality(self, page: Page):
         """Test loading overlay shows and hides correctly."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
-        
+
         # Mock slow response
         async def mock_slow_health(route, request):
             import asyncio
+
             asyncio.sleep(0.5)  # Simulate slow response
             route.fulfill(
                 status=200,
                 content_type="application/json",
-                body='{"status": "healthy", "timestamp": "2024-01-01T00:00:00"}'
+                body='{"status": "healthy", "timestamp": "2024-01-01T00:00:00"}',
             )
-        
+
         page.route("**/api/health/database", mock_slow_health)
-        
+
         page.goto(f"{base_url}/health-checks")
-        
+
         # Click Database Health button
         db_button = page.locator("#runDatabaseCheck")
         db_button.click()
-        
+
         # Check loading overlay appears
         loading_overlay = page.locator("#loadingOverlay")
         expect(loading_overlay).to_be_visible()
-        
+
         # Check loading message
         loading_message = page.locator("#loadingMessage")
         expect(loading_message).to_contain_text("Checking database")
-        
+
         # Wait for loading overlay to disappear
         expect(loading_overlay).to_be_hidden()
 
     @pytest.mark.ui
-    
     def test_health_check_button_styling(self, page: Page):
         """Test health check button styling and classes."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/health-checks")
-        
+
         # Check Run All Checks button styling
         run_all_button = page.locator("#runAllChecks")
         button_class = run_all_button.get_attribute("class")
         assert "bg-blue-600" in button_class
         assert "text-white" in button_class
-        
+
         # Check individual health check buttons styling
         db_button = page.locator("#runDatabaseCheck")
         db_button_class = db_button.get_attribute("class")
@@ -343,47 +336,44 @@ class TestHealthPage:
         assert "border-gray-400" in db_button_class
 
     @pytest.mark.ui
-    
     def test_health_check_section_headers(self, page: Page):
         """Test health check section headers are correct."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/health-checks")
-        
+
         # Check section headers
         headers = [
             "🗄️ Database Health",
-            "🔍 Deduplication System Health", 
+            "🔍 Deduplication System Health",
             "🔧 External Services Health",
             "⚙️ Celery Workers Health",
-            "📊 Article Ingestion Analytics"
+            "📊 Article Ingestion Analytics",
         ]
-        
+
         for header_text in headers:
             header = page.locator(f"h2:has-text('{header_text}')")
             expect(header).to_be_visible()
 
     @pytest.mark.ui
-    
     def test_health_check_initial_content(self, page: Page):
         """Test initial content in health check sections."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/health-checks")
-        
+
         # Check initial content messages
         initial_messages = [
-            "Click \"Database Health\" to check database status",
-            "Click \"Deduplication Health\" to check deduplication status",
-            "Click \"Services Health\" to check external services",
-            "Click \"Celery Health\" to check background task processing",
-            "Click \"Ingestion Analytics\" to view article collection trends"
+            'Click "Database Health" to check database status',
+            'Click "Deduplication Health" to check deduplication status',
+            'Click "Services Health" to check external services',
+            'Click "Celery Health" to check background task processing',
+            'Click "Ingestion Analytics" to view article collection trends',
         ]
-        
+
         for message in initial_messages:
             content = page.locator(f"text={message}")
             expect(content).to_be_visible()
 
     @pytest.mark.ui
-    
     def test_health_check_navigation(self, page: Page):
         """Test navigation to health checks page."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")

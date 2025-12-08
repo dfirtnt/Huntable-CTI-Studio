@@ -534,9 +534,6 @@ source venv-test/bin/activate
 python run_tests.py --smoke
 python run_tests.py --all --coverage
 
-# Or use the unified script
-./run_tests.sh smoke
-./run_tests.sh all --coverage
 ```
 
 ### LG Workflow
@@ -563,19 +560,15 @@ python scripts/ml_experiment.py
 ```bash
 # Quick health check
 python run_tests.py --smoke
-./run_tests.sh smoke
 
 # Run all tests
 python run_tests.py --all
-./run_tests.sh all
 
 # Run with coverage
 python run_tests.py --all --coverage
-./run_tests.sh all --coverage
 
 # Docker-based testing
 python run_tests.py --docker --integration
-./run_tests.sh integration --docker
 ```
 
 #### Basic Commands
@@ -741,7 +734,7 @@ python run_tests.py --smoke
 python run_tests.py --docker --smoke
 
 # Unified script
-./run_tests.sh smoke --docker
+python run_tests.py --docker --smoke
 ```
 
 ## Maintenance

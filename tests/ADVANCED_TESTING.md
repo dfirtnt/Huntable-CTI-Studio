@@ -1051,11 +1051,9 @@ async def test_api_benchmark():
 ```bash
 # Run API tests using unified interface
 python run_tests.py --api
-./run_tests.sh api
 
 # Docker-based API testing
 python run_tests.py --docker --api
-./run_tests.sh api --docker
 
 # Run specific test file
 pytest tests/api/test_endpoints.py
@@ -1071,11 +1069,9 @@ pytest -m api --cov=src --cov-report=html
 ```bash
 # Run E2E tests using unified interface
 python run_tests.py --ui
-./run_tests.sh ui
 
 # Docker-based E2E testing
 python run_tests.py --docker --ui
-./run_tests.sh ui --docker
 
 # Run specific test file
 pytest tests/e2e/test_web_interface.py
@@ -1091,11 +1087,9 @@ pytest -m e2e -v -s
 ```bash
 # Run performance tests using unified interface
 python run_tests.py --performance
-./run_tests.sh performance
 
 # Docker-based performance testing
 python run_tests.py --docker --performance
-./run_tests.sh performance --docker
 
 # Run specific performance test
 pytest tests/performance/test_load.py -v

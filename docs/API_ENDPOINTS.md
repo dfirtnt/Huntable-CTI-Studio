@@ -41,7 +41,7 @@ The CTI Scraper provides **133+ API endpoints** across multiple categories:
     - `message` (string): User query
     - `conversation_history` (array): Previous conversation context
     - `use_llm_generation` (boolean): Enable LLM synthesis (default: true)
-    - `llm_provider` (string): LLM provider ("auto", "openai", "anthropic", "lmstudio", "template")
+    - `llm_provider` (string): LLM provider ("auto", "openai", "anthropic", "template")
     - `max_results` (integer): Maximum results to retrieve (default: 10)
     - `similarity_threshold` (float): Similarity threshold (default: 0.3)
     - `use_chunks` (boolean): Use chunk-level search (default: false)

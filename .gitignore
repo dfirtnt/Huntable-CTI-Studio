@@ -233,6 +233,10 @@ Downloaded_PDF_Reports/
 *.pfx
 *.jks
 
+# Scripts with hardcoded credentials (security risk)
+scripts/eval_observables_count_multiple_models.py
+scripts/get_full_extract_results.py
+
 # Monitoring and profiling
 *.prof
 *.pstats

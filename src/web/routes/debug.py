@@ -18,6 +18,41 @@ from src.web.dependencies import get_content_filter, logger
 router = APIRouter(tags=["Debug"])
 
 
+def calculate_filtered_costs(
+    original_length: int,
+    filtered_length: int,
+    prompt_tokens: int = 500,
+    input_rate_per_million: float = 5.0,
+) -> dict:
+    """
+    Estimate token counts and costs for filtered content.
+
+    Uses a simple 4 chars/token heuristic and clamps filtered tokens to the original size
+    so estimates never exceed the pre-filtered content.
+    """
+    original_tokens = max(int(round(original_length / 4)), 0)
+    filtered_tokens = max(int(round(filtered_length / 4)), 0)
+    filtered_tokens = min(filtered_tokens, original_tokens)
+
+    tokens_saved = max(original_tokens - filtered_tokens, 0)
+    cost_savings = (tokens_saved * input_rate_per_million) / 1_000_000
+
+    prompt_tokens = max(prompt_tokens, 0)
+    input_tokens = filtered_tokens + prompt_tokens
+    input_cost = (input_tokens * input_rate_per_million) / 1_000_000
+
+    return {
+        "original_tokens": original_tokens,
+        "filtered_tokens": filtered_tokens,
+        "tokens_saved": tokens_saved,
+        "cost_savings": cost_savings,
+        "prompt_tokens": prompt_tokens,
+        "input_tokens": input_tokens,
+        "input_cost": input_cost,
+        "rate_per_million": input_rate_per_million,
+    }
+
+
 @router.get("/api/test-route")
 async def test_route():
     """Test route to verify route registration."""
@@ -289,4 +324,3 @@ async def api_chunk_debug(
     except Exception as exc:  # noqa: BLE001
         logger.error("Chunk debug error: %s", exc)
         raise HTTPException(status_code=500, detail=f"Chunk debug failed: {exc}") from exc
-
