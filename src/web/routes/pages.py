@@ -201,7 +201,6 @@ async def articles_list(
     search: Optional[str] = None,
     source: Optional[str] = None,
     source_id: Optional[int] = None,
-    classification: Optional[str] = None,
     threat_hunting_range: Optional[str] = None,
     per_page: Optional[int] = 100,
     page: Optional[int] = 1,
@@ -261,24 +260,6 @@ async def articles_list(
                 for article in filtered_articles
                 if article.source_id == source_id
             ]
-
-        if classification and classification in ["chosen", "rejected", "unclassified"]:
-            if classification == "unclassified":
-                filtered_articles = [
-                    article
-                    for article in filtered_articles
-                    if not article.article_metadata
-                    or article.article_metadata.get("training_category")
-                    not in ["chosen", "rejected"]
-                ]
-            else:
-                filtered_articles = [
-                    article
-                    for article in filtered_articles
-                    if article.article_metadata
-                    and article.article_metadata.get("training_category")
-                    == classification
-                ]
 
         if threat_hunting_range:
             try:
@@ -377,7 +358,6 @@ async def articles_list(
             "search": search or "",
             "source": source or "",
             "source_id": source_id,
-            "classification": classification or "",
             "threat_hunting_range": threat_hunting_range or "",
             "sort_by": sort_by,
             "sort_order": sort_order,

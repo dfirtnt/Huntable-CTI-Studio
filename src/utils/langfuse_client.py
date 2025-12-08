@@ -257,6 +257,42 @@ def trace_workflow_execution(
     )
 
 
+def get_langfuse_trace_id_for_session(session_id: str) -> Optional[str]:
+    """
+    Look up the most recent Langfuse trace ID for the given session.
+
+    Returns the trace ID if found or ``None`` if Langfuse is not configured or
+    the lookup fails.
+    """
+    if not session_id:
+        return None
+
+    if not is_langfuse_enabled():
+        logger.debug("LangFuse is disabled; skipping trace lookup for session %s", session_id)
+        return None
+
+    client = get_langfuse_client()
+    if client is None:
+        return None
+
+    try:
+        traces = client.api.trace.list(
+            session_id=session_id,
+            limit=1,
+            order_by="timestamp.desc"
+        )
+        if traces and traces.data:
+            trace = traces.data[0]
+            trace_id = getattr(trace, "id", None)
+            if trace_id:
+                logger.debug("Found LangFuse trace %s for session %s", trace_id, session_id)
+                return trace_id
+    except Exception as e:
+        logger.debug("Failed to lookup LangFuse trace for session %s: %s", session_id, e)
+
+    return None
+
+
 @contextmanager
 def trace_llm_call(
     name: str,

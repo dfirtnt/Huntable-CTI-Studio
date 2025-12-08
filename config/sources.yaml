@@ -42,7 +42,7 @@ sources:
     url: "https://www.picussecurity.com/resource/tag/article"
     rss_url: null  # No RSS feed available
     check_frequency: 1800  # 30 minutes
-    active: true
+    active: false
     config:
       allow: ["picussecurity.com"]
       post_url_regex: ["^https://www\\.picussecurity\\.com/resource/blog/.*"]  # Only blog articles, not datasheets/reports
@@ -113,7 +113,7 @@ sources:
     url: "https://www.group-ib.com/blog/"
     rss_url: null  # RSS feed blocked by anti-bot protection
     check_frequency: 1800  # 30 minutes
-    active: true
+    active: false
     config:
       allow: ["group-ib.com"]
       post_url_regex: ["^https://www\\.group-ib\\.com/blog/.*"]
@@ -353,7 +353,7 @@ sources:
     url: "https://techcommunity.microsoft.com/category/microsoft-defender-for-endpoint/blog/microsoftdefenderatpblog"
     rss_url: "https://techcommunity.microsoft.com/t5/Microsoft-Defender-for-Endpoint/bd-p/MicrosoftDefenderATPBlog.rss"
     check_frequency: 1800  # 30 minutes
-    active: true
+    active: false
     config:
       allow: ["techcommunity.microsoft.com"]
       post_url_regex: ["^https://techcommunity\\.microsoft\\.com/.*"]
@@ -426,7 +426,7 @@ sources:
     url: "https://corelight.com/blog"
     rss_url: "https://corelight.com/blog/rss.xml"
     check_frequency: 1800  # 30 minutes
-    active: true
+    active: false
     config:
       allow: ["corelight.com"]
       post_url_regex: ["^https://corelight\\.com/blog/.*"]
@@ -661,7 +661,7 @@ sources:
     url: "https://www.crowdstrike.com/blog/"
     rss_url: "https://www.crowdstrike.com/blog/feed/"
     check_frequency: 1800  # 30 minutes
-    active: true
+    active: false
     config:
       title_filter_keywords: ["CrowdStrike Named a Leader", "CrowdStrike to Acquire"]
       min_content_length: 2000
@@ -672,7 +672,7 @@ sources:
     url: "https://msrc.microsoft.com/blog/"
     rss_url: "https://msrc.microsoft.com/blog/feed/"
     check_frequency: 3600  # 1 hour
-    active: true
+    active: false
     config:
       min_content_length: 2000  # Microsoft Security requires 1000+ chars
 
@@ -683,7 +683,7 @@ sources:
     url: "https://redcanary.com/blog/"
     rss_url: "https://redcanary.com/blog/feed/"
     check_frequency: 1800  # 30 minutes - Tier 1 priority
-    active: true
+    active: false
     config:
       content_selector: "div.blog-content, article"
       min_content_length: 2000
@@ -723,7 +723,7 @@ sources:
     url: "https://www.assetnote.io/resources/research/"
     rss_url: "https://www.assetnote.io/resources/research/rss.xml"  # Verified feed
     check_frequency: 1800  # 30 minutes
-    active: true
+    active: false
     config:
       allow: ["www.assetnote.io"]
       post_url_regex: ["^https://www\\.assetnote\\.io/resources/research/.*"]
@@ -771,7 +771,7 @@ sources:
     url: "https://www.ncsc.gov.uk/news"
     rss_url: null  # RSS feed not available - web scraping only
     check_frequency: 3600  # 1 hour
-    active: true
+    active: false
     config:
       allow: ["ncsc.gov.uk"]
       post_url_regex: ["^https://www\\.ncsc\\.gov\\.uk/(news|section)/.*"]
