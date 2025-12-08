@@ -16,6 +16,7 @@ from datetime import datetime, timedelta
 from src.database.manager import DatabaseManager
 from src.database.models import AgenticWorkflowExecutionTable, ArticleTable, AppSettingsTable
 from src.workflows.status_utils import extract_termination_info
+from src.utils.langfuse_client import get_langfuse_trace_id_for_session
 
 logger = logging.getLogger(__name__)
 
@@ -918,34 +919,65 @@ async def get_workflow_debug_info(request: Request, execution_id: int):
             import hashlib
             trace_id_hash = hashlib.md5(f"workflow_exec_{execution_id}".encode()).hexdigest()
             session_id = f"workflow_exec_{execution_id}"
-            
+            resolved_trace_id = trace_id_hash
+            trace_lookup_used = False
+            if langfuse_public_key:
+                actual_trace_id = get_langfuse_trace_id_for_session(session_id)
+                if actual_trace_id:
+                    resolved_trace_id = actual_trace_id
+                    trace_lookup_used = True
+
             # Debug logging
-            logger.debug(f"Langfuse debug info - host: {langfuse_host}, public_key present: {bool(langfuse_public_key)}, project_id: {langfuse_project_id}, trace_id: {trace_id_hash}, session_id: {session_id}")
-            
+            logger.debug(
+                "Langfuse debug info - host: %s, public_key present: %s, project_id: %s, "
+                "resolved_trace_id: %s, trace_id_hash: %s, session_id: %s",
+                langfuse_host,
+                bool(langfuse_public_key),
+                langfuse_project_id,
+                resolved_trace_id,
+                trace_id_hash,
+                session_id
+            )
+
             # Always generate Langfuse trace URL (traces may exist even if keys aren't currently configured)
             # Normalize host URL (remove trailing slash)
             langfuse_host = langfuse_host.rstrip('/') if langfuse_host else "https://us.cloud.langfuse.com"
-            
+
             # Try direct trace URL first (may work if Langfuse used our trace_id)
             # If that doesn't work (404), user can search by session_id
             if langfuse_project_id:
                 # Direct trace URL by trace_id
-                agent_chat_url = f"{langfuse_host}/project/{langfuse_project_id}/traces/{trace_id_hash}"
+                agent_chat_url = f"{langfuse_host}/project/{langfuse_project_id}/traces/{resolved_trace_id}"
             else:
                 # Direct trace URL without project_id
-                agent_chat_url = f"{langfuse_host}/traces/{trace_id_hash}"
-            
+                agent_chat_url = f"{langfuse_host}/traces/{resolved_trace_id}"
+
             logger.info(f"🔗 Generated Langfuse trace URL: {agent_chat_url}")
-            logger.info(f"   Trace ID: {trace_id_hash}, Session ID: {session_id} (execution #{execution_id})")
-            
+            logger.info(
+                "   Trace ID: %s (lookup=%s, hash=%s), Session ID: %s (execution #%s)",
+                resolved_trace_id,
+                trace_lookup_used,
+                trace_id_hash,
+                session_id,
+                execution_id
+            )
+
             if langfuse_public_key:
-                instructions = (
-                    "Opening Langfuse trace for execution #{}.\n"
-                    "Trace ID: {}\n"
-                    "Session ID: {}\n"
-                    "If you get a 404, the trace may not exist or Langfuse may have used a different trace_id. "
-                    "Search for session_id '{}' in Langfuse UI."
-                ).format(execution_id, trace_id_hash, session_id, session_id)
+                if trace_lookup_used:
+                    instructions = (
+                        "Opening Langfuse trace for execution #{}.\n"
+                        "Trace ID: {}\n"
+                        "Session ID: {}\n"
+                        "Trace ID resolved by searching Langfuse for session_id '{}'."
+                    ).format(execution_id, resolved_trace_id, session_id, session_id)
+                else:
+                    instructions = (
+                        "Opening Langfuse trace for execution #{}.\n"
+                        "Trace ID: {}\n"
+                        "Session ID: {}\n"
+                        "If you get a 404, the trace may not exist or Langfuse may have used a different trace_id. "
+                        "Search for session_id '{}' in Langfuse UI."
+                    ).format(execution_id, trace_id_hash, session_id, session_id)
             else:
                 # Warn user that Langfuse may not be configured, but still try to open trace
                 logger.warning(
@@ -960,13 +992,13 @@ async def get_workflow_debug_info(request: Request, execution_id: int):
                     "Note: Langfuse keys not configured. Trace will only exist if execution ran with Langfuse tracing enabled. "
                     "If you get a 404, search for session_id '{}' in Langfuse UI."
                 ).format(execution_id, trace_id_hash, session_id, session_id)
-            
+
             return {
                 "execution_id": execution_id,
                 "article_id": execution.article_id,
                 "langgraph_server_url": langgraph_server_url,
                 "agent_chat_url": agent_chat_url,
-                "trace_id": trace_id_hash,
+                "trace_id": resolved_trace_id,
                 "session_id": session_id,
                 "thread_id": trace_id_hash,
                 "graph_id": "agentic_workflow",

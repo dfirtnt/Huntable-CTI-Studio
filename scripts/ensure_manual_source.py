@@ -39,7 +39,7 @@ async def ensure_manual_source():
             name="Manual",
             url="manual://uploaded",
             identifier="manual",
-            active=True,
+            active=False,
             rss_url=None,
         )
 

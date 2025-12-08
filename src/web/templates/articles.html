@@ -15,39 +15,17 @@
         <p class="text-gray-600 dark:text-gray-400">Browse and search collected threat intelligence articles</p>
     </div>
 
-    <!-- Header Stats -->
+    <!-- Filters & Sorting -->
     <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-8">
-        <div class="flex items-center justify-between">
-            <div>
-                <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">📊 Article Statistics</h2>
-            </div>
-            <button id="articleStatsToggle" class="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors duration-200">
-                <svg class="w-5 h-5 transform transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <div class="flex items-center justify-between mb-4">
+            <h2 class="text-xl font-semibold text-gray-900 dark:text-white">🔍 Filters, Search & Sorting</h2>
+            <button id="filtersToggle" type="button" class="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors duration-200" aria-expanded="false" aria-controls="filtersContent">
+                <svg class="w-5 h-5 transform rotate-180 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
                 </svg>
             </button>
         </div>
-        <div id="articleStatsContent" class="hidden">
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div class="text-center">
-                    <div class="text-2xl font-bold text-blue-600 dark:text-blue-400">{{ pagination.total_articles }}</div>
-                    <div class="text-sm text-gray-500 dark:text-gray-400">Total Articles</div>
-                </div>
-                <div class="text-center">
-                    <div class="text-2xl font-bold text-green-600 dark:text-green-400">{{ stats.chosen_count }}</div>
-                    <div class="text-sm text-gray-500 dark:text-gray-400">Chosen</div>
-                </div>
-                <div class="text-center">
-                    <div class="text-2xl font-bold text-red-600 dark:text-red-400">{{ stats.rejected_count }}</div>
-                    <div class="text-sm text-gray-500 dark:text-gray-400">Rejected</div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Filters & Sorting -->
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-8">
-        <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">🔍 Filters, Search & Sorting</h2>
+        <div id="filtersContent" class="hidden" data-filters-active="{{ 'true' if filters.search or filters.source or filters.classification or filters.threat_hunting_range or filters.title_only else 'false' }}">
         <form method="GET">
             <!-- Hidden inputs to preserve sort parameters -->
             <input type="hidden" name="sort_by" value="{{ filters.sort_by or 'published_at' }}">
@@ -205,18 +183,6 @@
                 </select>
             </div>
 
-            <!-- Classification Filter -->
-            <div>
-                <label for="classification" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Article Classification</label>
-                <select name="classification" id="classification" 
-                        class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
-                    <option value="">All Classifications</option>
-                    <option value="chosen" {% if filters.classification == "chosen" %}selected{% endif %}>✅ Chosen</option>
-                    <option value="rejected" {% if filters.classification == "rejected" %}selected{% endif %}>❌ Rejected</option>
-                    <option value="unclassified" {% if filters.classification == "unclassified" %}selected{% endif %}>⏳ Unclassified</option>
-                </select>
-            </div>
-
             <!-- Per Page -->
             <div>
                 <label for="per_page" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Per Page</label>
@@ -282,7 +248,7 @@
             </p>
         </div>
         {% endif %}
-
+        </div>
     </div>
 
     <!-- Articles List -->
@@ -1004,7 +970,6 @@
         const settings = {
             search: document.getElementById('search')?.value || '',
             source: document.getElementById('source')?.value || '',
-            classification: document.getElementById('classification')?.value || '',
             threat_hunting_range: document.getElementById('threat_hunting_range')?.value || '',
             per_page: document.getElementById('per_page')?.value || '100',
             sort_by: document.getElementById('sort-by')?.value || 'published_at',
@@ -1034,9 +999,6 @@
                 if (settings.source && document.getElementById('source')) {
                     document.getElementById('source').value = settings.source;
                 }
-                if (settings.classification && document.getElementById('classification')) {
-                    document.getElementById('classification').value = settings.classification;
-                }
                 if (settings.threat_hunting_range && document.getElementById('threat_hunting_range')) {
                     document.getElementById('threat_hunting_range').value = settings.threat_hunting_range;
                 }
@@ -1063,7 +1025,6 @@
         const settings = {
             search: document.getElementById('search')?.value || '',
             source: document.getElementById('source')?.value || '',
-            classification: document.getElementById('classification')?.value || '',
             threat_hunting_range: document.getElementById('threat_hunting_range')?.value || '',
             per_page: document.getElementById('per_page')?.value || '100',
             sort_by: document.getElementById('sort-by')?.value || 'published_at',
@@ -1100,9 +1061,6 @@
                 }
                 if (settings.source && document.getElementById('source')) {
                     document.getElementById('source').value = settings.source;
-                }
-                if (settings.classification && document.getElementById('classification')) {
-                    document.getElementById('classification').value = settings.classification;
                 }
                 if (settings.threat_hunting_range && document.getElementById('threat_hunting_range')) {
                     document.getElementById('threat_hunting_range').value = settings.threat_hunting_range;
@@ -1177,7 +1135,7 @@
         updateDefaultFiltersIndicator();
         
         // Save settings when form elements change
-        const formElements = ['search', 'source', 'classification', 'threat_hunting_range', 'per_page', 'sort-by', 'sort-order', 'title-only'];
+    const formElements = ['search', 'source', 'threat_hunting_range', 'per_page', 'sort-by', 'sort-order', 'title-only'];
         formElements.forEach(id => {
             const element = document.getElementById(id);
             if (element) {
@@ -1390,22 +1348,32 @@
         }, 3000);
     }
     
-    // Toggle functionality for Article Statistics panel
     document.addEventListener('DOMContentLoaded', function() {
-        const articleStatsToggle = document.getElementById('articleStatsToggle');
-        const articleStatsContent = document.getElementById('articleStatsContent');
-        const articleStatsIcon = articleStatsToggle?.querySelector('svg');
-        
-        if (articleStatsToggle && articleStatsContent && articleStatsIcon) {
-            articleStatsToggle.addEventListener('click', function() {
-                const isHidden = articleStatsContent.classList.contains('hidden');
-                
+        const filtersToggle = document.getElementById('filtersToggle');
+        const filtersContent = document.getElementById('filtersContent');
+        const filtersIcon = filtersToggle?.querySelector('svg');
+
+        if (filtersToggle && filtersContent && filtersIcon) {
+            const filtersActive = filtersContent.dataset.filtersActive === 'true';
+
+            // Expand on load when filters are already applied
+            if (filtersActive) {
+                filtersContent.classList.remove('hidden');
+                filtersIcon.style.transform = 'rotate(0deg)';
+                filtersToggle.setAttribute('aria-expanded', 'true');
+            }
+
+            filtersToggle.addEventListener('click', function() {
+                const isHidden = filtersContent.classList.contains('hidden');
+
                 if (isHidden) {
-                    articleStatsContent.classList.remove('hidden');
-                    articleStatsIcon.style.transform = 'rotate(0deg)';
+                    filtersContent.classList.remove('hidden');
+                    filtersIcon.style.transform = 'rotate(0deg)';
+                    filtersToggle.setAttribute('aria-expanded', 'true');
                 } else {
-                    articleStatsContent.classList.add('hidden');
-                    articleStatsIcon.style.transform = 'rotate(180deg)';
+                    filtersContent.classList.add('hidden');
+                    filtersIcon.style.transform = 'rotate(180deg)';
+                    filtersToggle.setAttribute('aria-expanded', 'false');
                 }
             });
         }

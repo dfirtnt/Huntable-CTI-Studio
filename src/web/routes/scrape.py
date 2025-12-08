@@ -135,7 +135,7 @@ async def _scrape_single_url(url: str, title: Optional[str], force_scrape: bool)
                     rss_url=None,
                     check_frequency=3600,
                     lookback_days=180,
-                    active=True,
+                    active=False,
                     config={},
                     consecutive_failures=0,
                     total_articles=0,
