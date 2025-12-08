@@ -161,6 +161,8 @@ document.addEventListener('DOMContentLoaded', function() {
             '[data-testid="article-content"]',
             '.article-text',
             '.post-text',
+            '[class*="cmp-text"]',
+            '[class*="text--blog-content"]',
             '.entry',
             '.post',
             '.story',

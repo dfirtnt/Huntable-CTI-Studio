@@ -51,6 +51,8 @@
             '[data-testid="article-content"]',
             '.article-text',
             '.post-text',
+            '[class*="cmp-text"]',
+            '[class*="text--blog-content"]',
             // CISA-specific selectors
             '.usa-prose',
             '.field--name-body',
