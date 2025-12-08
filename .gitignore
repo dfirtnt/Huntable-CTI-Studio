@@ -1,0 +1,242 @@
+# Environment variables and secrets
+.env
+.env.local
+.env.production
+.env.staging
+.env.development
+.env.test
+*.env
+secrets/
+credentials/
+api_keys.txt
+tokens.txt
+
+# Docker secrets
+docker-compose.override.yml
+docker-compose.local.yml
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual environments
+venv/
+venv-*/
+env/
+ENV/
+env.bak/
+venv.bak/
+.venv/
+
+# IDE and editors
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# pytest
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.nox/
+
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Docker
+.dockerignore
+
+# Logs
+logs/
+*.log
+log/
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+backups/
+*.sql
+!init.sql/migrations/*.sql
+*.dump
+
+# Temporary files
+tmp/
+temp/
+.tmp/
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Node.js (if any frontend components)
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Celery
+celerybeat-schedule
+celerybeat.pid
+
+# Redis
+dump.rdb
+
+# Local development
+.local/
+.cache/
+
+# Test artifacts
+test-results/
+coverage/
+.coverage
+.pytest_cache/
+allure-results/
+allure-report/
+
+# Root-level test pollution prevention
+test_*.py
+!tests/
+!run_tests.py
+!run_tests.sh
+
+# Backup files
+*.bak
+*.backup
+*.old
+
+# Archive files
+*.zip
+*.tar.gz
+*.rar
+
+# Configuration files with sensitive data
+config/local.yaml
+config/production.yaml
+config/secrets.yaml
+
+# AI/ML models
+models/
+*.pkl
+*.joblib
+*.h5
+*.onnx
+
+# Large data files
+data/
+datasets/
+*.csv
+*.json
+*.parquet
+
+# Documentation builds
+docs/_build/
+site/
+
+# MacOS
+.AppleDouble
+.LSOverride
+
+# Windows
+desktop.ini
+$RECYCLE.BIN/
+
+# Linux
+*~
+
+# JetBrains IDEs
+.idea/
+*.iws
+*.iml
+*.ipr
+
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+# Vim
+*.swp
+*.swo
+*~
+
+# Emacs
+*~
+\#*\#
+/.emacs.desktop
+/.emacs.desktop.lock
+*.elc
+auto-save-list
+tramp
+.\#*
+
+# Project specific
+outputs/
+test_*.html
+# Temporary scripts (root level only - utils/temp/ scripts are tracked)
+debug_*.py
+!utils/temp/debug_*.py
+*_test.py
+!src/web/routes/sigma_ab_test.py  # Allow SIGMA A/B test route
+!src/web/routes/sigma_similarity_test.py  # Allow SIGMA similarity test route
+*_debug.py
+debug_*.log
+*.test
+*.spec
+# Exclude project test files (root level only - tests/ and utils/temp/ scripts are tracked)
+test_*.py
+!test_chunk_deduplication_simple.py
+!tests/**/test_*.py
+!utils/temp/test_*.py
+
+# Downloaded PDF reports
+Downloaded_PDF_Reports/
+
+# Security
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+*.jks
+
+# Scripts with hardcoded credentials (security risk)
+scripts/eval_observables_count_multiple_models.py
+scripts/get_full_extract_results.py
+
+# Monitoring and profiling
+*.prof
+*.pstats

@@ -1,0 +1,1060 @@
+{% extends "base.html" %}
+
+{% block title %}System Diagnostics & Health - Huntable CTI Scraper{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+    <div class="mb-8">
+        <h1 class="text-3xl font-bold text-gray-900 dark:text-white mb-2">🔧 System Diagnostics & Health</h1>
+        <p class="text-gray-600 dark:text-gray-400">Monitor system health, background jobs, service status, and analytics</p>
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-8">
+        <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">⚡ Quick Actions</h2>
+        <div class="flex flex-wrap gap-4">
+            <button id="runAllHealthChecks" 
+                    class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
+                🏥 Run All Health Checks
+            </button>
+            <button id="refreshJobData" 
+                    class="inline-flex items-center px-4 py-2 border border-gray-400 text-sm font-medium rounded-md text-gray-800 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
+                🔄 Refresh Job Data
+            </button>
+            <label class="flex items-center">
+                <input type="checkbox" id="autoRefresh" class="rounded border-gray-300 text-blue-600 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50" checked>
+                <span class="ml-2 text-sm text-gray-700 dark:text-gray-300">Auto-refresh (5s)</span>
+            </label>
+            <div class="text-sm text-gray-500 dark:text-gray-400">
+                Last updated: <span id="lastUpdated">Never</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- System Status Overview -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+        <!-- Overall Health Status -->
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+            <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">🏥 System Health</h2>
+            <div id="overallHealthStatus" class="text-gray-600 dark:text-gray-400">
+                Click "Run All Health Checks" to get system status
+            </div>
+        </div>
+
+        <!-- Worker Status -->
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+            <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">👥 Worker Status</h2>
+            <div id="workerStatus" class="space-y-3">
+                <div class="animate-pulse">
+                    <div class="h-4 bg-gray-200 dark:bg-gray-700 rounded w-3/4"></div>
+                    <div class="h-4 bg-gray-200 dark:bg-gray-700 rounded w-1/2 mt-2"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Detailed Health Checks -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+        <!-- Database Health -->
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+            <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">🗄️ Database Health</h2>
+            <div id="databaseHealthContent" class="text-gray-600 dark:text-gray-400">
+                Click "Run All Health Checks" to check database status
+            </div>
+        </div>
+
+        <!-- Services Health -->
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+            <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">🔧 External Services</h2>
+            <div id="servicesHealthContent" class="text-gray-600 dark:text-gray-400">
+                Click "Run All Health Checks" to check external services
+            </div>
+        </div>
+    </div>
+
+    <!-- Job Monitoring -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+        <!-- Queue Status -->
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+            <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">📊 Queue Status</h2>
+            <div id="queueStatus" class="space-y-3">
+                <div class="animate-pulse">
+                    <div class="h-4 bg-gray-200 dark:bg-gray-700 rounded w-3/4"></div>
+                    <div class="h-4 bg-gray-200 dark:bg-gray-700 rounded w-1/2 mt-2"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Active Tasks -->
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+            <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">⚡ Active Tasks</h2>
+            <div id="activeTasks" class="space-y-3">
+                <div class="animate-pulse">
+                    <div class="h-4 bg-gray-200 dark:bg-gray-700 rounded w-full"></div>
+                    <div class="h-4 bg-gray-200 dark:bg-gray-700 rounded w-2/3 mt-2"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Additional Health Checks -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+        <!-- Deduplication Health -->
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+            <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">🔍 Deduplication System</h2>
+            <div id="deduplicationHealthContent" class="text-gray-600 dark:text-gray-400">
+                Click "Run All Health Checks" to check deduplication status
+            </div>
+        </div>
+
+        <!-- Celery Health -->
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+            <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">⚙️ Celery Workers</h2>
+            <div id="celeryHealthContent" class="text-gray-600 dark:text-gray-400">
+                Click "Run All Health Checks" to check background task processing
+            </div>
+        </div>
+    </div>
+
+    <!-- Job History -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-8">
+        <div class="flex items-center justify-between mb-4">
+            <h2 class="text-xl font-semibold text-gray-900 dark:text-white">📋 Recent Job History</h2>
+            <button id="jobHistoryToggle" class="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors duration-200">
+                <svg class="w-5 h-5 transform transition-transform duration-200 rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                </svg>
+            </button>
+        </div>
+        <div id="jobHistoryContent" class="space-y-3 hidden">
+            <div class="animate-pulse">
+                <div class="h-4 bg-gray-200 dark:bg-gray-700 rounded w-full"></div>
+                <div class="h-4 bg-gray-200 dark:bg-gray-700 rounded w-3/4 mt-2"></div>
+                <div class="h-4 bg-gray-200 dark:bg-gray-700 rounded w-1/2 mt-2"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Ingestion Analytics -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-8">
+        <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">📊 Article Ingestion Analytics</h2>
+        <div id="ingestionAnalyticsContent" class="text-gray-600 dark:text-gray-400">
+            Click "Run All Health Checks" to view article collection trends
+        </div>
+    </div>
+</div>
+
+<!-- Loading Overlay -->
+<div id="loadingOverlay" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50 hidden">
+    <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+        <div class="mt-3 text-center">
+            <div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-blue-100">
+                <svg class="animate-spin h-6 w-6 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+            </div>
+            <h3 class="text-lg font-medium text-gray-900 mt-4">Running Diagnostics</h3>
+            <div class="mt-2 px-7 py-3">
+                <p class="text-sm text-gray-600" id="loadingMessage">Please wait...</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let autoRefreshInterval;
+let isAutoRefresh = true;
+
+// Initialize
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('DOM loaded, initializing diagnostics...');
+    
+    // Test if elements exist
+    const workerStatus = document.getElementById('workerStatus');
+    const queueStatus = document.getElementById('queueStatus');
+    const activeTasks = document.getElementById('activeTasks');
+    const jobHistoryContent = document.getElementById('jobHistoryContent');
+    
+    console.log('Elements found:', {
+        workerStatus: !!workerStatus,
+        queueStatus: !!queueStatus,
+        activeTasks: !!activeTasks,
+        jobHistoryContent: !!jobHistoryContent
+    });
+    
+    if (workerStatus && queueStatus && activeTasks && jobHistoryContent) {
+        loadJobData();
+        setupAutoRefresh();
+        setupEventListeners();
+        setupJobHistoryToggle();
+    } else {
+        console.error('Required DOM elements not found');
+        showError('Failed to initialize diagnostics - missing DOM elements');
+    }
+});
+
+function setupEventListeners() {
+    const autoRefreshEl = document.getElementById('autoRefresh');
+    const refreshBtn = document.getElementById('refreshJobData');
+    const runAllHealthBtn = document.getElementById('runAllHealthChecks');
+    
+    if (autoRefreshEl) {
+        autoRefreshEl.addEventListener('change', function(e) {
+            isAutoRefresh = e.target.checked;
+            if (isAutoRefresh) {
+                setupAutoRefresh();
+            } else {
+                clearInterval(autoRefreshInterval);
+            }
+        });
+    }
+
+    if (refreshBtn) {
+        refreshBtn.addEventListener('click', function() {
+            loadJobData();
+        });
+    }
+
+    if (runAllHealthBtn) {
+        runAllHealthBtn.addEventListener('click', async () => {
+            await updateOverallHealthStatus();
+            await updateDatabaseHealth();
+            await updateDeduplicationHealth();
+            await updateServicesHealth();
+            await updateCeleryHealth();
+            await updateIngestionAnalytics();
+        });
+    }
+}
+
+function setupJobHistoryToggle() {
+    const toggleButton = document.getElementById('jobHistoryToggle');
+    const content = document.getElementById('jobHistoryContent');
+    const icon = toggleButton?.querySelector('svg');
+    
+    if (toggleButton && content && icon) {
+        toggleButton.addEventListener('click', function() {
+            const isHidden = content.classList.contains('hidden');
+            
+            if (isHidden) {
+                content.classList.remove('hidden');
+                icon.style.transform = 'rotate(0deg)';
+            } else {
+                content.classList.add('hidden');
+                icon.style.transform = 'rotate(180deg)';
+            }
+        });
+    }
+}
+
+function setupAutoRefresh() {
+    if (autoRefreshInterval) {
+        clearInterval(autoRefreshInterval);
+    }
+    
+    if (isAutoRefresh) {
+        autoRefreshInterval = setInterval(loadJobData, 5000);
+    }
+}
+
+// Job monitoring functions
+async function loadJobData() {
+    try {
+        console.log('Loading job data...');
+        
+        // Load all data in parallel
+        const [statusResponse, queueResponse, historyResponse] = await Promise.all([
+            fetch('/api/jobs/status'),
+            fetch('/api/jobs/queues'),
+            fetch('/api/jobs/history?limit=20')
+        ]);
+
+        const statusData = await statusResponse.json();
+        const queueData = await queueResponse.json();
+        const historyData = await historyResponse.json();
+
+        console.log('Status data:', statusData);
+        console.log('Queue data:', queueData);
+        console.log('History data:', historyData);
+
+        updateWorkerStatus(statusData);
+        updateQueueStatus(queueData);
+        updateActiveTasks(statusData);
+        updateJobHistory(historyData);
+        
+        const lastUpdatedEl = document.getElementById('lastUpdated');
+        if (lastUpdatedEl) {
+            lastUpdatedEl.textContent = new Date().toLocaleTimeString();
+        }
+    } catch (error) {
+        console.error('Failed to load job data:', error);
+        showError('Failed to load job data: ' + error.message);
+    }
+}
+
+function updateWorkerStatus(data) {
+    const container = document.getElementById('workerStatus');
+    console.log('Updating worker status with data:', data);
+    
+    if (data.status === 'error') {
+        container.innerHTML = '<div class="text-red-600 dark:text-red-400">❌ Error loading worker status</div>';
+        return;
+    }
+    
+    if (data.status === 'timeout') {
+        container.innerHTML = '<div class="text-yellow-600 dark:text-yellow-400">⚠️ Worker status timeout - workers may be unresponsive</div>';
+        return;
+    }
+
+    const workerStats = data.worker_stats || {};
+    const activeWorkers = Object.keys(workerStats);
+    
+    console.log('Active workers:', activeWorkers);
+    console.log('Worker stats:', workerStats);
+    
+    if (activeWorkers.length === 0) {
+        container.innerHTML = '<div class="text-yellow-600 dark:text-yellow-400">⚠️ No active workers</div>';
+        return;
+    }
+
+    let html = '';
+    activeWorkers.forEach(worker => {
+        const stats = workerStats[worker];
+        const processCount = Array.isArray(stats.pool?.processes) ? stats.pool.processes.length : 'N/A';
+        const totalTasks = stats.total ? Object.values(stats.total).reduce((a, b) => a + b, 0) : 0;
+        
+        html += `
+            <div class="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                <div>
+                    <div class="font-medium text-gray-900 dark:text-white">${worker}</div>
+                    <div class="text-sm text-gray-600 dark:text-gray-400">
+                        Pool: ${processCount} processes
+                    </div>
+                </div>
+                <div class="text-right">
+                    <div class="text-sm text-green-600 dark:text-green-400">✅ Active</div>
+                    <div class="text-xs text-gray-500 dark:text-gray-400">
+                        Tasks: ${totalTasks}
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+    
+    container.innerHTML = html;
+}
+
+function updateQueueStatus(data) {
+    const container = document.getElementById('queueStatus');
+    console.log('Updating queue status with data:', data);
+    
+    if (data.status === 'error') {
+        container.innerHTML = '<div class="text-red-600 dark:text-red-400">❌ Error loading queue status</div>';
+        return;
+    }
+
+    const queues = data.queues || {};
+    console.log('Queues:', queues);
+    
+    let html = '';
+    
+    Object.entries(queues).forEach(([queueName, length]) => {
+        const statusColor = length > 0 ? 'text-orange-600 dark:text-orange-400' : 'text-green-600 dark:text-green-400';
+        const statusIcon = length > 0 ? '⏳' : '✅';
+        
+        html += `
+            <div class="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                <div>
+                    <div class="font-medium text-gray-900 dark:text-white">${queueName}</div>
+                    <div class="text-sm text-gray-600 dark:text-gray-400">Queue length</div>
+                </div>
+                <div class="text-right">
+                    <div class="text-lg font-bold ${statusColor}">${length}</div>
+                    <div class="text-xs text-gray-500 dark:text-gray-400">${statusIcon} ${length > 0 ? 'Pending' : 'Empty'}</div>
+                </div>
+            </div>
+        `;
+    });
+    
+    container.innerHTML = html;
+}
+
+function updateActiveTasks(data) {
+    const container = document.getElementById('activeTasks');
+    console.log('Updating active tasks with data:', data);
+    
+    if (data.status === 'error') {
+        container.innerHTML = '<div class="text-red-600 dark:text-red-400">❌ Error loading active tasks</div>';
+        return;
+    }
+    
+    if (data.status === 'timeout') {
+        container.innerHTML = '<div class="text-yellow-600 dark:text-yellow-400">⚠️ Active tasks timeout - workers may be unresponsive</div>';
+        return;
+    }
+
+    const activeTasks = data.active_tasks || {};
+    console.log('Active tasks:', activeTasks);
+    
+    const allTasks = [];
+    
+    Object.entries(activeTasks).forEach(([worker, tasks]) => {
+        if (Array.isArray(tasks)) {
+            tasks.forEach(task => {
+                allTasks.push({...task, worker});
+            });
+        }
+    });
+    
+    console.log('All tasks:', allTasks);
+    
+    if (allTasks.length === 0) {
+        container.innerHTML = '<div class="text-gray-600 dark:text-gray-400 text-center py-8">No active tasks</div>';
+        return;
+    }
+
+    let html = '';
+    allTasks.forEach(task => {
+        const startTime = new Date(task.time_start * 1000).toLocaleTimeString();
+        const taskName = task.name ? task.name.split('.').pop() : 'Unknown Task';
+        const sourceId = task.args && task.args[0] ? `Source ${task.args[0]}` : 'Unknown Source';
+        
+        html += `
+            <div class="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                <div>
+                    <div class="font-medium text-gray-900 dark:text-white">${taskName}</div>
+                    <div class="text-sm text-gray-600 dark:text-gray-400">
+                        ${sourceId} | Started: ${startTime}
+                    </div>
+                </div>
+                <div class="text-right">
+                    <div class="text-sm text-blue-600 dark:text-blue-400">🔄 Running</div>
+                    <div class="text-xs text-gray-500 dark:text-gray-400">ID: ${task.id.substring(0, 8)}...</div>
+                </div>
+            </div>
+        `;
+    });
+    
+    container.innerHTML = html;
+}
+
+function updateJobHistory(data) {
+    const container = document.getElementById('jobHistoryContent');
+    console.log('Updating job history with data:', data);
+    
+    if (data.status === 'error') {
+        container.innerHTML = '<div class="text-red-600 dark:text-red-400">❌ Error loading job history</div>';
+        return;
+    }
+
+    const tasks = data.recent_tasks || [];
+    console.log('Recent tasks:', tasks);
+    
+    if (tasks.length === 0) {
+        container.innerHTML = '<div class="text-gray-600 dark:text-gray-400 text-center py-8">No recent tasks</div>';
+        return;
+    }
+
+    let html = '';
+    tasks.forEach(task => {
+        const statusColor = getStatusColor(task.status);
+        const statusIcon = getStatusIcon(task.status);
+        const dateDone = task.date_done ? new Date(task.date_done).toLocaleString() : 'N/A';
+        const resultText = task.result ? JSON.stringify(task.result).substring(0, 50) + '...' : 'No result';
+        
+        html += `
+            <div class="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                <div>
+                    <div class="font-medium text-gray-900 dark:text-white">${task.task_id.substring(0, 8)}...</div>
+                    <div class="text-sm text-gray-600 dark:text-gray-400">
+                        Completed: ${dateDone}
+                    </div>
+                </div>
+                <div class="text-right">
+                    <div class="text-sm ${statusColor}">${statusIcon} ${task.status}</div>
+                    <div class="text-xs text-gray-500 dark:text-gray-400">
+                        ${resultText}
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+    
+    container.innerHTML = html;
+}
+
+function getStatusColor(status) {
+    switch (status) {
+        case 'SUCCESS': return 'text-green-600 dark:text-green-400';
+        case 'FAILURE': return 'text-red-600 dark:text-red-400';
+        case 'PENDING': return 'text-yellow-600 dark:text-yellow-400';
+        case 'RETRY': return 'text-orange-600 dark:text-orange-400';
+        default: return 'text-gray-600 dark:text-gray-400';
+    }
+}
+
+function getStatusIcon(status) {
+    switch (status) {
+        case 'SUCCESS': return '✅';
+        case 'FAILURE': return '❌';
+        case 'PENDING': return '⏳';
+        case 'RETRY': return '🔄';
+        default: return '❓';
+    }
+}
+
+// Health check functions
+async function runHealthCheck(endpoint, loadingMessage) {
+    showLoading(loadingMessage);
+    try {
+        const response = await fetch(`/api/health${endpoint}`);
+        const data = await response.json();
+        hideLoading();
+        return data;
+    } catch (error) {
+        hideLoading();
+        console.error(`Health check failed for ${endpoint}:`, error);
+        return { status: 'error', error: error.message };
+    }
+}
+
+function showLoading(message) {
+    document.getElementById('loadingMessage').textContent = message;
+    document.getElementById('loadingOverlay').classList.remove('hidden');
+}
+
+function hideLoading() {
+    document.getElementById('loadingOverlay').classList.add('hidden');
+}
+
+function formatTimestamp(timestamp) {
+    return new Date(timestamp).toLocaleString();
+}
+
+function getHealthStatusColor(status) {
+    switch (status) {
+        case 'healthy': return 'text-green-600';
+        case 'unhealthy': return 'text-red-600';
+        case 'error': return 'text-red-600';
+        default: return 'text-gray-600 dark:text-gray-300';
+    }
+}
+
+function getHealthStatusIcon(status) {
+    switch (status) {
+        case 'healthy': return '✅';
+        case 'unhealthy': return '❌';
+        case 'error': return '⚠️';
+        case 'not_configured': return '⚪';
+        default: return '❓';
+    }
+}
+
+// Overall Health Status Check
+async function updateOverallHealthStatus() {
+    const data = await runHealthCheck('', 'Checking overall system status...');
+    
+    const content = document.getElementById('overallHealthStatus');
+    content.innerHTML = `
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div class="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                <div class="flex items-center">
+                    <span class="text-2xl mr-2">${getHealthStatusIcon(data.status)}</span>
+                    <div>
+                        <h3 class="font-medium text-blue-900">System Status</h3>
+                        <p class="text-sm font-bold ${getHealthStatusColor(data.status)}">${data.status.toUpperCase()}</p>
+                    </div>
+                </div>
+            </div>
+            <div class="p-4 bg-green-50 border border-green-200 rounded-lg">
+                <div class="flex items-center">
+                    <span class="text-2xl mr-2">🕒</span>
+                    <div>
+                        <h3 class="font-medium text-green-900">Last Check</h3>
+                        <p class="text-sm font-bold text-green-700">${formatTimestamp(data.timestamp)}</p>
+                    </div>
+                </div>
+            </div>
+            <div class="p-4 bg-purple-50 border border-purple-200 rounded-lg">
+                <div class="flex items-center">
+                    <span class="text-2xl mr-2">📦</span>
+                    <div>
+                        <h3 class="font-medium text-purple-900">Version</h3>
+                        <p class="text-sm font-bold text-purple-700">${data.version || '1.0.0'}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        ${data.error ? `<div class="mt-4 p-3 bg-red-50 border border-red-200 rounded-md"><p class="text-sm text-red-800">Error: ${data.error}</p></div>` : ''}
+    `;
+}
+
+// Database Health Check
+async function updateDatabaseHealth() {
+    const data = await runHealthCheck('/database', 'Checking database health...');
+    
+    const content = document.getElementById('databaseHealthContent');
+    if (data.status === 'healthy' && data.database) {
+        const db = data.database;
+        content.innerHTML = `
+            <div class="space-y-4">
+                <!-- Connection Status -->
+                <div class="p-4 bg-green-50 border border-green-200 rounded-lg">
+                    <div class="flex items-center">
+                        <span class="text-2xl mr-2">✅</span>
+                        <div>
+                            <h3 class="font-medium text-green-900">Database Connection</h3>
+                            <p class="text-sm text-green-700">${db.connection}</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Statistics -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div class="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                        <h3 class="font-medium text-blue-900">Total Articles</h3>
+                        <p class="text-2xl font-bold text-blue-600">${db.total_articles}</p>
+                    </div>
+                    <div class="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                        <h3 class="font-medium text-blue-900">Total Sources</h3>
+                        <p class="text-2xl font-bold text-blue-600">${db.total_sources}</p>
+                    </div>
+                    <div class="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                        <h3 class="font-medium text-blue-900">SimHash Coverage</h3>
+                        <p class="text-2xl font-bold text-blue-600">${db.simhash.coverage}</p>
+                    </div>
+                </div>
+
+                <!-- Corruption Stats -->
+                <div class="p-4 ${db.corruption && db.corruption.count === 0 ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'} border rounded-lg">
+                    <div class="flex items-center mb-3">
+                        <span class="text-2xl mr-2">${db.corruption && db.corruption.count === 0 ? '✅' : '❌'}</span>
+                        <div>
+                            <h3 class="font-medium ${db.corruption && db.corruption.count === 0 ? 'text-green-900' : 'text-red-900'}">Content Integrity</h3>
+                            <p class="text-sm ${db.corruption && db.corruption.count === 0 ? 'text-green-700' : 'text-red-700'}">${db.corruption ? db.corruption.count : 0} corrupted articles found</p>
+                        </div>
+                    </div>
+                    ${db.corruption && db.corruption.count > 0 ? `
+                        <div class="mt-2 text-sm text-gray-600">
+                            <p class="font-medium mb-1">Examples:</p>
+                            <ul class="list-disc list-inside pl-2">
+                                ${db.corruption.examples.map(ex => `<li>ID ${ex.id}: ${ex.title}</li>`).join('')}
+                            </ul>
+                            <p class="mt-2 text-xs italic">Run <code>python fix_corrupted_articles.py --all</code> to fix.</p>
+                        </div>
+                    ` : ''}
+                </div>
+            </div>
+        `;
+        
+    } else {
+        content.innerHTML = `
+            <div class="p-4 bg-red-50 border border-red-200 rounded-lg">
+                <div class="flex items-center">
+                    <span class="text-2xl mr-2">❌</span>
+                    <div>
+                        <h3 class="font-medium text-red-900">Database Health Check Failed</h3>
+                        <p class="text-sm text-red-700">${data.error || 'Unknown error'}</p>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+}
+
+// Deduplication Health Check
+async function updateDeduplicationHealth() {
+    const data = await runHealthCheck('/deduplication', 'Checking deduplication system...');
+    
+    const content = document.getElementById('deduplicationHealthContent');
+    if (data.status === 'healthy' && data.deduplication) {
+        const dedup = data.deduplication;
+        content.innerHTML = `
+            <div class="space-y-4">
+                <!-- Exact Duplicates -->
+                <div class="p-4 ${dedup.exact_duplicates.content_hash_duplicates === 0 ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'} border rounded-lg">
+                    <div class="flex items-center mb-3">
+                        <span class="text-2xl mr-2">${dedup.exact_duplicates.content_hash_duplicates === 0 ? '✅' : '❌'}</span>
+                        <div>
+                            <h3 class="font-medium ${dedup.exact_duplicates.content_hash_duplicates === 0 ? 'text-green-900' : 'text-red-900'}">Exact Duplicates</h3>
+                            <p class="text-sm ${dedup.exact_duplicates.content_hash_duplicates === 0 ? 'text-green-700' : 'text-red-700'}">${dedup.exact_duplicates.content_hash_duplicates} content hash duplicates found</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Near Duplicates -->
+                <div class="p-4 ${dedup.near_duplicates.potential_near_duplicates === 0 ? 'bg-green-50 border-green-200' : 'bg-yellow-50 border-yellow-200'} border rounded-lg">
+                    <div class="flex items-center mb-3">
+                        <span class="text-2xl mr-2">${dedup.near_duplicates.potential_near_duplicates === 0 ? '✅' : '⚠️'}</span>
+                        <div>
+                            <h3 class="font-medium ${dedup.near_duplicates.potential_near_duplicates === 0 ? 'text-green-900' : 'text-yellow-900'}">Near Duplicates</h3>
+                            <p class="text-sm ${dedup.near_duplicates.potential_near_duplicates === 0 ? 'text-green-700' : 'text-yellow-700'}">${dedup.near_duplicates.potential_near_duplicates} potential near-duplicates found</p>
+                        </div>
+                    </div>
+                    <p class="text-sm text-gray-700">SimHash Coverage: ${dedup.near_duplicates.simhash_coverage}</p>
+                </div>
+            </div>
+        `;
+    } else {
+        content.innerHTML = `
+            <div class="p-4 bg-red-50 border border-red-200 rounded-lg">
+                <div class="flex items-center">
+                    <span class="text-2xl mr-2">❌</span>
+                    <div>
+                        <h3 class="font-medium text-red-900">Deduplication Health Check Failed</h3>
+                        <p class="text-sm text-red-700">${data.error || 'Unknown error'}</p>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+}
+
+// Services Health Check
+async function updateServicesHealth() {
+    const data = await runHealthCheck('/services', 'Checking external services...');
+    
+    const content = document.getElementById('servicesHealthContent');
+    if (data.status === 'healthy' && data.services) {
+        const services = data.services;
+        content.innerHTML = `
+            <div class="space-y-4">
+                ${Object.entries(services).map(([serviceName, serviceData]) => `
+                    <div class="p-4 ${serviceData.status === 'healthy' || serviceData.status === 'not_configured' ? 
+                        (serviceData.status === 'healthy' ? 'bg-green-50 border-green-200' : 'bg-gray-50 border-gray-200') : 
+                        'bg-red-50 border-red-200'} border rounded-lg">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center">
+                                <span class="text-2xl mr-2">${getHealthStatusIcon(serviceData.status)}</span>
+                                <div>
+                                    <h3 class="font-medium ${serviceData.status === 'healthy' ? 'text-green-900' : 
+                                        serviceData.status === 'not_configured' ? 'text-gray-900' : 'text-red-900'}">${serviceName.toUpperCase()}</h3>
+                                    <p class="text-sm ${serviceData.status === 'healthy' ? 'text-green-700' : 
+                                        serviceData.status === 'not_configured' ? 'text-gray-700' : 'text-red-700'}">${serviceData.status}</p>
+                                </div>
+                            </div>
+                            ${serviceData.status === 'healthy' ? `
+                                <div class="text-right text-sm text-gray-700">
+                                    ${serviceName === 'lmstudio' ? `
+                                        <p class="font-medium">${serviceData.models_available} models available</p>
+                                        <p class="text-xs text-gray-600">${serviceData.models.slice(0, 3).join(', ')}${serviceData.models.length > 3 ? '...' : ''}</p>
+                                    ` : serviceName === 'langgraph' ? `
+                                        <p class="font-medium">Server: ${serviceData.url || 'N/A'}</p>
+                                        ${serviceData.version ? `<p class="text-xs text-gray-600">Version: ${serviceData.version}</p>` : ''}
+                                    ` : serviceName === 'langfuse' ? `
+                                        <p class="font-medium">${serviceData.configured ? 'Configured' : 'Not configured'}</p>
+                                        ${serviceData.message ? `<p class="text-xs text-gray-600">${serviceData.message}</p>` : ''}
+                                    ` : serviceName === 'redis' ? `
+                                        <p class="font-medium">Memory: ${Math.round(serviceData.info.used_memory / 1024 / 1024)}MB</p>
+                                    ` : ''}
+                                </div>
+                            ` : serviceData.status === 'not_configured' ? `
+                                <div class="text-right text-sm text-gray-600">
+                                    <p class="font-medium">Not Configured</p>
+                                    ${serviceData.message ? `<p class="text-xs">${serviceData.message}</p>` : ''}
+                                </div>
+                            ` : `
+                                <div class="text-right text-sm text-red-700">
+                                    <p class="font-medium">Error</p>
+                                    <p class="text-xs">${serviceData.error || 'Unknown error'}</p>
+                                </div>
+                            `}
+                        </div>
+                    </div>
+                `).join('')}
+            </div>
+        `;
+    } else {
+        content.innerHTML = `
+            <div class="p-4 bg-red-50 border border-red-200 rounded-lg">
+                <div class="flex items-center">
+                    <span class="text-2xl mr-2">❌</span>
+                    <div>
+                        <h3 class="font-medium text-red-900">Services Health Check Failed</h3>
+                        <p class="text-sm text-red-700">${data.error || 'Unknown error'}</p>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+}
+
+// Celery Health Check
+async function updateCeleryHealth() {
+    const data = await runHealthCheck('/celery', 'Checking Celery workers...');
+
+    const content = document.getElementById('celeryHealthContent');
+    if (data.status === 'healthy' && data.celery) {
+        const celery = data.celery;
+        content.innerHTML = `
+            <div class="space-y-4">
+                ${Object.entries(celery).map(([component, componentData]) => `
+                    <div class="p-4 ${componentData.status === 'healthy' ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'} border rounded-lg">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center">
+                                <span class="text-2xl mr-2">${getHealthStatusIcon(componentData.status)}</span>
+                                <div>
+                                    <h3 class="font-medium ${componentData.status === 'healthy' ? 'text-green-900' : 'text-red-900'}">${component.toUpperCase()}</h3>
+                                    <p class="text-sm ${componentData.status === 'healthy' ? 'text-green-700' : 'text-red-700'}">${componentData.status}</p>
+                                </div>
+                            </div>
+                            ${componentData.status === 'healthy' ? `
+                                <div class="text-right text-sm text-gray-700">
+                                    ${component === 'workers' ? `
+                                        <p class="font-medium">${componentData.active_workers} active workers</p>
+                                    ` : component === 'broker' ? `
+                                        <p class="font-medium">${componentData.url}</p>
+                                    ` : component === 'result_backend' ? `
+                                        <p class="font-medium">${componentData.backend}</p>
+                                    ` : ''}
+                                </div>
+                            ` : `
+                                <div class="text-right text-sm text-red-700">
+                                    <p class="font-medium">${componentData.error}</p>
+                                </div>
+                            `}
+                        </div>
+                    </div>
+                `).join('')}
+            </div>
+        `;
+    } else {
+        content.innerHTML = `
+            <div class="p-4 bg-red-50 border border-red-200 rounded-lg">
+                <div class="flex items-center">
+                    <span class="text-2xl mr-2">❌</span>
+                    <div>
+                        <h3 class="font-medium text-red-900">Celery Health Check Failed</h3>
+                        <p class="text-sm text-red-700">${data.error || 'Unknown error'}</p>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+}
+
+// Ingestion Analytics
+async function updateIngestionAnalytics() {
+    const data = await runHealthCheck('/ingestion', 'Analyzing article ingestion trends...');
+
+    const content = document.getElementById('ingestionAnalyticsContent');
+    if (data.status === 'healthy' && data.ingestion) {
+        const ingestion = data.ingestion;
+
+        // Prepare chart data
+        const dailyLabels = ingestion.daily_trends.map(item => item.date).reverse();
+        const dailyArticles = ingestion.daily_trends.map(item => item.articles_count).reverse();
+        const dailySources = ingestion.daily_trends.map(item => item.sources_count).reverse();
+
+        // Prepare hunt score ranges data
+        const huntScoreLabels = ingestion.hunt_score_ranges.map(item => item.date).reverse();
+        const excellentData = ingestion.hunt_score_ranges.map(item => item.excellent).reverse();
+        const goodData = ingestion.hunt_score_ranges.map(item => item.good).reverse();
+        const moderateData = ingestion.hunt_score_ranges.map(item => item.moderate).reverse();
+        const lowData = ingestion.hunt_score_ranges.map(item => item.low).reverse();
+        const minimalData = ingestion.hunt_score_ranges.map(item => item.minimal).reverse();
+
+        const hourlyLabels = Array.from({length: 24}, (_, i) => `${i}:00`);
+        const hourlyData = Array.from({length: 24}, (_, i) => {
+            const hourData = ingestion.hourly_distribution.find(h => h.hour === i);
+            return hourData ? hourData.articles_count : 0;
+        });
+
+        content.innerHTML = `
+            <div class="space-y-6">
+                <!-- Summary Statistics -->
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div class="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                        <h3 class="font-medium text-blue-900">Total Articles</h3>
+                        <p class="text-2xl font-bold text-blue-600">${ingestion.total_stats.total_articles.toLocaleString()}</p>
+                    </div>
+                    <div class="p-4 bg-green-50 border border-green-200 rounded-lg">
+                        <h3 class="font-medium text-green-900">Active Sources</h3>
+                        <p class="text-2xl font-bold text-green-600">${ingestion.total_stats.total_sources}</p>
+                    </div>
+                    <div class="p-4 bg-purple-50 border border-purple-200 rounded-lg">
+                        <h3 class="font-medium text-purple-900">Earliest Article</h3>
+                        <p class="text-sm font-bold text-purple-600">${ingestion.total_stats.earliest_article ? new Date(ingestion.total_stats.earliest_article).toLocaleDateString() : 'N/A'}</p>
+                    </div>
+                    <div class="p-4 bg-orange-50 border border-orange-200 rounded-lg">
+                        <h3 class="font-medium text-orange-900">Latest Article</h3>
+                        <p class="text-sm font-bold text-orange-600">${ingestion.total_stats.latest_article ? new Date(ingestion.total_stats.latest_article).toLocaleDateString() : 'N/A'}</p>
+                    </div>
+                </div>
+
+                <!-- Hunt Score Ranges Chart -->
+                <div class="p-4 bg-slate-50 border border-slate-200 rounded-lg">
+                    <h3 class="font-medium text-slate-900 mb-4">🎯 Hunt Score Ranges (Last 30 Days)</h3>
+                    <canvas id="huntScoreChart" width="400" height="100"></canvas>
+                </div>
+
+                <!-- Hourly Distribution Chart -->
+                <div class="p-4 bg-slate-50 border border-slate-200 rounded-lg">
+                    <h3 class="font-medium text-slate-900 mb-4">🕐 Hourly Distribution (Today)</h3>
+                    <canvas id="hourlyChart" width="400" height="100"></canvas>
+                </div>
+
+                <!-- Source Breakdown -->
+                <div class="p-4 bg-slate-50 border border-slate-200 rounded-lg">
+                    <h3 class="font-medium text-slate-900 mb-4">📰 Top Sources (Last 7 Days)</h3>
+                    <div class="space-y-3">
+                        ${ingestion.source_breakdown.map(source => `
+                            <div class="p-3 bg-white rounded border border-slate-200">
+                                <div class="flex justify-between items-start mb-2">
+                                    <span class="font-medium text-slate-900">${source.source_name}</span>
+                                    <span class="text-sm font-bold text-blue-600">${source.articles_count} articles</span>
+                                </div>
+                                <div class="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
+                                    <div class="text-center p-2 bg-blue-50 rounded">
+                                        <div class="font-medium text-blue-900">Average Hunt Score</div>
+                                        <div class="text-lg font-bold ${source.avg_hunt_score >= 60 ? 'text-green-600' : source.avg_hunt_score >= 40 ? 'text-yellow-600' : 'text-red-600'}">${source.avg_hunt_score.toFixed(1)}</div>
+                                    </div>
+                                    <div class="text-center p-2 bg-green-50 rounded">
+                                        <div class="font-medium text-green-900">Chosen</div>
+                                        <div class="text-sm font-bold text-green-600">${source.chosen_ratio}</div>
+                                        <div class="text-xs text-gray-600">${source.chosen_count}</div>
+                                    </div>
+                                    <div class="text-center p-2 bg-red-50 rounded">
+                                        <div class="font-medium text-red-900">Rejected</div>
+                                        <div class="text-sm font-bold text-red-600">${source.rejected_ratio}</div>
+                                        <div class="text-xs text-gray-600">${source.rejected_count}</div>
+                                    </div>
+                                    <div class="text-center p-2 bg-gray-50 rounded">
+                                        <div class="font-medium text-gray-900">Unclassified</div>
+                                        <div class="text-sm font-bold text-gray-600">${source.unclassified_ratio}</div>
+                                        <div class="text-xs text-gray-600">${source.unclassified_count}</div>
+                                    </div>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            </div>
+        `;
+
+        // Create charts
+        createHuntScoreChart(huntScoreLabels, excellentData, goodData, moderateData, lowData, minimalData);
+        createHourlyChart(hourlyLabels, hourlyData);
+    } else {
+        content.innerHTML = `
+            <div class="p-4 bg-red-50 border border-red-200 rounded-lg">
+                <div class="flex items-center">
+                    <span class="text-2xl mr-2">❌</span>
+                    <div>
+                        <h3 class="font-medium text-red-900">Ingestion Analytics Failed</h3>
+                        <p class="text-sm text-red-700">${data.error || 'Unknown error'}</p>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+}
+
+// Chart creation functions
+function createHuntScoreChart(labels, excellentData, goodData, moderateData, lowData, minimalData) {
+    const ctx = document.getElementById('huntScoreChart').getContext('2d');
+    new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Excellent (80-100)',
+                data: excellentData,
+                backgroundColor: 'rgba(34, 197, 94, 0.8)',
+                borderColor: 'rgb(34, 197, 94)',
+                borderWidth: 1
+            }, {
+                label: 'Good (60-79)',
+                data: goodData,
+                backgroundColor: 'rgba(59, 130, 246, 0.8)',
+                borderColor: 'rgb(59, 130, 246)',
+                borderWidth: 1
+            }, {
+                label: 'Moderate (40-59)',
+                data: moderateData,
+                backgroundColor: 'rgba(251, 191, 36, 0.8)',
+                borderColor: 'rgb(251, 191, 36)',
+                borderWidth: 1
+            }, {
+                label: 'Low (20-39)',
+                data: lowData,
+                backgroundColor: 'rgba(249, 115, 22, 0.8)',
+                borderColor: 'rgb(249, 115, 22)',
+                borderWidth: 1
+            }, {
+                label: 'Minimal (0-19)',
+                data: minimalData,
+                backgroundColor: 'rgba(239, 68, 68, 0.8)',
+                borderColor: 'rgb(239, 68, 68)',
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            scales: {
+                x: {
+                    stacked: true
+                },
+                y: {
+                    stacked: true,
+                    type: 'logarithmic',
+                    beginAtZero: true,
+                    min: 1
+                }
+            },
+            plugins: {
+                legend: {
+                    position: 'top'
+                }
+            }
+        }
+    });
+}
+
+function createHourlyChart(labels, data) {
+    const ctx = document.getElementById('hourlyChart').getContext('2d');
+    new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Articles',
+                data: data,
+                backgroundColor: 'rgba(147, 51, 234, 0.8)',
+                borderColor: 'rgb(147, 51, 234)',
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            scales: {
+                y: {
+                    beginAtZero: true
+                }
+            }
+        }
+    });
+}
+
+function showError(message) {
+    // Simple error display - could be enhanced with a toast notification
+    console.error(message);
+
+    // Show error in the UI
+    const errorDiv = document.createElement('div');
+    errorDiv.className = 'fixed top-4 right-4 bg-red-600 text-white px-4 py-2 rounded-lg shadow-lg z-50';
+    errorDiv.textContent = message;
+    document.body.appendChild(errorDiv);
+
+    // Remove after 5 seconds
+    setTimeout(() => {
+        if (errorDiv.parentNode) {
+            errorDiv.parentNode.removeChild(errorDiv);
+        }
+    }, 5000);
+}
+</script>
+{% endblock %}

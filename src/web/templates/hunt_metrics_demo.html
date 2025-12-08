@@ -1,0 +1,1032 @@
+{% extends "base.html" %}
+
+{% block title %}Advanced Hunt Metrics Demo - Analytics - Huntable CTI Scraper{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+    <div class="mb-8">
+        <nav class="flex mb-4" aria-label="Breadcrumb">
+            <ol class="inline-flex items-center space-x-1 md:space-x-3">
+                <li class="inline-flex items-center">
+                    <a href="/analytics" class="text-gray-700 hover:text-blue-600 dark:text-gray-300 dark:hover:text-blue-400">Analytics</a>
+                </li>
+                <li>
+                    <div class="flex items-center">
+                        <svg class="w-6 h-6 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd"></path>
+                        </svg>
+                        <span class="ml-1 text-gray-500 md:ml-2 dark:text-gray-400">Advanced Hunt Metrics Demo</span>
+                    </div>
+                </li>
+            </ol>
+        </nav>
+        
+        <h1 class="text-3xl font-bold text-gray-900 dark:text-white mb-2">🚀 Advanced Hunt Metrics Demo</h1>
+        <p class="text-gray-600 dark:text-gray-400">Multidimensional visualizations for threat hunting content analysis</p>
+        <div class="mt-2">
+            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200">
+                🔬 Experimental Features
+            </span>
+        </div>
+    </div>
+
+    <!-- Control Panel -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-8">
+        <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">🎛️ Visualization Controls</h3>
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Time Range</label>
+                <select id="timeRange" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+                    <option value="7">Last 7 days</option>
+                    <option value="30" selected>Last 30 days</option>
+                    <option value="90">Last 90 days</option>
+                    <option value="all">All time</option>
+                </select>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Min Hunt Score</label>
+                <input type="range" id="minScore" min="0" max="100" value="0" class="w-full">
+                <div class="flex justify-between text-xs text-gray-500">
+                    <span>0</span>
+                    <span id="minScoreValue">0</span>
+                    <span>100</span>
+                </div>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Sources</label>
+                <select id="sourceFilter" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+                    <option value="all">All Sources</option>
+                </select>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Classification</label>
+                <select id="classificationFilter" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+                    <option value="all">All Classifications</option>
+                    <option value="chosen">Chosen</option>
+                    <option value="rejected">Rejected</option>
+                    <option value="unclassified">Unclassified</option>
+                </select>
+            </div>
+        </div>
+        <div class="mt-4">
+            <button id="refreshData" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                </svg>
+                Refresh Data
+            </button>
+        </div>
+    </div>
+
+    <!-- Visualization Grid -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+        <!-- Hunt Score vs ML Confidence Scatter Plot -->
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+            <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">🎯 Hunt Score vs ML Confidence</h3>
+            <div class="h-96">
+                <div id="scatterPlot" class="w-full h-full"></div>
+            </div>
+            <div class="mt-4 text-sm text-gray-600 dark:text-gray-400">
+                <p><strong>Insight:</strong> Points above the diagonal indicate ML overconfidence, below indicate underconfidence.</p>
+            </div>
+        </div>
+
+        <!-- Source Performance Bubble Chart -->
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+            <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">📊 Source Performance Matrix</h3>
+            <div class="h-96">
+                <div id="bubbleChart" class="w-full h-full"></div>
+            </div>
+            <div class="mt-4 text-sm text-gray-600 dark:text-gray-400">
+                <p><strong>Insight:</strong> Larger bubbles = more articles. Color intensity = average hunt score.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Keyword Co-occurrence Network -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-8">
+        <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">🕸️ Keyword Co-occurrence Network</h3>
+        <div class="flex justify-between items-center mb-4">
+            <div class="flex space-x-4">
+                <button id="networkLayout" class="px-3 py-1 text-sm bg-blue-100 text-blue-800 rounded-md hover:bg-blue-200">Force Layout</button>
+                <button id="networkFilter" class="px-3 py-1 text-sm bg-gray-100 text-gray-800 rounded-md hover:bg-gray-200">Filter by Category</button>
+            </div>
+            <div class="text-sm text-gray-600 dark:text-gray-400">
+                <span id="networkStats">Loading...</span>
+            </div>
+        </div>
+        <div class="h-96 border border-gray-200 dark:border-gray-600 rounded-lg">
+            <svg id="networkChart" class="w-full h-full"></svg>
+        </div>
+        <div class="mt-4 text-sm text-gray-600 dark:text-gray-400">
+            <p><strong>Insight:</strong> Node size = frequency, edge thickness = co-occurrence strength, color = category.</p>
+        </div>
+    </div>
+
+    <!-- Temporal Performance Dashboard -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-8">
+        <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">📈 Temporal Performance Dashboard</h3>
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div>
+                <h4 class="text-md font-medium text-gray-900 dark:text-white mb-3">Hunt Score Trends by Source</h4>
+                <div class="h-64">
+                    <div id="temporalChart" class="w-full h-full"></div>
+                </div>
+            </div>
+            <div>
+                <h4 class="text-md font-medium text-gray-900 dark:text-white mb-3">Classification Accuracy Over Time</h4>
+                <div class="h-64">
+                    <div id="accuracyChart" class="w-full h-full"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Content Quality Matrix -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-8">
+        <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">🎨 Content Quality Matrix</h3>
+        <div class="h-96">
+            <div id="qualityMatrix" class="w-full h-full"></div>
+        </div>
+        <div class="mt-4 text-sm text-gray-600 dark:text-gray-400">
+            <p><strong>Insight:</strong> X-axis = Technical Depth (Perfect + Good discriminators), Y-axis = Threat Relevance (Intelligence indicators).</p>
+        </div>
+    </div>
+
+    <!-- ML Model Performance Radar Chart -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-8">
+        <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">🎯 ML Model Performance Radar</h3>
+        <div class="h-96">
+            <div id="radarChart" class="w-full h-full"></div>
+        </div>
+        <div class="mt-4 text-sm text-gray-600 dark:text-gray-400">
+            <p><strong>Insight:</strong> Compare model versions across multiple performance metrics.</p>
+        </div>
+    </div>
+
+    <!-- Interactive Keyword Explorer -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-8">
+        <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">🔍 Interactive Keyword Explorer</h3>
+        <div class="mb-4">
+            <input type="text" id="keywordSearch" placeholder="Search keywords..." class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+        </div>
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div>
+                <h4 class="text-md font-medium text-gray-900 dark:text-white mb-3">Keyword Frequency</h4>
+                <div class="h-64 overflow-y-auto">
+                    <div id="keywordFrequency" class="space-y-2"></div>
+                </div>
+            </div>
+            <div>
+                <h4 class="text-md font-medium text-gray-900 dark:text-white mb-3">Impact Analysis</h4>
+                <div class="h-64">
+                    <div id="impactChart" class="w-full h-full"></div>
+                </div>
+            </div>
+            <div>
+                <h4 class="text-md font-medium text-gray-900 dark:text-white mb-3">Source Performance</h4>
+                <div class="h-64">
+                    <div id="sourcePerformance" class="w-full h-full"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Performance Insights -->
+    <div class="bg-gradient-to-r from-purple-50 to-blue-50 dark:from-purple-900 dark:to-blue-900 rounded-lg shadow p-6">
+        <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">💡 Advanced Analytics Insights</h3>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+                <h4 class="font-medium text-gray-900 dark:text-white mb-2">Key Findings</h4>
+                <div class="space-y-2" id="keyFindings">
+                    <!-- Content will be loaded dynamically -->
+                </div>
+            </div>
+            <div>
+                <h4 class="font-medium text-gray-900 dark:text-white mb-2">Recommendations</h4>
+                <div class="space-y-2 text-sm text-gray-600 dark:text-gray-300" id="recommendations">
+                    <!-- Content will be loaded dynamically -->
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- External Libraries -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+<script src="https://d3js.org/d3.v7.min.js"></script>
+
+<script>
+// Global data storage
+let globalData = {
+    articles: [],
+    sources: [],
+    keywords: [],
+    mlModels: [],
+    timeRange: 30
+};
+
+// Initialize the demo
+document.addEventListener('DOMContentLoaded', function() {
+    initializeControls();
+    loadInitialData();
+});
+
+// Initialize control handlers
+function initializeControls() {
+    // Time range selector
+    document.getElementById('timeRange').addEventListener('change', function() {
+        globalData.timeRange = this.value;
+        refreshAllVisualizations();
+    });
+
+    // Min score slider
+    const minScoreSlider = document.getElementById('minScore');
+    const minScoreValue = document.getElementById('minScoreValue');
+    minScoreSlider.addEventListener('input', function() {
+        minScoreValue.textContent = this.value;
+        refreshAllVisualizations();
+    });
+
+    // Source filter
+    document.getElementById('sourceFilter').addEventListener('change', function() {
+        refreshAllVisualizations();
+    });
+
+    // Classification filter
+    document.getElementById('classificationFilter').addEventListener('change', function() {
+        refreshAllVisualizations();
+    });
+
+    // Refresh button
+    document.getElementById('refreshData').addEventListener('click', function() {
+        loadInitialData();
+    });
+
+    // Network controls
+    document.getElementById('networkLayout').addEventListener('click', function() {
+        toggleNetworkLayout();
+    });
+
+    document.getElementById('networkFilter').addEventListener('click', function() {
+        toggleNetworkFilter();
+    });
+
+    // Keyword search
+    document.getElementById('keywordSearch').addEventListener('input', function() {
+        filterKeywords(this.value);
+    });
+}
+
+// Load initial data
+async function loadInitialData() {
+    try {
+        showLoadingState();
+        
+        // Load all required data in parallel
+        const [articlesData, sourcesData, keywordsData, mlModelsData] = await Promise.all([
+            fetch('/api/analytics/hunt-demo/articles').then(r => r.json()),
+            fetch('/api/analytics/hunt-demo/sources').then(r => r.json()),
+            fetch('/api/analytics/hunt-demo/keywords').then(r => r.json()),
+            fetch('/api/analytics/hunt-demo/ml-models').then(r => r.json())
+        ]);
+
+        globalData.articles = articlesData.articles || [];
+        globalData.sources = sourcesData.sources || [];
+        globalData.keywords = keywordsData.keywords || [];
+        globalData.mlModels = mlModelsData.models || [];
+
+        // Populate source filter
+        populateSourceFilter();
+        
+        // Render all visualizations
+        renderAllVisualizations();
+        
+        hideLoadingState();
+        
+    } catch (error) {
+        console.error('Failed to load demo data:', error);
+        showErrorState('Failed to load data. Please try again.');
+    }
+}
+
+// Populate source filter dropdown
+function populateSourceFilter() {
+    const sourceFilter = document.getElementById('sourceFilter');
+    sourceFilter.innerHTML = '<option value="all">All Sources</option>';
+    
+    globalData.sources.forEach(source => {
+        const option = document.createElement('option');
+        option.value = source.id;
+        option.textContent = source.name;
+        sourceFilter.appendChild(option);
+    });
+}
+
+// Render all visualizations
+function renderAllVisualizations() {
+    renderScatterPlot();
+    renderBubbleChart();
+    renderNetworkChart();
+    renderTemporalCharts();
+    renderQualityMatrix();
+    renderRadarChart();
+    renderKeywordExplorer();
+    updateInsights();
+}
+
+// Refresh all visualizations with current filters
+function refreshAllVisualizations() {
+    renderAllVisualizations();
+}
+
+// Show loading state
+function showLoadingState() {
+    const charts = document.querySelectorAll('[id$="Chart"], [id$="Plot"], [id$="Matrix"]');
+    charts.forEach(chart => {
+        chart.innerHTML = '<div class="flex items-center justify-center h-full text-gray-500">Loading...</div>';
+    });
+}
+
+// Hide loading state
+function hideLoadingState() {
+    // Loading state will be replaced by actual charts
+}
+
+// Show error state
+function showErrorState(message) {
+    const charts = document.querySelectorAll('[id$="Chart"], [id$="Plot"], [id$="Matrix"]');
+    charts.forEach(chart => {
+        chart.innerHTML = `<div class="flex items-center justify-center h-full text-red-500">${message}</div>`;
+    });
+}
+
+// Filter data based on current controls
+function getFilteredData() {
+    const timeRange = globalData.timeRange;
+    const minScore = parseInt(document.getElementById('minScore').value);
+    const sourceFilter = document.getElementById('sourceFilter').value;
+    const classificationFilter = document.getElementById('classificationFilter').value;
+
+    let filteredArticles = globalData.articles.filter(article => {
+        // Time range filter
+        if (timeRange !== 'all') {
+            const articleDate = new Date(article.published_at);
+            const cutoffDate = new Date();
+            cutoffDate.setDate(cutoffDate.getDate() - parseInt(timeRange));
+            if (articleDate < cutoffDate) return false;
+        }
+
+        // Hunt score filter
+        const huntScore = parseFloat(article.article_metadata?.threat_hunting_score || 0);
+        if (huntScore < minScore) return false;
+
+        // Source filter
+        if (sourceFilter !== 'all' && article.source_id !== parseInt(sourceFilter)) return false;
+
+        // Classification filter
+        if (classificationFilter !== 'all') {
+            const classification = article.article_metadata?.training_category;
+            if (classification !== classificationFilter) return false;
+        }
+
+        return true;
+    });
+
+    return filteredArticles;
+}
+
+// Render Hunt Score vs ML Confidence Scatter Plot
+function renderScatterPlot() {
+    const filteredData = getFilteredData();
+    
+    const scatterData = filteredData.map(article => ({
+        x: parseFloat(article.article_metadata?.threat_hunting_score || 0),
+        y: parseFloat(article.article_metadata?.ml_confidence || 0),
+        text: article.title,
+        classification: article.article_metadata?.training_category || 'unclassified',
+        source: article.source_name,
+        wordCount: article.word_count || 0
+    }));
+
+    const traces = {
+        'chosen': scatterData.filter(d => d.classification === 'chosen'),
+        'rejected': scatterData.filter(d => d.classification === 'rejected'),
+        'unclassified': scatterData.filter(d => d.classification === 'unclassified')
+    };
+
+    const plotData = Object.keys(traces).map(key => ({
+        x: traces[key].map(d => d.x),
+        y: traces[key].map(d => d.y),
+        text: traces[key].map(d => d.text),
+        mode: 'markers',
+        type: 'scatter',
+        name: key.charAt(0).toUpperCase() + key.slice(1),
+        marker: {
+            size: traces[key].map(d => Math.max(5, Math.min(20, d.wordCount / 100))),
+            color: key === 'chosen' ? '#10B981' : key === 'rejected' ? '#EF4444' : '#6B7280',
+            opacity: 0.7
+        }
+    }));
+
+    const layout = {
+        title: '',
+        xaxis: { title: 'Hunt Score' },
+        yaxis: { title: 'ML Confidence' },
+        showlegend: true,
+        height: 350
+    };
+
+    Plotly.newPlot('scatterPlot', plotData, layout, {responsive: true});
+}
+
+// Render Source Performance Bubble Chart
+function renderBubbleChart() {
+    const filteredData = getFilteredData();
+    
+    // Group by source
+    const sourceGroups = {};
+    filteredData.forEach(article => {
+        const sourceName = article.source_name;
+        if (!sourceGroups[sourceName]) {
+            sourceGroups[sourceName] = {
+                articles: [],
+                totalArticles: 0,
+                avgScore: 0,
+                classificationRate: 0
+            };
+        }
+        sourceGroups[sourceName].articles.push(article);
+        sourceGroups[sourceName].totalArticles++;
+    });
+
+    // Calculate metrics for each source
+    const bubbleData = Object.keys(sourceGroups).map(sourceName => {
+        const group = sourceGroups[sourceName];
+        const avgScore = group.articles.reduce((sum, article) => 
+            sum + parseFloat(article.article_metadata?.threat_hunting_score || 0), 0) / group.totalArticles;
+        
+        const classifiedCount = group.articles.filter(article => 
+            article.article_metadata?.training_category).length;
+        const classificationRate = classifiedCount / group.totalArticles;
+
+        return {
+            x: group.totalArticles,
+            y: avgScore,
+            text: sourceName,
+            size: group.totalArticles,
+            classificationRate: classificationRate
+        };
+    });
+
+    const plotData = [{
+        x: bubbleData.map(d => d.x),
+        y: bubbleData.map(d => d.y),
+        text: bubbleData.map(d => d.text),
+        mode: 'markers',
+        type: 'scatter',
+        marker: {
+            size: bubbleData.map(d => Math.max(10, Math.min(50, d.size / 10))),
+            color: bubbleData.map(d => d.classificationRate),
+            colorscale: 'Viridis',
+            opacity: 0.7,
+            line: { width: 1, color: 'white' }
+        }
+    }];
+
+    const layout = {
+        title: '',
+        xaxis: { title: 'Articles per Day' },
+        yaxis: { title: 'Average Hunt Score' },
+        height: 350
+    };
+
+    Plotly.newPlot('bubbleChart', plotData, layout, {responsive: true});
+}
+
+// Render Keyword Co-occurrence Network
+function renderNetworkChart() {
+    const filteredData = getFilteredData();
+    
+    // Extract keyword co-occurrences
+    const keywordPairs = {};
+    const keywordFreq = {};
+    
+    filteredData.forEach(article => {
+        const perfectKeywords = article.article_metadata?.perfect_keyword_matches || [];
+        const goodKeywords = article.article_metadata?.good_keyword_matches || [];
+        const lolbasKeywords = article.article_metadata?.lolbas_matches || [];
+        const intelligenceKeywords = article.article_metadata?.intelligence_matches || [];
+        
+        const allKeywords = [...perfectKeywords, ...goodKeywords, ...lolbasKeywords, ...intelligenceKeywords];
+        
+        // Count individual keyword frequency
+        allKeywords.forEach(keyword => {
+            keywordFreq[keyword] = (keywordFreq[keyword] || 0) + 1;
+        });
+        
+        // Count co-occurrences
+        for (let i = 0; i < allKeywords.length; i++) {
+            for (let j = i + 1; j < allKeywords.length; j++) {
+                const pair = [allKeywords[i], allKeywords[j]].sort().join('|');
+                keywordPairs[pair] = (keywordPairs[pair] || 0) + 1;
+            }
+        }
+    });
+
+    // Filter keywords by frequency (top 20)
+    const topKeywords = Object.entries(keywordFreq)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 20)
+        .map(([keyword, freq]) => ({ keyword, freq }));
+
+    // Create nodes and links
+    const nodes = topKeywords.map((item, index) => ({
+        id: item.keyword,
+        group: getKeywordCategory(item.keyword),
+        frequency: item.freq
+    }));
+
+    const links = Object.entries(keywordPairs)
+        .filter(([pair, count]) => count > 1)
+        .map(([pair, count]) => {
+            const [source, target] = pair.split('|');
+            return { source, target, value: count };
+        })
+        .filter(link => 
+            nodes.some(n => n.id === link.source) && 
+            nodes.some(n => n.id === link.target)
+        );
+
+    // Render with D3
+    const svg = d3.select('#networkChart');
+    svg.selectAll('*').remove();
+
+    const width = 800;
+    const height = 350;
+    svg.attr('width', width).attr('height', height);
+
+    const simulation = d3.forceSimulation(nodes)
+        .force('link', d3.forceLink(links).id(d => d.id).distance(50))
+        .force('charge', d3.forceManyBody().strength(-300))
+        .force('center', d3.forceCenter(width / 2, height / 2));
+
+    const link = svg.append('g')
+        .selectAll('line')
+        .data(links)
+        .enter().append('line')
+        .attr('stroke', '#999')
+        .attr('stroke-opacity', 0.6)
+        .attr('stroke-width', d => Math.sqrt(d.value));
+
+    const node = svg.append('g')
+        .selectAll('circle')
+        .data(nodes)
+        .enter().append('circle')
+        .attr('r', d => Math.max(5, Math.min(20, d.frequency / 5)))
+        .attr('fill', d => getCategoryColor(d.group))
+        .attr('stroke', '#fff')
+        .attr('stroke-width', 2)
+        .call(d3.drag()
+            .on('start', dragstarted)
+            .on('drag', dragged)
+            .on('end', dragended));
+
+    const label = svg.append('g')
+        .selectAll('text')
+        .data(nodes)
+        .enter().append('text')
+        .text(d => d.id)
+        .attr('font-size', '10px')
+        .attr('text-anchor', 'middle')
+        .attr('dy', '0.35em');
+
+    simulation.on('tick', () => {
+        link
+            .attr('x1', d => d.source.x)
+            .attr('y1', d => d.source.y)
+            .attr('x2', d => d.target.x)
+            .attr('y2', d => d.target.y);
+
+        node
+            .attr('cx', d => d.x)
+            .attr('cy', d => d.y);
+
+        label
+            .attr('x', d => d.x)
+            .attr('y', d => d.y);
+    });
+
+    function dragstarted(event, d) {
+        if (!event.active) simulation.alphaTarget(0.3).restart();
+        d.fx = d.x;
+        d.fy = d.y;
+    }
+
+    function dragged(event, d) {
+        d.fx = event.x;
+        d.fy = event.y;
+    }
+
+    function dragended(event, d) {
+        if (!event.active) simulation.alphaTarget(0);
+        d.fx = null;
+        d.fy = null;
+    }
+
+    // Update network stats
+    document.getElementById('networkStats').textContent = 
+        `${nodes.length} keywords, ${links.length} connections`;
+}
+
+// Helper function to get keyword category
+function getKeywordCategory(keyword) {
+    // This would need to be implemented based on your keyword categorization
+    // For now, return a default category
+    return 'perfect';
+}
+
+// Helper function to get category color
+function getCategoryColor(category) {
+    const colors = {
+        'perfect': '#10B981',
+        'good': '#3B82F6',
+        'lolbas': '#F59E0B',
+        'intelligence': '#8B5CF6',
+        'negative': '#EF4444'
+    };
+    return colors[category] || '#6B7280';
+}
+
+// Render Temporal Charts
+function renderTemporalCharts() {
+    const filteredData = getFilteredData();
+    
+    // Group by date and source
+    const dailyData = {};
+    filteredData.forEach(article => {
+        const date = new Date(article.published_at).toISOString().split('T')[0];
+        const source = article.source_name;
+        
+        if (!dailyData[date]) {
+            dailyData[date] = {};
+        }
+        if (!dailyData[date][source]) {
+            dailyData[date][source] = { count: 0, totalScore: 0, scores: [] };
+        }
+        
+        dailyData[date][source].count++;
+        const score = parseFloat(article.article_metadata?.threat_hunting_score || 0);
+        dailyData[date][source].totalScore += score;
+        dailyData[date][source].scores.push(score);
+    });
+
+    // Calculate daily averages
+    const dates = Object.keys(dailyData).sort();
+    const sources = [...new Set(filteredData.map(a => a.source_name))];
+    
+    const traces = sources.map(source => ({
+        x: dates,
+        y: dates.map(date => {
+            const data = dailyData[date][source];
+            return data ? data.totalScore / data.count : 0;
+        }),
+        type: 'scatter',
+        mode: 'lines+markers',
+        name: source
+    }));
+
+    const layout = {
+        title: '',
+        xaxis: { title: 'Date' },
+        yaxis: { title: 'Average Hunt Score' },
+        height: 250
+    };
+
+    Plotly.newPlot('temporalChart', traces, layout, {responsive: true});
+
+    // Classification accuracy over time
+    const accuracyData = dates.map(date => {
+        const dayArticles = filteredData.filter(article => 
+            new Date(article.published_at).toISOString().split('T')[0] === date
+        );
+        
+        const classified = dayArticles.filter(article => 
+            article.article_metadata?.training_category
+        ).length;
+        
+        return {
+            x: date,
+            y: dayArticles.length > 0 ? classified / dayArticles.length : 0
+        };
+    });
+
+    const accuracyTrace = [{
+        x: accuracyData.map(d => d.x),
+        y: accuracyData.map(d => d.y),
+        type: 'scatter',
+        mode: 'lines+markers',
+        name: 'Classification Rate',
+        line: { color: '#8B5CF6' }
+    }];
+
+    const accuracyLayout = {
+        title: '',
+        xaxis: { title: 'Date' },
+        yaxis: { title: 'Classification Rate' },
+        height: 250
+    };
+
+    Plotly.newPlot('accuracyChart', accuracyTrace, accuracyLayout, {responsive: true});
+}
+
+// Render Content Quality Matrix
+function renderQualityMatrix() {
+    const filteredData = getFilteredData();
+    
+    const matrixData = filteredData.map(article => {
+        const perfectKeywords = article.article_metadata?.perfect_keyword_matches || [];
+        const goodKeywords = article.article_metadata?.good_keyword_matches || [];
+        const intelligenceKeywords = article.article_metadata?.intelligence_matches || [];
+        
+        return {
+            x: perfectKeywords.length + goodKeywords.length,
+            y: intelligenceKeywords.length,
+            huntScore: parseFloat(article.article_metadata?.threat_hunting_score || 0),
+            title: article.title,
+            source: article.source_name,
+            wordCount: article.word_count || 0
+        };
+    });
+
+    const plotData = [{
+        x: matrixData.map(d => d.x),
+        y: matrixData.map(d => d.y),
+        text: matrixData.map(d => d.title),
+        mode: 'markers',
+        type: 'scatter',
+        marker: {
+            size: matrixData.map(d => Math.max(5, Math.min(20, d.wordCount / 200))),
+            color: matrixData.map(d => d.huntScore),
+            colorscale: 'Viridis',
+            opacity: 0.7,
+            line: { width: 1, color: 'white' }
+        }
+    }];
+
+    const layout = {
+        title: '',
+        xaxis: { title: 'Technical Depth (Perfect + Good Keywords)' },
+        yaxis: { title: 'Threat Relevance (Intelligence Keywords)' },
+        height: 350
+    };
+
+    Plotly.newPlot('qualityMatrix', plotData, layout, {responsive: true});
+}
+
+// Render ML Model Performance Radar Chart
+function renderRadarChart() {
+    const models = globalData.mlModels;
+    
+    if (models.length === 0) {
+        document.getElementById('radarChart').innerHTML = 
+            '<div class="flex items-center justify-center h-full text-gray-500">No ML model data available</div>';
+        return;
+    }
+
+    const metrics = ['accuracy', 'precision_huntable', 'recall_huntable', 'f1_score_huntable', 'precision_not_huntable', 'recall_not_huntable', 'f1_score_not_huntable'];
+    
+    const traces = models.map(model => ({
+        r: metrics.map(metric => model[metric] || 0),
+        theta: metrics.map(metric => metric.replace('_', ' ').toUpperCase()),
+        fill: 'toself',
+        name: `Model v${model.version_number}`,
+        line: { color: getModelColor(model.version_number) }
+    }));
+
+    const layout = {
+        polar: {
+            radialaxis: {
+                visible: true,
+                range: [0, 1]
+            }
+        },
+        showlegend: true,
+        height: 350
+    };
+
+    Plotly.newPlot('radarChart', traces, layout, {responsive: true});
+}
+
+// Helper function to get model color
+function getModelColor(version) {
+    const colors = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6'];
+    return colors[(version - 1) % colors.length];
+}
+
+// Render Keyword Explorer
+function renderKeywordExplorer() {
+    const filteredData = getFilteredData();
+    
+    // Extract all keywords with their frequencies and impacts
+    const keywordStats = {};
+    
+    filteredData.forEach(article => {
+        const perfectKeywords = article.article_metadata?.perfect_keyword_matches || [];
+        const goodKeywords = article.article_metadata?.good_keyword_matches || [];
+        const lolbasKeywords = article.article_metadata?.lolbas_matches || [];
+        const intelligenceKeywords = article.article_metadata?.intelligence_matches || [];
+        
+        const huntScore = parseFloat(article.article_metadata?.threat_hunting_score || 0);
+        
+        [...perfectKeywords, ...goodKeywords, ...lolbasKeywords, ...intelligenceKeywords].forEach(keyword => {
+            if (!keywordStats[keyword]) {
+                keywordStats[keyword] = {
+                    frequency: 0,
+                    totalImpact: 0,
+                    articles: [],
+                    category: getKeywordCategory(keyword)
+                };
+            }
+            keywordStats[keyword].frequency++;
+            keywordStats[keyword].totalImpact += huntScore;
+            keywordStats[keyword].articles.push(article);
+        });
+    });
+
+    // Sort by frequency and display top keywords
+    const topKeywords = Object.entries(keywordStats)
+        .sort((a, b) => b[1].frequency - a[1].frequency)
+        .slice(0, 20);
+
+    const keywordFrequencyDiv = document.getElementById('keywordFrequency');
+    keywordFrequencyDiv.innerHTML = '';
+    
+    topKeywords.forEach(([keyword, stats]) => {
+        const avgImpact = stats.totalImpact / stats.frequency;
+        const div = document.createElement('div');
+        div.className = 'flex justify-between items-center p-2 bg-gray-50 dark:bg-gray-700 rounded';
+        div.innerHTML = `
+            <span class="text-sm font-mono">${keyword}</span>
+            <div class="flex items-center space-x-2">
+                <span class="text-xs text-gray-500">${stats.frequency}</span>
+                <span class="text-xs px-1 py-0.5 rounded ${getCategoryBadgeClass(stats.category)}">${stats.category}</span>
+            </div>
+        `;
+        keywordFrequencyDiv.appendChild(div);
+    });
+
+    // Impact analysis chart
+    const impactData = topKeywords.map(([keyword, stats]) => ({
+        keyword: keyword,
+        avgImpact: stats.totalImpact / stats.frequency,
+        frequency: stats.frequency
+    }));
+
+    const impactTrace = [{
+        x: impactData.map(d => d.keyword),
+        y: impactData.map(d => d.avgImpact),
+        type: 'bar',
+        marker: { color: '#3B82F6' }
+    }];
+
+    const impactLayout = {
+        title: '',
+        xaxis: { title: 'Keywords' },
+        yaxis: { title: 'Average Impact' },
+        height: 250
+    };
+
+    Plotly.newPlot('impactChart', impactTrace, impactLayout, {responsive: true});
+
+    // Source performance for keywords
+    const sourceKeywordData = {};
+    topKeywords.forEach(([keyword, stats]) => {
+        stats.articles.forEach(article => {
+            const source = article.source_name;
+            if (!sourceKeywordData[source]) {
+                sourceKeywordData[source] = {};
+            }
+            if (!sourceKeywordData[source][keyword]) {
+                sourceKeywordData[source][keyword] = 0;
+            }
+            sourceKeywordData[source][keyword]++;
+        });
+    });
+
+    const sourceTraces = Object.keys(sourceKeywordData).map(source => ({
+        x: topKeywords.map(([keyword]) => keyword),
+        y: topKeywords.map(([keyword]) => sourceKeywordData[source][keyword] || 0),
+        type: 'bar',
+        name: source
+    }));
+
+    const sourceLayout = {
+        title: '',
+        xaxis: { title: 'Keywords' },
+        yaxis: { title: 'Frequency' },
+        barmode: 'stack',
+        height: 250
+    };
+
+    Plotly.newPlot('sourcePerformance', sourceTraces, sourceLayout, {responsive: true});
+}
+
+// Helper function to get category badge class
+function getCategoryBadgeClass(category) {
+    const classes = {
+        'perfect': 'bg-green-100 text-green-800',
+        'good': 'bg-blue-100 text-blue-800',
+        'lolbas': 'bg-orange-100 text-orange-800',
+        'intelligence': 'bg-purple-100 text-purple-800',
+        'negative': 'bg-red-100 text-red-800'
+    };
+    return classes[category] || 'bg-gray-100 text-gray-800';
+}
+
+// Update insights
+function updateInsights() {
+    const filteredData = getFilteredData();
+    
+    // Calculate key findings
+    const totalArticles = filteredData.length;
+    const avgHuntScore = filteredData.reduce((sum, article) => 
+        sum + parseFloat(article.article_metadata?.threat_hunting_score || 0), 0) / totalArticles;
+    
+    const highQualityArticles = filteredData.filter(article => 
+        parseFloat(article.article_metadata?.threat_hunting_score || 0) > 50).length;
+    
+    const classifiedArticles = filteredData.filter(article => 
+        article.article_metadata?.training_category).length;
+    
+    const keyFindings = [
+        `${totalArticles} articles analyzed`,
+        `Average hunt score: ${avgHuntScore.toFixed(1)}`,
+        `${highQualityArticles} high-quality articles (${(highQualityArticles/totalArticles*100).toFixed(1)}%)`,
+        `${classifiedArticles} classified articles (${(classifiedArticles/totalArticles*100).toFixed(1)}%)`
+    ];
+
+    const keyFindingsDiv = document.getElementById('keyFindings');
+    keyFindingsDiv.innerHTML = '';
+    keyFindings.forEach(finding => {
+        const div = document.createElement('div');
+        div.className = 'flex items-start';
+        div.innerHTML = `
+            <div class="flex-shrink-0 mr-2 mt-1">
+                <div class="w-2 h-2 bg-blue-500 rounded-full"></div>
+            </div>
+            <p class="text-sm">${finding}</p>
+        `;
+        keyFindingsDiv.appendChild(div);
+    });
+
+    // Generate recommendations
+    const recommendations = [
+        avgHuntScore < 30 ? 'Consider reviewing keyword weights - average hunt score is low' : 'Hunt scoring system is performing well',
+        highQualityArticles / totalArticles < 0.2 ? 'Focus on improving content quality - low percentage of high-quality articles' : 'Good content quality distribution',
+        classifiedArticles / totalArticles < 0.5 ? 'Increase classification efforts to improve ML model training' : 'Classification rate is adequate',
+        'Monitor source performance trends for optimization opportunities'
+    ];
+
+    const recommendationsDiv = document.getElementById('recommendations');
+    recommendationsDiv.innerHTML = '';
+    recommendations.forEach(recommendation => {
+        const div = document.createElement('div');
+        div.className = 'flex items-start';
+        div.innerHTML = `
+            <div class="flex-shrink-0 mr-2 mt-1">
+                <div class="w-2 h-2 bg-green-500 rounded-full"></div>
+            </div>
+            <p class="text-sm">${recommendation}</p>
+        `;
+        recommendationsDiv.appendChild(div);
+    });
+}
+
+// Network layout toggle
+function toggleNetworkLayout() {
+    // This would switch between force layout and hierarchical layout
+    console.log('Toggle network layout');
+}
+
+// Network filter toggle
+function toggleNetworkFilter() {
+    // This would show/hide keyword categories
+    console.log('Toggle network filter');
+}
+
+// Filter keywords
+function filterKeywords(searchTerm) {
+    const keywordDivs = document.querySelectorAll('#keywordFrequency > div');
+    keywordDivs.forEach(div => {
+        const keyword = div.querySelector('span').textContent;
+        if (keyword.toLowerCase().includes(searchTerm.toLowerCase())) {
+            div.style.display = 'flex';
+        } else {
+            div.style.display = 'none';
+        }
+    });
+}
+</script>
+{% endblock %}

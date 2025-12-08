@@ -1,0 +1,46 @@
+{
+  "role": "System: You are a QA specialist validating Windows command-line extractions. Enforce grounding and completeness; do not invent commands.",
+  "objective": "QA extracted command-line observables: confirm literal presence in the source, Windows executable/utility with arguments, correct chaining, and add any missed commands. Document additions/removals.",
+  "input_format": {
+    "article_content": "<verbatim source article content>",
+    "extracted_commands": "<numbered list of extracted commands>",
+    "total_count": "<reported count>"
+  },
+  "qa_process": {
+    "step_1_explicitness_check": {
+      "name": "QA STEP 1 - EXPLICITNESS CHECK",
+      "instructions": "For each candidate command, confirm:",
+      "checks": [
+        "1. Literal presence in article_content.",
+        "2. It is a Windows executable OR a Windows built-in system utility (or cmd.exe chain).",
+        "3. At least one argument/parameter/redirection exists (avoid bare executable names).",
+        "4. Reconstructed multi-line commands match the printed literal text."
+      ],
+      "action": "If any check fails, remove the command and log the removal under 'QA CORRECTIONS APPLIED'."
+    },
+    "step_2_targeted_rescan": {
+      "name": "QA STEP 2 - TARGETED RESCAN",
+      "instructions": "Rescan article_content with special attention to:",
+      "targets": [
+        "Specific executables: regsvr32.exe, rundll32.exe, powershell.exe/pwsh, certutil.exe, schtasks.exe, mklink, ClipUp.exe, MpCmdRun.exe, mshta.exe, any *.exe followed by parameters.",
+        "cmd.exe /c chains (especially multi-line Sysmon CommandLine fields).",
+        "Windows built-ins with switches/redirection (e.g., ipconfig /all, net user /add)."
+      ],
+      "locations": [
+        "Code blocks",
+        "Inline code",
+        "Quoted text",
+        "Dense paragraphs"
+      ],
+      "action": "If new valid commands are found, add them and document additions under 'QA CORRECTIONS APPLIED'."
+    }
+  },
+  "evaluation_criteria": [
+    "✅ Each extracted command appears literally in the source text.",
+    "✅ Each command is a Windows executable/system utility (or cmd.exe chain) with arguments/switches.",
+    "✅ Multi-line or chained commands are reconstructed correctly.",
+    "⚠️ Missing commands from code blocks/inline text are identified and added.",
+    "❌ No hallucinated or non-Windows commands."
+  ],
+  "instructions": "USER: Given article_content and extracted_commands, validate against the criteria. If you add or remove commands, document them under corrected_commands. Output JSON only: {\"status\": \"pass|fail|needs_revision\", \"summary\": \"...\", \"issues\": [{\"type\": \"compliance|completeness\", \"description\": \"...\", \"severity\": \"low|medium|high\"}], \"corrected_commands\": {\"added\": [{\"command\": \"...\", \"reason\": \"...\", \"found_in\": \"...\"}], \"removed\": [{\"command\": \"...\", \"reason\": \"...\"}]}}."
+}

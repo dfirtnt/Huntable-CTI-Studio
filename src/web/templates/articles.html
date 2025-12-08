@@ -1,0 +1,1438 @@
+{% extends "base.html" %}
+
+{% block title %}Articles - Huntable CTI Scraper{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+    <div class="mb-8">
+        <div class="flex items-center justify-between mb-2">
+            <h1 class="text-3xl font-bold text-gray-900 dark:text-white">📰 Threat Intelligence Articles</h1>
+            <a href="/chat" class="px-6 py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors flex items-center space-x-2 font-medium shadow-lg" title="AI-powered semantic search across threat intelligence content">
+                <span>🔍</span>
+                <span>RAG Search</span>
+            </a>
+        </div>
+        <p class="text-gray-600 dark:text-gray-400">Browse and search collected threat intelligence articles</p>
+    </div>
+
+    <!-- Header Stats -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-8">
+        <div class="flex items-center justify-between">
+            <div>
+                <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">📊 Article Statistics</h2>
+            </div>
+            <button id="articleStatsToggle" class="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors duration-200">
+                <svg class="w-5 h-5 transform transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                </svg>
+            </button>
+        </div>
+        <div id="articleStatsContent" class="hidden">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div class="text-center">
+                    <div class="text-2xl font-bold text-blue-600 dark:text-blue-400">{{ pagination.total_articles }}</div>
+                    <div class="text-sm text-gray-500 dark:text-gray-400">Total Articles</div>
+                </div>
+                <div class="text-center">
+                    <div class="text-2xl font-bold text-green-600 dark:text-green-400">{{ stats.chosen_count }}</div>
+                    <div class="text-sm text-gray-500 dark:text-gray-400">Chosen</div>
+                </div>
+                <div class="text-center">
+                    <div class="text-2xl font-bold text-red-600 dark:text-red-400">{{ stats.rejected_count }}</div>
+                    <div class="text-sm text-gray-500 dark:text-gray-400">Rejected</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filters & Sorting -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-8">
+        <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">🔍 Filters, Search & Sorting</h2>
+        <form method="GET">
+            <!-- Hidden inputs to preserve sort parameters -->
+            <input type="hidden" name="sort_by" value="{{ filters.sort_by or 'published_at' }}">
+            <input type="hidden" name="sort_order" value="{{ filters.sort_order or 'desc' }}">
+            
+            <!-- Sorting Controls Row -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6 pb-4 border-b border-gray-200 dark:border-gray-700">
+                <!-- Sort By -->
+                <div>
+                    <label for="sort-by" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Sort By</label>
+                    <select name="sort_by" id="sort-by" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-sm">
+                        <option value="discovered_at" {% if filters.sort_by == 'discovered_at' %}selected{% endif %}>Discovery Date</option>
+                        <option value="published_at" {% if filters.sort_by == 'published_at' %}selected{% endif %}>Publication Date</option>
+                        <option value="title" {% if filters.sort_by == 'title' %}selected{% endif %}>Title</option>
+                        <option value="source_id" {% if filters.sort_by == 'source_id' %}selected{% endif %}>Source</option>
+                        <option value="threat_hunting_score" {% if filters.sort_by == 'threat_hunting_score' %}selected{% endif %}>RegexHuntScore</option>
+                        <option value="annotation_count" {% if filters.sort_by == 'annotation_count' %}selected{% endif %}>Annotation Count</option>
+                        <option value="word_count" {% if filters.sort_by == 'word_count' %}selected{% endif %}>Word Count</option>
+                        <option value="id" {% if filters.sort_by == 'id' %}selected{% endif %}>Article ID</option>
+                    </select>
+                </div>
+                
+                <!-- Sort Order -->
+                <div>
+                    <label for="sort-order" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Order</label>
+                    <select name="sort_order" id="sort-order" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-sm">
+                        <option value="desc" {% if filters.sort_order == 'desc' %}selected{% endif %}>Desc</option>
+                        <option value="asc" {% if filters.sort_order == 'asc' %}selected{% endif %}>Asc</option>
+                    </select>
+                </div>
+                
+                <!-- Article Classification Stats (compact) -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Classification Summary</label>
+                    <div class="grid grid-cols-4 gap-2 pt-2">
+                        <div class="text-center p-2 bg-blue-50 dark:bg-blue-900/20 rounded">
+                            <div class="text-xs text-gray-600 dark:text-gray-400">Total</div>
+                            <div class="text-sm font-semibold text-blue-700 dark:text-blue-400">{{ pagination.total_articles }}</div>
+                        </div>
+                        <div class="text-center p-2 bg-green-50 dark:bg-green-900/20 rounded">
+                            <div class="text-xs text-gray-600 dark:text-gray-400">Chosen</div>
+                            <div class="text-sm font-semibold text-green-700 dark:text-green-400">{{ stats.chosen_count }}</div>
+                        </div>
+                        <div class="text-center p-2 bg-red-50 dark:bg-red-900/20 rounded">
+                            <div class="text-xs text-gray-600 dark:text-gray-400">Rejected</div>
+                            <div class="text-sm font-semibold text-red-700 dark:text-red-400">{{ stats.rejected_count }}</div>
+                        </div>
+                        <div class="text-center p-2 bg-yellow-50 dark:bg-yellow-900/20 rounded">
+                            <div class="text-xs text-gray-600 dark:text-gray-400">Pending</div>
+                            <div class="text-sm font-semibold text-yellow-700 dark:text-yellow-400">{{ stats.unclassified_count }}</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Filter Controls Row -->
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+            
+            <!-- Search -->
+            <div>
+                <label for="search" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Search</label>
+                <div class="relative">
+                    <input type="text" name="search" id="search" autofocus value="{{ filters.search or '' }}" 
+                           placeholder="Search titles, content, or use boolean logic..." 
+                           title="{{ filters.search or '' }}"
+                           class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-sm"
+                           style="font-family: monospace;">
+                    <button type="submit" class="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 hidden">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                        </svg>
+                    </button>
+                    <button type="button" id="search-help-btn" 
+                            class="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                    </button>
+                </div>
+                <div class="mt-2">
+                    <label class="flex items-center text-sm text-gray-600 dark:text-gray-300">
+                        <input type="checkbox" name="title_only" id="title-only" value="1" 
+                               {% if filters.title_only %}checked{% endif %}
+                               class="mr-2 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
+                        Search titles only
+                    </label>
+                </div>
+                <div id="search-help" class="hidden mt-2 p-3 bg-blue-50 border border-blue-200 rounded-md text-sm text-blue-800">
+                    <h4 class="font-medium mb-2">Search Syntax:</h4>
+                    <ul class="space-y-1 text-xs">
+                        <li>• <strong>Simple terms:</strong> malware, ransomware</li>
+                        <li>• <strong>AND operator:</strong> malware AND ransomware</li>
+                        <li>• <strong>OR operator:</strong> malware OR ransomware</li>
+                        <li>• <strong>NOT operator:</strong> malware NOT ransomware</li>
+                        <li>• <strong>Quoted phrases:</strong> "advanced persistent threat"</li>
+                    </ul>
+                    
+                    <div class="mt-3">
+                        <h5 class="font-medium mb-2">🎯 Title-Specific Search Examples:</h5>
+                        <ul class="space-y-1 text-xs">
+                            <li>• <strong>Find by title:</strong> "CrowdStrike" (searches titles and content)</li>
+                            <li>• <strong>Title contains:</strong> "APT" AND "analysis"</li>
+                            <li>• <strong>Exclude titles:</strong> NOT "webinar" NOT "training"</li>
+                            <li>• <strong>Wildcard titles:</strong> "malware*" (matches malware, malicious, etc.)</li>
+                        </ul>
+                    </div>
+                    
+                    <div class="mt-4">
+                        <h5 class="font-medium mb-2">🎯 Predefined Intelligence Search Patterns:</h5>
+                        <div class="space-y-2 text-xs">
+                            <div class="p-2 bg-white rounded border">
+                                <div class="font-medium text-blue-700">High-Value Detection Content:</div>
+                                <code class="text-xs bg-gray-100 px-1 rounded">("sigma rule" OR "detection rule") AND ("parentimage" OR "commandline" OR "process chain")</code>
+                                <a href="/articles?search=%28%22sigma%20rule%22%20OR%20%22detection%20rule%22%29%20AND%20%28%22parentimage%22%20OR%20%22commandline%22%20OR%20%22process%20chain%22%29" 
+                                   class="ml-2 px-2 py-1 text-xs bg-blue-100 text-blue-700 rounded hover:bg-blue-200 transition-colors inline-block">
+                                    Use This Search
+                                </a>
+                            </div>
+                            <div class="p-2 bg-white rounded border">
+                                <div class="font-medium text-green-700">Technical Intelligence:</div>
+                                <code class="text-xs bg-gray-100 px-1 rounded">("mitre att&ck" OR "T[0-9]") AND ("registry run" OR "appdata" OR "suspicious path")</code>
+                                <a href="/articles?search=%28%22mitre%20att%26ck%22%20OR%20%22T%5B0-9%5D%22%29%20AND%20%28%22registry%20run%22%20OR%20%22appdata%22%20OR%20%22suspicious%20path%22%29" 
+                                   class="ml-2 px-2 py-1 text-xs bg-green-100 text-green-700 rounded hover:bg-green-200 transition-colors inline-block">
+                                    Use This Search
+                                </a>
+                            </div>
+                            <div class="p-2 bg-white rounded border">
+                                <div class="font-medium text-purple-700">Actionable Intelligence Content:</div>
+                                <code class="text-xs bg-gray-100 px-1 rounded">("hunting" OR "detection") AND ("powershell" OR "cmd.exe" OR "process spawning")</code>
+                                <a href="/articles?search=%28%22hunting%22%20OR%20%22detection%22%29%20AND%20%28%22powershell%22%20OR%20%22cmd.exe%22%20OR%20%22process%20spawning%22%29" 
+                                   class="ml-2 px-2 py-1 text-xs bg-purple-100 text-purple-700 rounded hover:bg-purple-200 transition-colors inline-block">
+                                    Use This Search
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mt-3 text-xs">
+                        <strong>Quick Examples:</strong> "ransomware" AND "critical infrastructure", malware OR virus OR trojan
+                    </div>
+                </div>
+            </div>
+
+            <!-- Source Filter -->
+            <div>
+                <label for="source" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Source</label>
+                <select name="source" id="source" 
+                        class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                    <option value="">All Sources</option>
+                    {% for source in sources %}
+                    <option value="{{ source.id }}" {% if filters.source|string == source.id|string or filters.source_id == source.id %}selected{% endif %}>
+                        {{ source.name }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- Classification Filter -->
+            <div>
+                <label for="classification" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Article Classification</label>
+                <select name="classification" id="classification" 
+                        class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                    <option value="">All Classifications</option>
+                    <option value="chosen" {% if filters.classification == "chosen" %}selected{% endif %}>✅ Chosen</option>
+                    <option value="rejected" {% if filters.classification == "rejected" %}selected{% endif %}>❌ Rejected</option>
+                    <option value="unclassified" {% if filters.classification == "unclassified" %}selected{% endif %}>⏳ Unclassified</option>
+                </select>
+            </div>
+
+            <!-- Per Page -->
+            <div>
+                <label for="per_page" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Per Page</label>
+                <select name="per_page" id="per_page" 
+                        class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                    <option value="20" {% if pagination.per_page|string == "20" %}selected{% endif %}>20</option>
+                    <option value="50" {% if pagination.per_page|string == "50" %}selected{% endif %}>50</option>
+                    <option value="100" {% if pagination.per_page|string == "100" %}selected{% endif %}>100</option>
+                </select>
+            </div>
+
+            <!-- RegexHuntScore Range -->
+            <div>
+                <label for="threat_hunting_range" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">RegexHuntScore</label>
+                <select name="threat_hunting_range" id="threat_hunting_range" 
+                        class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                    <option value="">All Scores</option>
+                    <option value="80-100" {% if filters.threat_hunting_range == "80-100" %}selected{% endif %}>🎯 Excellent (80-100)</option>
+                    <option value="60-79" {% if filters.threat_hunting_range == "60-79" %}selected{% endif %}>🟡 Good (60-79)</option>
+                    <option value="40-59" {% if filters.threat_hunting_range == "40-59" %}selected{% endif %}>🟠 Fair (40-59)</option>
+                    <option value="20-39" {% if filters.threat_hunting_range == "20-39" %}selected{% endif %}>🔴 Poor (20-39)</option>
+                    <option value="0-19" {% if filters.threat_hunting_range == "0-19" %}selected{% endif %}>⚫ Very Poor (0-19)</option>
+                    <option value="30-100" {% if filters.threat_hunting_range == "30-100" %}selected{% endif %}>📈 Good & Above (30+)</option>
+                    <option value="60-100" {% if filters.threat_hunting_range == "60-100" %}selected{% endif %}>⭐ High Quality (60+)</option>
+                </select>
+            </div>
+            </div>
+        </form>
+
+        <!-- Save Default Filters Button -->
+        <div class="mt-4 flex items-center justify-between p-3 bg-gray-50 border border-gray-200 rounded-md">
+            <div class="flex items-center space-x-2">
+                <button type="button" onclick="saveDefaultFilters()" 
+                        class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
+                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                    </svg>
+                    Set as Default Filters
+                </button>
+                <button type="button" onclick="clearDefaultFilters()" 
+                        class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
+                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                    Clear Defaults
+                </button>
+                <span id="default-filters-indicator" class="hidden text-sm text-green-600 font-medium">
+                    ✓ Default filters active
+                </span>
+            </div>
+        </div>
+
+        <!-- Filter Summary -->
+        {% if filters.search or filters.source or filters.classification or filters.threat_hunting_range %}
+        <div class="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
+            <p class="text-sm text-blue-800">
+                <strong>Active Filters:</strong>
+                {% if filters.search %}Search: "{{ filters.search }}"{% endif %}
+                {% if filters.source %}Source: {{ filters.source }}{% endif %}
+                {% if filters.classification %}Classification: {{ filters.classification }}{% endif %}
+                {% if filters.threat_hunting_range %}RegexHuntScore: {{ filters.threat_hunting_range }}{% endif %}
+                <a href="/articles" class="ml-2 text-blue-600 hover:text-blue-800 underline">Clear all</a>
+            </p>
+        </div>
+        {% endif %}
+
+    </div>
+
+    <!-- Articles List -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+        <div class="mb-6">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-4">
+                    <h2 class="text-xl font-semibold text-gray-900 dark:text-white">
+                        📰 Articles ({{ pagination.start_idx }}-{{ pagination.end_idx }} of {{ pagination.total_articles }})
+                    </h2>
+                    {% if articles %}
+                    <label class="flex items-center text-sm text-gray-600 dark:text-gray-300">
+                        <input type="checkbox" 
+                               id="select-all-matching" 
+                               class="mr-2 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                               onchange="toggleSelectAllMatching()">
+                        Select All Visible
+                    </label>
+                    {% endif %}
+                </div>
+                <div class="text-sm text-gray-500 dark:text-gray-400">
+                    Page {{ pagination.page }} of {{ pagination.total_pages }}
+                </div>
+            </div>
+        </div>
+
+        <!-- Bulk Actions Toolbar -->
+        <div id="bulk-actions-toolbar" class="hidden px-6 py-3 bg-blue-50 border-b border-blue-200">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-4">
+                    <span class="text-sm font-medium text-blue-900">
+                        <span id="selected-count">0</span> articles selected
+                    </span>
+                    <div class="flex items-center space-x-2">
+                        <button onclick="selectAllVisible()" 
+                                class="text-sm text-blue-600 hover:text-blue-800 underline">
+                            Select All Visible
+                        </button>
+                        <span class="text-blue-400">|</span>
+                        <button onclick="clearSelection()" 
+                                class="text-sm text-blue-600 hover:text-blue-800 underline">
+                            Clear Selection
+                        </button>
+                    </div>
+                </div>
+                <div class="flex items-center space-x-2">
+                    <button onclick="bulkAction('chosen')" 
+                            class="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded text-white bg-green-600 hover:bg-green-700 transition-colors">
+                        ✅ Mark as Chosen
+                    </button>
+                    <button onclick="bulkAction('rejected')" 
+                            class="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded text-white bg-red-600 hover:bg-red-700 transition-colors">
+                        ❌ Reject
+                    </button>
+                    <button onclick="bulkAction('unclassified')" 
+                            class="inline-flex items-center px-3 py-1.5 border border-gray-300 text-xs font-medium rounded text-gray-700 bg-white hover:bg-gray-50 transition-colors">
+                        ⏳ Unclassify
+                    </button>
+                    <button onclick="bulkAction('delete')" 
+                            class="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded text-white bg-red-800 hover:bg-red-900 transition-colors">
+                        🗑️ Delete
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        {% if articles %}
+        <div class="space-y-4">
+            {% for article in articles %}
+            <div class="p-6 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg hover:shadow-md transition-all duration-200 relative">
+                <button onclick="copyArticleContent({{ article.id }})" 
+                        class="absolute right-4 top-4 p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 z-10"
+                        title="Copy article content">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
+                    </svg>
+                </button>
+                <div class="flex items-start justify-between">
+                    <div class="flex items-start space-x-3">
+                        <input type="checkbox" 
+                               class="bulk-select-checkbox mt-1 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded" 
+                               data-article-id="{{ article.id }}"
+                               onchange="updateBulkActions()">
+                        <div class="flex-1 min-w-0">
+                            <div class="flex items-center space-x-2 mb-3">
+                            <a href="/articles/{{ article.id }}" class="text-lg font-semibold text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300">
+                                {{ article.title }}
+                            </a>
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200">
+                                #{{ article.id }}
+                            </span>
+                        </div>
+                        
+                        <div class="flex items-center space-x-4 text-sm text-gray-600 dark:text-gray-400 mb-3">
+                            <span>Source: 
+                                {% set source_name = source_lookup[article.source_id].name if article.source_id in source_lookup else article.source_id %}
+                                {% if article.canonical_url %}
+                                    <a href="{{ article.canonical_url }}" target="_blank" class="text-blue-600 hover:text-blue-800 hover:underline">
+                                        {{ source_name }}
+                                    </a>
+                                {% else %}
+                                    {{ source_name }}
+                                {% endif %}
+                            </span>
+                            {% if article.published_at %}
+                            <span>Published: {{ article.published_at.strftime('%Y-%m-%d %H:%M') }}</span>
+                            {% endif %}
+                            <span>Content: {{ article.content|length }} characters</span>
+                            <span>Classification: 
+                                {% if article.article_metadata and article.article_metadata.get('training_category') == 'chosen' %}
+                                    <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 border border-green-200 dark:border-green-700">
+                                        ✅ Chosen
+                                    </span>
+                                {% elif article.article_metadata and article.article_metadata.get('training_category') == 'rejected' %}
+                                    <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 border border-red-200 dark:border-red-700">
+                                        ❌ Rejected
+                                    </span>
+                                {% else %}
+                                    <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200 border border-yellow-200 dark:border-yellow-700">
+                                        ⏳ Unclassified
+                                    </span>
+                                {% endif %}
+                            </span>
+                            {% if article.article_metadata and article.article_metadata.get('threat_hunting_score') is not none %}
+                            <span>RegexHuntScore: 
+                                {% set score = article.article_metadata.get('threat_hunting_score', 0) %}
+                                {% if score >= 80 %}
+                                    <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-bold bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 border border-green-200 dark:border-green-700">
+                                        🎯 {{ "%.1f"|format(score) }}
+                                    </span>
+                                {% elif score >= 60 %}
+                                    <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-bold bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200 border border-yellow-200 dark:border-yellow-700">
+                                        🟡 {{ "%.1f"|format(score) }}
+                                    </span>
+                                {% elif score >= 40 %}
+                                    <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-bold bg-orange-100 dark:bg-orange-900 text-orange-800 dark:text-orange-200 border border-orange-200 dark:border-orange-700">
+                                        🟠 {{ "%.1f"|format(score) }}
+                                    </span>
+                                {% else %}
+                                    <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-bold bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 border border-red-200 dark:border-red-700">
+                                        🔴 {{ "%.1f"|format(score) }}
+                                    </span>
+                                {% endif %}
+                            </span>
+                            {% endif %}
+                            <span>MLHuntScore: 
+                                {% if article.article_metadata and article.article_metadata.get('ml_hunt_score') is not none %}
+                                    {% set ml_score = article.article_metadata.get('ml_hunt_score', 0) %}
+                                    {% if ml_score >= 80 %}
+                                        <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-bold bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 border border-green-200 dark:border-green-700">
+                                            🤖 {{ "%.1f"|format(ml_score) }}
+                                        </span>
+                                    {% elif ml_score >= 60 %}
+                                        <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-bold bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200 border border-yellow-200 dark:border-yellow-700">
+                                            🟡 {{ "%.1f"|format(ml_score) }}
+                                        </span>
+                                    {% elif ml_score >= 40 %}
+                                        <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-bold bg-orange-100 dark:bg-orange-900 text-orange-800 dark:text-orange-200 border border-orange-200 dark:border-orange-700">
+                                            🟠 {{ "%.1f"|format(ml_score) }}
+                                        </span>
+                                    {% else %}
+                                        <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-bold bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 border border-red-200 dark:border-red-700">
+                                            🔴 {{ "%.1f"|format(ml_score) }}
+                                        </span>
+                                    {% endif %}
+                                {% else %}
+                                    <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-bold bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-700 relative group cursor-help" 
+                                          title="ML Hunt Score not yet calculated. Run chunk analysis to generate this score.">
+                                        TBD
+                                    </span>
+                                {% endif %}
+                            </span>
+                            {% if article.article_metadata and article.article_metadata.get('annotation_count') is not none %}
+                            <span>Annotations: 
+                                {% set annotation_count = article.article_metadata.get('annotation_count', 0) %}
+                                {% if annotation_count > 0 %}
+                                    <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 border border-blue-200 dark:border-blue-700">
+                                        📝 {{ annotation_count }}
+                                    </span>
+                                {% else %}
+                                    <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-600">
+                                        📝 {{ annotation_count }}
+                                    </span>
+                                {% endif %}
+                            </span>
+                            {% endif %}
+                        </div>
+
+                        <!-- Keyword Matches (Compact) -->
+                        {% if article.article_metadata and (article.article_metadata.get('perfect_keyword_matches') or article.article_metadata.get('good_keyword_matches') or article.article_metadata.get('lolbas_matches')) %}
+                        <div class="mb-3">
+                            <div class="flex flex-wrap gap-1">
+                                {% if article.article_metadata.get('perfect_keyword_matches') %}
+                                    {% for keyword in article.article_metadata.get('perfect_keyword_matches', [])[:3] %}
+                                    <span class="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 border border-green-200 dark:border-green-700" title="Perfect Discriminator">
+                                        ✅ {{ keyword }}
+                                    </span>
+                                    {% endfor %}
+                                    {% if article.article_metadata.get('perfect_keyword_matches', [])|length > 3 %}
+                                        <span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
+                                            +{{ article.article_metadata.get('perfect_keyword_matches', [])|length - 3 }}
+                                    </span>
+                                    {% endif %}
+                                {% endif %}
+                                
+                                {% if article.article_metadata.get('good_keyword_matches') %}
+                                    {% for keyword in article.article_metadata.get('good_keyword_matches', [])[:2] %}
+                                    <span class="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-200 border border-purple-200 dark:border-purple-700" title="Good Discriminator">
+                                        🟡 {{ keyword }}
+                                    </span>
+                                    {% endfor %}
+                                    {% if article.article_metadata.get('good_keyword_matches', [])|length > 2 %}
+                                        <span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-800">
+                                            +{{ article.article_metadata.get('good_keyword_matches', [])|length - 2 }}
+                                    </span>
+                                    {% endif %}
+                                {% endif %}
+                                
+                                {% if article.article_metadata.get('lolbas_matches') %}
+                                    {% for keyword in article.article_metadata.get('lolbas_matches', [])[:2] %}
+                                    <span class="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 border border-blue-200 dark:border-blue-700" title="LOLBAS Executable">
+                                        🔧 {{ keyword }}
+                                    </span>
+                                    {% endfor %}
+                                    {% if article.article_metadata.get('lolbas_matches', [])|length > 2 %}
+                                        <span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
+                                            +{{ article.article_metadata.get('lolbas_matches', [])|length - 2 }}
+                                    </span>
+                                    {% endif %}
+                                {% endif %}
+                                
+                            </div>
+                        </div>
+                        {% endif %}
+
+                        <p class="text-gray-700 dark:text-gray-300 mb-4 leading-relaxed">
+                            {{ article.content[:300] }}{% if article.content|length > 300 %}...{% endif %}
+                        </p>
+
+                        <div class="flex items-center space-x-2">
+                            {% if article.canonical_url %}
+                            <a href="{{ article.canonical_url }}" target="_blank" class="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 text-sm font-medium rounded-md text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors">
+                                📖 Original Source
+                            </a>
+                            {% endif %}
+                        </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="text-center py-12">
+            <div class="text-gray-400 dark:text-gray-500 text-6xl mb-4">📰</div>
+            <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-2">No articles found</h3>
+            <p class="text-gray-500 dark:text-gray-400">
+                {% if filters.search or filters.source or filters.quality_min %}
+                Try adjusting your filters or search terms.
+                {% else %}
+                No articles have been collected yet. Start by running the collection process.
+                {% endif %}
+            </p>
+        </div>
+        {% endif %}
+
+        <!-- Pagination -->
+        {% if pagination.total_pages > 1 %}
+        <div class="mt-6 pt-4 border-t border-gray-200 dark:border-gray-600">
+            <div class="flex items-center justify-between">
+                <div class="text-sm text-gray-700 dark:text-gray-300">
+                    Showing {{ pagination.start_idx }} to {{ pagination.end_idx }} of {{ pagination.total_articles }} results
+                </div>
+                <div class="flex items-center space-x-2">
+                    {% if pagination.page > 1 %}
+                    <a href="?page={{ pagination.page - 1 }}&per_page={{ pagination.per_page }}{% if filters.search %}&search={{ filters.search }}{% endif %}{% if filters.source %}&source={{ filters.source }}{% endif %}{% if filters.status %}&status={{ filters.status }}{% endif %}" 
+                       class="px-3 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition-colors">
+                        Previous
+                    </a>
+                    {% endif %}
+
+                    {% for page_num in range(1, pagination.total_pages + 1) %}
+                        {% if page_num == pagination.page %}
+                        <span class="px-3 py-2 border border-blue-500 rounded-md text-sm font-medium text-blue-700 bg-blue-50">
+                            {{ page_num }}
+                        </span>
+                        {% elif page_num <= 3 or page_num > pagination.total_pages - 3 or (page_num >= pagination.page - 1 and page_num <= pagination.page + 1) %}
+                        <a href="?page={{ page_num }}&per_page={{ pagination.per_page }}{% if filters.search %}&search={{ filters.search }}{% endif %}{% if filters.source %}&source={{ filters.source }}{% endif %}{% if filters.status %}&status={{ filters.status }}{% endif %}" 
+                           class="px-3 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition-colors">
+                            {{ page_num }}
+                        </a>
+                        {% elif page_num == 4 and pagination.page > 4 %}
+                        <span class="px-3 py-2 text-sm text-gray-500">...</span>
+                        {% elif page_num == pagination.total_pages - 2 and pagination.page < pagination.total_pages - 2 %}
+                        <span class="px-3 py-2 text-sm text-gray-500">...</span>
+                        {% endif %}
+                    {% endfor %}
+
+                    {% if pagination.page < pagination.total_pages %}
+                    <a href="?page={{ pagination.page + 1 }}&per_page={{ pagination.per_page }}{% if filters.search %}&search={{ filters.search }}{% endif %}{% if filters.source %}&source={{ filters.source }}{% endif %}{% if filters.status %}&status={{ filters.status }}{% endif %}" 
+                       class="px-3 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition-colors">
+                        Next
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Classification Modal -->
+<div id="classificationModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden z-50">
+    <div class="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+        <div class="fixed inset-0 transition-opacity" aria-hidden="true">
+            <div class="absolute inset-0 bg-gray-500 opacity-75"></div>
+        </div>
+        
+        <!-- Modal content -->
+        <div class="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-4xl sm:w-full max-h-[90vh] flex flex-col">
+            <!-- Header -->
+            <div class="bg-white px-6 py-4 border-b border-gray-200 flex-shrink-0">
+                <div class="flex items-center justify-between">
+                    <h3 class="text-lg font-medium text-gray-900" id="modalTitle">
+                        Classify Article
+                    </h3>
+                    <button onclick="closeClassificationModal()" class="text-gray-400 hover:text-gray-600">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Content -->
+            <div class="bg-white px-6 py-4 flex-1 overflow-y-auto">
+                <div id="modalContent" class="space-y-4">
+                    <!-- Loading state -->
+                    <div id="modalLoading" class="text-center py-8">
+                        <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+                        <p class="mt-2 text-gray-600">Loading article...</p>
+                    </div>
+                    
+                    <!-- Article content will be loaded here -->
+                    <div id="modalArticleContent" class="hidden">
+                        <!-- Article details -->
+                        <div class="border-b border-gray-200 pb-4">
+                            <h4 class="text-xl font-semibold text-gray-900 mb-2" id="articleTitle"></h4>
+                            <div class="flex items-center space-x-4 text-sm text-gray-500">
+                                <span id="articleSource"></span>
+                                <span id="articleDate"></span>
+                                <span id="articleLength"></span>
+                            </div>
+                        </div>
+                        
+                        <!-- Article content -->
+                        <div class="max-h-64 overflow-y-auto border border-gray-200 rounded-md p-4 mb-4">
+                            <div id="articleContent" class="text-gray-700 leading-relaxed whitespace-pre-wrap"></div>
+                        </div>
+                        
+                        <!-- Current classification -->
+                        <div class="mb-4 p-3 bg-gray-50 rounded-md">
+                            <h5 class="text-sm font-medium text-gray-900 mb-2">Current Classification:</h5>
+                            <div id="currentClassification" class="text-sm text-gray-600">
+                                <!-- Will be populated by JavaScript -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Fixed bottom section with classification controls -->
+            <div class="bg-white px-6 py-4 border-t border-gray-200 flex-shrink-0">
+                <div id="classificationControls" class="hidden">
+                    <!-- Classification controls -->
+                    <div class="space-y-4 p-4 bg-blue-50 border border-blue-200 rounded-md">
+                        <h5 class="text-sm font-medium text-gray-900">Classify this article as:</h5>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                            <button onclick="classifyArticle('chosen')" 
+                                    class="flex items-center justify-center px-4 py-3 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors">
+                                <span class="mr-2">✅</span>
+                                Chosen
+                            </button>
+                            
+                            <button onclick="classifyArticle('rejected')" 
+                                    class="flex items-center justify-center px-4 py-3 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors">
+                                <span class="mr-2">❌</span>
+                                Rejected
+                            </button>
+                            
+                            <button onclick="classifyArticle('unclassified')" 
+                                    class="flex items-center justify-center px-4 py-3 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
+                                <span class="mr-2">⏳</span>
+                                Unclassified
+                            </button>
+                        </div>
+                        
+                        <!-- Navigation -->
+                        <div class="flex items-center justify-between pt-4 border-t border-gray-200">
+                            <button onclick="navigateToPrevious()" 
+                                    class="inline-flex items-center px-3 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
+                                <span class="mr-1">←</span>
+                                Previous
+                            </button>
+                            
+                            <button onclick="navigateToNextUnclassified()" 
+                                    class="inline-flex items-center px-3 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
+                                Next Unclassified
+                                <span class="ml-1">→</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    let currentArticleId = null;
+    let currentArticleData = null;
+    
+    // Auto-submit form when non-text filters change
+    document.addEventListener('DOMContentLoaded', function() {
+        const form = document.querySelector('form');
+        const inputs = form.querySelectorAll('select, input:not(#search)');
+        
+        inputs.forEach(input => {
+            input.addEventListener('change', function() {
+                form.submit();
+            });
+        });
+        
+        // Search help toggle
+        const searchHelpBtn = document.getElementById('search-help-btn');
+        const searchHelp = document.getElementById('search-help');
+        
+        if (searchHelpBtn && searchHelp) {
+            searchHelpBtn.addEventListener('click', function() {
+                searchHelp.classList.toggle('hidden');
+            });
+        }
+        
+        // Load settings
+        // Note: Comment prompts functionality removed
+    });
+
+    // Note: Removed auto-submit on typing to prevent focus loss while entering text.
+    
+    // Modal functions
+    function openClassificationModal(articleId, title) {
+        currentArticleId = articleId;
+        
+        // Show modal
+        const modal = document.getElementById('classificationModal');
+        modal.classList.remove('hidden');
+        
+        // Show loading state
+        document.getElementById('modalLoading').classList.remove('hidden');
+        document.getElementById('modalArticleContent').classList.add('hidden');
+        
+        // Update title
+        document.getElementById('modalTitle').textContent = `Classify: ${title}`;
+        
+        // Load article data
+        loadArticleData(articleId);
+    }
+    
+    function closeClassificationModal() {
+        const modal = document.getElementById('classificationModal');
+        modal.classList.add('hidden');
+        currentArticleId = null;
+        currentArticleData = null;
+    }
+    
+    // Close classification modal when clicking outside
+    document.getElementById('classificationModal').addEventListener('click', function(e) {
+        if (e.target === this) {
+            closeClassificationModal();
+        }
+    });
+    
+    // Close classification modal with ESC key
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            const modal = document.getElementById('classificationModal');
+            if (modal && !modal.classList.contains('hidden')) {
+                closeClassificationModal();
+            }
+        }
+    });
+    
+    async function loadArticleData(articleId) {
+        try {
+            const response = await fetch(`/api/articles/${articleId}`);
+            if (!response.ok) {
+                throw new Error('Failed to load article');
+            }
+            
+            const article = await response.json();
+            currentArticleData = article;
+            
+            // Populate modal content
+            document.getElementById('articleTitle').textContent = article.title;
+            document.getElementById('articleSource').textContent = `Source: ${article.source_id}`;
+            document.getElementById('articleDate').textContent = article.published_at ? 
+                `Published: ${new Date(article.published_at).toLocaleString()}` : 'Published: Unknown';
+            document.getElementById('articleLength').textContent = `Content: ${article.content.length} characters`;
+            document.getElementById('articleContent').textContent = article.content;
+            
+            // Update current classification
+            updateCurrentClassification(article);
+            
+            // Hide loading, show content
+            document.getElementById('modalLoading').classList.add('hidden');
+            document.getElementById('modalArticleContent').classList.remove('hidden');
+            document.getElementById('classificationControls').classList.remove('hidden');
+            
+            // Debug: Check if content is visible
+            console.log('Modal content loaded:', {
+                loadingHidden: document.getElementById('modalLoading').classList.contains('hidden'),
+                contentVisible: !document.getElementById('modalArticleContent').classList.contains('hidden'),
+                contentHeight: document.getElementById('modalArticleContent').offsetHeight
+            });
+            
+        } catch (error) {
+            console.error('Error loading article:', error);
+            document.getElementById('modalLoading').innerHTML = `
+                <div class="text-center py-8">
+                    <div class="text-red-600 text-6xl mb-4">❌</div>
+                    <p class="text-gray-600">Failed to load article</p>
+                    <button onclick="closeClassificationModal()" class="mt-4 px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700">
+                        Close
+                    </button>
+                </div>
+            `;
+        }
+    }
+    
+    function updateCurrentClassification(article) {
+        const classificationDiv = document.getElementById('currentClassification');
+        const category = article.article_metadata?.training_category;
+        
+        if (category === 'chosen') {
+            classificationDiv.innerHTML = `
+                <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                    ✅ Chosen
+                </span>
+                ${article.article_metadata?.training_reason ? `<div class="mt-1 text-xs text-gray-500">Reason: ${article.article_metadata.training_reason}</div>` : ''}
+            `;
+        } else if (category === 'rejected') {
+            classificationDiv.innerHTML = `
+                <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                    ❌ Rejected
+                </span>
+                ${article.article_metadata?.training_reason ? `<div class="mt-1 text-xs text-gray-500">Reason: ${article.article_metadata.training_reason}</div>` : ''}
+            `;
+        } else {
+            classificationDiv.innerHTML = `
+                <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                    ⏳ Unclassified
+                </span>
+            `;
+        }
+    }
+    
+    async function classifyArticle(category) {
+        if (!currentArticleId) return;
+        
+        try {
+            const response = await fetch(`/api/articles/${currentArticleId}/classify`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    category: category
+                })
+            });
+            
+            if (!response.ok) {
+                throw new Error('Failed to classify article');
+            }
+            
+            // Update the article data
+            if (currentArticleData) {
+                currentArticleData.metadata = currentArticleData.metadata || {};
+                currentArticleData.metadata.training_category = category;
+                currentArticleData.metadata.training_categorized_at = new Date().toISOString();
+                
+                updateCurrentClassification(currentArticleData);
+            }
+            
+            // Show success notification
+            showNotification(`Article marked as ${category}`, 'success');
+            
+            // Refresh the page to update the article list
+            setTimeout(() => {
+                window.location.reload();
+            }, 1000);
+            
+        } catch (error) {
+            console.error('Error classifying article:', error);
+            showNotification('Failed to classify article', 'error');
+        }
+    }
+    
+    async function navigateToNextUnclassified() {
+        try {
+            const response = await fetch('/api/articles/next-unclassified');
+            if (!response.ok) {
+                throw new Error('Failed to get next unclassified article');
+            }
+            
+            const data = await response.json();
+            if (data.article_id) {
+                // Find the article title from the current page
+                const articleElement = document.querySelector(`[onclick*="openClassificationModal(${data.article_id}"]`);
+                if (articleElement) {
+                    const title = articleElement.getAttribute('onclick').match(/'([^']+)'/)[1];
+                    openClassificationModal(data.article_id, title);
+                } else {
+                    // Fallback: reload page and try again
+                    window.location.reload();
+                }
+            } else {
+                showNotification('No more unclassified articles', 'info');
+            }
+        } catch (error) {
+            console.error('Error navigating to next unclassified:', error);
+            showNotification('Failed to navigate to next article', 'error');
+        }
+    }
+    
+    async function navigateToPrevious() {
+        if (!currentArticleId) return;
+        
+        // Find the previous article in the current list
+        const articleElements = document.querySelectorAll('[onclick*="openClassificationModal"]');
+        let currentIndex = -1;
+        
+        for (let i = 0; i < articleElements.length; i++) {
+            const onclick = articleElements[i].getAttribute('onclick');
+            if (onclick.includes(`openClassificationModal(${currentArticleId}`)) {
+                currentIndex = i;
+                break;
+            }
+        }
+        
+        if (currentIndex > 0) {
+            const prevElement = articleElements[currentIndex - 1];
+            const onclick = prevElement.getAttribute('onclick');
+            const match = onclick.match(/openClassificationModal\((\d+),\s*'([^']+)'/);
+            if (match) {
+                openClassificationModal(parseInt(match[1]), match[2]);
+            }
+        } else {
+            showNotification('No previous article available', 'info');
+        }
+    }
+    
+    function showNotification(message, type = 'info') {
+        // Create notification element
+        const notification = document.createElement('div');
+        notification.className = `fixed top-4 right-4 z-50 p-4 rounded-md shadow-lg max-w-sm transform transition-all duration-300 ${
+            type === 'success' ? 'bg-green-500 text-white' :
+            type === 'error' ? 'bg-red-500 text-white' :
+            'bg-blue-500 text-white'
+        }`;
+        notification.textContent = message;
+        
+        document.body.appendChild(notification);
+        
+        // Remove after 3 seconds
+        setTimeout(() => {
+            notification.remove();
+        }, 3000);
+    }
+    
+    
+    // Close modal when clicking outside
+    document.getElementById('classificationModal').addEventListener('click', function(e) {
+        if (e.target === this) {
+            closeClassificationModal();
+        }
+    });
+    
+    // Close modal with Escape key
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            closeClassificationModal();
+        }
+    });
+    
+    // Dynamic sorting functionality
+    function applySorting() {
+        const sortBy = document.getElementById('sort-by').value;
+        const sortOrder = document.getElementById('sort-order').value;
+        
+        // Get current URL parameters
+        const urlParams = new URLSearchParams(window.location.search);
+        
+        // Update sorting parameters
+        urlParams.set('sort_by', sortBy);
+        urlParams.set('sort_order', sortOrder);
+        
+        // Reset to page 1 when sorting changes
+        urlParams.set('page', '1');
+        
+        // Redirect to updated URL
+        window.location.href = window.location.pathname + '?' + urlParams.toString();
+    }
+    
+    // Session persistence for filter/sort settings
+    function saveSessionSettings() {
+        const settings = {
+            search: document.getElementById('search')?.value || '',
+            source: document.getElementById('source')?.value || '',
+            classification: document.getElementById('classification')?.value || '',
+            threat_hunting_range: document.getElementById('threat_hunting_range')?.value || '',
+            per_page: document.getElementById('per_page')?.value || '100',
+            sort_by: document.getElementById('sort-by')?.value || 'published_at',
+            sort_order: document.getElementById('sort-order')?.value || 'desc',
+            title_only: document.getElementById('title-only')?.checked || false
+        };
+        
+        sessionStorage.setItem('cti_articles_settings', JSON.stringify(settings));
+    }
+    
+    function loadSessionSettings() {
+        const saved = sessionStorage.getItem('cti_articles_settings');
+        if (!saved) return;
+        
+        try {
+            const settings = JSON.parse(saved);
+            
+            // Only load settings if URL doesn't have parameters (fresh page load)
+            const urlParams = new URLSearchParams(window.location.search);
+            const hasUrlParams = Array.from(urlParams.keys()).length > 0;
+            
+            if (!hasUrlParams) {
+                // Apply saved settings to form elements
+                if (settings.search && document.getElementById('search')) {
+                    document.getElementById('search').value = settings.search;
+                }
+                if (settings.source && document.getElementById('source')) {
+                    document.getElementById('source').value = settings.source;
+                }
+                if (settings.classification && document.getElementById('classification')) {
+                    document.getElementById('classification').value = settings.classification;
+                }
+                if (settings.threat_hunting_range && document.getElementById('threat_hunting_range')) {
+                    document.getElementById('threat_hunting_range').value = settings.threat_hunting_range;
+                }
+                if (settings.per_page && document.getElementById('per_page')) {
+                    document.getElementById('per_page').value = settings.per_page;
+                }
+                if (settings.sort_by && document.getElementById('sort-by')) {
+                    document.getElementById('sort-by').value = settings.sort_by;
+                }
+                if (settings.sort_order && document.getElementById('sort-order')) {
+                    document.getElementById('sort-order').value = settings.sort_order;
+                }
+                if (settings.title_only !== undefined && document.getElementById('title-only')) {
+                    document.getElementById('title-only').checked = settings.title_only;
+                }
+            }
+        } catch (e) {
+            console.error('Failed to load session settings:', e);
+        }
+    }
+    
+    // Persistent default filters (localStorage)
+    function saveDefaultFilters() {
+        const settings = {
+            search: document.getElementById('search')?.value || '',
+            source: document.getElementById('source')?.value || '',
+            classification: document.getElementById('classification')?.value || '',
+            threat_hunting_range: document.getElementById('threat_hunting_range')?.value || '',
+            per_page: document.getElementById('per_page')?.value || '100',
+            sort_by: document.getElementById('sort-by')?.value || 'published_at',
+            sort_order: document.getElementById('sort-order')?.value || 'desc',
+            title_only: document.getElementById('title-only')?.checked || false
+        };
+        
+        localStorage.setItem('cti_articles_default_filters', JSON.stringify(settings));
+        showNotification('Default filters saved! These will be applied on future page loads.', 'success');
+        updateDefaultFiltersIndicator();
+    }
+    
+    function clearDefaultFilters() {
+        localStorage.removeItem('cti_articles_default_filters');
+        showNotification('Default filters cleared.', 'info');
+        updateDefaultFiltersIndicator();
+    }
+    
+    function loadDefaultFilters() {
+        const saved = localStorage.getItem('cti_articles_default_filters');
+        if (!saved) return false;
+        
+        try {
+            const settings = JSON.parse(saved);
+            
+            // Only load default filters if URL doesn't have parameters (fresh page load)
+            const urlParams = new URLSearchParams(window.location.search);
+            const hasUrlParams = Array.from(urlParams.keys()).length > 0;
+            
+            if (!hasUrlParams) {
+                // Apply default filters to form elements
+                if (settings.search && document.getElementById('search')) {
+                    document.getElementById('search').value = settings.search;
+                }
+                if (settings.source && document.getElementById('source')) {
+                    document.getElementById('source').value = settings.source;
+                }
+                if (settings.classification && document.getElementById('classification')) {
+                    document.getElementById('classification').value = settings.classification;
+                }
+                if (settings.threat_hunting_range && document.getElementById('threat_hunting_range')) {
+                    document.getElementById('threat_hunting_range').value = settings.threat_hunting_range;
+                }
+                if (settings.per_page && document.getElementById('per_page')) {
+                    document.getElementById('per_page').value = settings.per_page;
+                }
+                if (settings.sort_by !== undefined) {
+                    const sortByEl = document.getElementById('sort-by');
+                    if (sortByEl) {
+                        sortByEl.value = settings.sort_by;
+                    }
+                    // Update hidden input so form submission uses correct value
+                    const hiddenSortBy = document.querySelector('input[name="sort_by"]');
+                    if (hiddenSortBy) {
+                        hiddenSortBy.value = settings.sort_by;
+                    }
+                }
+                if (settings.sort_order !== undefined) {
+                    const sortOrderEl = document.getElementById('sort-order');
+                    if (sortOrderEl) {
+                        sortOrderEl.value = settings.sort_order;
+                    }
+                    // Update hidden input so form submission uses correct value
+                    const hiddenSortOrder = document.querySelector('input[name="sort_order"]');
+                    if (hiddenSortOrder) {
+                        hiddenSortOrder.value = settings.sort_order;
+                    }
+                }
+                if (settings.title_only !== undefined && document.getElementById('title-only')) {
+                    document.getElementById('title-only').checked = settings.title_only;
+                }
+                
+                // Auto-submit form to apply filters
+                setTimeout(() => {
+                    document.querySelector('form').submit();
+                }, 100);
+                
+                return true;
+            }
+            return false;
+        } catch (e) {
+            console.error('Failed to load default filters:', e);
+            return false;
+        }
+    }
+    
+    function updateDefaultFiltersIndicator() {
+        const indicator = document.getElementById('default-filters-indicator');
+        const hasDefaults = localStorage.getItem('cti_articles_default_filters');
+        
+        if (indicator) {
+            if (hasDefaults) {
+                indicator.classList.remove('hidden');
+            } else {
+                indicator.classList.add('hidden');
+            }
+        }
+    }
+    
+    // Load settings when page loads
+    document.addEventListener('DOMContentLoaded', function() {
+        // Load default filters first (persistent across sessions)
+        const defaultsLoaded = loadDefaultFilters();
+        
+        // Only load session settings if defaults weren't loaded
+        if (!defaultsLoaded) {
+            loadSessionSettings();
+        }
+        
+        // Update indicator
+        updateDefaultFiltersIndicator();
+        
+        // Save settings when form elements change
+        const formElements = ['search', 'source', 'classification', 'threat_hunting_range', 'per_page', 'sort-by', 'sort-order', 'title-only'];
+        formElements.forEach(id => {
+            const element = document.getElementById(id);
+            if (element) {
+                element.addEventListener('change', saveSessionSettings);
+                element.addEventListener('input', saveSessionSettings);
+            }
+        });
+    });
+    
+    // Auto-apply sorting when dropdowns change
+    document.getElementById('sort-by').addEventListener('change', applySorting);
+    document.getElementById('sort-order').addEventListener('change', applySorting);
+    
+    // Add visual indicators for current sort
+    function updateSortIndicators() {
+        const sortBy = '{{ filters.sort_by }}';
+        const sortOrder = '{{ filters.sort_order }}';
+        
+        // Add visual indicators to table headers if they exist
+        const headers = document.querySelectorAll('th[data-sort]');
+        headers.forEach(header => {
+            const sortField = header.getAttribute('data-sort');
+            if (sortField === sortBy) {
+                header.classList.add('bg-blue-50', 'text-blue-700');
+                const indicator = sortOrder === 'desc' ? '↓' : '↑';
+                header.innerHTML = header.textContent + ' ' + indicator;
+            }
+        });
+    }
+    
+    // Initialize sort indicators on page load
+    document.addEventListener('DOMContentLoaded', updateSortIndicators);
+    
+    // Bulk Actions Functions
+    function updateBulkActions() {
+        const checkboxes = document.querySelectorAll('.bulk-select-checkbox:checked');
+        const toolbar = document.getElementById('bulk-actions-toolbar');
+        const countSpan = document.getElementById('selected-count');
+        const selectAllCheckbox = document.getElementById('select-all-matching');
+        
+        countSpan.textContent = checkboxes.length;
+        
+        if (checkboxes.length > 0) {
+            toolbar.classList.remove('hidden');
+        } else {
+            toolbar.classList.add('hidden');
+        }
+        
+        // Update the "Select All Matching" checkbox state
+        if (selectAllCheckbox) {
+            const allCheckboxes = document.querySelectorAll('.bulk-select-checkbox');
+            if (allCheckboxes.length === 0) {
+                selectAllCheckbox.indeterminate = false;
+                selectAllCheckbox.checked = false;
+            } else if (checkboxes.length === allCheckboxes.length && allCheckboxes.length > 0) {
+                // All visible articles are selected
+                selectAllCheckbox.indeterminate = false;
+                selectAllCheckbox.checked = true;
+            } else if (checkboxes.length > 0) {
+                // Some visible articles are selected
+                selectAllCheckbox.indeterminate = true;
+                selectAllCheckbox.checked = false;
+            } else {
+                // No visible articles are selected
+                selectAllCheckbox.indeterminate = false;
+                selectAllCheckbox.checked = false;
+            }
+        }
+    }
+    
+    async function toggleSelectAllMatching() {
+        const selectAllCheckbox = document.getElementById('select-all-matching');
+        
+        if (selectAllCheckbox.checked) {
+            await selectAllVisible();
+        } else {
+            // When unchecking, we need to clear ALL selections, not just visible ones
+            // This includes articles that were selected via API but aren't visible
+            clearAllSelections();
+        }
+    }
+    
+    function clearAllSelections() {
+        // Clear visible checkboxes
+        const checkboxes = document.querySelectorAll('.bulk-select-checkbox');
+        checkboxes.forEach(checkbox => {
+            checkbox.checked = false;
+        });
+        
+        // Clear the "Select All Matching" checkbox
+        const selectAllCheckbox = document.getElementById('select-all-matching');
+        if (selectAllCheckbox) {
+            selectAllCheckbox.checked = false;
+            selectAllCheckbox.indeterminate = false;
+        }
+        
+        updateBulkActions();
+    }
+    
+    async function selectAllVisible() {
+        try {
+            // Simply select all visible checkboxes on the current page
+            const checkboxes = document.querySelectorAll('.bulk-select-checkbox');
+            let selectedCount = 0;
+            
+            checkboxes.forEach(checkbox => {
+                checkbox.checked = true;
+                selectedCount++;
+            });
+            
+            // Update the Select All Matching checkbox state
+            const selectAllCheckbox = document.getElementById('select-all-matching');
+            if (selectAllCheckbox) {
+                selectAllCheckbox.checked = true;
+                selectAllCheckbox.indeterminate = false;
+            }
+            
+            updateBulkActions();
+            
+            // Show notification with count of visible articles selected
+            showNotification(`Selected ${selectedCount} articles on current page.`, 'success');
+            
+        } catch (error) {
+            console.error('Error selecting all articles:', error);
+            showNotification('Failed to select all articles. Please try again.', 'error');
+        }
+    }
+    
+    function clearSelection() {
+        const checkboxes = document.querySelectorAll('.bulk-select-checkbox');
+        checkboxes.forEach(checkbox => {
+            checkbox.checked = false;
+        });
+        
+        // Also uncheck the "Select All Matching" checkbox
+        const selectAllCheckbox = document.getElementById('select-all-matching');
+        if (selectAllCheckbox) {
+            selectAllCheckbox.checked = false;
+            selectAllCheckbox.indeterminate = false;
+        }
+        
+        updateBulkActions();
+    }
+    
+    function getSelectedArticleIds() {
+        const checkboxes = document.querySelectorAll('.bulk-select-checkbox:checked');
+        return Array.from(checkboxes).map(checkbox => parseInt(checkbox.dataset.articleId));
+    }
+    
+    async function bulkAction(action) {
+        const articleIds = getSelectedArticleIds();
+        
+        if (articleIds.length === 0) {
+            alert('Please select at least one article.');
+            return;
+        }
+        
+        // Confirmation for destructive actions
+        if (action === 'delete') {
+            const confirmed = confirm(`Are you sure you want to delete ${articleIds.length} article(s)? This action cannot be undone.`);
+            if (!confirmed) return;
+        }
+        
+        try {
+            const response = await fetch('/api/articles/bulk-action', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    action: action,
+                    article_ids: articleIds
+                })
+            });
+            
+            if (!response.ok) {
+                throw new Error('Failed to perform bulk action');
+            }
+            
+            const result = await response.json();
+            
+            // Show success message
+            showNotification(`Successfully ${action === 'delete' ? 'deleted' : 'updated'} ${result.processed_count} article(s).`, 'success');
+            
+            // Clear selection and reload page
+            clearSelection();
+            window.location.reload();
+            
+        } catch (error) {
+            console.error('Bulk action error:', error);
+            showNotification('Failed to perform bulk action. Please try again.', 'error');
+        }
+    }
+    
+    function showNotification(message, type = 'info') {
+        // Create notification element
+        const notification = document.createElement('div');
+        notification.className = `fixed top-4 right-4 z-50 px-6 py-3 rounded-md shadow-lg text-white ${
+            type === 'success' ? 'bg-green-500' : 
+            type === 'error' ? 'bg-red-500' : 
+            'bg-blue-500'
+        }`;
+        notification.textContent = message;
+        
+        document.body.appendChild(notification);
+        
+        // Remove after 3 seconds
+        setTimeout(() => {
+            notification.remove();
+        }, 3000);
+    }
+    
+    // Toggle functionality for Article Statistics panel
+    document.addEventListener('DOMContentLoaded', function() {
+        const articleStatsToggle = document.getElementById('articleStatsToggle');
+        const articleStatsContent = document.getElementById('articleStatsContent');
+        const articleStatsIcon = articleStatsToggle?.querySelector('svg');
+        
+        if (articleStatsToggle && articleStatsContent && articleStatsIcon) {
+            articleStatsToggle.addEventListener('click', function() {
+                const isHidden = articleStatsContent.classList.contains('hidden');
+                
+                if (isHidden) {
+                    articleStatsContent.classList.remove('hidden');
+                    articleStatsIcon.style.transform = 'rotate(0deg)';
+                } else {
+                    articleStatsContent.classList.add('hidden');
+                    articleStatsIcon.style.transform = 'rotate(180deg)';
+                }
+            });
+        }
+    });
+    
+    // Copy article content to clipboard
+    async function copyArticleContent(articleId) {
+        try {
+            const response = await fetch(`/api/articles/${articleId}`);
+            if (!response.ok) {
+                throw new Error('Failed to fetch article');
+            }
+            
+            const article = await response.json();
+            const contentToCopy = article.content || '';
+            
+            if (!contentToCopy) {
+                showNotification('Article has no content to copy', 'error');
+                return;
+            }
+            
+            await navigator.clipboard.writeText(contentToCopy);
+            showNotification('Article content copied to clipboard!', 'success');
+        } catch (error) {
+            console.error('Error copying article content:', error);
+            showNotification('Failed to copy article content', 'error');
+        }
+    }
+</script>
+{% endblock %}

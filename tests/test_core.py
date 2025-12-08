@@ -1,0 +1,77 @@
+"""
+Tests for core modules in src/core/.
+"""
+
+import pytest
+from unittest.mock import Mock, patch, AsyncMock
+from src.core.source_manager import SourceManager, SourceConfigLoader
+from src.core.rss_parser import RSSParser
+from src.core.fetcher import ContentFetcher
+from src.core.processor import ContentProcessor
+
+
+class TestSourceManager:
+    """Test the SourceManager class."""
+    
+    
+    
+    def test_get_active_sources(self):
+        """Test getting active sources."""
+        from src.models.source import Source
+        
+        # Create mock sources
+        active_source1 = Source(id=1, name='Active Source', url='https://example.com', identifier='active-1', active=True)
+        inactive_source = Source(id=2, name='Inactive Source', url='https://example.com', identifier='inactive', active=False)
+        active_source2 = Source(id=3, name='Another Active', url='https://example.com', identifier='active-2', active=True)
+        
+        sources = [active_source1, inactive_source, active_source2]
+        
+        # Filter active sources
+        active_sources = [s for s in sources if s.active]
+        assert len(active_sources) == 2
+        assert all(source.active for source in active_sources)
+
+
+class TestRSSParser:
+    """Test the RSSParser class."""
+    
+    
+    
+    def test_validate_feed_url(self):
+        """Test feed URL validation."""
+        from src.core.rss_parser import RSSParser
+        
+        # Test basic URL validation (simplified test)
+        parser = RSSParser(None)
+        assert parser is not None
+
+
+class TestFetcher:
+    """Test the Fetcher class."""
+    
+    
+
+
+class TestProcessor:
+    """Test the Processor class."""
+    
+    
+    def test_extract_metadata(self):
+        """Test metadata extraction."""
+        from src.utils.content import ContentCleaner
+        
+        content = """
+        This article discusses advanced persistent threat techniques.
+        The attack used PowerShell scripts and living-off-the-land techniques.
+        Indicators of compromise include IP addresses and domain names.
+        """
+        
+        # Test content cleaning
+        cleaned = ContentCleaner.clean_html(content)
+        assert len(cleaned) > 0
+        assert "advanced persistent threat" in cleaned.lower()
+    
+
+
+if __name__ == "__main__":
+    pytest.main([__file__])

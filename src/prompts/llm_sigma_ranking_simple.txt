@@ -1,0 +1,79 @@
+# SIGMA Detection Rule Suitability Analysis
+
+You are a cybersecurity detection engineer. Analyze this threat intelligence article and provide a SIGMA huntability score using telemetry-focused criteria.
+
+## CRITICAL: Atomic IOC Exclusion
+
+**DO NOT award points for atomic IOCs:**
+- Single IP addresses
+- Single domains (one-off domains)
+- File hashes (MD5, SHA1, SHA256)
+- Single URLs without behavioral patterns or wildcards
+
+**DO award points for:**
+- Domain patterns (DGA patterns, repeated structures)
+- URL path patterns and query parameter patterns
+- Behavioral combinations (domain + path + User-Agent)
+- Command-line patterns with variables
+- Process chains and execution sequences
+- Registry key patterns
+- Service name patterns
+- File path patterns (not specific files)
+
+**Remember:** Single exact observables = atomic IOCs (no points). Patterns, combinations, and repeatable behaviors = huntable telemetry (award points).
+
+## Scoring Criteria (1-10 scale)
+
+**High Scores (7-10):** Content with specific technical details that can create detection rules
+- Exact command-line arguments and process chains (patterns, not single commands)
+- Registry key patterns, file path patterns, service name patterns (not single values)
+- API call patterns with specific parameters
+- Multi-step attack sequences
+- Network patterns (DGA, URL path patterns, User-Agent patterns) - NOT single domains/IPs
+- Cross-platform telemetry (Windows Event IDs, Linux auditd, macOS logs, Cloud logs)
+
+**Medium Scores (4-6):** Some technical details but limited specificity
+- General techniques mentioned with partial patterns
+- Partial command examples
+- Vague system modifications
+
+**Low Scores (1-3):** Strategic content with minimal technical details
+- High-level attack descriptions
+- Only atomic IOCs (single IPs, domains, hashes)
+- Generic threat information without telemetry patterns
+
+## Network Telemetry Note
+
+When evaluating network indicators:
+- **0 points:** Single exact domains, single IPs, single URLs (atomic IOCs)
+- **Award points for:** Domain patterns (DGA), URL path patterns, User-Agent patterns, behavioral combinations
+
+## Multi-Platform Coverage
+
+Valid SIGMA data sources include:
+- Windows: Event Logs, Sysmon
+- Linux: auditd, Syslog
+- macOS: Endpoint Security, Unified Logging, LaunchAgents
+- Cloud: AWS CloudTrail, Azure Activity, GCP Audit
+
+## Required Output Format
+
+**SIGMA HUNTABILITY SCORE: [1-10]**
+
+**TECHNICAL DETAILS FOUND:**
+[List specific technical elements that could become detection rules - focus on patterns, not atomic IOCs]
+
+**DETECTION OPPORTUNITIES:**
+[What can be detected: processes, files, registry, network patterns, etc.]
+
+**SCORE REASONING:**
+[Why this score was assigned - note if content only contains atomic IOCs]
+
+## Article to Analyze
+
+**Title:** {title}
+**Source:** {source}
+**URL:** {url}
+
+**Content:**
+{content}

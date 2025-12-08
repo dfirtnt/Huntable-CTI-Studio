@@ -1,0 +1,588 @@
+{% extends "base.html" %}
+
+{% block title %}SIGMA Similarity Test - Huntable CTI Scraper{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+    <div class="mb-8">
+        <h1 class="text-3xl font-bold text-gray-900 dark:text-white mb-2">🔍 SIGMA Cosine Similarity Test</h1>
+        <p class="text-gray-600 dark:text-gray-400">Test SIGMA rule similarity search against the SigmaHQ repository</p>
+    </div>
+
+    <!-- Rule Input -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mb-6">
+        <div class="flex items-center justify-between mb-4">
+            <h2 class="text-xl font-semibold text-gray-900 dark:text-white">SIGMA Rule</h2>
+            <button onclick="loadExample()" class="text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400">
+                📋 Load Example
+            </button>
+        </div>
+        <textarea 
+            id="ruleInput" 
+            class="w-full h-96 p-3 border border-gray-300 dark:border-gray-600 rounded-md font-mono text-sm dark:bg-gray-700 dark:text-white"
+            placeholder="Paste SIGMA rule YAML here..."
+        ></textarea>
+        <div id="ruleValidation" class="mt-2 text-sm"></div>
+    </div>
+
+    <!-- Options -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mb-6">
+        <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Options</h3>
+        <div class="space-y-4">
+            <div class="flex items-center space-x-6">
+                <label class="flex items-center">
+                    <input type="checkbox" id="useLLMRerank" checked class="mr-2">
+                    <span class="text-gray-700 dark:text-gray-300">Use LLM Reranking</span>
+                </label>
+                <label class="flex items-center">
+                    <span class="text-gray-700 dark:text-gray-300 mr-2">Top K Results:</span>
+                    <input type="number" id="topK" value="10" min="1" max="50" class="px-3 py-1 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-700 dark:text-white w-20">
+                </label>
+                <button 
+                    onclick="searchSimilarRules(); return false;" 
+                    id="searchBtn"
+                    type="button"
+                    class="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors"
+                >
+                    🔍 Search Similar Rules
+                </button>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <label class="flex flex-col">
+                    <span class="text-gray-700 dark:text-gray-300 mb-1 text-sm font-medium">Embedding Model (for similarity search):</span>
+                    <select id="embeddingModel" class="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-700 dark:text-white">
+                        <option value="">Loading models...</option>
+                    </select>
+                </label>
+                <label class="flex flex-col">
+                    <span class="text-gray-700 dark:text-gray-300 mb-1 text-sm font-medium">LLM Model (for reranking):</span>
+                    <select id="llmModel" class="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-700 dark:text-white">
+                        <option value="">Loading models...</option>
+                    </select>
+                </label>
+            </div>
+        </div>
+    </div>
+
+    <!-- Results -->
+    <div id="results" class="hidden">
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mb-6">
+            <h3 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">Similarity Results</h3>
+            
+            <!-- Models Used -->
+            <div id="modelsUsedSection" class="mb-6 hidden">
+                <h4 class="text-md font-semibold text-gray-700 dark:text-gray-300 mb-3">Models Used</h4>
+                <div class="bg-gray-50 dark:bg-gray-900/20 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+                        <div>
+                            <span class="text-gray-600 dark:text-gray-400">Embedding Model:</span>
+                            <span id="usedEmbeddingModel" class="ml-2 font-mono text-gray-900 dark:text-white"></span>
+                        </div>
+                        <div>
+                            <span class="text-gray-600 dark:text-gray-400">LLM Model:</span>
+                            <span id="usedLLMModel" class="ml-2 font-mono text-gray-900 dark:text-white"></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Matches List -->
+            <div id="matchesList" class="space-y-4">
+                <!-- Populated by JavaScript -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Error Display -->
+    <div id="errorDisplay" class="hidden bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 mb-6">
+        <div class="flex items-center">
+            <span class="text-red-600 dark:text-red-400 font-semibold mr-2">❌ Error:</span>
+            <span id="errorMessage" class="text-red-800 dark:text-red-200"></span>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Example rule for testing
+    const exampleRule = `title: Suspicious PowerShell Execution
+id: test-rule-001
+status: experimental
+description: Detects suspicious PowerShell execution patterns
+author: Test User
+date: 2025/01/01
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection:
+    Image|endswith: '\\powershell.exe'
+    CommandLine|contains: 
+      - '-nop'
+      - '-w hidden'
+  condition: selection
+level: high
+tags:
+  - attack.execution
+  - attack.t1059.001`;
+
+    function loadExample() {
+        const textarea = document.getElementById('ruleInput');
+        if (textarea) {
+            textarea.value = exampleRule;
+            validateRule();
+            saveRule();
+        }
+    }
+
+    function validateRule() {
+        const textarea = document.getElementById('ruleInput');
+        const validationDiv = document.getElementById('ruleValidation');
+        const yaml = textarea.value.trim();
+        
+        if (!yaml) {
+            validationDiv.innerHTML = '<span class="text-gray-500">Empty</span>';
+            return false;
+        }
+        
+        // Basic YAML validation
+        try {
+            // Try to parse as YAML
+            const parser = new DOMParser();
+            // Simple check - if it starts with title: it's probably valid
+            if (yaml.includes('title:') && yaml.includes('detection:')) {
+                validationDiv.innerHTML = '<span class="text-green-600">✓ Valid YAML</span>';
+                return true;
+            } else {
+                validationDiv.innerHTML = '<span class="text-yellow-600">⚠ Missing required fields (title, detection)</span>';
+                return false;
+            }
+        } catch (e) {
+            validationDiv.innerHTML = '<span class="text-red-600">✗ Invalid YAML</span>';
+            return false;
+        }
+    }
+
+    async function searchSimilarRules() {
+        const searchBtn = document.getElementById('searchBtn');
+        const resultsDiv = document.getElementById('results');
+        const errorDiv = document.getElementById('errorDisplay');
+        const matchesList = document.getElementById('matchesList');
+        
+        try {
+            // Hide previous results/errors
+            errorDiv.classList.add('hidden');
+            resultsDiv.classList.add('hidden');
+            
+            // Validate rule
+            if (!validateRule()) {
+                showError('Please provide a valid SIGMA rule');
+                return;
+            }
+            
+            const ruleYaml = document.getElementById('ruleInput').value.trim();
+            const useLLMRerank = document.getElementById('useLLMRerank').checked;
+            const embeddingModel = document.getElementById('embeddingModel').value;
+            const llmModel = document.getElementById('llmModel').value;
+            const topK = parseInt(document.getElementById('topK').value) || 10;
+            
+            // Disable button and show loading
+            searchBtn.disabled = true;
+            searchBtn.textContent = '🔍 Searching...';
+            
+            const response = await fetch('/api/sigma-similarity-test/search', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    rule_yaml: ruleYaml,
+                    use_llm_rerank: useLLMRerank,
+                    embedding_model: embeddingModel,
+                    llm_model: llmModel,
+                    top_k: topK
+                })
+            });
+            
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.detail || `HTTP ${response.status}`);
+            }
+            
+            const data = await response.json();
+            
+            if (!data.success) {
+                throw new Error(data.error || 'Search failed');
+            }
+            
+            // Display results
+            displayResults(data);
+            
+        } catch (error) {
+            console.error('Error in searchSimilarRules:', error);
+            showError(error.message || 'Failed to search for similar rules');
+        } finally {
+            searchBtn.disabled = false;
+            searchBtn.textContent = '🔍 Search Similar Rules';
+        }
+    }
+
+    function displayResults(data) {
+        const resultsDiv = document.getElementById('results');
+        resultsDiv.classList.remove('hidden');
+        
+        // Models used
+        if (data.models_used) {
+            const modelsSection = document.getElementById('modelsUsedSection');
+            modelsSection.classList.remove('hidden');
+            document.getElementById('usedEmbeddingModel').textContent = data.models_used.embedding_model || 'Default';
+            document.getElementById('usedLLMModel').textContent = data.models_used.llm_model || 'Not used';
+        }
+        
+        // Display matches
+        const matchesList = document.getElementById('matchesList');
+        matchesList.innerHTML = '';
+        
+        if (!data.matches || data.matches.length === 0) {
+            matchesList.innerHTML = '<div class="text-gray-500 dark:text-gray-400 italic">No similar rules found</div>';
+            return;
+        }
+        
+        // Sort matches by similarity (descending) to ensure highest % on top
+        const sortedMatches = [...data.matches].sort((a, b) => {
+            const simA = a.similarity || 0;
+            const simB = b.similarity || 0;
+            return simB - simA; // Descending order
+        });
+        
+        sortedMatches.forEach((match, index) => {
+            const similarityPercent = (match.similarity * 100).toFixed(1);
+            const matchDiv = document.createElement('div');
+            matchDiv.className = 'border border-gray-200 dark:border-gray-700 rounded-lg p-4 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors';
+            
+            // Determine status color based on similarity
+            let statusColor = 'blue';
+            let statusIcon = '🔍';
+            if (match.similarity >= 0.90) {
+                statusColor = 'green';
+                statusIcon = '✅';
+            } else if (match.similarity >= 0.75) {
+                statusColor = 'yellow';
+                statusIcon = '⚠️';
+            }
+            
+            let similarityBreakdownHtml = '';
+            if (match.similarity_breakdown) {
+                const breakdown = match.similarity_breakdown;
+                similarityBreakdownHtml = `
+                    <div class="mt-3 p-2 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded">
+                        <div class="text-xs font-bold text-blue-900 dark:text-blue-300 mb-2">🔍 Embedding Similarity Breakdown:</div>
+                        <div class="grid grid-cols-2 gap-1 text-xs">
+                            <div class="flex justify-between">
+                                <span class="text-gray-700 dark:text-gray-300">Title:</span>
+                                <span class="font-medium text-blue-700 dark:text-blue-400">${(breakdown.title * 100).toFixed(1)}%</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-gray-700 dark:text-gray-300">Description:</span>
+                                <span class="font-medium text-blue-700 dark:text-blue-400">${(breakdown.description * 100).toFixed(1)}%</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-gray-700 dark:text-gray-300">Tags:</span>
+                                <span class="font-medium text-blue-700 dark:text-blue-400">${(breakdown.tags * 100).toFixed(1)}%</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-gray-700 dark:text-gray-300">Signature:</span>
+                                <span class="font-medium text-blue-700 dark:text-blue-400">${(breakdown.signature * 100).toFixed(1)}%</span>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+            
+            let llmRerankHtml = '';
+            if (match.llm_rerank) {
+                llmRerankHtml = `
+                    <div class="mt-3 p-2 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded">
+                        <div class="text-xs font-bold text-green-900 dark:text-green-300 mb-1">🤖 LLM Reranking:</div>
+                        <div class="text-xs text-gray-700 dark:text-gray-300 mb-1">
+                            <span class="font-medium">Model:</span> ${match.llm_rerank.provider || 'unknown'}${match.llm_rerank.model ? ' — ' + match.llm_rerank.model : ''}
+                        </div>
+                        <div class="text-xs text-gray-700 dark:text-gray-300 mb-1">
+                            <span class="font-medium">Reranked Similarity:</span> <span class="font-bold text-green-700 dark:text-green-400">${(match.llm_rerank.similarity * 100).toFixed(1)}%</span>
+                        </div>
+                        <div class="text-xs text-gray-800 dark:text-gray-200 italic mt-1">${match.llm_rerank.explanation || 'No explanation provided'}</div>
+                    </div>
+                `;
+            }
+            
+            let semanticOverlapHtml = '';
+            if (match.semantic_overlap) {
+                const overlap = match.semantic_overlap;
+                semanticOverlapHtml = `
+                    <div class="mt-3 p-2 bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded">
+                        <div class="text-xs font-bold text-purple-900 dark:text-purple-300 mb-2">📊 Semantic Overlap:</div>
+                        <div class="grid grid-cols-2 gap-1 text-xs">
+                            <div class="flex justify-between">
+                                <span class="text-gray-700 dark:text-gray-300">Overall:</span>
+                                <span class="font-medium text-purple-700 dark:text-purple-400">${(overlap.semantic_overlap_ratio * 100).toFixed(1)}%</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-gray-700 dark:text-gray-300">Process Overlap:</span>
+                                <span class="font-medium text-purple-700 dark:text-purple-400">${overlap.process_overlap || 0}</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-gray-700 dark:text-gray-300">Path Overlap:</span>
+                                <span class="font-medium text-purple-700 dark:text-purple-400">${overlap.path_overlap || 0}</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-gray-700 dark:text-gray-300">Cmdline Overlap:</span>
+                                <span class="font-medium text-purple-700 dark:text-purple-400">${overlap.cmdline_overlap || 0}</span>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+            
+            const levelColor = match.level === 'critical' ? 'bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300' :
+                              match.level === 'high' ? 'bg-orange-100 dark:bg-orange-900 text-orange-700 dark:text-orange-300' :
+                              match.level === 'medium' ? 'bg-yellow-100 dark:bg-yellow-900 text-yellow-700 dark:text-yellow-300' :
+                              'bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300';
+            
+            const logsourceJson = JSON.stringify(match.logsource || {}, null, 2);
+            const detectionJson = JSON.stringify(match.detection || {}, null, 2);
+            const inputLogsourceJson = JSON.stringify(data.input_rule.logsource || {}, null, 2);
+            const inputDetectionJson = JSON.stringify(data.input_rule.detection || {}, null, 2);
+            
+            matchDiv.innerHTML = `
+                <div class="flex items-start justify-between">
+                    <div class="flex-1">
+                        <h5 class="font-medium text-gray-900 dark:text-white text-lg">${match.title || 'Untitled Rule'}</h5>
+                        <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">${match.description || 'No description'}</p>
+                    </div>
+                    <div class="ml-4 flex flex-col items-end">
+                        <div class="text-3xl font-bold text-${statusColor}-600 dark:text-${statusColor}-400">${similarityPercent}%</div>
+                        <div class="text-xs text-${statusColor}-600 dark:text-${statusColor}-400 bg-${statusColor}-100 dark:bg-${statusColor}-900 px-2 py-1 rounded mt-1">
+                            ${statusIcon} Similar
+                        </div>
+                    </div>
+                </div>
+                
+                ${similarityBreakdownHtml}
+                ${llmRerankHtml}
+                ${semanticOverlapHtml}
+                
+                <div class="mt-3 grid grid-cols-2 gap-2 text-xs">
+                    <div><span class="font-medium text-gray-700 dark:text-gray-300">Rule ID:</span> <code class="text-xs bg-gray-100 dark:bg-gray-700 px-1 rounded text-gray-900 dark:text-white">${match.rule_id || 'N/A'}</code></div>
+                    <div><span class="font-medium text-gray-700 dark:text-gray-300">Level:</span> <span class="px-2 py-0.5 rounded text-xs ${levelColor}">${match.level || 'N/A'}</span></div>
+                    <div><span class="font-medium text-gray-700 dark:text-gray-300">Status:</span> ${match.status || 'N/A'}</div>
+                    <div><span class="font-medium text-gray-700 dark:text-gray-300">File:</span> <span class="text-gray-600 dark:text-gray-400">${match.file_path || 'N/A'}</span></div>
+                </div>
+                
+                ${match.tags && match.tags.length > 0 ? `
+                    <div class="mt-2">
+                        <div class="text-xs font-medium text-gray-700 dark:text-gray-300">Tags:</div>
+                        <div class="flex flex-wrap gap-1 mt-1">
+                            ${match.tags.slice(0, 10).map(tag => 
+                                `<span class="text-xs px-2 py-0.5 bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-300 rounded">${tag}</span>`
+                            ).join('')}
+                            ${match.tags.length > 10 ? `<span class="text-xs text-gray-500">+${match.tags.length - 10} more</span>` : ''}
+                        </div>
+                    </div>
+                ` : ''}
+                
+                <div class="mt-3 border-t border-gray-200 dark:border-gray-700 pt-3">
+                    <button onclick="toggleRuleDetails('rule-details-${index}', 'toggle-icon-${index}')" 
+                            class="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 font-medium flex items-center">
+                        <svg id="toggle-icon-${index}" class="w-4 h-4 mr-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                        </svg>
+                        <span>Show Logsource & Detection Comparison</span>
+                    </button>
+                    <div id="rule-details-${index}" class="hidden mt-2">
+                        <div class="mb-4 p-2 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded">
+                            <h6 class="text-xs font-bold text-yellow-900 dark:text-yellow-300 mb-1">📝 Input Rule: ${data.input_rule.title || 'Untitled'}</h6>
+                        </div>
+                        <div class="space-y-4">
+                            <!-- Logsource Comparison -->
+                            <div>
+                                <h6 class="text-xs font-bold text-gray-700 dark:text-gray-300 mb-2">📋 Logsource Comparison</h6>
+                                <div class="grid grid-cols-2 gap-4">
+                                    <div class="border border-gray-200 dark:border-gray-700 rounded p-2 bg-yellow-50 dark:bg-yellow-900/20">
+                                        <h6 class="text-xs font-bold text-yellow-900 dark:text-yellow-300 mb-2">Input Rule</h6>
+                                        <pre class="text-xs bg-white dark:bg-gray-800 p-2 rounded border border-gray-200 dark:border-gray-700 overflow-x-auto whitespace-pre-wrap font-mono max-h-48 text-gray-900 dark:text-white">${inputLogsourceJson}</pre>
+                                    </div>
+                                    <div class="border border-gray-200 dark:border-gray-700 rounded p-2 bg-blue-50 dark:bg-blue-900/20">
+                                        <h6 class="text-xs font-bold text-blue-900 dark:text-blue-300 mb-2">Similar Rule</h6>
+                                        <pre class="text-xs bg-white dark:bg-gray-800 p-2 rounded border border-gray-200 dark:border-gray-700 overflow-x-auto whitespace-pre-wrap font-mono max-h-48 text-gray-900 dark:text-white">${logsourceJson}</pre>
+                                    </div>
+                                </div>
+                            </div>
+                            <!-- Detection Comparison -->
+                            <div>
+                                <h6 class="text-xs font-bold text-gray-700 dark:text-gray-300 mb-2">🔍 Detection Comparison</h6>
+                                <div class="grid grid-cols-2 gap-4">
+                                    <div class="border border-gray-200 dark:border-gray-700 rounded p-2 bg-yellow-50 dark:bg-yellow-900/20">
+                                        <h6 class="text-xs font-bold text-yellow-900 dark:text-yellow-300 mb-2">Input Rule</h6>
+                                        <pre class="text-xs bg-white dark:bg-gray-800 p-2 rounded border border-gray-200 dark:border-gray-700 overflow-x-auto whitespace-pre-wrap font-mono max-h-64 text-gray-900 dark:text-white">${inputDetectionJson}</pre>
+                                    </div>
+                                    <div class="border border-gray-200 dark:border-gray-700 rounded p-2 bg-green-50 dark:bg-green-900/20">
+                                        <h6 class="text-xs font-bold text-green-900 dark:text-green-300 mb-2">Similar Rule</h6>
+                                        <pre class="text-xs bg-white dark:bg-gray-800 p-2 rounded border border-gray-200 dark:border-gray-700 overflow-x-auto whitespace-pre-wrap font-mono max-h-64 text-gray-900 dark:text-white">${detectionJson}</pre>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            matchesList.appendChild(matchDiv);
+        });
+    }
+
+    function toggleRuleDetails(detailsId, iconId) {
+        const details = document.getElementById(detailsId);
+        const icon = document.getElementById(iconId);
+        if (details && icon) {
+            details.classList.toggle('hidden');
+            icon.classList.toggle('rotate-180');
+        }
+    }
+
+    function showError(message) {
+        const errorDiv = document.getElementById('errorDisplay');
+        document.getElementById('errorMessage').textContent = message;
+        errorDiv.classList.remove('hidden');
+    }
+
+    // Validate on input and save to localStorage
+    document.getElementById('ruleInput').addEventListener('input', () => {
+        validateRule();
+        saveRule();
+    });
+    
+    // Load saved rule from localStorage on page load
+    function loadSavedRule() {
+        const savedRule = localStorage.getItem('sigma_similarity_test_rule');
+        if (savedRule) {
+            document.getElementById('ruleInput').value = savedRule;
+            validateRule();
+        }
+    }
+    
+    // Save rule to localStorage on input
+    function saveRule() {
+        const textarea = document.getElementById('ruleInput');
+        if (textarea) {
+            localStorage.setItem('sigma_similarity_test_rule', textarea.value);
+        }
+    }
+
+    // Helper function to check if a model is an embedding model
+    function isEmbeddingModel(modelName) {
+        const embeddingIndicators = ['embedding', 'embed', 'e5-base', 'bge-', 'gte-', 'nomic-embed'];
+        return embeddingIndicators.some(indicator => modelName.toLowerCase().includes(indicator));
+    }
+
+    // Load LMStudio models on page load
+    async function loadLMStudioModels() {
+        try {
+            const response = await fetch('/api/lmstudio-models');
+            const data = await response.json();
+            
+            const embeddingSelect = document.getElementById('embeddingModel');
+            const llmSelect = document.getElementById('llmModel');
+            
+            if (!embeddingSelect || !llmSelect) return;
+            
+            embeddingSelect.innerHTML = '';
+            llmSelect.innerHTML = '';
+            
+            if (data.success && data.all_models && data.all_models.length > 0) {
+                // Get current models from Settings
+                let currentEmbeddingModel = null;
+                let currentLLMModel = null;
+                try {
+                    const settingsResponse = await fetch('/api/settings/lmstudio_model');
+                    const settingsData = await settingsResponse.json();
+                    if (settingsData.success && settingsData.exists) {
+                        const savedModel = settingsData.value;
+                        if (isEmbeddingModel(savedModel)) {
+                            currentEmbeddingModel = savedModel;
+                        } else {
+                            currentLLMModel = savedModel;
+                        }
+                    }
+                } catch (e) {
+                    console.log('Could not fetch saved models:', e);
+                }
+                
+                // Separate embedding and chat models
+                const embeddingModels = [];
+                const chatModels = [];
+                
+                data.all_models.forEach(model => {
+                    if (isEmbeddingModel(model)) {
+                        embeddingModels.push(model);
+                    } else {
+                        chatModels.push(model);
+                    }
+                });
+                
+                // Populate embedding model dropdown
+                if (embeddingModels.length > 0) {
+                    // Sort embedding models alphabetically
+                    embeddingModels.sort();
+                    embeddingModels.forEach((model, index) => {
+                        const option = document.createElement('option');
+                        option.value = model;
+                        option.textContent = model;
+                        if ((currentEmbeddingModel && model === currentEmbeddingModel) || (!currentEmbeddingModel && index === 0)) {
+                            option.selected = true;
+                        }
+                        embeddingSelect.appendChild(option);
+                    });
+                } else {
+                    embeddingSelect.innerHTML = '<option value="">No embedding models available</option>';
+                }
+                
+                // Populate LLM model dropdown
+                if (chatModels.length > 0) {
+                    // Sort chat models alphabetically
+                    chatModels.sort();
+                    chatModels.forEach((model, index) => {
+                        const option = document.createElement('option');
+                        option.value = model;
+                        option.textContent = model;
+                        if ((currentLLMModel && model === currentLLMModel) || (!currentLLMModel && index === 0)) {
+                            option.selected = true;
+                        }
+                        llmSelect.appendChild(option);
+                    });
+                } else {
+                    llmSelect.innerHTML = '<option value="">No chat models available</option>';
+                }
+            } else {
+                embeddingSelect.innerHTML = '<option value="">No models available</option>';
+                llmSelect.innerHTML = '<option value="">No models available</option>';
+            }
+        } catch (error) {
+            console.error('Error loading LMStudio models:', error);
+            const embeddingSelect = document.getElementById('embeddingModel');
+            const llmSelect = document.getElementById('llmModel');
+            if (embeddingSelect) {
+                embeddingSelect.innerHTML = '<option value="">Error loading models</option>';
+            }
+            if (llmSelect) {
+                llmSelect.innerHTML = '<option value="">Error loading models</option>';
+            }
+        }
+    }
+
+    // Load models and saved rule when page loads
+    window.addEventListener('DOMContentLoaded', () => {
+        loadLMStudioModels();
+        loadSavedRule();
+    });
+</script>
+{% endblock %}
+

@@ -1,0 +1,185 @@
+services:
+  # PostgreSQL Database with pgvector extension
+  postgres:
+    env_file:
+      - .env
+    image: pgvector/pgvector:pg15
+    container_name: cti_postgres_mobile
+    environment:
+      POSTGRES_DB: cti_scraper
+      POSTGRES_USER: cti_user
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --lc-collate=C --lc-ctype=C"
+    volumes:
+      - postgres_data_mobile:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    ports:
+      - "5434:5432"  # Different port to avoid conflicts
+    networks:
+      - cti_network_mobile
+      - ctiscraper_cti_network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cti_user -d cti_scraper"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Redis for caching and background tasks
+  redis:
+    env_file:
+      - .env
+    image: redis:7-alpine
+    container_name: cti_redis_mobile
+    ports:
+      - "6381:6379"  # Different port to avoid conflicts
+    volumes:
+      - redis_data_mobile:/data
+    networks:
+      - cti_network_mobile
+      - ctiscraper_cti_network
+    restart: unless-stopped
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD}
+    healthcheck:
+      test: ["CMD-SHELL", "timeout 3 redis-cli -a ${REDIS_PASSWORD} --no-auth-warning ping | grep -q PONG"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # FastAPI Web Application
+  web:
+    env_file:
+      - .env
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: cti_web_mobile
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://cti_user:${POSTGRES_PASSWORD}@cti_postgres:5432/cti_scraper
+      - REDIS_URL=redis://redis:6379/0
+      - ENVIRONMENT=development
+      - LOG_LEVEL=DEBUG
+      - LLM_MODEL=llama3.2:1b
+      - LLM_TEMPERATURE=0.3
+      - LLM_MAX_TOKENS=2048
+      - CHATGPT_CONTENT_LIMIT=1000000
+      - USE_LLM_RESPONSES=true
+      - ANTHROPIC_API_URL=https://api.anthropic.com/v1/messages
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - ANTHROPIC_CONTENT_LIMIT=1000000
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - CHATGPT_API_KEY=${CHATGPT_API_KEY}
+      - LMSTUDIO_API_URL=${LMSTUDIO_API_URL:-http://host.docker.internal:1234/v1}
+      - LMSTUDIO_MODEL=${LMSTUDIO_MODEL:-deepseek/deepseek-r1-0528-qwen3-8b}
+      - LMSTUDIO_MODEL_RANK=${LMSTUDIO_MODEL_RANK:-qwen/qwen3-4b-2507}
+      - LMSTUDIO_MODEL_EXTRACT=${LMSTUDIO_MODEL_EXTRACT:-qwen/qwen3-4b-2507}
+      - LMSTUDIO_MODEL_SIGMA=${LMSTUDIO_MODEL_SIGMA:-qwen/qwen3-4b-2507}
+      - LMSTUDIO_EMBEDDING_URL=${LMSTUDIO_EMBEDDING_URL:-http://host.docker.internal:1234/v1/embeddings}
+      - LMSTUDIO_EMBEDDING_MODEL=${LMSTUDIO_EMBEDDING_MODEL:-text-embedding-e5-base-v2}
+      - TZ=America/New_York
+    volumes:
+      - ./src:/app/src
+      - ./config:/app/config
+      - ./logs:/app/logs
+      - ./tests:/app/tests
+      - ./backups:/app/backups
+      - ./models:/app/models
+      - ./outputs:/app/outputs
+      - ./scripts:/app/scripts
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /var/db/timezone/zoneinfo/America/New_York:/etc/localtime:ro
+    ports:
+      - "8001:8001"
+    networks:
+      - cti_network_mobile
+      - ctiscraper_cti_network
+    restart: unless-stopped
+    command: uvicorn src.web.modern_main:app --host 0.0.0.0 --port 8001 --reload
+
+  # Nginx Reverse Proxy for Mobile Access (HTTP only)
+  nginx:
+    image: nginx:alpine
+    container_name: cti_nginx_mobile
+    ports:
+      - "80:80"    # HTTP for mobile access
+    volumes:
+      - ./nginx/nginx.conf/nginx-http.conf:/etc/nginx/nginx.conf:ro
+      - nginx_logs:/var/log/nginx
+    depends_on:
+      - web
+    networks:
+      - cti_network_mobile
+      - ctiscraper_cti_network
+    restart: unless-stopped
+
+  # Celery Worker for Background Tasks
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: cti_worker_mobile
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://cti_user:${POSTGRES_PASSWORD}@cti_postgres:5432/cti_scraper
+      - REDIS_URL=redis://redis:6379/0
+      - ENVIRONMENT=development
+      - LOG_LEVEL=DEBUG
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - CHATGPT_API_KEY=${CHATGPT_API_KEY}
+      - LMSTUDIO_API_URL=${LMSTUDIO_API_URL:-http://host.docker.internal:1234/v1}
+      - LMSTUDIO_MODEL=${LMSTUDIO_MODEL:-deepseek/deepseek-r1-0528-qwen3-8b}
+      - LMSTUDIO_MODEL_RANK=${LMSTUDIO_MODEL_RANK:-qwen/qwen3-4b-2507}
+      - LMSTUDIO_MODEL_EXTRACT=${LMSTUDIO_MODEL_EXTRACT:-qwen/qwen3-4b-2507}
+      - LMSTUDIO_MODEL_SIGMA=${LMSTUDIO_MODEL_SIGMA:-qwen/qwen3-4b-2507}
+      - LMSTUDIO_EMBEDDING_URL=${LMSTUDIO_EMBEDDING_URL:-http://host.docker.internal:1234/v1/embeddings}
+      - LMSTUDIO_EMBEDDING_MODEL=${LMSTUDIO_EMBEDDING_MODEL:-text-embedding-e5-base-v2}
+    volumes:
+      - ./src:/app/src
+      - ./config:/app/config
+      - ./logs:/app/logs
+      - ./tests:/app/tests
+    networks:
+      - cti_network_mobile
+      - ctiscraper_cti_network
+    restart: unless-stopped
+    command: celery -A src.worker.celery_app worker --loglevel=debug
+
+  # Celery Beat for Scheduled Tasks
+  scheduler:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: cti_scheduler_mobile
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://cti_user:${POSTGRES_PASSWORD}@cti_postgres:5432/cti_scraper
+      - REDIS_URL=redis://redis:6379/0
+      - ENVIRONMENT=development
+      - LOG_LEVEL=DEBUG
+    volumes:
+      - ./src:/app/src
+      - ./config:/app/config
+      - ./logs:/app/logs
+      - ./tests:/app/tests
+    networks:
+      - cti_network_mobile
+      - ctiscraper_cti_network
+    restart: unless-stopped
+    command: celery -A src.worker.celery_app beat --loglevel=debug
+
+volumes:
+  postgres_data_mobile:
+    driver: local
+  redis_data_mobile:
+    driver: local
+  nginx_logs:
+    driver: local
+
+networks:
+  cti_network_mobile:
+    driver: bridge
+  ctiscraper_cti_network:
+    external: true

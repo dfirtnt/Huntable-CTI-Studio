@@ -1,0 +1,460 @@
+name: Standardized Test Environment CI/CD
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+  schedule:
+    # Run tests daily at 2 AM UTC
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+    inputs:
+      test_type:
+        description: 'Type of tests to run'
+        required: false
+        default: 'smoke'
+        type: choice
+        options:
+        - smoke
+        - api
+        - integration
+        - performance
+        - all
+      environment:
+        description: 'Test environment context'
+        required: false
+        default: 'ci'
+        type: choice
+        options:
+        - ci
+        - docker
+        - localhost
+
+env:
+  PYTHON_VERSION: '3.11'
+  DOCKER_BUILDKIT: 1
+  # Standardized test environment variables
+  ENVIRONMENT: test
+  TESTING: true
+  TEST_DB_PREFIX: test_
+  TEST_ISOLATION_LEVEL: function
+
+jobs:
+  test-environment-validation:
+    name: Test Environment Validation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install -r requirements-test.txt
+
+      - name: Set up test environment
+        run: |
+          # Copy test environment template
+          cp env.test.template .env.test
+          
+          # Set CI-specific environment variables
+          echo "POSTGRES_HOST=localhost" >> .env.test
+          echo "POSTGRES_PORT=5432" >> .env.test
+          echo "POSTGRES_USER=postgres" >> .env.test
+          echo "POSTGRES_PASSWORD=postgres" >> .env.test
+          echo "POSTGRES_DB=test_cti_scraper" >> .env.test
+          echo "REDIS_HOST=localhost" >> .env.test
+          echo "REDIS_PORT=6379" >> .env.test
+          echo "REDIS_DB=1" >> .env.test
+          echo "TEST_PORT=8002" >> .env.test
+          echo "MOCK_EXTERNAL_SERVICES=true" >> .env.test
+          echo "MOCK_LLM_RESPONSES=true" >> .env.test
+          echo "TEST_ISOLATION=true" >> .env.test
+
+      - name: Validate test environment
+        run: |
+          python tests/utils/test_environment.py --config .env.test --verbose
+
+  security-audit:
+    name: Security Audit
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install security tools
+        run: |
+          pip install pip-audit==2.9.0 safety==3.2.0 bandit
+
+      - name: Run pip-audit
+        run: |
+          pip-audit --desc --format=json --output=security-audit.json
+          if [ -s security-audit.json ]; then
+            echo "Security vulnerabilities found:"
+            cat security-audit.json | jq '.dependencies[] | select(.vulns | length > 0)'
+            exit 1
+          fi
+
+      - name: Run safety check
+        run: |
+          safety check --json --output=safety-report.json || true
+          if [ -f safety-report.json ] && [ -s safety-report.json ]; then
+            echo "Safety check found issues:"
+            cat safety-report.json
+          fi
+
+      - name: Run bandit security scan
+        run: |
+          bandit -r src/ -f json -o bandit-report.json || true
+          if [ -f bandit-report.json ] && [ -s bandit-report.json ]; then
+            echo "Bandit security issues found:"
+            cat bandit-report.json
+          fi
+
+  code-quality:
+    name: Code Quality
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install black isort flake8 mypy
+
+      - name: Run Black
+        run: black --check --diff .
+
+      - name: Run isort
+        run: isort --check-only --diff .
+
+      - name: Run Flake8
+        run: flake8 .
+
+      - name: Run MyPy
+        run: mypy . --ignore-missing-imports || true
+
+  tests:
+    name: Tests
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_USER: postgres
+          POSTGRES_DB: test_cti_scraper
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+      redis:
+        image: redis:7-alpine
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install -r requirements-test.txt
+
+      - name: Set up standardized test environment
+        run: |
+          # Copy test environment template
+          cp env.test.template .env.test
+          
+          # Set CI-specific environment variables
+          echo "POSTGRES_HOST=localhost" >> .env.test
+          echo "POSTGRES_PORT=5432" >> .env.test
+          echo "POSTGRES_USER=postgres" >> .env.test
+          echo "POSTGRES_PASSWORD=postgres" >> .env.test
+          echo "POSTGRES_DB=test_cti_scraper" >> .env.test
+          echo "REDIS_HOST=localhost" >> .env.test
+          echo "REDIS_PORT=6379" >> .env.test
+          echo "REDIS_DB=1" >> .env.test
+          echo "TEST_PORT=8002" >> .env.test
+          echo "MOCK_EXTERNAL_SERVICES=true" >> .env.test
+          echo "MOCK_LLM_RESPONSES=true" >> .env.test
+          echo "TEST_ISOLATION=true" >> .env.test
+          echo "PERFORMANCE_TEST_ENABLED=false" >> .env.test
+          echo "INTEGRATION_TEST_ENABLED=true" >> .env.test
+
+      - name: Wait for services
+        run: |
+          # Wait for PostgreSQL
+          until pg_isready -h localhost -p 5432 -U postgres; do
+            echo "Waiting for PostgreSQL..."
+            sleep 2
+          done
+          
+          # Wait for Redis
+          until redis-cli -h localhost ping; do
+            echo "Waiting for Redis..."
+            sleep 2
+          done
+
+      - name: Validate test environment
+        run: |
+          python tests/utils/test_environment.py --config .env.test --verbose
+
+      - name: Run database connection validation
+        run: |
+          python tests/utils/database_connections.py --validate --verbose
+
+      - name: Run smoke tests
+        if: github.event.inputs.test_type == 'smoke' || github.event.inputs.test_type == null
+        run: |
+          pytest tests/smoke/ -v --tb=short
+        env:
+          DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/test_cti_scraper
+          REDIS_URL: redis://localhost:6379/1
+          TESTING: true
+
+      - name: Run API tests
+        if: github.event.inputs.test_type == 'api' || github.event.inputs.test_type == 'all'
+        run: |
+          pytest tests/api/ -v --tb=short
+        env:
+          DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/test_cti_scraper
+          REDIS_URL: redis://localhost:6379/1
+          TESTING: true
+
+      - name: Run integration tests
+        if: github.event.inputs.test_type == 'integration' || github.event.inputs.test_type == 'all'
+        run: |
+          pytest tests/integration/ -v --tb=short
+        env:
+          DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/test_cti_scraper
+          REDIS_URL: redis://localhost:6379/1
+          TESTING: true
+
+      - name: Run unit tests
+        if: github.event.inputs.test_type == 'all'
+        run: |
+          pytest tests/ -k "not (smoke or integration or api or performance)" -v --tb=short --cov=src --cov-report=xml --cov-report=html
+        env:
+          DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/test_cti_scraper
+          REDIS_URL: redis://localhost:6379/1
+          TESTING: true
+
+      - name: Upload coverage reports
+        if: github.event.inputs.test_type == 'all'
+        uses: codecov/codecov-action@v3
+        with:
+          file: ./coverage.xml
+          flags: unittests
+          name: codecov-umbrella
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: |
+            test-results/
+            htmlcov/
+            .coverage
+            allure-results/
+          retention-days: 30
+
+  docker-tests:
+    name: Docker Environment Tests
+    runs-on: ubuntu-latest
+    needs: [test-environment-validation, security-audit, code-quality]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Set up test environment for Docker
+        run: |
+          # Copy test environment template
+          cp env.test.template .env.test
+          
+          # Set Docker-specific environment variables
+          echo "POSTGRES_HOST=postgres" >> .env.test
+          echo "POSTGRES_PORT=5432" >> .env.test
+          echo "POSTGRES_USER=cti_user" >> .env.test
+          echo "POSTGRES_PASSWORD=test_password" >> .env.test
+          echo "POSTGRES_DB=test_cti_scraper" >> .env.test
+          echo "REDIS_HOST=redis" >> .env.test
+          echo "REDIS_PORT=6379" >> .env.test
+          echo "REDIS_DB=1" >> .env.test
+          echo "TEST_PORT=8002" >> .env.test
+          echo "MOCK_EXTERNAL_SERVICES=true" >> .env.test
+          echo "MOCK_LLM_RESPONSES=true" >> .env.test
+          echo "TEST_ISOLATION=true" >> .env.test
+
+      - name: Build Docker images
+        run: |
+          docker-compose build --no-cache
+
+      - name: Start services
+        run: |
+          docker-compose up -d postgres redis
+          sleep 30
+
+      - name: Wait for services
+        run: |
+          # Wait for PostgreSQL
+          until docker exec cti_postgres pg_isready -U cti_user -d cti_scraper; do
+            echo "Waiting for PostgreSQL..."
+            sleep 2
+          done
+          
+          # Wait for Redis
+          until docker exec cti_redis redis-cli ping; do
+            echo "Waiting for Redis..."
+            sleep 2
+          done
+
+      - name: Run tests in Docker
+        run: |
+          docker-compose run --rm web python tests/utils/test_environment.py --config .env.test --verbose
+          docker-compose run --rm web python tests/utils/database_connections.py --validate --verbose
+          docker-compose run --rm web pytest tests/smoke/ -v --tb=short
+
+      - name: Test Docker containers
+        run: |
+          docker-compose up -d
+          sleep 30
+          curl -f http://localhost:8001/ || exit 1
+          docker-compose down
+
+      - name: Cleanup
+        if: always()
+        run: docker-compose down
+
+  performance-tests:
+    name: Performance Tests
+    runs-on: ubuntu-latest
+    needs: [tests]
+    if: github.event.inputs.test_type == 'performance' || github.event.inputs.test_type == 'all'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+
+      - name: Install performance tools
+        run: |
+          pip install locust
+
+      - name: Set up test environment
+        run: |
+          cp env.test.template .env.test
+          echo "PERFORMANCE_TEST_ENABLED=true" >> .env.test
+          echo "PERFORMANCE_TEST_TIMEOUT=60" >> .env.test
+          echo "PERFORMANCE_TEST_CONCURRENT_USERS=10" >> .env.test
+          echo "PERFORMANCE_TEST_DURATION=30" >> .env.test
+
+      - name: Run performance tests
+        run: |
+          pytest tests/ -m performance -v --tb=short
+        env:
+          PERFORMANCE_TEST_ENABLED: true
+          TESTING: true
+
+      - name: Upload performance results
+        uses: actions/upload-artifact@v4
+        with:
+          name: performance-results
+          path: |
+            test-results/
+          retention-days: 30
+
+  deploy-staging:
+    name: Deploy to Staging
+    runs-on: ubuntu-latest
+    needs: [test-environment-validation, security-audit, code-quality, tests]
+    if: github.ref == 'refs/heads/develop'
+    environment: staging
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up staging environment
+        run: |
+          cp env.example .env.staging
+          # Set staging-specific values
+          echo "ENVIRONMENT=staging" >> .env.staging
+          echo "DEBUG=false" >> .env.staging
+          echo "LOG_LEVEL=INFO" >> .env.staging
+
+      - name: Deploy to staging
+        run: |
+          echo "Deploying to staging environment..."
+          # Add actual deployment steps here
+
+  deploy-production:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    needs: [test-environment-validation, security-audit, code-quality, tests]
+    if: github.ref == 'refs/heads/main'
+    environment: production
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up production environment
+        run: |
+          cp env.example .env.production
+          # Set production-specific values
+          echo "ENVIRONMENT=production" >> .env.production
+          echo "DEBUG=false" >> .env.production
+          echo "LOG_LEVEL=WARNING" >> .env.production
+
+      - name: Deploy to production
+        run: |
+          echo "Deploying to production environment..."
+          # Add actual deployment steps here

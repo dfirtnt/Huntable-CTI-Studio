@@ -1,0 +1,23 @@
+version: '3.8'
+
+services:
+  allure:
+    image: "frankescobar/allure-docker-service:latest"
+    container_name: ctiscraper-allure
+    ports:
+      - "8080:5050"
+    volumes:
+      - ./allure-results:/app/allure-results
+      - ./allure-report:/app/allure-report
+    environment:
+      - CHECK_RESULTS_EVERY_SECONDS=3
+      - KEEP_HISTORY=1
+      - KEEP_HISTORY_LATEST=10
+    restart: unless-stopped
+    networks:
+      - cti_network
+
+networks:
+  cti_network:
+    external: true
+

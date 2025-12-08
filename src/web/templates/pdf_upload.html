@@ -1,0 +1,199 @@
+{% extends "base.html" %}
+
+{% block title %}PDF Upload - Huntable CTI Scraper{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto">
+    <div class="bg-white rounded-lg shadow-lg p-6">
+        <h1 class="text-2xl font-bold text-gray-900 mb-6">📄 Upload PDF Report</h1>
+
+        <div class="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
+            <div class="mb-4">
+                <svg class="mx-auto h-12 w-12 text-gray-400" stroke="currentColor" fill="none" viewBox="0 0 48 48">
+                    <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                </svg>
+            </div>
+
+            <div class="mb-4">
+                <div class="flex flex-col items-center space-y-4">
+                    <label for="file-upload" class="cursor-pointer">
+                        <span class="mt-2 block text-sm font-medium text-gray-900">
+                            Drop your PDF file here or click to browse
+                        </span>
+                        <input id="file-upload" name="file-upload" type="file" accept=".pdf" class="sr-only">
+                    </label>
+                    
+                    <div class="flex items-center space-x-2">
+                        <span class="text-sm text-gray-500">or</span>
+                    </div>
+                    
+                    <button type="button" onclick="document.getElementById('file-upload').click()" 
+                            class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
+                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+                        </svg>
+                        Browse Files
+                    </button>
+                </div>
+            </div>
+
+            <p class="text-xs text-gray-500">Maximum file size: 50MB</p>
+            <p class="text-xs text-gray-500">Supported format: PDF only</p>
+        </div>
+
+        <div id="upload-status" class="mt-4 hidden">
+            <div class="bg-blue-50 border border-blue-200 rounded-md p-4">
+                <div class="flex">
+                    <div class="flex-shrink-0">
+                        <svg class="h-5 w-5 text-blue-400 animate-spin" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                    </div>
+                    <div class="ml-3">
+                        <p class="text-sm text-blue-700">Processing PDF...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="upload-success" class="mt-4 hidden">
+            <div class="bg-green-50 border border-green-200 rounded-md p-4">
+                <div class="flex">
+                    <div class="flex-shrink-0">
+                        <svg class="h-5 w-5 text-green-400" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
+                        </svg>
+                    </div>
+                    <div class="ml-3">
+                        <p class="text-sm text-green-700">PDF processed successfully!</p>
+                        <div id="success-details" class="text-xs text-green-600 mt-1"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="upload-error" class="mt-4 hidden">
+            <div class="bg-red-50 border border-red-200 rounded-md p-4">
+                <div class="flex">
+                    <div class="flex-shrink-0">
+                        <svg class="h-5 w-5 text-red-400" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"></path>
+                        </svg>
+                    </div>
+                    <div class="ml-3">
+                        <p class="text-sm text-red-700">Upload failed</p>
+                        <div id="error-details" class="text-xs text-red-600 mt-1"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const fileInput = document.getElementById('file-upload');
+    const uploadStatus = document.getElementById('upload-status');
+    const uploadSuccess = document.getElementById('upload-success');
+    const uploadError = document.getElementById('upload-error');
+    const successDetails = document.getElementById('success-details');
+    const errorDetails = document.getElementById('error-details');
+
+    // Handle file selection
+    fileInput.addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (file) {
+            uploadPDF(file);
+        }
+    });
+
+    // Handle drag and drop
+    const dropZone = document.querySelector('.border-dashed');
+
+    dropZone.addEventListener('dragover', function(e) {
+        e.preventDefault();
+        dropZone.classList.add('border-blue-500', 'bg-blue-50');
+    });
+
+    dropZone.addEventListener('dragleave', function(e) {
+        e.preventDefault();
+        dropZone.classList.remove('border-blue-500', 'bg-blue-50');
+    });
+
+    dropZone.addEventListener('drop', function(e) {
+        e.preventDefault();
+        dropZone.classList.remove('border-blue-500', 'bg-blue-50');
+
+        const files = e.dataTransfer.files;
+        if (files.length > 0) {
+            const file = files[0];
+            if (file.type === 'application/pdf') {
+                uploadPDF(file);
+            } else {
+                showError('Please select a PDF file.');
+            }
+        }
+    });
+
+    function uploadPDF(file) {
+        // Reset UI
+        hideAll();
+        uploadStatus.classList.remove('hidden');
+
+        // Create form data
+        const formData = new FormData();
+        formData.append('file', file);
+
+        // Upload file
+        fetch('/api/pdf/upload', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => {
+            if (!response.ok) {
+                return response.json().then(errorData => {
+                    throw new Error(errorData.detail || `HTTP ${response.status}: ${response.statusText}`);
+                });
+            }
+            return response.json();
+        })
+        .then(data => {
+            hideAll();
+            if (data.success) {
+                showSuccess(data);
+            } else {
+                showError(data.detail || 'Upload failed');
+            }
+        })
+        .catch(error => {
+            hideAll();
+            showError(error.message || 'Upload failed');
+        });
+    }
+
+    function showSuccess(data) {
+        uploadSuccess.classList.remove('hidden');
+        successDetails.innerHTML = `Article ID: ${data.article_id || 'null'}, Threat Score: ${data.threat_hunting_score}, Pages: ${data.page_count}`;
+        
+        // Redirect to the new article after 3 seconds
+        if (data.article_id) {
+            setTimeout(() => {
+                window.location.href = `/articles/${data.article_id}`;
+            }, 3000);
+        }
+    }
+
+    function showError(message) {
+        uploadError.classList.remove('hidden');
+        errorDetails.textContent = message;
+    }
+
+    function hideAll() {
+        uploadStatus.classList.add('hidden');
+        uploadSuccess.classList.add('hidden');
+        uploadError.classList.add('hidden');
+    }
+});
+</script>
+{% endblock %}

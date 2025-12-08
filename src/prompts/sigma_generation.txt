@@ -1,0 +1,150 @@
+Generate a Sigma detection rule based on the following threat intelligence:
+
+**Article Title:** {title}
+
+**Source:** {source}
+
+**URL:** {url}
+
+**SIGMA RULE SCOPE - STRICT RESTRICTIONS:**
+
+This rule MUST focus on Windows telemetry from our sub-agents. Use fields extracted by:
+- CmdlineExtract (command-line patterns)
+- ProcTreeExtract (process relationships)
+- RegExtract (registry modifications)
+
+**ALLOWED FIELDS - PROCESS CREATION:**
+
+1. CommandLine (or command_line) - Command-line execution patterns
+
+2. Image (or process_name) - Process executable name
+
+3. ParentImage (or parent_process_name) - Parent process executable name
+
+4. ParentCommandLine (or parent_command_line) - Parent process command-line
+
+**ALLOWED FIELDS - REGISTRY (when RegExtract data available):**
+
+5. TargetObject (or registry_key) - Full registry key path (e.g., HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run)
+
+6. Details (or registry_value_data) - Registry value data
+
+7. EventType (or operation) - Registry operation (SetValue, DeleteValue, CreateKey, etc.)
+
+**OPTIONAL CONTEXT FIELDS (for filtering only, not primary detection):**
+
+- EventID (e.g., 1 for Sysmon, 4688 for Security, 4657 for registry)
+
+- IntegrityLevel
+
+- User
+
+- OriginalFileName
+
+- CurrentDirectory
+
+- ProcessId / ParentProcessId
+
+**FORBIDDEN FIELDS - DO NOT USE:**
+
+- event_log (use EventID instead if needed)
+
+- process_path (use Image instead)
+
+- command_line_contains (use CommandLine with pattern matching instead)
+
+- Any other fields not explicitly listed above
+
+**MANDATORY REQUIREMENTS:**
+
+1. Rule must be valid YAML using Sigma's standard schema
+
+2. Must include:
+
+   - logsource.category: process_creation OR registry_event (choose based on primary detection method)
+
+   - logsource.product: windows
+
+3. Detection must use ONLY the allowed fields listed above
+
+4. Focus on:
+   - Command-line patterns and parent-child process relationships (for process_creation)
+   - Registry key modifications and persistence mechanisms (for registry_event)
+
+5. Extract MITRE ATT&CK technique IDs from the content
+
+6. Use Sigma `fields:` to include relevant observables (CommandLine, ParentImage, TargetObject, etc.)
+
+**YAML STRUCTURE RULES:**
+
+- Do not wrap output in markdown code blocks
+
+- Output ONLY the YAML content
+
+- Indent with 2 spaces (no tabs)
+
+- Use lowercase field names
+
+- Use quotes where needed (e.g., for special characters or spaces)
+
+title: <Short Title in Title Case>
+
+id: <uuid-v4>
+
+status: experimental
+
+description: <Brief detection summary>
+
+author: CTIScraper Agent
+
+date: YYYY-MM-DD
+
+modified: YYYY-MM-DD
+
+references:
+
+  - <url>
+
+tags:
+
+  - attack.execution
+
+  - attack.t1059.001
+
+logsource:
+
+  category: process_creation  # OR registry_event if focusing on registry modifications
+
+  product: windows
+
+detection:
+
+  selection:
+
+    <field>: <value>  # Use CommandLine/Image for process_creation, TargetObject/Details for registry_event
+
+  condition: selection
+
+fields:
+
+  - CommandLine  # For process_creation rules
+
+  - ParentCommandLine  # For process_creation rules
+
+  - Image  # For process_creation rules
+
+  - ParentImage  # For process_creation rules
+
+  - TargetObject  # For registry_event rules
+
+  - Details  # For registry_event rules
+
+falsepositives:
+
+  - <expected-benign-scenario>
+
+level: medium
+
+**Threat Intelligence Content:**
+
+{content}

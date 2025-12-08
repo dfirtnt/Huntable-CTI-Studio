@@ -1,0 +1,905 @@
+version: "1.0"
+
+sources:
+  # =============================================================================
+  # PREMIUM THREAT INTELLIGENCE SOURCES (Highest Actionable Value)
+  # =============================================================================
+  
+  # Hunt.io Threat Hunting Blog (No RSS - Web Scraping Only) - DISABLED
+  # - id: "hunt_io"
+  #   name: "Hunt.io Threat Hunting Blog"
+  #   url: "https://hunt.io/blog"
+  #   rss_url: null  # No RSS feed available
+  #   check_frequency: 1800  # 30 minutes
+  #   active: true
+  #   config:
+  #     allow: ["hunt.io"]
+  #     post_url_regex: ["^https://hunt\\.io/blog/.*"]
+  #     robots:
+  #       enabled: true
+  #       user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:138.0) Gecko/20100101 Firefox/138.0"
+  #       respect_delay: true
+  #       max_requests_per_minute: 10
+  #       crawl_delay: 1.0
+  #     min_content_length: 1000  # Reduced from 1500
+  #     title_filter_keywords: ["product news", "announcing", "introducing"]
+  #     rss_only: false  # Force web scraping since no RSS
+  #     extract:
+  #       prefer_jsonld: true
+  #       title_selectors: ["h1", "meta[property='og:title']::attr(content)"]
+  #       date_selectors:
+  #         - "meta[property='article:published_time']::attr(content)"
+  #         - "time[datetime]::attr(datetime)"
+  #       body_selectors: ["div.markdown", "div[class*='markdown']", "article", "main", ".content", ".post-content"]
+  #       author_selectors: ["meta[name='author']::attr(content)", ".author-name"]
+  #   description: "High-quality threat hunting content with technical depth and actionable intelligence (Web scraping only)"
+
+  # Picus Security Blog (No RSS - Web Scraping Only)
+  # Fixed 2025-09-29: Updated post_url_regex to only match /resource/blog/* URLs
+  # (was matching all /resource/* which included datasheets, reports, webinars)
+  - id: "picus_security"
+    name: "Picus Security Blog"
+    url: "https://www.picussecurity.com/resource/tag/article"
+    rss_url: null  # No RSS feed available
+    check_frequency: 1800  # 30 minutes
+    active: true
+    config:
+      allow: ["picussecurity.com"]
+      post_url_regex: ["^https://www\\.picussecurity\\.com/resource/blog/.*"]  # Only blog articles, not datasheets/reports
+      robots:
+        enabled: true
+        user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+        respect_delay: true
+        max_requests_per_minute: 10
+        crawl_delay: 1.0
+      min_content_length: 1500
+      title_filter_keywords: ["webinar", "training", "careers", "job posting"]
+      rss_only: false  # Force web scraping since no RSS
+      extract:
+        prefer_jsonld: true
+        title_selectors: ["h1", "meta[property='og:title']::attr(content)"]
+        date_selectors:
+          - "meta[property='article:published_time']::attr(content)"
+          - "time[datetime]::attr(datetime)"
+        body_selectors: [
+          ".blog-post__body",
+          "#hs_cos_wrapper_post_body",
+          "article",
+          "main",
+          ".content",
+          ".post-content"
+        ]
+        author_selectors: ["meta[name='author']::attr(content)", ".author-name"]
+    description: "MITRE ATT&CK technique analysis and threat simulation intelligence (Web scraping only)"
+
+  # VMRay Blog
+  - id: "vmray_blog"
+    name: "VMRay Blog"
+    url: "https://www.vmray.com/blog/"
+    rss_url: "https://www.vmray.com/blog/feed/"
+    check_frequency: 1800  # 30 minutes
+    active: true
+    config:
+      allow: ["vmray.com"]
+      post_url_regex: ["^https://www\\.vmray\\.com/blog/.*"]
+      robots:
+        enabled: true
+        user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+        respect_delay: true
+        max_requests_per_minute: 10
+        crawl_delay: 1.0
+      min_content_length: 1500
+      title_filter_keywords: ["webinar", "training", "careers", "job posting"]
+      rss_only: false  # Enable web scraping fallback when RSS feed is empty
+      discovery:
+        strategies:
+          - listing:
+              urls: ["https://www.vmray.com/blog/"]
+              max_pages: 5
+              post_link_selector: 'a[href*="/blog/"][href!="/blog/"][href!="https://www.vmray.com/blog/"]:not([href*="?e-page"]):not([href*="feed"])'
+      extract:
+        prefer_jsonld: true
+        title_selectors: ["h1", "meta[property='og:title']::attr(content)"]
+        date_selectors: 
+          - "meta[property='article:published_time']::attr(content)"
+          - "time[datetime]::attr(datetime)"
+        body_selectors: ["article", "main", ".content", ".post-content", ".entry-content"]
+        author_selectors: ["meta[name='author']::attr(content)", ".author-name"]
+    description: "Advanced malware analysis, detection engineering, and actionable threat intelligence"
+
+  # Group-IB Threat Intelligence Blog (Web Scraping Only - RSS Blocked)
+  - id: "group_ib_threat_intel"
+    name: "Group-IB Threat Intelligence Blog"
+    url: "https://www.group-ib.com/blog/"
+    rss_url: null  # RSS feed blocked by anti-bot protection
+    check_frequency: 1800  # 30 minutes
+    active: true
+    config:
+      allow: ["group-ib.com"]
+      post_url_regex: ["^https://www\\.group-ib\\.com/blog/.*"]
+      robots:
+        enabled: true
+        user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+        respect_delay: true
+        max_requests_per_minute: 3  # Very conservative rate limiting
+        crawl_delay: 5.0
+      min_content_length: 1500
+      # Enhanced filtering for threat intelligence content only
+      title_filter_keywords: ["webinar", "training", "careers", "job posting", "event", "podcast", "newsletter"]
+      rss_only: false  # Enable web scraping since RSS is blocked
+      discovery:
+        strategies:
+          - listing:
+              urls: ["https://www.group-ib.com/blog/"]
+              max_pages: 5
+              post_link_selector: 'a[href*="/blog/"][href!="/blog/"]:not([href*="?page"]):not([href*="category"]):not([href*="tag"])'
+              next_selector: 'a[href*="?page="]'
+      extract:
+        prefer_jsonld: true
+        title_selectors: ["h1", "meta[property='og:title']::attr(content)"]
+        date_selectors:
+          - "meta[property='article:published_time']::attr(content)"
+          - "time[datetime]::attr(datetime)"
+        body_selectors: ["article", "main", ".content", ".post-content", ".blog-content"]
+        author_selectors: ["meta[name='author']::attr(content)", ".author-name"]
+    description: "Group-IB threat intelligence research and analysis blog - web scraping only due to RSS feed blocking"
+
+  # =============================================================================
+  # PREMIUM THREAT INTELLIGENCE SOURCES (Highest Actionable Value)
+  # =============================================================================
+  
+  # Cisco Talos Blog - Fixed RSS URL and SSL handling
+  - id: "cisco_talos"
+    name: "Cisco Talos Intelligence Blog"
+    url: "https://blog.talosintelligence.com/"
+    rss_url: "https://blog.talosintelligence.com/rss/"
+    check_frequency: 1800  # 30 minutes
+    active: true
+    config:
+      allow: ["blog.talosintelligence.com"]
+      post_url_regex: ["^https://blog\\.talosintelligence\\.com/.*"]
+      robots:
+        enabled: true
+        user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+        respect_delay: true
+        max_requests_per_minute: 10
+        crawl_delay: 1.0
+      min_content_length: 2000
+      title_filter_keywords: ["webinar", "training", "careers", "job posting"]
+      extract:
+        prefer_jsonld: true
+        title_selectors: ["h1", "meta[property='og:title']::attr(content)"]
+        date_selectors: 
+          - "meta[property='article:published_time']::attr(content)"
+          - "time[datetime]::attr(datetime)"
+        body_selectors: ["article", "main", ".content", ".post-content"]
+        author_selectors: ["meta[name='author']::attr(content)", ".author-name"]
+      min_content_length: 2000
+    description: "High-quality threat intelligence with actionable IOCs and TTPs"
+
+  # Huntress Blog - Fixed RSS URL
+  - id: "huntress_blog"
+    name: "Huntress Cybersecurity Blog"
+    url: "https://www.huntress.com/blog"
+    rss_url: "https://www.huntress.com/blog/rss.xml"  # Fixed RSS URL
+    check_frequency: 1800  # 30 minutes
+    active: true
+    config:
+      allow: ["huntress.com"]
+      post_url_regex: ["^https://www\\.huntress\\.com/blog/.*"]
+      robots:
+        enabled: true
+        user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+        respect_delay: true
+        max_requests_per_minute: 8
+        crawl_delay: 2.0
+      extract:
+        prefer_jsonld: true
+        title_selectors: ["h1.landing-banner-heading-h1", "h1.blog", ".landing-banner-heading-h1", "h1"]
+        body_selectors: [".blog-post-summary", ".blog-post-summary-main", ".blog-main-section", ".post-wrapper", "main"]
+        author_selectors: [".author-name", ".author-link", ".authors-wrapper .author-item", ".attribution-container"]
+        date_selectors: [".published-text", ".blog-date-breadcrumb", "time", ".date", "[datetime]"]
+      min_content_length: 2000
+    description: "Excellent DFIR and threat hunting content with actionable intelligence"
+
+  # Google Cloud Threat Intelligence
+  - id: "google_cloud_threat_intel"
+    name: "Google Cloud Threat Intelligence"
+    url: "https://cloud.google.com/blog/topics/threat-intelligence/"
+    rss_url: "https://feeds.feedburner.com/threatintelligence/pvexyqv7v0v"
+    check_frequency: 1800  # 30 minutes
+    active: true
+    config:
+      allow: ["cloud.google.com"]
+      post_url_regex: ["^https://cloud\\.google\\.com/blog/topics/threat-intelligence/.*"]
+      robots:
+        enabled: false  # Disable robots.txt checking for RSS-only
+        user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+        respect_delay: false
+        max_requests_per_minute: 0  # No web scraping
+        crawl_delay: 0.0
+      min_content_length: 2000
+      title_filter_keywords: ["newsletter", "subscription", "contact"]
+      rss_only: true  # Force RSS-only collection - feed has full content (~80KB per article)
+      extract:
+        prefer_jsonld: false  # Disable modern scraping
+        title_selectors: []  # No selectors needed for RSS-only
+        date_selectors: []  # No selectors needed for RSS-only
+        body_selectors: []  # No selectors needed for RSS-only
+        author_selectors: []  # No selectors needed for RSS-only
+    description: "Google Threat Intelligence Group advisories, research, and threat analysis (RSS-only - full content in feed)"
+
+  # Palo Alto Unit42
+  - id: "palo_alto_unit42"
+    name: "Palo Alto Unit42"
+    url: "https://unit42.paloaltonetworks.com/"
+    rss_url: "https://unit42.paloaltonetworks.com/feed/"
+    check_frequency: 1800  # 30 minutes
+    active: true
+    config:
+      allow: ["unit42.paloaltonetworks.com"]
+      post_url_regex: ["^https://unit42\\.paloaltonetworks\\.com/.*"]
+      extract:
+        prefer_jsonld: true
+        title_selectors: ["h1", "meta[property='og:title']::attr(content)"]
+        date_selectors: ["meta[property='article:published_time']::attr(content)"]
+        body_selectors: ["article", "main", ".content", ".post-content"]
+      min_content_length: 2000  # Unit 42 requires 1200+ chars
+    description: "Exceptional threat research with detailed IOCs and TTPs"
+
+  # Kaspersky Securelist
+  - id: "kaspersky_securelist"
+    name: "Kaspersky Securelist"
+    url: "https://securelist.com/"
+    rss_url: "https://securelist.com/feed/"
+    check_frequency: 1800  # 30 minutes
+    active: true
+    config:
+      allow: ["securelist.com"]
+      post_url_regex: ["^https://securelist\\.com/.*"]
+      extract:
+        prefer_jsonld: true
+        title_selectors: ["h1", "meta[property='og:title']::attr(content)"]
+        date_selectors: ["meta[property='article:published_time']::attr(content)"]
+        body_selectors: ["article", "main", ".content", ".post-content"]
+      min_content_length: 2000
+    description: "Excellent malware analysis and APT research"
+
+  # ESET Research
+  - id: "eset_research"
+    name: "ESET Research"
+    url: "https://www.welivesecurity.com/category/research/"
+    rss_url: "https://www.welivesecurity.com/category/research/feed/"
+    check_frequency: 1800  # 30 minutes
+    active: true
+    config:
+      allow: ["welivesecurity.com"]
+      post_url_regex: ["^https://www\\.welivesecurity\\.com/.*"]
+      extract:
+        prefer_jsonld: true
+        title_selectors: ["h1", "meta[property='og:title']::attr(content)"]
+        date_selectors: ["meta[property='article:published_time']::attr(content)"]
+        body_selectors: ["article", "main", ".content", ".post-content"]
+      min_content_length: 2000
+    description: "Strong malware research with technical details"
+
+  # Recorded Future
+  - id: "recorded_future"
+    name: "Recorded Future"
+    url: "https://www.recordedfuture.com/"
+    rss_url: "https://www.recordedfuture.com/feed/"
+    check_frequency: 1800  # 30 minutes
+    active: true
+    config:
+      allow: ["recordedfuture.com"]
+      post_url_regex: ["^https://www\\.recordedfuture\\.com/.*"]
+      extract:
+        prefer_jsonld: true
+        title_selectors: ["h1", "meta[property='og:title']::attr(content)"]
+        date_selectors: ["meta[property='article:published_time']::attr(content)"]
+        body_selectors: ["article", "main", ".content", ".post-content"]
+      min_content_length: 2000
+    description: "High-quality threat intelligence and analysis"
+
+  # SentinelOne Labs
+  - id: "sentinelone_labs"
+    name: "SentinelOne Labs"
+    url: "https://www.sentinelone.com/labs/"
+    rss_url: "https://www.sentinelone.com/labs/feed/"
+    check_frequency: 1800  # 30 minutes
+    active: true
+    config:
+      allow: ["sentinelone.com"]
+      post_url_regex: ["^https://www\\.sentinelone\\.com/labs/.*"]
+      extract:
+        prefer_jsonld: true
+        title_selectors: ["h1", "meta[property='og:title']::attr(content)"]
+        date_selectors: ["meta[property='article:published_time']::attr(content)"]
+        body_selectors: ["article", "main", ".content", ".post-content"]
+      min_content_length: 2000
+    description: "Good threat research with detection context"
+
+  # Microsoft Security Blog (Defender Section)
+  - id: "microsoft_security_blog"
+    name: "Microsoft Security Blog - Defender"
+    url: "https://www.microsoft.com/en-us/security/blog/product/microsoft-defender/"
+    rss_url: "https://www.microsoft.com/en-us/security/blog/product/microsoft-defender/feed/"
+    check_frequency: 1800  # 30 minutes
+    active: true
+    config:
+      allow: ["microsoft.com"]
+      post_url_regex: ["^https://www\\.microsoft\\.com/en-us/security/blog/.*"]
+      robots:
+        enabled: true
+        user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+        respect_delay: true
+        max_requests_per_minute: 5
+        crawl_delay: 4.0
+      min_content_length: 2000
+      extract:
+        prefer_jsonld: true
+        title_selectors: ["h1", "meta[property='og:title']::attr(content)"]
+        date_selectors: 
+          - "meta[property='article:published_time']::attr(content)"
+          - "time[datetime]::attr(datetime)"
+        body_selectors: ["article", "main", ".content", ".post-content", ".entry-content"]
+        author_selectors: ["meta[name='author']::attr(content)", ".author-name"]
+      min_content_length: 2000
+    description: "Official Microsoft Security Blog covering Defender products and threat intelligence"
+
+  # Microsoft Defender for Endpoint Blog
+  - id: "microsoft_defender_endpoint"
+    name: "Microsoft Defender for Endpoint Blog"
+    url: "https://techcommunity.microsoft.com/category/microsoft-defender-for-endpoint/blog/microsoftdefenderatpblog"
+    rss_url: "https://techcommunity.microsoft.com/t5/Microsoft-Defender-for-Endpoint/bd-p/MicrosoftDefenderATPBlog.rss"
+    check_frequency: 1800  # 30 minutes
+    active: true
+    config:
+      allow: ["techcommunity.microsoft.com"]
+      post_url_regex: ["^https://techcommunity\\.microsoft\\.com/.*"]
+      robots:
+        enabled: true
+        user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+        respect_delay: true
+        max_requests_per_minute: 6
+        crawl_delay: 3.0
+      min_content_length: 2000
+      extract:
+        prefer_jsonld: true
+        title_selectors: ["h1", "meta[property='og:title']::attr(content)"]
+        date_selectors: 
+          - "meta[property='article:published_time']::attr(content)"
+          - "time[datetime]::attr(datetime)"
+        body_selectors: ["article", "main", ".content", ".post-content", ".message-body"]
+        author_selectors: ["meta[name='author']::attr(content)", ".author-name"]
+    description: "Official Microsoft Defender for Endpoint security updates and detection capabilities"
+
+  # SOC Prime Blog
+  - id: "soc_prime_blog"
+    name: "SOC Prime Blog"
+    url: "https://socprime.com/blog/"
+    rss_url: "https://socprime.com/blog/feed/"
+    check_frequency: 1800  # 30 minutes
+    active: true
+    config:
+      allow: ["socprime.com"]
+      post_url_regex: ["^https://socprime\\.com/blog/.*"]
+      robots:
+        enabled: true
+        user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+        respect_delay: true
+        max_requests_per_minute: 8
+        crawl_delay: 2.0
+      min_content_length: 2000
+      extract:
+        prefer_jsonld: true
+        title_selectors: ["h1", "meta[property='og:title']::attr(content)"]
+        date_selectors: 
+          - "meta[property='article:published_time']::attr(content)"
+          - "time[datetime]::attr(datetime)"
+        body_selectors: ["article", "main", ".content", ".post-content", ".blog-content"]
+        author_selectors: ["meta[name='author']::attr(content)", ".author-name"]
+      min_content_length: 2000
+    description: "Threat detection marketplace with Sigma rules and detection engineering content"
+
+  # Elastic Security Labs
+  - id: "elastic_security_labs"
+    name: "Elastic Security Labs"
+    url: "https://www.elastic.co/security-labs/"
+    rss_url: "https://www.elastic.co/security-labs/feed/"
+    check_frequency: 1800  # 30 minutes
+    active: true
+    config:
+      allow: ["elastic.co"]
+      post_url_regex: ["^https://www\\.elastic\\.co/security-labs/.*"]
+      extract:
+        prefer_jsonld: true
+        title_selectors: ["h1", "meta[property='og:title']::attr(content)"]
+        date_selectors: ["meta[property='article:published_time']::attr(content)"]
+        body_selectors: ["article", "main", ".content", ".post-content"]
+      min_content_length: 2000
+    description: "Detection-focused research with hunting queries"
+
+  # Corelight Bright Ideas Blog
+  - id: "corelight_blog"
+    name: "Corelight Bright Ideas Blog"
+    url: "https://corelight.com/blog"
+    rss_url: "https://corelight.com/blog/rss.xml"
+    check_frequency: 1800  # 30 minutes
+    active: true
+    config:
+      allow: ["corelight.com"]
+      post_url_regex: ["^https://corelight\\.com/blog/.*"]
+      robots:
+        enabled: true
+        user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+        respect_delay: true
+        max_requests_per_minute: 8
+        crawl_delay: 2.0
+      min_content_length: 2000
+      title_filter_keywords: ["webinar", "training", "careers", "job posting", "event"]
+      extract:
+        prefer_jsonld: true
+        title_selectors: ["h1", "meta[property='og:title']::attr(content)"]
+        date_selectors:
+          - "meta[property='article:published_time']::attr(content)"
+          - "time[datetime]::attr(datetime)"
+        body_selectors: ["article", "main", ".content", ".post-content", ".blog-content"]
+        author_selectors: ["meta[name='author']::attr(content)", ".author-name"]
+    description: "Network detection and response (NDR) blog with threat hunting, detection engineering, and threat intelligence research"
+
+  # Sekoia.io Threat Research & Intelligence (RSS-Only)
+  - id: "sekoia_io_blog"
+    name: "Sekoia.io Threat Research & Intelligence"
+    url: "https://blog.sekoia.io/category/threat-research/"
+    rss_url: "https://blog.sekoia.io/category/threat-research/feed/"
+    check_frequency: 1800  # 30 minutes
+    active: true
+    config:
+      allow: ["blog.sekoia.io"]
+      post_url_regex: ["^https://blog\\.sekoia\\.io/.*"]
+      robots:
+        enabled: false  # Disable robots.txt checking for RSS-only
+        user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+        respect_delay: false
+        max_requests_per_minute: 0  # No web scraping
+        crawl_delay: 0.0
+      min_content_length: 1000  # Lower threshold for RSS content
+      title_filter_keywords: ["newsletter", "subscription", "contact"]
+      rss_only: true  # Force RSS-only collection to bypass anti-bot protection
+      extract:
+        prefer_jsonld: false  # Disable modern scraping
+        title_selectors: []  # No selectors needed for RSS-only
+        date_selectors: []  # No selectors needed for RSS-only
+        body_selectors: []  # No selectors needed for RSS-only
+        author_selectors: []  # No selectors needed for RSS-only
+    description: "High-quality CTI and SOC insights with actionable threat intelligence and detection engineering (RSS-only to bypass anti-bot protection)"
+
+  # Check Point Research
+  - id: "checkpoint_research"
+    name: "Check Point Research"
+    url: "https://research.checkpoint.com/"
+    rss_url: "https://research.checkpoint.com/feed/"
+    check_frequency: 1800  # 30 minutes
+    active: true
+    config:
+      allow: ["research.checkpoint.com"]
+      post_url_regex: ["^https://research\\.checkpoint\\.com/.*"]
+      robots:
+        enabled: true
+        user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+        respect_delay: true
+        max_requests_per_minute: 6
+        crawl_delay: 2.0
+      title_filter_keywords: ["threat intelligence report"]
+      extract:
+        prefer_jsonld: true
+        title_selectors: ["h1", "meta[property='og:title']::attr(content)"]
+        date_selectors: ["meta[property='article:published_time']::attr(content)"]
+        body_selectors: ["article", "main", ".content", ".post-content"]
+      min_content_length: 2000
+    description: "Solid threat research with technical analysis"
+
+  # =============================================================================
+  # NEWS AND ANALYSIS SOURCES (Good Coverage)
+  # =============================================================================
+
+  # The Hacker News
+  - id: "the_hacker_news"
+    name: "The Hacker News"
+    url: "https://thehackernews.com/"
+    rss_url: "https://feeds.feedburner.com/TheHackersNews"
+    check_frequency: 1800  # 30 minutes
+    active: true
+    config:
+      allow: ["thehackernews.com"]
+      post_url_regex: ["^https://thehackernews\\.com/.*"]
+      extract:
+        prefer_jsonld: true
+        title_selectors: ["h1", "meta[property='og:title']::attr(content)"]
+        date_selectors: ["meta[property='article:published_time']::attr(content)"]
+        body_selectors: ["article", "main", ".content", ".post-content"]
+      min_content_length: 2000
+    description: "Comprehensive cybersecurity news coverage"
+
+  # Bleeping Computer
+  - id: "bleeping_computer"
+    name: "Bleeping Computer"
+    url: "https://www.bleepingcomputer.com/"
+    rss_url: "https://www.bleepingcomputer.com/feed/"
+    check_frequency: 1800  # 30 minutes
+    active: true
+    config:
+      allow: ["bleepingcomputer.com"]
+      post_url_regex: ["^https://www\\.bleepingcomputer\\.com/.*"]
+      robots:
+        enabled: true
+        user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+        respect_delay: true
+        max_requests_per_minute: 6
+        crawl_delay: 2.0
+      extract:
+        prefer_jsonld: true
+        title_selectors: ["h1", "meta[property='og:title']::attr(content)"]
+        date_selectors: ["meta[property='article:published_time']::attr(content)"]
+        body_selectors: ["article", "main", ".content", ".post-content"]
+      min_content_length: 2000
+    description: "Good security news with malware analysis"
+
+  # Dark Reading
+  - id: "dark_reading"
+    name: "Dark Reading"
+    url: "https://www.darkreading.com/"
+    rss_url: "https://www.darkreading.com/rss.xml"
+    check_frequency: 1800  # 30 minutes
+    active: true
+    config:
+      allow: ["darkreading.com"]
+      post_url_regex: ["^https://www\\.darkreading\\.com/.*"]
+      extract:
+        prefer_jsonld: true
+        title_selectors: ["h1", "meta[property='og:title']::attr(content)"]
+        date_selectors: ["meta[property='article:published_time']::attr(content)"]
+        body_selectors: ["article", "main", ".content", ".post-content"]
+      min_content_length: 2000
+    description: "Professional cybersecurity news and analysis"
+
+  # SecurityWeek
+  - id: "securityweek"
+    name: "SecurityWeek"
+    url: "https://www.securityweek.com/"
+    rss_url: "https://www.securityweek.com/feed/"
+    check_frequency: 1800  # 30 minutes
+    active: true
+    config:
+      allow: ["securityweek.com"]
+      post_url_regex: ["^https://www\\.securityweek\\.com/.*"]
+      rss_only: false  # Enable web scraping fallback
+      extract:
+        prefer_jsonld: true
+        title_selectors: ["h1", "meta[property='og:title']::attr(content)"]
+        date_selectors: ["meta[property='article:published_time']::attr(content)"]
+        body_selectors: ["article", "main", ".content", ".post-content"]
+      min_content_length: 2000
+    description: "General cybersecurity news and industry updates"
+
+  # Infosecurity Magazine
+  - id: "infosecurity_magazine"
+    name: "Infosecurity Magazine"
+    url: "https://www.infosecurity-magazine.com/"
+    rss_url: "https://www.infosecurity-magazine.com/rss/news/"
+    check_frequency: 1800  # 30 minutes
+    active: true
+    config:
+      allow: ["infosecurity-magazine.com"]
+      post_url_regex: ["^https://www\\.infosecurity-magazine\\.com/.*"]
+      extract:
+        prefer_jsonld: true
+        title_selectors: ["h1", "meta[property='og:title']::attr(content)"]
+        date_selectors: ["meta[property='article:published_time']::attr(content)"]
+        body_selectors: ["article", "main", ".content", ".post-content"]
+      min_content_length: 2000
+    description: "Security news and industry insights"
+
+  # SANS Internet Storm Center
+  - id: "sans_isc"
+    name: "SANS Internet Storm Center"
+    url: "https://isc.sans.edu/"
+    rss_url: "https://isc.sans.edu/rssfeed.xml"
+    check_frequency: 1800  # 30 minutes
+    active: true
+    config:
+      allow: ["isc.sans.edu"]
+      post_url_regex: ["^https://isc\\.sans\\.edu/.*"]
+      extract:
+        prefer_jsonld: true
+        title_selectors: ["h1", "meta[property='og:title']::attr(content)"]
+        date_selectors: ["meta[property='article:published_time']::attr(content)"]
+        body_selectors: ["article", "main", ".content", ".post-content"]
+      min_content_length: 2000
+    description: "Daily security incident analysis and threat intelligence"
+
+  # =============================================================================
+  # LEGACY SOURCES (Keep for compatibility)
+  # =============================================================================
+
+  # DFIR Report (existing)
+  - id: "dfir_report"
+    name: "The DFIR Report"
+    url: "https://thedfirreport.com"
+    rss_url: "https://thedfirreport.com/feed/"
+    check_frequency: 1800  # 30 minutes
+    lookback_days: 180  # 6 months - reduced from 20 years due to validation limits
+    active: true
+    config:
+      allow: ["thedfirreport.com"]
+      post_url_regex: ["^https://thedfirreport\\.com/.*"]
+      robots:
+        enabled: true
+        user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+        respect_delay: true
+        max_requests_per_minute: 10
+        crawl_delay: 1.0
+      min_content_length: 2000
+      rss_only: false  # Enable fallback - RSS only contains summaries (~200 chars)
+      archive_pages: true  # Enable archive page scraping for historical articles
+      archive_url_pattern: "https://thedfirreport.com/page/{page}/"
+      max_archive_pages: 20  # Scrape up to 20 pages of archives (~200 articles)
+      extract:
+        prefer_jsonld: true
+        title_selectors: ["h1.entry-title", "h1", "meta[property='og:title']::attr(content)"]
+        date_selectors:
+          - "meta[property='article:published_time']::attr(content)"
+          - "time.entry-date::attr(datetime)"
+          - "time[datetime]::attr(datetime)"
+        body_selectors: [".entry-content", "article", "main", ".content", ".post-content"]
+        author_selectors: [".author-name", ".entry-author", "meta[name='author']::attr(content)"]
+
+  # CrowdStrike Blog (existing)
+  - id: "crowdstrike_blog"
+    name: "CrowdStrike Intelligence Blog"
+    url: "https://www.crowdstrike.com/blog/"
+    rss_url: "https://www.crowdstrike.com/blog/feed/"
+    check_frequency: 1800  # 30 minutes
+    active: true
+    config:
+      title_filter_keywords: ["CrowdStrike Named a Leader", "CrowdStrike to Acquire"]
+      min_content_length: 2000
+
+  # Microsoft Security Response Center (existing)
+  - id: "microsoft_security"
+    name: "Microsoft Security Response Center"
+    url: "https://msrc.microsoft.com/blog/"
+    rss_url: "https://msrc.microsoft.com/blog/feed/"
+    check_frequency: 3600  # 1 hour
+    active: true
+    config:
+      min_content_length: 2000  # Microsoft Security requires 1000+ chars
+
+
+  # Red Canary Blog (existing)
+  - id: "red_canary_blog"
+    name: "Red Canary Blog"
+    url: "https://redcanary.com/blog/"
+    rss_url: "https://redcanary.com/blog/feed/"
+    check_frequency: 1800  # 30 minutes - Tier 1 priority
+    active: true
+    config:
+      content_selector: "div.blog-content, article"
+      min_content_length: 2000
+    description: "Detection-focused research with actionable hunting techniques and IOCs"
+
+
+  # CISA Analysis Reports - Uses comprehensive All Advisories feed with analysis reports filtering
+  - id: "cisa_analysis_reports"
+    name: "CISA Analysis Reports"
+    url: "https://www.cisa.gov/news-events/cybersecurity-advisories"
+    rss_url: "https://www.cisa.gov/cybersecurity-advisories/all.xml"  # Comprehensive feed with analysis reports
+    check_frequency: 1800  # 30 minutes
+    active: true
+    config:
+      allow: ["cisa.gov"]
+      post_url_regex: ["^https://www\\.cisa\\.gov/news-events/analysis-reports/.*"]  # Filter for analysis reports only
+      robots:
+        enabled: true
+        user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+        respect_delay: true
+        max_requests_per_minute: 5
+        crawl_delay: 3.0
+      min_content_length: 2000
+      extract:
+        prefer_jsonld: true
+        title_selectors: ["h1", "meta[property='og:title']::attr(content)"]
+        date_selectors:
+          - "meta[property='article:published_time']::attr(content)"
+          - "time[datetime]::attr(datetime)"
+        body_selectors: ["article", "main", ".content", ".post-content", ".advisory-content"]
+        author_selectors: ["meta[name='author']::attr(content)", ".author-name"]
+    description: "CISA Analysis Reports - In-depth malware analysis and threat intelligence from the comprehensive CISA advisories feed"
+
+  # Assetnote Research - Updated to new location with discovery configuration
+  - id: "assetnote_research"
+    name: "Assetnote Research"
+    url: "https://www.assetnote.io/resources/research/"
+    rss_url: "https://www.assetnote.io/resources/research/rss.xml"  # Verified feed
+    check_frequency: 1800  # 30 minutes
+    active: true
+    config:
+      allow: ["www.assetnote.io"]
+      post_url_regex: ["^https://www\\.assetnote\\.io/resources/research/.*"]
+      robots:
+        enabled: true
+        user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+        respect_delay: true
+        max_requests_per_minute: 6
+        crawl_delay: 3.0
+      min_content_length: 1000
+      rss_only: false
+      discovery:
+        strategies:
+          - listing:
+              urls: ["https://www.assetnote.io/resources/research/"]
+              max_pages: 3
+              post_link_selector: 'a[href*="/resources/research/"]'
+      extract:
+        prefer_jsonld: true
+        title_selectors: ["h1", "meta[property='og:title']::attr(content)", ".post-title", ".entry-title"]
+        date_selectors:
+          - "meta[property='article:published_time']::attr(content)"
+          - "time[datetime]::attr(datetime)"
+          - ".post-date"
+          - ".entry-date"
+        body_selectors: [
+          ".post-content",
+          ".entry-content",
+          "article .content",
+          ".blog-post-content",
+          "main article",
+          ".research-content",
+          ".text-rich-text",
+          ".research-notes",
+          "article",
+          "main",
+          ".content"
+        ]
+        author_selectors: ["meta[name='author']::attr(content)", ".author-name", ".post-author"]
+    description: "In-depth security research and vulnerability analysis - updated to new Assetnote location with modern discovery"
+
+  # NCSC UK (No RSS - Web Scraping Only)
+  - id: "ncsc_uk"
+    name: "NCSC UK"
+    url: "https://www.ncsc.gov.uk/news"
+    rss_url: null  # RSS feed not available - web scraping only
+    check_frequency: 3600  # 1 hour
+    active: true
+    config:
+      allow: ["ncsc.gov.uk"]
+      post_url_regex: ["^https://www\\.ncsc\\.gov\\.uk/(news|section)/.*"]
+      robots:
+        enabled: true
+        user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+        respect_delay: true
+        max_requests_per_minute: 5
+        crawl_delay: 4.0
+      min_content_length: 2000
+      title_filter_keywords: ["webinar", "training", "careers", "job posting", "event"]
+      rss_only: false  # Force web scraping since no RSS
+      discovery:
+        strategies:
+          - sitemap:
+              urls: ["https://www.ncsc.gov.uk/sitemap.xml"]
+      extract:
+        prefer_jsonld: true
+        title_selectors: ["h1", "meta[property='og:title']::attr(content)"]
+        date_selectors: 
+          - "meta[property='article:published_time']::attr(content)"
+          - "time[datetime]::attr(datetime)"
+        body_selectors: ["article", "main", ".content", ".post-content", ".news-content"]
+        author_selectors: ["meta[name='author']::attr(content)", ".author-name"]
+      min_content_length: 2000
+    description: "UK National Cyber Security Centre official advisories and guidance (Web scraping only - RSS feed unavailable)"
+
+  # US-CERT
+  - id: "us_cert"
+    name: "US-CERT"
+    url: "https://us-cert.cisa.gov/"
+    rss_url: "https://us-cert.cisa.gov/rss.xml"
+    check_frequency: 3600  # 1 hour
+    active: true
+    config:
+      allow: ["us-cert.cisa.gov"]
+      post_url_regex: ["^https://us-cert\\.cisa\\.gov/.*"]
+      robots:
+        enabled: true
+        user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+        respect_delay: true
+        max_requests_per_minute: 5
+        crawl_delay: 4.0
+      min_content_length: 2000
+      title_filter_keywords: ["webinar", "training", "careers", "job posting", "event"]
+      extract:
+        prefer_jsonld: true
+        title_selectors: ["h1", "meta[property='og:title']::attr(content)"]
+        date_selectors: 
+          - "meta[property='article:published_time']::attr(content)"
+          - "time[datetime]::attr(datetime)"
+        body_selectors: ["article", "main", ".content", ".post-content", ".advisory-content"]
+        author_selectors: ["meta[name='author']::attr(content)", ".author-name"]
+      min_content_length: 2000
+    description: "US-CERT cybersecurity advisories and alerts"
+
+  # Splunk Security Blog
+  - id: "splunk_security_blog"
+    name: "Splunk Security Blog"
+    url: "https://www.splunk.com/en_us/blog/security.html"
+    rss_url: null  # No RSS feed available - web scraping only
+    check_frequency: 1800  # 30 minutes
+    active: true
+    config:
+      allow: ["splunk.com"]
+      post_url_regex: ["^https://www\\.splunk\\.com/en_us/blog/security/.*"]
+      robots:
+        enabled: true
+        user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+        respect_delay: true
+        max_requests_per_minute: 8
+        crawl_delay: 2.0
+      min_content_length: 2000
+      title_filter_keywords: ["webinar", "training", "careers", "job posting", "event", "product news"]
+      rss_only: false  # Force web scraping since no RSS
+      discovery:
+        strategies:
+          - listing:
+              urls: ["https://www.splunk.com/en_us/blog/security.html"]
+              max_pages: 10
+              post_link_selector: 'a[href*="/blog/security/"][href!="/blog/security.html"]:not([href*="?p="])'
+              next_selector: 'a[href*="/blog/security.html?p="]'
+      extract:
+        prefer_jsonld: true
+        title_selectors: ["h1", "meta[property='og:title']::attr(content)", ".blog-post-title"]
+        date_selectors: 
+          - "meta[property='article:published_time']::attr(content)"
+          - "time[datetime]::attr(datetime)"
+          - ".blog-post-date"
+        body_selectors: [
+          ".splunkBlogsArticle-body-content",
+          ".cmp-text",
+          ".rte-container",
+          "article",
+          "main",
+          ".content",
+          ".post-content",
+          ".blog-content",
+          ".blog-post-content"
+        ]
+        author_selectors: ["meta[name='author']::attr(content)", ".author-name", ".blog-author"]
+    description: "Splunk Security Blog - Threat research, security content, and detection engineering"
+
+  # Symantec Enterprise Security
+  - id: "symantec_enterprise"
+    name: "Symantec Enterprise Security"
+    url: "https://symantec-enterprise-blogs.security.com/"
+    rss_url: "https://sed-cms.broadcom.com/rss/v1/blogs/rss.xml"
+    check_frequency: 1800  # 30 minutes
+    active: true
+    config:
+      allow: ["symantec-enterprise-blogs.security.com", "sed-cms.broadcom.com"]
+      post_url_regex: ["^https://symantec-enterprise-blogs\\.security\\.com/.*"]
+      robots:
+        enabled: true
+        user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+        respect_delay: true
+        max_requests_per_minute: 8
+        crawl_delay: 2.0
+      min_content_length: 2000
+      title_filter_keywords: ["webinar", "training", "careers", "job posting", "event"]
+      extract:
+        prefer_jsonld: true
+        title_selectors: ["h1", "meta[property='og:title']::attr(content)"]
+        date_selectors: 
+          - "meta[property='article:published_time']::attr(content)"
+          - "time[datetime]::attr(datetime)"
+        body_selectors: ["article", "main", ".content", ".post-content", ".blog-content"]
+        author_selectors: ["meta[name='author']::attr(content)", ".author-name"]
+      min_content_length: 2000
+    description: "Symantec Enterprise Security blog and threat intelligence"

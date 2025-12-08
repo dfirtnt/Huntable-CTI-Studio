@@ -1,0 +1,180 @@
+services:
+  # PostgreSQL Database with pgvector extension
+  postgres:
+    image: pgvector/pgvector:pg15
+    container_name: cti_postgres_dev2
+    environment:
+      POSTGRES_DB: cti_scraper
+      POSTGRES_USER: cti_user
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --lc-collate=C --lc-ctype=C"
+    volumes:
+      - postgres_data_dev2:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    ports:
+      - "5433:5432"
+    networks:
+      - cti_network_dev2
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cti_user -d cti_scraper"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Redis for caching and background tasks
+  redis:
+    image: redis:7-alpine
+    container_name: cti_redis_dev2
+    ports:
+      - "6380:6379"
+    volumes:
+      - redis_data_dev2:/data
+    networks:
+      - cti_network_dev2
+    restart: unless-stopped
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD}
+    healthcheck:
+      test: ["CMD-SHELL", "timeout 3 redis-cli -a ${REDIS_PASSWORD} --no-auth-warning ping | grep -q PONG"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # FastAPI Web Application
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: cti_web_dev2
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://cti_user:${POSTGRES_PASSWORD}@postgres:5432/cti_scraper
+      - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
+      - ENVIRONMENT=development
+      - LOG_LEVEL=DEBUG
+      - LLM_MODEL=llama3.2:1b
+      - LLM_TEMPERATURE=0.3
+      - LLM_MAX_TOKENS=2048
+      - CHATGPT_CONTENT_LIMIT=1000000
+      - USE_LLM_RESPONSES=true
+      - ANTHROPIC_API_URL=https://api.anthropic.com/v1/messages
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - ANTHROPIC_CONTENT_LIMIT=1000000
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - CHATGPT_API_KEY=${CHATGPT_API_KEY}
+      - TZ=America/New_York
+    ports:
+      - "8002:8001"
+    volumes:
+      - ./src:/app/src
+      - ./config:/app/config
+      - ./logs:/app/logs
+      - ./tests:/app/tests
+      - ./backups:/app/backups
+      - ./models:/app/models
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /var/db/timezone/zoneinfo/America/New_York:/etc/localtime:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - cti_network_dev2
+    restart: unless-stopped
+    command: uvicorn src.web.modern_main:app --host 0.0.0.0 --port 8001 --reload
+
+  # Celery Worker for Background Tasks
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: cti_worker_dev2
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://cti_user:${POSTGRES_PASSWORD}@postgres:5432/cti_scraper
+      - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
+      - ENVIRONMENT=development
+      - LOG_LEVEL=DEBUG
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - CHATGPT_API_KEY=${CHATGPT_API_KEY}
+    volumes:
+      - ./src:/app/src
+      - ./config:/app/config
+      - ./logs:/app/logs
+      - ./tests:/app/tests
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - cti_network_dev2
+    restart: unless-stopped
+    command: celery -A src.worker.celery_app worker --loglevel=debug
+
+  # Celery Beat for Scheduled Tasks
+  scheduler:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: cti_scheduler_dev2
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://cti_user:${POSTGRES_PASSWORD}@postgres:5432/cti_scraper
+      - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
+      - ENVIRONMENT=development
+      - LOG_LEVEL=DEBUG
+    volumes:
+      - ./src:/app/src
+      - ./config:/app/config
+      - ./logs:/app/logs
+      - ./tests:/app/tests
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - cti_network_dev2
+    restart: unless-stopped
+    command: celery -A src.worker.celery_app beat --loglevel=debug
+
+  # CLI Tool Service
+  cli:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: cti_cli_dev2
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://cti_user:${POSTGRES_PASSWORD}@postgres:5432/cti_scraper
+      - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
+      - ENVIRONMENT=development
+      - LOG_LEVEL=DEBUG
+      - SOURCES_CONFIG=/app/config/sources.yaml
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - CHATGPT_API_KEY=${CHATGPT_API_KEY}
+    volumes:
+      - ./src:/app/src
+      - ./config:/app/config
+      - ./logs:/app/logs
+      - ./tests:/app/tests
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - cti_network_dev2
+    restart: unless-stopped
+    profiles:
+      - tools
+    command: ["python", "-m", "src.cli.main"]
+
+volumes:
+  postgres_data_dev2:
+    driver: local
+  redis_data_dev2:
+    driver: local
+
+networks:
+  cti_network_dev2:
+    driver: bridge

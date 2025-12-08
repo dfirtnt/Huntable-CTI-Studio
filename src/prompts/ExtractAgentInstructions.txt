@@ -1,0 +1,14 @@
+Title: {title}
+
+URL: {url}
+
+Content:
+
+{content}
+
+Extract telemetry-aware attacker behaviors and observables for Windows detection/hunting. Use only information explicitly present in the content. Do not invent or autofill missing pieces.
+
+Prompt config (schema and constraints):
+{prompt_config}
+
+Output a single valid JSON object only. No markdown, no code fences, no prose outside JSON. If a category is empty, return an empty array for that field.

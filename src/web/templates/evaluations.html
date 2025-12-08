@@ -1,0 +1,201 @@
+{% extends "base.html" %}
+
+{% block title %}Agent Evaluations - Huntable CTI Scraper{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+    <!-- Header -->
+    <div class="mb-8">
+        <h1 class="text-4xl font-bold text-gray-900 dark:text-white mb-2">Agent Evaluations</h1>
+        <p class="text-gray-600 dark:text-gray-400">Track and compare agent performance over time</p>
+    </div>
+
+    <!-- Agent Cards -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <!-- Extract Agent -->
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 card-hover cursor-pointer" onclick="window.location.href='/evaluations/ExtractAgent'">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-xl font-semibold text-gray-900 dark:text-white">Extract Agent</h3>
+                <span class="text-3xl">🔍</span>
+            </div>
+            <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">Extracts behavioral observables and command-lines from articles</p>
+            <div id="extract-agent-stats" class="text-sm text-gray-500 dark:text-gray-400">
+                Loading...
+            </div>
+        </div>
+
+        <!-- Rank Agent -->
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 card-hover cursor-pointer" onclick="window.location.href='/evaluations/RankAgent'">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-xl font-semibold text-gray-900 dark:text-white">Rank Agent</h3>
+                <span class="text-3xl">📊</span>
+            </div>
+            <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">Ranks articles by huntability and relevance</p>
+            <div id="rank-agent-stats" class="text-sm text-gray-500 dark:text-gray-400">
+                Loading...
+            </div>
+        </div>
+
+        <!-- SIGMA Agent -->
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 card-hover cursor-pointer" onclick="window.location.href='/evaluations/SigmaAgent'">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-xl font-semibold text-gray-900 dark:text-white">SIGMA Agent</h3>
+                <span class="text-3xl">🛡️</span>
+            </div>
+            <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">Generates SIGMA detection rules from articles</p>
+            <div id="sigma-agent-stats" class="text-sm text-gray-500 dark:text-gray-400">
+                Loading...
+            </div>
+        </div>
+
+        <!-- OS Detection -->
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 card-hover cursor-pointer" onclick="window.location.href='/evaluations/OSDetection'">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-xl font-semibold text-gray-900 dark:text-white">OS Detection</h3>
+                <span class="text-3xl">💻</span>
+            </div>
+            <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">Detects operating system from article content</p>
+            <div id="os-detection-stats" class="text-sm text-gray-500 dark:text-gray-400">
+                Loading...
+            </div>
+        </div>
+
+        <!-- SIGMA A/B Test -->
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 card-hover cursor-pointer" onclick="window.location.href='/sigma-ab-test'">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-xl font-semibold text-gray-900 dark:text-white">SIGMA A/B Test</h3>
+                <span class="text-3xl">🧪</span>
+            </div>
+            <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">Test similarity search logic by comparing pairs of SIGMA rules</p>
+        </div>
+
+        <!-- SIGMA Similarity Test -->
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 card-hover cursor-pointer" onclick="window.location.href='/sigma-similarity-test'">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-xl font-semibold text-gray-900 dark:text-white">SIGMA Similarity Test</h3>
+                <span class="text-3xl">🔍</span>
+            </div>
+            <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">Test SIGMA rule cosine similarity using embedding models</p>
+        </div>
+    </div>
+
+    <!-- Recent Evaluations Table -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+        <h2 class="text-2xl font-semibold text-gray-900 dark:text-white mb-4">Recent Evaluations</h2>
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                <thead class="bg-gray-50 dark:bg-gray-900">
+                    <tr>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Agent</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Type</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Model</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Articles</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Date</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="recent-evaluations" class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                    <tr>
+                        <td colspan="6" class="px-6 py-4 text-center text-gray-500 dark:text-gray-400">Loading...</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+// Load agent stats
+async function loadAgentStats(agentName, elementId) {
+    try {
+        const response = await fetch(`/api/eval/agent-metrics?agent_name=${agentName}`);
+        if (response.ok) {
+            const data = await response.json();
+            const metrics = data.metrics || {};
+            const latest = data.latest_evaluation;
+            
+            if (latest) {
+                let statsHtml = `<div class="space-y-1">`;
+                statsHtml += `<div>Latest: ${latest.evaluation_type}</div>`;
+                statsHtml += `<div>${latest.total_articles} articles</div>`;
+                
+                // Agent-specific metrics
+                if (agentName === 'ExtractAgent' && metrics.json_validity_rate !== undefined) {
+                    statsHtml += `<div>JSON Validity: ${(metrics.json_validity_rate * 100).toFixed(1)}%</div>`;
+                } else if (agentName === 'RankAgent' && metrics.score_mean !== undefined) {
+                    statsHtml += `<div>Avg Score: ${metrics.score_mean.toFixed(2)}</div>`;
+                } else if (agentName === 'SigmaAgent' && metrics.avg_huntability_score !== undefined) {
+                    statsHtml += `<div>Huntability: ${metrics.avg_huntability_score.toFixed(1)}/10</div>`;
+                } else if (agentName === 'OSDetection' && metrics.accuracy !== undefined) {
+                    statsHtml += `<div>Accuracy: ${(metrics.accuracy * 100).toFixed(1)}%</div>`;
+                }
+                
+                statsHtml += `</div>`;
+                document.getElementById(elementId).innerHTML = statsHtml;
+            } else {
+                document.getElementById(elementId).innerHTML = '<div class="text-gray-400">No evaluations yet</div>';
+            }
+        } else {
+            document.getElementById(elementId).innerHTML = '<div class="text-gray-400">No evaluations yet</div>';
+        }
+    } catch (error) {
+        console.error(`Error loading stats for ${agentName}:`, error);
+        document.getElementById(elementId).innerHTML = '<div class="text-gray-400">Error loading</div>';
+    }
+}
+
+// Load recent evaluations
+async function loadRecentEvaluations() {
+    try {
+        const agents = ['ExtractAgent', 'RankAgent', 'SigmaAgent', 'OSDetection'];
+        const allEvaluations = [];
+        
+        for (const agent of agents) {
+            const response = await fetch(`/api/eval/history?agent_name=${agent}&limit=5`);
+            if (response.ok) {
+                const data = await response.json();
+                if (data.history) {
+                    allEvaluations.push(...data.history.map(e => ({...e, agent_name: agent})));
+                }
+            }
+        }
+        
+        // Sort by date and take top 10
+        allEvaluations.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+        const recent = allEvaluations.slice(0, 10);
+        
+        const tbody = document.getElementById('recent-evaluations');
+        if (recent.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="6" class="px-6 py-4 text-center text-gray-500 dark:text-gray-400">No evaluations found</td></tr>';
+        } else {
+            tbody.innerHTML = recent.map(eval => `
+                <tr class="hover:bg-gray-50 dark:hover:bg-gray-700">
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">${eval.agent_name}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">${eval.evaluation_type}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">${eval.model_version || 'N/A'}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">${eval.total_articles}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">${new Date(eval.created_at).toLocaleDateString()}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm">
+                        <a href="/evaluations/${eval.agent_name}?evaluation_id=${eval.id}" class="text-blue-600 dark:text-blue-400 hover:underline">View</a>
+                    </td>
+                </tr>
+            `).join('');
+        }
+    } catch (error) {
+        console.error('Error loading recent evaluations:', error);
+        document.getElementById('recent-evaluations').innerHTML = '<tr><td colspan="6" class="px-6 py-4 text-center text-red-500">Error loading evaluations</td></tr>';
+    }
+}
+
+// Initialize on page load
+document.addEventListener('DOMContentLoaded', () => {
+    loadAgentStats('ExtractAgent', 'extract-agent-stats');
+    loadAgentStats('RankAgent', 'rank-agent-stats');
+    loadAgentStats('SigmaAgent', 'sigma-agent-stats');
+    loadAgentStats('OSDetection', 'os-detection-stats');
+    loadRecentEvaluations();
+});
+</script>
+{% endblock %}
+
+

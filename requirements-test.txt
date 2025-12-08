@@ -1,0 +1,54 @@
+# Test-specific dependencies for CTI Scraper
+# Additional packages for comprehensive testing
+
+# Core testing framework
+pytest>=8.4.2
+pytest-asyncio>=1.2.0
+pytest-mock>=3.12.0
+pytest-cov==4.1.0
+pytest-html==4.0.1
+pytest-xdist==3.5.0  # Parallel test execution
+
+# Browser automation testing
+pytest-playwright>=0.4.0
+playwright==1.55.0
+
+# Test utilities
+factory-boy==3.3.3
+freezegun==1.4.0
+responses==0.24.0  # HTTP mocking
+requests-mock==1.11.0
+
+# Database testing
+testcontainers==3.7.0  # Docker containers for integration tests
+faker==28.1.0  # Generate test data
+
+# Performance and profiling
+psutil>=7.0.0
+memory-profiler==0.61.0
+pytest-benchmark==4.0.0
+
+# Security testing
+bandit==1.7.5
+safety>=2.3.5
+
+# Code quality
+black>=24.1.0
+isort==5.12.0
+flake8==6.1.0
+mypy==1.8.0
+
+# Jupyter for test analysis
+jupyter==1.0.0
+notebook==7.0.0
+
+# Documentation testing
+sphinx==7.1.0
+sphinx-rtd-theme==3.0.2
+
+# Visual test tracking and enhanced reporting
+pytest-reportlog>=0.1.0
+allure-pytest>=2.13.0
+
+# Development profiling tools
+line-profiler>=4.0.0  # Code profiling

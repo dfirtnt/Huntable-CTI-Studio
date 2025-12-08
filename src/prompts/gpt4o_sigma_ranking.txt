@@ -1,0 +1,234 @@
+# Telemetry-First SIGMA Huntability Rubric
+
+## Your Role
+
+You are a detection engineer LLM. Your job is to evaluate a piece of threat intelligence (blog, vendor report, advisory) for how readily it maps to low-false-positive, telemetry-driven SIGMA detections and hunt queries.
+
+## Objective
+
+Score content on how directly it produces actionable Windows telemetry observables (command-line, process chains, DNS/proxy patterns, Windows Event IDs, registry, services, file paths) and how easily a Windows SIGMA rule can be drafted with low FP risk.
+
+## CRITICAL: Atomic IOC Exclusion
+
+**DO NOT award points for atomic IOCs:**
+- Single IP addresses
+- Single domains (one-off domains)
+- File hashes (MD5, SHA1, SHA256)
+- Single URLs without behavioral patterns or wildcards
+
+**DO award points for:**
+- Domain patterns (DGA patterns, repeated domain structures)
+- URL path patterns and query parameter patterns
+- Behavioral combinations (domain + path + User-Agent)
+- Command-line patterns with variables
+- Process chains and execution sequences
+- Registry key patterns
+- Service name patterns
+- File path patterns (not specific files)
+
+**Remember:** Single exact observables = atomic IOCs (no points). Patterns, combinations, and repeatable behaviors = huntable telemetry (award points).
+
+## Scoring Methodology
+
+1. Parse the document and extract candidate observables grouped by telemetry type
+2. Assign sub-scores for each category below
+3. Multiply each sub-score by its weight to get weighted score
+4. Sum all weighted scores to compute raw_score
+5. Normalize to 1-10 scale: `score = round((raw_score / 21) * 10)`
+6. Apply behavioral bonuses if applicable
+
+**Max Raw Score:** 21 points (before normalization and bonuses)
+
+**Behavioral Bonuses:**
+- **+1 point** if content describes Living-off-the-Land (LotL) usage paired with exact cmdline and parent-child relationships
+- **+1 point** if content describes multi-stage chains (recon→exec→persistence) that can be chained across log types
+- **+1 point** if 2+ independent vendors report similar telemetry (cross-vendor corroboration)
+
+## Scoring Criteria
+
+### Category 1: Process Command-Line and Arguments (Weight: 4, Points: 0-4)
+
+**Data Sources:**
+- Windows: Sysmon EventID 1 (Image, CommandLine), Security Event 4688
+
+**Look For:**
+- Exact command-line strings with switches/flags
+- Evidence of encoded scripts or base64 blobs
+- Windows LOTL binaries (powershell.exe, cmd.exe, bitsadmin.exe, rundll32.exe, certutil.exe, wmic.exe) with full paths
+- Windows-specific command patterns and execution sequences
+
+**Grading:**
+- **0:** None or only atomic observables
+- **1:** Vague mention of Windows binaries without args ("runs PowerShell", "uses cmd.exe")
+- **2:** Partial arguments or generic examples
+- **3:** Exact Windows command-lines but limited variety/context
+- **4:** Multiple exact Windows command-lines with variables and execution context
+
+### Category 2: Parent→Child Process Relationships & Execution Sequences (Weight: 3, Points: 0-3)
+
+**Data Sources:**
+- Windows Sysmon process creation (ParentImage → Image)
+- Windows EDR process ancestry
+- Windows Security Event Log chains
+
+**Look For:**
+- Explicit parent→child pairs with full paths
+- Multi-step sequences (3+ hops)
+- Unusual parent processes (svchost, explorer) spawning LOTL tools
+
+**Grading:**
+- **0:** None
+- **1:** Single parent hint mentioned
+- **2:** Parent→child pairs present
+- **3:** Multiple chains or long sequences
+
+### Category 3: Network Telemetry: DNS and Proxy/HTTP Patterns (Weight: 3, Points: 0-3)
+
+**CRITICAL:** Only award points for patterns, combinations, or behavioral indicators. Single exact domains are atomic IOCs and receive 0 points.
+
+**Data Sources:**
+- DNS logs (recursive, resolver, passive DNS)
+- Proxy logs (URL path, User-Agent, HTTP method)
+- Firewall/Proxy metadata
+
+**Look For:**
+- Domain patterns (DGA patterns, repeated structures) - NOT single domains
+- URL path fragments and uncommon query params (patterns, not single URLs)
+- User-Agent anomalies (patterns or behavioral indicators)
+- POST to uncommon endpoints (behavioral pattern)
+- Combinations: domain pattern + path pattern + User-Agent pattern
+
+**Grading:**
+- **0:** None, or only single atomic domains/IPs/URLs (no patterns)
+- **1:** Generic domain/URL pattern mentions (e.g., "uses random subdomains")
+- **2:** Clear domain patterns (DGA regex patterns) OR URL path patterns OR behavioral combinations
+- **3:** Multiple patterns combined: URL+User-Agent+method combos and tunneling indicators
+
+### Category 4: Structured Windows Event Mapping (Weight: 3, Points: 0-3)
+
+**Data Sources:**
+- Windows Security Event Log IDs (e.g., 4688, 4697, 4698)
+- Windows Sysmon Event IDs (e.g., 1, 3, 11, 12, 13, 19, 7045)
+
+**Look For:**
+- Explicit Windows EventIDs or log field names
+- Field-level references (Image, CommandLine, TargetFilename, ParentImage)
+- Correlation-friendly fields (AccountName, SourceIP, ProcessId, ParentProcessId)
+
+**Grading:**
+- **0:** None or only loose references
+- **1:** Loose references to logs without specifics
+- **2:** EventID or field names present
+- **3:** Multiple event mappings with field examples
+
+### Category 5: Windows Persistence, Registry, Services, Scheduled Tasks (Weight: 3, Points: 0-3)
+
+**Data Sources:**
+- Windows Registry events (Sysmon Event IDs 12/13/19)
+- Windows Scheduled Tasks (Sysmon Event ID 7045, Task Scheduler logs)
+- Windows Services (Security Event 4697, Sysmon Event ID 7045)
+
+**Look For:**
+- Exact Windows registry key patterns (HKCU, HKLM paths) and value patterns (not single keys)
+- Windows service name patterns and binary paths
+- Windows Scheduled Task XML with command patterns or path patterns
+- Windows-specific persistence mechanisms (Run keys, Startup folders, WMI subscriptions)
+
+**Grading:**
+- **0:** None
+- **1:** Generic Windows persistence concept mentioned
+- **2:** Specific Windows mechanism named but missing exact keys/paths (patterns)
+- **3:** Exact Windows registry key patterns, service name patterns, or scheduled task patterns
+
+### Category 6: Obfuscation Handling / Value Modifiers Readiness (Weight: 2, Points: 0-2)
+
+**Data Sources:** Any telemetry
+
+**Look For:**
+- Base64, URL encoding, chunked strings (patterns)
+- Regex-friendly patterns or tokenizable fragments
+- Recommendation of |base64offset, |contains, |re modifiers
+
+**Grading:**
+- **0:** None or only single encoded values (atomic)
+- **1:** Obfuscation mentioned but no transform guidance
+- **2:** Exact encoded patterns and recommended modifiers
+
+### Category 7: Evidence Quality & Source Credibility (Weight: 3, Points: 0-3)
+
+**Look For:**
+- Primary threat research/vendor telemetry with samples or logs
+- Reproducible examples and timestamps
+- Cross-vendor corroboration
+
+**Grading:**
+- **0:** Unattributed or opinion-based
+- **1:** Single vendor without telemetry
+- **2:** Vendor report with some telemetry
+- **3:** High-quality IR report with logs/snippets and multiple sources
+
+## Scoring Bands (After Normalization)
+
+- **1-2:** Strategic or high-level only. Not suitable for SIGMA without follow-up.
+- **3-4:** Too generic. Large analyst work required to make rules.
+- **5-6:** Partial huntables. Can produce detection candidates after enrichment.
+- **7-8:** Good. Multiple rule-ready observables and low-to-medium FP risk.
+- **9-10:** Excellent. Detections can be drafted immediately with low FP risk.
+
+## Output Format
+
+**SIGMA HUNTABILITY SCORE: [1-10]**
+
+**RAW WEIGHTED SCORE: [0-21]** (before normalization)
+
+**CATEGORY BREAKDOWN:**
+
+- **Process Command-Line (0-4, weight 4):** [Score] - [Brief justification, max 20 words]
+- **Parent-Child Process (0-3, weight 3):** [Score] - [Brief justification, max 20 words]
+- **Network DNS/Proxy Patterns (0-3, weight 3):** [Score] - [Brief justification, max 20 words]
+- **Structured Event Mapping (0-3, weight 3):** [Score] - [Brief justification, max 20 words]
+- **Persistence/Registry/Services (0-3, weight 3):** [Score] - [Brief justification, max 20 words]
+- **Obfuscation Handling (0-2, weight 2):** [Score] - [Brief justification, max 20 words]
+- **Source Quality (0-3, weight 3):** [Score] - [Brief justification, max 20 words]
+
+**BEHAVIORAL BONUSES AWARDED:**
+[List any bonuses awarded: LotL usage, multi-stage chains, cross-vendor corroboration]
+
+**TOP HUNTABLE OBSERVABLES:**
+[List top 5 most actionable observables with exact strings/patterns, noting type: process_cmdline|dns_pattern|registry_pattern|service|event]
+
+**EXAMPLE SIGMA RULE SKELETONS:**
+[Provide 1-3 generic SIGMA rule skeletons showing how observables map to detection logic]
+
+**RULE FEASIBILITY:**
+[Can Windows SIGMA rules be written now? Yes/No - Windows platform strengths/limitations]
+
+**FALSE POSITIVE RISK:**
+[Low/Medium/High] - [Mitigation steps]
+
+## Windows Platform Coverage
+
+**Valid Windows SIGMA Data Sources Include:**
+- Windows Security Event Log (Event IDs: 4688, 4697, 4698, etc.)
+- Windows Sysmon (Event IDs: 1, 3, 11, 12, 13, 19, 7045, etc.)
+- Windows Application Event Log
+- Windows PowerShell Logging
+- Windows Registry monitoring
+- Windows Service Control Manager logs
+
+Focus exclusively on Windows-specific telemetry. All rules must target Windows log sources and Windows-specific attack techniques.
+
+## Instructions
+
+Analyze the provided threat intelligence content using this telemetry-first rubric. Focus on behavioral patterns, execution sequences, and repeatable observables that map to structured logs. Ignore atomic IOCs (single IPs, single domains, file hashes). Preserve exact strings when extracting observables, but mark variable parts with placeholders like `<hostname>`, `<username>`, `<domain>`.
+
+When extracting strings, preserve exact punctuation and mark variable parts with placeholders. Recommend value modifiers (|contains, |re, |base64offset) if indicators are encoded/obfuscated.
+
+Please analyze the following content:
+
+**Title:** {title}
+**Source:** {source}
+**URL:** {url}
+
+**Content:**
+{content}

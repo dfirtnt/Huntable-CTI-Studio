@@ -1,0 +1,1465 @@
+{% extends "base.html" %}
+
+{% block title %}Settings - Huntable CTI Scraper{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+    <div class="mb-8">
+        <h1 class="text-3xl font-bold text-gray-900 dark:text-white mb-2">⚙️ Settings</h1>
+        <p class="text-gray-600 dark:text-gray-400">Configure your Huntable CTI Scraper preferences</p>
+    </div>
+
+    <!-- Settings Sections -->
+    <div class="space-y-8">
+
+        <!-- Backup Configuration -->
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+            <div class="flex items-center justify-between cursor-pointer" onclick="toggleBackupConfig()">
+                <h2 class="text-xl font-semibold text-gray-900 dark:text-white">💾 Backup Configuration</h2>
+                <svg id="backupConfigChevron" class="w-5 h-5 text-gray-500 dark:text-gray-400 transform transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                </svg>
+            </div>
+            
+            <div id="backupConfigContent" class="space-y-6 hidden">
+                <!-- Backup Schedule -->
+                <div>
+                    <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-3">🕐 Schedule</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label for="backupTime" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                Daily Backup Time
+                            </label>
+                            <input type="time" 
+                                   id="backupTime" 
+                                   value="02:00"
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                            <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Time for daily automated backups</p>
+                        </div>
+                        <div>
+                            <label for="cleanupTime" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                Weekly Cleanup Time
+                            </label>
+                            <input type="time" 
+                                   id="cleanupTime" 
+                                   value="03:00"
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                            <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Time for weekly cleanup (Sundays)</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Retention Policy -->
+                <div>
+                    <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-3">📊 Retention Policy</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                        <div>
+                            <label for="dailyRetention" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                Daily Backups
+                            </label>
+                            <input type="number" 
+                                   id="dailyRetention" 
+                                   value="7" 
+                                   min="0" 
+                                   max="30"
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                            <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Keep last N daily backups</p>
+                        </div>
+                        <div>
+                            <label for="weeklyRetention" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                Weekly Backups
+                            </label>
+                            <input type="number" 
+                                   id="weeklyRetention" 
+                                   value="4" 
+                                   min="0" 
+                                   max="12"
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                            <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Keep last N weekly backups</p>
+                        </div>
+                        <div>
+                            <label for="monthlyRetention" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                Monthly Backups
+                            </label>
+                            <input type="number" 
+                                   id="monthlyRetention" 
+                                   value="3" 
+                                   min="0" 
+                                   max="12"
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                            <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Keep last N monthly backups</p>
+                        </div>
+                        <div>
+                            <label for="maxSizeGb" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                Max Size (GB)
+                            </label>
+                            <input type="number" 
+                                   id="maxSizeGb" 
+                                   value="50" 
+                                   min="1" 
+                                   max="1000"
+                                   step="1"
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                            <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Maximum total backup size</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Backup Components -->
+                <div>
+                    <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-3">🧩 Backup Components</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        <div class="flex items-center">
+                            <input type="checkbox" 
+                                   id="backupDatabase" 
+                                   checked
+                                   class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
+                            <label for="backupDatabase" class="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                                Database
+                            </label>
+                        </div>
+                        <div class="flex items-center">
+                            <input type="checkbox" 
+                                   id="backupModels" 
+                                   checked
+                                   class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
+                            <label for="backupModels" class="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                                ML Models
+                            </label>
+                        </div>
+                        <div class="flex items-center">
+                            <input type="checkbox" 
+                                   id="backupConfig" 
+                                   checked
+                                   class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
+                            <label for="backupConfig" class="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                                Configuration
+                            </label>
+                        </div>
+                        <div class="flex items-center">
+                            <input type="checkbox" 
+                                   id="backupOutputs" 
+                                   checked
+                                   class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
+                            <label for="backupOutputs" class="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                                Training Data
+                            </label>
+                        </div>
+                        <div class="flex items-center">
+                            <input type="checkbox" 
+                                   id="backupLogs" 
+                                   checked
+                                   class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
+                            <label for="backupLogs" class="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                                Logs
+                            </label>
+                        </div>
+                        <div class="flex items-center">
+                            <input type="checkbox" 
+                                   id="backupDockerVolumes" 
+                                   checked
+                                   class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
+                            <label for="backupDockerVolumes" class="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                                Docker Volumes
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Backup Settings -->
+                <div>
+                    <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-3">⚙️ Backup Settings</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label for="backupDirectory" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                Backup Directory
+                            </label>
+                            <input type="text" 
+                                   id="backupDirectory" 
+                                   value="backups"
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                            <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Directory to store backups</p>
+                        </div>
+                        <div>
+                            <label for="backupType" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                Backup Type
+                            </label>
+                            <select id="backupType" 
+                                    class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                                <option value="full">Full System</option>
+                                <option value="database">Database Only</option>
+                                <option value="files">Files Only</option>
+                            </select>
+                            <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Type of backup to create</p>
+                        </div>
+                    </div>
+                    <div class="mt-4 space-y-3">
+                        <div class="flex items-center">
+                            <input type="checkbox" 
+                                   id="enableCompression" 
+                                   checked
+                                   class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
+                            <label for="enableCompression" class="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                                Enable Compression
+                            </label>
+                        </div>
+                        <div class="flex items-center">
+                            <input type="checkbox" 
+                                   id="enableVerification" 
+                                   checked
+                                   class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
+                            <label for="enableVerification" class="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                                Enable Verification
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Backup Actions -->
+                <div>
+                    <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-3">🚀 Backup Actions</h3>
+                    <div class="flex flex-wrap gap-3">
+                        <button id="createBackupBtn" 
+                                class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
+                            Create Backup Now
+                        </button>
+                        <button id="listBackupsBtn" 
+                                class="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2">
+                            List Backups
+                        </button>
+                        <button id="backupStatusBtn" 
+                                class="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2">
+                            Check Status
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Backup Status Display -->
+                <div id="backupStatusDisplay" class="hidden">
+                    <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-3">📊 Backup Status</h3>
+                    <div id="backupStatusContent" class="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
+                        <!-- Status content will be populated here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- AI Model Configuration -->
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+            <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">🤖 AL/ML Assistant Configuration</h2>
+            
+            <div class="space-y-4">
+                <!-- AI Model Selection -->
+                <div>
+                    <label for="aiModel" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        Preferred AI Model
+                    </label>
+                    <select id="aiModel" 
+                            class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                        <option value="chatgpt">OpenAI → GPT-4o-mini</option>
+                        <option value="anthropic">Anthropic → Claude Sonnet 4.5</option>
+                        <option value="lmstudio">LMStudio (Local)</option>
+                    </select>
+                    <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Choose your preferred AI model for summaries and analysis</p>
+                </div>
+
+                <!-- LMStudio Model Selection (only shown when LMStudio is selected) -->
+                <div id="lmstudioModelSection" style="display: none;">
+                    <label for="lmstudioModel" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        LMStudio Model
+                    </label>
+                    <select id="lmstudioModel"
+                            class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                        <option value="">Loading models...</option>
+                    </select>
+                    <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Select which LMStudio model to use for generation</p>
+                </div>
+
+                <!-- Temperature Setting -->
+                <div>
+                    <label for="aiTemperature" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        AI Temperature
+                    </label>
+                    <div class="flex items-center space-x-4">
+                        <input type="range" 
+                               id="aiTemperature" 
+                               min="0.0" 
+                               max="1.0" 
+                               step="0.1" 
+                               value="0.3"
+                               class="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider">
+                        <span id="temperatureValue" class="text-sm font-medium text-gray-700 dark:text-gray-300 min-w-[3rem]">0.3</span>
+                    </div>
+                    <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                        Controls randomness: <span class="font-medium">0.0</span> = deterministic, 
+                        <span class="font-medium">1.0</span> = creative. Default: <span class="font-medium">0.3</span>
+                    </p>
+                </div>
+                
+                <!-- Model Description -->
+                <div class="p-3 bg-blue-50 border border-blue-200 rounded-md">
+                    <div class="text-sm text-blue-800">
+                        <p class="font-medium mb-1">Recommmended Models:</p>
+                        <ul class="list-disc list-inside space-y-1">
+                            <li><u><strong>Usage Guidance:</strong> Model selected in this page are used as defaultfor certain AI Modals where no other model is used. </li></u>
+                            <li><strong>GPT-4o-mini:</strong> Fast, high-quality responses, cost-efficient (requires OpenAI API key)</li>
+                            <li><strong>Claude Sonnet 4.5:</strong> Advanced reasoning, cybersecurity-optimized, long context (requires Anthropic API key)</li>
+
+                            <li><strong>llama-3.2-1b-instruct:</strong> Local model via LMStudio, no API costs</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- SIGMA Rule Configuration -->
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+            <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">🔍 SIGMA Rule Configuration</h2>
+            
+            <div class="space-y-4">
+                <!-- SIGMA Rule Author -->
+                <div>
+                    <label for="sigmaAuthor" class="block text-sm font-medium text-gray-700 mb-2">
+                        Author Name
+                    </label>
+                    <input type="text" 
+                           id="sigmaAuthor" 
+                           placeholder="Your Name" 
+                           class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                    <p class="text-sm text-gray-500 mt-1">This name will be used as the author in generated SIGMA detection rules</p>
+                </div>
+                
+            </div>
+        </div>
+
+
+        <!-- Data Export -->
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+            <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">📤 Data Export</h2>
+            
+            <div class="space-y-4">
+                <!-- Export Annotations -->
+                <div>
+                    <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-2">Export Annotations</h3>
+                    <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">Download all text classifications (huntable/not huntable) as a CSV file</p>
+                    
+                    <button id="exportAnnotationsBtn" 
+                            class="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
+                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                        </svg>
+                        Export Annotations CSV
+                    </button>
+                    
+                    <div id="exportProgress" class="hidden mt-2">
+                        <div class="flex items-center">
+                            <div class="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-2"></div>
+                            <span class="text-sm text-gray-600">Generating CSV...</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- API Configuration -->
+        <div id="apiConfigurationSection" class="bg-white dark:bg-gray-800 rounded-lg shadow p-6" style="display: none;">
+            <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">🔑 API Configuration</h2>
+            
+            <div class="space-y-4">
+                <!-- OpenAI API Key -->
+                <div id="openaiApiKeySection">
+                    <label for="openaiApiKey" class="block text-sm font-medium text-gray-700 mb-2">
+                        OpenAI API Key
+                    </label>
+                    <div class="relative">
+                        <input type="password" 
+                               id="openaiApiKey" 
+                               placeholder="sk-..." 
+                               class="w-full px-3 py-2 pr-10 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                        <button type="button" 
+                                id="toggleApiKey" 
+                                class="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600">
+                            <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                            </svg>
+                        </button>
+                    </div>
+                    <p class="text-sm text-gray-500 mt-1">Required for ChatGPT analysis functionality</p>
+                </div>
+                
+                <!-- Anthropic API Key -->
+                <div id="anthropicApiKeySection" style="display: none;">
+                    <label for="anthropicApiKey" class="block text-sm font-medium text-gray-700 mb-2">
+                        Anthropic API Key
+                    </label>
+                    <div class="relative">
+                        <input type="password" 
+                               id="anthropicApiKey" 
+                               placeholder="sk-ant-..." 
+                               class="w-full px-3 py-2 pr-10 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                        <button type="button" 
+                                id="toggleAnthropicApiKey" 
+                                class="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600">
+                            <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                            </svg>
+                        </button>
+                    </div>
+                    <p class="text-sm text-gray-500 mt-1">Required for Claude analysis functionality</p>
+                </div>
+                
+                <!-- Langfuse API Keys -->
+                <div id="langfuseApiKeySection" class="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Langfuse Configuration</h3>
+                    
+                    <!-- Langfuse Public Key -->
+                    <div class="mb-4">
+                        <label for="langfusePublicKey" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                            Langfuse Public Key
+                        </label>
+                        <div class="relative">
+                            <input type="password" 
+                                   id="langfusePublicKey" 
+                                   placeholder="pk-..." 
+                                   class="w-full px-3 py-2 pr-10 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white">
+                            <button type="button" 
+                                    id="toggleLangfusePublicKey" 
+                                    class="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+                                <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                                </svg>
+                            </button>
+                        </div>
+                        <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Required for Langfuse observability and tracing</p>
+                    </div>
+                    
+                    <!-- Langfuse Secret Key -->
+                    <div class="mb-4">
+                        <label for="langfuseSecretKey" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                            Langfuse Secret Key
+                        </label>
+                        <div class="relative">
+                            <input type="password" 
+                                   id="langfuseSecretKey" 
+                                   placeholder="sk-..." 
+                                   class="w-full px-3 py-2 pr-10 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white">
+                            <button type="button" 
+                                    id="toggleLangfuseSecretKey" 
+                                    class="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+                                <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Langfuse Host -->
+                    <div class="mb-4">
+                        <label for="langfuseHost" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                            Langfuse Host URL
+                        </label>
+                        <input type="text" 
+                               id="langfuseHost" 
+                               placeholder="https://cloud.langfuse.com" 
+                               class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white">
+                        <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Optional: Defaults to https://cloud.langfuse.com</p>
+                    </div>
+                    
+                    <!-- Langfuse Project ID -->
+                    <div class="mb-4">
+                        <label for="langfuseProjectId" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                            Langfuse Project ID
+                        </label>
+                        <input type="text" 
+                               id="langfuseProjectId" 
+                               placeholder="cmhk4f8nr02m9ad07cq29m3be" 
+                               class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white">
+                        <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Optional: Found in your Langfuse URL (e.g., https://us.cloud.langfuse.com/project/{project_id}/traces)</p>
+                    </div>
+                    
+                    <!-- Langfuse Test Button -->
+                    <div class="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
+                        <button id="testLangfuseConnection" 
+                                class="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 text-sm font-medium rounded-md text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
+                            🧪 Test Langfuse Connection
+                        </button>
+                        <span id="langfuseTestStatus" class="ml-3 text-sm"></span>
+                    </div>
+                </div>
+                
+                <!-- Test API Key Button -->
+                <div>
+                    <button id="testApiKey" 
+                            class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
+                        🧪 Test API Key
+                    </button>
+                    <span id="apiKeyStatus" class="ml-3 text-sm"></span>
+                </div>
+                
+            </div>
+        </div>
+
+        <!-- Save Button -->
+        <div class="flex justify-end">
+            <button id="saveSettings" 
+                    class="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
+                💾 Save Settings
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Success Notification -->
+<div id="successNotification" class="fixed top-4 right-4 z-50 p-4 rounded-md shadow-lg max-w-sm bg-green-500 text-white transform translate-x-full transition-transform duration-300">
+    <div class="flex items-center">
+        <span class="mr-2">✅</span>
+        <span>Settings saved successfully!</span>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Load settings from localStorage and database
+    async function loadSettings() {
+        const settings = JSON.parse(localStorage.getItem('ctiScraperSettings') || '{}');
+        
+        
+        
+        // Set OpenAI API key
+        const openaiApiKey = settings.openaiApiKey || '';
+        document.getElementById('openaiApiKey').value = openaiApiKey;
+        
+        // Set Anthropic API key
+        const anthropicApiKey = settings.anthropicApiKey || '';
+        document.getElementById('anthropicApiKey').value = anthropicApiKey;
+        
+        // Load Langfuse settings from database (priority over localStorage)
+        await loadLangfuseSettings();
+        
+        // Set AI model
+        const aiModel = settings.aiModel || 'chatgpt';
+        document.getElementById('aiModel').value = aiModel;
+        
+        // Set AI temperature
+        const aiTemperature = settings.aiTemperature || '0.3';
+        document.getElementById('aiTemperature').value = aiTemperature;
+        document.getElementById('temperatureValue').textContent = aiTemperature;
+        
+        // Set SIGMA author
+        const sigmaAuthor = settings.sigmaAuthor || '';
+        document.getElementById('sigmaAuthor').value = sigmaAuthor;
+        
+        // Load backup configuration
+        loadBackupSettings();
+        
+        // Load dynamic LMStudio models (fire and forget - don't block page load)
+        loadLMStudioModels().catch(err => {
+            console.error('Error loading LMStudio models:', err);
+        });
+        
+        // Update API Configuration section visibility
+        updateApiConfigurationVisibility();
+    }
+    
+    // Load Langfuse settings from database (with localStorage fallback)
+    async function loadLangfuseSettings() {
+        const settings = JSON.parse(localStorage.getItem('ctiScraperSettings') || '{}');
+        
+        // Langfuse Public Key - check database first
+        try {
+            const response = await fetch('/api/settings/LANGFUSE_PUBLIC_KEY');
+            const data = await response.json();
+            if (data.success && data.exists && data.value) {
+                document.getElementById('langfusePublicKey').value = data.value;
+            } else {
+                // Fallback to localStorage
+                document.getElementById('langfusePublicKey').value = settings.langfusePublicKey || '';
+            }
+        } catch (error) {
+            console.log('Could not fetch LANGFUSE_PUBLIC_KEY from database:', error);
+            document.getElementById('langfusePublicKey').value = settings.langfusePublicKey || '';
+        }
+        
+        // Langfuse Secret Key - check database first
+        try {
+            const response = await fetch('/api/settings/LANGFUSE_SECRET_KEY');
+            const data = await response.json();
+            if (data.success && data.exists && data.value) {
+                document.getElementById('langfuseSecretKey').value = data.value;
+            } else {
+                // Fallback to localStorage
+                document.getElementById('langfuseSecretKey').value = settings.langfuseSecretKey || '';
+            }
+        } catch (error) {
+            console.log('Could not fetch LANGFUSE_SECRET_KEY from database:', error);
+            document.getElementById('langfuseSecretKey').value = settings.langfuseSecretKey || '';
+        }
+        
+        // Langfuse Host - check database first
+        try {
+            const response = await fetch('/api/settings/LANGFUSE_HOST');
+            const data = await response.json();
+            if (data.success && data.exists && data.value) {
+                document.getElementById('langfuseHost').value = data.value;
+            } else {
+                // Fallback to localStorage or default
+                document.getElementById('langfuseHost').value = settings.langfuseHost || 'https://cloud.langfuse.com';
+            }
+        } catch (error) {
+            console.log('Could not fetch LANGFUSE_HOST from database:', error);
+            document.getElementById('langfuseHost').value = settings.langfuseHost || 'https://cloud.langfuse.com';
+        }
+        
+        // Langfuse Project ID - check database first
+        try {
+            const response = await fetch('/api/settings/LANGFUSE_PROJECT_ID');
+            const data = await response.json();
+            if (data.success && data.exists && data.value) {
+                document.getElementById('langfuseProjectId').value = data.value;
+            } else {
+                // Fallback to localStorage
+                document.getElementById('langfuseProjectId').value = settings.langfuseProjectId || '';
+            }
+        } catch (error) {
+            console.log('Could not fetch LANGFUSE_PROJECT_ID from database:', error);
+            document.getElementById('langfuseProjectId').value = settings.langfuseProjectId || '';
+        }
+    }
+    
+    // Update API Configuration section visibility based on AI model selection
+    function updateApiConfigurationVisibility() {
+        const aiModel = document.getElementById('aiModel').value;
+        const apiSection = document.getElementById('apiConfigurationSection');
+        const openaiSection = document.getElementById('openaiApiKeySection');
+        const anthropicSection = document.getElementById('anthropicApiKeySection');
+        const langfuseSection = document.getElementById('langfuseApiKeySection');
+        const testApiKeyBtn = document.getElementById('testApiKey');
+        
+        // Langfuse section is always visible (independent of AI model)
+        if (langfuseSection) {
+            langfuseSection.style.display = 'block';
+        }
+        
+        if (aiModel === 'chatgpt' || aiModel === 'anthropic') {
+            apiSection.style.display = 'block';
+            
+            // Show/hide API key sections based on selected model
+            if (aiModel === 'chatgpt') {
+                openaiSection.style.display = 'block';
+                anthropicSection.style.display = 'none';
+                testApiKeyBtn.textContent = '🧪 Test OpenAI API Key';
+            } else if (aiModel === 'anthropic') {
+                openaiSection.style.display = 'none';
+                anthropicSection.style.display = 'block';
+                testApiKeyBtn.textContent = '🧪 Test Anthropic API Key';
+            }
+            if (testApiKeyBtn) {
+                testApiKeyBtn.style.display = 'inline-flex';
+            }
+            } else if (aiModel === 'lmstudio') {
+            // Show API section for LMStudio but hide API key inputs
+            apiSection.style.display = 'block';
+            openaiSection.style.display = 'none';
+            anthropicSection.style.display = 'none';
+            testApiKeyBtn.textContent = '🧪 Test LMStudio Connection';
+            if (testApiKeyBtn) {
+                testApiKeyBtn.style.display = 'inline-flex';
+            }
+        } else {
+            // Show API section for Langfuse even if no AI model selected
+            apiSection.style.display = 'block';
+            openaiSection.style.display = 'none';
+            anthropicSection.style.display = 'none';
+            if (testApiKeyBtn) {
+                testApiKeyBtn.style.display = 'none';
+            }
+        }
+
+        // Show/hide LMStudio model selection dropdown
+        const lmstudioModelSection = document.getElementById('lmstudioModelSection');
+        if (lmstudioModelSection) {
+            lmstudioModelSection.style.display = aiModel === 'lmstudio' ? 'block' : 'none';
+        }
+    }
+    
+    // Load LMStudio models dynamically
+    async function loadLMStudioModels() {
+        try {
+            const response = await fetch('/api/lmstudio-models');
+            const data = await response.json();
+
+            if (data.success && data.models.length > 0) {
+                // Populate the LMStudio model dropdown
+                const lmstudioModelSelect = document.getElementById('lmstudioModel');
+                lmstudioModelSelect.innerHTML = ''; // Clear loading option
+
+                // Get current saved model from database
+                let savedModel = null;
+                try {
+                    const settingsResponse = await fetch('/api/settings/lmstudio_model');
+                    const settingsData = await settingsResponse.json();
+                    if (settingsData.success && settingsData.exists) {
+                        savedModel = settingsData.value;
+                    }
+                } catch (error) {
+                    console.log('Could not fetch saved LMStudio model:', error);
+                }
+
+                // Sort models alphabetically
+                const sortedModels = [...data.models].sort();
+
+                sortedModels.forEach((model, index) => {
+                    const option = document.createElement('option');
+                    option.value = model;
+                    option.textContent = model;
+                    // Select the saved model or first model if no saved preference
+                    if ((savedModel && model === savedModel) || (!savedModel && index === 0)) {
+                        option.selected = true;
+                    }
+                    lmstudioModelSelect.appendChild(option);
+                });
+
+                // Update the main dropdown to show it's LMStudio (keep it simple)
+                const select = document.getElementById('aiModel');
+                const lmstudioOption = select.querySelector('option[value="lmstudio"]');
+                if (lmstudioOption) {
+                    // Just show "LMStudio" - the specific model is shown in the dropdown below
+                    lmstudioOption.textContent = `LMStudio (Local)`;
+                }
+            } else {
+                // Fallback to default text if no models found
+                const lmstudioModelSelect = document.getElementById('lmstudioModel');
+                lmstudioModelSelect.innerHTML = '<option value="">No models available</option>';
+
+                const select = document.getElementById('aiModel');
+                const lmstudioOption = select.querySelector('option[value="lmstudio"]');
+                if (lmstudioOption) {
+                    lmstudioOption.textContent = 'LMStudio → Local';
+                }
+            }
+        } catch (error) {
+            console.log('Could not load LMStudio models:', error);
+            const lmstudioModelSelect = document.getElementById('lmstudioModel');
+            lmstudioModelSelect.innerHTML = '<option value="">Error loading models</option>';
+        }
+    }
+    
+    // Load backup settings
+    function loadBackupSettings() {
+        const settings = JSON.parse(localStorage.getItem('ctiScraperSettings') || '{}');
+        const backupSettings = settings.backupSettings || {};
+        
+        // Set backup schedule
+        document.getElementById('backupTime').value = backupSettings.backupTime || '02:00';
+        document.getElementById('cleanupTime').value = backupSettings.cleanupTime || '03:00';
+        
+        // Set retention policy
+        document.getElementById('dailyRetention').value = backupSettings.dailyRetention || 7;
+        document.getElementById('weeklyRetention').value = backupSettings.weeklyRetention || 4;
+        document.getElementById('monthlyRetention').value = backupSettings.monthlyRetention || 3;
+        document.getElementById('maxSizeGb').value = backupSettings.maxSizeGb || 50;
+        
+        // Set backup components
+        document.getElementById('backupDatabase').checked = backupSettings.backupDatabase !== false;
+        document.getElementById('backupModels').checked = backupSettings.backupModels !== false;
+        document.getElementById('backupConfig').checked = backupSettings.backupConfig !== false;
+        document.getElementById('backupOutputs').checked = backupSettings.backupOutputs !== false;
+        document.getElementById('backupLogs').checked = backupSettings.backupLogs !== false;
+        document.getElementById('backupDockerVolumes').checked = backupSettings.backupDockerVolumes !== false;
+        
+        // Set backup settings
+        document.getElementById('backupDirectory').value = backupSettings.backupDirectory || 'backups';
+        document.getElementById('backupType').value = backupSettings.backupType || 'full';
+        document.getElementById('enableCompression').checked = backupSettings.enableCompression !== false;
+        document.getElementById('enableVerification').checked = backupSettings.enableVerification !== false;
+    }
+    
+    // Save settings to localStorage
+    async function saveSettings() {
+        // Get values from form inputs
+        const openaiKeyInput = document.getElementById('openaiApiKey').value.trim();
+        const anthropicKeyInput = document.getElementById('anthropicApiKey').value.trim();
+        const aiModelInput = document.getElementById('aiModel').value;
+        const lmstudioModelInput = document.getElementById('lmstudioModel') ? document.getElementById('lmstudioModel').value : null;
+
+        // DEBUG: Log what we're saving
+        console.log('💾 Saving settings:', {
+            aiModel: aiModelInput,
+            lmstudioModel: lmstudioModelInput,
+            openaiKeyLength: openaiKeyInput.length,
+            openaiKeyEnding: openaiKeyInput.length >= 4 ? openaiKeyInput.substring(openaiKeyInput.length - 4) : 'N/A',
+            anthropicKeyLength: anthropicKeyInput.length
+        });
+
+        const settings = {
+            // Trim API keys to remove any accidental whitespace
+            // Only save non-empty keys (preserve existing if field is empty)
+            openaiApiKey: openaiKeyInput || '',
+            anthropicApiKey: anthropicKeyInput || '',
+            langfusePublicKey: document.getElementById('langfusePublicKey').value.trim() || '',
+            langfuseSecretKey: document.getElementById('langfuseSecretKey').value.trim() || '',
+            langfuseHost: document.getElementById('langfuseHost').value.trim() || '',
+            langfuseProjectId: document.getElementById('langfuseProjectId').value.trim() || '',
+            aiModel: aiModelInput,
+            aiTemperature: document.getElementById('aiTemperature').value,
+            sigmaAuthor: document.getElementById('sigmaAuthor').value,
+            backupSettings: {
+                backupTime: document.getElementById('backupTime').value,
+                cleanupTime: document.getElementById('cleanupTime').value,
+                dailyRetention: parseInt(document.getElementById('dailyRetention').value),
+                weeklyRetention: parseInt(document.getElementById('weeklyRetention').value),
+                monthlyRetention: parseInt(document.getElementById('monthlyRetention').value),
+                maxSizeGb: parseInt(document.getElementById('maxSizeGb').value),
+                backupDatabase: document.getElementById('backupDatabase').checked,
+                backupModels: document.getElementById('backupModels').checked,
+                backupConfig: document.getElementById('backupConfig').checked,
+                backupOutputs: document.getElementById('backupOutputs').checked,
+                backupLogs: document.getElementById('backupLogs').checked,
+                backupDockerVolumes: document.getElementById('backupDockerVolumes').checked,
+                backupDirectory: document.getElementById('backupDirectory').value,
+                backupType: document.getElementById('backupType').value,
+                enableCompression: document.getElementById('enableCompression').checked,
+                enableVerification: document.getElementById('enableVerification').checked
+            }
+        };
+
+        localStorage.setItem('ctiScraperSettings', JSON.stringify(settings));
+
+        // Save Langfuse keys to backend API
+        try {
+            const langfuseSettings = [
+                { key: 'LANGFUSE_PUBLIC_KEY', value: document.getElementById('langfusePublicKey').value.trim() },
+                { key: 'LANGFUSE_SECRET_KEY', value: document.getElementById('langfuseSecretKey').value.trim() },
+                { key: 'LANGFUSE_HOST', value: document.getElementById('langfuseHost').value.trim() },
+                { key: 'LANGFUSE_PROJECT_ID', value: document.getElementById('langfuseProjectId').value.trim() }
+            ];
+            
+            for (const setting of langfuseSettings) {
+                if (setting.value) {
+                    // Save non-empty value to database
+                await fetch('/api/settings', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                        body: JSON.stringify(setting)
+                });
+                } else {
+                    // Delete empty value from database (revert to environment variable)
+                    await fetch(`/api/settings/${setting.key}`, {
+                        method: 'DELETE'
+                    });
+                }
+            }
+            console.log('✅ Langfuse settings saved to database');
+        } catch (error) {
+            console.error('❌ Error saving Langfuse settings:', error);
+        }
+
+        // Save LMStudio model to database (if selected and changed)
+        if (aiModelInput === 'lmstudio' && lmstudioModelInput) {
+            try {
+                const response = await fetch('/api/settings', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        key: 'lmstudio_model',
+                        value: lmstudioModelInput
+                    })
+                });
+
+                if (response.ok) {
+                    console.log('✅ LMStudio model saved to database:', lmstudioModelInput);
+                } else {
+                    console.error('❌ Failed to save LMStudio model to database');
+                }
+            } catch (error) {
+                console.error('❌ Error saving LMStudio model:', error);
+            }
+        }
+
+        // DEBUG: Verify what was saved
+        const saved = JSON.parse(localStorage.getItem('ctiScraperSettings'));
+        console.log('✅ Settings saved. Verification:', {
+            aiModel: saved.aiModel,
+            openaiKeyLength: saved.openaiApiKey ? saved.openaiApiKey.length : 0,
+            openaiKeyEnding: saved.openaiApiKey && saved.openaiApiKey.length >= 4 ? saved.openaiApiKey.substring(saved.openaiApiKey.length - 4) : 'N/A'
+        });
+
+        showSuccessNotification();
+    }
+    
+    
+    // Test API key (OpenAI or Anthropic) or Ollama connection
+    async function testApiKey() {
+        const aiModel = document.getElementById('aiModel').value;
+        const statusElement = document.getElementById('apiKeyStatus');
+        const testButton = document.getElementById('testApiKey');
+        
+
+        
+        // Handle LMStudio (no API key required)
+        if (aiModel === 'lmstudio') {
+            // Disable button and show loading
+            testButton.disabled = true;
+            testButton.textContent = '🧪 Testing...';
+            statusElement.textContent = '⏳ Testing LMStudio connection...';
+            statusElement.className = 'ml-3 text-sm text-gray-600';
+            
+            try {
+                const response = await fetch('/api/test-lmstudio-connection', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({})
+                });
+                
+                if (response.ok) {
+                    const result = await response.json();
+                    if (result.valid) {
+                        statusElement.textContent = '✅ LMStudio connection successful';
+                        statusElement.className = 'ml-3 text-sm text-green-600';
+                    } else {
+                        statusElement.textContent = `❌ ${result.message}`;
+                        statusElement.className = 'ml-3 text-sm text-red-600';
+                    }
+                } else {
+                    const error = await response.json();
+                    statusElement.textContent = `❌ ${error.detail}`;
+                    statusElement.className = 'ml-3 text-sm text-red-600';
+                }
+            } catch (error) {
+                statusElement.textContent = '❌ Network error - please try again';
+                statusElement.className = 'ml-3 text-sm text-red-600';
+            } finally {
+                // Re-enable button
+                testButton.disabled = false;
+                testButton.textContent = '🧪 Test LMStudio Connection';
+            }
+            return;
+        }
+        
+        // Handle API key models (OpenAI/Anthropic)
+        const apiKey = aiModel === 'anthropic' ? 
+                      document.getElementById('anthropicApiKey').value : 
+                      document.getElementById('openaiApiKey').value;
+        
+        if (!apiKey) {
+            const keyType = aiModel === 'anthropic' ? 'Anthropic' : 'OpenAI';
+            statusElement.textContent = `❌ Please enter a ${keyType} API key first`;
+            statusElement.className = 'ml-3 text-sm text-red-600';
+            return;
+        }
+        
+        // Disable button and show loading
+        testButton.disabled = true;
+        testButton.textContent = '🧪 Testing...';
+        statusElement.textContent = '⏳ Testing API key...';
+        statusElement.className = 'ml-3 text-sm text-gray-600';
+        
+        try {
+            const endpoint = aiModel === 'anthropic' ? '/api/test-anthropic-key' : '/api/test-openai-key';
+            const response = await fetch(endpoint, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    api_key: apiKey
+                })
+            });
+            
+            if (response.ok) {
+                const result = await response.json();
+                if (result.valid) {
+                    statusElement.textContent = '✅ API key is valid';
+                    statusElement.className = 'ml-3 text-sm text-green-600';
+                } else {
+                    statusElement.textContent = `❌ ${result.message}`;
+                    statusElement.className = 'ml-3 text-sm text-red-600';
+                }
+            } else {
+                const error = await response.json();
+                statusElement.textContent = `❌ ${error.detail}`;
+                statusElement.className = 'ml-3 text-sm text-red-600';
+            }
+        } catch (error) {
+            statusElement.textContent = '❌ Network error - please try again';
+            statusElement.className = 'ml-3 text-sm text-red-600';
+        } finally {
+            // Re-enable button
+            const keyType = aiModel === 'anthropic' ? 'Anthropic' : 'OpenAI';
+            testButton.disabled = false;
+            testButton.textContent = `🧪 Test ${keyType} API Key`;
+        }
+    }
+    
+    // Test Langfuse connection
+    async function testLangfuseConnection() {
+        const statusElement = document.getElementById('langfuseTestStatus');
+        const testButton = document.getElementById('testLangfuseConnection');
+        
+        // Disable button and show loading
+        testButton.disabled = true;
+        testButton.textContent = '🧪 Testing...';
+        statusElement.textContent = '⏳ Testing Langfuse connection...';
+        statusElement.className = 'ml-3 text-sm text-gray-600 dark:text-gray-400';
+        
+        try {
+            const response = await fetch('/api/test-langfuse-connection', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({})
+            });
+            
+            if (response.ok) {
+                const result = await response.json();
+                if (result.valid) {
+                    statusElement.textContent = `✅ ${result.message}`;
+                    statusElement.className = 'ml-3 text-sm text-green-600 dark:text-green-400';
+                } else {
+                    statusElement.textContent = `❌ ${result.message}`;
+                    statusElement.className = 'ml-3 text-sm text-red-600 dark:text-red-400';
+                }
+            } else {
+                const error = await response.json();
+                statusElement.textContent = `❌ ${error.detail || 'Connection test failed'}`;
+                statusElement.className = 'ml-3 text-sm text-red-600 dark:text-red-400';
+            }
+        } catch (error) {
+            statusElement.textContent = '❌ Network error - please try again';
+            statusElement.className = 'ml-3 text-sm text-red-600 dark:text-red-400';
+        } finally {
+            // Re-enable button
+            testButton.disabled = false;
+            testButton.textContent = '🧪 Test Langfuse Connection';
+        }
+    }
+    
+    // Toggle API key visibility
+    function toggleApiKeyVisibility() {
+        const input = document.getElementById('openaiApiKey');
+        const button = document.getElementById('toggleApiKey');
+        const icon = button.querySelector('svg');
+        
+        if (input.type === 'password') {
+            input.type = 'text';
+            icon.innerHTML = `
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.878 9.878L3 3m6.878 6.878L21 21"></path>
+            `;
+        } else {
+            input.type = 'password';
+            icon.innerHTML = `
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+            `;
+        }
+    }
+    
+    // Toggle Anthropic API key visibility
+    function toggleAnthropicApiKeyVisibility() {
+        const input = document.getElementById('anthropicApiKey');
+        const button = document.getElementById('toggleAnthropicApiKey');
+        const icon = button.querySelector('svg');
+        
+        if (input.type === 'password') {
+            input.type = 'text';
+            icon.innerHTML = `
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.878 9.878L3 3m6.878 6.878L21 21"></path>
+            `;
+        } else {
+            input.type = 'password';
+            icon.innerHTML = `
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+            `;
+        }
+    }
+    
+    // Toggle Langfuse Public Key visibility
+    function toggleLangfusePublicKeyVisibility() {
+        const input = document.getElementById('langfusePublicKey');
+        const button = document.getElementById('toggleLangfusePublicKey');
+        const icon = button.querySelector('svg');
+        
+        if (input.type === 'password') {
+            input.type = 'text';
+            icon.innerHTML = `
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.878 9.878L3 3m6.878 6.878L21 21"></path>
+            `;
+        } else {
+            input.type = 'password';
+            icon.innerHTML = `
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+            `;
+        }
+    }
+    
+    // Toggle Langfuse Secret Key visibility
+    function toggleLangfuseSecretKeyVisibility() {
+        const input = document.getElementById('langfuseSecretKey');
+        const button = document.getElementById('toggleLangfuseSecretKey');
+        const icon = button.querySelector('svg');
+        
+        if (input.type === 'password') {
+            input.type = 'text';
+            icon.innerHTML = `
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.878 9.878L3 3m6.878 6.878L21 21"></path>
+            `;
+        } else {
+            input.type = 'password';
+            icon.innerHTML = `
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+            `;
+        }
+    }
+    
+    // Toggle functions
+    function setToggleState(toggleId, enabled) {
+        const toggle = document.getElementById(toggleId);
+        const span = toggle.querySelector('span:not(.sr-only)');
+        
+        if (enabled) {
+            toggle.classList.add('bg-blue-600');
+            toggle.classList.remove('bg-gray-200');
+            span.classList.add('translate-x-5');
+            span.classList.remove('translate-x-1');
+            toggle.setAttribute('aria-checked', 'true');
+        } else {
+            toggle.classList.remove('bg-blue-600');
+            toggle.classList.add('bg-gray-200');
+            span.classList.remove('translate-x-5');
+            span.classList.add('translate-x-1');
+            toggle.setAttribute('aria-checked', 'false');
+        }
+    }
+    
+    function getToggleState(toggleId) {
+        const toggle = document.getElementById(toggleId);
+        return toggle.getAttribute('aria-checked') === 'true';
+    }
+    
+    function toggleSwitch(toggleId) {
+        const currentState = getToggleState(toggleId);
+        setToggleState(toggleId, !currentState);
+    }
+    
+    // Toggle backup configuration section
+    function toggleBackupConfig() {
+        const content = document.getElementById('backupConfigContent');
+        const chevron = document.getElementById('backupConfigChevron');
+        
+        if (content.classList.contains('hidden')) {
+            content.classList.remove('hidden');
+            chevron.style.transform = 'rotate(180deg)';
+        } else {
+            content.classList.add('hidden');
+            chevron.style.transform = 'rotate(0deg)';
+        }
+    }
+    
+    // Show success notification
+    function showSuccessNotification() {
+        const notification = document.getElementById('successNotification');
+        notification.classList.remove('translate-x-full');
+        
+        setTimeout(() => {
+            notification.classList.add('translate-x-full');
+        }, 3000);
+    }
+    
+    // Event listeners
+    document.addEventListener('DOMContentLoaded', function() {
+        loadSettings().catch(err => {
+            console.error('Error loading settings:', err);
+        });
+        
+        
+        // AI model selection
+        document.getElementById('aiModel').addEventListener('change', function() {
+            updateApiConfigurationVisibility();
+        });
+        
+        // API key visibility toggle
+        document.getElementById('toggleApiKey').addEventListener('click', function() {
+            toggleApiKeyVisibility();
+        });
+        
+        // Anthropic API key visibility toggle
+        document.getElementById('toggleAnthropicApiKey').addEventListener('click', function() {
+            toggleAnthropicApiKeyVisibility();
+        });
+        
+        // Langfuse Public Key visibility toggle
+        document.getElementById('toggleLangfusePublicKey').addEventListener('click', function() {
+            toggleLangfusePublicKeyVisibility();
+        });
+        
+        // Langfuse Secret Key visibility toggle
+        document.getElementById('toggleLangfuseSecretKey').addEventListener('click', function() {
+            toggleLangfuseSecretKeyVisibility();
+        });
+        
+        // Test API key button
+        document.getElementById('testApiKey').addEventListener('click', function() {
+            testApiKey();
+        });
+        
+        // Test Langfuse connection button
+        document.getElementById('testLangfuseConnection').addEventListener('click', function() {
+            testLangfuseConnection();
+        });
+        
+        
+        // Save settings button
+        document.getElementById('saveSettings').addEventListener('click', function() {
+            saveSettings();
+        });
+        
+        // Backup configuration fields
+        document.getElementById('backupTime').addEventListener('change', saveSettings);
+        document.getElementById('cleanupTime').addEventListener('change', saveSettings);
+        document.getElementById('dailyRetention').addEventListener('change', saveSettings);
+        document.getElementById('weeklyRetention').addEventListener('change', saveSettings);
+        document.getElementById('monthlyRetention').addEventListener('change', saveSettings);
+        document.getElementById('maxSizeGb').addEventListener('change', saveSettings);
+        document.getElementById('backupDirectory').addEventListener('change', saveSettings);
+        document.getElementById('backupType').addEventListener('change', saveSettings);
+        document.getElementById('enableCompression').addEventListener('change', saveSettings);
+        document.getElementById('enableVerification').addEventListener('change', saveSettings);
+        
+        // Backup component checkboxes
+        ['backupDatabase', 'backupModels', 'backupConfig', 'backupOutputs', 'backupLogs', 'backupDockerVolumes'].forEach(id => {
+            document.getElementById(id).addEventListener('change', saveSettings);
+        });
+        
+        // Backup action buttons
+        document.getElementById('createBackupBtn').addEventListener('click', createBackup);
+        document.getElementById('listBackupsBtn').addEventListener('click', listBackups);
+        document.getElementById('backupStatusBtn').addEventListener('click', checkBackupStatus);
+        
+        // Export annotations button
+        document.getElementById('exportAnnotationsBtn').addEventListener('click', exportAnnotations);
+        
+        // Handle Enter key in input fields
+        ['backupDirectory', 'sigmaAuthor', 'openaiApiKey', 'anthropicApiKey', 'dailyRetention', 'weeklyRetention', 'monthlyRetention', 'maxSizeGb'].forEach(id => {
+            const element = document.getElementById(id);
+            if (element) {
+                element.addEventListener('keypress', function(e) {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        saveSettings();
+                    }
+                });
+            }
+        });
+        
+        // Temperature slider event listener
+        const temperatureSlider = document.getElementById('aiTemperature');
+        const temperatureValue = document.getElementById('temperatureValue');
+        
+        if (temperatureSlider && temperatureValue) {
+            temperatureSlider.addEventListener('input', function() {
+                temperatureValue.textContent = this.value;
+            });
+        }
+        
+    });
+    
+    // Backup action functions
+    async function createBackup() {
+        const backupType = document.getElementById('backupType').value;
+        const compress = document.getElementById('enableCompression').checked;
+        const verify = document.getElementById('enableVerification').checked;
+        
+        try {
+            const response = await fetch('/api/backup/create', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    type: backupType,
+                    compress: compress,
+                    verify: verify
+                })
+            });
+            
+            if (response.ok) {
+                const result = await response.json();
+                showNotification(`Backup created successfully: ${result.backup_name}`, 'success');
+            } else {
+                const error = await response.json();
+                showNotification(`Backup failed: ${error.detail}`, 'error');
+            }
+        } catch (error) {
+            showNotification(`Backup failed: ${error.message}`, 'error');
+        }
+    }
+    
+    async function listBackups() {
+        try {
+            const response = await fetch('/api/backup/list');
+            if (response.ok) {
+                const backups = await response.json();
+                displayBackupList(backups);
+            } else {
+                showNotification('Failed to list backups', 'error');
+            }
+        } catch (error) {
+            showNotification(`Failed to list backups: ${error.message}`, 'error');
+        }
+    }
+    
+    async function checkBackupStatus() {
+        try {
+            const response = await fetch('/api/backup/status');
+            if (response.ok) {
+                const status = await response.json();
+                displayBackupStatus(status);
+            } else {
+                showNotification('Failed to get backup status', 'error');
+            }
+        } catch (error) {
+            showNotification(`Failed to get backup status: ${error.message}`, 'error');
+        }
+    }
+    
+    function displayBackupList(backups) {
+        const statusDisplay = document.getElementById('backupStatusDisplay');
+        const statusContent = document.getElementById('backupStatusContent');
+        
+        let html = '<h4 class="font-semibold mb-2">Available Backups:</h4>';
+        if (backups.length === 0) {
+            html += '<p class="text-gray-500">No backups found.</p>';
+        } else {
+            html += '<div class="space-y-2">';
+            backups.forEach(backup => {
+                html += `
+                    <div class="flex justify-between items-center p-2 bg-gray-100 dark:bg-gray-600 rounded">
+                        <span class="font-mono text-sm">${backup.name}</span>
+                        <span class="text-sm text-gray-500">${backup.size_mb} MB</span>
+                    </div>
+                `;
+            });
+            html += '</div>';
+        }
+        
+        statusContent.innerHTML = html;
+        statusDisplay.classList.remove('hidden');
+    }
+    
+    function displayBackupStatus(status) {
+        const statusDisplay = document.getElementById('backupStatusDisplay');
+        const statusContent = document.getElementById('backupStatusContent');
+        
+        let html = '<h4 class="font-semibold mb-2">Backup Status:</h4>';
+        html += `
+            <div class="space-y-2">
+                <div class="flex justify-between">
+                    <span>Automated Backups:</span>
+                    <span class="${status.automated ? 'text-green-600' : 'text-red-600'}">
+                        ${status.automated ? '✅ Enabled' : '❌ Disabled'}
+                    </span>
+                </div>
+                <div class="flex justify-between">
+                    <span>Total Backups:</span>
+                    <span>${status.total_backups}</span>
+                </div>
+                <div class="flex justify-between">
+                    <span>Total Size:</span>
+                    <span>${status.total_size_gb} GB</span>
+                </div>
+                <div class="flex justify-between">
+                    <span>Last Backup:</span>
+                    <span>${status.last_backup || 'Never'}</span>
+                </div>
+            </div>
+        `;
+        
+        statusContent.innerHTML = html;
+        statusDisplay.classList.remove('hidden');
+    }
+    
+    async function exportAnnotations() {
+        const exportBtn = document.getElementById('exportAnnotationsBtn');
+        const progressDiv = document.getElementById('exportProgress');
+        
+        try {
+            // Show progress
+            exportBtn.disabled = true;
+            progressDiv.classList.remove('hidden');
+            
+            const response = await fetch('/api/export/annotations', {
+                method: 'GET'
+            });
+            
+            if (response.ok) {
+                // Get filename from Content-Disposition header or use default
+                const contentDisposition = response.headers.get('Content-Disposition');
+                let filename = 'annotations.csv';
+                if (contentDisposition) {
+                    const filenameMatch = contentDisposition.match(/filename="(.+)"/);
+                    if (filenameMatch) {
+                        filename = filenameMatch[1];
+                    }
+                }
+                
+                // Create blob and download
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = filename;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                window.URL.revokeObjectURL(url);
+                
+                showNotification('Annotations exported successfully!', 'success');
+            } else {
+                const result = await response.json();
+                throw new Error(result.detail || 'Export failed');
+            }
+        } catch (error) {
+            console.error('Export error:', error);
+            showNotification(`Failed to export annotations: ${error.message}`, 'error');
+        } finally {
+            // Hide progress
+            exportBtn.disabled = false;
+            progressDiv.classList.add('hidden');
+        }
+    }
+    
+    
+    function showNotification(message, type = 'info') {
+        // Create notification element
+        const notification = document.createElement('div');
+        notification.className = `fixed top-4 right-4 z-50 p-4 rounded-md shadow-lg max-w-sm transform transition-all duration-300 ${
+            type === 'success' ? 'bg-green-500 text-white' :
+            type === 'error' ? 'bg-red-500 text-white' :
+            'bg-blue-500 text-white'
+        }`;
+        notification.textContent = message;
+        
+        document.body.appendChild(notification);
+        
+        // Remove after 5 seconds
+        setTimeout(() => {
+            notification.remove();
+        }, 5000);
+    }
+</script>
+{% endblock %}

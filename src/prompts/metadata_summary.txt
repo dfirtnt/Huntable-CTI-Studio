@@ -1,0 +1,34 @@
+Please provide a brief summary of this threat intelligence article based on its metadata.
+
+**Article Title:** {title}
+**Source:** {source}
+**URL:** {url}
+**Published:** {published_date}
+**Content Length:** {content_length} characters
+
+**Metadata Analysis:**
+Based on the available metadata, provide insights about:
+1. **Content Scope:** What type of threat intelligence this appears to be
+2. **Source Credibility:** Assessment of the source's reputation
+3. **Timeliness:** How current or relevant this information is
+4. **Content Depth:** Estimated technical depth based on length and source
+5. **Potential Value:** Initial assessment of operational usefulness
+
+**Output Format:**
+**CONTENT TYPE:**
+[Classification of the threat intelligence]
+
+**SOURCE ASSESSMENT:**
+[Credibility and reputation evaluation]
+
+**TIMELINESS:**
+[Relevance and currency assessment]
+
+**ESTIMATED DEPTH:**
+[Technical depth prediction]
+
+**PRELIMINARY VALUE:**
+[Initial usefulness assessment]
+
+**RECOMMENDED ACTIONS:**
+[Suggested next steps for analysis]

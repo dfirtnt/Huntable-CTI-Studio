@@ -1,0 +1,1805 @@
+{% extends "base.html" %}
+
+{% block title %}Workflow Executions - Huntable CTI Scraper{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+    <div class="mb-8">
+        <div class="flex items-center justify-between">
+            <div>
+                <h1 class="text-3xl font-bold text-gray-900 dark:text-white mb-2">🔄 Workflow Executions</h1>
+                <p class="text-gray-600 dark:text-gray-400">Monitor agentic workflow execution history and status</p>
+            </div>
+            <div class="flex space-x-4">
+                <button onclick="openExecuteModal()" class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md transition-colors">
+                    ▶️ Execute Workflow
+                </button>
+                <button onclick="refreshExecutions()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors">
+                    🔄 Refresh
+                </button>
+                <button onclick="triggerStuckExecutions()" class="px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-md transition-colors" id="triggerStuckBtn">
+                    ⚡ Trigger Stuck
+                </button>
+                <button onclick="cleanupStaleExecutions()" class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md transition-colors">
+                    🧹 Cleanup Stale
+                </button>
+                <select id="statusFilter" onchange="filterExecutions()" class="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-700 dark:text-white">
+                    <option value="">All Status</option>
+                    <option value="pending">Pending</option>
+                    <option value="running">Running</option>
+                    <option value="completed">Completed</option>
+                    <option value="failed">Failed</option>
+                </select>
+            </div>
+        </div>
+    </div>
+
+    <!-- Workflow Visualization -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mb-6">
+        <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">🔀 LangGraph Workflow State Machine</h2>
+        <div id="workflowVisualization" class="relative bg-gray-50 dark:bg-gray-900 rounded-lg p-4">
+            <svg viewBox="0 0 900 350" class="w-full h-auto">
+                <defs>
+                    <marker id="arrowhead" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+                        <polygon points="0 0, 10 3, 0 6" fill="#6b7280"/>
+                    </marker>
+                    <filter id="glow">
+                        <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+                        <feMerge>
+                            <feMergeNode in="coloredBlur"/>
+                            <feMergeNode in="SourceGraphic"/>
+                        </feMerge>
+                    </filter>
+                </defs>
+                
+                <!-- Edges/Arrows -->
+                <g stroke="#6b7280" stroke-width="2" fill="none" marker-end="url(#arrowhead)">
+                    <!-- Step 0 -> Step 1 -->
+                    <line x1="150" y1="175" x2="250" y2="175"/>
+                    <!-- Step 1 -> Decision -->
+                    <line x1="350" y1="175" x2="420" y2="175"/>
+                    <!-- Decision -> Step 2 (if continue) -->
+                    <line x1="440" y1="165" x2="540" y2="100"/>
+                    <text x="490" y="130" fill="#10b981" font-size="10">Score ≥ 6</text>
+                    <!-- Step 2 -> Step 3 -->
+                    <line x1="640" y1="125" x2="740" y2="125"/>
+                    <!-- Step 3 -> Step 4 -->
+                    <line x1="790" y1="155" x2="790" y2="220"/>
+                    <!-- Step 4 -> Step 5 -->
+                    <line x1="540" y1="250" x2="440" y2="250"/>
+                    <!-- Decision -> End (if stop) -->
+                    <line x1="440" y1="185" x2="440" y2="300" stroke-dasharray="5,5"/>
+                    <line x1="440" y1="300" x2="900" y2="300" stroke-dasharray="5,5"/>
+                    <text x="670" y="295" fill="#ef4444" font-size="10">Score &lt; 6 → End</text>
+                </g>
+                
+                <!-- Nodes -->
+                <g id="workflowNodes">
+                    <!-- Step 0: Junk Filter -->
+                    <rect x="50" y="145" width="100" height="60" rx="8" fill="#3b82f6" class="workflow-node" data-step="junk_filter"/>
+                    <text x="100" y="165" text-anchor="middle" fill="white" font-weight="bold" font-size="11">Step 0</text>
+                    <text x="100" y="185" text-anchor="middle" fill="white" font-size="10">Junk Filter</text>
+                    
+                    <!-- Step 1: Rank Article -->
+                    <rect x="250" y="145" width="100" height="60" rx="8" fill="#10b981" class="workflow-node" data-step="rank_article"/>
+                    <text x="300" y="165" text-anchor="middle" fill="white" font-weight="bold" font-size="11">Step 1</text>
+                    <text x="300" y="185" text-anchor="middle" fill="white" font-size="10">LLM Ranking</text>
+                    
+                    <!-- Conditional Decision Diamond -->
+                    <polygon points="420,175 460,155 460,195 420,215" fill="#f59e0b" stroke="#92400e" stroke-width="2"/>
+                    <text x="440" y="178" text-anchor="middle" fill="white" font-weight="bold" font-size="9">≥6?</text>
+                    
+                    <!-- Step 2: Extract Agent -->
+                    <rect x="540" y="70" width="100" height="60" rx="8" fill="#f59e0b" class="workflow-node" data-step="extract_agent"/>
+                    <text x="590" y="90" text-anchor="middle" fill="white" font-weight="bold" font-size="11">Step 2</text>
+                    <text x="590" y="110" text-anchor="middle" fill="white" font-size="10">Extract</text>
+                    
+                    <!-- Step 3: Generate SIGMA -->
+                    <rect x="740" y="95" width="100" height="60" rx="8" fill="#ef4444" class="workflow-node" data-step="generate_sigma"/>
+                    <text x="790" y="115" text-anchor="middle" fill="white" font-weight="bold" font-size="11">Step 3</text>
+                    <text x="790" y="135" text-anchor="middle" fill="white" font-size="10">Generate</text>
+                    <text x="790" y="150" text-anchor="middle" fill="white" font-size="10">SIGMA</text>
+                    
+                    <!-- Step 4: Similarity Search -->
+                    <rect x="540" y="220" width="100" height="60" rx="8" fill="#ec4899" class="workflow-node" data-step="similarity_search"/>
+                    <text x="590" y="240" text-anchor="middle" fill="white" font-weight="bold" font-size="11">Step 4</text>
+                    <text x="590" y="260" text-anchor="middle" fill="white" font-size="10">Similarity</text>
+                    
+                    <!-- Step 5: Queue -->
+                    <rect x="340" y="220" width="100" height="60" rx="8" fill="#8b5cf6" class="workflow-node" data-step="promote_to_queue"/>
+                    <text x="390" y="240" text-anchor="middle" fill="white" font-weight="bold" font-size="11">Step 5</text>
+                    <text x="390" y="260" text-anchor="middle" fill="white" font-size="10">Queue</text>
+                    
+                    <!-- Queue -> End -->
+                    <line x1="340" y1="250" x2="200" y2="300" stroke-dasharray="3,3"/>
+                    <line x1="200" y1="300" x2="900" y2="300" stroke-dasharray="3,3"/>
+                    
+                    <!-- End Node -->
+                    <circle cx="900" cy="300" r="25" fill="#6b7280"/>
+                    <text x="900" y="306" text-anchor="middle" fill="white" font-weight="bold" font-size="12">END</text>
+                </g>
+            </svg>
+            
+            <!-- Legend -->
+            <div class="mt-4 grid grid-cols-6 gap-2 text-xs">
+                <div class="flex items-center space-x-2">
+                    <div class="w-4 h-4 bg-blue-500 rounded"></div>
+                    <span class="text-gray-900 dark:text-white">Filter</span>
+                </div>
+                <div class="flex items-center space-x-2">
+                    <div class="w-4 h-4 bg-green-500 rounded"></div>
+                    <span class="text-gray-900 dark:text-white">Rank</span>
+                </div>
+                <div class="flex items-center space-x-2">
+                    <div class="w-4 h-4 bg-yellow-500 rounded"></div>
+                    <span class="text-gray-900 dark:text-white">Extract</span>
+                </div>
+                <div class="flex items-center space-x-2">
+                    <div class="w-4 h-4 bg-red-500 rounded"></div>
+                    <span class="text-gray-900 dark:text-white">SIGMA</span>
+                </div>
+                <div class="flex items-center space-x-2">
+                    <div class="w-4 h-4 bg-pink-500 rounded"></div>
+                    <span class="text-gray-900 dark:text-white">Similarity</span>
+                </div>
+                <div class="flex items-center space-x-2">
+                    <div class="w-4 h-4 bg-purple-500 rounded"></div>
+                    <span class="text-gray-900 dark:text-white">Queue</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Statistics -->
+    <div id="executionStats" class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+            <div class="text-sm text-gray-600 dark:text-gray-400">Total Executions</div>
+            <div class="text-2xl font-bold text-gray-900 dark:text-white" id="totalExecutions">-</div>
+        </div>
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+            <div class="text-sm text-gray-600 dark:text-gray-400">Running</div>
+            <div class="text-2xl font-bold text-blue-600 dark:text-blue-400" id="runningExecutions">-</div>
+        </div>
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+            <div class="text-sm text-gray-600 dark:text-gray-400">Completed</div>
+            <div class="text-2xl font-bold text-green-600 dark:text-green-400" id="completedExecutions">-</div>
+        </div>
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+            <div class="text-sm text-gray-600 dark:text-gray-400">Failed</div>
+            <div class="text-2xl font-bold text-red-600 dark:text-red-400" id="failedExecutions">-</div>
+        </div>
+    </div>
+
+    <!-- Executions Table -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg overflow-hidden">
+        <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+            <thead class="bg-gray-50 dark:bg-gray-900">
+                <tr>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">ID</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Article</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Status</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Current Step</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Ranking Score</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Created</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Actions</th>
+                </tr>
+            </thead>
+            <tbody id="executionsTableBody" class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                <tr>
+                    <td colspan="7" class="px-6 py-4 text-center text-gray-500 dark:text-gray-400">Loading...</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Execute Workflow Modal -->
+    <div id="executeModal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+        <div class="relative top-20 mx-auto p-5 border w-11/12 md:w-1/2 shadow-lg rounded-md bg-white dark:bg-gray-800">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-xl font-bold text-gray-900 dark:text-white">Execute Workflow</h3>
+                <button onclick="closeExecuteModal()" class="text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300">✕</button>
+            </div>
+            <div class="space-y-4">
+                <div>
+                    <label for="articleIdInput" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        Article ID
+                    </label>
+                    <input type="number" 
+                           id="articleIdInput" 
+                           min="1"
+                           class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500 dark:bg-gray-700 dark:text-white"
+                           placeholder="Enter article ID">
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Enter the ID of the article to process through the workflow</p>
+                </div>
+                <div class="flex items-center">
+                    <input type="checkbox" 
+                           id="useLangGraphServer" 
+                           class="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded">
+                    <label for="useLangGraphServer" class="ml-2 block text-sm text-gray-700 dark:text-gray-300">
+                        Use LangGraph Server (creates traces in Langfuse)
+                    </label>
+                </div>
+                <div id="executeError" class="hidden bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md p-3 text-sm text-red-700 dark:text-red-400"></div>
+                <div class="flex justify-end space-x-4">
+                    <button onclick="closeExecuteModal()" class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                        Cancel
+                    </button>
+                    <button onclick="executeWorkflow()" class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md transition-colors">
+                        Execute
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Execution Detail Modal -->
+    <div id="executionModal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+        <div class="relative top-10 mx-auto p-5 border w-11/12 md:w-4/5 lg:w-3/4 shadow-lg rounded-md bg-white dark:bg-gray-800">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-xl font-bold text-gray-900 dark:text-white">Execution Details - Step-by-Step Inputs & Outputs</h3>
+                <button onclick="closeModal()" class="text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300">✕</button>
+            </div>
+            <div id="executionDetailContent" class="space-y-4 max-h-[85vh] overflow-y-auto">
+                <!-- Content loaded dynamically -->
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let executions = [];
+
+function getStatusBadge(status) {
+    const badges = {
+        'pending': '<span class="px-2 py-1 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-900 dark:bg-yellow-900 dark:text-white">Pending</span>',
+        'running': '<span class="px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-900 dark:bg-blue-900 dark:text-white">Running</span>',
+        'completed': '<span class="px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-900 dark:bg-green-900 dark:text-white">Completed</span>',
+        'failed': '<span class="px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-900 dark:bg-red-900 dark:text-white">Failed</span>'
+    };
+    return badges[status] || '<span class="px-2 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-900 dark:bg-gray-800 dark:text-gray-100">' + status + '</span>';
+}
+
+function getStepBadge(step) {
+    const steps = {
+        'junk_filter': '🔍 Filter',
+        'rank_article': '📊 Rank',
+        'extract_agent': '🔬 Extract',
+        'generate_sigma': '⚡ SIGMA',
+        'similarity_search': '🔎 Similarity',
+        'promote_to_queue': '📥 Queue'
+    };
+    return steps[step] || step || '-';
+}
+
+async function loadExecutions() {
+    try {
+        const statusFilter = document.getElementById('statusFilter').value;
+        const url = statusFilter ? `/api/workflow/executions?status=${statusFilter}` : '/api/workflow/executions';
+        
+        const response = await fetch(url);
+        if (response.ok) {
+            const data = await response.json();
+            executions = data.executions || data; // Support both old and new format
+            renderExecutions();
+            updateStats(data);
+        }
+    } catch (error) {
+        console.error('Error loading executions:', error);
+    }
+}
+
+function renderExecutions() {
+    const tbody = document.getElementById('executionsTableBody');
+    
+    if (executions.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" class="px-6 py-4 text-center text-gray-500 dark:text-gray-300">No executions found</td></tr>';
+        return;
+    }
+    
+    tbody.innerHTML = executions.map(exec => `
+        <tr class="hover:bg-gray-50 dark:hover:bg-gray-700">
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">${exec.id}</td>
+            <td class="px-6 py-4 text-sm">
+                <a href="/articles/${exec.article_id}" class="text-purple-600 hover:text-purple-800 dark:text-white dark:hover:text-gray-300">
+                    ${exec.article_title || 'Article ' + exec.article_id}
+                </a>
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap">${getStatusBadge(exec.status)}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">${getStepBadge(exec.current_step)}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
+                ${exec.ranking_score ? exec.ranking_score.toFixed(1) : '-'}
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                ${new Date(exec.created_at).toLocaleString()}
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm">
+                <button onclick="viewExecution(${exec.id})" class="text-blue-600 hover:text-blue-900 dark:text-white dark:hover:text-gray-300 mr-2">View</button>
+                ${(exec.status === 'running' || exec.status === 'pending') ? `<button onclick="openLiveExecutionView(${exec.id})" class="text-green-600 hover:text-green-900 dark:text-green-400 dark:hover:text-green-300 mr-2" title="Live streaming view for execution ${exec.id}">📺 Live</button>` : ''}
+                ${exec.status === 'failed' ? `<button onclick="retryExecution(${exec.id})" class="text-green-600 hover:text-green-900 dark:text-white dark:hover:text-gray-300 mr-2">Retry</button>` : ''}
+                ${(exec.status === 'running' || exec.status === 'pending') ? `<button onclick="cancelExecution(${exec.id})" class="text-red-600 hover:text-red-900 dark:text-white dark:hover:text-gray-300">Cancel</button>` : ''}
+            </td>
+        </tr>
+    `).join('');
+}
+
+function updateStats(data) {
+    // Use accurate counts from API response if available, otherwise calculate from filtered array
+    const stats = {
+        total: data?.total !== undefined ? data.total : executions.length,
+        running: data?.running !== undefined ? data.running : executions.filter(e => e.status === 'running').length,
+        completed: data?.completed !== undefined ? data.completed : executions.filter(e => e.status === 'completed').length,
+        failed: data?.failed !== undefined ? data.failed : executions.filter(e => e.status === 'failed').length
+    };
+    
+    document.getElementById('totalExecutions').textContent = stats.total;
+    document.getElementById('runningExecutions').textContent = stats.running;
+    document.getElementById('completedExecutions').textContent = stats.completed;
+    document.getElementById('failedExecutions').textContent = stats.failed;
+}
+
+function highlightCurrentStep(step) {
+    // Remove all highlights
+    document.querySelectorAll('.workflow-node').forEach(node => {
+        node.style.filter = 'none';
+        node.style.stroke = 'none';
+        node.style.strokeWidth = '0';
+    });
+    
+    // Highlight current step
+    if (step) {
+        const node = document.querySelector(`[data-step="${step}"]`);
+        if (node) {
+            node.style.filter = 'url(#glow)';
+            node.style.stroke = '#fbbf24';
+            node.style.strokeWidth = '3';
+        }
+    }
+}
+
+function formatJSON(obj) {
+    if (!obj) return '<span class="text-gray-400">null</span>';
+    return '<pre class="bg-gray-50 dark:bg-gray-900 p-3 rounded text-xs overflow-x-auto border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300">' + 
+           JSON.stringify(obj, null, 2).replace(/</g, '&lt;').replace(/>/g, '&gt;') + 
+           '</pre>';
+}
+
+function formatText(text, maxLength = 500) {
+    if (!text) return '<span class="text-gray-400">null</span>';
+    const truncated = text.length > maxLength ? text.substring(0, maxLength) + '...' : text;
+    return '<pre class="bg-gray-50 dark:bg-gray-900 p-3 rounded text-xs overflow-x-auto border border-gray-200 dark:border-gray-700 whitespace-pre-wrap break-words text-gray-700 dark:text-gray-300">' + 
+           truncated.replace(/</g, '&lt;').replace(/>/g, '&gt;') + 
+           '</pre>';
+}
+
+async function viewExecution(executionId) {
+    const modal = document.getElementById('executionModal');
+    const contentDiv = document.getElementById('executionDetailContent');
+    
+    if (!modal || !contentDiv) {
+        console.error('Modal elements not found. Modal:', !!modal, 'ContentDiv:', !!contentDiv);
+        alert('Error: Execution detail modal not found. Please refresh the page.');
+        return;
+    }
+    
+    try {
+        const response = await fetch(`/api/workflow/executions/${executionId}`);
+        if (response.ok) {
+            const exec = await response.json();
+            
+            // Highlight current step in visualization
+            highlightCurrentStep(exec.current_step);
+            
+            const config = exec.config_snapshot || {};
+            
+            const content = `
+                <div class="space-y-4 text-gray-900 dark:text-white">
+                    <!-- Header Info -->
+                    <div class="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg border border-blue-200 dark:border-blue-800">
+                        <div class="grid grid-cols-2 gap-4 text-sm">
+                            <div><strong class="text-gray-900 dark:text-white">Execution ID:</strong> ${exec.id}</div>
+                            <div><strong class="text-gray-900 dark:text-white">Article:</strong> <a href="/articles/${exec.article_id}" class="text-purple-600 dark:text-white hover:underline">${exec.article_title || 'Article ' + exec.article_id}</a></div>
+                            <div><strong class="text-gray-900 dark:text-white">Status:</strong> ${getStatusBadge(exec.status)}</div>
+                            <div><strong class="text-gray-900 dark:text-white">Current Step:</strong> ${getStepBadge(exec.current_step)}</div>
+                            <div><strong class="text-gray-900 dark:text-white">Created:</strong> ${new Date(exec.created_at).toLocaleString()}</div>
+                            ${exec.completed_at ? `<div><strong class="text-gray-900 dark:text-white">Completed:</strong> ${new Date(exec.completed_at).toLocaleString()}</div>` : ''}
+                        </div>
+                        ${exec.error_message ? `<div class="mt-2 bg-red-50 dark:bg-red-900/20 p-2 rounded border border-red-200 dark:border-red-800"><strong>Error:</strong> ${exec.error_message}</div>` : ''}
+                    </div>
+
+                    <!-- Step 0: Junk Filter -->
+                    <details class="border border-blue-200 dark:border-blue-800 rounded-lg overflow-hidden" open>
+                        <summary class="bg-blue-100 dark:bg-blue-900/40 px-4 py-3 cursor-pointer font-semibold text-gray-900 dark:text-white hover:bg-blue-200 dark:hover:bg-blue-900/60">
+                            Step 0: 🔍 Junk Filter
+                        </summary>
+                        <div class="p-4 space-y-3 bg-white dark:bg-gray-800">
+                            <div>
+                                <strong class="text-gray-900 dark:text-white">Inputs:</strong>
+                                <div class="mt-1 text-sm">
+                                    <div>• Article Content Length: ${exec.junk_filter_result?.original_length || 'N/A'} chars</div>
+                                    <div>• Threshold: ${config.junk_filter_threshold || 0.8}</div>
+                                </div>
+                            </div>
+                            <div>
+                                <strong class="text-gray-900 dark:text-white">Outputs:</strong>
+                                ${exec.junk_filter_result ? `
+                                    <div class="mt-1 text-sm">
+                                        <div>• Filtered Content Length: ${exec.junk_filter_result.filtered_length || 0} chars</div>
+                                        <div>• Chunks Kept: ${exec.junk_filter_result.chunks_kept || 0}</div>
+                                        <div>• Chunks Removed: ${exec.junk_filter_result.chunks_removed || 0}</div>
+                                        <div>• Is Huntable: ${exec.junk_filter_result.is_huntable ? '✅ Yes' : '❌ No'}</div>
+                                        <div>• Confidence: ${(exec.junk_filter_result.confidence * 100).toFixed(1)}%</div>
+                                    </div>
+                                    ${formatJSON(exec.junk_filter_result)}
+                                ` : '<span class="text-gray-400">No results</span>'}
+                            </div>
+                        </div>
+                    </details>
+
+                    <!-- Step 1: Rank Article -->
+                    <details class="border border-green-200 dark:border-green-800 rounded-lg overflow-hidden" ${exec.ranking_score ? 'open' : ''}>
+                        <summary class="bg-green-100 dark:bg-green-900/40 px-4 py-3 cursor-pointer font-semibold text-gray-900 dark:text-white hover:bg-green-200 dark:hover:bg-green-900/60">
+                            Step 1: 📊 LLM Ranking ${exec.ranking_score ? `(${exec.ranking_score.toFixed(1)}/10)` : ''}
+                        </summary>
+                        <div class="p-4 space-y-3 bg-white dark:bg-gray-800">
+                            <div>
+                                <strong class="text-gray-900 dark:text-white">Inputs:</strong>
+                                <div class="mt-1 text-sm">
+                                    <div>• Article Title: ${exec.article_title || 'N/A'}</div>
+                                    <div>• Filtered Content: ${exec.junk_filter_result?.filtered_length || 0} chars</div>
+                                    <div>• Threshold: ${config.ranking_threshold ?? 6.0}</div>
+                                </div>
+                            </div>
+                            <div>
+                                <strong class="text-gray-900 dark:text-white">Outputs:</strong>
+                                ${exec.ranking_score ? `
+                                    <div class="mt-1 text-sm">
+                                        <div>• Ranking Score: <strong>${exec.ranking_score.toFixed(1)}/10</strong></div>
+                                        <div>• Threshold: ${(config.ranking_threshold ?? 6.0).toFixed(1)}/10</div>
+                                        <div>• Decision: ${exec.ranking_score >= (config.ranking_threshold ?? 6.0) ? '✅ Continue' : '❌ Stop'}</div>
+                                    </div>
+                                    ${exec.ranking_reasoning ? `
+                                        <details class="mt-3 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+                                            <summary class="bg-gray-50 dark:bg-gray-700/50 px-3 py-2 cursor-pointer text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">
+                                                💭 Reasoning
+                                            </summary>
+                                            <div class="p-3 bg-white dark:bg-gray-800">
+                                                <pre class="text-xs text-gray-700 dark:text-gray-300 whitespace-pre-wrap font-mono">${exec.ranking_reasoning}</pre>
+                                            </div>
+                                        </details>
+                                    ` : ''}
+                                ` : '<span class="text-gray-400">No results</span>'}
+                            </div>
+                        </div>
+                    </details>
+
+                    <!-- Step 2: Extract Agent -->
+                    <details class="border border-yellow-200 dark:border-yellow-800 rounded-lg overflow-hidden" ${exec.extraction_result ? 'open' : ''}>
+                        <summary class="bg-yellow-100 dark:bg-yellow-900/40 px-4 py-3 cursor-pointer font-semibold text-gray-900 dark:text-white hover:bg-yellow-200 dark:hover:bg-yellow-900/60">
+                            Step 2: 🔬 Extract Agent ${exec.extraction_result ? `(${exec.extraction_result.discrete_huntables_count || 0} huntables)` : ''}
+                        </summary>
+                        <div class="p-4 space-y-3 bg-white dark:bg-gray-800">
+                            <div>
+                                <strong class="text-gray-900 dark:text-white">Inputs:</strong>
+                                <div class="mt-1 text-sm">
+                                    <div>• Filtered Content: ${exec.junk_filter_result?.filtered_length || 0} chars</div>
+                                    <div>• Article Title: ${exec.article_title || 'N/A'}</div>
+                                </div>
+                            </div>
+                            <div>
+                                <strong class="text-gray-900 dark:text-white">Outputs:</strong>
+                                ${exec.extraction_result ? `
+                                    <div class="mt-1 text-sm">
+                                        <div>• Discrete Huntables: <strong>${exec.extraction_result.discrete_huntables_count || exec.extraction_result.summary?.count || 0}</strong></div>
+                                        <div>• Observables: ${exec.extraction_result.observables?.length || 0}</div>
+                                        ${exec.extraction_result.summary?.platforms_detected && exec.extraction_result.summary.platforms_detected.length > 0 ? `<div>• Platforms: ${exec.extraction_result.summary.platforms_detected.join(', ')}</div>` : ''}
+                                    </div>
+                                    ${(() => {
+                                        const observables = Array.isArray(exec.extraction_result.observables) ? exec.extraction_result.observables : [];
+                                        return observables.length > 0 ? `
+                                        <details class="mt-2">
+                                            <summary class="cursor-pointer text-sm text-purple-600 dark:text-white hover:underline">View ${observables.length} Observables</summary>
+                                            <div class="mt-2 max-h-64 overflow-y-auto">
+                                                <div class="space-y-2 text-xs bg-gray-50 dark:bg-gray-900 p-3 rounded border border-gray-200 dark:border-gray-700">
+                                                    ${observables.slice(0, 20).map((obs, idx) => {
+                                                        const type = obs.type || 'Unknown';
+                                                        const value = obs.value || '';
+                                                        const platform = obs.platform || '';
+                                                        const sourceContext = obs.source_context || '';
+                                                        return `<div class="border-b border-gray-300 dark:border-gray-600 pb-2">
+                                                            <div class="font-semibold text-gray-900 dark:text-white">${idx + 1}. ${type}</div>
+                                                            <div class="text-gray-700 dark:text-gray-300 break-all">${value.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</div>
+                                                            ${platform ? `<div class="text-gray-600 dark:text-gray-400">Platform: ${platform}</div>` : ''}
+                                                            ${sourceContext ? `<div class="text-gray-600 dark:text-gray-400 italic">Context: ${sourceContext}</div>` : ''}
+                                                        </div>`;
+                                                    }).join('')}
+                                                    ${observables.length > 20 ? `<div class="text-gray-500 dark:text-gray-300">... and ${observables.length - 20} more</div>` : ''}
+                                                </div>
+                                            </div>
+                                        </details>
+                                    ` : '';
+                                    })()}
+                                    ${exec.extraction_result.raw_response ? `
+                                        <details class="mt-2">
+                                            <summary class="cursor-pointer text-sm text-blue-600 dark:text-white hover:underline">View Raw LLM Response</summary>
+                                            <div class="mt-2">${formatText(exec.extraction_result.raw_response, 1000)}</div>
+                                        </details>
+                                    ` : ''}
+                                ` : '<span class="text-gray-400">No results</span>'}
+                            </div>
+                        </div>
+                    </details>
+
+                    <!-- Sub-Agents: Individual Extraction Agents (in workflow execution order) -->
+                    ${exec.extraction_result?.subresults ? `
+                    <details class="border border-cyan-200 dark:border-cyan-800 rounded-lg overflow-hidden">
+                        <summary class="bg-cyan-100 dark:bg-cyan-900/40 px-4 py-3 cursor-pointer font-semibold text-gray-900 dark:text-white hover:bg-cyan-200 dark:hover:bg-cyan-900/60">
+                            🔬 Sub-Agents (Individual Extraction)
+                        </summary>
+                        <div class="p-4 space-y-4 bg-white dark:bg-gray-800">
+                            ${(() => {
+                                const subresults = exec.extraction_result.subresults || {};
+                                // Sub-agents in workflow execution order
+                                const subAgents = [
+                                    { key: 'cmdline', name: 'CmdlineExtract', qaName: 'CmdLineQA', display: 'Command Line Extraction', icon: '💻', order: 1 },
+                                    { key: 'sigma_queries', name: 'SigExtract', qaName: 'SigQA', display: 'SIGMA Query Extraction', icon: '🔍', order: 2 },
+                                    { key: 'event_ids', name: 'EventCodeExtract', qaName: 'EventCodeQA', display: 'Event ID Extraction', icon: '📋', order: 3 },
+                                    { key: 'process_lineage', name: 'ProcTreeExtract', qaName: 'ProcTreeQA', display: 'Process Lineage Extraction', icon: '🌳', order: 4 },
+                                    { key: 'registry_keys', name: 'RegExtract', qaName: 'RegQA', display: 'Registry Key Extraction', icon: '🔑', order: 5 }
+                                ];
+                                
+                                // Get QA results from error_log if available
+                                const qaResults = exec.error_log?.qa_results || {};
+                                
+                                return subAgents.map(subAgent => {
+                                    try {
+                                        const result = subresults[subAgent.key];
+                                        // Ensure items is always an array - check multiple ways
+                                        // Handle case where items is a string (e.g., process_lineage in execution 350)
+                                        let items = [];
+                                        if (result?.items !== undefined && result?.items !== null) {
+                                            if (Array.isArray(result.items)) {
+                                                items = result.items;
+                                            } else {
+                                                // If items is not an array (string, object, etc.), set to empty array
+                                                items = [];
+                                            }
+                                        }
+                                        const count = result?.count || items.length || 0;
+                                        const raw = result?.raw || {};
+                                        
+                                        // Get QA result for this sub-agent (check both agent name and QA name)
+                                        const qaResult = qaResults[subAgent.name] || qaResults[subAgent.qaName] || null;
+                                        const qaVerdict = qaResult?.verdict || qaResult?.status || null;
+                                        const qaFeedback = qaResult?.feedback || null;
+                                        const qaIssues = Array.isArray(qaResult?.issues) ? qaResult.issues : [];
+                                        
+                                        return `
+                                        <details class="border border-cyan-200 dark:border-cyan-700 rounded-lg overflow-hidden">
+                                            <summary class="bg-cyan-50 dark:bg-cyan-900/30 px-4 py-3 cursor-pointer font-medium text-gray-900 dark:text-gray-50 hover:bg-cyan-100 dark:hover:bg-cyan-900/50">
+                                                ${subAgent.icon} ${subAgent.display} <span class="text-gray-700 dark:text-gray-100">${count > 0 ? `(${count} items)` : '(0 items)'}</span>
+                                                ${qaVerdict ? ` ${qaVerdict === 'pass' ? '✅' : qaVerdict === 'fail' ? '❌' : '⚠️'}` : ''}
+                                            </summary>
+                                            <div class="p-4 space-y-3 bg-white dark:bg-gray-800">
+                                                <div>
+                                                    <strong class="text-gray-900 dark:text-white">Inputs:</strong>
+                                                    <div class="mt-1 text-sm">
+                                                        <div>• Filtered Content: ${exec.junk_filter_result?.filtered_length || 0} chars</div>
+                                                        <div>• Article Title: ${exec.article_title || 'N/A'}</div>
+                                                        <div>• Article URL: ${exec.article_url || 'N/A'}</div>
+                                                        <div>• Agent: ${subAgent.name}</div>
+                                                        ${config.agent_models && config.agent_models[`${subAgent.name}_model`] ? `<div>• Model: ${config.agent_models[`${subAgent.name}_model`]}</div>` : ''}
+                                                    </div>
+                                                </div>
+                                                <div>
+                                                    <strong class="text-gray-900 dark:text-white">Outputs:</strong>
+                                                    ${count > 0 ? `
+                                                        <div class="mt-1 text-sm">
+                                                            <div>• Items Extracted: <strong>${count}</strong></div>
+                                                        </div>
+                                                        ${(() => {
+                                                            // Use the items variable we already validated, not result.items
+                                                            // This ensures we use the array-safe version
+                                                            const safeItems = Array.isArray(items) ? items : [];
+                                                            return safeItems.length > 0 ? `
+                                                            <details class="mt-2">
+                                                                <summary class="cursor-pointer text-sm text-purple-600 dark:text-white hover:underline">View ${safeItems.length} Items</summary>
+                                                                <div class="mt-2 max-h-64 overflow-y-auto">
+                                                                    <div class="space-y-2 text-xs bg-gray-50 dark:bg-gray-900 p-3 rounded border border-gray-200 dark:border-gray-700">
+                                                                        ${safeItems.slice(0, 20).map((item, idx) => {
+                                                                            const itemValue = typeof item === 'object' ? JSON.stringify(item, null, 2) : String(item);
+                                                                            return `<div class="border-b border-gray-300 dark:border-gray-600 pb-2">
+                                                                                <div class="font-semibold text-gray-900 dark:text-white">${idx + 1}. Item</div>
+                                                                                <div class="text-gray-700 dark:text-gray-300 break-all whitespace-pre-wrap">${itemValue.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</div>
+                                                                            </div>`;
+                                                                        }).join('')}
+                                                                        ${safeItems.length > 20 ? `<div class="text-gray-500 dark:text-gray-300">... and ${safeItems.length - 20} more</div>` : ''}
+                                                                    </div>
+                                                                </div>
+                                                            </details>
+                                                        ` : '';
+                                                        })()}
+                                                        ${raw && Object.keys(raw).length > 0 ? `
+                                                            <details class="mt-2">
+                                                                <summary class="cursor-pointer text-sm text-blue-600 dark:text-white hover:underline">View Raw Agent Response</summary>
+                                                                <div class="mt-2">${formatJSON(raw)}</div>
+                                                            </details>
+                                                        ` : ''}
+                                                    ` : '<span class="text-gray-400">No items extracted</span>'}
+                                                    
+                                                    ${qaResult ? `
+                                                        <div class="mt-3 border-t border-gray-300 dark:border-gray-600 pt-3">
+                                                            <strong class="text-gray-900 dark:text-white">QA Results (${subAgent.qaName}):</strong>
+                                                            <div class="mt-2">
+                                                                <div class="flex items-center gap-2 mb-2">
+                                                                    <span class="px-2 py-1 rounded text-xs font-semibold ${qaVerdict === 'pass' ? 'bg-green-100 dark:bg-green-900/40 text-green-800 dark:text-green-300' : qaVerdict === 'fail' ? 'bg-red-100 dark:bg-red-900/40 text-red-800 dark:text-red-300' : 'bg-yellow-100 dark:bg-yellow-900/40 text-yellow-800 dark:text-yellow-300'}">
+                                                                        ${qaVerdict === 'pass' ? '✅ PASS' : qaVerdict === 'fail' ? '❌ FAIL' : '⚠️ WARNING'}
+                                                                    </span>
+                                                                </div>
+                                                                ${qaFeedback ? `
+                                                                    <div class="text-sm text-gray-700 dark:text-gray-300 mb-2">
+                                                                        <strong>Feedback:</strong> ${qaFeedback}
+                                                                    </div>
+                                                                ` : ''}
+                                                                ${qaIssues.length > 0 ? `
+                                                                    <div class="text-sm">
+                                                                        <strong class="text-gray-900 dark:text-white">Issues (${qaIssues.length}):</strong>
+                                                                        <ul class="list-disc list-inside mt-1 space-y-1 text-gray-700 dark:text-gray-300">
+                                                                            ${qaIssues.map(issue => {
+                                                                                const issueText = typeof issue === 'string' ? issue : (issue.description || issue.type || JSON.stringify(issue));
+                                                                                return `<li>${issueText.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</li>`;
+                                                                            }).join('')}
+                                                                        </ul>
+                                                                    </div>
+                                                                ` : ''}
+                                                            </div>
+                                                        </div>
+                                                    ` : ''}
+                                                </div>
+                                            </div>
+                                        </details>
+                                    `;
+                                    } catch (error) {
+                                        console.error(`Error rendering sub-agent ${subAgent.name}:`, error);
+                                        return `
+                                        <details class="border border-red-200 dark:border-red-700 rounded-lg overflow-hidden">
+                                            <summary class="bg-red-50 dark:bg-red-900/30 px-4 py-3 cursor-pointer font-medium text-red-900 dark:text-red-100">
+                                                ❌ ${subAgent.display} - Error: ${error.message}
+                                            </summary>
+                                            <div class="p-4 bg-white dark:bg-gray-800">
+                                                <pre class="text-xs text-red-600 dark:text-red-400">${error.stack || error.toString()}</pre>
+                                            </div>
+                                        </details>
+                                    `;
+                                    }
+                                }).join('')}
+                                } catch (error) {
+                                    console.error('Error rendering sub-agents:', error);
+                                    return `<div class="text-red-600 dark:text-red-400 p-4">Error rendering sub-agents: ${error.message}</div>`;
+                                }
+                            })()}
+                        </div>
+                    </details>
+                    ` : ''}
+
+                    <!-- ExtractionSupervisorAgent: Aggregation -->
+                    ${exec.extraction_result?.subresults ? `
+                    <details class="border border-teal-200 dark:border-teal-800 rounded-lg overflow-hidden">
+                        <summary class="bg-teal-100 dark:bg-teal-900/40 px-4 py-3 cursor-pointer font-semibold text-gray-900 dark:text-white hover:bg-teal-200 dark:hover:bg-teal-900/60">
+                            🎯 ExtractionSupervisorAgent (Aggregation)
+                        </summary>
+                        <div class="p-4 space-y-3 bg-white dark:bg-gray-800">
+                            <div>
+                                <strong class="text-gray-900 dark:text-white">Inputs:</strong>
+                                <div class="mt-1 text-sm">
+                                    <div>• Sub-Agent Results: ${Object.keys(exec.extraction_result.subresults || {}).length} sub-agents</div>
+                                    ${Object.entries(exec.extraction_result.subresults || {}).map(([key, data]) => {
+                                        const count = data?.count || data?.items?.length || 0;
+                                        const displayName = key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+                                        return `<div>• ${displayName}: ${count} items</div>`;
+                                    }).join('')}
+                                </div>
+                            </div>
+                            <div>
+                                <strong class="text-gray-900 dark:text-white">Outputs:</strong>
+                                ${exec.extraction_result ? `
+                                    <div class="mt-1 text-sm">
+                                        <div>• Total Observables: <strong>${exec.extraction_result.discrete_huntables_count || exec.extraction_result.observables?.length || 0}</strong></div>
+                                        <div>• Aggregated from ${Object.keys(exec.extraction_result.subresults || {}).length} sub-agents</div>
+                                        ${exec.extraction_result.summary?.platforms_detected && exec.extraction_result.summary.platforms_detected.length > 0 ? `<div>• Platforms: ${exec.extraction_result.summary.platforms_detected.join(', ')}</div>` : ''}
+                                    </div>
+                                    ${exec.extraction_result.content ? `
+                                        <details class="mt-2">
+                                            <summary class="cursor-pointer text-sm text-green-600 dark:text-white hover:underline">View Aggregated Content Summary</summary>
+                                            <div class="mt-2">${formatText(exec.extraction_result.content, 2000)}</div>
+                                        </details>
+                                    ` : ''}
+                                ` : '<span class="text-gray-400">No aggregation results</span>'}
+                            </div>
+                        </div>
+                    </details>
+                    ` : ''}
+
+                    <!-- Step 3: Generate SIGMA -->
+                    <details class="border border-red-200 dark:border-red-800 rounded-lg overflow-hidden" ${exec.sigma_rules && exec.sigma_rules.length > 0 ? 'open' : ''}>
+                        <summary class="bg-red-100 dark:bg-red-900/40 px-4 py-3 cursor-pointer font-semibold text-gray-900 dark:text-white hover:bg-red-200 dark:hover:bg-red-900/60">
+                            Step 3: ⚡ Generate SIGMA ${exec.sigma_rules ? `(${exec.sigma_rules.length} rules)` : '(0 rules)'}
+                        </summary>
+                        <div class="p-4 space-y-3 bg-white dark:bg-gray-800">
+                            <div>
+                                <strong class="text-gray-900 dark:text-white">Inputs:</strong>
+                                <div class="mt-1 text-sm">
+                                    <div>• Extraction Result: ${exec.extraction_result ? exec.extraction_result.discrete_huntables_count + ' huntables' : 'N/A'}</div>
+                                    <div>• Filtered Content: ${exec.junk_filter_result?.filtered_length || 0} chars</div>
+                                </div>
+                            </div>
+                            <div>
+                                <strong class="text-gray-900 dark:text-white">Outputs:</strong>
+                                ${(() => {
+                                    const sigmaRules = Array.isArray(exec.sigma_rules) ? exec.sigma_rules : [];
+                                    return sigmaRules.length > 0 ? `
+                                    <div class="mt-1 text-sm">
+                                        <div>• SIGMA Rules Generated: <strong>${sigmaRules.length}</strong></div>
+                                    </div>
+                                    ${sigmaRules.map((rule, idx) => {
+                                        const ruleTitle = rule.title || 'Untitled';
+                                        const ruleDescription = rule.description || '';
+                                        const ruleDetection = rule.detection || {};
+                                        const ruleLogsource = rule.logsource || {};
+                                        const ruleTags = Array.isArray(rule.tags) ? rule.tags : [];
+                                        const ruleReferences = Array.isArray(rule.references) ? rule.references : [];
+                                        const ruleId = rule.id || '';
+                                        const ruleStatus = rule.status || '';
+                                        const ruleLevel = rule.level || '';
+                                        
+                                        return `
+                                        <details class="mt-3 border border-gray-300 dark:border-gray-600 rounded-lg overflow-hidden" ${idx === 0 ? 'open' : ''}>
+                                            <summary class="cursor-pointer bg-gray-50 dark:bg-gray-900/30 px-4 py-3 font-semibold text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-900/50">
+                                                Rule ${idx + 1}: ${ruleTitle}
+                                            </summary>
+                                            <div class="p-4 bg-white dark:bg-gray-800 space-y-4">
+                                                ${ruleDescription ? `
+                                                    <div>
+                                                        <strong class="text-gray-900 dark:text-white text-sm">Description:</strong>
+                                                        <p class="mt-1 text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">${ruleDescription.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</p>
+                                                    </div>
+                                                ` : ''}
+                                                
+                                                ${ruleId ? `
+                                                    <div>
+                                                        <strong class="text-gray-900 dark:text-white text-sm">Rule ID:</strong>
+                                                        <span class="ml-2 text-sm text-gray-600 dark:text-gray-400 font-mono">${ruleId}</span>
+                                                    </div>
+                                                ` : ''}
+                                                
+                                                ${ruleStatus || ruleLevel ? `
+                                                    <div class="flex gap-4">
+                                                        ${ruleStatus ? `
+                                                            <div>
+                                                                <strong class="text-gray-900 dark:text-white text-sm">Status:</strong>
+                                                                <span class="ml-2 text-sm text-gray-600 dark:text-gray-400">${ruleStatus}</span>
+                                                            </div>
+                                                        ` : ''}
+                                                        ${ruleLevel ? `
+                                                            <div>
+                                                                <strong class="text-gray-900 dark:text-white text-sm">Level:</strong>
+                                                                <span class="ml-2 text-sm text-gray-600 dark:text-gray-400">${ruleLevel}</span>
+                                                            </div>
+                                                        ` : ''}
+                                                    </div>
+                                                ` : ''}
+                                                
+                                                ${Object.keys(ruleLogsource).length > 0 ? `
+                                                    <div>
+                                                        <strong class="text-gray-900 dark:text-white text-sm">Log Source:</strong>
+                                                        <pre class="mt-1 bg-gray-50 dark:bg-gray-900 p-3 rounded text-xs overflow-x-auto border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300">${JSON.stringify(ruleLogsource, null, 2).replace(/</g, '&lt;').replace(/>/g, '&gt;')}</pre>
+                                                    </div>
+                                                ` : ''}
+                                                
+                                                ${Object.keys(ruleDetection).length > 0 ? `
+                                                    <div>
+                                                        <strong class="text-gray-900 dark:text-white text-sm">Detection Logic:</strong>
+                                                        <pre class="mt-1 bg-gray-50 dark:bg-gray-900 p-3 rounded text-xs overflow-x-auto border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300">${JSON.stringify(ruleDetection, null, 2).replace(/</g, '&lt;').replace(/>/g, '&gt;')}</pre>
+                                                    </div>
+                                                ` : ''}
+                                                
+                                                ${ruleTags.length > 0 ? `
+                                                    <div>
+                                                        <strong class="text-gray-900 dark:text-white text-sm">Tags:</strong>
+                                                        <div class="mt-1 flex flex-wrap gap-2">
+                                                            ${ruleTags.map(tag => `<span class="px-2 py-1 bg-gray-100 dark:bg-gray-900/30 text-gray-700 dark:text-gray-300 rounded text-xs">${tag}</span>`).join('')}
+                                                        </div>
+                                                    </div>
+                                                ` : ''}
+                                                
+                                                ${ruleReferences.length > 0 ? `
+                                                    <div>
+                                                        <strong class="text-gray-900 dark:text-white text-sm">References:</strong>
+                                                        <ul class="mt-1 list-disc list-inside text-sm text-gray-600 dark:text-gray-400 space-y-1">
+                                                            ${ruleReferences.map(ref => `<li><a href="${ref}" target="_blank" class="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 hover:underline break-all">${ref}</a></li>`).join('')}
+                                                        </ul>
+                                                    </div>
+                                                ` : ''}
+                                                
+                                        <details class="mt-2">
+                                                    <summary class="cursor-pointer text-xs text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200">
+                                                        View Full Rule JSON
+                                                    </summary>
+                                                    <pre class="mt-2 bg-gray-50 dark:bg-gray-900 p-3 rounded text-xs overflow-x-auto border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300">${JSON.stringify(rule, null, 2).replace(/</g, '&lt;').replace(/>/g, '&gt;')}</pre>
+                                        </details>
+                                            </div>
+                                        </details>
+                                        `;
+                                    }).join('')}
+                                ` : '<span class="text-gray-400">No SIGMA rules generated</span>';
+                                    })()}
+                                
+                                ${(() => {
+                                    // Get conversation log and validation results from error_log
+                                    const sigmaErrorLog = exec.error_log?.generate_sigma || exec.error_log?.sigma_generation;
+                                    const conversationLog = sigmaErrorLog?.conversation_log;
+                                    const validationResults = sigmaErrorLog?.validation_results || [];
+                                    const totalAttempts = sigmaErrorLog?.total_attempts || validationResults.length;
+                                    
+                                    if (conversationLog && conversationLog.length > 0) {
+                                        // Full conversation log display - build HTML string
+                                        let html = '<div class="mt-4 border-t pt-4 border-gray-300 dark:border-gray-600"><details class="w-full" open><summary class="cursor-pointer text-sm font-semibold text-gray-900 dark:text-white hover:text-gray-700 dark:hover:text-gray-100 mb-2">🔄 LLM ↔ pySigma Conversation Log (' + conversationLog.length + ' attempt' + (conversationLog.length !== 1 ? 's' : '') + ')</summary>';
+                                        html += '<div class="text-xs text-gray-600 dark:text-gray-400 mb-2 mt-2">Shows the iterative validation process between the LLM and pySigma validator</div>';
+                                        html += '<div class="space-y-3 max-h-96 overflow-y-auto p-3 bg-gray-50 dark:bg-gray-900 rounded border border-gray-200 dark:border-gray-700">';
+                                        
+                                        conversationLog.forEach((entry, idx) => {
+                                            const attempt = entry.attempt || (idx + 1);
+                                            const attemptBadgeColor = idx === conversationLog.length - 1 ? 'bg-green-500' : 'bg-blue-500';
+                                            const attemptIcon = idx === conversationLog.length - 1 ? '✅' : '🔄';
+                                            
+                                            html += '<div class="p-3 bg-white dark:bg-gray-800 rounded-lg border-2 ' + (idx === conversationLog.length - 1 ? 'border-green-300 dark:border-green-700' : 'border-blue-300 dark:border-blue-700') + '">';
+                                            html += '<div class="flex items-center mb-2"><span class="px-2 py-1 rounded text-xs font-semibold text-white ' + attemptBadgeColor + ' mr-2">' + attemptIcon + ' Attempt ' + attempt + '</span>';
+                                            html += entry.all_valid ? '<span class="text-xs text-green-600 dark:text-green-400 font-semibold">All Rules Valid</span>' : '<span class="text-xs text-orange-600 dark:text-orange-400 font-semibold">Has Validation Errors</span>';
+                                            html += '</div>';
+                                            
+                                            // Messages
+                                            const messages = entry.messages || [];
+                                            if (messages.length > 0) {
+                                                html += '<div class="mb-3"><div class="text-xs font-semibold text-gray-700 dark:text-white mb-1">Messages:</div>';
+                                                messages.forEach((msg) => {
+                                                    const role = msg.role || 'user';
+                                                    const content = String(msg.content || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                                                    const roleIcon = role === 'system' ? '⚙️' : '👤';
+                                                    const roleColor = role === 'system' ? 'text-purple-700 dark:text-purple-400' : 'text-blue-700 dark:text-blue-400';
+                                                    html += '<details class="mb-2"><summary class="cursor-pointer text-xs ' + roleColor + ' font-medium">' + roleIcon + ' ' + (role === 'system' ? 'System Prompt' : 'User Prompt') + '</summary>';
+                                                    html += '<pre class="mt-1 p-2 bg-white dark:bg-gray-800 rounded text-xs text-gray-700 dark:text-gray-300 whitespace-pre-wrap break-words border border-gray-200 dark:border-gray-700">' + content + '</pre></details>';
+                                                });
+                                                html += '</div>';
+                                            }
+                                            
+                                            // LLM Response
+                                            const llmResponse = String(entry.llm_response || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                                            if (llmResponse) {
+                                                html += '<details class="mb-2"><summary class="cursor-pointer text-xs text-green-700 dark:text-green-400 font-medium">🤖 LLM Response</summary>';
+                                                html += '<pre class="mt-1 p-2 bg-white dark:bg-gray-800 rounded text-xs text-gray-700 dark:text-gray-300 whitespace-pre-wrap break-words border border-gray-200 dark:border-gray-700">' + llmResponse + '</pre></details>';
+                                            }
+                                            
+                                            // Validation results
+                                            const validation = entry.validation || [];
+                                            if (validation.length > 0) {
+                                                html += '<div class="mb-2"><div class="text-xs font-semibold text-gray-700 dark:text-white mb-1">pySigma Validation:</div>';
+                                                validation.forEach((vr, vrIdx) => {
+                                                    const validationIcon = vr.is_valid ? '✅' : '❌';
+                                                    const validationColor = vr.is_valid ? 'text-green-700 dark:text-green-400' : 'text-red-700 dark:text-red-400';
+                                                    const borderColor = vr.is_valid ? 'border-green-300 dark:border-green-700' : 'border-red-300 dark:border-red-700';
+                                                    html += '<div class="p-2 bg-white dark:bg-gray-800 rounded border ' + borderColor + ' mb-1">';
+                                                    html += '<div class="flex items-center mb-1"><span class="text-xs font-semibold ' + validationColor + '">' + validationIcon + ' Rule ' + (vrIdx + 1) + ': ' + (vr.is_valid ? 'Valid' : 'Invalid') + '</span></div>';
+                                                    if (vr.errors && vr.errors.length > 0) {
+                                                        html += '<div class="text-xs mt-1"><strong class="text-red-700 dark:text-red-400">Errors:</strong><ul class="list-disc list-inside ml-2">';
+                                                        vr.errors.forEach(e => {
+                                                            html += '<li class="text-red-700 dark:text-red-400 text-xs">' + String(e).replace(/</g,'&lt;').replace(/>/g,'&gt;') + '</li>';
+                                                        });
+                                                        html += '</ul></div>';
+                                                    }
+                                                    if (vr.warnings && vr.warnings.length > 0) {
+                                                        html += '<div class="text-xs mt-1"><strong class="text-yellow-700 dark:text-yellow-400">Warnings:</strong><ul class="list-disc list-inside ml-2">';
+                                                        vr.warnings.forEach(w => {
+                                                            html += '<li class="text-yellow-700 dark:text-yellow-400 text-xs">' + String(w).replace(/</g,'&lt;').replace(/>/g,'&gt;') + '</li>';
+                                                        });
+                                                        html += '</ul></div>';
+                                                    }
+                                                    html += '</div>';
+                                                });
+                                                html += '</div>';
+                                            }
+                                            
+                                            html += '</div>';
+                                        });
+                                        
+                                        html += '</div></details></div>';
+                                        return html;
+                                    } else if (validationResults && validationResults.length > 0) {
+                                        // Show validation results summary when no conversation log but validation occurred
+                                        let html = '<div class="mt-4 border-t pt-4 border-gray-300 dark:border-gray-600"><details class="w-full" open><summary class="cursor-pointer text-sm font-semibold text-gray-900 dark:text-white hover:text-gray-700 dark:hover:text-gray-100 mb-2">🔄 pySigma Validation Results (' + validationResults.length + ' attempt' + (validationResults.length !== 1 ? 's' : '') + ')</summary>';
+                                        html += '<div class="text-xs text-gray-600 dark:text-gray-400 mb-2 mt-2">Shows the validation process between the LLM and pySigma validator</div>';
+                                        html += '<div class="space-y-3 max-h-96 overflow-y-auto p-3 bg-gray-50 dark:bg-gray-900 rounded border border-gray-200 dark:border-gray-700">';
+                                        
+                                        validationResults.forEach((vr, idx) => {
+                                            const validationIcon = vr.is_valid ? '✅' : '❌';
+                                            const validationColor = vr.is_valid ? 'text-green-700 dark:text-green-400' : 'text-red-700 dark:text-red-400';
+                                            const borderColor = vr.is_valid ? 'border-green-300 dark:border-green-700' : 'border-red-300 dark:border-red-700';
+                                            html += '<div class="p-3 bg-white dark:bg-gray-800 rounded-lg border-2 ' + borderColor + '">';
+                                            html += '<div class="flex items-center mb-2"><span class="px-2 py-1 rounded text-xs font-semibold text-white ' + (vr.is_valid ? 'bg-green-500' : 'bg-red-500') + ' mr-2">' + validationIcon + ' Attempt ' + (idx + 1) + '</span>';
+                                            html += '<span class="font-semibold ' + validationColor + ' text-xs">' + (vr.is_valid ? 'Valid' : 'Invalid') + '</span></div>';
+                                            if (vr.errors && vr.errors.length > 0) {
+                                                html += '<div class="text-xs mt-2"><strong class="text-red-700 dark:text-red-400">Errors:</strong><ul class="list-disc list-inside ml-2">';
+                                                vr.errors.forEach(e => {
+                                                    html += '<li class="text-red-700 dark:text-red-400 text-xs">' + String(e).replace(/</g,'&lt;').replace(/>/g,'&gt;') + '</li>';
+                                                });
+                                                html += '</ul></div>';
+                                            }
+                                            if (vr.warnings && vr.warnings.length > 0) {
+                                                html += '<div class="text-xs mt-2"><strong class="text-yellow-700 dark:text-yellow-400">Warnings:</strong><ul class="list-disc list-inside ml-2">';
+                                                vr.warnings.forEach(w => {
+                                                    html += '<li class="text-yellow-700 dark:text-yellow-400 text-xs">' + String(w).replace(/</g,'&lt;').replace(/>/g,'&gt;') + '</li>';
+                                                });
+                                                html += '</ul></div>';
+                                            }
+                                            html += '</div>';
+                                        });
+                                        
+                                        html += '</div></details></div>';
+                                        return html;
+                                    }
+                                    return '';
+                                })()}
+                            </div>
+                        </div>
+                    </details>
+
+                    <!-- Step 4: Similarity Search -->
+                    <details class="border border-pink-200 dark:border-pink-800 rounded-lg overflow-hidden" ${exec.similarity_results !== null && exec.similarity_results !== undefined ? 'open' : ''}>
+                        <summary class="bg-pink-100 dark:bg-pink-900/40 px-4 py-3 cursor-pointer font-semibold text-gray-900 dark:text-white hover:bg-pink-200 dark:hover:bg-pink-900/60">
+                            Step 4: 🔎 Similarity Search
+                        </summary>
+                        <div class="p-4 space-y-3 bg-white dark:bg-gray-800">
+                            <div>
+                                <strong class="text-gray-900 dark:text-white">Inputs:</strong>
+                                <div class="mt-1 text-sm">
+                                    <div>• SIGMA Rules: ${exec.sigma_rules ? exec.sigma_rules.length : 0}</div>
+                                    <div>• Similarity Threshold: ${config.similarity_threshold || 0.5}</div>
+                                </div>
+                            </div>
+                            <div>
+                                <strong class="text-gray-900 dark:text-white">Outputs:</strong>
+                                ${exec.similarity_results !== null && exec.similarity_results !== undefined ? `
+                                    ${exec.similarity_results.length > 0 ? `
+                                    <div class="mt-1 text-sm">
+                                        <div>• Results: ${exec.similarity_results.length}</div>
+                                            <div>• Max Similarity: ${(Math.max(...exec.similarity_results.map(r => r.max_similarity || 0)) * 100).toFixed(1)}%</div>
+                                        </div>
+                                        <details class="mt-3 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden" open>
+                                            <summary class="bg-gray-50 dark:bg-gray-700/50 px-3 py-2 cursor-pointer text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">
+                                                🔍 View Similarity Results (${exec.similarity_results.reduce((sum, r) => sum + (r.similar_rules?.length || 0), 0)} similar rules found)
+                                            </summary>
+                                            <div class="p-3 bg-white dark:bg-gray-800 max-h-96 overflow-y-auto space-y-3">
+                                                ${exec.similarity_results.map((result, idx) => `
+                                                    <div class="border border-gray-200 dark:border-gray-700 rounded-lg p-3 bg-gray-50 dark:bg-gray-900">
+                                                        <div class="mb-2">
+                                                            <div class="font-semibold text-gray-900 dark:text-white">Generated Rule ${idx + 1}: ${result.rule_title || 'Untitled'}</div>
+                                                            <div class="text-sm text-gray-600 dark:text-gray-400">Max Similarity: ${((result.max_similarity || 0) * 100).toFixed(1)}%</div>
+                                                            <div class="text-sm text-gray-600 dark:text-gray-400">Similar Rules Found: ${result.similar_rules?.length || 0}</div>
+                                                        </div>
+                                                        ${(() => {
+                                                            const similarRules = Array.isArray(result.similar_rules) ? result.similar_rules : [];
+                                                            return similarRules.length > 0 ? `
+                                                            <div class="mt-2 space-y-2">
+                                                                ${similarRules.map((similarRule, ruleIdx) => `
+                                                                    <div class="border border-gray-300 dark:border-gray-600 rounded p-2 bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer transition-colors" 
+                                                                         onclick="showSimilarRuleDetails(${ruleIdx}, ${idx})" 
+                                                                         data-rule-data='${JSON.stringify(similarRule).replace(/'/g, "&#39;")}'>
+                                                                        <div class="flex items-start justify-between">
+                                                                            <div class="flex-1">
+                                                                                <div class="font-medium text-blue-600 dark:text-blue-400 hover:underline">${similarRule.title || 'Untitled Rule'}</div>
+                                                                                ${similarRule.description ? `<div class="text-xs text-gray-600 dark:text-gray-400 mt-1 line-clamp-2">${similarRule.description.substring(0, 150)}${similarRule.description.length > 150 ? '...' : ''}</div>` : ''}
+                                                                                <div class="flex flex-wrap gap-2 mt-2">
+                                                                                    ${similarRule.rule_id ? `<span class="text-xs px-2 py-1 bg-gray-200 dark:bg-gray-700 rounded text-gray-700 dark:text-gray-300">ID: ${similarRule.rule_id}</span>` : ''}
+                                                                                    ${similarRule.level ? `<span class="text-xs px-2 py-1 bg-purple-100 dark:bg-purple-900 rounded text-purple-700 dark:text-purple-300">Level: ${similarRule.level}</span>` : ''}
+                                                                                    ${similarRule.status ? `<span class="text-xs px-2 py-1 bg-green-100 dark:bg-green-900 rounded text-green-700 dark:text-green-300">${similarRule.status}</span>` : ''}
+                                                                                </div>
+                                                                            </div>
+                                                                            <div class="ml-3 text-right">
+                                                                                <div class="text-lg font-bold text-blue-600 dark:text-blue-400">${((similarRule.similarity || 0) * 100).toFixed(1)}%</div>
+                                                                                <div class="text-xs text-gray-500 dark:text-gray-400">similar</div>
+                                                                            </div>
+                                                                        </div>
+                                                                    </div>
+                                                                `).join('')}
+                                                            </div>
+                                                        ` : `
+                                                            <div class="text-sm text-gray-500 dark:text-gray-400 italic mt-2">No similar rules found above threshold</div>
+                                                        `}
+                                                    </div>
+                                                `).join('')}
+                                            </div>
+                                        </details>
+                                    ` : `
+                                        <div class="mt-1 text-sm">
+                                            <div class="text-green-600 dark:text-green-400">✅ Similarity search completed successfully</div>
+                                            <div>• Results: 0 (no similar rules found)</div>
+                                        </div>
+                                    `}
+                                ` : `
+                                    <div class="mt-1 text-sm">
+                                        <div class="text-orange-600 dark:text-orange-400">⚠️ Similarity search did not run</div>
+                                        ${exec.error_log && exec.error_log.similarity_search ? `
+                                            <div class="mt-2 text-red-600 dark:text-red-400">
+                                                <strong>Error:</strong> ${exec.error_log.similarity_search}
+                                            </div>
+                                        ` : ''}
+                                        ${exec.error_message && exec.current_step === 'similarity_search' ? `
+                                            <div class="mt-2 text-red-600 dark:text-red-400">
+                                                <strong>Error:</strong> ${exec.error_message}
+                                    </div>
+                                        ` : `
+                                            <div class="mt-2 text-gray-600 dark:text-gray-400">
+                                                Similarity search step was skipped or did not execute.
+                                            </div>
+                                        `}
+                                    </div>
+                                `}
+                            </div>
+                        </div>
+                    </details>
+
+                    <!-- Step 5: Queue Promotion -->
+                    <details class="border border-purple-200 dark:border-purple-800 rounded-lg overflow-hidden">
+                        <summary class="bg-purple-100 dark:bg-purple-900/40 px-4 py-3 cursor-pointer font-semibold text-gray-900 dark:text-white hover:bg-purple-200 dark:hover:bg-purple-900/60">
+                            Step 5: 📥 Queue Promotion
+                        </summary>
+                        <div class="p-4 space-y-3 bg-white dark:bg-gray-800">
+                            <div>
+                                <strong class="text-gray-900 dark:text-white">Inputs:</strong>
+                                <div class="mt-1 text-sm">
+                                    <div>• SIGMA Rules: ${exec.sigma_rules ? exec.sigma_rules.length : 0}</div>
+                                    <div>• Similarity Results: ${exec.similarity_results ? exec.similarity_results.length : 0}</div>
+                                    <div>• Similarity Threshold: ${config.similarity_threshold || 0.5}</div>
+                                </div>
+                            </div>
+                            <div>
+                                <strong class="text-gray-900 dark:text-white">Outputs:</strong>
+                                <div class="mt-1 text-sm">
+                                    ${exec.queued_rules_count > 0 ? `
+                                        <div>• Rules Queued: <span class="font-semibold text-purple-600 dark:text-purple-400 cursor-pointer hover:underline" onclick="navigateToQueuedRules(${exec.id}, ${JSON.stringify(exec.queued_rule_ids || [])})">${exec.queued_rules_count}</span></div>
+                                        <div class="text-green-600 dark:text-green-400 mt-1">✅ Rules queued for review</div>
+                                        ${(() => {
+                                            const queuedRuleIds = Array.isArray(exec.queued_rule_ids) ? exec.queued_rule_ids : [];
+                                            return queuedRuleIds.length > 0 ? `
+                                            <div class="mt-2 space-y-1">
+                                                ${queuedRuleIds.map((ruleId, idx) => `
+                                                    <div class="text-xs">
+                                                        <a href="/workflow#queue" 
+                                                           onclick="const e = arguments[0] || window.event; e.preventDefault(); e.stopPropagation(); highlightQueuedRule(${ruleId}); return false;" 
+                                                           class="text-purple-600 dark:text-purple-400 hover:underline cursor-pointer">
+                                                            📋 View Queued Rule #${ruleId}
+                                                        </a>
+                                </div>
+                                                `).join('')}
+                                            </div>
+                                        ` : '';
+                                            })()}
+                                    ` : exec.similarity_results !== null && exec.similarity_results !== undefined ? `
+                                        <div>• Rules Queued: 0</div>
+                                        ${exec.similarity_results.filter(r => (r.max_similarity || 0) < (config.similarity_threshold || 0.5)).length === 0 ? `
+                                            <div class="text-orange-600 dark:text-orange-400 mt-1">⚠️ No rules queued (all above similarity threshold)</div>
+                                        ` : `
+                                            <div class="text-orange-600 dark:text-orange-400 mt-1">⚠️ No rules queued (unexpected - similarity below threshold but not queued)</div>
+                                        `}
+                                    ` : `
+                                        <div>• Rules Queued: 0</div>
+                                        <div class="text-orange-600 dark:text-orange-400 mt-1">⚠️ No rules queued (similarity search did not run)</div>
+                                    `}
+                                    ${exec.queued_rules_count === 0 ? `
+                                        <div class="mt-1">• Check <a href="/workflow#queue" class="text-purple-600 dark:text-purple-400 hover:underline">SIGMA Queue</a> for queued rules</div>
+                                    ` : ''}
+                                </div>
+                            </div>
+                        </div>
+                    </details>
+
+                    <!-- QA Agent Results -->
+                    ${exec.error_log?.qa_results && Object.keys(exec.error_log.qa_results).length > 0 ? `
+                    <details class="border border-indigo-200 dark:border-indigo-800 rounded-lg overflow-hidden">
+                        <summary class="bg-indigo-100 dark:bg-indigo-900/40 px-4 py-3 cursor-pointer font-semibold text-gray-900 dark:text-white hover:bg-indigo-200 dark:hover:bg-indigo-900/60">
+                            🔍 QA Agent Results
+                        </summary>
+                        <div class="p-4 space-y-4 bg-white dark:bg-gray-800">
+                            ${Object.entries(exec.error_log.qa_results).map(([agentName, qaResult]) => {
+                                const verdict = qaResult.verdict || 'unknown';
+                                const verdictIcon = verdict === 'pass' ? '✅' : verdict === 'critical_failure' ? '❌' : '⚠️';
+                                const verdictBadgeClass = verdict === 'pass' ? 'bg-green-100 dark:bg-green-900/40 text-green-800 dark:text-green-300' : 
+                                                          verdict === 'critical_failure' ? 'bg-red-100 dark:bg-red-900/40 text-red-800 dark:text-red-300' : 
+                                                          'bg-yellow-100 dark:bg-yellow-900/40 text-yellow-800 dark:text-yellow-300';
+                                const issues = qaResult.issues || [];
+                                
+                                return `
+                                    <div class="border border-gray-200 dark:border-gray-700 rounded-lg p-4 bg-gray-50 dark:bg-gray-900">
+                                        <div class="flex items-center justify-between mb-3">
+                                            <h4 class="font-semibold text-gray-900 dark:text-white">${agentName}</h4>
+                                            <span class="px-3 py-1 rounded-full text-sm font-medium ${verdictBadgeClass}">
+                                                ${verdictIcon} ${verdict.toUpperCase()}
+                                            </span>
+                                        </div>
+                                        ${qaResult.summary ? `
+                                            <div class="mb-3 text-sm text-gray-700 dark:text-gray-300">
+                                                <strong>Summary:</strong> ${qaResult.summary}
+                                            </div>
+                                        ` : ''}
+                                        ${issues.length > 0 ? `
+                                            <div class="mt-3">
+                                                <strong class="text-gray-900 dark:text-white text-sm">Issues Found (${issues.length}):</strong>
+                                                <div class="mt-2 space-y-2">
+                                                    ${issues.map((issue, idx) => {
+                                                        const severityBorderClass = issue.severity === 'high' ? 'border-red-500' : 
+                                                                                    issue.severity === 'medium' ? 'border-yellow-500' : 
+                                                                                    'border-gray-500';
+                                                        return `
+                                                            <div class="border-l-4 ${severityBorderClass} pl-3 py-1 text-sm">
+                                                                <div class="font-medium text-gray-900 dark:text-white">
+                                                                    ${issue.type || 'Unknown'} - ${issue.severity || 'low'} severity
+                                                                    ${issue.location ? ` <span class="text-gray-500 dark:text-gray-400">(${issue.location})</span>` : ''}
+                                                                </div>
+                                                                <div class="text-gray-700 dark:text-gray-300 mt-1">${issue.description || 'No description'}</div>
+                                                            </div>
+                                                        `;
+                                                    }).join('')}
+                                                </div>
+                                            </div>
+                                        ` : `
+                                            <div class="text-sm text-green-600 dark:text-green-400">✅ No issues found</div>
+                                        `}
+                                    </div>
+                                `;
+                            }).join('')}
+                        </div>
+                    </details>
+                    ` : ''}
+
+                    <!-- Configuration -->
+                    <details class="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+                        <summary class="bg-gray-100 dark:bg-gray-700 px-4 py-3 cursor-pointer font-semibold text-gray-900 dark:text-white hover:bg-gray-200 dark:hover:bg-gray-600">
+                            ⚙️ Configuration Snapshot
+                        </summary>
+                        <div class="p-4 bg-white dark:bg-gray-800">
+                            ${formatJSON(exec.config_snapshot)}
+                        </div>
+                    </details>
+                </div>
+            `;
+            
+            contentDiv.innerHTML = content;
+            modal.classList.remove('hidden');
+        } else {
+            // Handle non-ok response
+            const errorText = await response.text();
+            let errorMessage = `Failed to load execution details (${response.status})`;
+            try {
+                const errorData = JSON.parse(errorText);
+                errorMessage = errorData.detail || errorMessage;
+            } catch (e) {
+                errorMessage = errorText || errorMessage;
+            }
+            contentDiv.innerHTML = 
+                `<div class="text-red-600 dark:text-red-400 p-4">Error loading execution details: ${errorMessage}</div>`;
+            modal.classList.remove('hidden');
+        }
+    } catch (error) {
+        console.error('Error loading execution details:', error);
+        contentDiv.innerHTML = 
+            `<div class="text-red-600 dark:text-red-400 p-4">Error loading execution details: ${error.message}</div>`;
+        modal.classList.remove('hidden');
+    }
+}
+
+async function cancelExecution(executionId) {
+    if (!confirm('Cancel this execution? This will mark it as failed.')) return;
+    
+    try {
+        const response = await fetch(`/api/workflow/executions/${executionId}/cancel`, { method: 'POST' });
+        if (response.ok) {
+            const data = await response.json();
+            alert(data.message || 'Execution cancelled successfully');
+            await loadExecutions();
+        } else {
+            const error = await response.json();
+            alert(error.detail || 'Error cancelling execution');
+        }
+    } catch (error) {
+        console.error('Error cancelling execution:', error);
+        alert('Error cancelling execution: ' + error.message);
+    }
+}
+
+async function retryExecution(executionId) {
+    if (!confirm('Retry this failed execution?')) return;
+    
+    try {
+        const response = await fetch(`/api/workflow/executions/${executionId}/retry`, { method: 'POST' });
+        if (response.ok) {
+            alert('Retry initiated successfully');
+            await loadExecutions();
+        } else {
+            alert('Error retrying execution');
+        }
+    } catch (error) {
+        console.error('Error retrying execution:', error);
+        alert('Error retrying execution');
+    }
+}
+
+function closeModal() {
+    document.getElementById('executionModal').classList.add('hidden');
+}
+
+// Close modal when clicking outside
+const executionModal = document.getElementById('executionModal');
+if (executionModal) {
+    executionModal.addEventListener('click', function(e) {
+        if (e.target === this) {
+            closeModal();
+        }
+    });
+}
+
+const executeModal = document.getElementById('executeModal');
+if (executeModal) {
+    executeModal.addEventListener('click', function(e) {
+        if (e.target === this) {
+            closeExecuteModal();
+        }
+    });
+}
+
+// Close modal with ESC key
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+        const executionModal = document.getElementById('executionModal');
+        const executeModal = document.getElementById('executeModal');
+        
+        if (executionModal && !executionModal.classList.contains('hidden')) {
+            closeModal();
+        }
+        if (executeModal && !executeModal.classList.contains('hidden')) {
+            closeExecuteModal();
+        }
+    }
+});
+
+function filterExecutions() {
+    loadExecutions();
+}
+
+function refreshExecutions() {
+    loadExecutions();
+}
+
+async function cleanupStaleExecutions() {
+    if (!confirm('Mark all running or pending executions older than 15 minutes as failed?')) {
+        return;
+    }
+    
+    try {
+        const response = await fetch('/api/workflow/executions/cleanup-stale?max_age_hours=0.25', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        if (!response.ok) {
+            let errorMessage = 'Unknown error';
+            try {
+                const errorData = await response.json();
+                errorMessage = errorData.detail || errorData.message || JSON.stringify(errorData);
+            } catch (e) {
+                errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+            }
+            alert(`❌ Cleanup failed: ${errorMessage}`);
+            return;
+        }
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            alert(`✅ ${result.message}`);
+            loadExecutions(); // Refresh the list
+        } else {
+            const errorMsg = result.message || result.error || JSON.stringify(result);
+            alert(`❌ Cleanup failed: ${errorMsg}`);
+        }
+    } catch (error) {
+        console.error('Cleanup error:', error);
+        const errorMsg = error.message || error.toString() || 'Unknown error';
+        alert(`❌ Error cleaning up stale executions: ${errorMsg}`);
+    }
+}
+
+async function triggerStuckExecutions() {
+    const btn = document.getElementById('triggerStuckBtn');
+    const originalText = btn.textContent;
+    
+    if (!confirm('Trigger all stuck pending executions? This will bypass Celery and run them directly.')) {
+        return;
+    }
+    
+    btn.disabled = true;
+    btn.textContent = '⏳ Processing...';
+    
+    try {
+        const response = await fetch('/api/workflow/executions/trigger-stuck', { method: 'POST' });
+        const data = await response.json();
+        
+        if (response.ok) {
+            if (data.count === 0) {
+                alert('✅ No pending executions found.');
+            } else {
+                const message = `✅ Triggered ${data.count} execution(s)\n\n` +
+                              `Successful: ${data.successful}\n` +
+                              `Failed: ${data.failed}`;
+                alert(message);
+            }
+            await loadExecutions();
+        } else {
+            alert('❌ Error: ' + (data.detail || 'Unknown error'));
+        }
+    } catch (error) {
+        console.error('Error triggering stuck executions:', error);
+        alert('Error triggering stuck executions: ' + error.message);
+    } finally {
+        btn.disabled = false;
+        btn.textContent = originalText;
+    }
+}
+
+function openExecuteModal() {
+    const modal = document.getElementById('executeModal');
+    const input = document.getElementById('articleIdInput');
+    
+    modal.classList.remove('hidden');
+    input.value = '';
+    document.getElementById('executeError').classList.add('hidden');
+    
+    // Use setTimeout to ensure focus happens after modal is visible
+    setTimeout(() => {
+        input.focus();
+        input.select();
+    }, 10);
+}
+
+function closeExecuteModal() {
+    document.getElementById('executeModal').classList.add('hidden');
+    document.getElementById('articleIdInput').value = '';
+    document.getElementById('executeError').classList.add('hidden');
+}
+
+async function executeWorkflow() {
+    const articleId = document.getElementById('articleIdInput').value.trim();
+    const useLangGraphServer = document.getElementById('useLangGraphServer').checked;
+    const errorDiv = document.getElementById('executeError');
+    
+    // Validate input
+    if (!articleId || isNaN(articleId) || parseInt(articleId) < 1) {
+        errorDiv.textContent = 'Please enter a valid article ID';
+        errorDiv.classList.remove('hidden');
+        return;
+    }
+    
+    errorDiv.classList.add('hidden');
+    
+    try {
+        const url = `/api/workflow/articles/${articleId}/trigger?use_langgraph_server=${useLangGraphServer}`;
+        const response = await fetch(url, { method: 'POST' });
+        
+        if (response.ok) {
+            const result = await response.json();
+            closeExecuteModal();
+            
+            if (result.via_langgraph_server) {
+                alert('✅ Workflow executed via LangGraph Server\n\n' +
+                      `Execution ID: ${result.execution_id}\n` +
+                      'This will create traces in Langfuse.');
+            } else {
+                alert('✅ Workflow execution started\n\n' +
+                      `Execution ID: ${result.execution_id}\n` +
+                      'Executing via Celery (fast, no traces).');
+            }
+            
+            // Refresh the executions list
+            await loadExecutions();
+        } else {
+            const error = await response.json();
+            errorDiv.textContent = error.detail || 'Failed to execute workflow';
+            errorDiv.classList.remove('hidden');
+        }
+    } catch (error) {
+        console.error('Error executing workflow:', error);
+        errorDiv.textContent = 'Error executing workflow: ' + error.message;
+        errorDiv.classList.remove('hidden');
+    }
+}
+
+// Handle Enter key in article ID input
+document.addEventListener('DOMContentLoaded', function() {
+    const articleIdInput = document.getElementById('articleIdInput');
+    if (articleIdInput) {
+        articleIdInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                executeWorkflow();
+            }
+        });
+    }
+});
+
+// Auto-refresh every 5 seconds
+setInterval(loadExecutions, 5000);
+
+// Load on page load
+loadExecutions();
+
+// Show similar rule details in a modal
+function showSimilarRuleDetails(ruleIdx, resultIdx) {
+    const clickedElement = event.currentTarget;
+    const ruleDataStr = clickedElement.getAttribute('data-rule-data');
+    if (!ruleDataStr) return;
+    
+    try {
+        const ruleData = JSON.parse(ruleDataStr.replace(/&#39;/g, "'"));
+        
+        // Remove any existing modal
+        const existingModal = document.getElementById('similarRuleModal');
+        if (existingModal) {
+            existingModal.remove();
+        }
+        
+        // Create modal
+        const modal = document.createElement('div');
+        modal.id = 'similarRuleModal';
+        modal.className = 'fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50';
+        
+        // Format tags
+        const tagsHtml = ruleData.tags && ruleData.tags.length > 0 ? `
+            <div class="mb-4">
+                <h4 class="text-sm font-medium text-gray-900 dark:text-white mb-2">Tags:</h4>
+                <div class="flex flex-wrap gap-2">
+                    ${ruleData.tags.map(tag => 
+                        `<span class="px-3 py-1 bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-300 rounded text-sm">${tag}</span>`
+                    ).join('')}
+                </div>
+            </div>
+        ` : '';
+        
+        // Format detection if available
+        const detectionHtml = ruleData.detection ? `
+            <div class="mb-4">
+                <h4 class="text-sm font-medium text-gray-900 dark:text-white mb-2">Detection Logic:</h4>
+                <pre class="bg-gray-50 dark:bg-gray-900 p-3 rounded text-xs overflow-x-auto border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300">${JSON.stringify(ruleData.detection, null, 2)}</pre>
+            </div>
+        ` : '';
+        
+        // Format logsource if available
+        const logsourceHtml = ruleData.logsource ? `
+            <div class="mb-4">
+                <h4 class="text-sm font-medium text-gray-900 dark:text-white mb-2">Log Source:</h4>
+                <pre class="bg-gray-50 dark:bg-gray-900 p-3 rounded text-xs overflow-x-auto border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300">${JSON.stringify(ruleData.logsource, null, 2)}</pre>
+            </div>
+        ` : '';
+        
+        modal.innerHTML = `
+            <div class="relative top-20 mx-auto p-5 border w-11/12 max-w-4xl shadow-lg rounded-md bg-white dark:bg-gray-800" style="margin-bottom: 50px;">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-lg font-medium text-gray-900 dark:text-white">🔍 Similar Rule Details</h3>
+                    <button onclick="closeSimilarRuleModal()" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </button>
+                </div>
+                
+                <div class="space-y-4 text-gray-700 dark:text-gray-300 max-h-96 overflow-y-auto">
+                    <div>
+                        <h4 class="text-sm font-medium text-gray-900 dark:text-white mb-1">Title:</h4>
+                        <div class="text-base">${ruleData.title || 'Untitled Rule'}</div>
+                    </div>
+                    
+                    ${ruleData.description ? `
+                        <div>
+                            <h4 class="text-sm font-medium text-gray-900 dark:text-white mb-1">Description:</h4>
+                            <div class="text-sm">${ruleData.description}</div>
+                        </div>
+                    ` : ''}
+                    
+                    <div class="grid grid-cols-2 gap-4">
+                        ${ruleData.rule_id ? `
+                            <div>
+                                <h4 class="text-sm font-medium text-gray-900 dark:text-white mb-1">Rule ID:</h4>
+                                <div class="text-sm">${ruleData.rule_id}</div>
+                            </div>
+                        ` : ''}
+                        ${ruleData.level ? `
+                            <div>
+                                <h4 class="text-sm font-medium text-gray-900 dark:text-white mb-1">Level:</h4>
+                                <div class="text-sm"><span class="px-2 py-1 bg-purple-100 dark:bg-purple-900 text-purple-700 dark:text-purple-300 rounded">${ruleData.level}</span></div>
+                            </div>
+                        ` : ''}
+                        ${ruleData.status ? `
+                            <div>
+                                <h4 class="text-sm font-medium text-gray-900 dark:text-white mb-1">Status:</h4>
+                                <div class="text-sm"><span class="px-2 py-1 bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300 rounded">${ruleData.status}</span></div>
+                            </div>
+                        ` : ''}
+                        <div>
+                            <h4 class="text-sm font-medium text-gray-900 dark:text-white mb-1">Similarity:</h4>
+                            <div class="text-sm font-bold text-blue-600 dark:text-blue-400">${((ruleData.similarity || 0) * 100).toFixed(1)}%</div>
+                        </div>
+                    </div>
+                    
+                    ${ruleData.file_path ? `
+                        <div>
+                            <h4 class="text-sm font-medium text-gray-900 dark:text-white mb-1">File Path:</h4>
+                            <div class="text-xs font-mono text-gray-600 dark:text-gray-400">${ruleData.file_path}</div>
+                        </div>
+                    ` : ''}
+                    
+                    ${tagsHtml}
+                    ${logsourceHtml}
+                    ${detectionHtml}
+                </div>
+                
+                <div class="mt-6 flex justify-end">
+                    <button onclick="closeSimilarRuleModal()" 
+                            class="px-4 py-2 bg-gray-300 dark:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-md hover:bg-gray-400 dark:hover:bg-gray-500 transition-colors">
+                        Close
+                    </button>
+                </div>
+            </div>
+        `;
+        
+        // Add click outside to close
+        modal.addEventListener('click', function(e) {
+            if (e.target === modal) {
+                closeSimilarRuleModal();
+            }
+        });
+        
+        // Add ESC key to close
+        const handleEsc = function(e) {
+            if (e.key === 'Escape') {
+                closeSimilarRuleModal();
+                document.removeEventListener('keydown', handleEsc);
+            }
+        };
+        document.addEventListener('keydown', handleEsc);
+        
+        document.body.appendChild(modal);
+    } catch (error) {
+        console.error('Error parsing rule data:', error);
+        alert('Error displaying rule details');
+    }
+}
+
+function closeSimilarRuleModal() {
+    const modal = document.getElementById('similarRuleModal');
+    if (modal) {
+        modal.remove();
+    }
+}
+
+// Navigate to queued rules
+function navigateToQueuedRules(executionId, ruleIds) {
+    if (ruleIds && ruleIds.length > 0) {
+        // Store rule IDs in sessionStorage for the queue page to highlight
+        sessionStorage.setItem('highlightQueuedRules', JSON.stringify(ruleIds));
+        sessionStorage.setItem('highlightExecutionId', executionId.toString());
+        // Navigate to queue page
+        window.location.href = '/workflow#queue';
+    } else {
+        // Fallback to queue page
+        window.location.href = '/workflow#queue';
+    }
+}
+
+// Highlight a specific queued rule (called from link click)
+function highlightQueuedRule(ruleId) {
+    sessionStorage.setItem('highlightQueuedRules', JSON.stringify([ruleId]));
+    window.location.href = '/workflow#queue';
+}
+
+// Live execution view with SSE streaming
+let liveExecutionEventSource = null;
+let liveExecutionId = null;
+
+function openLiveExecutionView(executionId) {
+    liveExecutionId = executionId;
+    
+    // Create modal
+    const modal = document.createElement('div');
+    modal.id = 'liveExecutionModal';
+    modal.className = 'fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center';
+    modal.innerHTML = `
+        <div class="bg-gray-900 dark:bg-gray-800 rounded-lg shadow-xl w-11/12 max-w-6xl h-5/6 flex flex-col">
+            <div class="flex justify-between items-center p-4 border-b border-gray-700">
+                <h2 class="text-xl font-bold text-white">📺 Live Execution View - Execution ${executionId}</h2>
+                <button onclick="closeLiveExecutionView()" class="text-gray-400 hover:text-white text-2xl">&times;</button>
+            </div>
+            <div id="liveExecutionOutput" class="flex-1 overflow-y-auto p-4 font-mono text-sm text-green-400 bg-black rounded m-4" style="min-height: 400px;">
+                <div class="text-gray-500">Connecting to execution stream...</div>
+            </div>
+            <div class="p-4 border-t border-gray-700 flex justify-between items-center">
+                <div class="text-sm text-gray-400">
+                    <span id="liveExecutionStatus">Status: Connecting...</span>
+                </div>
+                <button onclick="closeLiveExecutionView()" class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded">Close</button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(modal);
+    
+    // Start SSE connection
+    startLiveExecutionStream(executionId);
+}
+
+function closeLiveExecutionView() {
+    if (liveExecutionEventSource) {
+        liveExecutionEventSource.close();
+        liveExecutionEventSource = null;
+    }
+    const modal = document.getElementById('liveExecutionModal');
+    if (modal) {
+        modal.remove();
+    }
+    liveExecutionId = null;
+}
+
+function startLiveExecutionStream(executionId) {
+    const outputDiv = document.getElementById('liveExecutionOutput');
+    const statusSpan = document.getElementById('liveExecutionStatus');
+    
+    // Clear previous content
+    outputDiv.innerHTML = '<div class="text-gray-500">Connecting to execution stream...</div>';
+    
+    // Create EventSource connection
+    const eventSource = new EventSource(`/api/workflow/executions/${executionId}/stream`);
+    liveExecutionEventSource = eventSource;
+    
+    // Format timestamp
+    function formatTime() {
+        return new Date().toLocaleTimeString();
+    }
+    
+    // Append to output
+    function appendOutput(text, className = 'text-green-400') {
+        const line = document.createElement('div');
+        line.className = className;
+        line.textContent = `[${formatTime()}] ${text}`;
+        outputDiv.appendChild(line);
+        outputDiv.scrollTop = outputDiv.scrollHeight;
+    }
+    
+    // Handle connection open
+    eventSource.onopen = () => {
+        appendOutput('✅ Connected to execution stream', 'text-green-400');
+        statusSpan.textContent = 'Status: Connected';
+    };
+    
+    // Handle messages
+    eventSource.onmessage = (event) => {
+        try {
+            const data = JSON.parse(event.data);
+            
+            switch (data.type) {
+                case 'step':
+                    appendOutput(`📍 Step: ${data.step}`, 'text-blue-400');
+                    break;
+                    
+                case 'status':
+                    appendOutput(`📊 Status: ${data.status}`, 'text-yellow-400');
+                    statusSpan.textContent = `Status: ${data.status}`;
+                    break;
+                    
+                case 'llm_interaction':
+                    appendOutput(`\n🤖 LLM Call - ${data.agent} (Attempt ${data.attempt})`, 'text-cyan-400');
+                    if (data.messages && data.messages.length > 0) {
+                        data.messages.forEach((msg, idx) => {
+                            const role = msg.role || 'user';
+                            const content = msg.content || '';
+                            const preview = content.length > 500 ? content.substring(0, 500) + '...' : content;
+                            appendOutput(`  ${role.toUpperCase()}: ${preview}`, 'text-gray-400');
+                        });
+                    }
+                    if (data.response) {
+                        const responsePreview = data.response.length > 1000 ? data.response.substring(0, 1000) + '...' : data.response;
+                        appendOutput(`  RESPONSE: ${responsePreview}`, 'text-green-300');
+                    }
+                    if (data.score !== undefined) {
+                        appendOutput(`  Score: ${data.score}/10`, 'text-yellow-300');
+                    }
+                    if (data.discrete_huntables_count !== undefined) {
+                        appendOutput(`  Discrete Huntables: ${data.discrete_huntables_count}`, 'text-yellow-300');
+                    }
+                    break;
+                    
+                case 'qa_result':
+                    const verdictIcon = data.verdict === 'pass' ? '✅' : data.verdict === 'critical_failure' ? '❌' : '⚠️';
+                    const agentDisplayName = data.agent === 'extract_agent' ? 'Extraction Agent' : data.agent.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+                    appendOutput(`\n${verdictIcon} QA Result - ${agentDisplayName}: ${data.verdict.toUpperCase()}`, 
+                        data.verdict === 'pass' ? 'text-green-400' : data.verdict === 'critical_failure' ? 'text-red-400' : 'text-yellow-400');
+                    if (data.summary) {
+                        const summaryPreview = data.summary.length > 200 ? data.summary.substring(0, 200) + '...' : data.summary;
+                        appendOutput(`  Summary: ${summaryPreview}`, 'text-gray-300');
+                    }
+                    if (data.issues && data.issues.length > 0) {
+                        appendOutput(`  Issues: ${data.issues.length} found`, 'text-yellow-300');
+                        data.issues.slice(0, 3).forEach((issue, idx) => {
+                            const issueText = typeof issue === 'string' ? issue : (issue.description || issue.type || JSON.stringify(issue));
+                            const preview = issueText.length > 150 ? issueText.substring(0, 150) + '...' : issueText;
+                            appendOutput(`    ${idx + 1}. ${preview}`, 'text-gray-400');
+                        });
+                        if (data.issues.length > 3) {
+                            appendOutput(`    ... and ${data.issues.length - 3} more`, 'text-gray-500');
+                        }
+                    }
+                    break;
+                    if (data.summary) {
+                        appendOutput(`  Summary: ${data.summary}`, 'text-gray-300');
+                    }
+                    if (data.issues && data.issues.length > 0) {
+                        appendOutput(`  Issues (${data.issues.length}):`, 'text-orange-400');
+                        data.issues.forEach((issue, idx) => {
+                            appendOutput(`    ${idx + 1}. [${issue.severity}] ${issue.type}: ${issue.description}`, 'text-orange-300');
+                        });
+                    }
+                    break;
+                    
+                case 'ranking':
+                    appendOutput(`\n📊 Ranking Score: ${data.score}/10`, 'text-yellow-400');
+                    if (data.reasoning) {
+                        const reasoningPreview = data.reasoning.length > 500 ? data.reasoning.substring(0, 500) + '...' : data.reasoning;
+                        appendOutput(`  Reasoning: ${reasoningPreview}`, 'text-gray-300');
+                    }
+                    break;
+                    
+                case 'complete':
+                    appendOutput(`\n🏁 Execution ${data.status.toUpperCase()}`, 
+                        data.status === 'completed' ? 'text-green-400' : 'text-red-400');
+                    if (data.error_message) {
+                        appendOutput(`  Error: ${data.error_message}`, 'text-red-300');
+                    }
+                    statusSpan.textContent = `Status: ${data.status}`;
+                    // Close stream after a delay
+                    setTimeout(() => {
+                        if (liveExecutionEventSource) {
+                            liveExecutionEventSource.close();
+                            liveExecutionEventSource = null;
+                        }
+                    }, 2000);
+                    break;
+                    
+                case 'error':
+                    appendOutput(`❌ Error: ${data.message}`, 'text-red-400');
+                    statusSpan.textContent = 'Status: Error';
+                    break;
+                    
+                default:
+                    appendOutput(`Unknown event type: ${data.type}`, 'text-gray-500');
+            }
+        } catch (e) {
+            appendOutput(`Error parsing event: ${e.message}`, 'text-red-400');
+        }
+    };
+    
+    // Handle errors
+    eventSource.onerror = (error) => {
+        appendOutput('❌ Stream error or connection closed', 'text-red-400');
+        statusSpan.textContent = 'Status: Disconnected';
+        if (eventSource.readyState === EventSource.CLOSED) {
+            appendOutput('Stream closed. Execution may have completed.', 'text-gray-500');
+        }
+    };
+}
+</script>
+{% endblock %}
+
