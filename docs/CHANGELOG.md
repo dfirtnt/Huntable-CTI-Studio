@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - **LMStudio Model Display & RAG Results**: LMStudio responses now report the actual model returned by the API (e.g., DeepSeek variants) and Sigma similarity search uses typed vector bindings to avoid asyncpg syntax errors; vector indexes rebuilt to allow embedding writes and restore RAG retrieval.
+- **Chunk Debug Gaps**: `ContentFilter.chunk_content` now advances the next chunk start based on the previous chunk end minus the configured overlap (and always moves forward when a chunk is shorter than the overlap), so sentence-boundary trimming cannot skip characters and the chunk debugger never shows gaps.
 
 ### Security
 - **API Key Exposure**: Removed scripts containing hardcoded API keys from version control

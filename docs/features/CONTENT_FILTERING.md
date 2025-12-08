@@ -221,6 +221,11 @@ def chunk_content(content: str, chunk_size: int = 1000, overlap: int = 200):
     """
 ```
 
+When a sentence boundary pulls the chunk end back, the next chunk starts at most at `end - overlap`
+(or simply at `end` if the chunk is shorter than the overlap) and always moves forward by at least one
+character. This keeps the chunks tightly overlapping without leaving any gaps between what the debugger
+visualizes and what the filter feeds into the LLM.
+
 **Example Chunking:**
 ```
 Original: 1,246 chars
