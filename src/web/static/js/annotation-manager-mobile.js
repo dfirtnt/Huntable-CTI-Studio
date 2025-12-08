@@ -1,5 +1,5 @@
 /**
- * Mobile-Optimized Text Annotation System for CTI Scraper
+ * Mobile-Optimized Text Annotation System for Huntable Detection Studio
  * 
  * Enhanced version with touch support for iPhone/iPad usage
  */

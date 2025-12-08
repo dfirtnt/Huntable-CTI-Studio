@@ -2,6 +2,12 @@
 
 This directory contains comprehensive tests for AI Assistant features, implementing the Priority 1 testing gaps identified in the analysis.
 
+## Priority 1 Coverage (current)
+- UI: 15 cases in `tests/ui/test_ai_assistant_ui.py` covering modal flows, model selection, accessibility, and SIGMA visibility
+- Cross-model integration: 20 cases in `tests/integration/test_ai_cross_model_integration.py` for switching, fallbacks, limits, and error handling
+- Real API integration: 10 cases in `tests/integration/test_ai_real_api_integration.py` for OpenAI/Anthropic/Ollama, rate limits, and cost tracking
+
+
 ## Test Structure
 
 ### 1. UI Tests (`tests/ui/test_ai_assistant_ui.py`)

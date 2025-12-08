@@ -1,5 +1,5 @@
 """
-FastAPI application entrypoint for the CTI Scraper platform.
+FastAPI application entrypoint for the Huntable Detection Studio platform.
 """
 
 from __future__ import annotations
@@ -27,7 +27,7 @@ from src.web.routes import register_routes
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """Application startup and shutdown events."""
-    logger.info("Starting CTI Scraper application…")
+    logger.info("Starting Huntable Detection Studio application…")
 
     try:
         await async_db_manager.create_tables()
@@ -117,13 +117,13 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
     yield
 
-    logger.info("Shutting down CTI Scraper application…")
+    logger.info("Shutting down Huntable Detection Studio application…")
     await async_db_manager.close()
     logger.info("Application shutdown complete")
 
 
 app = FastAPI(
-    title="CTI Scraper - Modern Threat Intelligence Platform",
+    title="Huntable Detection Studio - Modern Threat Intelligence Platform",
     description="Enterprise-grade threat intelligence aggregation and analysis platform",
     version="4.0.0",
     lifespan=lifespan,

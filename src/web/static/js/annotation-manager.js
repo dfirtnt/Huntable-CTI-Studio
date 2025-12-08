@@ -1,5 +1,5 @@
 /**
- * Robust Text Annotation System for CTI Scraper
+ * Robust Text Annotation System for Huntable Detection Studio
  * 
  * Handles text selection, annotation creation, and display with proper
  * error handling and DOM manipulation.

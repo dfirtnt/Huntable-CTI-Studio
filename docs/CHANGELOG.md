@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **LMStudio Model Display & RAG Results**: LMStudio responses now report the actual model returned by the API (e.g., DeepSeek variants) and Sigma similarity search uses typed vector bindings to avoid asyncpg syntax errors; vector indexes rebuilt to allow embedding writes and restore RAG retrieval.
+
 ### Security
 - **API Key Exposure**: Removed scripts containing hardcoded API keys from version control
   - `scripts/eval_observables_count_multiple_models.py` and `scripts/get_full_extract_results.py`

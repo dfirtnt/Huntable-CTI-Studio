@@ -1,5 +1,5 @@
 """
-Shared application-level dependencies for the CTI Scraper web stack.
+Shared application-level dependencies for the Huntable Detection Studio web stack.
 
 This module centralizes objects that need to be imported across many
 routers such as the logger, environment configuration, template engine,

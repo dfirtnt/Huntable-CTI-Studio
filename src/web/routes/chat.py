@@ -358,8 +358,10 @@ async def api_rag_chat(request: Request):
 
             async with rag_service.db_manager.get_session() as session:
                 session.add(chat_log)
+                await session.flush()
+                log_id = chat_log.id
                 await session.commit()
-                logger.info("Logged chat interaction: %s", chat_log.id)
+                logger.info("Logged chat interaction: %s", log_id)
 
         except Exception as exc:  # noqa: BLE001
             logger.warning("Failed to log chat interaction: %s", exc)
