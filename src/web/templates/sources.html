@@ -142,40 +142,7 @@
                             </div>
                         </div>
 
-                        <!-- Quality Metrics -->
-                        {% if source.id in quality_stats and quality_stats[source.id].total_articles > 0 %}
-                        {% set stat = quality_stats[source.id] %}
-                        <div class="bg-gray-100 dark:bg-gray-700 rounded-lg p-3 mb-3" role="region" aria-labelledby="quality-metrics-{{ source.id }}">
-                            <h5 id="quality-metrics-{{ source.id }}" class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">📊 Quality Metrics</h5>
-                            <div class="grid grid-cols-2 md:grid-cols-5 gap-3" role="group" aria-label="Quality metrics for {{ source.name }}">
-                                <div>
-                                    <p class="text-xs text-gray-500 dark:text-gray-400">Total Articles</p>
-                                    <p class="text-sm font-medium text-gray-900 dark:text-white" aria-label="{{ stat.total_articles }} total articles">{{ stat.total_articles }}</p>
-                                </div>
-                                <div>
-                                    <p class="text-xs text-gray-500 dark:text-gray-400">Rejected</p>
-                                    <p class="text-sm font-medium text-red-600 dark:text-red-400" aria-label="{{ stat.rejected_count }} rejected articles ({{ stat.rejection_rate }}%)">{{ stat.rejected_count }} ({{ stat.rejection_rate }}%)</p>
-                                </div>
-                                <div>
-                                    <p class="text-xs text-gray-500 dark:text-gray-400">Chosen</p>
-                                    <p class="text-sm font-medium text-green-600 dark:text-green-400" aria-label="{{ stat.chosen_count }} chosen articles ({{ stat.acceptance_rate }}%)">{{ stat.chosen_count }} ({{ stat.acceptance_rate }}%)</p>
-                                </div>
-                                <div>
-                                    <p class="text-xs text-gray-500 dark:text-gray-400">Unclassified</p>
-                                    <p class="text-sm font-medium text-gray-600 dark:text-gray-400" aria-label="{{ stat.unclassified_count }} unclassified articles">{{ stat.unclassified_count }}</p>
-                                </div>
-                                <div>
-                                    <p class="text-xs text-gray-500 dark:text-gray-400">Avg Hunt Score</p>
-                                    {% if source.id in hunt_score_lookup %}
-                                        {% set hunt_score = hunt_score_lookup[source.id] %}
-                                        <p class="text-sm font-medium text-purple-600 dark:text-purple-400" aria-label="Average hunt score: {{ hunt_score.avg_hunt_score }} out of 100">{{ hunt_score.avg_hunt_score }}/100</p>
-                                    {% else %}
-                                        <p class="text-sm font-medium text-gray-400 dark:text-gray-500">No scores</p>
-                                    {% endif %}
-                                </div>
-                            </div>
-                        </div>
-                        {% endif %}
+
 
                         {% if source.description %}
                         <div class="mb-3">
@@ -301,40 +268,7 @@
                         </div>
                     </div>
 
-                    <!-- Quality Metrics -->
-                    {% if source.id in quality_stats and quality_stats[source.id].total_articles > 0 %}
-                    {% set stat = quality_stats[source.id] %}
-                    <div class="bg-gray-100 dark:bg-gray-700 rounded-lg p-3 mb-3" style="background-color: #f1f3f4;">
-                        <h5 class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">📊 Quality Metrics</h5>
-                        <div class="grid grid-cols-2 md:grid-cols-5 gap-3">
-                            <div>
-                                <p class="text-xs text-gray-500 dark:text-gray-400">Total Articles</p>
-                                <p class="text-sm font-medium text-gray-900 dark:text-gray-100">{{ stat.total_articles }}</p>
-                            </div>
-                            <div>
-                                <p class="text-xs text-gray-500 dark:text-gray-400">Rejected</p>
-                                <p class="text-sm font-medium text-red-600">{{ stat.rejected_count }} ({{ stat.rejection_rate }}%)</p>
-                            </div>
-                            <div>
-                                <p class="text-xs text-gray-500 dark:text-gray-400">Chosen</p>
-                                <p class="text-sm font-medium text-green-600">{{ stat.chosen_count }} ({{ stat.acceptance_rate }}%)</p>
-                            </div>
-                            <div>
-                                <p class="text-xs text-gray-500 dark:text-gray-400">Unclassified</p>
-                                <p class="text-sm font-medium text-gray-600">{{ stat.unclassified_count }}</p>
-                            </div>
-                            <div>
-                                <p class="text-xs text-gray-500 dark:text-gray-400">Avg Hunt Score</p>
-                                {% if source.id in hunt_score_lookup %}
-                                    {% set hunt_score = hunt_score_lookup[source.id] %}
-                                    <p class="text-sm font-medium text-purple-600">{{ hunt_score.avg_hunt_score }}/100</p>
-                                {% else %}
-                                    <p class="text-sm font-medium text-gray-400">No scores</p>
-                                {% endif %}
-                            </div>
-                        </div>
-                    </div>
-                    {% endif %}
+
 
                     <div class="flex items-center space-x-2">
                         <button onclick="showSourceStats({{ source.id }})" class="inline-flex items-center px-3 py-1.5 border border-gray-300 rounded text-xs font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors">
@@ -1144,7 +1078,7 @@ function monitorTaskProgress(taskId, sourceId, sourceName) {
                 <div class="flex items-center space-x-4">
                     <label class="flex items-center">
                         <input type="checkbox" id="adhocForceScrape" name="force_scrape" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
-                        <span class="ml-2 text-sm text-gray-700" style="color: #f1f5f9;">Force scrape even if URL exists</span>
+                        <span class="ml-2 text-sm text-gray-700" style="color: #f1f5f9;">Force scrape even if Article already in databse</span>
                         <div class="relative ml-2 group">
                             <span class="inline-flex items-center justify-center w-4 h-4 text-xs font-medium text-gray-500 bg-gray-200 rounded-full cursor-help hover:bg-gray-300 transition-colors">?</span>
                             <div class="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 text-xs text-white bg-gray-800 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-10">

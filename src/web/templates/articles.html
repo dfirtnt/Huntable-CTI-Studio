@@ -236,13 +236,12 @@
         </div>
 
         <!-- Filter Summary -->
-        {% if filters.search or filters.source or filters.classification or filters.threat_hunting_range %}
+        {% if filters.search or filters.source or filters.threat_hunting_range %}
         <div class="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
             <p class="text-sm text-blue-800">
                 <strong>Active Filters:</strong>
                 {% if filters.search %}Search: "{{ filters.search }}"{% endif %}
                 {% if filters.source %}Source: {{ filters.source }}{% endif %}
-                {% if filters.classification %}Classification: {{ filters.classification }}{% endif %}
                 {% if filters.threat_hunting_range %}RegexHuntScore: {{ filters.threat_hunting_range }}{% endif %}
                 <a href="/articles" class="ml-2 text-blue-600 hover:text-blue-800 underline">Clear all</a>
             </p>
@@ -295,18 +294,6 @@
                     </div>
                 </div>
                 <div class="flex items-center space-x-2">
-                    <button onclick="bulkAction('chosen')" 
-                            class="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded text-white bg-green-600 hover:bg-green-700 transition-colors">
-                        ✅ Mark as Chosen
-                    </button>
-                    <button onclick="bulkAction('rejected')" 
-                            class="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded text-white bg-red-600 hover:bg-red-700 transition-colors">
-                        ❌ Reject
-                    </button>
-                    <button onclick="bulkAction('unclassified')" 
-                            class="inline-flex items-center px-3 py-1.5 border border-gray-300 text-xs font-medium rounded text-gray-700 bg-white hover:bg-gray-50 transition-colors">
-                        ⏳ Unclassify
-                    </button>
                     <button onclick="bulkAction('delete')" 
                             class="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded text-white bg-red-800 hover:bg-red-900 transition-colors">
                         🗑️ Delete
@@ -357,21 +344,6 @@
                             <span>Published: {{ article.published_at.strftime('%Y-%m-%d %H:%M') }}</span>
                             {% endif %}
                             <span>Content: {{ article.content|length }} characters</span>
-                            <span>Classification: 
-                                {% if article.article_metadata and article.article_metadata.get('training_category') == 'chosen' %}
-                                    <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 border border-green-200 dark:border-green-700">
-                                        ✅ Chosen
-                                    </span>
-                                {% elif article.article_metadata and article.article_metadata.get('training_category') == 'rejected' %}
-                                    <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 border border-red-200 dark:border-red-700">
-                                        ❌ Rejected
-                                    </span>
-                                {% else %}
-                                    <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200 border border-yellow-200 dark:border-yellow-700">
-                                        ⏳ Unclassified
-                                    </span>
-                                {% endif %}
-                            </span>
                             {% if article.article_metadata and article.article_metadata.get('threat_hunting_score') is not none %}
                             <span>RegexHuntScore: 
                                 {% set score = article.article_metadata.get('threat_hunting_score', 0) %}

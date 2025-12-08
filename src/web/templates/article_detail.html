@@ -130,23 +130,22 @@
                     </div>
                 </div>
 
-                {% if article.canonical_url %}
-                <div class="mb-4">
-                    <a href="{{ article.canonical_url }}" target="_blank" 
+                <div class="mb-4 flex flex-wrap items-center gap-3">
+                    {% if article.canonical_url %}
+                    <a href="{{ article.canonical_url }}" target="_blank"
                        class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 transition-colors">
                         <span class="mr-2">🔗</span>
                         View Original Source
                     </a>
-                </div>
-                {% endif %}
-                
-                <div class="mb-4 flex flex-wrap items-center gap-3">
+                    {% endif %}
+
                     <button onclick="triggerWorkflowForArticle({{ article.id }})" 
                             id="triggerWorkflowBtn"
                             class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 dark:bg-green-500 dark:hover:bg-green-600 transition-colors">
                         <span class="mr-2">⚡</span>
                         <span id="triggerWorkflowBtnText">Send to Workflow</span>
                     </button>
+
                     <div class="relative inline-block" id="aiAssistantWrapper">
                         <button id="aiAssistantBtn" onclick="showAIAssistant()" 
                                 class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-colors">
@@ -167,9 +166,7 @@
                             </div>
                         </div>
                     </div>
-                </div>
 
-                <div class="mb-4">
                     <button onclick="deleteArticle({{ article.id }})" 
                             class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-700 transition-colors">
                         <span class="mr-2">🗑️</span>
@@ -489,7 +486,7 @@
         }
         
         // Find and hide the currently visible modal (the one that opened the help)
-        const visibleModals = document.querySelectorAll('#iocsModal, #sigmaRulesModal, #gpt4oRankingModal, #customPromptModal, #observablesModal');
+        const visibleModals = document.querySelectorAll('#iocsModal, #sigmaRulesModal, #gpt4oRankingModal, #customPromptModal');
         previousModalElement = null;
         
         visibleModals.forEach(modal => {
@@ -612,68 +609,7 @@ Return a JSON array of IOC objects with the following structure:
         showHelpModal('IOC Extraction Prompt', promptContent);
     }
 
-    function showObservablesHelp() {
-        console.log('showObservablesHelp called');
-        const promptContent = JSON.stringify({
-  "task": "Extract only command-line executions observable in Windows EDR/SIEM telemetry.",
-  "rules": {
-    "exclude": [
-      "atomic IOCs (IPs, domains, hashes, emails)",
-      "EventIDs",
-      "process trees",
-      "parent-child relationships",
-      "registry paths",
-      "file paths",
-      "services",
-      "network indicators"
-    ],
-    "include": [
-      "command-line executions only"
-    ]
-  },
-  "log_sources": [
-    "Windows Security Log",
-    "Sysmon",
-    "Windows PowerShell"
-  ],
-  "output_format": {
-    "observables": [
-      {
-        "type": "process_cmdline",
-        "value": "<string>",
-        "platform": "Windows",
-        "source_context": "<short text excerpt from original>"
-      }
-    ],
-    "summary": {
-      "count": "<int: number of unique discrete observables>",
-      "source_url": "<string>",
-      "platforms_detected": [
-        "Windows"
-      ]
-    }
-  },
-  "instructions": "Output valid, deduplicated JSON only. Use exact strings or <placeholder> where needed. No markdown or prose. Do not output anything except command-line strings.",
-  "example": {
-    "observables": [
-      {
-        "type": "process_cmdline",
-        "value": "powershell.exe -enc <base64string>",
-        "platform": "Windows",
-        "source_context": "Encoded PowerShell execution."
-      }
-    ],
-    "summary": {
-      "count": 1,
-      "source_url": "https://example.com/threat-report",
-      "platforms_detected": [
-        "Windows"
-      ]
-    }
-  }
-}, null, 2);
-        showHelpModal('Extract Observables Prompt', promptContent);
-    }
+
 
     function showSigmaHelp() {
         const promptContent = `Generate a Sigma detection rule based on this threat intelligence:
@@ -3273,23 +3209,17 @@ Please provide a detailed analysis based on the article content and the user's s
         }
         
         // Get current article classification
-        const currentClassification = localStorage.getItem('currentArticleClassification') || '{{ article.article_metadata.get("training_category", "") }}';
-        const isChosen = currentClassification === 'chosen';
-        
         // Get threat hunting score for SIGMA warning
         const threatHuntingScore = {{ article.article_metadata.get('threat_hunting_score', 0) if article.article_metadata and article.article_metadata.get('threat_hunting_score') else 0 }};
-        const showSigmaWarning = isChosen && threatHuntingScore < 65;
+        const showSigmaWarning = threatHuntingScore < 65;
         
-        // Check if content would pass content filter for Extract Observables
-        // Gate based on threat hunting score (similar to content filter logic)
-        const minHuntScoreForObservables = 30;  // Minimum score to pass content filter
-        const canExtractObservables = threatHuntingScore >= minHuntScoreForObservables;
+
         
         // Fetch fresh data from API to get current state
         let hasSigmaRules = {{ 'true' if article.article_metadata and article.article_metadata.get('sigma_rules') else 'false' }};
-        let hasIOCs = {{ 'true' if article.article_metadata and article.article_metadata.get('extracted_iocs') else 'false' }};
+
         let hasRanking = {{ 'true' if article.article_metadata and article.article_metadata.get('gpt4o_ranking') else 'false' }};
-        let hasObservables = false;
+
         
         try {
             const response = await fetch(`/api/articles/{{ article.id }}`);
@@ -3297,7 +3227,7 @@ Please provide a detailed analysis based on the article content and the user's s
                 const data = await response.json();
                 if (data.article_metadata) {
                     hasSigmaRules = data.article_metadata.sigma_rules ? true : false;
-                    hasIOCs = data.article_metadata.extracted_iocs ? true : false;
+
                     hasRanking = data.article_metadata.gpt4o_ranking ? true : false;
                 }
             }
@@ -3305,91 +3235,7 @@ Please provide a detailed analysis based on the article content and the user's s
             console.log('Failed to fetch fresh data, using template data:', error);
         }
         
-        // Check for existing observables - check localStorage first (synchronous)
-        const observablesKey = `observables_extracted_{{ article.id }}`;
-        const storedObservables = localStorage.getItem(observablesKey);
-        console.log('Checking for observables, key:', observablesKey, 'found:', !!storedObservables);
-        if (storedObservables) {
-            try {
-                const extraction = JSON.parse(storedObservables);
-                // Check for observables in new format (array) or old format (objects with arrays)
-                let hasObs = false;
-                if (extraction.observables && Array.isArray(extraction.observables) && extraction.observables.length > 0) {
-                    hasObs = true;
-                } else if (extraction.atomic_iocs && typeof extraction.atomic_iocs === 'object') {
-                    const atomicCount = Object.values(extraction.atomic_iocs).reduce((sum, arr) => sum + (Array.isArray(arr) ? arr.length : 0), 0);
-                    if (atomicCount > 0) hasObs = true;
-                } else if (extraction.behavioral_observables && typeof extraction.behavioral_observables === 'object') {
-                    const behavioralCount = Object.values(extraction.behavioral_observables).reduce((sum, arr) => sum + (Array.isArray(arr) ? arr.length : 0), 0);
-                    if (behavioralCount > 0) hasObs = true;
-                }
-                console.log('Parsed observables, has data:', hasObs, 'extraction keys:', Object.keys(extraction));
-                if (hasObs) {
-                    hasObservables = true;
-                    window.lastObservablesExecution = { extraction_result: extraction };
-                    console.log('Set hasObservables = true');
-                }
-            } catch (e) {
-                console.log('Failed to parse stored observables:', e);
-            }
-        }
-        console.log('Final hasObservables value:', hasObservables);
-        
-        // Also check workflow executions asynchronously (update button if found)
-        const checkWorkflowExecutions = async () => {
-            if (!hasObservables) {
-                try {
-                    const execResponse = await fetch(`/api/workflow/executions?article_id={{ article.id }}&limit=5`);
-                    if (execResponse.ok) {
-                        const execData = await execResponse.json();
-                        if (execData.executions && execData.executions.length > 0) {
-                            // Check each execution for extraction_result
-                            for (const execution of execData.executions) {
-                                // Need to fetch detail to get extraction_result
-                                const detailResponse = await fetch(`/api/workflow/executions/${execution.id}`);
-                                if (detailResponse.ok) {
-                                    const detailData = await detailResponse.json();
-                                    if (detailData.extraction_result) {
-                                        const extraction = detailData.extraction_result;
-                                        // Check for observables in new format (array) or old format (objects with arrays)
-                                        let hasObs = false;
-                                        if (extraction.observables && Array.isArray(extraction.observables) && extraction.observables.length > 0) {
-                                            hasObs = true;
-                                        } else if (extraction.atomic_iocs && typeof extraction.atomic_iocs === 'object') {
-                                            const atomicCount = Object.values(extraction.atomic_iocs).reduce((sum, arr) => sum + (Array.isArray(arr) ? arr.length : 0), 0);
-                                            if (atomicCount > 0) hasObs = true;
-                                        } else if (extraction.behavioral_observables && typeof extraction.behavioral_observables === 'object') {
-                                            const behavioralCount = Object.values(extraction.behavioral_observables).reduce((sum, arr) => sum + (Array.isArray(arr) ? arr.length : 0), 0);
-                                            if (behavioralCount > 0) hasObs = true;
-                                        }
-                                        if (hasObs) {
-                                            hasObservables = true;
-                                            window.lastObservablesExecution = detailData;
-                                            // Store in localStorage for faster access next time
-                                            localStorage.setItem(observablesKey, JSON.stringify(extraction));
-                                            // Update button text if modal is already open
-                                            const observablesButtonText = document.getElementById('observablesButtonText');
-                                            if (observablesButtonText) {
-                                                observablesButtonText.textContent = 'Display Observables';
-                                            }
-                                            const observablesButton = document.getElementById('observablesButton');
-                                            if (observablesButton) {
-                                                observablesButton.title = 'Display previously extracted observables';
-                                            }
-                                            break;
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                } catch (error) {
-                    console.log('Failed to check for existing observables:', error);
-                }
-            }
-        };
-        // Start async check (don't await - let it run in background)
-        checkWorkflowExecutions();
+
         
         const modal = document.createElement('div');
         modal.id = 'aiAssistantModal';
@@ -3412,7 +3258,7 @@ Please provide a detailed analysis based on the article content and the user's s
         document.addEventListener('keydown', handleEsc);
         
         // Determine if there is existing generated content to display/regenerate
-        const hasExisting = hasSigmaRules || hasIOCs || hasRanking;
+        const hasExisting = hasSigmaRules || hasRanking;
         const rankingButtonText = hasRanking ? 
             (aiModel === 'chatgpt' ? 'Display GPT4o Rank' : 
              aiModel === 'anthropic' ? 'Display Claude Rank' : 'Display LLM Rank') :
@@ -3437,74 +3283,58 @@ Please provide a detailed analysis based on the article content and the user's s
             <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
                 <div class="mt-3 text-center">
                     <h3 class="text-lg font-medium text-gray-900 mb-4">🤖 AL/ML Assistant</h3>
-                    <p class="text-sm text-gray-500 mb-6">Choose what you'd like to ${hasExisting ? 'view or regenerate' : 'generate'}:</p>
+                    <p class="text-sm text-gray-500 mb-4">One shot LLM demos for this article's content. Uses LLM chosen in Settings Page</p>
+                    
+                    <div class="mb-4 p-2 bg-gray-50 rounded text-xs text-gray-600" id="aiModelDisplay">
+                        Using: ${modelDisplayText}
+                    </div>
                     
                     <div class="space-y-3">
-                        <button onclick="generateAIAnalysis('sigma')" 
-                                class="w-full inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md transition-colors ${isChosen ? 'text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500' : 'text-gray-400 bg-gray-300 cursor-not-allowed'}"
-                                ${!isChosen ? 'disabled' : ''}
-                                title="${isChosen ? (hasSigmaRules ? 'Display existing SIGMA detection rules' : 'Generate SIGMA detection rules for this article') : 'SIGMA rules can only be generated for articles marked as "Chosen". Please classify this article first.'}">
+                        <button onclick="generateAIAnalysis('sigma')"
+                                class="w-full inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors"
+                                title="${hasSigmaRules ? 'Display existing SIGMA detection rules' : 'Generate SIGMA detection rules for this article'}">
                             <span class="mr-2">🔍</span>
                             ${hasSigmaRules ? 'Display SIGMA Rules' : 'Generate SIGMA Rules'}
                             ${showSigmaWarning ? '<span class="ml-2 text-yellow-300">⚠️</span>' : ''}
                         </button>
-                        ${!isChosen ? '<div class="text-xs text-gray-500 text-center mt-1">⚠️ Only available for articles marked as "Chosen"</div>' : ''}
                         ${showSigmaWarning ? '<div class="text-xs text-yellow-600 text-center mt-1">⚠️ Low threat hunting score (' + threatHuntingScore + '/100) - SIGMA rules may lack technical depth</div>' : ''}
                         
-                        <button onclick="generateAIAnalysis('iocs')" 
-                                class="w-full inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-orange-600 hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500 transition-colors">
-                            <span class="mr-2">🔍</span>
-                            ${hasIOCs ? 'Display IOCs' : 'Extract IOCs'}
-                        </button>
-                        
-                        <button onclick="extractIOCsCTIBERT()" 
-                                class="w-full inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
-                            <span class="mr-2">🤖</span>
-                            Extract IOCs - CTIBERT
-                        </button>
-                        
-                        <button onclick="detectOS()" 
-                                class="w-full inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-cyan-600 hover:bg-cyan-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-cyan-500 transition-colors">
-                            <span class="mr-2">💻</span>
-                            Detect Operating System
-                        </button>
-                        
-                        <button onclick="handleObservablesButton()" 
-                                id="observablesButton"
-                                class="w-full inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md transition-colors ${canExtractObservables ? 'text-white bg-teal-600 hover:bg-teal-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500' : 'text-gray-400 bg-gray-300 cursor-not-allowed'}"
-                                ${!canExtractObservables ? 'disabled' : ''}
-                                title="${canExtractObservables ? (hasObservables ? 'Display previously extracted observables' : 'Extract IOCs and behavioral observables from this article') : 'Article content did not pass content filter. Requires threat hunting score >= ' + minHuntScoreForObservables + '. Current score: ' + threatHuntingScore}">
-                            <span class="mr-2">🎯</span>
-                            <span id="observablesButtonText">${hasObservables ? 'Display Observables' : 'Extract Observables'}</span>
-                        </button>
-                        ${!canExtractObservables ? '<div class="text-xs text-gray-500 text-center mt-1">⚠️ Content filter check failed (score: ' + threatHuntingScore + '/100)</div>' : ''}
-                        
+
                         <button onclick="generateAIAnalysis('ranking')" 
                                 class="w-full inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors">
                             <span class="mr-2">📊</span>
                             ${rankingButtonText}
                         </button>
                         
+                        
                         <button onclick="showCustomPromptModal()" 
                                 class="w-full inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-colors">
                             <span class="mr-2">💬</span>
                             Custom Prompt
                         </button>
-                        
-                        <button onclick="showChunkDebugModal()" 
-                                class="w-full inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-gray-600 hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-colors">
-                            <span class="mr-2">🔍</span>
-                            Chunk ML Feedback
-                        </button>
-                        
-                        <button onclick="closeAIAssistantModal()" 
-                                class="w-full inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-colors">
-                            Cancel
-                        </button>
                     </div>
-                    
-                    <div class="mt-4 p-2 bg-gray-50 rounded text-xs text-gray-600" id="aiModelDisplay">
-                        Using: ${modelDisplayText}
+
+                    <div class="mt-6 text-center">
+                        <p class="text-sm text-gray-500 mb-4">MLOps Features/Demos</p>
+                        
+                        <div class="space-y-3">
+                            <button onclick="detectOS()" 
+                                    class="w-full inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-cyan-600 hover:bg-cyan-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-cyan-500 transition-colors">
+                                <span class="mr-2">💻</span>
+                                Detect Operating System
+                            </button>
+
+                            <button onclick="showChunkDebugModal()" 
+                                    class="w-full inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-gray-600 hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-colors">
+                                <span class="mr-2">🔍</span>
+                                Chunk ML Feedback
+                            </button>
+                            
+                            <button onclick="closeAIAssistantModal()" 
+                                    class="w-full inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-gray-400 hover:bg-gray-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-400 transition-colors">
+                                Cancel
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -3536,17 +3366,7 @@ Please provide a detailed analysis based on the article content and the user's s
         }
     }
     
-    function handleObservablesButton() {
-        // Check if observables already exist
-        if (window.lastObservablesExecution && window.lastObservablesExecution.extraction_result) {
-            const extraction = window.lastObservablesExecution.extraction_result;
-            // Display existing observables
-            showObservablesModal(extraction, { execution: window.lastObservablesExecution });
-        } else {
-            // Extract new observables
-            generateAIAnalysis('observables', false);
-        }
-    }
+
     
     async function generateAIAnalysis(type, forceRegenerate = false, useLLMValidation = false) {
         closeAIAssistantModal();
@@ -3570,18 +3390,7 @@ Please provide a detailed analysis based on the article content and the user's s
                 return;
             }
             
-            if (type === 'iocs' && {{ 'true' if article.article_metadata and article.article_metadata.get('extracted_iocs') else 'false' }}) {
-                const iocData = {{ article.article_metadata.get('extracted_iocs') | tojson if article.article_metadata and article.article_metadata.get('extracted_iocs') else 'null' }};
-                
-                // Check if the data has the old field name and force regeneration
-                if (iocData && 'llm_validation_used' in iocData && !('use_llm_validation' in iocData)) {
-                    console.log('Detected old IOC field name, forcing regeneration...');
-                    // Fall through to regeneration instead of showing cached data
-                } else {
-                    showIOCsModal(JSON.stringify(iocData.iocs, null, 2), iocData);
-                    return;
-                }
-            }
+
             
             if (type === 'ranking' && {{ 'true' if article.article_metadata and article.article_metadata.get('gpt4o_ranking') else 'false' }}) {
                 const rankingData = {{ article.article_metadata.get('gpt4o_ranking') | tojson if article.article_metadata and article.article_metadata.get('gpt4o_ranking') else 'null' }};
@@ -3590,46 +3399,7 @@ Please provide a detailed analysis based on the article content and the user's s
             }
         }
         
-        // Handle observables button - check if we should display existing or extract new
-        if (type === 'observables') {
-            // Check if observables already exist
-            if (window.lastObservablesExecution && window.lastObservablesExecution.extraction_result) {
-                const extraction = window.lastObservablesExecution.extraction_result;
-                // Display existing observables
-                setTimeout(() => showObservablesModal(extraction, { execution: window.lastObservablesExecution }), 100);
-                return;
-            }
-        }
-        
-        // Check if SIGMA rules are allowed for this article
-        if (type === 'sigma') {
-            const currentClassification = localStorage.getItem('currentArticleClassification') || '{{ article.article_metadata.get("training_category", "") }}';
-            const isChosen = currentClassification === 'chosen';
-            if (!isChosen) {
-                showNotification('SIGMA rules can only be generated for articles marked as "Chosen". Please classify this article first.', 'error');
-                return;
-            }
-            
-            // Check threat hunting score for SIGMA rules
-            const threatHuntingScore = {{ article.article_metadata.get('threat_hunting_score', 0) if article.article_metadata and article.article_metadata.get('threat_hunting_score') else 0 }};
-            if (threatHuntingScore < 65) {
-                const confirmed = confirm(`⚠️ Warning: This article has a low threat hunting score (${threatHuntingScore}/100).\n\nSIGMA rules are not recommended for articles with scores below 65 as they may lack sufficient technical depth for effective detection rules.\n\nDo you want to proceed anyway?`);
-                if (!confirmed) {
-                    return;
-                }
-            }
-        }
-        
-        // Check if Extract Observables is allowed (content filter gate)
-        if (type === 'observables') {
-            const threatHuntingScore = {{ article.article_metadata.get('threat_hunting_score', 0) if article.article_metadata and article.article_metadata.get('threat_hunting_score') else 0 }};
-            const minHuntScoreForObservables = 30;
-            
-            if (threatHuntingScore < minHuntScoreForObservables) {
-                showNotification(`Article content did not pass content filter. Requires threat hunting score >= ${minHuntScoreForObservables}. Current score: ${threatHuntingScore}/100.`, 'error');
-                return;
-            }
-        }
+
         
         // Get AI model from settings - ALWAYS respect user's explicit choice
         const settings = JSON.parse(localStorage.getItem('ctiScraperSettings') || '{}');
@@ -3728,8 +3498,8 @@ Please provide a detailed analysis based on the article content and the user's s
         const operationData = {
             id: operationId,
             type: type,
-            typeText: type === 'sigma' ? 'SIGMA Rules' : type === 'ranking' ? (aiModel === 'chatgpt' ? 'GPT4o Ranking' : 'Local AI Ranking') : type === 'observables' ? 'Observables' : 'IOCs',
-            typeIcon: type === 'sigma' ? '🔍' : type === 'ranking' ? '📊' : type === 'observables' ? '🎯' : '🔍',
+            typeText: type === 'sigma' ? 'SIGMA Rules' : type === 'ranking' ? (aiModel === 'chatgpt' ? 'GPT4o Ranking' : 'Local AI Ranking') : 'IOCs',
+            typeIcon: type === 'sigma' ? '🔍' : type === 'ranking' ? '📊' : '🔍',
             articleId: articleId,
             articleTitle: {{ article.title | tojson }},
             startedAt: Date.now(),
@@ -3810,7 +3580,7 @@ Please provide a detailed analysis based on the article content and the user's s
                         </svg>
                     </div>
                     <h3 class="text-lg font-medium text-gray-900 mt-4">${typeIcon} ${type === 'sigma' ? 'Generating' : type === 'ranking' ? 'Generating' : 'Extracting'} ${typeText}...</h3>
-                    <p class="text-sm text-gray-500 mt-2">${type === 'sigma' ? 'Creating detection rules' : type === 'ranking' ? (aiModel === 'chatgpt' ? 'Analyzing content with GPT-4o' : 'Analyzing content with local AI') : type === 'observables' ? 'Extracting IOCs and behavioral observables' : 'Extracting indicators of compromise'} - this may take a few moments.</p>
+                    <p class="text-sm text-gray-500 mt-2">${type === 'sigma' ? 'Creating detection rules' : type === 'ranking' ? (aiModel === 'chatgpt' ? 'Analyzing content with GPT-4o' : 'Analyzing content with local AI') : 'Extracting indicators of compromise'} - this may take a few moments.</p>
                     <div class="mt-6 flex flex-col items-center space-y-3">
                         <button id="cancelBtn" class="px-6 py-2.5 bg-red-600 text-white text-sm font-medium rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 shadow-sm transition-colors">
                             Cancel Operation
@@ -3840,7 +3610,7 @@ Please provide a detailed analysis based on the article content and the user's s
             });
             
             // Create the fetch promise
-            const endpoint = type === 'sigma' ? 'generate-sigma' : type === 'ranking' ? 'rank-with-gpt4o' : type === 'observables' ? 'extract-observables' : 'extract-iocs';
+            const endpoint = type === 'sigma' ? 'generate-sigma' : type === 'ranking' ? 'rank-with-gpt4o' : 'extract-iocs';
             
             // Prepare request body
             const requestBody = {
@@ -3866,16 +3636,7 @@ Please provide a detailed analysis based on the article content and the user's s
                 console.warn(`⚠️ No API key available for model: ${aiModel}`);
             }
             
-            // Add LLM validation setting for IOC extraction
-            if (type === 'iocs') {
-                requestBody.use_llm_validation = useLLMValidation;
-                
-                // Add optimization options for IOC extraction when LLM validation is enabled
-                if (useLLMValidation && requestBody.optimization_options) {
-                    requestBody.use_filtering = requestBody.optimization_options.useFiltering;
-                    requestBody.min_confidence = requestBody.optimization_options.minConfidence;
-                }
-            }
+
             
             // Add author name for SIGMA rules
             if (type === 'sigma') {
@@ -3885,14 +3646,13 @@ Please provide a detailed analysis based on the article content and the user's s
             
             // Add optimization options for ranking, sigma, observables, and IOC extraction with LLM validation
             // Show optimization dialog for cloud models (for all features) and for IOC extraction with LLM validation (all models)
-            const shouldShowOptimization = (type === 'ranking' || type === 'sigma' || type === 'observables' || 
-                (type === 'iocs' && useLLMValidation));
+            const shouldShowOptimization = (type === 'ranking' || type === 'sigma');
             
             console.log('shouldShowOptimization:', shouldShowOptimization, 'type:', type, 'useLLMValidation:', useLLMValidation, 'aiModel:', aiModel);
             
             if (shouldShowOptimization) {
                 console.log('Showing optimization dialog...');
-                const optimizationOptions = await showOptimizationDialog(type === 'observables');
+                const optimizationOptions = await showOptimizationDialog(false);
                 if (!optimizationOptions) {
                     // User dismissed the modal (ESC or Cancel) - clean up and return
                     const loadingModal = document.getElementById('loadingModal');
@@ -3998,24 +3758,6 @@ Please provide a detailed analysis based on the article content and the user's s
 
                     // Automatically show the new rules
                     setTimeout(() => showSigmaRulesModal(data.rules, data), 500);
-                } else if (type === 'observables' && data.extraction) {
-                    // Automatically show the extracted observables
-                    setTimeout(() => showObservablesModal(data.extraction, data), 500);
-                    // Store extraction result in localStorage for this article
-                    const observablesKey = `observables_extracted_{{ article.id }}`;
-                    localStorage.setItem(observablesKey, JSON.stringify(data.extraction));
-                    console.log('Stored observables in localStorage with key:', observablesKey);
-                    // Store execution data for future use
-                    window.lastObservablesExecution = { extraction_result: data.extraction };
-                    // Update button text immediately if modal is still open
-                    const observablesButtonText = document.getElementById('observablesButtonText');
-                    if (observablesButtonText) {
-                        observablesButtonText.textContent = 'Display Observables';
-                    }
-                    const observablesButton = document.getElementById('observablesButton');
-                    if (observablesButton) {
-                        observablesButton.title = 'Display previously extracted observables';
-                    }
                 }
             } else {
                 const error = await response.json();
@@ -4200,9 +3942,6 @@ Please provide a detailed analysis based on the article content and the user's s
                 <div class="bg-white rounded-lg p-6 max-w-md w-full mx-4">
                     <div class="flex justify-between items-center mb-4">
                         <h3 class="text-lg font-semibold text-gray-900">${modelDisplayName} Content Optimization</h3>
-                        <button onclick="showRankingHelp()" class="text-gray-400 hover:text-gray-600 text-sm px-2 py-1 rounded">
-                            Help
-                        </button>
                     </div>
                     
                     <div class="space-y-4">
@@ -5304,121 +5043,7 @@ Please provide a detailed analysis based on the article content and the user's s
         }
     }
     
-    function showObservablesModal(extractionData, data) {
-        // Remove any existing modal
-        closeObservablesModal();
-        
-        const modal = document.createElement('div');
-        modal.id = 'observablesModal';
-        modal.className = 'fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50';
-        
-        // Add click outside to close
-        modal.addEventListener('click', function(e) {
-            if (e.target === modal) {
-                closeObservablesModal();
-            }
-        });
-        
-        // Add ESC key to close
-        const handleEsc = function(e) {
-            if (e.key === 'Escape') {
-                closeObservablesModal();
-                document.removeEventListener('keydown', handleEsc);
-            }
-        };
-        document.addEventListener('keydown', handleEsc);
-        
-        const metadata = extractionData?.metadata || {};
-        const atomicCount = metadata.atomic_count || 0;
-        const behavioralCount = metadata.behavioral_count || 0;
-        const totalCount = metadata.observable_count || 0;
-        
-        const atomicIOCs = extractionData?.atomic_iocs || {};
-        const behavioralObs = extractionData?.behavioral_observables || {};
-        
-        modal.innerHTML = `
-            <div class="relative top-10 mx-auto p-5 border w-11/12 max-w-6xl shadow-lg rounded-md bg-white">
-                <div class="flex justify-between items-center mb-4">
-                    <h3 class="text-lg font-medium text-gray-900">🎯 Extracted Observables</h3>
-                    <div class="flex items-center gap-2">
-                        <button onclick="showObservablesHelp()" class="text-gray-400 hover:text-gray-600 text-sm px-2 py-1 rounded">
-                            Help
-                        </button>
-                        <button onclick="closeObservablesModal()" class="text-gray-400 hover:text-gray-600">
-                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                            </svg>
-                        </button>
-                    </div>
-                </div>
-                
-                <div class="mb-4 grid grid-cols-3 gap-4">
-                    <div class="bg-blue-50 p-3 rounded border border-blue-200">
-                        <div class="text-sm text-blue-600 font-medium">Atomic IOCs</div>
-                        <div class="text-2xl font-bold text-blue-900">${atomicCount}</div>
-                    </div>
-                    <div class="bg-green-50 p-3 rounded border border-green-200">
-                        <div class="text-sm text-green-600 font-medium">Behavioral</div>
-                        <div class="text-2xl font-bold text-green-900">${behavioralCount}</div>
-                    </div>
-                    <div class="bg-purple-50 p-3 rounded border border-purple-200">
-                        <div class="text-sm text-purple-600 font-medium">Total</div>
-                        <div class="text-2xl font-bold text-purple-900">${totalCount}</div>
-                    </div>
-                </div>
-                
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div class="bg-white border rounded-lg p-4">
-                        <h4 class="font-medium text-gray-900 mb-3 text-blue-600">📌 Atomic IOCs</h4>
-                        ${Object.keys(atomicIOCs).filter(k => atomicIOCs[k] && atomicIOCs[k].length > 0).length > 0 ? `
-                        <div class="space-y-3 max-h-96 overflow-y-auto">
-                            ${Object.entries(atomicIOCs).filter(([k, v]) => v && v.length > 0).map(([category, items]) => `
-                            <div class="mb-4">
-                                <h5 class="font-medium text-gray-700 mb-2 capitalize text-sm">${category.replace(/_/g, ' ')} (${items.length})</h5>
-                                <ul class="text-sm text-gray-700 space-y-1">
-                                    ${items.slice(0, 10).map(item => `<li class="font-mono text-xs bg-gray-50 px-2 py-1 rounded break-all">${item}</li>`).join('')}
-                                    ${items.length > 10 ? `<li class="text-xs text-gray-500 italic">... and ${items.length - 10} more</li>` : ''}
-                                </ul>
-                            </div>
-                            `).join('')}
-                        </div>
-                        ` : '<p class="text-gray-500 text-sm">No atomic IOCs found</p>'}
-                    </div>
-                    
-                    <div class="bg-white border rounded-lg p-4">
-                        <h4 class="font-medium text-gray-900 mb-3 text-green-600">⚙️ Behavioral Observables</h4>
-                        ${Object.keys(behavioralObs).filter(k => behavioralObs[k] && behavioralObs[k].length > 0).length > 0 ? `
-                        <div class="space-y-3 max-h-96 overflow-y-auto">
-                            ${Object.entries(behavioralObs).filter(([k, v]) => v && v.length > 0).map(([category, items]) => `
-                            <div class="mb-4">
-                                <h5 class="font-medium text-gray-700 mb-2 capitalize text-sm">${category.replace(/_/g, ' ')} (${items.length})</h5>
-                                <ul class="text-sm text-gray-700 space-y-1">
-                                    ${items.slice(0, 10).map(item => `<li class="font-mono text-xs bg-gray-50 px-2 py-1 rounded break-all">${item}</li>`).join('')}
-                                    ${items.length > 10 ? `<li class="text-xs text-gray-500 italic">... and ${items.length - 10} more</li>` : ''}
-                                </ul>
-                            </div>
-                            `).join('')}
-                        </div>
-                        ` : '<p class="text-gray-500 text-sm">No behavioral observables found</p>'}
-                    </div>
-                </div>
-                
-                <div class="mt-4 flex justify-end">
-                    <button onclick="closeObservablesModal()" class="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700">
-                        Close
-                    </button>
-                </div>
-            </div>
-        `;
-        document.body.appendChild(modal);
-    }
-    
-    function closeObservablesModal() {
-        const modal = document.getElementById('observablesModal');
-        if (modal) {
-            modal.remove();
-        }
-    }
+
     
     function showIOCsModal(iocsJson, data) {
         // Remove any existing modal
@@ -5714,7 +5339,7 @@ Please provide a detailed analysis based on the article content and the user's s
                         <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-cyan-600"></div>
                         <span class="ml-3 text-gray-600">Analyzing article content...</span>
                     </div>
-                    <p class="text-xs text-gray-500 mt-4">Using ${embeddingModelDisplay} embeddings + classifier</p>
+                    <p class="text-xs text-gray-500 mt-4">Trying keyword matching, then ${embeddingModelDisplay} embeddings + classifier</p>
                     <p class="text-xs text-gray-400 mt-1">Fallback: ${fallbackModelDisplay}</p>
                     <div class="mt-6 flex flex-col items-center space-y-3">
                         <button id="cancelBtnOs" class="px-6 py-2.5 bg-red-600 text-white text-sm font-medium rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 shadow-sm transition-colors">
@@ -5775,6 +5400,7 @@ Please provide a detailed analysis based on the article content and the user's s
             const method = result.method || 'unknown';
             const confidence = result.confidence || 'unknown';
             const maxSimilarity = result.max_similarity ? (result.max_similarity * 100).toFixed(1) : null;
+            const keywordMatches = result.keyword_matches || null;
             
             // Build similarities display
             let similaritiesHtml = '';
@@ -5828,7 +5454,10 @@ Please provide a detailed analysis based on the article content and the user's s
                         <div>
                             <div class="text-sm font-medium text-gray-700">Models Used:</div>
                             <div class="text-xs text-gray-600 mt-1">
-                                <div>Embedding: <span class="font-mono">${embeddingModelDisplay}</span></div>
+                                ${method === 'keyword_match' ? 
+                                    '<div>Method: <span class="font-mono">Keyword Matching</span></div>' :
+                                    `<div>Embedding: <span class="font-mono">${embeddingModelDisplay}</span></div>`
+                                }
                                 ${method.includes('fallback') || method.includes('LLM') ? `<div>LLM Fallback: <span class="font-mono">${fallbackModelDisplay}</span></div>` : ''}
                             </div>
                         </div>
@@ -5837,6 +5466,13 @@ Please provide a detailed analysis based on the article content and the user's s
                             <div class="text-sm font-medium text-gray-700">Confidence:</div>
                             <div class="text-sm text-gray-600 mt-1">${confidence}</div>
                         </div>
+                        
+                        ${keywordMatches !== null ? `
+                        <div>
+                            <div class="text-sm font-medium text-gray-700">Keyword Matches:</div>
+                            <div class="text-sm text-gray-600 mt-1">${keywordMatches} Windows keywords found</div>
+                        </div>
+                        ` : ''}
                         
                         ${maxSimilarity ? `
                         <div>
