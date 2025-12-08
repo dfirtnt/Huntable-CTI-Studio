@@ -200,7 +200,6 @@ User interface testing with Playwright sync API:
 - **`test_ai_assistant_ui.py`** (17 tests) - AI Assistant interface
 - **`test_analytics_pages_ui.py`** (11 tests) - Analytics dashboard pages
 - **`test_analytics_ui.py`** (20 tests) - Analytics main page
-- **`test_article_classification.py`** (9 tests) - Article classification UI
 - **`test_article_interactions_ui.py`** (10 tests) - Article interactions
 - **`test_collect_now_button.py`** (9 tests) - Collection button functionality
 - **`test_dashboard_functionality.py`** (11 tests) - Dashboard functionality

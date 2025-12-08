@@ -35,12 +35,6 @@ Smoke tests are distributed across multiple test files using the `@pytest.mark.s
 - Sources management
 - Rescore all articles button
 
-**Article Classification (4 tests)** - `tests/ui/test_article_classification.py`
-- Classification buttons visibility
-- Classify as chosen
-- Classify as rejected
-- Classify as unclassified
-
 **RAG Chat (1 test)** - `tests/ui/test_rag_chat_ui.py`
 - Chat page loads
 
@@ -51,7 +45,6 @@ Smoke tests are distributed across multiple test files using the `@pytest.mark.s
 | `tests/api/test_endpoints.py` | 5 | API endpoints |
 | `tests/integration/test_system_integration.py` | 1 | System health |
 | `tests/ui/test_ui_flows.py` | 4 | UI navigation |
-| `tests/ui/test_article_classification.py` | 4 | Article operations |
 | `tests/ui/test_rag_chat_ui.py` | 1 | ML services |
 
 ## Running Smoke Tests

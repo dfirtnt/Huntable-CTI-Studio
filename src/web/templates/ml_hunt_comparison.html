@@ -222,6 +222,65 @@
         modelVersions: []
         };
 
+        let logPollingIntervalId = null;
+        const processingLogState = {
+            completed: false,
+            failed: false,
+        };
+
+        function stopProcessingLogPolling() {
+            if (logPollingIntervalId) {
+                clearInterval(logPollingIntervalId);
+                logPollingIntervalId = null;
+            }
+        }
+
+        function startProcessingLogPolling() {
+            stopProcessingLogPolling();
+            processingLogState.completed = false;
+            processingLogState.failed = false;
+            pollLogs();
+            logPollingIntervalId = setInterval(pollLogs, 1000);
+        }
+
+        function handleProcessingComplete() {
+            if (processingLogState.completed) {
+                return;
+            }
+            processingLogState.completed = true;
+            stopProcessingLogPolling();
+            resetButtonState();
+            const countElement = document.getElementById('eligibleCount');
+            if (countElement) {
+                countElement.textContent = '✅ Processing complete. Refreshing counts...';
+            }
+            setTimeout(() => {
+                checkEligibleCount();
+            }, 500);
+        }
+
+        function handleProcessingFailure() {
+            if (processingLogState.failed || processingLogState.completed) {
+                return;
+            }
+            processingLogState.failed = true;
+            stopProcessingLogPolling();
+            const btn = document.getElementById('processEligibleBtn');
+            if (btn) {
+                btn.disabled = false;
+                btn.textContent = 'Retry Processing';
+                btn.classList.remove('bg-gray-600', 'hover:bg-gray-700', 'bg-green-600', 'hover:bg-green-700');
+                btn.classList.add('bg-blue-600', 'hover:bg-blue-700');
+            }
+            const countElement = document.getElementById('eligibleCount');
+            if (countElement) {
+                countElement.textContent = '❌ Processing failed. Check logs.';
+            }
+            setTimeout(() => {
+                checkEligibleCount();
+            }, 500);
+        }
+
         function getAlignedVersionNumbers() {
             const classificationVersions = (currentData.timeline || [])
                 .map(item => item.version_number);
@@ -723,7 +782,7 @@
                 showTerminalOutput();
                 
                 // Start polling for real logs
-                const logInterval = setInterval(pollLogs, 1000);
+                startProcessingLogPolling();
                 
                 const response = await fetch('/api/ml-hunt-comparison/backfill', {
                     method: 'POST',
@@ -752,10 +811,9 @@
                             btn.textContent = 'Processing...';
                         }
                         
-                        // Stop polling and show final results
-                        clearInterval(logInterval);
+                        // Fetch logs again after a short delay in case final entries just wrote
                         setTimeout(() => {
-                            pollLogs(); // Get final logs
+                            pollLogs();
                         }, 500);
                         
                         // Refresh eligible count and update warnings
@@ -765,12 +823,9 @@
                     } else {
                         throw new Error(data.message || 'Processing failed');
                     }
-                
             } catch (error) {
                 console.error('Error processing articles:', error);
-                countElement.textContent = '❌ Processing failed';
-                btn.textContent = 'Retry Processing';
-                btn.disabled = false;
+                handleProcessingFailure();
                 
                 // Update terminal with error
                 updateTerminalOutput(`❌ Processing Failed!\n` +
@@ -800,13 +855,17 @@
                     });
                     
                     if (data.success && data.logs) {
+                        const logPayload = data.logs;
+                        if (logPayload.includes('✅ Processing Complete!')) {
+                            handleProcessingComplete();
+                        } else if (logPayload.includes('❌ Processing Failed!')) {
+                            handleProcessingFailure();
+                        }
                         const terminalContent = document.getElementById('terminalContent');
                         if (terminalContent) {
-                            console.log('Updating terminal content, length:', data.logs.length);
-                            terminalContent.textContent = data.logs;
+                            console.log('Updating terminal content, length:', logPayload.length);
+                            terminalContent.textContent = logPayload;
                             terminalContent.scrollTop = terminalContent.scrollHeight;
-                        } else {
-                            console.error('Terminal content element not found');
                         }
                     } else {
                         console.log('Logs response failed:', data);
@@ -884,9 +943,6 @@
                     
                     // Make terminal draggable
                     makeTerminalDraggable(terminalDiv);
-                    
-                    // Immediately fetch logs
-                    pollLogs();
                 }
             }
 

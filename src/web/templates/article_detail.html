@@ -140,17 +140,35 @@
                 </div>
                 {% endif %}
                 
-                <!-- Trigger Workflow Button -->
-                <div class="mb-4">
+                <div class="mb-4 flex flex-wrap items-center gap-3">
                     <button onclick="triggerWorkflowForArticle({{ article.id }})" 
                             id="triggerWorkflowBtn"
                             class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 dark:bg-green-500 dark:hover:bg-green-600 transition-colors">
                         <span class="mr-2">⚡</span>
                         <span id="triggerWorkflowBtnText">Send to Workflow</span>
                     </button>
+                    <div class="relative inline-block" id="aiAssistantWrapper">
+                        <button id="aiAssistantBtn" onclick="showAIAssistant()" 
+                                class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-colors">
+                            <span class="mr-2">🤖</span>
+                            AL/ML Assistant
+                        </button>
+                        <div id="aiAssistantPopover" class="absolute z-10 top-full left-0 mt-2 hidden w-64">
+                            <div class="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-md p-3 shadow-lg">
+                                <div class="flex items-start">
+                                    <span class="mr-2 mt-0.5">⚠️</span>
+                                    <div>
+                                        <div class="font-medium">Article too large for AI processing</div>
+                                        <div class="text-xs text-amber-600 mt-1" id="popoverContent">
+                                            Loading...
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
-                
-                <!-- Delete Article Button -->
+
                 <div class="mb-4">
                     <button onclick="deleteArticle({{ article.id }})" 
                             class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-700 transition-colors">
@@ -306,106 +324,6 @@
     </div>
     {% endif %}
 
-    <!-- Classification Controls -->
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-8">
-        <h2 class="text-xl font-bold text-gray-900 dark:text-white mb-6">🏷️ Article Classification</h2>
-        
-        <!-- Settings Status -->
-        <!-- Current Classification Status -->
-        <div class="mb-6">
-            {% if article.article_metadata and article.article_metadata.get('training_category') %}
-                <div class="flex items-center space-x-2">
-                    <span class="text-sm font-medium text-gray-700">Current Status:</span>
-                    <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium
-                        {% if article.article_metadata.get('training_category') == 'chosen' %}bg-green-100 text-green-800
-                        {% elif article.article_metadata.get('training_category') == 'rejected' %}bg-red-100 text-red-800
-                        {% else %}bg-gray-100 text-gray-800{% endif %}">
-                        {% if article.article_metadata.get('training_category') == 'chosen' %}✅ Chosen
-                        {% elif article.article_metadata.get('training_category') == 'rejected' %}❌ Rejected
-                        {% else %}⏳ Unclassified{% endif %}
-                    </span>
-                    {% if article.article_metadata.get('training_categorized_at') %}
-                        <span class="text-sm text-gray-500">({{ article.article_metadata.get('training_categorized_at')[:19] }})</span>
-                    {% endif %}
-                </div>
-            {% else %}
-                <div class="flex items-center space-x-2">
-                    <span class="text-sm font-medium text-gray-700">Current Status:</span>
-                    <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-gray-100 text-gray-800">
-                        ⏳ Unclassified
-                    </span>
-                </div>
-            {% endif %}
-        </div>
-        
-        
-        <!-- Classification Buttons -->
-        <div class="flex flex-wrap gap-4 mb-6">
-            <button onclick="classifyArticle('chosen')" 
-                    class="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors">
-                <span class="mr-2">✅</span>
-                Mark as Chosen
-            </button>
-            
-            <button onclick="classifyArticle('rejected')" 
-                    class="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors">
-                <span class="mr-2">❌</span>
-                Mark as Rejected
-            </button>
-            
-            <button onclick="classifyArticle('unclassified')" 
-                    class="inline-flex items-center px-6 py-3 border border-gray-300 text-base font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-colors">
-                <span class="mr-2">⏳</span>
-                Mark as Unclassified
-            </button>
-            
-            <!-- AI Assistant Button with Popover -->
-            <div class="relative inline-block" id="aiAssistantWrapper">
-                <button id="aiAssistantBtn" onclick="showAIAssistant()" 
-                        class="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-colors">
-                    <span class="mr-2">🤖</span>
-                    AL/ML Assistant
-                </button>
-                
-                
-                <!-- Popover explanation -->
-                <div id="aiAssistantPopover" class="absolute z-10 top-full left-0 mt-2 hidden w-64">
-                    <div class="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-md p-3 shadow-lg">
-                        <div class="flex items-start">
-                            <span class="mr-2 mt-0.5">⚠️</span>
-                            <div>
-                                <div class="font-medium">Article too large for AI processing</div>
-                                <div class="text-xs text-amber-600 mt-1" id="popoverContent">
-                                    Loading...
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-        
-        <!-- Navigation Buttons -->
-        <div class="flex flex-wrap gap-4">
-            <button onclick="navigateToNextUnclassified()" 
-                    class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-colors">
-                <span class="mr-2">⏭️</span>
-                Next Unclassified
-            </button>
-            
-            <button onclick="navigateToPrevious()" 
-                    class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-colors">
-                <span class="mr-2">⏮️</span>
-                Previous Article
-            </button>
-            
-            <button onclick="navigateToNext()" 
-                    class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-colors">
-                <span class="mr-2">⏭️</span>
-                Next Article
-            </button>
-        </div>
-    </div>
     <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-8">
         <h2 class="text-xl font-bold text-gray-900 dark:text-white mb-6">📄 Article Content</h2>
         
@@ -2801,79 +2719,6 @@ Please provide a detailed analysis based on the article content and the user's s
         if (contentElement && !document.getElementById('iphone-instructions')) {
             contentElement.parentNode.insertBefore(instructions, contentElement);
         }
-    }
-    
-    // Classification functions
-    async function classifyArticle(category) {
-        const articleId = {{ article.id }};
-        
-        try {
-            const response = await fetch(`/api/articles/${articleId}/classify`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    category: category
-                })
-            });
-            
-            if (response.ok) {
-                // Show success message
-                showNotification(`Article marked as ${category} successfully!`, 'success');
-                
-                // Update the current status display
-                updateClassificationStatus(category);
-            } else {
-                const error = await response.json();
-                showNotification(`Error: ${error.detail}`, 'error');
-            }
-        } catch (error) {
-            showNotification(`Error: ${error.message}`, 'error');
-        }
-    }
-    
-    function updateClassificationStatus(category) {
-        console.log('updateClassificationStatus called with category:', category);
-        
-        // Find all spans with the status badge classes and filter by context
-        const statusSpans = document.querySelectorAll('span.inline-flex.items-center.px-3.py-1.rounded-full');
-        console.log('Found', statusSpans.length, 'status spans');
-        
-        // Look for the span that's in a div containing "Current Status:"
-        let statusElement = null;
-        for (const span of statusSpans) {
-            const parentDiv = span.closest('div');
-            console.log('Checking span:', span.textContent, 'parent text:', parentDiv ? parentDiv.textContent.substring(0, 50) : 'no parent');
-            if (parentDiv && parentDiv.textContent.includes('Current Status:')) {
-                statusElement = span;
-                console.log('Found status element:', span);
-                break;
-            }
-        }
-        
-        if (statusElement) {
-            statusElement.className = 'inline-flex items-center px-3 py-1 rounded-full text-sm font-medium';
-            
-            if (category === 'chosen') {
-                statusElement.className += ' bg-green-100 text-green-800';
-                statusElement.textContent = '✅ Chosen';
-            } else if (category === 'rejected') {
-                statusElement.className += ' bg-red-100 text-red-800';
-                statusElement.textContent = '❌ Rejected';
-            } else {
-                statusElement.className += ' bg-gray-100 text-gray-800';
-                statusElement.textContent = '⏳ Unclassified';
-            }
-            
-            console.log('Status updated to:', category);
-        } else {
-            console.error('Could not find status element to update');
-            console.log('Available spans:', Array.from(statusSpans).map(s => ({text: s.textContent, classes: s.className})));
-        }
-        
-        // Store the current classification in localStorage for the AL/ML Assistant modal
-        localStorage.setItem('currentArticleClassification', category);
     }
     
     // Copy article content to clipboard (for detail page)
