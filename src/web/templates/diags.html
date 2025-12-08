@@ -135,13 +135,7 @@
         </div>
     </div>
 
-    <!-- Ingestion Analytics -->
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-8">
-        <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">📊 Article Ingestion Analytics</h2>
-        <div id="ingestionAnalyticsContent" class="text-gray-600 dark:text-gray-400">
-            Click "Run All Health Checks" to view article collection trends
-        </div>
-    </div>
+
 </div>
 
 <!-- Loading Overlay -->
@@ -225,7 +219,6 @@ function setupEventListeners() {
             await updateDeduplicationHealth();
             await updateServicesHealth();
             await updateCeleryHealth();
-            await updateIngestionAnalytics();
         });
     }
 }
@@ -836,208 +829,9 @@ async function updateCeleryHealth() {
     }
 }
 
-// Ingestion Analytics
-async function updateIngestionAnalytics() {
-    const data = await runHealthCheck('/ingestion', 'Analyzing article ingestion trends...');
 
-    const content = document.getElementById('ingestionAnalyticsContent');
-    if (data.status === 'healthy' && data.ingestion) {
-        const ingestion = data.ingestion;
 
-        // Prepare chart data
-        const dailyLabels = ingestion.daily_trends.map(item => item.date).reverse();
-        const dailyArticles = ingestion.daily_trends.map(item => item.articles_count).reverse();
-        const dailySources = ingestion.daily_trends.map(item => item.sources_count).reverse();
 
-        // Prepare hunt score ranges data
-        const huntScoreLabels = ingestion.hunt_score_ranges.map(item => item.date).reverse();
-        const excellentData = ingestion.hunt_score_ranges.map(item => item.excellent).reverse();
-        const goodData = ingestion.hunt_score_ranges.map(item => item.good).reverse();
-        const moderateData = ingestion.hunt_score_ranges.map(item => item.moderate).reverse();
-        const lowData = ingestion.hunt_score_ranges.map(item => item.low).reverse();
-        const minimalData = ingestion.hunt_score_ranges.map(item => item.minimal).reverse();
-
-        const hourlyLabels = Array.from({length: 24}, (_, i) => `${i}:00`);
-        const hourlyData = Array.from({length: 24}, (_, i) => {
-            const hourData = ingestion.hourly_distribution.find(h => h.hour === i);
-            return hourData ? hourData.articles_count : 0;
-        });
-
-        content.innerHTML = `
-            <div class="space-y-6">
-                <!-- Summary Statistics -->
-                <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-                    <div class="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                        <h3 class="font-medium text-blue-900">Total Articles</h3>
-                        <p class="text-2xl font-bold text-blue-600">${ingestion.total_stats.total_articles.toLocaleString()}</p>
-                    </div>
-                    <div class="p-4 bg-green-50 border border-green-200 rounded-lg">
-                        <h3 class="font-medium text-green-900">Active Sources</h3>
-                        <p class="text-2xl font-bold text-green-600">${ingestion.total_stats.total_sources}</p>
-                    </div>
-                    <div class="p-4 bg-purple-50 border border-purple-200 rounded-lg">
-                        <h3 class="font-medium text-purple-900">Earliest Article</h3>
-                        <p class="text-sm font-bold text-purple-600">${ingestion.total_stats.earliest_article ? new Date(ingestion.total_stats.earliest_article).toLocaleDateString() : 'N/A'}</p>
-                    </div>
-                    <div class="p-4 bg-orange-50 border border-orange-200 rounded-lg">
-                        <h3 class="font-medium text-orange-900">Latest Article</h3>
-                        <p class="text-sm font-bold text-orange-600">${ingestion.total_stats.latest_article ? new Date(ingestion.total_stats.latest_article).toLocaleDateString() : 'N/A'}</p>
-                    </div>
-                </div>
-
-                <!-- Hunt Score Ranges Chart -->
-                <div class="p-4 bg-slate-50 border border-slate-200 rounded-lg">
-                    <h3 class="font-medium text-slate-900 mb-4">🎯 Hunt Score Ranges (Last 30 Days)</h3>
-                    <canvas id="huntScoreChart" width="400" height="100"></canvas>
-                </div>
-
-                <!-- Hourly Distribution Chart -->
-                <div class="p-4 bg-slate-50 border border-slate-200 rounded-lg">
-                    <h3 class="font-medium text-slate-900 mb-4">🕐 Hourly Distribution (Today)</h3>
-                    <canvas id="hourlyChart" width="400" height="100"></canvas>
-                </div>
-
-                <!-- Source Breakdown -->
-                <div class="p-4 bg-slate-50 border border-slate-200 rounded-lg">
-                    <h3 class="font-medium text-slate-900 mb-4">📰 Top Sources (Last 7 Days)</h3>
-                    <div class="space-y-3">
-                        ${ingestion.source_breakdown.map(source => `
-                            <div class="p-3 bg-white rounded border border-slate-200">
-                                <div class="flex justify-between items-start mb-2">
-                                    <span class="font-medium text-slate-900">${source.source_name}</span>
-                                    <span class="text-sm font-bold text-blue-600">${source.articles_count} articles</span>
-                                </div>
-                                <div class="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
-                                    <div class="text-center p-2 bg-blue-50 rounded">
-                                        <div class="font-medium text-blue-900">Average Hunt Score</div>
-                                        <div class="text-lg font-bold ${source.avg_hunt_score >= 60 ? 'text-green-600' : source.avg_hunt_score >= 40 ? 'text-yellow-600' : 'text-red-600'}">${source.avg_hunt_score.toFixed(1)}</div>
-                                    </div>
-                                    <div class="text-center p-2 bg-green-50 rounded">
-                                        <div class="font-medium text-green-900">Chosen</div>
-                                        <div class="text-sm font-bold text-green-600">${source.chosen_ratio}</div>
-                                        <div class="text-xs text-gray-600">${source.chosen_count}</div>
-                                    </div>
-                                    <div class="text-center p-2 bg-red-50 rounded">
-                                        <div class="font-medium text-red-900">Rejected</div>
-                                        <div class="text-sm font-bold text-red-600">${source.rejected_ratio}</div>
-                                        <div class="text-xs text-gray-600">${source.rejected_count}</div>
-                                    </div>
-                                    <div class="text-center p-2 bg-gray-50 rounded">
-                                        <div class="font-medium text-gray-900">Unclassified</div>
-                                        <div class="text-sm font-bold text-gray-600">${source.unclassified_ratio}</div>
-                                        <div class="text-xs text-gray-600">${source.unclassified_count}</div>
-                                    </div>
-                                </div>
-                            </div>
-                        `).join('')}
-                    </div>
-                </div>
-            </div>
-        `;
-
-        // Create charts
-        createHuntScoreChart(huntScoreLabels, excellentData, goodData, moderateData, lowData, minimalData);
-        createHourlyChart(hourlyLabels, hourlyData);
-    } else {
-        content.innerHTML = `
-            <div class="p-4 bg-red-50 border border-red-200 rounded-lg">
-                <div class="flex items-center">
-                    <span class="text-2xl mr-2">❌</span>
-                    <div>
-                        <h3 class="font-medium text-red-900">Ingestion Analytics Failed</h3>
-                        <p class="text-sm text-red-700">${data.error || 'Unknown error'}</p>
-                    </div>
-                </div>
-            </div>
-        `;
-    }
-}
-
-// Chart creation functions
-function createHuntScoreChart(labels, excellentData, goodData, moderateData, lowData, minimalData) {
-    const ctx = document.getElementById('huntScoreChart').getContext('2d');
-    new Chart(ctx, {
-        type: 'bar',
-        data: {
-            labels: labels,
-            datasets: [{
-                label: 'Excellent (80-100)',
-                data: excellentData,
-                backgroundColor: 'rgba(34, 197, 94, 0.8)',
-                borderColor: 'rgb(34, 197, 94)',
-                borderWidth: 1
-            }, {
-                label: 'Good (60-79)',
-                data: goodData,
-                backgroundColor: 'rgba(59, 130, 246, 0.8)',
-                borderColor: 'rgb(59, 130, 246)',
-                borderWidth: 1
-            }, {
-                label: 'Moderate (40-59)',
-                data: moderateData,
-                backgroundColor: 'rgba(251, 191, 36, 0.8)',
-                borderColor: 'rgb(251, 191, 36)',
-                borderWidth: 1
-            }, {
-                label: 'Low (20-39)',
-                data: lowData,
-                backgroundColor: 'rgba(249, 115, 22, 0.8)',
-                borderColor: 'rgb(249, 115, 22)',
-                borderWidth: 1
-            }, {
-                label: 'Minimal (0-19)',
-                data: minimalData,
-                backgroundColor: 'rgba(239, 68, 68, 0.8)',
-                borderColor: 'rgb(239, 68, 68)',
-                borderWidth: 1
-            }]
-        },
-        options: {
-            responsive: true,
-            scales: {
-                x: {
-                    stacked: true
-                },
-                y: {
-                    stacked: true,
-                    type: 'logarithmic',
-                    beginAtZero: true,
-                    min: 1
-                }
-            },
-            plugins: {
-                legend: {
-                    position: 'top'
-                }
-            }
-        }
-    });
-}
-
-function createHourlyChart(labels, data) {
-    const ctx = document.getElementById('hourlyChart').getContext('2d');
-    new Chart(ctx, {
-        type: 'bar',
-        data: {
-            labels: labels,
-            datasets: [{
-                label: 'Articles',
-                data: data,
-                backgroundColor: 'rgba(147, 51, 234, 0.8)',
-                borderColor: 'rgb(147, 51, 234)',
-                borderWidth: 1
-            }]
-        },
-        options: {
-            responsive: true,
-            scales: {
-                y: {
-                    beginAtZero: true
-                }
-            }
-        }
-    });
-}
 
 function showError(message) {
     // Simple error display - could be enhanced with a toast notification
