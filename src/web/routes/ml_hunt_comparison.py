@@ -173,10 +173,11 @@ async def get_backfill_logs():
                         for keyword in [
                             "processing article",
                             "progress:",
-                            "backfill complete",
+                            "processing complete",
                             "chunk_analysis_backfill",
                             "starting backfill",
                             "backfill",
+                            "processing failed",
                             "chunk analysis",
                         ]
                     )
@@ -363,4 +364,3 @@ async def get_comparison_summary():
     except Exception as exc:  # noqa: BLE001
         logger.error("Error getting comparison summary: %s", exc)
         raise HTTPException(status_code=500, detail=str(exc)) from exc
-

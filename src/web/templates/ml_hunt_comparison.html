@@ -54,7 +54,7 @@
                                 <li>Articles are chunked into 1000-character segments</li>
                                 <li>Each chunk gets ML classification (huntable/not huntable)</li>
                                 <li>All chunks are stored for analysis regardless of confidence</li>
-                                <li>Only chunks with ≥70% confidence are sent to LLM for processing</li>
+                                <li>Only chunks with ≥50% confidence (configurable up to 80%) are sent to LLM for processing</li>
                                 <li>Results feed into ML vs Hunt comparison analysis</li>
                             </ul>
                             
@@ -883,8 +883,8 @@
                     terminalDiv.id = 'terminalOutput';
                     terminalDiv.className = 'fixed z-50 bg-black text-green-400 font-mono text-sm rounded-lg border border-gray-600 overflow-hidden shadow-2xl';
                     terminalDiv.innerHTML = `
-                        <div class="flex justify-between items-center p-2 bg-gray-800 text-gray-300 text-xs border-b border-gray-600">
-                            <span>📟 Real-Time Processing Logs</span>
+                        <div class="flex justify-between items-center p-2 bg-gray-800 text-gray-100 text-xs border-b border-gray-600">
+                            <span>📟 Articles Processing. Please standby. Close the window to update status.</span>
                             <button id="closeTerminal" class="text-gray-400 hover:text-white">✕</button>
                         </div>
                         <div class="p-4 overflow-y-auto" style="height: 250px;">
