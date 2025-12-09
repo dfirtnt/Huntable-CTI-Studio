@@ -2567,7 +2567,7 @@ async def api_generate_sigma(article_id: int, request: Request):
             )
 
         ai_model = body.get("ai_model", "chatgpt")
-        author_name = body.get("author_name", "Huntable Detection Studio User")
+        author_name = body.get("author_name", "Huntable CTI Studio User")
         force_regenerate = body.get("force_regenerate", False)
         skip_matching = body.get(
             "skip_matching", False

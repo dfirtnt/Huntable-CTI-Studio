@@ -235,6 +235,11 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
             
             # Get source name
             source_name = article.source.name if article.source else "Unknown"
+
+            hunt_score = article.article_metadata.get('threat_hunting_score') if article.article_metadata else None
+            ml_score = article.article_metadata.get('ml_hunt_score') if article.article_metadata else None
+            ground_truth_details = LLMService.compute_rank_ground_truth(hunt_score, ml_score)
+            ground_truth_rank = ground_truth_details.get("ground_truth_rank")
             
             # Get agent prompt from config (for both ranking and QA)
             rank_prompt_template = None
@@ -260,6 +265,8 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                     prompt_template=rank_prompt_template,
                     execution_id=state['execution_id'],
                     article_id=article.id,
+                    ground_truth_rank=ground_truth_rank,
+                    ground_truth_details=ground_truth_details,
                     qa_feedback=qa_feedback
                 )
                 

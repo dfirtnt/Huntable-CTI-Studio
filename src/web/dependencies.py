@@ -1,5 +1,5 @@
 """
-Shared application-level dependencies for the Huntable Detection Studio web stack.
+Shared application-level dependencies for the Huntable CTI Studio web stack.
 
 This module centralizes objects that need to be imported across many
 routers such as the logger, environment configuration, template engine,
@@ -49,4 +49,3 @@ __all__ = [
     "templates",
     "get_content_filter",
 ]
-

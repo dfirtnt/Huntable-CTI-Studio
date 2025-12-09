@@ -829,6 +829,11 @@ async def test_rank_agent(request: Request, test_request: TestRankAgentRequest):
             
             # Get source name
             source_name = article.source.name if article.source else "Unknown"
+
+            hunt_score = article.article_metadata.get('threat_hunting_score') if article.article_metadata else None
+            ml_score = article.article_metadata.get('ml_hunt_score') if article.article_metadata else None
+            ground_truth_details = LLMService.compute_rank_ground_truth(hunt_score, ml_score)
+            ground_truth_rank = ground_truth_details.get("ground_truth_rank")
             
             # Get prompt from config only (no file fallback)
             if not config.agent_prompts or "RankAgent" not in config.agent_prompts:
@@ -855,7 +860,9 @@ async def test_rank_agent(request: Request, test_request: TestRankAgentRequest):
                 url=article.canonical_url or "",
                 prompt_template=rank_prompt_template,
                 execution_id=None,
-                article_id=test_request.article_id
+                article_id=test_request.article_id,
+                ground_truth_rank=ground_truth_rank,
+                ground_truth_details=ground_truth_details
             )
             
             return {

@@ -471,6 +471,11 @@ Cannot process empty articles."""
             
             # Get source name
             source_name = article.source.name if article.source else "Unknown"
+
+            hunt_score = article.article_metadata.get('threat_hunting_score') if article.article_metadata else None
+            ml_score = article.article_metadata.get('ml_hunt_score') if article.article_metadata else None
+            ground_truth_details = LLMService.compute_rank_ground_truth(hunt_score, ml_score)
+            ground_truth_rank = ground_truth_details.get("ground_truth_rank")
             
             # Get RankAgent prompt from config only (no file fallback)
             if not config_obj or not config_obj.agent_prompts or "RankAgent" not in config_obj.agent_prompts:
@@ -489,7 +494,9 @@ Cannot process empty articles."""
                 content=filtered_content,
                 source=source_name,
                 url=article.canonical_url or "",
-                prompt_template=rank_prompt_template
+                prompt_template=rank_prompt_template,
+                ground_truth_rank=ground_truth_rank,
+                ground_truth_details=ground_truth_details
             )
             
             ranking_score = ranking_result['score']
