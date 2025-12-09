@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Dashboard - Huntable Detection Studio{% endblock %}
+{% block title %}Dashboard - Huntable CTI Studio{% endblock %}
 
 {% block content %}
 <div class="min-h-screen">
@@ -15,10 +15,10 @@
     <!-- 3x3 Grid Layout -->
     <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
         
-        <!-- 1. Scraper Health Card -->
+        <!-- 1. rticle Ingestion Health Card -->
         <div class="bg-gray-800 text-gray-100 p-6 rounded-2xl shadow-lg">
             <div class="flex items-center justify-between mb-4">
-                <h3 class="text-lg font-semibold">Scraper Health</h3>
+                <h3 class="text-lg font-semibold">Article Ingestion Health</h3>
                 <div id="health-indicator" class="w-3 h-3 rounded-full bg-green-500"></div>
             </div>
             <div class="space-y-3">
@@ -241,13 +241,10 @@
             if (topArticlesContainer && data.top_articles) {
                 topArticlesContainer.innerHTML = "";
                 data.top_articles.forEach(article => {
-                    let badgeColor = "bg-gray-600";
                     let scoreColor = "text-yellow-400";
                     if (article.classification === "Chosen") {
-                        badgeColor = "bg-green-600";
                         scoreColor = "text-green-400";
                     } else if (article.classification === "Rejected") {
-                        badgeColor = "bg-red-600";
                         scoreColor = "text-red-400";
                     }
                     
@@ -255,8 +252,7 @@
                     card.href = `/articles/${article.id}`;
                     card.className = "block p-5 rounded-lg bg-gray-700 hover:bg-gray-600 transition-colors min-h-[120px]";
                     card.innerHTML = `
-                        <div class="flex justify-between items-start mb-3">
-                            <span class="text-sm px-3 py-1 rounded-full font-medium ${badgeColor} text-white">${article.classification || "Unclassified"}</span>
+                        <div class="flex justify-end items-start mb-3">
                             <span class="text-lg font-mono font-bold ${scoreColor}">${article.hunt_score || 0}</span>
                         </div>
                         <h4 class="font-semibold text-base mb-2 leading-tight">${article.title || "Untitled"}</h4>

@@ -9,6 +9,7 @@ import logging
 import httpx
 import json
 import re
+import math
 import asyncio
 from typing import Dict, Any, Optional
 from pathlib import Path
@@ -185,6 +186,42 @@ class LLMService:
             truncated = truncated[:last_boundary + 1]
         
         return truncated + "\n\n[Content truncated to fit context window]"
+
+    @staticmethod
+    def compute_rank_ground_truth(hunt_score: Optional[Any], ml_score: Optional[Any]) -> Dict[str, Optional[float]]:
+        """
+        Derive a 1-10 ground truth rank from hunt and ML scores (0-100 scale).
+        Rounds the mean score to the nearest 10, then maps to 1-10.
+        """
+        def _to_float(value: Any) -> Optional[float]:
+            try:
+                return float(value)
+            except (TypeError, ValueError):
+                return None
+
+        hunt = _to_float(hunt_score)
+        ml = _to_float(ml_score)
+
+        if hunt is None or ml is None:
+            return {
+                "ground_truth_rank": None,
+                "ground_truth_mean": None,
+                "rounded_to_nearest_10": None,
+                "hunt_score": hunt,
+                "ml_score": ml,
+            }
+
+        mean_score = (hunt + ml) / 2
+        rounded_to_nearest_10 = math.floor((mean_score + 5) / 10) * 10
+        ground_truth_rank = max(1.0, min(10.0, rounded_to_nearest_10 / 10))
+
+        return {
+            "ground_truth_rank": ground_truth_rank,
+            "ground_truth_mean": mean_score,
+            "rounded_to_nearest_10": rounded_to_nearest_10,
+            "hunt_score": hunt,
+            "ml_score": ml,
+        }
     
     def _lmstudio_url_candidates(self) -> list:
         """Get list of LMStudio URL candidates for fallback."""
@@ -639,7 +676,9 @@ class LLMService:
         prompt_template: Optional[str] = None,
         execution_id: Optional[int] = None,
         article_id: Optional[int] = None,
-        qa_feedback: Optional[str] = None
+        qa_feedback: Optional[str] = None,
+        ground_truth_rank: Optional[float] = None,
+        ground_truth_details: Optional[Dict[str, Optional[float]]] = None
     ) -> Dict[str, Any]:
         """
         Rank an article using LLM (Step 1 of workflow).
@@ -651,6 +690,8 @@ class LLMService:
             url: Article URL
             prompt_template_path: Optional path to ranking prompt template file
             prompt_template: Optional prompt template string (takes precedence over prompt_template_path)
+            ground_truth_rank: Optional 1-10 ground truth rank to log to Langfuse
+            ground_truth_details: Optional dict of source scores/rounding used for ground truth
         
         Returns:
             Dict with 'score' (1-10 float) and 'reasoning' (str)
@@ -841,19 +882,26 @@ class LLMService:
         
         logger.info(f"Ranking request: max_tokens={max_output_tokens} (reasoning_model={is_reasoning_model})")
         
+        ranking_metadata = {
+            "prompt_length": len(prompt_text),
+            "max_tokens": max_output_tokens,
+            "title": title,
+            "source": source,
+            "messages": messages  # Include messages for input display
+        }
+
+        if ground_truth_rank is not None:
+            ranking_metadata["ground_truth_rank"] = ground_truth_rank
+        if ground_truth_details:
+            ranking_metadata["ground_truth_details"] = ground_truth_details
+        
         # Trace LLM call with Langfuse
         with trace_llm_call(
             name="rank_article",
             model=model_name,
             execution_id=execution_id,
             article_id=article_id,
-            metadata={
-                "prompt_length": len(prompt_text),
-                "max_tokens": max_output_tokens,
-                "title": title,
-                "source": source,
-                "messages": messages  # Include messages for input display
-            }
+            metadata=ranking_metadata
         ) as generation:
             try:
                 # Reasoning models need longer timeouts - they generate extensive reasoning + answer
@@ -919,6 +967,16 @@ class LLMService:
                 
                 # Log completion to Langfuse
                 usage = result.get('usage', {})
+                completion_metadata = {
+                    "score": score,
+                    "finish_reason": finish_reason,
+                    "response_length": len(response_text)
+                }
+                if ground_truth_rank is not None:
+                    completion_metadata["ground_truth_rank"] = ground_truth_rank
+                if ground_truth_details:
+                    completion_metadata["ground_truth_details"] = ground_truth_details
+
                 log_llm_completion(
                     generation,
                     input_messages=messages,
@@ -928,11 +986,8 @@ class LLMService:
                         "completion_tokens": usage.get('completion_tokens', 0),
                         "total_tokens": usage.get('total_tokens', 0)
                     },
-                    metadata={
-                        "score": score,
-                        "finish_reason": finish_reason,
-                        "response_length": len(response_text)
-                    }
+                    metadata=completion_metadata,
+                    ground_truth=ground_truth_rank
                 )
                 
                 return {

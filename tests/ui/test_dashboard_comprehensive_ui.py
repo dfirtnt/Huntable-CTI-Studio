@@ -55,7 +55,7 @@ class TestHealthMetricsCard:
         page.wait_for_load_state("networkidle")
         
         # Verify health card exists
-        health_card = page.locator("text=Scraper Health")
+        health_card = page.locator("text=Article Ingestion Health")
         expect(health_card).to_be_visible()
     
     @pytest.mark.ui

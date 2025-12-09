@@ -1,5 +1,5 @@
 """
-Reusable Jinja filter functions for the Huntable Detection Studio web UI.
+Reusable Jinja filter functions for the Huntable CTI Studio web UI.
 
 Separated from the main application module to simplify imports and
 keep template-specific helpers in a dedicated location.
@@ -99,17 +99,17 @@ def highlight_keywords(content: str, metadata: Dict[str, Any]) -> str:
             elif keyword.lower() in wildcard_keywords:
                 # For wildcard matching (e.g., "spawn" matches "spawns", "spawning", "spawned")
                 escaped_keyword = re.escape(keyword)
-                pattern = re.compile(escaped_keyword + r'\w*', re.IGNORECASE)
+                pattern = re.compile(escaped_keyword + r"\w*", re.IGNORECASE)
             else:
                 # Use shared keyword pattern logic from ThreatHuntingScorer
                 pattern_str = ThreatHuntingScorer._build_keyword_pattern(keyword)
                 # Convert word boundaries (\b) to letter boundaries for highlighting
                 # Replace \b at start with lookbehind, \b at end with lookahead
-                if pattern_str.startswith('\\b'):
-                    pattern_str = pattern_str.replace('\\b', r'(?<![a-zA-Z])', 1)
-                if pattern_str.endswith('\\b'):
-                    pattern_str = pattern_str[:-2] + r'(?![a-zA-Z])'
-                pattern_str = pattern_str.replace('\\b', r'(?![a-zA-Z])')
+                if pattern_str.startswith("\\b"):
+                    pattern_str = pattern_str.replace("\\b", r"(?<![a-zA-Z])", 1)
+                if pattern_str.endswith("\\b"):
+                    pattern_str = pattern_str[:-2] + r"(?![a-zA-Z])"
+                pattern_str = pattern_str.replace("\\b", r"(?![a-zA-Z])")
                 pattern = re.compile(pattern_str, re.IGNORECASE)
 
             for match in pattern.finditer(content):
@@ -151,11 +151,11 @@ def highlight_keywords(content: str, metadata: Dict[str, Any]) -> str:
     highlighted_content = content
     for match in reversed(non_overlapping):
         # Use the actual matched text from content, not the keyword from metadata
-        matched_text = content[match["start"]:match["end"]]
+        matched_text = content[match["start"] : match["end"]]
         highlight_span = (
             '<span class="px-1 py-0.5 rounded text-xs font-medium border '
             f'{match["css_classes"]}" title="{match["type_name"].title()} discriminator: {match["keyword"]}">'
-            f'{matched_text}</span>'
+            f"{matched_text}</span>"
         )
         highlighted_content = (
             highlighted_content[: match["start"]]
@@ -166,7 +166,9 @@ def highlight_keywords(content: str, metadata: Dict[str, Any]) -> str:
     return highlighted_content
 
 
-def strftime_filter(value: Optional[datetime], format_string: str = "%Y-%m-%d %H:%M:%S") -> str:
+def strftime_filter(
+    value: Optional[datetime], format_string: str = "%Y-%m-%d %H:%M:%S"
+) -> str:
     """Format a datetime object using strftime."""
     if value is None:
         return "N/A"
@@ -174,4 +176,3 @@ def strftime_filter(value: Optional[datetime], format_string: str = "%Y-%m-%d %H
         return value.strftime(format_string)
     except (AttributeError, ValueError):
         return str(value)
-

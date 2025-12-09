@@ -1,5 +1,5 @@
 /**
- * Mobile-Optimized Text Annotation System for Huntable Detection Studio
+ * Mobile-Optimized Text Annotation System for Huntable CTI Studio
  * 
  * Enhanced version with touch support for iPhone/iPad usage
  */

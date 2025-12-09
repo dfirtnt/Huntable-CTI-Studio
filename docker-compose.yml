@@ -80,6 +80,7 @@ services:
     ports:
       - "8001:8001"
       - "${LANGGRAPH_PORT:-2024}:2024"
+      - "8888:8888"
     volumes:
       - ./src:/app/src
       - ./config:/app/config

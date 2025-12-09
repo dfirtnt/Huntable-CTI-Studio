@@ -1,5 +1,5 @@
 """
-Health and diagnostics endpoints for the Huntable Detection Studio FastAPI application.
+Health and diagnostics endpoints for the Huntable CTI Studio FastAPI application.
 """
 
 from __future__ import annotations

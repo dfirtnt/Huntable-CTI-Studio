@@ -1,5 +1,5 @@
 """
-FastAPI application entrypoint for the Huntable Detection Studio platform.
+FastAPI application entrypoint for the Huntable CTI Studio platform.
 """
 
 from __future__ import annotations
@@ -27,7 +27,7 @@ from src.web.routes import register_routes
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """Application startup and shutdown events."""
-    logger.info("Starting Huntable Detection Studio application…")
+    logger.info("Starting Huntable CTI Studio application…")
 
     try:
         await async_db_manager.create_tables()
@@ -38,10 +38,14 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
     try:
         existing_identifiers = await async_db_manager.list_source_identifiers()
-        
+
         # Check if auto-sync is disabled via environment variable
-        disable_auto_sync = os.getenv("DISABLE_SOURCE_AUTO_SYNC", "false").lower() in ("true", "1", "yes")
-        
+        disable_auto_sync = os.getenv("DISABLE_SOURCE_AUTO_SYNC", "false").lower() in (
+            "true",
+            "1",
+            "yes",
+        )
+
         # Only sync from YAML for brand new builds (initial setup)
         # Database values take precedence for existing installations
         if disable_auto_sync:
@@ -109,7 +113,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         #             logger.error("Failed to start collection for %s: %s", source.name, exc)
         # except Exception as exc:  # noqa: BLE001
         #     logger.error("Failed to trigger startup collection: %s", exc)
-        
+
         logger.info("Startup collection disabled to prevent UI performance issues")
     except Exception as exc:  # noqa: BLE001
         logger.error("Database connection failed: %s", exc)
@@ -117,13 +121,13 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
     yield
 
-    logger.info("Shutting down Huntable Detection Studio application…")
+    logger.info("Shutting down Huntable CTI Studio application…")
     await async_db_manager.close()
     logger.info("Application shutdown complete")
 
 
 app = FastAPI(
-    title="Huntable Detection Studio - Modern Threat Intelligence Platform",
+    title="Huntable CTI Studio - Modern Threat Intelligence Platform",
     description="Enterprise-grade threat intelligence aggregation and analysis platform",
     version="4.0.0",
     lifespan=lifespan,
@@ -148,7 +152,7 @@ register_routes(app)
 async def not_found_handler(request: Request, exc: HTTPException):
     """Handle 404 errors."""
     if request.url.path.startswith("/api/"):
-        detail = exc.detail if hasattr(exc, 'detail') and exc.detail else "Not found"
+        detail = exc.detail if hasattr(exc, "detail") and exc.detail else "Not found"
         return JSONResponse(content={"detail": detail}, status_code=404)
 
     return templates.TemplateResponse(

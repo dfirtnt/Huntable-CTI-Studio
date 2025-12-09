@@ -1,5 +1,5 @@
 """
-Router registration helpers for the Huntable Detection Studio FastAPI application.
+Router registration helpers for the Huntable CTI Studio FastAPI application.
 
 Individual router modules should expose an ``router`` instance that is
 included from :func:`register_routes`.
@@ -9,7 +9,37 @@ from __future__ import annotations
 
 from fastapi import FastAPI
 
-from . import actions, analytics, ai, articles, backup, chat, dashboard, debug, embeddings, evaluation, export, feedback, health, metrics, ml_hunt_comparison, models, pages, pdf, search, settings, sources, tasks, scrape, workflow_config, workflow_executions, workflow_ui, sigma_queue, sigma_ab_test, sigma_similarity_test
+from . import (
+    actions,
+    analytics,
+    ai,
+    articles,
+    backup,
+    chat,
+    dashboard,
+    debug,
+    embeddings,
+    evaluation,
+    export,
+    feedback,
+    health,
+    metrics,
+    ml_hunt_comparison,
+    models,
+    pages,
+    pdf,
+    search,
+    settings,
+    sources,
+    tasks,
+    scrape,
+    workflow_config,
+    workflow_executions,
+    workflow_ui,
+    sigma_queue,
+    sigma_ab_test,
+    sigma_similarity_test,
+)
 from .annotations import router as annotation_router
 from ..gpt4o_optimized_endpoint import router as gpt4o_router
 

@@ -16,7 +16,7 @@ router = APIRouter(tags=["Metrics"])
 
 @router.get("/api/metrics/health")
 async def api_metrics_health():
-    """Get scraper health metrics for dashboard."""
+    """Get Article Ingestion Health metrics for dashboard."""
     try:
         stats = await async_db_manager.get_database_stats()
         sources = await async_db_manager.list_sources()

@@ -448,7 +448,8 @@ def log_llm_completion(
     input_messages: list,
     output: str,
     usage: Optional[Dict[str, int]] = None,
-    metadata: Optional[Dict[str, Any]] = None
+    metadata: Optional[Dict[str, Any]] = None,
+    ground_truth: Optional[Any] = None
 ):
     """
     Log LLM completion to LangFuse generation.
@@ -459,6 +460,7 @@ def log_llm_completion(
         output: LLM output text
         usage: Token usage dict with 'prompt_tokens', 'completion_tokens', 'total_tokens'
         metadata: Additional metadata
+        ground_truth: Optional expected output value for evaluation
     """
     if not generation:
         return
@@ -486,6 +488,9 @@ def log_llm_completion(
             },
             "metadata": metadata
         }
+
+        if ground_truth is not None:
+            update_kwargs["expected_output"] = ground_truth
         
         # Add usage if provided
         if usage:
