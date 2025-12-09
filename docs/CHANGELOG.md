@@ -26,6 +26,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Sources Page UI Cleanup**: Removed quality metrics display sections (total articles, rejected/chosen/unclassified counts, average hunt scores) to simplify source cards.
 - **Settings Page**: Removed Ollama model references (llama3.2:1b, tinyllama:1.1b) from recommended models list
 - **Scraper Metrics Page**: Removed "Article Ingestion Analytics" section to streamline the interface
+- **Workflow Executions Retry UI**: Default retry action remains async and is labeled “Retry”; synchronous “Retry (Wait)” is now hidden unless Debug mode is enabled on the Executions tab.
 
 ### Fixed
 - **Backup System Critical Bug**: Fixed automated system backup failures that were creating empty backup files

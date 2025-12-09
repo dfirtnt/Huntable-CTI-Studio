@@ -1135,6 +1135,13 @@
                        class="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 dark:border-gray-600 rounded">
                 <span class="select-none">Show extract observable counts</span>
             </label>
+            <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+                <input type="checkbox" 
+                       id="debugModeToggle" 
+                       onchange="toggleDebugMode(event)"
+                       class="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 dark:border-gray-600 rounded">
+                <span class="select-none">Debug mode (show sync retry)</span>
+            </label>
         </div>
 
         <!-- Statistics -->
@@ -1345,6 +1352,7 @@ let currentTab = 'config';
 let executions = [];
 let totalExecutions = 0;
 let showObservableCounts = false;
+let debugMode = false;
 const observableCountColumns = [
     { key: 'cmdline', label: 'CmdLine#' },
     { key: 'process_lineage', label: 'ProcTree#' },
@@ -1820,9 +1828,9 @@ function renderAgentPrompts() {
                         <h4 class="text-md font-semibold text-gray-900 dark:text-white">${displayName}</h4>
                         <span class="text-xs text-gray-500 dark:text-gray-400">Model: <span class="font-mono">${escapeHtml(model)}</span></span>
                     </div>
-                    <span id="${panelId}-toggle" class="text-gray-700 dark:text-gray-200 text-sm font-medium transform transition-transform">▼</span>
+                    <span id="${panelId}-toggle" class="text-gray-700 dark:text-gray-200 text-sm font-medium transform transition-transform">${isEditing ? '▲' : '▼'}</span>
                 </button>
-                <div id="${panelId}-content" class="hidden p-4 border-t border-gray-200 dark:border-gray-700">
+                <div id="${panelId}-content" class="${isEditing ? '' : 'hidden'} p-4 border-t border-gray-200 dark:border-gray-700">
                     <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
                         <div class="flex items-center justify-between mb-3">
                             <div>
@@ -3101,6 +3109,9 @@ window.autoSaveModelChange = async function autoSaveModelChange() {
             agentModels = updatedConfig.agent_models || {};
             console.log('✅ Model change auto-saved successfully');
             console.log('Updated config agent_models:', updatedConfig.agent_models);
+            // Sync dirty-tracking baseline to the new config so the save button disables again
+            resetOriginalConfigStateFromCurrent();
+            updateSaveButtonState();
             
             // Refresh prompt displays to show updated model values
             if (agentPrompts && Object.keys(agentPrompts).length > 0) {
@@ -3259,9 +3270,9 @@ function renderSinglePrompt(agentName, promptData, prefix) {
                     <h4 class="text-sm font-semibold text-gray-900 dark:text-white">${escapeHtml(agentName)} Prompt</h4>
                     <span class="text-xs text-gray-500 dark:text-gray-400">Model: <span class="font-mono">${escapeHtml(model)}</span></span>
                 </div>
-                <span id="${panelId}-toggle" class="text-gray-700 dark:text-gray-200 text-sm font-medium transform transition-transform">▼</span>
+                <span id="${panelId}-toggle" class="text-gray-700 dark:text-gray-200 text-sm font-medium transform transition-transform">${isEditing ? '▲' : '▼'}</span>
             </button>
-            <div id="${panelId}-content" class="hidden p-4 border-t border-gray-200 dark:border-gray-700">
+            <div id="${panelId}-content" class="${isEditing ? '' : 'hidden'} p-4 border-t border-gray-200 dark:border-gray-700">
                 <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
                     <div class="flex items-center justify-between mb-3">
                         <div>
@@ -3342,9 +3353,9 @@ function renderQAPrompt(agentName, containerId) {
                     <h4 class="text-sm font-semibold text-gray-900 dark:text-white">${escapeHtml(agentName)} QA Prompt</h4>
                     <span class="text-xs text-gray-500 dark:text-gray-400">Model: <span class="font-mono">${escapeHtml(model)}</span></span>
                 </div>
-                <span id="${panelId}-toggle" class="text-gray-700 dark:text-gray-200 text-sm font-medium transform transition-transform">▼</span>
+                <span id="${panelId}-toggle" class="text-gray-700 dark:text-gray-200 text-sm font-medium transform transition-transform">${isEditing ? '▲' : '▼'}</span>
             </button>
-            <div id="${panelId}-content" class="hidden p-4 border-t border-gray-200 dark:border-gray-700">
+            <div id="${panelId}-content" class="${isEditing ? '' : 'hidden'} p-4 border-t border-gray-200 dark:border-gray-700">
                 <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
                     <div class="flex items-center justify-between mb-3">
                         <div>
@@ -3540,6 +3551,7 @@ async function persistExtractAgentSettings() {
             agentPrompts = updatedConfig.agent_prompts || agentPrompts || {};
             disabledExtractAgents = new Set(getDisabledExtractAgentsFromConfig(updatedConfig));
             syncExtractAgentTogglesFromConfig();
+            resetOriginalConfigStateFromCurrent();
             console.log('✅ Extract sub-agent toggles saved', { disabled: Array.from(disabledExtractAgents) });
         } else {
             const error = await response.json().catch(() => ({}));
@@ -3958,7 +3970,7 @@ function cancelEditPrompt2(agentName) {
 }
 
 async function saveAgentPrompt2(agentName) {
-    const agentId = agentName === 'QAAgent' ? 'qa-agent' : agentName.toLowerCase().replace(/\s+/g, '-');
+    const agentId = agentName.toLowerCase().replace(/\s+/g, '-');
     const promptElement = document.getElementById(`${agentId}-prompt-2`);
     const instructionsElement = document.getElementById(`${agentId}-instructions-2`);
     const changeDescriptionElement = document.getElementById(`${agentId}-change-description-2`);
@@ -4037,6 +4049,20 @@ async function saveAgentPrompt2(agentName) {
 
 // Track original config state for change detection
 let originalConfigState = null;
+
+// Reset snapshot of the original state to match the current config (used after saves/auto-saves)
+function resetOriginalConfigStateFromCurrent() {
+    if (!currentConfig) return;
+    originalConfigState = {
+        junk_filter_threshold: currentConfig.junk_filter_threshold || 0,
+        ranking_threshold: currentConfig.ranking_threshold || 0,
+        similarity_threshold: currentConfig.similarity_threshold || 0,
+        description: null,
+        qa_enabled: currentConfig.qa_enabled || {},
+        agent_models: currentConfig.agent_models || {},
+        disabled_extract_agents: getDisabledExtractAgentsFromConfig(currentConfig)
+    };
+}
 
 // Function to check if a model is an embedding/text encoder (should be excluded)
 function isEmbeddingModel(modelName) {
@@ -4345,17 +4371,7 @@ function updateSaveButtonState() {
     // Initialize original state and set up change listeners
 function initializeChangeTracking() {
     // Store original state after config is loaded
-    if (currentConfig) {
-        originalConfigState = {
-            junk_filter_threshold: currentConfig.junk_filter_threshold || 0,
-            ranking_threshold: currentConfig.ranking_threshold || 0,
-            similarity_threshold: currentConfig.similarity_threshold || 0,
-            description: null,
-            qa_enabled: currentConfig.qa_enabled || {},
-            agent_models: currentConfig.agent_models || {},
-            disabled_extract_agents: getDisabledExtractAgentsFromConfig(currentConfig)
-        };
-    }
+    resetOriginalConfigStateFromCurrent();
     
     // Add change listeners to all configurable fields
     const fields = [
@@ -4826,8 +4842,8 @@ function renderExecutions() {
                 ${(exec.status === 'running' || exec.status === 'pending') ? `<button onclick="openLiveExecutionView(${exec.id})" class="text-green-600 hover:text-green-900 dark:text-green-400 dark:hover:text-green-300 mr-2" title="Live streaming view for execution ${exec.id}">📺 Live</button>` : ''}
                 <button onclick="debugInAgentChat(${exec.id})" class="text-purple-600 hover:text-purple-800 dark:text-purple-400 mr-2" title="Open in Langfuse. Note: Traces only exist if execution ran with Langfuse tracing enabled. Use 'View' for database details.">🔍 Debug</button>
                 ${exec.status === 'failed' ? `
-                    <button onclick="retryExecution(${exec.id}, false)" class="text-green-600 hover:text-green-800 dark:text-green-400 mr-2" title="Retry in background via Celery (async, returns immediately)">Retry (Async)</button>
-                    <button onclick="retryExecution(${exec.id}, true)" class="text-purple-600 hover:text-purple-800 dark:text-purple-400" title="Retry synchronously and wait for completion (returns result)">Retry (Wait)</button>
+                    <button onclick="retryExecution(${exec.id}, false)" class="text-green-600 hover:text-green-800 dark:text-green-400 mr-2" title="Retry in background via Celery (async, returns immediately)">Retry</button>
+                    ${debugMode ? `<button onclick="retryExecution(${exec.id}, true)" class="text-purple-600 hover:text-purple-800 dark:text-purple-400" title="Retry synchronously and wait for completion (returns result)">Retry (Wait)</button>` : ''}
                 ` : ''}
             </td>
         </tr>
@@ -4836,6 +4852,11 @@ function renderExecutions() {
 
 function toggleObservableCounts(event) {
     showObservableCounts = !!event?.target?.checked;
+    renderExecutions();
+}
+
+function toggleDebugMode(event) {
+    debugMode = !!event?.target?.checked;
     renderExecutions();
 }
 
