@@ -7,6 +7,7 @@ from __future__ import annotations
 import os
 import json
 import asyncio
+import re
 from datetime import datetime
 from typing import Dict, Optional, List, Any
 from email.utils import parsedate_to_datetime
@@ -17,6 +18,7 @@ from fastapi import APIRouter, HTTPException, Request
 
 from src.database.async_manager import async_db_manager
 from src.services.sigma_validator import validate_sigma_rule
+from src.services.provider_model_catalog import load_catalog, update_provider_models
 from src.utils.llm_optimizer import (
     estimate_llm_cost,
     estimate_gpt4o_cost,
@@ -31,6 +33,115 @@ router = APIRouter(prefix="/api/articles", tags=["Articles", "AI"])
 # Test API key endpoints (separate router for correct URL paths)
 test_router = APIRouter(prefix="/api", tags=["AI", "Testing"])
 
+OPENAI_MODEL_PATTERN = re.compile(
+    r"^(gpt|o\d|o[1-9]|o-|o[a-z]|omni|text-davinci|davinci|curie|babbage|ada)",
+    re.IGNORECASE,
+)
+
+
+def _filter_openai_models(model_ids: List[str]) -> List[str]:
+    filtered = [model_id for model_id in model_ids if OPENAI_MODEL_PATTERN.match(model_id)]
+    return sorted(set(filtered))
+
+
+def _filter_anthropic_models(model_ids: List[str]) -> List[str]:
+    return sorted({model_id for model_id in model_ids if model_id.lower().startswith("claude")})
+
+
+def _filter_gemini_models(model_ids: List[str]) -> List[str]:
+    cleaned = []
+    for model_id in model_ids:
+        if not model_id:
+            continue
+        normalized = model_id.split("/")[-1]
+        if normalized.lower().startswith("gemini"):
+            cleaned.append(normalized)
+    return sorted(set(cleaned))
+
+
+async def _fetch_openai_models(api_key: str) -> List[str]:
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json",
+    }
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.get("https://api.openai.com/v1/models", headers=headers, timeout=20.0)
+        if response.status_code != 200:
+            logger.warning(f"OpenAI models API returned {response.status_code}: {response.text[:200]}")
+            return []
+        data = response.json()
+        models = [item.get("id", "") for item in data.get("data", []) if item.get("id")]
+        return _filter_openai_models(models)
+    except httpx.HTTPError as exc:
+        logger.warning(f"Failed to fetch OpenAI models: {exc}")
+        return []
+
+
+async def _fetch_anthropic_models(api_key: str) -> List[str]:
+    headers = {
+        "x-api-key": api_key,
+        "Content-Type": "application/json",
+        "anthropic-version": "2023-06-01",
+    }
+    params = {"limit": 200}
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.get("https://api.anthropic.com/v1/models", headers=headers, params=params, timeout=20.0)
+        if response.status_code != 200:
+            logger.warning(f"Anthropic models API returned {response.status_code}: {response.text[:200]}")
+            return []
+        data = response.json()
+        models = []
+        payload = data.get("data") or data.get("models") or []
+        for item in payload:
+            if isinstance(item, dict):
+                candidate = item.get("id") or item.get("model") or item.get("name")
+                if candidate:
+                    models.append(candidate)
+        return _filter_anthropic_models(models)
+    except httpx.HTTPError as exc:
+        logger.warning(f"Failed to fetch Anthropic models: {exc}")
+        return []
+
+
+async def _fetch_gemini_models(api_key: str) -> List[str]:
+    params = {"key": api_key}
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.get("https://generativelanguage.googleapis.com/v1beta/models", params=params, timeout=20.0)
+        if response.status_code != 200:
+            logger.warning(f"Gemini models API returned {response.status_code}: {response.text[:200]}")
+            return []
+        data = response.json()
+        models = []
+        for item in data.get("models", []):
+            if isinstance(item, dict):
+                name = item.get("name")
+                if name:
+                    models.append(name)
+        return _filter_gemini_models(models)
+    except httpx.HTTPError as exc:
+        logger.warning(f"Failed to fetch Gemini models: {exc}")
+        return []
+
+
+async def _refresh_provider_catalog(provider: str, api_key: str) -> Dict[str, List[str]]:
+    fetcher_map = {
+        "openai": _fetch_openai_models,
+        "anthropic": _fetch_anthropic_models,
+        "gemini": _fetch_gemini_models,
+    }
+    fetcher = fetcher_map.get(provider)
+    if not fetcher:
+        return {}
+
+    models = await fetcher(api_key)
+    if not models:
+        return {}
+
+    catalog = update_provider_models(provider, models)
+    return {"models": models, "catalog": catalog}
 
 async def _call_anthropic_with_retry(
     api_key: str,
@@ -419,7 +530,13 @@ async def api_test_openai_key(request: Request):
             )
 
             if response.status_code == 200:
-                return {"valid": True, "message": "API key is valid"}
+                refresh_result = await _refresh_provider_catalog("openai", api_key)
+                return {
+                    "valid": True,
+                    "message": "API key is valid",
+                    "models": refresh_result.get("models"),
+                    "catalog": refresh_result.get("catalog"),
+                }
             elif response.status_code == 401:
                 # Try to extract more details from the error
                 try:
@@ -477,7 +594,13 @@ async def api_test_anthropic_key(request: Request):
             )
 
             if response.status_code == 200:
-                return {"valid": True, "message": "API key is valid"}
+                refresh_result = await _refresh_provider_catalog("anthropic", api_key)
+                return {
+                    "valid": True,
+                    "message": "API key is valid",
+                    "models": refresh_result.get("models"),
+                    "catalog": refresh_result.get("catalog"),
+                }
             elif response.status_code == 401:
                 return {"valid": False, "message": "Invalid API key"}
             else:
@@ -488,6 +611,34 @@ async def api_test_anthropic_key(request: Request):
     except Exception as e:
         logger.error(f"Anthropic API key test error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@test_router.post("/test-gemini-key")
+async def api_test_gemini_key(request: Request):
+    """Test Gemini API key validity by listing available models."""
+    try:
+        body = await request.json()
+        api_key = (body.get("api_key") or "").strip()
+        if not api_key:
+            raise HTTPException(status_code=400, detail="API key is required")
+
+        models = await _fetch_gemini_models(api_key)
+        if models:
+            catalog = update_provider_models("gemini", models)
+            return {
+                "valid": True,
+                "message": f"API key is valid. Retrieved {len(models)} models.",
+                "models": models,
+                "catalog": catalog,
+            }
+        raise HTTPException(status_code=400, detail="Unable to fetch Gemini models with provided key")
+    except httpx.HTTPStatusError as exc:
+        raise HTTPException(status_code=exc.response.status_code, detail=exc.response.text)
+    except httpx.TimeoutException:
+        raise HTTPException(status_code=408, detail="Request timeout")
+    except Exception as exc:
+        logger.error(f"Gemini API key test error: {exc}")
+        raise HTTPException(status_code=500, detail=str(exc))
 
 
 async def _get_current_lmstudio_model() -> str:
@@ -769,6 +920,12 @@ async def api_get_lmstudio_embedding_models():
             "count": 0,
             "message": f"Error fetching embedding models: {str(e)}",
         }
+
+
+@test_router.get("/provider-model-catalog")
+async def api_get_provider_model_catalog():
+    """Return cached provider model catalog."""
+    return {"catalog": load_catalog()}
 
 
 @test_router.post("/test-lmstudio-connection")
@@ -2797,6 +2954,25 @@ async def api_generate_sigma(article_id: int, request: Request):
             url=article.canonical_url or "N/A",
             content=content_to_analyze,
         )
+
+        # Allow optional prompt override (e.g., from notebook/UI experiments)
+        prompt_override = body.get("prompt_override")
+        if prompt_override:
+            try:
+                sigma_prompt = prompt_override.format(
+                    title=article.title,
+                    source=source_name,
+                    url=article.canonical_url or "N/A",
+                    content=content_to_analyze,
+                )
+                logger.info(
+                    f"Using prompt_override for SIGMA generation (len={len(sigma_prompt)} chars)"
+                )
+            except Exception as e:
+                logger.warning(
+                    f"prompt_override format failed ({e}); using raw override text"
+                )
+                sigma_prompt = prompt_override
 
         # Additional guard: cap final prompt size for LMStudio to avoid context overflow
         if ai_model == "lmstudio":
