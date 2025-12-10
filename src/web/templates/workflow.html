@@ -75,7 +75,7 @@
     </div>
 
     <!-- Configuration Tab -->
-    <div id="tab-content-config" class="tab-content hidden">
+    <div id="tab-content-config" class="tab-content">
         <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mb-8">
             <form id="workflowConfigForm" class="space-y-6">
                 <!-- Other Thresholds -->
@@ -339,7 +339,7 @@
                             <div class="space-y-3">
                                 <!-- CmdlineExtract Sub-Agent Panel -->
                                 <div class="border border-gray-200 dark:border-gray-700 rounded-lg ml-4">
-                                    <button type="button" onclick="toggleCollapsible('cmdlineextract-agent-panel')" class="w-full flex items-center justify-between p-3 text-left hover:bg-gray-50 dark:hover:bg-gray-700 rounded-t-lg transition-colors">
+                                    <button id="cmdlineextract-panel-btn" type="button" onclick="toggleCollapsible('cmdlineextract-agent-panel')" class="w-full flex items-center justify-between p-3 text-left hover:bg-gray-50 dark:hover:bg-gray-700 rounded-t-lg transition-colors">
                                         <div class="flex items-center gap-3">
                                             <h4 class="text-sm font-semibold text-gray-900 dark:text-white">CmdlineExtract (Command Line Extraction)</h4>
                                             <span id="cmdlineextract-agent-enabled-pill" class="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">Enabled</span>
@@ -1736,6 +1736,44 @@ let agentModels = {};
 const extractSubAgents = ['CmdlineExtract', 'SigExtract', 'EventCodeExtract', 'ProcTreeExtract', 'RegExtract'];
 let disabledExtractAgents = new Set();
 
+// Early global stub to avoid inline-handler errors before full script loads
+if (typeof window !== 'undefined' && typeof window.onAgentProviderChange !== 'function') {
+    window.onAgentProviderChange = function stubAgentProviderChange(agentPrefix) {
+        if (typeof window._onAgentProviderChangeImpl === 'function') {
+            return window._onAgentProviderChangeImpl(agentPrefix);
+        }
+        // no-op until main script finishes loading
+    };
+}
+
+// Early stub for global provider refresh to prevent ReferenceError before definition
+if (typeof window !== 'undefined' && typeof window.refreshAllProviderBlocks !== 'function') {
+    window.refreshAllProviderBlocks = function stubRefreshAllProviderBlocks() {
+        // no-op until main script defines real function
+    };
+}
+
+// #region agent log helper
+function __dbgLog(hypothesisId, message, data) {
+    try {
+        fetch('http://127.0.0.1:7242/ingest/358b7f6e-3cf0-4ca2-8faf-57b269e739b7', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                sessionId: 'debug-session',
+                runId: 'run-pre-fix',
+                hypothesisId,
+                location: 'workflow.html',
+                message,
+                data,
+                timestamp: Date.now()
+            })
+        }).catch(() => {});
+    } catch (_) {}
+}
+__dbgLog('H1', 'script_loaded', { page: 'workflow' });
+// #endregion
+
 const providerOptions = [
     { value: 'lmstudio', label: 'LMStudio (Local)' },
     { value: 'openai', label: 'OpenAI (Cloud)' },
@@ -1752,6 +1790,15 @@ const providerModelGuards = {
     openai: /^(gpt|o[13]|text-|davinci|curie|babbage|ada|whisper|omni|turbo)/i,
     anthropic: /^claude/i
 };
+
+function inferProviderFromModel(modelId) {
+    if (!modelId || typeof modelId !== 'string') return null;
+    const trimmed = modelId.trim();
+    if (!trimmed) return null;
+    if (providerModelGuards.openai && providerModelGuards.openai.test(trimmed)) return 'openai';
+    if (providerModelGuards.anthropic && providerModelGuards.anthropic.test(trimmed)) return 'anthropic';
+    return null;
+}
 
 function isModelAllowedForProvider(provider, modelId) {
     if (!modelId) return false;
@@ -1846,6 +1893,14 @@ async function refreshCommercialModelCatalog() {
 
 const cachedProviderCatalog = getCachedProviderCatalog();
 let commercialModelCatalog = cachedProviderCatalog || window.initialCommercialModelCatalog || defaultCommercialModelCatalog;
+// If cached catalog is present but empty, fall back to server/default catalogs
+if (
+    !commercialModelCatalog ||
+    (Array.isArray(commercialModelCatalog.openai) && commercialModelCatalog.openai.length === 0 &&
+     Array.isArray(commercialModelCatalog.anthropic) && commercialModelCatalog.anthropic.length === 0)
+) {
+    commercialModelCatalog = window.initialCommercialModelCatalog || defaultCommercialModelCatalog;
+}
 
 function getCommercialProviderModels(provider) {
     const catalog = commercialModelCatalog[provider];
@@ -1865,10 +1920,31 @@ function buildCommercialProviderInput(agentPrefix, provider, currentProvider, cu
     const elementId = `${agentPrefix}-model-${provider}`;
     const catalog = getCommercialProviderModels(provider);
 
+    // Determine the name attribute for form submission
+    // Main agents use agent_models[AgentName], sub-agents use agent_models[AgentName_model]
+    const agentNameMap = {
+        'rankagent': 'RankAgent',
+        'extractagent': 'ExtractAgent',
+        'sigmaagent': 'SigmaAgent',
+        'cmdlineextract': 'CmdlineExtract_model',
+        'sigextract': 'SigExtract_model',
+        'eventcodeextract': 'EventCodeExtract_model',
+        'proctreeextract': 'ProcTreeExtract_model',
+        'regextract': 'RegExtract_model',
+        'rankqa': 'RankAgentQA',
+        'cmdlineqa': 'CmdLineQA',
+        'sigqa': 'SigQA',
+        'eventcodeqa': 'EventCodeQA',
+        'proctreeqa': 'ProcTreeQA',
+        'regqa': 'RegQA'
+    };
+    const nameAttr = agentNameMap[agentPrefix] ? `name="agent_models[${agentNameMap[agentPrefix]}]"` : '';
+
     if (!catalog || catalog.length === 0) {
         return `
             <input type="text"
                    id="${elementId}"
+                   ${nameAttr}
                    class="${baseClass}"
                    value="${escapeHtml(eligibleCurrentModel || '')}"
                    placeholder="${provider === 'openai' ? 'gpt-4o-mini' : 'claude-sonnet-4-5'}"
@@ -1896,6 +1972,7 @@ function buildCommercialProviderInput(agentPrefix, provider, currentProvider, cu
 
     return `
         <select id="${elementId}"
+                ${nameAttr}
                 onchange="autoSaveModelChange()"
                 class="${baseClass}">
             <option value="" ${placeholderSelected}>${placeholder}</option>
@@ -1920,28 +1997,26 @@ function buildProviderSelect(agentId, currentProvider) {
 }
 
 function updateAgentProviderVisibility(agentPrefix, provider) {
+    const normalized = (provider || 'lmstudio').toString().trim().toLowerCase();
     const groups = document.querySelectorAll(`[data-agent-prefix="${agentPrefix}"]`);
     groups.forEach(group => {
         if (!group.dataset.provider) return;
-        if (group.dataset.provider === provider) {
+        const groupProvider = group.dataset.provider.toString().trim().toLowerCase();
+        if (groupProvider === normalized) {
             group.classList.remove('hidden');
+            group.style.display = '';
         } else {
             group.classList.add('hidden');
+            group.style.display = 'none';
         }
     });
 }
 
-window.onAgentProviderChange = function(agentPrefix) {
-    const select = document.getElementById(`${agentPrefix}-provider`);
-    if (!select) return;
-    const provider = select.value || 'lmstudio';
-    updateAgentProviderVisibility(agentPrefix, provider);
-    autoSaveModelChange();
-};
-
 function getActiveAgentModelValue(agentPrefix, provider) {
+    // Handle LMStudio select variants (-model-2 is the current ID, plain -model is legacy)
     if (provider === 'lmstudio') {
-        return document.getElementById(`${agentPrefix}-model`)?.value?.trim() || null;
+        const lmstudioSelect = document.getElementById(`${agentPrefix}-model-2`) || document.getElementById(`${agentPrefix}-model`);
+        return lmstudioSelect?.value?.trim() || null;
     }
     const input = document.getElementById(`${agentPrefix}-model-${provider}`);
     return input?.value?.trim() || null;
@@ -2263,37 +2338,250 @@ async function loadLMStudioModels() {
         `;
     }
 
-    const providerSelections = [
-        { prefix: 'rankagent', key: 'RankAgent_provider' },
-        { prefix: 'extractagent', key: 'ExtractAgent_provider' },
-        { prefix: 'sigmaagent', key: 'SigmaAgent_provider' },
+}
+
+const providerSelections = [
+        { prefix: 'rankagent', key: 'RankAgent_provider', modelKey: 'RankAgent' },
+        { prefix: 'extractagent', key: 'ExtractAgent_provider', modelKey: 'ExtractAgent' },
+        { prefix: 'sigmaagent', key: 'SigmaAgent_provider', modelKey: 'SigmaAgent' },
         // Sub-agents
-        { prefix: 'cmdlineextract', key: 'CmdlineExtract_provider' },
-        { prefix: 'sigextract', key: 'SigExtract_provider' },
-        { prefix: 'eventcodeextract', key: 'EventCodeExtract_provider' },
-        { prefix: 'proctreeextract', key: 'ProcTreeExtract_provider' },
-        { prefix: 'regextract', key: 'RegExtract_provider' },
+        { prefix: 'cmdlineextract', key: 'CmdlineExtract_provider', modelKey: 'CmdlineExtract_model' },
+        { prefix: 'sigextract', key: 'SigExtract_provider', modelKey: 'SigExtract_model' },
+        { prefix: 'eventcodeextract', key: 'EventCodeExtract_provider', modelKey: 'EventCodeExtract_model' },
+        { prefix: 'proctreeextract', key: 'ProcTreeExtract_provider', modelKey: 'ProcTreeExtract_model' },
+        { prefix: 'regextract', key: 'RegExtract_provider', modelKey: 'RegExtract_model' },
         // QA agents
-        { prefix: 'rankqa', key: 'RankAgentQA_provider' },
-        { prefix: 'cmdlineqa', key: 'CmdLineQA_provider' },
-        { prefix: 'sigqa', key: 'SigQA_provider' },
-        { prefix: 'eventcodeqa', key: 'EventCodeQA_provider' },
-        { prefix: 'proctreeqa', key: 'ProcTreeQA_provider' },
-        { prefix: 'regqa', key: 'RegQA_provider' }
+        { prefix: 'rankqa', key: 'RankAgentQA_provider', modelKey: 'RankAgentQA' },
+        { prefix: 'cmdlineqa', key: 'CmdLineQA_provider', modelKey: 'CmdLineQA' },
+        { prefix: 'sigqa', key: 'SigQA_provider', modelKey: 'SigQA' },
+        { prefix: 'eventcodeqa', key: 'EventCodeQA_provider', modelKey: 'EventCodeQA' },
+        { prefix: 'proctreeqa', key: 'ProcTreeQA_provider', modelKey: 'ProcTreeQA' },
+        { prefix: 'regqa', key: 'RegQA_provider', modelKey: 'RegQA' }
     ];
 
+function applyProviderSelections(models) {
+    const activeModels = models || agentModels || {};
+    let providerAdjusted = false;
+
     providerSelections.forEach(selection => {
-        const provider = (agentModels && agentModels[selection.key]) || 'lmstudio';
+        const storedProvider = (activeModels && activeModels[selection.key]) || '';
+        const storedModel = selection.modelKey ? activeModels?.[selection.modelKey] : null;
+        const inferredProvider = inferProviderFromModel(storedModel);
+
+        let provider = storedProvider || inferredProvider || 'lmstudio';
+        if (storedProvider === 'lmstudio' && inferredProvider && inferredProvider !== 'lmstudio') {
+            provider = inferredProvider;
+        }
+        if (!storedProvider && inferredProvider && inferredProvider !== 'lmstudio') {
+            providerAdjusted = true;
+        }
+
         const select = document.getElementById(`${selection.prefix}-provider`);
         if (select) {
             select.value = provider;
         }
         updateAgentProviderVisibility(selection.prefix, provider);
+        if (typeof window.renderSubAgentCommercialInputs === 'function') {
+            window.renderSubAgentCommercialInputs(selection.prefix);
+        }
     });
-    
-    // Load embedding models for SIGMA similarity search
-    await loadLMStudioEmbeddingModels();
+
+    if (providerAdjusted && typeof window.autoSaveModelChange === 'function') {
+        setTimeout(() => window.autoSaveModelChange(), 0);
+    }
 }
+
+function syncProviderVisibilityAndInputs() {
+    providerSelections.forEach(selection => {
+        const select = document.getElementById(`${selection.prefix}-provider`);
+        if (!select) return;
+        const provider = (select.value || 'lmstudio').toString().trim().toLowerCase();
+        updateAgentProviderVisibility(selection.prefix, provider);
+        renderSubAgentCommercialInputs(selection.prefix);
+    });
+}
+
+const subAgentCommercialMap = {
+    cmdlineextract: { modelKey: 'CmdlineExtract_model' },
+    sigextract: { modelKey: 'SigExtract_model' },
+    eventcodeextract: { modelKey: 'EventCodeExtract_model' },
+    proctreeextract: { modelKey: 'ProcTreeExtract_model' },
+    regextract: { modelKey: 'RegExtract_model' },
+    cmdlineqa: { modelKey: 'CmdLineQA' },
+    sigqa: { modelKey: 'SigQA' },
+    eventcodeqa: { modelKey: 'EventCodeQA' },
+    proctreeqa: { modelKey: 'ProcTreeQA' },
+    regqa: { modelKey: 'RegQA' }
+};
+
+// Define and export globally so inline handlers can always reach it
+if (typeof window !== 'undefined') {
+    window.renderSubAgentCommercialInputs = function(agentPrefix) {
+        const mapEntry = subAgentCommercialMap[agentPrefix];
+        if (!mapEntry) return;
+        const providerSelect = document.getElementById(`${agentPrefix}-provider`);
+        const provider = (providerSelect?.value || 'lmstudio').toString().trim().toLowerCase();
+        const currentModel = agentModels?.[mapEntry.modelKey] || '';
+
+        const catalogs = window.commercialModelCatalog || window.initialCommercialModelCatalog || window.defaultCommercialModelCatalog || {};
+
+        ['openai', 'anthropic'].forEach(p => {
+            const container = document.querySelector(`[data-agent-prefix="${agentPrefix}"][data-provider="${p}"]`);
+            if (!container) return;
+
+            const catalog = Array.isArray(catalogs[p]) ? catalogs[p] : [];
+            if (catalog.length > 0) {
+                const options = catalog.map(modelId => {
+                    const selected = modelId === currentModel ? 'selected' : '';
+                    return `<option value="${escapeHtml(modelId)}" ${selected}>${escapeHtml(modelId)}</option>`;
+                }).join('');
+                container.innerHTML = `
+                    <select id="${agentPrefix}-model-${p}"
+                            name="agent_models[${mapEntry.modelKey}]"
+                            class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-xs">
+                        ${options}
+                    </select>
+                `;
+                return;
+            }
+
+            if (typeof buildCommercialProviderInput === 'function') {
+                container.innerHTML = buildCommercialProviderInput(agentPrefix, p, provider, currentModel);
+                return;
+            }
+
+            const placeholder = p === 'openai' ? 'gpt-4o-mini' : 'claude-sonnet-4-5';
+            container.innerHTML = `
+                <input type="text"
+                       id="${agentPrefix}-model-${p}"
+                       name="agent_models[${mapEntry.modelKey}]"
+                       class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-xs"
+                       placeholder="${placeholder}"
+                       value="${escapeHtml(currentModel || '')}"
+                       onchange="autoSaveModelChange()">
+            `;
+        });
+    };
+}
+
+// Safety net: if not defined (e.g., scoping quirks), define it globally now
+if (typeof window !== 'undefined' && typeof window.renderSubAgentCommercialInputs !== 'function') {
+    window.renderSubAgentCommercialInputs = function(agentPrefix) {
+        const mapEntry = subAgentCommercialMap[agentPrefix];
+        if (!mapEntry) return;
+        const providerSelect = document.getElementById(`${agentPrefix}-provider`);
+        const provider = (providerSelect?.value || 'lmstudio').toString().trim().toLowerCase();
+        const currentModel = agentModels?.[mapEntry.modelKey] || '';
+
+        const catalogs = window.commercialModelCatalog || window.initialCommercialModelCatalog || window.defaultCommercialModelCatalog || {};
+
+        ['openai', 'anthropic'].forEach(p => {
+            const container = document.querySelector(`[data-agent-prefix="${agentPrefix}"][data-provider="${p}"]`);
+            if (!container) return;
+
+            const catalog = Array.isArray(catalogs[p]) ? catalogs[p] : [];
+            __dbgLog('H2', 'renderSubAgentCommercialInputs entry', { agentPrefix, provider, catalogLen: catalog.length });
+            if (catalog.length > 0) {
+                const options = catalog.map(modelId => {
+                    const selected = modelId === currentModel ? 'selected' : '';
+                    return `<option value="${escapeHtml(modelId)}" ${selected}>${escapeHtml(modelId)}</option>`;
+                }).join('');
+                container.innerHTML = `
+                    <select id="${agentPrefix}-model-${p}"
+                            name="agent_models[${mapEntry.modelKey}]"
+                            class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-xs">
+                        ${options}
+                    </select>
+                `;
+                return;
+            }
+
+            if (typeof buildCommercialProviderInput === 'function') {
+                container.innerHTML = buildCommercialProviderInput(agentPrefix, p, provider, currentModel);
+                return;
+            }
+
+            const placeholder = p === 'openai' ? 'gpt-4o-mini' : 'claude-sonnet-4-5';
+            container.innerHTML = `
+                <input type="text"
+                       id="${agentPrefix}-model-${p}"
+                       name="agent_models[${mapEntry.modelKey}]"
+                       class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-xs"
+                       placeholder="${placeholder}"
+                       value="${escapeHtml(currentModel || '')}"
+                       onchange="autoSaveModelChange()">
+            `;
+        });
+    };
+}
+
+function onAgentProviderChange(agentPrefix) {
+    const select = document.getElementById(`${agentPrefix}-provider`);
+    if (!select) return;
+    const provider = (select.value || 'lmstudio').toString().trim().toLowerCase();
+    __dbgLog('H3', 'onAgentProviderChange', { agentPrefix, provider });
+    updateAgentProviderVisibility(agentPrefix, provider);
+    if (typeof window.renderSubAgentCommercialInputs === 'function') {
+        window.renderSubAgentCommercialInputs(agentPrefix);
+    }
+    autoSaveModelChange();
+}
+// Keep a reference the stub can call even if overwritten order varies
+window._onAgentProviderChangeImpl = onAgentProviderChange;
+window.onAgentProviderChange = onAgentProviderChange;
+
+// Global refresh to enforce correct provider visibility/inputs across all provider selects
+function refreshAllProviderBlocks() {
+    const selects = document.querySelectorAll('select[id$="-provider"]');
+    selects.forEach(select => {
+        const prefix = select.id.replace(/-provider$/, '');
+        const provider = (select.value || 'lmstudio').toString().trim().toLowerCase();
+        __dbgLog('H4', 'refreshAllProviderBlocks iterate', { prefix, provider });
+        updateAgentProviderVisibility(prefix, provider);
+        if (typeof window.renderSubAgentCommercialInputs === 'function') {
+            window.renderSubAgentCommercialInputs(prefix);
+        } else {
+            // Last-resort visibility only
+            const lm = document.querySelector(`[data-agent-prefix="${prefix}"][data-provider="lmstudio"]`);
+            const openai = document.querySelector(`[data-agent-prefix="${prefix}"][data-provider="openai"]`);
+            const anthropic = document.querySelector(`[data-agent-prefix="${prefix}"][data-provider="anthropic"]`);
+            [lm, openai, anthropic].forEach(el => {
+                if (!el || !el.dataset.provider) return;
+                const gp = el.dataset.provider.toString().trim().toLowerCase();
+                if (gp === provider) {
+                    el.classList.remove('hidden');
+                    el.style.display = '';
+                } else {
+                    el.classList.add('hidden');
+                    el.style.display = 'none';
+                }
+            });
+        }
+    });
+}
+if (typeof window !== 'undefined') {
+    window.refreshAllProviderBlocks = refreshAllProviderBlocks;
+}
+
+// Safety net: if renderSubAgentCommercialInputs isn't exposed (e.g., scope quirks), re-expose it
+if (typeof window !== 'undefined' && typeof window.renderSubAgentCommercialInputs !== 'function') {
+    window.renderSubAgentCommercialInputs = function(agentPrefix) {
+        const mapEntry = subAgentCommercialMap[agentPrefix];
+        if (!mapEntry) return;
+        const providerSelect = document.getElementById(`${agentPrefix}-provider`);
+        const provider = (providerSelect?.value || 'lmstudio').toString().trim().toLowerCase();
+        const currentModel = agentModels?.[mapEntry.modelKey] || '';
+
+        ['openai', 'anthropic'].forEach(p => {
+            const container = document.querySelector(`[data-agent-prefix="${agentPrefix}"][data-provider="${p}"]`);
+            if (container) {
+                container.innerHTML = buildCommercialProviderInput(agentPrefix, p, provider, currentModel);
+            }
+        });
+    };
+}
+// Ensure current dropdown selections drive visibility/inputs even if agentModels default to LMStudio
+syncProviderVisibilityAndInputs();
 
 // Load LMStudio embedding models for SIGMA similarity search
 async function loadLMStudioEmbeddingModels() {
@@ -2407,7 +2695,7 @@ function renderAgentPrompts() {
             <div class="border border-gray-200 dark:border-gray-700 rounded-lg mb-4">
                 <button type="button" onclick="toggleCollapsible('${panelId}')" class="w-full flex items-center justify-between p-3 text-left hover:bg-gray-50 dark:hover:bg-gray-700 rounded-t-lg transition-colors">
                     <div class="flex items-center gap-3">
-                        <h4 class="text-md font-semibold text-gray-900 dark:text-white">${displayName}</h4>
+                        <h4 class="text-md font-semibold text-gray-900 dark:text-white">Prompt</h4>
                         <span class="text-xs text-gray-500 dark:text-gray-400">Model: <span class="font-mono">${escapeHtml(model)}</span></span>
                     </div>
                     <span id="${panelId}-toggle" class="text-gray-700 dark:text-gray-200 text-sm font-medium transform transition-transform">${isEditing ? '▲' : '▼'}</span>
@@ -2872,6 +3160,7 @@ async function loadConfig() {
         await refreshCommercialModelCatalog();
         await loadAgentModels();
         await loadAgentPrompts();
+        refreshAllProviderBlocks();
         
         // Load QA settings
         loadQASettings2();
@@ -2974,21 +3263,25 @@ async function loadAgentModels() {
             if (data.success && data.models) {
                 agentModels = currentConfig?.agent_models || {};
                 renderAgentModels(data.models);
+                applyProviderSelections(agentModels);
             } else {
                 // API succeeded but returned no models - still render containers with empty model list
                 agentModels = currentConfig?.agent_models || {};
                 renderAgentModels([]);
+                applyProviderSelections(agentModels);
             }
         } else {
             // API call failed - still render containers with empty model list
             agentModels = currentConfig?.agent_models || {};
             renderAgentModels([]);
+            applyProviderSelections(agentModels);
         }
     } catch (error) {
         console.error('Error loading agent models:', error);
         // Even on error, render containers with empty model list so UI structure is visible
         agentModels = currentConfig?.agent_models || {};
         renderAgentModels([]);
+        applyProviderSelections(agentModels);
     }
 }
 
@@ -3976,35 +4269,73 @@ function renderAgentPrompts() {
 }
 
 function getCurrentModelForAgent(agentName) {
-    // Map agent names to their dropdown select IDs
-    const modelSelectMap = {
-        'ExtractAgent': 'extractagent-model-2',
-        'RankAgent': 'rankagent-model-2',
-        'SigmaAgent': 'sigmaagent-model-2',
-        'CmdlineExtract': 'cmdlineextract-model',
-        'SigExtract': 'sigextract-model',
-        'EventCodeExtract': 'eventcodeextract-model',
-        'ProcTreeExtract': 'proctreeextract-model',
-        'RegExtract': 'regextract-model',
-        'OSDetectionAgent': 'osdetectionagent-embedding-model-2'
+    // Map agent names to ID prefixes used for model inputs
+    const agentPrefixMap = {
+        'RankAgent': 'rankagent',
+        'ExtractAgent': 'extractagent',
+        'SigmaAgent': 'sigmaagent',
+        'CmdlineExtract': 'cmdlineextract',
+        'SigExtract': 'sigextract',
+        'EventCodeExtract': 'eventcodeextract',
+        'ProcTreeExtract': 'proctreeextract',
+        'RegExtract': 'regextract',
+        'OSDetectionAgent': 'osdetectionagent',
+        'CmdLineQA': 'cmdlineqa',
+        'SigQA': 'sigqa',
+        'EventCodeQA': 'eventcodeqa',
+        'ProcTreeQA': 'proctreeqa',
+        'RegQA': 'regqa',
+        'RankAgentQA': 'rankqa'
     };
     
-    const selectId = modelSelectMap[agentName];
-    if (selectId) {
-        const selectElement = document.getElementById(selectId);
-        if (selectElement) {
-            const value = selectElement.value?.trim();
-            // For sub-agents, if value is empty, they use ExtractAgent model
-            if (!value && ['CmdlineExtract', 'SigExtract', 'EventCodeExtract', 'ProcTreeExtract', 'RegExtract'].includes(agentName)) {
-                const extractModelSelect = document.getElementById('extractagent-model-2');
-                if (extractModelSelect && extractModelSelect.value && extractModelSelect.value.trim()) {
-                    return extractModelSelect.value.trim();
-                }
-            } else if (value) {
-                return value;
-            }
-        }
+    const providerSelectMap = {
+        'RankAgent': 'rankagent-provider',
+        'ExtractAgent': 'extractagent-provider',
+        'SigmaAgent': 'sigmaagent-provider',
+        'CmdlineExtract': 'cmdlineextract-provider',
+        'SigExtract': 'sigextract-provider',
+        'EventCodeExtract': 'eventcodeextract-provider',
+        'ProcTreeExtract': 'proctreeextract-provider',
+        'RegExtract': 'regextract-provider',
+        'CmdLineQA': 'cmdlineqa-provider',
+        'SigQA': 'sigqa-provider',
+        'EventCodeQA': 'eventcodeqa-provider',
+        'ProcTreeQA': 'proctreeqa-provider',
+        'RegQA': 'regqa-provider',
+        'RankAgentQA': 'rankqa-provider'
+    };
+    
+    // QA Agent (CMD) follows ExtractAgent model and does not have its own provider select
+    if (agentName === 'QAAgent') {
+        const extractProvider = document.getElementById('extractagent-provider')?.value || 'lmstudio';
+        return getActiveAgentModelValue('extractagent', extractProvider);
     }
+    
+    const agentPrefix = agentPrefixMap[agentName];
+    if (!agentPrefix) return null;
+    
+    const providerSelectId = providerSelectMap[agentName];
+    const provider = providerSelectId ? (document.getElementById(providerSelectId)?.value || 'lmstudio') : 'lmstudio';
+    
+    // Primary: read from the active input for the selected provider
+    const activeModel = getActiveAgentModelValue(agentPrefix, provider);
+    if (activeModel) return activeModel;
+    
+    // Sub-agent fallback: inherit ExtractAgent model when empty
+    const subAgentNames = ['CmdlineExtract', 'SigExtract', 'EventCodeExtract', 'ProcTreeExtract', 'RegExtract', 'CmdLineQA', 'SigQA', 'EventCodeQA', 'ProcTreeQA', 'RegQA'];
+    if (subAgentNames.includes(agentName)) {
+        const extractProvider = document.getElementById('extractagent-provider')?.value || 'lmstudio';
+        const extractModel = getActiveAgentModelValue('extractagent', extractProvider);
+        if (extractModel) return extractModel;
+    }
+    
+    // OS Detection uses embedding selector, no provider toggle
+    if (agentName === 'OSDetectionAgent') {
+        return document.getElementById('osdetectionagent-embedding-model-2')?.value?.trim() ||
+               document.getElementById('osdetectionagent-embedding-model')?.value?.trim() ||
+               null;
+    }
+    
     return null;
 }
 
@@ -7921,6 +8252,58 @@ function initializeSaveButton() {
     }
 }
 
+// --- Global fallback definitions to ensure sub-agent provider inputs always render ---
+const subAgentModelKeysGlobal = {
+    cmdlineextract: 'CmdlineExtract_model',
+    sigextract: 'SigExtract_model',
+    eventcodeextract: 'EventCodeExtract_model',
+    proctreeextract: 'ProcTreeExtract_model',
+    regextract: 'RegExtract_model',
+    cmdlineqa: 'CmdLineQA',
+    sigqa: 'SigQA',
+    eventcodeqa: 'EventCodeQA',
+    proctreeqa: 'ProcTreeQA',
+    regqa: 'RegQA'
+};
+
+function renderSubAgentCommercialInputsGlobal(agentPrefix) {
+    const modelKey = subAgentModelKeysGlobal[agentPrefix];
+    if (!modelKey) return;
+    const providerSelect = document.getElementById(`${agentPrefix}-provider`);
+    const provider = (providerSelect?.value || 'lmstudio').toString().trim().toLowerCase();
+    const currentModel = agentModels?.[modelKey] || '';
+
+    // Always use buildCommercialProviderInput for consistency with main agents
+    ['openai', 'anthropic'].forEach(p => {
+        const container = document.querySelector(`[data-agent-prefix="${agentPrefix}"][data-provider="${p}"]`);
+        if (!container) {
+            console.warn(`Container not found for ${agentPrefix} provider ${p}`);
+            return;
+        }
+
+        // Use buildCommercialProviderInput which handles both catalog and manual input cases
+        if (typeof buildCommercialProviderInput === 'function') {
+            let html = buildCommercialProviderInput(agentPrefix, p, provider, currentModel);
+            // Sub-agents use smaller padding (px-2 py-1.5) and text-xs instead of px-3 py-2 and text-sm
+            html = html.replace(/px-3 py-2/g, 'px-2 py-1.5').replace(/text-sm/g, 'text-xs');
+            container.innerHTML = html;
+        } else {
+            // Fallback to manual input if buildCommercialProviderInput not available
+            const placeholder = p === 'openai' ? 'gpt-4o-mini' : 'claude-sonnet-4-5';
+            container.innerHTML = `
+                <input type="text"
+                       id="${agentPrefix}-model-${p}"
+                       name="agent_models[${modelKey}]"
+                       class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-xs"
+                       placeholder="${placeholder}"
+                       value="${escapeHtml(currentModel || '')}"
+                       onchange="autoSaveModelChange()">
+            `;
+        }
+    });
+}
+window.renderSubAgentCommercialInputs = renderSubAgentCommercialInputsGlobal;
+
 // Run immediately if DOM is ready, otherwise wait for DOMContentLoaded
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => {
@@ -7930,6 +8313,10 @@ if (document.readyState === 'loading') {
         if (typeof loadAgentModels === 'function') {
             loadAgentModels().catch(err => console.error('Error loading agent models on init:', err));
         }
+        if (typeof refreshAllProviderBlocks === 'function') {
+            refreshAllProviderBlocks();
+        }
+        __dbgLog('H5', 'DOMContentLoaded fired', { ready: document.readyState });
     });
 } else {
     // DOM is already loaded, run immediately
@@ -7939,6 +8326,10 @@ if (document.readyState === 'loading') {
     if (typeof loadAgentModels === 'function') {
         loadAgentModels().catch(err => console.error('Error loading agent models on init:', err));
     }
+    if (typeof refreshAllProviderBlocks === 'function') {
+        refreshAllProviderBlocks();
+    }
+    __dbgLog('H5', 'DOMContentLoaded immediate branch', { ready: document.readyState });
 }
 </script>
 {% endblock %}
