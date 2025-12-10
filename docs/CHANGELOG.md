@@ -28,6 +28,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Scraper Metrics Page**: Removed "Article Ingestion Analytics" section to streamline the interface
 - **Workflow Executions Retry UI**: Default retry action remains async and is labeled “Retry”; synchronous “Retry (Wait)” is now hidden unless Debug mode is enabled on the Executions tab.
 
+- **Settings Page UI Cleanup**: Moved Langfuse Configuration into Agentic Workflow Configuration panel, removed API Configuration panel, and removed SIGMA Rule Configuration panel
+- **Workflow Configuration Page**: Removed all recommendation statements from help modals
+- **Agent Workflow Pages**: Removed all "🧪 Test with Article 2155" buttons and all recommendation statements
+
 ### Fixed
 - **Backup System Critical Bug**: Fixed automated system backup failures that were creating empty backup files
   - Root cause: Hardcoded `/app/backups` path didn't exist in containers

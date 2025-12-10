@@ -221,7 +221,7 @@ function showHelp(fieldName) {
                           <li>Higher values = fewer articles processed (more selective)</li>
                           <li>Lower values = more articles processed (less selective)</li>
                       </ul>
-                      <p class="text-sm text-gray-600 dark:text-gray-400"><strong>Recommended:</strong> 95.0-99.0 for production (high quality), 85.0-95.0 for testing (more volume)</p>`
+
         },
         'rankingThreshold': {
             title: 'Ranking Threshold',
@@ -236,7 +236,7 @@ function showHelp(fieldName) {
                           <li>If score < threshold: workflow stops (not huntable enough)</li>
                           <li>If score ≥ threshold: workflow continues to extraction</li>
                       </ul>
-                      <p class="text-sm text-gray-600 dark:text-gray-400"><strong>Recommended:</strong> 5.0-7.0 (6.0 is balanced). Lower = more lenient, Higher = more strict</p>`
+
         },
         'similarityThreshold': {
             title: 'Similarity Threshold',
@@ -251,7 +251,7 @@ function showHelp(fieldName) {
                           <li>If similarity > threshold: rule is NOT queued (duplicate detected)</li>
                           <li>If similarity ≤ threshold: rule is queued (unique enough)</li>
                       </ul>
-                      <p class="text-sm text-gray-600 dark:text-gray-400"><strong>Recommended:</strong> 0.4-0.6 (0.5 is balanced). Lower = stricter (fewer duplicates), Higher = more lenient (more rules queued)</p>`
+
         }
     };
     
