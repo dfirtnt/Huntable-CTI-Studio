@@ -915,11 +915,11 @@ async def get_workflow_debug_info(request: Request, execution_id: int):
                 "LANGFUSE_PROJECT_ID"
             )
             
-            # Generate trace_id hash (same format as langfuse_client.py)
+            # Build session/trace identifiers
             import hashlib
-            trace_id_hash = hashlib.md5(f"workflow_exec_{execution_id}".encode()).hexdigest()
             session_id = f"workflow_exec_{execution_id}"
-            resolved_trace_id = trace_id_hash
+            trace_id_hash = hashlib.md5(session_id.encode()).hexdigest()
+            resolved_trace_id = None
             trace_lookup_used = False
             if langfuse_public_key:
                 actual_trace_id = get_langfuse_trace_id_for_session(session_id)
@@ -943,14 +943,19 @@ async def get_workflow_debug_info(request: Request, execution_id: int):
             # Normalize host URL (remove trailing slash)
             langfuse_host = langfuse_host.rstrip('/') if langfuse_host else "https://us.cloud.langfuse.com"
 
-            # Try direct trace URL first (may work if Langfuse used our trace_id)
-            # If that doesn't work (404), user can search by session_id
-            if langfuse_project_id:
-                # Direct trace URL by trace_id
-                agent_chat_url = f"{langfuse_host}/project/{langfuse_project_id}/traces/{resolved_trace_id}"
+            # Try direct trace URL if we resolved a real trace_id
+            agent_chat_url = None
+            if resolved_trace_id:
+                if langfuse_project_id:
+                    agent_chat_url = f"{langfuse_host}/project/{langfuse_project_id}/traces/{resolved_trace_id}"
+                else:
+                    agent_chat_url = f"{langfuse_host}/traces/{resolved_trace_id}"
             else:
-                # Direct trace URL without project_id
-                agent_chat_url = f"{langfuse_host}/traces/{resolved_trace_id}"
+                # Fallback to search by session_id to avoid stale hash links
+                if langfuse_project_id:
+                    agent_chat_url = f"{langfuse_host}/project/{langfuse_project_id}/traces?search={session_id}"
+                else:
+                    agent_chat_url = f"{langfuse_host}/traces?search={session_id}"
 
             logger.info(f"🔗 Generated Langfuse trace URL: {agent_chat_url}")
             logger.info(
