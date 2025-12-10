@@ -7,6 +7,7 @@ from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse
 
 from src.web.dependencies import templates
+from src.services.provider_model_catalog import load_catalog
 
 logger = logging.getLogger(__name__)
 
@@ -18,7 +19,10 @@ async def workflow_page(request: Request):
     """Unified workflow management page with tabs."""
     return templates.TemplateResponse(
         "workflow.html",
-        {"request": request}
+        {
+            "request": request,
+            "provider_model_catalog": load_catalog(),
+        }
     )
 
 
@@ -49,3 +53,11 @@ async def workflow_queue_page_redirect(request: Request):
     from fastapi.responses import RedirectResponse
     return RedirectResponse(url="/workflow#queue", status_code=302)
 
+
+@router.get("/agent2", response_class=HTMLResponse)
+async def agent2_workflow_page(request: Request):
+    """Hybrid extractor preview page based on the workflow config UI."""
+    return templates.TemplateResponse(
+        "agent2.html",
+        {"request": request}
+    )

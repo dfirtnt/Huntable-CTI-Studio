@@ -50,6 +50,9 @@
     color: rgb(209 213 219) !important; /* text-gray-300 */
 }
 </style>
+<script>
+    window.initialCommercialModelCatalog = {{ provider_model_catalog | tojson | safe }};
+</script>
 <div class="container mx-auto px-4 py-8">
     <div class="mb-8">
         <h1 class="text-3xl font-bold text-gray-900 dark:text-white mb-2">🤖 Agents</h1>
@@ -260,11 +263,10 @@
                                     onchange="autoSaveModelChange()"
                                     class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-sm">
                             </select>
-                            <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                                Optional override for QA evaluations.
-                            </p>
-                            <p class="text-xs text-blue-600 dark:text-blue-400 mt-2 font-medium">💡 Recommendation: Use <code class="px-1 py-0.5 bg-blue-50 dark:bg-blue-900/30 rounded">mistralai/mistral-7b-instruct-v0.3</code> for verification tasks. Alternative: <code class="px-1 py-0.5 bg-blue-50 dark:bg-blue-900/30 rounded">qwen/qwen2.5-coder-32b</code> for stronger JSON parsing.</p>
-                            <div class="mt-3">
+                             <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                                 Optional override for QA evaluations.
+                             </p>
+                             <div class="mt-3">
                                 <label for="rankqa-temperature" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                                     Rank QA Temperature
                                 </label>
@@ -389,14 +391,13 @@
                                         <!-- CmdLine QA Model -->
                                         <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-3 border border-gray-200 dark:border-gray-700">
                                             <label for="cmdlineqa-model" class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">CmdLine QA Model</label>
-                                            <select id="cmdlineqa-model"
-                                                    name="agent_models[CmdLineQA]"
-                                                    onchange="autoSaveModelChange()"
-                                                    class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-xs">
-                                            </select>
-                                            <p class="text-xs text-blue-600 dark:text-blue-400 mt-2 font-medium">💡 Recommendation: Use <code class="px-1 py-0.5 bg-blue-50 dark:bg-blue-900/30 rounded">mistralai/mistral-7b-instruct-v0.3</code> for verification tasks. Alternative: <code class="px-1 py-0.5 bg-blue-50 dark:bg-blue-900/30 rounded">qwen/qwen2.5-coder-32b</code> for stronger JSON parsing.</p>
-                                            <div class="mt-2">
-                                                <label for="cmdlineqa-temperature" class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Temperature</label>
+                                             <select id="cmdlineqa-model"
+                                                     name="agent_models[CmdLineQA]"
+                                                     onchange="autoSaveModelChange()"
+                                                     class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-xs">
+                                             </select>
+                                             <div class="mt-2">
+                                                 <label for="cmdlineqa-temperature" class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Temperature</label>
                                                 <input type="number" 
                                                        id="cmdlineqa-temperature" 
                                                        name="agent_models[CmdLineQA_temperature]"
@@ -489,14 +490,13 @@
                                         <!-- Sig QA Model -->
                                         <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-3 border border-gray-200 dark:border-gray-700">
                                             <label for="sigqa-model" class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">Sig QA Model</label>
-                                            <select id="sigqa-model"
-                                                    name="agent_models[SigQA]"
-                                                    onchange="autoSaveModelChange()"
-                                                    class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-xs">
-                                            </select>
-                                            <p class="text-xs text-blue-600 dark:text-blue-400 mt-2 font-medium">💡 Recommendation: Use <code class="px-1 py-0.5 bg-blue-50 dark:bg-blue-900/30 rounded">mistralai/mistral-7b-instruct-v0.3</code> for verification tasks. Alternative: <code class="px-1 py-0.5 bg-blue-50 dark:bg-blue-900/30 rounded">qwen/qwen2.5-coder-32b</code> for stronger JSON parsing.</p>
-                                            <div class="mt-2">
-                                                <label for="sigqa-temperature" class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Temperature</label>
+                                             <select id="sigqa-model"
+                                                     name="agent_models[SigQA]"
+                                                     onchange="autoSaveModelChange()"
+                                                     class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-xs">
+                                             </select>
+                                             <div class="mt-2">
+                                                 <label for="sigqa-temperature" class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Temperature</label>
                                                 <input type="number" 
                                                        id="sigqa-temperature" 
                                                        name="agent_models[SigQA_temperature]"
@@ -589,14 +589,13 @@
                                         <!-- EventCode QA Model -->
                                         <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-3 border border-gray-200 dark:border-gray-700">
                                             <label for="eventcodeqa-model" class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">EventCode QA Model</label>
-                                            <select id="eventcodeqa-model"
-                                                    name="agent_models[EventCodeQA]"
-                                                    onchange="autoSaveModelChange()"
-                                                    class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-xs">
-                                            </select>
-                                            <p class="text-xs text-blue-600 dark:text-blue-400 mt-2 font-medium">💡 Recommendation: Use <code class="px-1 py-0.5 bg-blue-50 dark:bg-blue-900/30 rounded">mistralai/mistral-7b-instruct-v0.3</code> for verification tasks. Alternative: <code class="px-1 py-0.5 bg-blue-50 dark:bg-blue-900/30 rounded">qwen/qwen2.5-coder-32b</code> for stronger JSON parsing.</p>
-                                            <div class="mt-2">
-                                                <label for="eventcodeqa-temperature" class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Temperature</label>
+                                             <select id="eventcodeqa-model"
+                                                     name="agent_models[EventCodeQA]"
+                                                     onchange="autoSaveModelChange()"
+                                                     class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-xs">
+                                             </select>
+                                             <div class="mt-2">
+                                                 <label for="eventcodeqa-temperature" class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Temperature</label>
                                                 <input type="number" 
                                                        id="eventcodeqa-temperature" 
                                                        name="agent_models[EventCodeQA_temperature]"
@@ -689,14 +688,13 @@
                                         <!-- ProcTree QA Model -->
                                         <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-3 border border-gray-200 dark:border-gray-700">
                                             <label for="proctreeqa-model" class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">ProcTree QA Model</label>
-                                            <select id="proctreeqa-model"
-                                                    name="agent_models[ProcTreeQA]"
-                                                    onchange="autoSaveModelChange()"
-                                                    class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-xs">
-                                            </select>
-                                            <p class="text-xs text-blue-600 dark:text-blue-400 mt-2 font-medium">💡 Recommendation: Use <code class="px-1 py-0.5 bg-blue-50 dark:bg-blue-900/30 rounded">mistralai/mistral-7b-instruct-v0.3</code> for verification tasks. Alternative: <code class="px-1 py-0.5 bg-blue-50 dark:bg-blue-900/30 rounded">qwen/qwen2.5-coder-32b</code> for stronger JSON parsing.</p>
-                                            <div class="mt-2">
-                                                <label for="proctreeqa-temperature" class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Temperature</label>
+                                             <select id="proctreeqa-model"
+                                                     name="agent_models[ProcTreeQA]"
+                                                     onchange="autoSaveModelChange()"
+                                                     class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-xs">
+                                             </select>
+                                             <div class="mt-2">
+                                                 <label for="proctreeqa-temperature" class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Temperature</label>
                                                 <input type="number" 
                                                        id="proctreeqa-temperature" 
                                                        name="agent_models[ProcTreeQA_temperature]"
@@ -789,14 +787,13 @@
                                         <!-- Reg QA Model -->
                                         <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-3 border border-gray-200 dark:border-gray-700">
                                             <label for="regqa-model" class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">Reg QA Model</label>
-                                            <select id="regqa-model"
-                                                    name="agent_models[RegQA]"
-                                                    onchange="autoSaveModelChange()"
-                                                    class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-xs">
-                                            </select>
-                                            <p class="text-xs text-blue-600 dark:text-blue-400 mt-2 font-medium">💡 Recommendation: Use <code class="px-1 py-0.5 bg-blue-50 dark:bg-blue-900/30 rounded">mistralai/mistral-7b-instruct-v0.3</code> for verification tasks. Alternative: <code class="px-1 py-0.5 bg-blue-50 dark:bg-blue-900/30 rounded">qwen/qwen2.5-coder-32b</code> for stronger JSON parsing.</p>
-                                            <div class="mt-2">
-                                                <label for="regqa-temperature" class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Temperature</label>
+                                             <select id="regqa-model"
+                                                     name="agent_models[RegQA]"
+                                                     onchange="autoSaveModelChange()"
+                                                     class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-xs">
+                                             </select>
+                                             <div class="mt-2">
+                                                 <label for="regqa-temperature" class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Temperature</label>
                                                 <input type="number" 
                                                        id="regqa-temperature" 
                                                        name="agent_models[RegQA_temperature]"
@@ -852,6 +849,23 @@
                                    class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white">
                             <p class="text-xs text-gray-500 dark:text-gray-300 mt-1">Max similarity (0-1) to queue rule</p>
                             <p id="similarityThreshold-error" class="text-xs text-red-500 dark:text-red-400 mt-1 hidden"></p>
+                        </div>
+                        <!-- SIGMA Agent Test Buttons -->
+                        <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+                            <div class="flex items-start gap-2 mb-3 text-xs text-gray-600 dark:text-gray-300">
+                                <svg class="w-4 h-4 mt-0.5 text-gray-500 dark:text-gray-400" fill="currentColor" viewBox="0 0 20 20" title="In live workflow, the SIGMA agent ingests observables produced by the Extract Agent, not raw article content.">
+                                    <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/>
+                                </svg>
+                                <p class="leading-snug">Test requests here run directly on article content. In the actual workflow, SIGMA generation ingests observables emitted by the Extract Agent.</p>
+                            </div>
+                            <div class="flex gap-2">
+                                <button type="button" onclick="testSigmaAgent(2155)" class="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-md transition-colors">
+                                    🧪 Test with Article 2155
+                                </button>
+                                <button type="button" onclick="const id = promptForArticleId(2155); if (id) testSigmaAgent(id);" class="flex-1 px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-md transition-colors">
+                                    🎯 Test with Custom Article
+                                </button>
+                            </div>
                         </div>
                         <!-- SIGMA Agent Prompt -->
                         <div id="sigma-agent-prompt-container"></div>
@@ -1427,6 +1441,217 @@ let agentModels = {};
 const extractSubAgents = ['CmdlineExtract', 'SigExtract', 'EventCodeExtract', 'ProcTreeExtract', 'RegExtract'];
 let disabledExtractAgents = new Set();
 
+const providerOptions = [
+    { value: 'lmstudio', label: 'LMStudio (Local)' },
+    { value: 'openai', label: 'OpenAI (Cloud)' },
+    { value: 'anthropic', label: 'Anthropic Claude (Cloud)' }
+];
+
+const providerDefaults = {
+    openai: 'gpt-4o-mini',
+    anthropic: 'claude-sonnet-4-5'
+};
+
+// Allow-list style checks to keep provider dropdowns focused on valid models
+const providerModelGuards = {
+    openai: /^(gpt|o[13]|text-|davinci|curie|babbage|ada|whisper|omni|turbo)/i,
+    anthropic: /^claude/i
+};
+
+function isModelAllowedForProvider(provider, modelId) {
+    if (!modelId) return false;
+    const guard = providerModelGuards[provider];
+    if (!guard) return true;
+    return guard.test(modelId.trim());
+}
+
+// Curated model catalogs for commercial providers - kept client-side for quick selection
+const defaultCommercialModelCatalog = {
+    openai: [
+        'gpt-4.1',
+        'gpt-4.1-mini',
+        'gpt-4.1-nano',
+        'gpt-4.1-turbo',
+        'gpt-4.1-realtime-preview',
+        'gpt-4o',
+        'gpt-4o-mini',
+        'gpt-4o-realtime-preview-2024-12-17',
+        'gpt-4o-mini-tts',
+        'gpt-4o-mini-transcribe',
+        'o4',
+        'o4-mini',
+        'o3-mini',
+        'o3-mini-high',
+        'o3-mini-low',
+        'o1',
+        'o1-mini',
+        'o1-preview',
+        'o1-lite'
+    ],
+    anthropic: [
+        'claude-3.7-sonnet-latest',
+        'claude-3.7-sonnet-20250219',
+        'claude-3.7-haiku-latest',
+        'claude-3.7-haiku-20250219',
+        'claude-3.6-sonnet-20250108',
+        'claude-3.6-haiku-20250108',
+        'claude-3.5-sonnet-20241022',
+        'claude-3.5-haiku-20241022',
+        'claude-3.5-sonnet-latest',
+        'claude-3.5-haiku-latest',
+        'claude-3-opus-20240229',
+        'claude-3-sonnet-20240229',
+        'claude-3-haiku-20240307',
+        'claude-2.1',
+        'claude-2.0',
+        'claude-instant-1.2'
+    ]
+};
+function getCachedProviderCatalog() {
+    if (typeof localStorage === 'undefined') return null;
+    try {
+        const cached = localStorage.getItem('providerModelCatalog');
+        if (!cached) return null;
+        const parsed = JSON.parse(cached);
+        if (parsed && typeof parsed.data === 'object') {
+            return parsed.data;
+        }
+    } catch (error) {
+        console.warn('Failed to parse cached provider catalog', error);
+    }
+    return null;
+}
+
+function cacheProviderCatalog(catalog) {
+    if (!catalog || typeof localStorage === 'undefined') return;
+    try {
+        localStorage.setItem('providerModelCatalog', JSON.stringify({
+            data: catalog,
+            updatedAt: Date.now()
+        }));
+    } catch (error) {
+        console.warn('Failed to store provider catalog', error);
+    }
+}
+
+async function refreshCommercialModelCatalog() {
+    try {
+        const response = await fetch('/api/provider-model-catalog');
+        if (response.ok) {
+            const data = await response.json();
+            if (data.catalog) {
+                commercialModelCatalog = data.catalog;
+                cacheProviderCatalog(data.catalog);
+            }
+        }
+    } catch (error) {
+        console.warn('Unable to refresh provider model catalog', error);
+    }
+}
+
+const cachedProviderCatalog = getCachedProviderCatalog();
+let commercialModelCatalog = cachedProviderCatalog || window.initialCommercialModelCatalog || defaultCommercialModelCatalog;
+
+function getCommercialProviderModels(provider) {
+    const catalog = commercialModelCatalog[provider];
+    if (!Array.isArray(catalog)) {
+        return null;
+    }
+    const uniqueModels = [...new Set(catalog.map(model => model.trim()).filter(Boolean))];
+    return uniqueModels.sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
+}
+
+function buildCommercialProviderInput(agentPrefix, provider, currentProvider, currentModel) {
+    const placeholder = provider === 'openai' ? 'Select an OpenAI model' : 'Select a Claude model';
+    const baseClass = 'w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-sm';
+    const fallbackValue = providerDefaults[provider] || '';
+    const eligibleCurrentModel = (currentProvider === provider && currentModel && isModelAllowedForProvider(provider, currentModel)) ? currentModel : '';
+    const selectedModel = eligibleCurrentModel || fallbackValue || '';
+    const elementId = `${agentPrefix}-model-${provider}`;
+    const catalog = getCommercialProviderModels(provider);
+
+    if (!catalog || catalog.length === 0) {
+        return `
+            <input type="text"
+                   id="${elementId}"
+                   class="${baseClass}"
+                   value="${escapeHtml(eligibleCurrentModel || '')}"
+                   placeholder="${provider === 'openai' ? 'gpt-4o-mini' : 'claude-sonnet-4-5'}"
+                   oninput="autoSaveModelChange()">
+        `;
+    }
+
+    const curatedSet = new Set(catalog);
+    const extraModels = new Set();
+    if (eligibleCurrentModel && !curatedSet.has(eligibleCurrentModel)) {
+        curatedSet.add(eligibleCurrentModel);
+        extraModels.add(eligibleCurrentModel);
+    }
+    if (fallbackValue && !curatedSet.has(fallbackValue)) {
+        curatedSet.add(fallbackValue);
+    }
+    const sortedOptions = Array.from(curatedSet).sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
+    const options = sortedOptions.map(modelId => {
+        const isSelected = selectedModel === modelId ? 'selected' : '';
+        const isCurated = catalog.includes(modelId);
+        const label = (isCurated || !extraModels.has(modelId)) ? modelId : `${modelId} (saved)`;
+        return `<option value="${escapeHtml(modelId)}" ${isSelected}>${escapeHtml(label)}</option>`;
+    }).join('');
+    const placeholderSelected = selectedModel ? '' : 'selected';
+
+    return `
+        <select id="${elementId}"
+                onchange="autoSaveModelChange()"
+                class="${baseClass}">
+            <option value="" ${placeholderSelected}>${placeholder}</option>
+            ${options}
+        </select>
+    `;
+}
+
+function buildProviderSelect(agentId, currentProvider) {
+    const options = providerOptions.map(opt => {
+        const selected = opt.value === (currentProvider || 'lmstudio') ? 'selected' : '';
+        return `<option value="${escapeHtml(opt.value)}" ${selected}>${escapeHtml(opt.label)}</option>`;
+    }).join('');
+
+    return `
+        <select id="${agentId}-provider"
+                onchange="onAgentProviderChange('${agentId}')"
+                class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white text-sm">
+            ${options}
+        </select>
+    `;
+}
+
+function updateAgentProviderVisibility(agentPrefix, provider) {
+    const groups = document.querySelectorAll(`[data-agent-prefix="${agentPrefix}"]`);
+    groups.forEach(group => {
+        if (!group.dataset.provider) return;
+        if (group.dataset.provider === provider) {
+            group.classList.remove('hidden');
+        } else {
+            group.classList.add('hidden');
+        }
+    });
+}
+
+window.onAgentProviderChange = function(agentPrefix) {
+    const select = document.getElementById(`${agentPrefix}-provider`);
+    if (!select) return;
+    const provider = select.value || 'lmstudio';
+    updateAgentProviderVisibility(agentPrefix, provider);
+    autoSaveModelChange();
+};
+
+function getActiveAgentModelValue(agentPrefix, provider) {
+    if (provider === 'lmstudio') {
+        return document.getElementById(`${agentPrefix}-model`)?.value?.trim() || null;
+    }
+    const input = document.getElementById(`${agentPrefix}-model-${provider}`);
+    return input?.value?.trim() || null;
+}
+
 function renderAgentModels() {
     const container = document.getElementById('agentModelsContainer');
     if (!container) {
@@ -1581,27 +1806,61 @@ function renderAgentModels() {
         }
         
         // Regular agents (RankAgent, ExtractAgent, SigmaAgent)
+        const currentProvider = (agentModels && agentModels[`${agentName}_provider`]) || 'lmstudio';
         const currentModel = (agentModels && agentModels[agentName]) || '';
         
         return `
-            <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+            <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-4 border border-gray-200 dark:border-gray-700 space-y-3">
                 <div class="flex items-center justify-between mb-2">
-                    <label for="${agentId}-model" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">
                         ${agentLabels[agentName] || agentName}
                     </label>
                 </div>
-                <select id="${agentId}-model" 
-                        name="agent_models[${agentName}]"
-                        class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-sm">
-                    <option value="">-- Select model --</option>
-                    <!-- Options will be populated by loadLMStudioModels() -->
-                </select>
-                <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                    ${agentName === 'RankAgent' ? 'Required' : 'Optional - falls back to environment variable if empty'}
-                </p>
+                <div class="space-y-3">
+                    <div>
+                        ${buildProviderSelect(agentId, currentProvider)}
+                        <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                            ${agentName} can run on LMStudio locally or via OpenAI/Anthropic APIs configured in Settings.
+                        </p>
+                    </div>
+                    <div class="space-y-3">
+                        <div data-agent-prefix="${agentId}" data-provider="lmstudio">
+                            <select id="${agentId}-model" 
+                                    name="agent_models[${agentName}]"
+                                    class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-sm">
+                                <option value="">-- Select model --</option>
+                                <!-- Options will be populated by loadLMStudioModels() -->
+                            </select>
+                        </div>
+                        <div data-agent-prefix="${agentId}" data-provider="openai" class="hidden">
+                            ${buildCommercialProviderInput(agentId, 'openai', currentProvider, currentModel)}
+                        </div>
+                        <div data-agent-prefix="${agentId}" data-provider="anthropic" class="hidden">
+                            ${buildCommercialProviderInput(agentId, 'anthropic', currentProvider, currentModel)}
+                        </div>
+                    </div>
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                        ${agentName === 'RankAgent' ? 'Required' : 'Optional'} (provider selection overrides environment defaults).
+                    </p>
+                </div>
             </div>
         `;
     }).join('');
+    
+    const providerAgentMap = {
+        rankagent: 'RankAgent',
+        extractagent: 'ExtractAgent',
+        sigmaagent: 'SigmaAgent'
+    };
+
+    Object.entries(providerAgentMap).forEach(([prefix, name]) => {
+        const storedProvider = (agentModels && agentModels[`${name}_provider`]) || 'lmstudio';
+        const providerSelect = document.getElementById(`${prefix}-provider`);
+        if (providerSelect) {
+            providerSelect.value = storedProvider;
+        }
+        updateAgentProviderVisibility(prefix, storedProvider);
+    });
     
     // Load and populate models
     loadLMStudioModels();
@@ -1708,6 +1967,21 @@ async function loadLMStudioModels() {
             </div>
         `;
     }
+
+    const providerSelections = [
+        { prefix: 'rankagent', key: 'RankAgent_provider' },
+        { prefix: 'extractagent', key: 'ExtractAgent_provider' },
+        { prefix: 'sigmaagent', key: 'SigmaAgent_provider' }
+    ];
+
+    providerSelections.forEach(selection => {
+        const provider = (agentModels && agentModels[selection.key]) || 'lmstudio';
+        const select = document.getElementById(`${selection.prefix}-provider`);
+        if (select) {
+            select.value = provider;
+        }
+        updateAgentProviderVisibility(selection.prefix, provider);
+    });
     
     // Load embedding models for SIGMA similarity search
     await loadLMStudioEmbeddingModels();
@@ -2287,6 +2561,7 @@ async function loadConfig() {
         }
         
         // Always load agent models and prompts, even if config API failed
+        await refreshCommercialModelCatalog();
         await loadAgentModels();
         await loadAgentPrompts();
         
@@ -2492,12 +2767,12 @@ function renderAgentModels(lmstudioModels) {
     if (rankContainer) {
         const currentModel = agentModels['RankAgent'] || '';
         const currentTemperature = agentModels['RankAgent_temperature'] !== undefined ? agentModels['RankAgent_temperature'] : 0.0;
-        // Models are returned as strings, not objects with .id property
+        const currentProvider = (agentModels && agentModels['RankAgent_provider']) || 'lmstudio';
         const modelOptions = buildOptions(currentModel, 'Select a model (required)');
         rankContainer.innerHTML = `
-            <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
-                <label class="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Rank Agent Model
+            <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-4 border border-gray-200 dark:border-gray-700 space-y-3">
+                <div class="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    <span>Rank Agent Model</span>
                     <button type="button" 
                             onclick="showHelp('rankAgent')"
                             class="text-blue-500 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 focus:outline-none"
@@ -2506,18 +2781,31 @@ function renderAgentModels(lmstudioModels) {
                             <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/>
                         </svg>
                     </button>
-                </label>
-                <select id="rankagent-model-2" 
-                        name="agent_models[RankAgent]"
-                        onchange="autoSaveModelChange()"
-                        class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-sm">
-                    ${modelOptions}
-                </select>
-                <p class="text-xs text-gray-500 dark:text-gray-300 mt-1">Required: Select a model from the dropdown</p>
-                <p class="text-xs text-blue-600 dark:text-blue-400 mt-2 font-medium">💡 Recommendation: Use <code class="px-1 py-0.5 bg-blue-50 dark:bg-blue-900/30 rounded">codellama-7b-instruct</code> for consistent scoring. Alternative: <code class="px-1 py-0.5 bg-blue-50 dark:bg-blue-900/30 rounded">qwen/qwen2.5-coder-32b</code> if resources allow.</p>
+                </div>
+                <div class="space-y-3">
+                    <div>
+                        ${buildProviderSelect('rankagent', currentProvider)}
+                        <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">LMStudio runs locally; OpenAI/Anthropic require keys configured on Settings.</p>
+                    </div>
+                    <div class="space-y-3">
+                        <div data-agent-prefix="rankagent" data-provider="lmstudio">
+                            <select id="rankagent-model-2" 
+                                    name="agent_models[RankAgent]"
+                                    onchange="autoSaveModelChange()"
+                                    class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-sm">
+                                ${modelOptions}
+                            </select>
+                        </div>
+                        <div data-agent-prefix="rankagent" data-provider="openai" class="hidden">
+                            ${buildCommercialProviderInput('rankagent', 'openai', currentProvider, currentModel)}
+                        </div>
+                        <div data-agent-prefix="rankagent" data-provider="anthropic" class="hidden">
+                            ${buildCommercialProviderInput('rankagent', 'anthropic', currentProvider, currentModel)}
+                        </div>
+                    </div>
+                </div>
+                <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Required for Rank Agent scoring.</p>
                 ${sortedModelIds.length === 0 ? '<p class="text-xs text-orange-500 dark:text-orange-400 mt-1">⚠️ LM Studio is not available. Start LM Studio to load models.</p>' : ''}
-                
-                <!-- Temperature -->
                 <div class="mt-3">
                     <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">Temperature</label>
                     <input type="number" id="rankagent-temperature" name="agent_models[RankAgent_temperature]" min="0" max="2" step="0.1" value="${currentTemperature}" onchange="autoSaveModelChange()" class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white text-xs">
@@ -2585,7 +2873,7 @@ function renderAgentModels(lmstudioModels) {
                         ${sortedModelIds.map(modelId => `<option value="${escapeHtml(modelId)}" ${currentFallbackModel === modelId ? 'selected' : ''}>${escapeHtml(modelId)}</option>`).join('')}
                     </select>
                     <p class="text-[10px] text-gray-500 dark:text-gray-400 mt-1">Leave blank to use primary OS model.</p>
-                    <p class="text-xs text-blue-600 dark:text-blue-400 mt-2 font-medium">💡 Recommendation: Use <code class="px-1 py-0.5 bg-blue-50 dark:bg-blue-900/30 rounded">mistralai/mistral-7b-instruct-v0.3</code> or <code class="px-1 py-0.5 bg-blue-50 dark:bg-blue-900/30 rounded">qwen/qwen3-4b-2507</code> for classification fallback.</p>
+
                 </div>
                 <div>
                     <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-2">
@@ -2665,14 +2953,15 @@ function renderAgentModels(lmstudioModels) {
     const extractContainer = getContainer('extract-agent-model-container');
     if (extractContainer) {
         const currentModel = agentModels['ExtractAgent'] || '';
+        const currentProvider = (agentModels && agentModels['ExtractAgent_provider']) || 'lmstudio';
         // Use deduplicated sorted models
         const modelOptions = sortedModelIds.map(modelId => {
             return `<option value="${escapeHtml(modelId)}" ${currentModel === modelId ? 'selected' : ''}>${escapeHtml(modelId)}</option>`;
         }).join('');
         extractContainer.innerHTML = `
-            <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
-                <label class="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Extract Agent Model
+            <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-4 border border-gray-200 dark:border-gray-700 space-y-3">
+                <div class="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    <span>Extract Agent Model</span>
                     <button type="button" 
                             onclick="showHelp('extractAgent')"
                             class="text-blue-500 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 focus:outline-none"
@@ -2681,16 +2970,31 @@ function renderAgentModels(lmstudioModels) {
                             <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/>
                         </svg>
                     </button>
-                </label>
-                <select id="extractagent-model-2" 
-                        name="agent_models[ExtractAgent]"
-                        onchange="autoSaveModelChange()"
-                        class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-sm">
-                    <option value="">Use default from Settings</option>
-                    ${modelOptions}
-                </select>
-                <p class="text-xs text-blue-600 dark:text-blue-400 mt-2 font-medium">💡 Recommendation: Use <code class="px-1 py-0.5 bg-blue-50 dark:bg-blue-900/30 rounded">qwen/qwen2.5-coder-32b</code> for structured JSON extraction. Alternative: <code class="px-1 py-0.5 bg-blue-50 dark:bg-blue-900/30 rounded">codellama-7b-instruct</code> (7B, faster).</p>
-            </div>
+                </div>
+                <div class="space-y-3">
+                    <div>
+                        ${buildProviderSelect('extractagent', currentProvider)}
+                        <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Select LMStudio for now or use OpenAI/Anthropic keys from Settings.</p>
+                    </div>
+                    <div class="space-y-3">
+                        <div data-agent-prefix="extractagent" data-provider="lmstudio">
+                            <select id="extractagent-model-2" 
+                                    name="agent_models[ExtractAgent]"
+                                    onchange="autoSaveModelChange()"
+                                    class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-sm">
+                                <option value="">Use default from Settings</option>
+                                ${modelOptions}
+                            </select>
+                        </div>
+                        <div data-agent-prefix="extractagent" data-provider="openai" class="hidden">
+                            ${buildCommercialProviderInput('extractagent', 'openai', currentProvider, currentModel)}
+                        </div>
+                        <div data-agent-prefix="extractagent" data-provider="anthropic" class="hidden">
+                            ${buildCommercialProviderInput('extractagent', 'anthropic', currentProvider, currentModel)}
+                        </div>
+                    </div>
+                 </div>
+             </div>
         `;
     }
     
@@ -2698,14 +3002,15 @@ function renderAgentModels(lmstudioModels) {
     const sigmaContainer = getContainer('sigma-agent-model-container');
     if (sigmaContainer) {
         const currentModel = agentModels['SigmaAgent'] || '';
+        const currentProvider = (agentModels && agentModels['SigmaAgent_provider']) || 'lmstudio';
         // Use deduplicated sorted models
         const modelOptions = sortedModelIds.map(modelId => {
             return `<option value="${escapeHtml(modelId)}" ${currentModel === modelId ? 'selected' : ''}>${escapeHtml(modelId)}</option>`;
         }).join('');
         sigmaContainer.innerHTML = `
-            <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
-                <label class="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    SIGMA Generator Agent Model
+            <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-4 border border-gray-200 dark:border-gray-700 space-y-3">
+                <div class="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    <span>SIGMA Generator Agent Model</span>
                     <button type="button" 
                             onclick="showHelp('sigmaAgent')"
                             class="text-blue-500 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 focus:outline-none"
@@ -2714,16 +3019,31 @@ function renderAgentModels(lmstudioModels) {
                             <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/>
                         </svg>
                     </button>
-                </label>
-                <select id="sigmaagent-model-2" 
-                        name="agent_models[SigmaAgent]"
-                        onchange="autoSaveModelChange()"
-                        class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-sm">
-                    <option value="">Use default from Settings</option>
-                    ${modelOptions}
-                </select>
-                <p class="text-xs text-blue-600 dark:text-blue-400 mt-2 font-medium">💡 Recommendation: Use <code class="px-1 py-0.5 bg-blue-50 dark:bg-blue-900/30 rounded">qwen/qwen2.5-coder-32b</code> for structured YAML generation. Alternative: <code class="px-1 py-0.5 bg-blue-50 dark:bg-blue-900/30 rounded">codellama-7b-instruct</code> (7B, faster). Avoid 4B models.</p>
-            </div>
+                </div>
+                <div class="space-y-3">
+                    <div>
+                        ${buildProviderSelect('sigmaagent', currentProvider)}
+                        <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Choose LMStudio for local generation or use API keys in Settings.</p>
+                    </div>
+                    <div class="space-y-3">
+                        <div data-agent-prefix="sigmaagent" data-provider="lmstudio">
+                            <select id="sigmaagent-model-2" 
+                                    name="agent_models[SigmaAgent]"
+                                    onchange="autoSaveModelChange()"
+                                    class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-sm">
+                                <option value="">Use default from Settings</option>
+                                ${modelOptions}
+                            </select>
+                        </div>
+                        <div data-agent-prefix="sigmaagent" data-provider="openai" class="hidden">
+                            ${buildCommercialProviderInput('sigmaagent', 'openai', currentProvider, currentModel)}
+                        </div>
+                        <div data-agent-prefix="sigmaagent" data-provider="anthropic" class="hidden">
+                            ${buildCommercialProviderInput('sigmaagent', 'anthropic', currentProvider, currentModel)}
+                        </div>
+                    </div>
+                 </div>
+             </div>
         `;
     }
     
@@ -2995,6 +3315,65 @@ async function testRankAgent(articleId) {
     }
 }
 
+async function testSigmaAgent(articleId) {
+    showTestModal('SigmaAgent', articleId);
+
+    const filterSettings = getContentFilterSettings();
+
+    try {
+        const response = await fetch('/api/workflow/config/test-sigmaagent', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                article_id: articleId,
+                use_junk_filter: filterSettings.use_junk_filter,
+                junk_filter_threshold: filterSettings.junk_filter_threshold
+            })
+        });
+
+        const data = await response.json();
+
+        // Hide progress, show results
+        document.getElementById('test-modal-progress').classList.add('hidden');
+        const resultsDiv = document.getElementById('test-modal-results');
+        resultsDiv.classList.remove('hidden');
+
+        const resultsContent = document.getElementById('test-modal-results-content');
+        if (response.ok && data.success) {
+            resultsContent.textContent = JSON.stringify(data.result, null, 2);
+            resultsContent.className = 'bg-green-50 dark:bg-green-900/20 p-3 rounded border border-green-200 dark:border-green-800 text-xs overflow-x-auto text-gray-500 dark:text-gray-400';
+            document.getElementById('test-modal-actions').innerHTML = '<button onclick="closeTestModal()" class="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-md text-sm">Close</button>';
+        } else {
+            const errorMsg = data.detail || 'Unknown error';
+            resultsContent.textContent = `Error: ${errorMsg}`;
+            resultsContent.className = 'bg-red-50 dark:bg-red-900/20 p-3 rounded border border-red-200 dark:border-red-800 text-xs overflow-x-auto text-gray-500 dark:text-gray-400';
+
+            const isLmstudioBusy = response.status === 503 && (
+                errorMsg.toLowerCase().includes('busy') ||
+                errorMsg.toLowerCase().includes('unavailable') ||
+                errorMsg.toLowerCase().includes('would you like to wait')
+            );
+
+            if (isLmstudioBusy) {
+                document.getElementById('test-modal-actions').innerHTML = `
+                    <button onclick="testSigmaAgent(${articleId})" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-sm">Wait and Retry</button>
+                    <button onclick="closeTestModal()" class="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-md text-sm">Close</button>
+                `;
+            } else {
+                document.getElementById('test-modal-actions').innerHTML = '<button onclick="closeTestModal()" class="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-md text-sm">Close</button>';
+            }
+        }
+    } catch (error) {
+        document.getElementById('test-modal-progress').classList.add('hidden');
+        const resultsDiv = document.getElementById('test-modal-results');
+        resultsDiv.classList.remove('hidden');
+        const resultsContent = document.getElementById('test-modal-results-content');
+        resultsContent.textContent = `Error: ${error.message}`;
+        resultsContent.className = 'bg-red-50 dark:bg-red-900/20 p-3 rounded border border-red-200 dark:border-red-800 text-xs overflow-x-auto text-gray-500 dark:text-gray-400';
+        document.getElementById('test-modal-actions').innerHTML = '<button onclick="closeTestModal()" class="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-md text-sm">Close</button>';
+    }
+}
+
 // Auto-save model changes immediately
 window.updateOSSelection = async function updateOSSelection() {
     // Trigger auto-save when OS selection changes
@@ -3003,19 +3382,19 @@ window.updateOSSelection = async function updateOSSelection() {
 
 window.autoSaveModelChange = async function autoSaveModelChange() {
     try {
-        // Collect all current agent_models values
-        const rankModelSelect = document.getElementById('rankagent-model-2');
-        const rankModelValue = rankModelSelect?.value?.trim() || null;
-        
-        // Debug logging
-        if (rankModelSelect) {
-            console.log('Rank Agent model change:', {
-                selectedValue: rankModelValue,
-                selectElement: rankModelSelect,
-                allOptions: Array.from(rankModelSelect.options).map(opt => ({ value: opt.value, text: opt.text, selected: opt.selected }))
-            });
-        }
-        
+        const rankProvider = document.getElementById('rankagent-provider')?.value || 'lmstudio';
+        const extractProvider = document.getElementById('extractagent-provider')?.value || 'lmstudio';
+        const sigmaProvider = document.getElementById('sigmaagent-provider')?.value || 'lmstudio';
+
+        const rankModelValue = getActiveAgentModelValue('rankagent', rankProvider);
+        const extractModelValue = getActiveAgentModelValue('extractagent', extractProvider);
+        const sigmaModelValue = getActiveAgentModelValue('sigmaagent', sigmaProvider);
+
+        console.log('Rank Agent model change:', {
+            provider: rankProvider,
+            model: rankModelValue
+        });
+
         // Collect OS selections
         const osCheckboxes = document.querySelectorAll('input[name="os_selection[]"]:not([disabled])');
         const selectedOS = Array.from(osCheckboxes)
@@ -3026,12 +3405,15 @@ window.autoSaveModelChange = async function autoSaveModelChange() {
         
         const agentModelsData = {
             RankAgent: rankModelValue,
+            RankAgent_provider: rankProvider,
             RankAgent_temperature: parseFloat(document.getElementById('rankagent-temperature')?.value) || 0.0,
             OSDetectionAgent_embedding: document.getElementById('osdetectionagent-embedding-model-2')?.value.trim() || 'ibm-research/CTI-BERT',
             OSDetectionAgent_fallback: document.getElementById('osdetectionagent-fallback-model-2')?.value.trim() || null,
             OSDetectionAgent_selected_os: osSelection,
-            ExtractAgent: document.getElementById('extractagent-model-2')?.value.trim() || null,
-            SigmaAgent: document.getElementById('sigmaagent-model-2')?.value.trim() || null,
+            ExtractAgent: extractModelValue,
+            ExtractAgent_provider: extractProvider,
+            SigmaAgent: sigmaModelValue,
+            SigmaAgent_provider: sigmaProvider,
             CmdlineExtract_model: document.getElementById('cmdlineextract-model')?.value.trim() || null,
             CmdlineExtract_temperature: parseFloat(document.getElementById('cmdlineextract-temperature')?.value) || 0.0,
             SigExtract_model: document.getElementById('sigextract-model')?.value.trim() || null,

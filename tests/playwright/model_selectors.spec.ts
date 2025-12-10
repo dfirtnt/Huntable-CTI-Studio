@@ -161,6 +161,68 @@ test.describe('Model Selector Dropdowns - Duplicate Placeholder Check', () => {
     expect(noDuplicates).toBe(true);
   });
 
+  test('Rank Agent commercial providers show curated dropdowns', async ({ page }) => {
+    const rankPanelToggle = page.locator('#rank-agent-configs-panel-toggle');
+    if (await rankPanelToggle.isVisible({ timeout: 2000 }).catch(() => false)) {
+      const panelContent = page.locator('#rank-agent-configs-panel-content');
+      const isHidden = await panelContent.evaluate(el => el.classList.contains('hidden')).catch(() => true);
+      if (isHidden) {
+        await rankPanelToggle.click();
+        await page.waitForTimeout(500);
+      }
+    }
+
+    const providerSelect = page.locator('#rankagent-provider');
+    await providerSelect.waitFor({ state: 'visible' });
+
+    await providerSelect.selectOption('openai');
+    const openaiSelect = page.locator('#rankagent-model-openai');
+    await expect(openaiSelect).toBeVisible();
+    const openaiOptions = await openaiSelect.locator('option').allTextContents();
+    expect(openaiOptions[0].trim()).toBe('Select an OpenAI model');
+    expect(openaiOptions.some(text => text.includes('gpt-4.1'))).toBeTruthy();
+    expect(openaiOptions.some(text => text.includes('gpt-4o'))).toBeTruthy();
+
+    await providerSelect.selectOption('anthropic');
+    const anthropicSelect = page.locator('#rankagent-model-anthropic');
+    await expect(anthropicSelect).toBeVisible();
+    const anthropicOptions = await anthropicSelect.locator('option').allTextContents();
+    expect(anthropicOptions[0].trim()).toBe('Select a Claude model');
+    expect(anthropicOptions.some(text => text.toLowerCase().includes('claude-3.7'))).toBeTruthy();
+  });
+
+  test('Anthropic dropdown excludes non-Claude saved models', async ({ page }) => {
+    const rankPanelToggle = page.locator('#rank-agent-configs-panel-toggle');
+    if (await rankPanelToggle.isVisible({ timeout: 2000 }).catch(() => false)) {
+      const panelContent = page.locator('#rank-agent-configs-panel-content');
+      const isHidden = await panelContent.evaluate(el => el.classList.contains('hidden')).catch(() => true);
+      if (isHidden) {
+        await rankPanelToggle.click();
+        await page.waitForTimeout(500);
+      }
+    }
+
+    // Inject a saved config with a non-Claude anthropic model
+    await page.evaluate(() => {
+      if (typeof renderAgentModels !== 'function') return;
+      if (!window.agentModels) {
+        window.agentModels = {};
+      }
+      window.agentModels['RankAgent'] = 'nvidia-nemotron-nano-12b-v2';
+      window.agentModels['RankAgent_provider'] = 'anthropic';
+      renderAgentModels([]);
+    });
+
+    const providerSelect = page.locator('#rankagent-provider');
+    await providerSelect.waitFor({ state: 'visible' });
+    await providerSelect.selectOption('anthropic');
+
+    const anthropicSelect = page.locator('#rankagent-model-anthropic');
+    await expect(anthropicSelect).toBeVisible();
+    const options = await anthropicSelect.locator('option').allTextContents();
+    expect(options.some(text => text.includes('nvidia'))).toBeFalsy();
+  });
+
   test('Rank QA model selector should have single placeholder', async ({ page }) => {
     // Expand Rank Agent panel if needed
     const rankPanelToggle = page.locator('#rank-agent-configs-panel-toggle');
@@ -342,4 +404,3 @@ test.describe('Model Selector Dropdowns - Duplicate Placeholder Check', () => {
     expect(hasSinglePlaceholder).toBe(true);
   });
 });
-

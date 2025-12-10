@@ -42,6 +42,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Restore operations now work correctly with containerized database
 
 ### Added
+- **Provider Model Catalog Service**: Added `config/provider_model_catalog.json`, `src/services/provider_model_catalog.py`, and `scripts/maintenance/update_provider_model_catalogs.py` to centrally manage OpenAI/Anthropic/Gemini curated model lists with both CLI and API accessors.
 - **UI Tests for Dashboard Functionality**: Added comprehensive UI tests for dashboard features
   - `test_article_volume_charts_display`: Verifies Article Volume section displays daily and hourly charts with proper canvas dimensions
   - `test_high_score_articles_section_display`: Tests High-Score Articles section shows 10 cards with proper navigation links
@@ -64,6 +65,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Added `scripts/ensure_manual_source.py` utility script
 
 ### Changed
+- **Provider Test Buttons Refresh Models**: Settings “Test API Key” buttons now call provider model listings (OpenAI, Anthropic, Gemini), persist refreshed catalogs, and update Workflow dropdowns instantly via `/api/provider-model-catalog` with local caching.
 - **Merged Health Checks and Diagnostics Pages**: Combined `/health-checks` and `/diags` into single comprehensive diagnostics page
   - New page at `/diags` includes all job monitoring, health checks, and ingestion analytics
   - Removed redundant `/health-checks` page and route

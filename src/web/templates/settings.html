@@ -1334,8 +1334,11 @@
             }
         }).then(function(result) {
             if (result.valid) {
-                statusElement.textContent = 'API key is valid';
+                statusElement.textContent = 'API key is valid' + describeModelUpdate(result);
                 statusElement.className = 'text-sm text-green-600';
+                if (result.catalog) {
+                    cacheWorkflowProviderCatalog(result.catalog);
+                }
             } else {
                 statusElement.textContent = result.message;
                 statusElement.className = 'text-sm text-red-600';
@@ -1383,8 +1386,11 @@
             }
         }).then(function(result) {
             if (result.valid) {
-                statusElement.textContent = 'API key is valid';
+                statusElement.textContent = 'API key is valid' + describeModelUpdate(result);
                 statusElement.className = 'text-sm text-green-600';
+                if (result.catalog) {
+                    cacheWorkflowProviderCatalog(result.catalog);
+                }
             } else {
                 statusElement.textContent = result.message;
                 statusElement.className = 'text-sm text-red-600';
@@ -1434,6 +1440,26 @@
             testButton.disabled = false;
             testButton.textContent = 'Get Models';
         });
+    }
+
+    function cacheWorkflowProviderCatalog(catalog) {
+        if (!catalog || typeof localStorage === 'undefined') return;
+        try {
+            localStorage.setItem('providerModelCatalog', JSON.stringify({
+                data: catalog,
+                updatedAt: Date.now()
+            }));
+        } catch (error) {
+            console.warn('Failed to cache provider catalog', error);
+        }
+    }
+
+    function describeModelUpdate(result) {
+        if (!result || !Array.isArray(result.models) || result.models.length === 0) {
+            return '';
+        }
+        const count = result.models.length;
+        return ` (updated ${count} model${count === 1 ? '' : 's'})`;
     }
 
     // Update workflow API key sections visibility based on checkbox selections
@@ -1532,8 +1558,11 @@
                 }
             } else {
                 if (result.valid) {
-                    statusElement.textContent = 'API key is valid';
+                    statusElement.textContent = 'API key is valid' + describeModelUpdate(result);
                     statusElement.className = 'text-sm text-green-600';
+                    if (result.catalog) {
+                        cacheWorkflowProviderCatalog(result.catalog);
+                    }
                 } else {
                     statusElement.textContent = result.message;
                     statusElement.className = 'text-sm text-red-600';
