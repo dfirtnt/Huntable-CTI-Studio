@@ -746,17 +746,17 @@ class TestWorkflowConfigurationExtractAgent:
         page.locator("#tab-config").click()
         page.wait_for_timeout(500)
         
-        # Expand Extract Agent and CmdlineExtract panels
+        # Expand Extract Agent panel
         extract_toggle = page.locator("button:has-text('Extract Agent')")
         extract_toggle.click()
         page.wait_for_timeout(500)
         
+        # Ensure LMStudio provider visible for dropdown check, then open CmdlineExtract panel
+        page.select_option("#cmdlineextract-provider", "lmstudio")
+        page.wait_for_timeout(200)
         cmdline_toggle = page.locator("#cmdlineextract-panel-btn")
         cmdline_toggle.click()
         page.wait_for_timeout(300)
-        # Ensure LMStudio provider visible for dropdown check
-        page.select_option("#cmdlineextract-provider", "lmstudio")
-        page.wait_for_timeout(200)
         
         # Find model dropdown
         model_dropdown = page.locator("#cmdlineextract-model")
