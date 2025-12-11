@@ -951,11 +951,20 @@ async def get_workflow_debug_info(request: Request, execution_id: int):
                     agent_chat_url = f"{langfuse_host}/traces/{resolved_trace_id}"
             else:
                 import json, urllib.parse
-                filters = urllib.parse.quote(json.dumps([{"key": "sessionId", "value": session_id}]))
+                filters_payload = {
+                    "filters": [
+                        {"key": "sessionId", "value": session_id}
+                    ],
+                    "orderBy": {
+                        "column": "timestamp",
+                        "order": "DESC"
+                    }
+                }
+                filters = urllib.parse.quote(json.dumps(filters_payload))
                 if langfuse_project_id:
-                    agent_chat_url = f"{langfuse_host}/project/{langfuse_project_id}/traces?filters={filters}&orderBy=timestamp.desc"
+                    agent_chat_url = f"{langfuse_host}/project/{langfuse_project_id}/traces?filters={filters}"
                 else:
-                    agent_chat_url = f"{langfuse_host}/traces?filters={filters}&orderBy=timestamp.desc"
+                    agent_chat_url = f"{langfuse_host}/traces?filters={filters}"
 
             logger.info(f"🔗 Generated Langfuse trace URL: {agent_chat_url}")
             logger.info(
