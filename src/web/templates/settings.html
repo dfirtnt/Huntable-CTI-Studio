@@ -439,8 +439,8 @@
                             </label>
                         </div>
 
-                        <!-- Gemini Provider -->
-                        <div class="flex items-center">
+                        <!-- Gemini Provider (hidden until supported in workflow UI) -->
+                        <div class="flex items-center hidden" aria-hidden="true">
                             <input type="checkbox"
                                    id="workflowGeminiEnabled"
                                    class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
@@ -519,8 +519,8 @@
                     <span id="workflowAnthropicApiKeyStatus" class="text-sm"></span>
                 </div>
 
-                <!-- Gemini API Key Section -->
-                <div id="workflowGeminiApiKeySection" style="display: none;">
+                <!-- Gemini API Key Section (hidden until supported in workflow UI) -->
+                <div id="workflowGeminiApiKeySection" class="hidden" style="display: none;">
                     <label for="workflowGeminiApiKey" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                         Google Gemini API Key
                     </label>
@@ -738,6 +738,11 @@
             settings.workflowGeminiEnabled || false
         );
         document.getElementById('workflowGeminiEnabled').checked = workflowGeminiEnabled;
+        // Keep element hidden until Gemini workflow support ships
+        const geminiProviderRow = document.getElementById('workflowGeminiEnabled')?.closest('div');
+        if (geminiProviderRow) {
+            geminiProviderRow.style.display = 'none';
+        }
 
         const workflowLmstudioEnabled = parseWorkflowBooleanSetting(
             workflowAppSettings,
@@ -1466,7 +1471,7 @@
     function updateWorkflowApiKeyVisibility() {
         const openaiEnabled = document.getElementById('workflowOpenaiEnabled').checked;
         const anthropicEnabled = document.getElementById('workflowAnthropicEnabled').checked;
-        const geminiEnabled = document.getElementById('workflowGeminiEnabled').checked;
+        const geminiEnabled = document.getElementById('workflowGeminiEnabled')?.checked;
         const lmstudioEnabled = document.getElementById('workflowLmstudioEnabled').checked;
 
         const openaiSection = document.getElementById('workflowOpenaiApiKeySection');
@@ -1477,7 +1482,10 @@
         // Show/hide sections based on checkbox state
         openaiSection.style.display = openaiEnabled ? 'block' : 'none';
         anthropicSection.style.display = anthropicEnabled ? 'block' : 'none';
-        geminiSection.style.display = geminiEnabled ? 'block' : 'none';
+        // Keep Gemini UI hidden even if enabled
+        if (geminiSection) {
+            geminiSection.style.display = 'none';
+        }
         lmstudioSection.style.display = lmstudioEnabled ? 'block' : 'none';
     }
 
