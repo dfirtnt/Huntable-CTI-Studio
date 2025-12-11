@@ -11,8 +11,13 @@ import json
 import re
 import math
 import asyncio
+from datetime import datetime
+from email.utils import parsedate_to_datetime
 from typing import Dict, Any, Optional
 from pathlib import Path
+
+from src.database.manager import DatabaseManager
+from src.database.models import AppSettingsTable
 
 from src.utils.langfuse_client import trace_llm_call, log_llm_completion, log_llm_error
 
@@ -25,6 +30,16 @@ PROMPT_OVERHEAD_TOKENS = 500  # Reserve for prompt templates, system messages, e
 
 # Minimum context length threshold for workflow (configurable)
 MIN_CONTEXT_LENGTH_THRESHOLD = int(os.getenv("LMSTUDIO_MIN_CONTEXT_THRESHOLD", "16384"))
+
+WORKFLOW_PROVIDER_APPSETTING_KEYS = {
+    "openai_enabled": "WORKFLOW_OPENAI_ENABLED",
+    "openai_api_key": "WORKFLOW_OPENAI_API_KEY",
+    "anthropic_enabled": "WORKFLOW_ANTHROPIC_ENABLED",
+    "anthropic_api_key": "WORKFLOW_ANTHROPIC_API_KEY",
+    "gemini_enabled": "WORKFLOW_GEMINI_ENABLED",
+    "gemini_api_key": "WORKFLOW_GEMINI_API_KEY",
+    "lmstudio_enabled": "WORKFLOW_LMSTUDIO_ENABLED"
+}
 
 
 class LLMService:
@@ -47,33 +62,73 @@ class LLMService:
         # Per-operation model configuration
         # Priority: config_models > environment variables > default
         config_models = config_models or {}
-        
-        # Handle empty strings from docker-compose (empty string means "not set")
+
         self.lmstudio_model = default_model  # Keep for backward compatibility
-        
-        # Get models from config first, then env vars, then defaults
-        # Use config value if key exists (even if empty string), otherwise fall back to env var
-        if "RankAgent" in config_models:
-            rank_model = config_models["RankAgent"]
-            if rank_model and isinstance(rank_model, str):
-                rank_model = rank_model.strip()
-            else:
-                rank_model = None
-        else:
-            rank_model = os.getenv("LMSTUDIO_MODEL_RANK", "").strip()
-        
-        extract_model = config_models.get("ExtractAgent") or os.getenv("LMSTUDIO_MODEL_EXTRACT", "").strip()
-        sigma_model = config_models.get("SigmaAgent") or os.getenv("LMSTUDIO_MODEL_SIGMA", "").strip()
-        
-        # No fallback for ranking - must be explicitly set in config or env
-        if not rank_model:
-            raise ValueError("RankAgent model must be set in workflow config (agent_models.RankAgent) or LMSTUDIO_MODEL_RANK environment variable. No fallback to default model.")
-        self.model_rank = rank_model
-        logger.info(f"RankAgent model configured: {self.model_rank} (from config: {'RankAgent' in config_models})")
-        
-        # Extract and SIGMA still fall back to default
-        self.model_extract = extract_model if extract_model else default_model
-        self.model_sigma = sigma_model if sigma_model else default_model
+
+        workflow_settings = self._load_workflow_provider_settings()
+        self.workflow_openai_enabled = self._bool_from_setting(
+            workflow_settings.get(WORKFLOW_PROVIDER_APPSETTING_KEYS["openai_enabled"]),
+            False
+        )
+        self.workflow_anthropic_enabled = self._bool_from_setting(
+            workflow_settings.get(WORKFLOW_PROVIDER_APPSETTING_KEYS["anthropic_enabled"]),
+            False
+        )
+        self.workflow_gemini_enabled = self._bool_from_setting(
+            workflow_settings.get(WORKFLOW_PROVIDER_APPSETTING_KEYS["gemini_enabled"]),
+            False
+        )
+        self.workflow_lmstudio_enabled = self._bool_from_setting(
+            workflow_settings.get(WORKFLOW_PROVIDER_APPSETTING_KEYS["lmstudio_enabled"]),
+            True
+        )
+
+        self.openai_api_key = workflow_settings.get(WORKFLOW_PROVIDER_APPSETTING_KEYS["openai_api_key"]) or os.getenv("OPENAI_API_KEY")
+        self.anthropic_api_key = workflow_settings.get(WORKFLOW_PROVIDER_APPSETTING_KEYS["anthropic_api_key"]) or os.getenv("ANTHROPIC_API_KEY")
+        self.gemini_api_key = workflow_settings.get(WORKFLOW_PROVIDER_APPSETTING_KEYS["gemini_api_key"])
+
+        self.provider_defaults = {
+            "lmstudio": default_model,
+            "openai": os.getenv("WORKFLOW_OPENAI_MODEL", "gpt-4o-mini"),
+            "anthropic": os.getenv("WORKFLOW_ANTHROPIC_MODEL", "claude-sonnet-4-5"),
+            "gemini": os.getenv("WORKFLOW_GEMINI_MODEL", default_model)
+        }
+
+        self.provider_rank = self._canonicalize_provider(
+            config_models.get("RankAgent_provider") or "lmstudio"
+        )
+        self.provider_extract = self._canonicalize_provider(
+            config_models.get("ExtractAgent_provider") or "lmstudio"
+        )
+        self.provider_sigma = self._canonicalize_provider(
+            config_models.get("SigmaAgent_provider") or "lmstudio"
+        )
+
+        rank_override = (config_models.get("RankAgent") or "").strip()
+        rank_env = os.getenv("LMSTUDIO_MODEL_RANK", "").strip()
+        self.model_rank = self._resolve_agent_model(
+            "RankAgent",
+            rank_override,
+            rank_env,
+            self.provider_rank,
+            default_model
+        )
+        self.model_extract = self._resolve_agent_model(
+            "ExtractAgent",
+            (config_models.get("ExtractAgent") or "").strip(),
+            os.getenv("LMSTUDIO_MODEL_EXTRACT", "").strip(),
+            self.provider_extract,
+            default_model,
+            require_specific_model=False
+        )
+        self.model_sigma = self._resolve_agent_model(
+            "SigmaAgent",
+            (config_models.get("SigmaAgent") or "").strip(),
+            os.getenv("LMSTUDIO_MODEL_SIGMA", "").strip(),
+            self.provider_sigma,
+            default_model=default_model,
+            require_specific_model=False
+        )
         
         # Detect if model requires system message conversion (Mistral models don't support system role)
         self._needs_system_conversion = self._model_needs_system_conversion(default_model)
@@ -85,8 +140,71 @@ class LLMService:
         self.seed = int(os.getenv("LMSTUDIO_SEED", "42")) if os.getenv("LMSTUDIO_SEED") else None
         
         model_source = "config" if config_models else "environment"
-        logger.info(f"Initialized LLMService ({model_source}) - Models: rank={self.model_rank}, extract={self.model_extract}, sigma={self.model_sigma}")
-    
+        logger.info(
+            f"Initialized LLMService ({model_source}) - Providers: "
+            f"rank={self.provider_rank}, extract={self.provider_extract}, sigma={self.provider_sigma} "
+            f"- Models: rank={self.model_rank}, extract={self.model_extract}, sigma={self.model_sigma}"
+        )
+
+    def _bool_from_setting(self, value: Optional[str], default: bool = False) -> bool:
+        if value is None:
+            return default
+        return str(value).strip().lower() == "true"
+
+    def _canonicalize_provider(self, provider: Optional[str]) -> str:
+        normalized = (provider or "").strip().lower()
+        if normalized in {"openai", "chatgpt", "gpt4o", "gpt-4o", "gpt-4o-mini"}:
+            return "openai"
+        if normalized in {"anthropic", "claude", "claude-sonnet-4-5"}:
+            return "anthropic"
+        if normalized in {"gemini", "google-gemini"}:
+            return "gemini"
+        if normalized in {"lmstudio", "local", "local_llm", "deepseek"} or not normalized:
+            return "lmstudio"
+        if normalized == "auto":
+            return "lmstudio"
+        logger.warning(f"Unknown provider '{provider}' for workflow; defaulting to LMStudio")
+        return "lmstudio"
+
+    def _load_workflow_provider_settings(self) -> Dict[str, Optional[str]]:
+        settings: Dict[str, Optional[str]] = {}
+        db_session = None
+        try:
+            db_manager = DatabaseManager()
+            db_session = db_manager.get_session()
+            query = db_session.query(AppSettingsTable).filter(
+                AppSettingsTable.key.in_(WORKFLOW_PROVIDER_APPSETTING_KEYS.values())
+            )
+            for row in query:
+                settings[row.key] = row.value
+        except Exception as exc:
+            logger.warning(f"Unable to load workflow provider settings from AppSettings: {exc}")
+        finally:
+            if db_session:
+                db_session.close()
+        return settings
+
+    def _resolve_agent_model(
+        self,
+        agent_name: str,
+        override: str,
+        env_value: str,
+        provider: str,
+        default_model: str,
+        require_specific_model: bool = True
+    ) -> str:
+        if override:
+            return override
+        if provider == "lmstudio":
+            if env_value:
+                return env_value
+            if require_specific_model:
+                raise ValueError(
+                    f"{agent_name} model must be configured for LMStudio (workflow config or LMSTUDIO_MODEL_{agent_name.upper()})."
+                )
+            return default_model
+        return self.provider_defaults.get(provider, default_model)
+
     def _model_needs_system_conversion(self, model_name: str) -> bool:
         """Check if model requires system message conversion (e.g., Mistral models)."""
         model_lower = model_name.lower()
@@ -274,6 +392,20 @@ class LLMService:
         
         if threshold is None:
             threshold = MIN_CONTEXT_LENGTH_THRESHOLD
+        
+        # If provider is not LMStudio, skip LMStudio context probe
+        if getattr(self, "provider_rank", None) and self.provider_rank != "lmstudio":
+            logger.info(
+                "Skipping LMStudio context check for non-LMStudio provider",
+                extra={"provider": self.provider_rank, "model": model_name, "threshold": threshold}
+            )
+            return {
+                "context_length": None,
+                "threshold": threshold,
+                "is_sufficient": True,
+                "model_name": model_name,
+                "method": f"{self.provider_rank}_skip"
+            }
         
         # Check for manual override via environment variable
         # Format: LMSTUDIO_CONTEXT_LENGTH_<MODEL_NAME>=<value>
@@ -479,13 +611,281 @@ class LLMService:
         
         return result
     
+    def _validate_provider(self, provider: str) -> None:
+        if provider == "openai":
+            if not self.workflow_openai_enabled:
+                raise RuntimeError("OpenAI provider is disabled for agentic workflows (enable it in Settings).")
+            if not self.openai_api_key:
+                raise RuntimeError("OpenAI API key is not configured for agentic workflows.")
+        elif provider == "anthropic":
+            if not self.workflow_anthropic_enabled:
+                raise RuntimeError("Anthropic provider is disabled for agentic workflows (enable it in Settings).")
+            if not self.anthropic_api_key:
+                raise RuntimeError("Anthropic API key is not configured for agentic workflows.")
+        elif provider == "gemini":
+            raise RuntimeError("Google Gemini provider is not yet supported for agentic workflows.")
+        elif provider != "lmstudio":
+            raise RuntimeError(f"Provider '{provider}' is not supported for agentic workflows.")
+
+    async def request_chat(
+        self,
+        *,
+        provider: str,
+        model_name: Optional[str],
+        messages: list,
+        max_tokens: int,
+        temperature: float,
+        timeout: float,
+        failure_context: str,
+        top_p: Optional[float] = None,
+        seed: Optional[int] = None,
+        cancellation_event: Optional[asyncio.Event] = None
+    ) -> Dict[str, Any]:
+        provider = self._canonicalize_provider(provider)
+        self._validate_provider(provider)
+
+        resolved_model = model_name or self.provider_defaults.get(provider) or self.lmstudio_model
+
+        if provider == "lmstudio":
+            payload = {
+                "model": resolved_model,
+                "messages": messages,
+                "max_tokens": max_tokens,
+                "temperature": temperature,
+            }
+            if top_p is not None:
+                payload["top_p"] = top_p
+            if seed is not None:
+                payload["seed"] = seed
+            return await self._post_lmstudio_chat(
+                payload,
+                model_name=resolved_model,
+                timeout=timeout,
+                failure_context=failure_context,
+                cancellation_event=cancellation_event
+            )
+        if provider == "openai":
+            return await self._call_openai_chat(
+                messages=messages,
+                model_name=resolved_model,
+                temperature=temperature,
+                max_tokens=max_tokens,
+                timeout=timeout
+            )
+        if provider == "anthropic":
+            return await self._call_anthropic_chat(
+                messages=messages,
+                model_name=resolved_model,
+                temperature=temperature,
+                max_tokens=max_tokens,
+                timeout=timeout
+            )
+        raise RuntimeError(f"Provider '{provider}' is not implemented for agentic workflows.")
+
+    async def _call_openai_chat(
+        self,
+        *,
+        messages: list,
+        model_name: str,
+        temperature: float,
+        max_tokens: int,
+        timeout: float
+    ) -> Dict[str, Any]:
+        if not self.openai_api_key:
+            raise RuntimeError("OpenAI API key not configured for agentic workflows.")
+
+        payload = {
+            "model": model_name,
+            "messages": messages,
+            "max_tokens": max_tokens,
+            "temperature": temperature,
+        }
+
+        async with httpx.AsyncClient(timeout=httpx.Timeout(timeout, connect=30.0, read=timeout)) as client:
+            response = await client.post(
+                "https://api.openai.com/v1/chat/completions",
+                headers={
+                    "Authorization": f"Bearer {self.openai_api_key}",
+                    "Content-Type": "application/json",
+                },
+                json=payload,
+            )
+
+        if response.status_code != 200:
+            raise RuntimeError(f"OpenAI API error ({response.status_code}): {response.text}")
+
+        return response.json()
+
+    async def _call_anthropic_chat(
+        self,
+        *,
+        messages: list,
+        model_name: str,
+        temperature: float,
+        max_tokens: int,
+        timeout: float
+    ) -> Dict[str, Any]:
+        if not self.anthropic_api_key:
+            raise RuntimeError("Anthropic API key not configured for agentic workflows.")
+
+        anthropic_api_url = os.getenv(
+            "ANTHROPIC_API_URL", "https://api.anthropic.com/v1/messages"
+        )
+
+        anthropic_messages = []
+        system_prompt = ""
+        for message in messages:
+            role = message.get("role", "user")
+            content = message.get("content", "")
+            if role == "system" and not system_prompt:
+                system_prompt = content or system_prompt
+                continue
+            anthropic_messages.append({"role": role, "content": content})
+
+        if not anthropic_messages:
+            anthropic_placeholder = messages[0].get("content", "") if messages else ""
+            anthropic_messages.append({"role": "user", "content": anthropic_placeholder})
+
+        payload = {
+            "model": model_name,
+            "max_tokens": max_tokens,
+            "temperature": temperature,
+            "system": system_prompt,
+            "messages": anthropic_messages
+        }
+
+        response = await self._call_anthropic_with_retry(
+            api_key=self.anthropic_api_key,
+            payload=payload,
+            anthropic_api_url=anthropic_api_url,
+            timeout=timeout
+        )
+
+        result = response.json()
+        content = result.get("content", [])
+        text = ""
+        if isinstance(content, list) and len(content) > 0:
+            text = content[0].get("text", "")
+
+        return {
+            "choices": [
+                {
+                    "message": {
+                        "content": text
+                    }
+                }
+            ],
+            "usage": result.get("usage", {})
+        }
+
+    async def _call_anthropic_with_retry(
+        self,
+        *,
+        api_key: str,
+        payload: Dict[str, Any],
+        anthropic_api_url: str,
+        max_retries: int = 5,
+        base_delay: float = 1.0,
+        max_delay: float = 60.0,
+        timeout: float = 60.0,
+    ) -> httpx.Response:
+        headers = {
+            "x-api-key": api_key,
+            "Content-Type": "application/json",
+            "anthropic-version": "2023-06-01",
+        }
+
+        last_exception = None
+
+        for attempt in range(max_retries):
+            async with httpx.AsyncClient(timeout=httpx.Timeout(timeout, connect=30.0, read=timeout)) as client:
+                try:
+                    response = await client.post(
+                        anthropic_api_url,
+                        headers=headers,
+                        json=payload,
+                    )
+
+                    if response.status_code == 200:
+                        return response
+
+                    if response.status_code == 429:
+                        delay = max(
+                            self._parse_retry_after(response.headers.get("retry-after")),
+                            base_delay * (2 ** attempt)
+                        )
+                        delay = min(delay, max_delay)
+                        if attempt < max_retries - 1:
+                            logger.warning(
+                                f"Anthropic API rate limited (429). Retry {attempt + 1}/{max_retries} after {delay:.1f}s."
+                            )
+                            await asyncio.sleep(delay)
+                            continue
+                        raise RuntimeError(
+                            f"Anthropic API rate limit exceeded: {response.text}"
+                        )
+
+                    if 500 <= response.status_code < 600:
+                        delay = min(base_delay * (2 ** attempt), max_delay)
+                        if attempt < max_retries - 1:
+                            logger.warning(
+                                f"Anthropic API server error ({response.status_code}). Retrying after {delay:.1f}s."
+                            )
+                            await asyncio.sleep(delay)
+                            continue
+
+                    if response.status_code >= 400:
+                        raise RuntimeError(
+                            f"Anthropic API error ({response.status_code}): {response.text}"
+                        )
+
+                except httpx.TimeoutException as exc:
+                    delay = min(base_delay * (2 ** attempt), max_delay)
+                    if attempt < max_retries - 1:
+                        logger.warning(
+                            f"Anthropic API timeout. Retry {attempt + 1}/{max_retries} after {delay:.1f}s."
+                        )
+                        await asyncio.sleep(delay)
+                        last_exception = exc
+                        continue
+                    raise RuntimeError("Anthropic API timeout") from exc
+                except Exception as exc:
+                    delay = min(base_delay * (2 ** attempt), max_delay)
+                    if attempt < max_retries - 1:
+                        logger.warning(
+                            f"Anthropic API error: {exc}. Retrying after {delay:.1f}s."
+                        )
+                        await asyncio.sleep(delay)
+                        last_exception = exc
+                        continue
+                    raise RuntimeError(f"Anthropic API error: {exc}") from exc
+
+        if last_exception:
+            raise RuntimeError("Anthropic API failed after retries") from last_exception
+        raise RuntimeError("Anthropic API failed after retries")
+
+    def _parse_retry_after(self, header_value: Optional[str]) -> float:
+        if not header_value:
+            return 30.0
+        try:
+            return float(header_value.strip())
+        except ValueError:
+            try:
+                retry_date = parsedate_to_datetime(header_value)
+                now = datetime.now(retry_date.tzinfo) if retry_date.tzinfo else datetime.now()
+                delta = retry_date - now
+                return max(0.0, delta.total_seconds())
+            except (TypeError, ValueError):
+                logger.warning(f"Could not parse retry-after header: {header_value}")
+                return 30.0
+
     async def _post_lmstudio_chat(
         self,
         payload: Dict[str, Any],
         *,
         model_name: str,
-        timeout: float = 300.0,
-        failure_context: str = "LLM API call failed",
+        timeout: float,
+        failure_context: str,
         cancellation_event: Optional[asyncio.Event] = None,
     ) -> Dict[str, Any]:
         """
@@ -869,17 +1269,7 @@ class LLMService:
                 }
             ]
         
-        payload = {
-            "model": model_name,
-            "messages": messages,
-            "max_tokens": max_output_tokens,
-            "temperature": self.temperature,
-            "top_p": self.top_p,
-        }
-        
-        if self.seed is not None:
-            payload["seed"] = self.seed
-        
+        converted_messages = self._convert_messages_for_model(messages, model_name)
         logger.info(f"Ranking request: max_tokens={max_output_tokens} (reasoning_model={is_reasoning_model})")
         
         ranking_metadata = {
@@ -907,11 +1297,16 @@ class LLMService:
                 # Reasoning models need longer timeouts - they generate extensive reasoning + answer
                 ranking_timeout = 180.0 if is_reasoning_model else 60.0
                 
-                result = await self._post_lmstudio_chat(
-                    payload,
+                result = await self.request_chat(
+                    provider=self.provider_rank,
                     model_name=model_name,
+                    messages=converted_messages,
+                    max_tokens=max_output_tokens,
+                    temperature=self.temperature,
                     timeout=ranking_timeout,
-                    failure_context="Failed to rank article"
+                    failure_context="Failed to rank article",
+                    top_p=self.top_p,
+                    seed=self.seed
                 )
                 
                 # Deepseek-R1 returns reasoning in 'reasoning_content', fallback to 'content'
@@ -1209,16 +1604,7 @@ class LLMService:
         # Convert system messages for models that don't support them
         messages = self._convert_messages_for_model(messages, model_name)
         
-        payload = {
-            "model": model_name,
-            "messages": messages,
-            "max_tokens": max_output_tokens,
-            "temperature": self.temperature,
-            "top_p": self.top_p,
-        }
-        
-        if self.seed is not None:
-            payload["seed"] = self.seed
+        converted_messages = self._convert_messages_for_model(messages, model_name)
         
         logger.info(f"Extract behaviors request: max_tokens={max_output_tokens} (reasoning_model={is_reasoning_model})")
         
@@ -1241,11 +1627,16 @@ class LLMService:
                 # With 10000 max_tokens and reasoning, can take 5-10 minutes
                 extraction_timeout = 600.0 if is_reasoning_model else 180.0
                 
-                result = await self._post_lmstudio_chat(
-                    payload,
+                result = await self.request_chat(
+                    provider=self.provider_extract,
                     model_name=model_name,
+                    messages=converted_messages,
+                    max_tokens=max_output_tokens,
+                    temperature=self.temperature,
                     timeout=extraction_timeout,
-                    failure_context="Failed to extract behaviors"
+                    failure_context="Failed to extract behaviors",
+                    top_p=self.top_p,
+                    seed=self.seed
                 )
                 
                 # Deepseek-R1: check both content and reasoning_content
@@ -1644,27 +2035,22 @@ CRITICAL: {instructions} If you are a reasoning model, you may include reasoning
         # Convert system messages for models that don't support them
         messages = self._convert_messages_for_model(messages, model_name)
         
-        payload = {
-            "model": model_name,
-            "messages": messages,
-            "max_tokens": 4000,
-            "temperature": self.temperature,
-            "top_p": self.top_p,
-        }
-        
-        if self.seed is not None:
-            payload["seed"] = self.seed
+        converted_messages = self._convert_messages_for_model(messages, model_name)
         
         try:
             # Check for cancellation before making the request
             if cancellation_event and cancellation_event.is_set():
                 raise asyncio.CancelledError("Extraction cancelled by client")
             
-            result = await self._post_lmstudio_chat(
-                payload,
+            result = await self.request_chat(
+                provider=self.provider_extract,
                 model_name=model_name,
+                messages=converted_messages,
+                max_tokens=4000,
+                temperature=self.temperature,
                 timeout=180.0,
                 failure_context="Failed to extract observables",
+                seed=self.seed,
                 cancellation_event=cancellation_event
             )
             
@@ -2075,6 +2461,20 @@ CRITICAL: {instructions} If you are a reasoning model, you may include reasoning
             Dict with extraction results
         """
         logger.info(f"Running extraction agent {agent_name} (QA enabled: {bool(qa_prompt_config)})")
+
+        if agent_name == "CmdlineExtract" and os.getenv("USE_HYBRID_CMDLINE_EXTRACTOR", "true").lower() in {"1", "true", "yes"}:
+            logger.info("Using hybrid command-line extractor pipeline for CmdlineExtract")
+            try:
+                from src.extractors.hybrid_cmdline_extractor import extract_commands
+
+                hybrid_result = extract_commands(content)
+                # Align with existing workflow expectations
+                hybrid_result["items"] = hybrid_result.get("cmdline_items", [])
+                if hybrid_result.get("count", 0) > 0 or hybrid_result["items"]:
+                    return hybrid_result
+                logger.info("Hybrid extractor returned 0 items; falling back to LLM extractor")
+            except Exception as exc:
+                logger.error("Hybrid command-line extractor failed, falling back to LLM: %s", exc)
         
         current_try = 0
         feedback = ""
@@ -2125,14 +2525,8 @@ IMPORTANT: Your response must end with a valid JSON object matching the structur
                     {"role": "user", "content": user_prompt}
                 ]
                 
-                # Call LLM with Langfuse tracing
-                payload = {
-                    "model": model_name,
-                    "messages": self._convert_messages_for_model(messages, model_name),
-                    "max_tokens": 2000,
-                    "temperature": temperature
-                }
-                
+                converted_messages = self._convert_messages_for_model(messages, model_name)
+
                 # Reasoning models need longer timeouts - they generate extensive reasoning + answer
                 is_reasoning_model = 'r1' in model_name.lower() or 'reasoning' in model_name.lower()
                 extraction_timeout = 600.0 if is_reasoning_model else 180.0
@@ -2150,11 +2544,15 @@ IMPORTANT: Your response must end with a valid JSON object matching the structur
                         "messages": messages  # Include messages for input display
                     }
                 ) as generation:
-                    response = await self._post_lmstudio_chat(
-                        payload, 
+                    response = await self.request_chat(
+                        provider=self.provider_extract,
                         model_name=model_name,
+                        messages=converted_messages,
+                        max_tokens=2000,
+                        temperature=temperature,
                         timeout=extraction_timeout,
-                        failure_context=f"{agent_name} extraction attempt {current_try}"
+                        failure_context=f"{agent_name} extraction attempt {current_try}",
+                        seed=self.seed
                     )
                     
                 # Parse response
@@ -2357,13 +2755,8 @@ Output valid JSON with keys: "status" ("pass" or "fail"), "feedback" (string exp
                     {"role": "user", "content": qa_prompt}
                 ]
                 
-                qa_payload = {
-                    "model": qa_model_to_use, # Use override if provided
-                    "messages": self._convert_messages_for_model(qa_messages, qa_model_to_use),
-                    "max_tokens": 1000,
-                    "temperature": temperature
-                }
-                
+                converted_qa_messages = self._convert_messages_for_model(qa_messages, qa_model_to_use)
+
                 # Trace QA call with Langfuse
                 with trace_llm_call(
                     name=f"{agent_name.lower()}_qa",
@@ -2376,10 +2769,15 @@ Output valid JSON with keys: "status" ("pass" or "fail"), "feedback" (string exp
                         "messages": qa_messages  # Include messages for input display
                     }
                 ) as qa_generation:
-                    qa_response = await self._post_lmstudio_chat(
-                        qa_payload,
-                        model_name=model_name,
-                        failure_context=f"{agent_name} QA attempt {current_try}"
+                    qa_response = await self.request_chat(
+                        provider=self.provider_extract,
+                        model_name=qa_model_to_use,
+                        messages=converted_qa_messages,
+                        max_tokens=1000,
+                        temperature=temperature,
+                        timeout=180.0,
+                        failure_context=f"{agent_name} QA attempt {current_try}",
+                        seed=self.seed
                     )
                     
                 qa_text = qa_response['choices'][0]['message'].get('content', '')
