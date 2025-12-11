@@ -5911,9 +5911,9 @@ async function retryExecution(executionId, useLangGraphServer = false) {
 function buildTraceUrl(info) {
     const host = (info.langfuse_host || '').replace(/\/$/, '');
     const projectId = info.langfuse_project_id;
-    // Always prefer search_url to avoid stale trace IDs; Langfuse lists newest first
-    if (info.search_url) return info.search_url;
+    // Prefer direct URL if provided (server uses resolved trace_id or session filter)
     if (info.agent_chat_url) return info.agent_chat_url;
+    if (info.search_url) return info.search_url;
     return null;
 }
 

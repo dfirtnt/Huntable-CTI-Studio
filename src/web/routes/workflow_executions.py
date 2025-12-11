@@ -943,11 +943,19 @@ async def get_workflow_debug_info(request: Request, execution_id: int):
             # Normalize host URL (remove trailing slash)
             langfuse_host = langfuse_host.rstrip('/') if langfuse_host else "https://us.cloud.langfuse.com"
 
-            # Always use search link to avoid stale/incorrect trace IDs; include resolved_trace_id separately for display
-            if langfuse_project_id:
-                agent_chat_url = f"{langfuse_host}/project/{langfuse_project_id}/traces?search={session_id}"
+            # Prefer direct trace URL when resolved, else use sessionId filter (not free-text search)
+            if resolved_trace_id:
+                if langfuse_project_id:
+                    agent_chat_url = f"{langfuse_host}/project/{langfuse_project_id}/traces/{resolved_trace_id}"
+                else:
+                    agent_chat_url = f"{langfuse_host}/traces/{resolved_trace_id}"
             else:
-                agent_chat_url = f"{langfuse_host}/traces?search={session_id}"
+                import json, urllib.parse
+                filters = urllib.parse.quote(json.dumps([{"key": "sessionId", "value": session_id}]))
+                if langfuse_project_id:
+                    agent_chat_url = f"{langfuse_host}/project/{langfuse_project_id}/traces?filters={filters}&orderBy=timestamp.desc"
+                else:
+                    agent_chat_url = f"{langfuse_host}/traces?filters={filters}&orderBy=timestamp.desc"
 
             logger.info(f"🔗 Generated Langfuse trace URL: {agent_chat_url}")
             logger.info(
