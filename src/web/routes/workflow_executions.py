@@ -921,7 +921,18 @@ async def get_workflow_debug_info(request: Request, execution_id: int):
             trace_id_hash = hashlib.md5(session_id.encode()).hexdigest()
             resolved_trace_id = None
             trace_lookup_used = False
-            if langfuse_public_key:
+
+            # Prefer persisted trace_id from execution.error_log if present
+            try:
+                if execution.error_log and isinstance(execution.error_log, dict):
+                    persisted_trace_id = execution.error_log.get("langfuse_trace_id")
+                    if persisted_trace_id:
+                        resolved_trace_id = persisted_trace_id
+                        trace_lookup_used = True
+            except Exception:
+                pass
+
+            if not resolved_trace_id and langfuse_public_key:
                 actual_trace_id = get_langfuse_trace_id_for_session(session_id)
                 if actual_trace_id:
                     resolved_trace_id = actual_trace_id
@@ -943,7 +954,7 @@ async def get_workflow_debug_info(request: Request, execution_id: int):
             # Normalize host URL (remove trailing slash)
             langfuse_host = langfuse_host.rstrip('/') if langfuse_host else "https://us.cloud.langfuse.com"
 
-            # Prefer direct trace URL when resolved, else use sessionId filter (not free-text search)
+            # Prefer direct trace URL when resolved; otherwise fall back to session filter search
             if resolved_trace_id:
                 if langfuse_project_id:
                     agent_chat_url = f"{langfuse_host}/project/{langfuse_project_id}/traces/{resolved_trace_id}"
@@ -955,6 +966,8 @@ async def get_workflow_debug_info(request: Request, execution_id: int):
                     "filters": [
                         {"key": "sessionId", "value": session_id}
                     ],
+                    "searchQuery": session_id,
+                    "searchColumns": ["id", "name", "sessionId"],
                     "orderBy": {
                         "column": "timestamp",
                         "order": "DESC"

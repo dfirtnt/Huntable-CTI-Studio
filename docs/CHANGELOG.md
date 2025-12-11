@@ -8,6 +8,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- Smoke runner now excludes `ui`/`slow` markers by default and enforces subprocess timeouts without relying on pytest-timeout.
+- Pytest config registers all UI markers and uses function-scoped asyncio loops to prevent teardown loop reuse errors; warnings from pydantic v2 deprecations are silenced in tests.
+- Langfuse trace handling caches session trace IDs and persists them into workflow execution logs for direct trace URLs; Langfuse trace links now include session filters plus search metadata.
+- SQLAlchemy models now import `declarative_base` from `sqlalchemy.orm`.
 - Misc workflow UI and test updates, including model provider/debug link fixes.
 - Workflow debug info now returns direct Langfuse trace URLs with host/project metadata to avoid search-only links.
 - Workflow LLM provider enable flags now default to enabled when a key is present, with env fallbacks.

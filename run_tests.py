@@ -637,6 +637,9 @@ class TestRunner:
 
         # Always exclude infrastructure and production data tests by default
         default_excludes = ["infrastructure", "prod_data", "production_data"]
+        # Keep smoke fast and under 2 minutes per test by avoiding UI/slow markers
+        if self.config.test_type == TestType.SMOKE:
+            default_excludes.extend(["ui", "slow"])
         if self.config.exclude_markers:
             all_excludes = default_excludes + self.config.exclude_markers
         else:
@@ -712,9 +715,8 @@ class TestRunner:
         if self.config.retry_count > 0:
             cmd.extend(["--maxfail=1", f"--reruns={self.config.retry_count}"])
 
-        # Add timeout
-        if self.config.timeout:
-            cmd.extend(["--timeout", str(self.config.timeout)])
+        # Timeout is enforced via subprocess.run(timeout=...), avoid passing
+        # pytest-timeout flag unless plugin is guaranteed available.
 
         # Add reporting (only if allure is available in venv)
         try:

@@ -1608,6 +1608,22 @@ async def run_workflow(article_id: int, db_session: Session) -> Dict[str, Any]:
         
         try:
             with trace_workflow_execution(execution_id=execution.id, article_id=article_id) as trace:
+                # Persist Langfuse trace_id immediately so debug links can be direct
+                try:
+                    if trace:
+                        trace_id_value = getattr(trace, "trace_id", None)
+                        if trace_id_value:
+                            # Refresh execution to avoid stale state
+                            db_session.refresh(execution)
+                            log_data = execution.error_log if isinstance(execution.error_log, dict) else {}
+                            if not isinstance(log_data, dict):
+                                log_data = {}
+                            log_data["langfuse_trace_id"] = trace_id_value
+                            execution.error_log = log_data
+                            db_session.commit()
+                except Exception as trace_persist_error:
+                    logger.debug(f"Could not persist Langfuse trace_id for execution {execution.id}: {trace_persist_error}")
+
                 workflow_graph = create_agentic_workflow(db_session)
                 final_state = await workflow_graph.ainvoke(initial_state)
                 
