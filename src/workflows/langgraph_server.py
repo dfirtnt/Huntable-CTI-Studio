@@ -764,8 +764,6 @@ Cannot process empty articles."""
                     client = get_langfuse_client()
                     if client:
                         from langfuse.types import TraceContext
-                        import hashlib
-                        trace_id = hashlib.md5(f"workflow_exec_{execution_id}".encode()).hexdigest()
                         session_id = f"workflow_exec_{execution_id}"
                         if len(session_id) > 200:
                             session_id = session_id[:200]
@@ -773,7 +771,6 @@ Cannot process empty articles."""
                         extract_span_cm = client.start_as_current_span(
                             name="extract_behaviors",
                             trace_context=TraceContext(
-                                trace_id=trace_id,
                                 session_id=session_id
                             ),
                             input={
