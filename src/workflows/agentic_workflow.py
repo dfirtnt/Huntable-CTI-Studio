@@ -1611,7 +1611,7 @@ async def run_workflow(article_id: int, db_session: Session) -> Dict[str, Any]:
                 # Persist Langfuse trace_id immediately so debug links can be direct
                 try:
                     if trace:
-                        trace_id_value = getattr(trace, "trace_id", None)
+                        trace_id_value = getattr(trace, "id", None) or getattr(trace, "trace_id", None)
                         if trace_id_value:
                             # Refresh execution to avoid stale state
                             db_session.refresh(execution)
@@ -1621,6 +1621,16 @@ async def run_workflow(article_id: int, db_session: Session) -> Dict[str, Any]:
                             log_data["langfuse_trace_id"] = trace_id_value
                             execution.error_log = log_data
                             db_session.commit()
+                            logger.info(
+                                "Persisted Langfuse trace_id for execution %s: %s",
+                                execution.id,
+                                trace_id_value,
+                            )
+                        else:
+                            logger.warning(
+                                "Langfuse trace missing id for execution %s; cannot persist",
+                                execution.id,
+                            )
                 except Exception as trace_persist_error:
                     logger.debug(f"Could not persist Langfuse trace_id for execution {execution.id}: {trace_persist_error}")
 

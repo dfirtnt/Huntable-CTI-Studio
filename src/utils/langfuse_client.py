@@ -171,10 +171,24 @@ class _LangfuseWorkflowTrace(AbstractContextManager):
             )
 
             self._span = self._span_cm.__enter__()
-            self._trace_id_hash = getattr(self._span, "trace_id", None)
+            # Langfuse Span may expose id or trace_id; prefer id if present
+            span_trace_id = getattr(self._span, "id", None) or getattr(self._span, "trace_id", None)
+            self._trace_id_hash = span_trace_id
             _active_trace_id = self._trace_id_hash
             if self._trace_id_hash and self.session_id:
                 _session_trace_cache[self.session_id] = self._trace_id_hash
+                logger.info(
+                    "Langfuse span created: execution=%s trace_id=%s session_id=%s",
+                    self.execution_id,
+                    self._trace_id_hash,
+                    self.session_id,
+                )
+            else:
+                logger.warning(
+                    "Langfuse span missing trace_id: execution=%s session_id=%s",
+                    self.execution_id,
+                    self.session_id,
+                )
             return self._span
         except Exception as span_error:
             logger.error(f"Failed to create LangFuse span: {span_error}")
