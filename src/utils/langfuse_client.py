@@ -145,18 +145,11 @@ class _LangfuseWorkflowTrace(AbstractContextManager):
                 session_id = session_id[:200]
             self.session_id = session_id
 
-            import hashlib
-
-            self._trace_id_hash = hashlib.md5(
-                f"workflow_exec_{self.execution_id}".encode()
-            ).hexdigest()
-
             from langfuse.types import TraceContext
 
             trace_context = TraceContext(
                 user_id=self.user_id or f"article_{self.article_id}",
                 session_id=session_id,
-                trace_id=self._trace_id_hash,
             )
 
             self._span_cm = self._client.start_as_current_span(
@@ -176,7 +169,8 @@ class _LangfuseWorkflowTrace(AbstractContextManager):
             )
 
             self._span = self._span_cm.__enter__()
-            _active_trace_id = getattr(self._span, "trace_id", None) or self._trace_id_hash
+            self._trace_id_hash = getattr(self._span, "trace_id", None)
+            _active_trace_id = self._trace_id_hash
             return self._span
         except Exception as span_error:
             logger.error(f"Failed to create LangFuse span: {span_error}")
@@ -345,14 +339,7 @@ def trace_llm_call(
             resolved_session_id = resolved_session_id[:200]
         
         # Use provided trace_id, or get from active trace, or create from execution_id
-        resolved_trace_id = trace_id
-        if not resolved_trace_id:
-            if execution_id:
-                # Generate deterministic hex trace_id from execution_id
-                import hashlib
-                resolved_trace_id = hashlib.md5(f"workflow_exec_{execution_id}".encode()).hexdigest()
-            elif _active_trace_id:
-                resolved_trace_id = _active_trace_id
+        resolved_trace_id = trace_id or _active_trace_id
         
         # Create generation using start_generation (LangFuse v3 API)
         from langfuse.types import TraceContext

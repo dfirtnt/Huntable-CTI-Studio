@@ -6960,11 +6960,11 @@ function buildTraceUrl(info) {
     // Prefer deterministic ids (thread_id/session_id) over potentially wrong trace_id lookups
     const directId = info.thread_id || info.session_id || info.trace_id;
 
-    // Prefer direct construction when host + id present
-    if (host && directId) {
+    // Prefer direct construction when host + trace id present
+    if (host && info.trace_id) {
         return projectId
-            ? `${host}/project/${projectId}/traces/${directId}`
-            : `${host}/traces/${directId}`;
+            ? `${host}/project/${projectId}/traces/${info.trace_id}`
+            : `${host}/traces/${info.trace_id}`;
     }
 
     // Repair old search-style URLs if returned
@@ -6983,6 +6983,9 @@ function buildTraceUrl(info) {
             console.warn('Failed to normalize Langfuse URL', e);
         }
     }
+
+    // Fall back to search_url if provided
+    if (info.search_url) return info.search_url;
 
     return info.agent_chat_url;
 }
