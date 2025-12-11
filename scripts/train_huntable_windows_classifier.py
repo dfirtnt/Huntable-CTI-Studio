@@ -27,7 +27,7 @@ import pickle
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from src.services.os_detection_service import OSDetectionService
-from src.utils.content import WINDOWS_MALWARE_KEYWORDS
+from src.utils.content import HUNT_SCORING_KEYWORDS
 
 
 def load_training_data(data_path: Path) -> List[Dict[str, Any]]:

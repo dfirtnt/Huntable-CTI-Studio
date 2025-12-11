@@ -2,6 +2,7 @@
 UI tests for RAG chat interface.
 """
 import json
+import re
 import pytest
 from playwright.sync_api import Page, expect
 
@@ -14,9 +15,10 @@ class TestRAGChatUI:
     def test_chat_page_loads(self, page: Page):
         """Test that the chat page loads correctly."""
         page.goto("http://localhost:8001/chat")
+        page.wait_for_load_state("networkidle")
         
         # Check page title and main elements
-        expect(page).to_have_title("RAG Chat - Huntable CTI Scraper")
+        expect(page).to_have_title(re.compile(r"RAG Chat - Huntable .* Studio"))
         
         # Check for main chat interface elements
         expect(page.locator("h2")).to_contain_text("Threat Intelligence Chat")
@@ -86,6 +88,30 @@ class TestRAGChatUI:
         expect(send_button).to_be_visible()
         expect(send_button).to_be_enabled()
     
+    @pytest.mark.ui
+    @pytest.mark.smoke
+    def test_chat_send_smoke(self, page: Page):
+        """Smoke: sending a prompt renders without errors."""
+        page.goto("http://localhost:8001/chat")
+        page.wait_for_load_state("networkidle")
+
+        prompt = "smoke check prompt"
+        input_field = page.locator("textarea[placeholder*='Ask about cybersecurity']")
+        send_button = page.locator("button:has-text('Send')")
+
+        expect(input_field).to_be_visible()
+
+        input_field.fill(prompt)
+        if send_button.is_enabled():
+            send_button.click()
+            expect(page.locator(f"text={prompt}")).to_be_visible()
+        else:
+            pytest.skip("Send button disabled (likely missing chat configuration)")
+
+        # UI stays interactive (no error overlays)
+        page.wait_for_timeout(1500)
+        expect(input_field).to_be_visible()
+
     @pytest.mark.ui
     def test_chat_message_sending(self, page: Page):
         """Test sending chat messages."""

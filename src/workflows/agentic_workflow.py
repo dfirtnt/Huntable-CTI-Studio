@@ -780,6 +780,11 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                         "raw": agent_result
                     }
                     logger.info(f"[Workflow {state['execution_id']}] {agent_name}: {len(items)} items")
+
+                    # Make cmdline items available on state for downstream consumers (e.g., SIGMA)
+                    if agent_name == "CmdlineExtract":
+                        state["cmdline_items"] = items
+                        state["count"] = len(items)
                     
                     # Store agent result in conversation log
                     conversation_log.append({

@@ -1,0 +1,5 @@
+patterns:
+ exe_with_args: '"?[A-Za-z]:\\\\[^"\r\n]+\.\w{2,5}"?\s+[^\r\n]+'
+ bare_exe_with_args: '(?i)(?:^|\s)([A-Za-z0-9_\-]+\.exe)\s+[^\r\n]+'
+ powershell: '(?i)(?:"?[A-Za-z]:\\\\[^"\r\n]*\\(?:powershell|pwsh)(?:\.exe)?"?)\s+[^\r\n]+'
+ system32_utils: '(?i)"?C:\\\\Windows\\\\System32\\\\(?:net|ipconfig|setspn|quser)\.exe"?\s+[^\r\n]+'

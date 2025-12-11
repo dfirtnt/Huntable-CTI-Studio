@@ -3,7 +3,9 @@ import { test, expect } from '@playwright/test';
 const BASE = process.env.CTI_SCRAPER_URL || 'http://localhost:8001';
 const TEST_ARTICLE_ID = process.env.ARTICLE_ID || '836';
 
-test.describe.skip('Workflow Executions Page - Execute Workflow Feature', 'Requires Celery workers and workflow execution environment');
+test.describe.skip(
+  'Workflow Executions Page - Execute Workflow Feature',
+  () => {
   test.beforeEach(async ({ page }) => {
     // Navigate to workflow executions page
     // The /workflow route serves workflow.html with tabbed interface

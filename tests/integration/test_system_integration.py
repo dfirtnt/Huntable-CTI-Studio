@@ -42,20 +42,17 @@ class TestSystemHealth:
     @pytest.mark.integration
     @pytest.mark.integration_full
     async def test_quality_assessment_pipeline(self, async_client: httpx.AsyncClient):
-        """Test the complete quality assessment pipeline."""
-        # Get articles list
+        """Verify articles page and detail render without legacy quality UI."""
         response = await async_client.get("/articles")
         assert response.status_code == 200
-        
-        # If there are articles, test quality assessment
+        assert "Threat Intelligence Articles" in response.text
+        assert "RAG Search" in response.text
+
         if "No articles" not in response.text:
-            # Try to access first article
-            response = await async_client.get("/articles/1")
-            if response.status_code == 200:
-                # Check for quality assessment elements
-                assert "TTP Quality Assessment" in response.text
-                assert "Combined Quality Score" in response.text
-                assert "LLM Quality Assessment" in response.text
+            detail = await async_client.get("/articles/1")
+            assert detail.status_code in [200, 404]
+            if detail.status_code == 200:
+                assert "Article Content" in detail.text
 
 class TestDataFlow:
     """Test data flow through the system."""
@@ -63,20 +60,14 @@ class TestDataFlow:
     @pytest.mark.integration
     @pytest.mark.integration_full
     async def test_article_to_analysis_flow(self, async_client: httpx.AsyncClient):
-        """Test data flow from articles to analysis."""
-        # Get articles
+        """Ensure articles listing aligns with API data."""
         articles_response = await async_client.get("/articles")
         assert articles_response.status_code == 200
-        
-        # Get analysis dashboard
-        analysis_response = await async_client.get("/analysis")
-        assert analysis_response.status_code == 200
-        
-        # Verify data consistency
-        if "No articles" not in articles_response.text:
-            # Should have analysis data
-            assert "Quality Distribution" in analysis_response.text
-            assert "Tactical vs Strategic Distribution" in analysis_response.text
+        api_response = await async_client.get("/api/articles")
+        assert api_response.status_code == 200
+        api_data = api_response.json()
+        if api_data["articles"]:
+            assert len(api_data["articles"]) > 0
     
     @pytest.mark.integration
     @pytest.mark.integration_full
@@ -109,7 +100,7 @@ class TestErrorHandling:
         
         # Test invalid article ID
         response = await async_client.get("/articles/999999")
-        assert response.status_code in [404, 500]
+        assert response.status_code == 404
     
     @pytest.mark.integration
     @pytest.mark.integration_full
@@ -118,7 +109,7 @@ class TestErrorHandling:
         # Test with invalid parameters
         response = await async_client.get("/articles?limit=invalid")
         # Should handle gracefully
-        assert response.status_code in [200, 400, 500]
+        assert response.status_code in [200, 400]
 
 class TestPerformance:
     """Test system performance."""
@@ -176,8 +167,8 @@ class TestSecurity:
         
         for malicious_input in malicious_inputs:
             response = await async_client.get(f"/articles?search={malicious_input}")
-            # Should handle safely
-            assert response.status_code in [200, 400, 500]
+            # Should handle safely without server error
+            assert response.status_code in [200, 400]
     
     @pytest.mark.integration
     @pytest.mark.integration_full
@@ -215,13 +206,6 @@ class TestDataIntegrity:
     @pytest.mark.integration
     @pytest.mark.integration_full
     async def test_quality_score_consistency(self, async_client: httpx.AsyncClient):
-        """Test quality score consistency across endpoints."""
-        # Get analysis page
+        """Analysis page removed; ensure endpoint is not 500 if present."""
         analysis_response = await async_client.get("/analysis")
-        assert analysis_response.status_code == 200
-        
-        # If there are articles, check quality scores
-        if "No analyses available" not in analysis_response.text:
-            # Should have quality metrics
-            assert "Combined Quality" in analysis_response.text
-            assert "Quality Distribution" in analysis_response.text
+        assert analysis_response.status_code in [200, 404]

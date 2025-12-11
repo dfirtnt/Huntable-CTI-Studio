@@ -45,7 +45,12 @@ async def api_export_annotations():
             annotations = result.fetchall()
 
         output = io.StringIO()
-        writer = csv.writer(output)
+        writer = csv.writer(
+            output,
+            quoting=csv.QUOTE_ALL,
+            lineterminator="\r\n",
+            escapechar="\\",
+        )
         writer.writerow(
             ["record_number", "highlighted_text", "classification", "article_title", "classification_date"]
         )
@@ -64,16 +69,16 @@ async def api_export_annotations():
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         filename = f"annotations_{timestamp}.csv"
 
-        csv_content = output.getvalue()
+        # Prepend UTF-8 BOM so Excel reliably detects the encoding.
+        csv_content = "\ufeff" + output.getvalue()
         output.close()
 
         return Response(
             content=csv_content,
-            media_type="text/csv",
-            headers={"Content-Disposition": f"attachment; filename={filename}"},
+            media_type="text/csv; charset=utf-8",
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'},
         )
 
     except Exception as exc:  # noqa: BLE001
         logger.error("Export annotations error: %s", exc)
         raise HTTPException(status_code=500, detail=str(exc)) from exc
-

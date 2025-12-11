@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 
 const BASE = process.env.CTI_SCRAPER_URL || 'http://localhost:8001';
 
-test.describe.skip('Workflow Config Save Button', 'Requires isolated config file environment');
+test.describe.skip('Workflow Config Save Button', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto(`${BASE}/workflow`);
     await page.waitForLoadState('networkidle');

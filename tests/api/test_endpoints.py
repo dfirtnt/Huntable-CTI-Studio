@@ -15,8 +15,8 @@ class TestDashboardEndpoints:
         """Test the main dashboard page."""
         response = await async_client.get("/")
         assert response.status_code == 200
-        assert "CTI Scraper" in response.text
         assert "Dashboard" in response.text
+        assert "Huntable" in response.text
     
     @pytest.mark.api
     @pytest.mark.asyncio
@@ -39,7 +39,8 @@ class TestArticlesEndpoints:
         """Test the articles listing page."""
         response = await async_client.get("/articles")
         assert response.status_code == 200
-        assert "Articles" in response.text
+        assert "Threat Intelligence Articles" in response.text
+        assert "RAG Search" in response.text
     
     @pytest.mark.api
     @pytest.mark.asyncio
@@ -63,9 +64,7 @@ class TestArticlesEndpoints:
         # Try to access article ID 1 (should exist if there are articles)
         response = await async_client.get("/articles/1")
         if response.status_code == 200:
-            assert "Article Content" in response.text
-            assert "Threat Hunting Analysis" in response.text
-            assert "TTP Quality Assessment" in response.text
+            assert "Huntable" in response.text or "Article" in response.text
         else:
             # If no articles exist, that's also valid
             assert response.status_code in [404, 500]
@@ -147,15 +146,56 @@ class TestErrorHandling:
     async def test_invalid_article_id(self, async_client: httpx.AsyncClient):
         """Test handling of invalid article IDs."""
         response = await async_client.get("/articles/999999")
-        assert response.status_code in [404, 500]
+        assert response.status_code == 404
     
     @pytest.mark.api
     @pytest.mark.asyncio
     async def test_invalid_limit_parameter(self, async_client: httpx.AsyncClient):
         """Test handling of invalid limit parameters."""
         response = await async_client.get("/articles?limit=invalid")
-        # Should handle gracefully, either default or error
-        assert response.status_code in [200, 400, 500]
+        # Should handle gracefully and not 5xx
+        assert response.status_code in [200, 400]
+
+
+class TestProviderCatalog:
+    """Test provider model catalog endpoints."""
+
+    @pytest.mark.api
+    @pytest.mark.smoke
+    @pytest.mark.asyncio
+    async def test_provider_model_catalog(self, async_client: httpx.AsyncClient):
+        """Catalog should return providers with model lists."""
+        response = await async_client.get("/api/provider-model-catalog")
+        assert response.status_code == 200
+        data = response.json()
+        catalog = data.get("catalog", {})
+        assert isinstance(catalog, dict)
+        for provider in ("openai", "anthropic", "gemini"):
+            assert provider in catalog
+            models = catalog[provider]
+            assert isinstance(models, list)
+            assert len(models) > 0
+
+
+class TestWorkflowConfig:
+    """Test workflow config API contract."""
+
+    @pytest.mark.api
+    @pytest.mark.smoke
+    @pytest.mark.asyncio
+    async def test_workflow_config_defaults(self, async_client: httpx.AsyncClient):
+        """Active workflow config exposes core fields."""
+        response = await async_client.get("/api/workflow/config")
+        assert response.status_code == 200
+        data = response.json()
+        for key in ("agent_models", "qa_enabled", "sigma_fallback_enabled", "qa_max_retries"):
+            assert key in data
+        assert isinstance(data["agent_models"], dict)
+        assert isinstance(data["qa_enabled"], dict)
+        assert isinstance(data["sigma_fallback_enabled"], bool)
+        assert isinstance(data["qa_max_retries"], int)
+        assert 0.0 <= data["similarity_threshold"] <= 1.0
+        assert 0.0 <= data["junk_filter_threshold"] <= 1.0
 
 class TestQuickActionsEndpoints:
     """Test quick action endpoints."""
@@ -175,6 +215,49 @@ class TestQuickActionsEndpoints:
         assert data["success"] is True
         assert isinstance(data["processed"], int)
         assert data["processed"] >= 0
+
+
+class TestHealthEndpoints:
+    """Test health endpoints respond and report healthy status."""
+
+    @pytest.mark.api
+    @pytest.mark.smoke
+    @pytest.mark.asyncio
+    async def test_health_endpoints(self, async_client: httpx.AsyncClient):
+        """Ensure critical health endpoints are healthy."""
+        health_paths = [
+            "/health",
+            "/api/health",
+            "/api/health/database",
+            "/api/health/services",
+            "/api/health/celery",
+            "/api/health/ingestion",
+        ]
+
+        for path in health_paths:
+            response = await async_client.get(path)
+            assert response.status_code == 200, f"{path} returned {response.status_code}"
+            data = response.json()
+            assert isinstance(data, dict)
+            assert data.get("status") == "healthy", f"{path} status={data.get('status')}"
+
+
+class TestExportEndpoints:
+    """Test export/download endpoints."""
+
+    @pytest.mark.api
+    @pytest.mark.smoke
+    @pytest.mark.asyncio
+    async def test_export_annotations_csv(self, async_client: httpx.AsyncClient):
+        """Ensure annotations export endpoint returns CSV."""
+        response = await async_client.get("/api/export/annotations")
+        assert response.status_code == 200
+        content_type = response.headers.get("content-type", "")
+        assert "text/csv" in content_type
+        disposition = response.headers.get("content-disposition", "")
+        assert "filename=" in disposition
+        content = response.text
+        assert "record_number" in content
     
     @pytest.mark.api
     @pytest.mark.asyncio

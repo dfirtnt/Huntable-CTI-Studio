@@ -572,8 +572,8 @@ def _has_compression_failure_indicators(content: str) -> bool:
     return any(pattern in content_lower for pattern in failure_patterns)
 
 
-# Windows Malware Keywords for Threat Hunting Scoring
-WINDOWS_MALWARE_KEYWORDS = {
+# Hunt Scoring keyword sets (formerly WINDOWS_MALWARE_KEYWORDS)
+HUNT_SCORING_KEYWORDS = {
         'perfect_discriminators': [
             'rundll32.exe', 'comspec', 'msiexec.exe', 'wmic.exe', 'iex', 'findstr.exe',
             'hklm', 'appdata', 'programdata', 'powershell.exe', 'wbem',
@@ -763,28 +763,28 @@ class ThreatHuntingScorer:
         intelligence_matches = []
         
         # Check perfect discriminators
-        for keyword in WINDOWS_MALWARE_KEYWORDS['perfect_discriminators']:
+        for keyword in HUNT_SCORING_KEYWORDS['perfect_discriminators']:
             if ThreatHuntingScorer._keyword_matches(keyword, full_text):
                 perfect_matches.append(keyword)
         
         # Check good discriminators
-        for keyword in WINDOWS_MALWARE_KEYWORDS['good_discriminators']:
+        for keyword in HUNT_SCORING_KEYWORDS['good_discriminators']:
             if ThreatHuntingScorer._keyword_matches(keyword, full_text):
                 good_matches.append(keyword)
         
         # Check LOLBAS executables
-        for executable in WINDOWS_MALWARE_KEYWORDS['lolbas_executables']:
+        for executable in HUNT_SCORING_KEYWORDS['lolbas_executables']:
             if ThreatHuntingScorer._keyword_matches(executable, full_text):
                 lolbas_matches.append(executable)
         
         # Check intelligence indicators
-        for indicator in WINDOWS_MALWARE_KEYWORDS['intelligence_indicators']:
+        for indicator in HUNT_SCORING_KEYWORDS['intelligence_indicators']:
             if ThreatHuntingScorer._keyword_matches(indicator, full_text):
                 intelligence_matches.append(indicator)
         
         # Check negative indicators (penalize educational/marketing content)
         negative_matches = []
-        for negative in WINDOWS_MALWARE_KEYWORDS['negative_indicators']:
+        for negative in HUNT_SCORING_KEYWORDS['negative_indicators']:
             if ThreatHuntingScorer._keyword_matches(negative, full_text):
                 negative_matches.append(negative)
         

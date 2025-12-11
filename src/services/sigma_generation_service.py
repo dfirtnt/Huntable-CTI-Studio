@@ -136,10 +136,16 @@ class SigmaGenerationService:
                 
                 # Call LLM API
                 try:
-                    if ai_model == 'lmstudio':
-                        sigma_response = await self._call_lmstudio_for_sigma(current_prompt, execution_id=execution_id, article_id=article_id)
-                    else:
-                        sigma_response = await self._call_openai_for_sigma(current_prompt, api_key)
+                    sigma_provider = self.llm_service.provider_sigma
+                    requested_provider = self.llm_service._canonicalize_provider(ai_model)
+                    if ai_model and ai_model != 'lmstudio' and requested_provider != 'lmstudio':
+                        sigma_provider = requested_provider
+                    sigma_response = await self._call_provider_for_sigma(
+                        current_prompt,
+                        provider=sigma_provider,
+                        execution_id=execution_id,
+                        article_id=article_id
+                    )
                     
                     # Ensure we have a response (even if empty, store it as string)
                     if sigma_response is None:
@@ -305,42 +311,32 @@ class SigmaGenerationService:
                 'errors': str(e)
             }
     
-    async def _call_lmstudio_for_sigma(self, prompt: str, execution_id: Optional[int] = None, article_id: Optional[int] = None) -> str:
-        """Call LMStudio API for SIGMA generation."""
-        # Use SIGMA-specific model
-        model_name = self.llm_service.model_sigma
-        
+    async def _call_provider_for_sigma(
+        self,
+        prompt: str,
+        *,
+        provider: str,
+        execution_id: Optional[int] = None,
+        article_id: Optional[int] = None
+    ) -> str:
+        model_name = self.llm_service.model_sigma or self.llm_service.provider_defaults.get(provider, self.llm_service.lmstudio_model)
+
         messages = [
-                {
-                    "role": "system",
-                    "content": "You are a SIGMA rule creation expert. Output ONLY valid YAML starting with 'title:'. Use exact 2-space indentation. logsource and detection must be nested dictionaries. No markdown, no explanations."
-                },
-                {
-                    "role": "user",
-                    "content": prompt
-                }
+            {
+                "role": "system",
+                "content": "You are a SIGMA rule creation expert. Output ONLY valid YAML starting with 'title:'. Use exact 2-space indentation. logsource and detection must be nested dictionaries. No markdown, no explanations."
+            },
+            {
+                "role": "user",
+                "content": prompt
+            }
         ]
-        
-        # Convert system messages for models that don't support them (e.g., Mistral)
-        messages = self.llm_service._convert_messages_for_model(messages, model_name)
-        
-        # For reasoning models like Deepseek-R1, need more tokens for reasoning + output
-        # Check if this is a reasoning model (Deepseek-R1, Qwen-R1, etc.)
+
+        converted_messages = self.llm_service._convert_messages_for_model(messages, model_name)
+
         is_reasoning_model = 'r1' in model_name.lower() or 'reasoning' in model_name.lower()
         max_tokens = 2000 if is_reasoning_model else 800
-        
-        payload = {
-            "model": model_name,
-            "messages": messages,
-            "max_tokens": max_tokens,
-            "temperature": self.llm_service.temperature,
-            "top_p": self.llm_service.top_p,
-        }
-        
-        if self.llm_service.seed is not None:
-            payload["seed"] = self.llm_service.seed
-        
-        # Trace LLM call with LangFuse
+
         with trace_llm_call(
             name="generate_sigma",
             model=model_name,
@@ -348,59 +344,54 @@ class SigmaGenerationService:
             article_id=article_id,
             metadata={
                 "prompt_length": len(prompt),
-                "max_tokens": max_tokens
+                "max_tokens": max_tokens,
+                "provider": provider
             }
         ) as generation:
             try:
-                result = await self.llm_service._post_lmstudio_chat(
-                    payload,
+                result = await self.llm_service.request_chat(
+                    provider=provider,
                     model_name=model_name,
+                    messages=converted_messages,
+                    max_tokens=max_tokens,
+                    temperature=self.llm_service.temperature,
                     timeout=300.0,
-                    failure_context="Failed to generate SIGMA rules from LMStudio"
+                    failure_context=f"Failed to generate SIGMA rules via {provider}",
+                    top_p=self.llm_service.top_p,
+                    seed=self.llm_service.seed
                 )
-                
-                # Deepseek-R1 returns reasoning in 'reasoning_content', fallback to 'content'
+
                 message = result['choices'][0]['message']
                 content_text = message.get('content', '')
                 reasoning_text = message.get('reasoning_content', '')
-                
-                # For Deepseek-R1: prefer content if it exists and looks like YAML
-                # Otherwise, try to extract YAML from reasoning_content (reasoning models may include answer in reasoning)
+
                 if content_text and (content_text.strip().startswith('title:') or 'title:' in content_text[:100]):
                     output = content_text
                     logger.debug("Using 'content' field for SIGMA generation (contains YAML)")
                 elif reasoning_text:
-                    # Try to extract YAML from reasoning_content
-                    # Look for YAML block starting with 'title:'
                     import re
                     yaml_match = re.search(r'(?:^|\n)title:\s*[^\n]+\n(?:[^\n]+\n)*', reasoning_text, re.MULTILINE)
                     if yaml_match:
-                        # Extract from the YAML start to end of reasoning (or find a reasonable end)
                         yaml_start = yaml_match.start()
-                        # Try to find a complete YAML block (look for common SIGMA fields)
                         yaml_block = reasoning_text[yaml_start:]
-                        # If reasoning was truncated, we might not have complete YAML
                         output = yaml_block
                         logger.debug("Extracted YAML from 'reasoning_content' field")
                     else:
-                        # No YAML found in reasoning, use reasoning as-is (might contain partial answer)
                         output = reasoning_text
                         logger.debug("Using 'reasoning_content' field for SIGMA generation (no YAML pattern found)")
                 else:
                     output = content_text or reasoning_text or ""
-                
-                # Check if response was truncated
+
                 finish_reason = result['choices'][0].get('finish_reason', '')
                 if finish_reason == 'length':
                     logger.warning(f"SIGMA generation response was truncated (finish_reason=length). Used {result.get('usage', {}).get('completion_tokens', 0)} tokens. max_tokens={max_tokens} may need to be increased.")
-                
+
                 if not output or len(output.strip()) == 0:
                     logger.error("LLM returned empty response for SIGMA generation")
-                    raise ValueError("LLM returned empty response for SIGMA generation. Check LMStudio is responding correctly.")
-                
+                    raise ValueError("LLM returned empty response for SIGMA generation. Check the configured provider is responding correctly.")
+
                 usage = result.get('usage', {})
-                
-                # Log completion to LangFuse
+
                 log_llm_completion(
                     generation,
                     input_messages=messages,
@@ -412,47 +403,12 @@ class SigmaGenerationService:
                     },
                     metadata={
                         "output_length": len(output),
-                        "finish_reason": result['choices'][0].get('finish_reason', '')
+                        "finish_reason": finish_reason,
+                        "provider": provider
                     }
                 )
-                
+
                 return output
             except Exception as e:
-                # Log error to LangFuse before re-raising
                 log_llm_error(generation, e)
                 raise
-    
-    async def _call_openai_for_sigma(self, prompt: str, api_key: str) -> str:
-        """Call OpenAI API for SIGMA generation."""
-        import httpx
-        
-        async with httpx.AsyncClient() as client:
-            response = await client.post(
-                "https://api.openai.com/v1/chat/completions",
-                headers={
-                    "Authorization": f"Bearer {api_key}",
-                    "Content-Type": "application/json"
-                },
-                json={
-                    "model": "gpt-4o-mini",
-                    "messages": [
-                        {
-                            "role": "system",
-                            "content": "You are a SIGMA rule creation expert. Output ONLY valid YAML starting with 'title:'. Use exact 2-space indentation. logsource and detection must be nested dictionaries. No markdown, no explanations."
-                        },
-                        {
-                            "role": "user",
-                            "content": prompt
-                        }
-                    ],
-                    "max_tokens": 4000,
-                    "temperature": 0.2
-                },
-                timeout=120.0
-            )
-            
-            if response.status_code != 200:
-                raise RuntimeError(f"OpenAI API error: {response.status_code} - {response.text}")
-            
-            result = response.json()
-            return result['choices'][0]['message']['content']
