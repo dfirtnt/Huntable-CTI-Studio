@@ -7,24 +7,28 @@
 python3 run_tests.py smoke
 ```
 
-**Duration:** ~15 seconds | **Tests:** 15 passed ✅
+**Duration:** ~20 seconds | **Tests:** 16 passed ✅
 
 ## Overview
 
-Smoke tests provide rapid health checks of critical system functionality, completing in ~15 seconds for quick verification.
+Smoke tests provide rapid health checks of critical system functionality, completing in ~20 seconds for quick verification.
 
 ## Current Coverage
 
-### ✅ Smoke Tests (15 tests)
+### ✅ Smoke Tests (16 tests)
 
 Smoke tests are distributed across multiple test files using the `@pytest.mark.smoke` marker:
 
-**API Endpoints (5 tests)** - `tests/api/test_endpoints.py`
+**API Endpoints (9 tests)** - `tests/api/test_endpoints.py`
 - Dashboard home page
 - Articles listing
 - Article detail view
 - Sources listing
+- Provider model catalog
+- Workflow config defaults
 - Rescore all articles action
+- Health endpoints (/health, /api/health*, /api/health/services, /api/health/celery, /api/health/ingestion)
+- Annotations export CSV (/api/export/annotations)
 
 **System Integration (1 test)** - `tests/integration/test_system_integration.py`
 - System startup health check
@@ -35,17 +39,18 @@ Smoke tests are distributed across multiple test files using the `@pytest.mark.s
 - Sources management
 - Rescore all articles button
 
-**RAG Chat (1 test)** - `tests/ui/test_rag_chat_ui.py`
+**RAG Chat (2 tests)** - `tests/ui/test_rag_chat_ui.py`
 - Chat page loads
+- Chat send path renders without errors
 
 ### Test File Locations
 
 | File | Tests | Category |
 |------|-------|----------|
-| `tests/api/test_endpoints.py` | 5 | API endpoints |
+| `tests/api/test_endpoints.py` | 9 | API endpoints |
 | `tests/integration/test_system_integration.py` | 1 | System health |
 | `tests/ui/test_ui_flows.py` | 4 | UI navigation |
-| `tests/ui/test_rag_chat_ui.py` | 1 | ML services |
+| `tests/ui/test_rag_chat_ui.py` | 2 | ML services |
 
 ## Running Smoke Tests
 
@@ -84,11 +89,11 @@ docker exec cti_web pytest tests/ -m smoke -v
 
 | Category | Tests | Duration | Purpose |
 |----------|-------|----------|---------|
-| **API Endpoints** | 5 | ~5s | Core API functionality |
+| **API Endpoints** | 9 | ~7s | Core API/export/health |
 | **System Health** | 1 | ~2s | System startup verification |
 | **UI Navigation** | 4 | ~5s | User interface flows |
 | **Article Operations** | 4 | ~3s | Classification functionality |
-| **ML Services** | 1 | ~2s | RAG chat availability |
+| **ML Services** | 2 | ~3s | RAG chat availability and send path |
 
 ## Integration with CI/CD
 

@@ -560,7 +560,19 @@ class TestRunner:
 
         # Add test paths
         if self.config.test_paths:
-            cmd.extend(self.config.test_paths)
+            # Normalize test paths, especially for Docker where /app is the root.
+            resolved_paths = []
+            effective_context = self._get_effective_context(self.config.test_type)
+            for path in self.config.test_paths:
+                # Strip leading ./ for consistency
+                normalized = path.lstrip("./")
+                if effective_context == ExecutionContext.DOCKER:
+                    if not normalized.startswith("/"):
+                        normalized = f"/app/{normalized}"
+                    resolved_paths.append(normalized)
+                else:
+                    resolved_paths.append(path)
+            cmd.extend(resolved_paths)
         else:
             # Default test paths based on test type
             test_path_map = {
@@ -604,12 +616,25 @@ class TestRunner:
             else:
                 cmd.append("tests/")
 
-        # Add markers
-        if self.config.markers:
-            marker_expr = " or ".join(self.config.markers)
-            cmd.extend(["-m", marker_expr])
+        # Markers: apply defaults per test type, then exclusions
+        default_markers_map = {
+            TestType.SMOKE: ["smoke"],
+            TestType.UNIT: ["unit"],
+            TestType.API: ["api"],
+            TestType.INTEGRATION: ["integration"],
+            TestType.UI: ["ui"],
+            TestType.E2E: ["e2e"],
+            TestType.PERFORMANCE: ["performance"],
+            TestType.AI: ["ai"],
+            TestType.AI_UI: ["ai", "ui"],
+            TestType.AI_INTEGRATION: ["ai", "integration"],
+        }
 
-        # Exclude markers
+        markers = self.config.markers or default_markers_map.get(
+            self.config.test_type, []
+        )
+        marker_expr = " or ".join(markers) if markers else ""
+
         # Always exclude infrastructure and production data tests by default
         default_excludes = ["infrastructure", "prod_data", "production_data"]
         if self.config.exclude_markers:
@@ -618,10 +643,13 @@ class TestRunner:
             all_excludes = default_excludes
 
         exclude_expr = " and ".join([f"not {marker}" for marker in all_excludes])
-        if self.config.markers:
-            cmd.extend(["-m", f"({marker_expr}) and ({exclude_expr})"])
+
+        if marker_expr:
+            combined_expr = f"({marker_expr}) and ({exclude_expr})"
         else:
-            cmd.extend(["-m", exclude_expr])
+            combined_expr = exclude_expr
+
+        cmd.extend(["-m", combined_expr])
 
         # Add execution context specific options
         effective_context = self._get_effective_context(self.config.test_type)

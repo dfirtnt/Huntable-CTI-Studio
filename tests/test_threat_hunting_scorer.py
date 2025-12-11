@@ -5,7 +5,7 @@ import math
 from unittest.mock import patch, Mock
 from typing import Dict, Any
 
-from src.utils.content import ThreatHuntingScorer, WINDOWS_MALWARE_KEYWORDS
+from src.utils.content import ThreatHuntingScorer, HUNT_SCORING_KEYWORDS
 
 
 class TestThreatHuntingScorer:
@@ -159,10 +159,10 @@ class TestThreatHuntingScorer:
     def test_score_threat_hunting_content_maximum_scores(self):
         """Test that scores are capped at maximum values."""
         # Create content with many keywords from each category
-        perfect_keywords = WINDOWS_MALWARE_KEYWORDS['perfect_discriminators'][:10]
-        good_keywords = WINDOWS_MALWARE_KEYWORDS['good_discriminators'][:10]
-        lolbas_keywords = WINDOWS_MALWARE_KEYWORDS['lolbas_executables'][:10]
-        intelligence_keywords = WINDOWS_MALWARE_KEYWORDS['intelligence_indicators'][:10]
+        perfect_keywords = HUNT_SCORING_KEYWORDS['perfect_discriminators'][:10]
+        good_keywords = HUNT_SCORING_KEYWORDS['good_discriminators'][:10]
+        lolbas_keywords = HUNT_SCORING_KEYWORDS['lolbas_executables'][:10]
+        intelligence_keywords = HUNT_SCORING_KEYWORDS['intelligence_indicators'][:10]
         
         content = f"""
         This article discusses {', '.join(perfect_keywords)}.

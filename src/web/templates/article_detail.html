@@ -612,58 +612,58 @@ Return a JSON array of IOC objects with the following structure:
 
 
     function showSigmaHelp() {
-        const promptContent = `Generate a Sigma detection rule based on this threat intelligence:
+        const promptContent = `Generate Sigma detection rules from the following threat intelligence. Produce multiple rules if the behaviors differ.
 
-**Article Title:** {title}
-**Source:** {source}
-**URL:** {url}
+Threat Intel Input:
+- title: {title}
+- source: {source}
+- url: {url}
+- content: {content}
 
-**SIGMA Rule Requirements:**
-1. **Focus on TTPs:** Create rules for Tactics, Techniques, and Procedures, not atomic IOCs
-2. **Behavioral Patterns:** Detect attack behaviors and techniques
-3. **Proper Syntax:** Use correct SIGMA rule format and structure
-4. **Required Fields:** Include all mandatory SIGMA fields (title, description, logsource, detection, etc.)
-5. **Actionable Detection:** Rules should detect real attack patterns
+Objectives:
+- Extract every distinct behavioral TTP (command execution, process lineage, persistence, defense evasion, system modification).
+- Create 1 rule per behavior when possible.
+- Extract all command-line patterns with arguments; include all unique process-creation observables.
 
-**Rule Guidelines:**
-- Avoid rules for single IP addresses or file hashes
-- Focus on command-line patterns, process creation, and system modifications
-- Use appropriate log sources (Windows Event Logs, Sysmon, Linux auditd, etc.)
-- Include proper categorization and references
-- Make rules specific enough to avoid false positives
+Strict SIGMA Requirements:
+- Focus on behaviors, not atomic IOCs.
+- Use correct syntax and required fields.
+- Avoid rules for single IPs, hashes, or filenames alone.
+- Prefer command-line, parent/child relationships, LOLBins, system changes, scripting engine abuse, lateral movement, etc.
+- Use correct logsource for each behavior (process_creation, network_connection, registry_event, file_event, etc.).
 
-**CRITICAL OUTPUT REQUIREMENTS:**
-- Output ONLY the YAML rule content
-- Do NOT include markdown code blocks (\`\`\`yaml or \`\`\`)
-- Do NOT include any explanatory text before or after the rule
-- Start directly with the YAML content
+Output Rules:
+- Output ONLY valid YAML.
+- No prose or comments.
+- No code fences.
+- Start with YAML immediately.
+- 2-space indentation only; no tabs.
+- All field names lowercase.
 
-**YAML Formatting Rules:**
-- Use exactly 2 spaces for each indentation level
-- NEVER use tabs
-- Ensure proper YAML syntax
-- All field names must be lowercase
-- Use quotes for values containing special characters
-
-**Required YAML Structure:**
-title: [Descriptive rule title]
-id: [UUID or generated ID]
-description: [What this rule detects]
+Required Structure:
+title: [descriptive rule title]
+id: [UUID]
+description: [behavior detected]
 logsource:
-  category: [process_creation/network_connection/etc]
+  category: [process_creation/network_connection/registry_event/...]
   product: [windows/linux/macos]
 detection:
   selection:
-    [detection criteria]
+    [criteria]
   condition: selection
 level: [low/medium/high/critical]
 tags:
   - attack.[technique]
 references:
-  - [URL or reference]
+  - {url}
 
-**Threat Intelligence Content:**
-{content}`;
+Behavioral Extraction Rules:
+- For process creation TTPs: include all command-line patterns with args; include parent-child relationships when inferable; include LOLBin/scripting abuse.
+- For system modification: include registry, services, scheduled tasks.
+- For defense evasion: include AV disablement, AMSI bypass, obfuscation flags.
+
+Final Instruction:
+Generate all applicable SIGMA rules from the threat intelligence above.`;
         showHelpModal('SIGMA Generation Prompt', promptContent);
     }
 

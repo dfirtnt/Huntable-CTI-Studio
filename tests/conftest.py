@@ -5,6 +5,7 @@ Test configuration and fixtures for CTI Scraper tests.
 import os
 import sys
 import pytest
+import pytest_asyncio
 import warnings
 try:
     import pytest_asyncio
@@ -24,7 +25,7 @@ import shutil
 import logging
 from typing import AsyncGenerator, Generator
 from pathlib import Path
-from playwright.sync_api import sync_playwright
+from playwright.async_api import async_playwright
 from unittest.mock import AsyncMock, MagicMock
 
 # Add project root to Python path
@@ -299,35 +300,35 @@ def browser_type_launch_args():
     }
 
 
-@pytest.fixture(scope="session")
-def playwright_context():
-    """Playwright context for session-scoped tests"""
-    with sync_playwright() as p:
+@pytest_asyncio.fixture(scope="session")
+async def playwright_context():
+    """Playwright context for session-scoped tests (async-safe)."""
+    async with async_playwright() as p:
         yield p
 
 
-@pytest.fixture(scope="session")
-def browser(playwright_context, browser_type_launch_args):
+@pytest_asyncio.fixture(scope="session")
+async def browser(playwright_context, browser_type_launch_args):
     """Browser instance for session-scoped tests"""
-    browser = playwright_context.chromium.launch(**browser_type_launch_args)
+    browser = await playwright_context.chromium.launch(**browser_type_launch_args)
     yield browser
-    browser.close()
+    await browser.close()
 
 
-@pytest.fixture(scope="session")
-def context(browser, browser_context_args):
+@pytest_asyncio.fixture(scope="session")
+async def context(browser, browser_context_args):
     """Browser context for session-scoped tests"""
-    context = browser.new_context(**browser_context_args)
+    context = await browser.new_context(**browser_context_args)
     yield context
-    context.close()
+    await context.close()
 
 
-@pytest.fixture
-def page(context):
+@pytest_asyncio.fixture
+async def page(context):
     """Page instance for each test"""
-    page = context.new_page()
+    page = await context.new_page()
     yield page
-    page.close()
+    await page.close()
 
 
 # Test isolation fixtures

@@ -958,6 +958,10 @@ Cannot process empty articles."""
                         "raw": agent_result
                     }
                     logger.info(f"{agent_name}: {len(items)} items")
+
+                    if agent_name == "CmdlineExtract":
+                        state["cmdline_items"] = items
+                        state["count"] = len(items)
                     
                     # Log sub-agent result to LangFuse span (as child of extract_behaviors)
                     if extract_span_cm:

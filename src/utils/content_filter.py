@@ -34,7 +34,7 @@ except ImportError:
 logger = logging.getLogger(__name__)
 
 # Import perfect discriminators from threat hunting scorer
-from .content import WINDOWS_MALWARE_KEYWORDS
+from .content import HUNT_SCORING_KEYWORDS
 from .sentence_splitter import find_sentence_boundaries, count_sentences
 
 
@@ -150,7 +150,7 @@ class ContentFilter:
 
     def _load_pattern_rules(self) -> Dict[str, List[str]]:
         """Load pattern-based rules for content classification using Hunt Scoring patterns."""
-        from .content import WINDOWS_MALWARE_KEYWORDS
+        from .content import HUNT_SCORING_KEYWORDS
         import re
 
         # Separate perfect discriminators from other huntable patterns
@@ -158,7 +158,7 @@ class ContentFilter:
         other_huntable_patterns = []
 
         # Add perfect discriminators (escape regex special characters)
-        for pattern in WINDOWS_MALWARE_KEYWORDS["perfect_discriminators"]:
+        for pattern in HUNT_SCORING_KEYWORDS["perfect_discriminators"]:
             if pattern.startswith("r"):
                 # Already a regex pattern
                 perfect_patterns.append(pattern)
@@ -168,7 +168,7 @@ class ContentFilter:
                 perfect_patterns.append(escaped_pattern)
 
         # Add good discriminators
-        for pattern in WINDOWS_MALWARE_KEYWORDS["good_discriminators"]:
+        for pattern in HUNT_SCORING_KEYWORDS["good_discriminators"]:
             if pattern.startswith("r"):
                 other_huntable_patterns.append(pattern)
             else:
@@ -176,7 +176,7 @@ class ContentFilter:
 
         # Add LOLBAS executables (excluding those already in perfect discriminators)
         perfect_patterns_set = set(perfect_patterns)
-        for pattern in WINDOWS_MALWARE_KEYWORDS["lolbas_executables"]:
+        for pattern in HUNT_SCORING_KEYWORDS["lolbas_executables"]:
             escaped_pattern = (
                 re.escape(pattern) if not pattern.startswith("r") else pattern
             )
@@ -185,7 +185,7 @@ class ContentFilter:
                 other_huntable_patterns.append(escaped_pattern)
 
         # Add intelligence indicators
-        for pattern in WINDOWS_MALWARE_KEYWORDS["intelligence_indicators"]:
+        for pattern in HUNT_SCORING_KEYWORDS["intelligence_indicators"]:
             if pattern.startswith("r"):
                 other_huntable_patterns.append(pattern)
             else:
@@ -196,7 +196,7 @@ class ContentFilter:
 
         # Add negative indicators
         not_huntable_patterns = []
-        for pattern in WINDOWS_MALWARE_KEYWORDS["negative_indicators"]:
+        for pattern in HUNT_SCORING_KEYWORDS["negative_indicators"]:
             if pattern.startswith("r"):
                 not_huntable_patterns.append(pattern)
             else:

@@ -11,6 +11,7 @@ from sqlalchemy import func
 
 from src.database.manager import DatabaseManager
 from src.database.models import AgenticWorkflowConfigTable, AgentPromptVersionTable
+from src.services.sigma_generation_service import SigmaGenerationService
 
 logger = logging.getLogger(__name__)
 
@@ -594,6 +595,14 @@ class TestRankAgentRequest(BaseModel):
     junk_filter_threshold: float = Field(0.8, description="Content filter confidence threshold")
 
 
+class TestSigmaAgentRequest(BaseModel):
+    """Request model for testing SIGMA generation agent."""
+    article_id: int = Field(2155, description="Article ID to test with")
+    use_junk_filter: bool = Field(True, description="Whether to apply content filtering")
+    junk_filter_threshold: float = Field(0.8, description="Content filter confidence threshold")
+    max_attempts: int = Field(3, ge=1, le=10, description="Maximum SIGMA generation attempts")
+
+
 @router.post("/config/test-subagent")
 async def test_sub_agent(request: Request, test_request: TestSubAgentRequest):
     """Test a sub-agent extraction on a specific article."""
@@ -777,6 +786,102 @@ async def test_sub_agent(request: Request, test_request: TestSubAgentRequest):
                         error_detail = "The prompt is too long for the model's context window. Please increase the context length in LMStudio or use a shorter prompt."
             
             raise HTTPException(status_code=500, detail=error_detail)
+
+
+@router.post("/config/test-sigmaagent")
+async def test_sigma_agent(request: Request, test_request: TestSigmaAgentRequest):
+    """Test SIGMA generation agent on a specific article."""
+    try:
+        db_manager = DatabaseManager()
+        db_session = db_manager.get_session()
+
+        try:
+            from src.database.models import ArticleTable
+
+            # Get article
+            article = db_session.query(ArticleTable).filter(ArticleTable.id == test_request.article_id).first()
+            if not article:
+                raise HTTPException(status_code=404, detail=f"Article {test_request.article_id} not found")
+
+            # Get active config
+            config = db_session.query(AgenticWorkflowConfigTable).filter(
+                AgenticWorkflowConfigTable.is_active == True
+            ).order_by(
+                AgenticWorkflowConfigTable.version.desc()
+            ).first()
+
+            if not config:
+                raise HTTPException(status_code=404, detail="No active workflow configuration found")
+
+            # Apply content filtering if enabled
+            content_to_use = article.content
+            if test_request.use_junk_filter:
+                from src.utils.content_filter import ContentFilter
+
+                content_filter = ContentFilter()
+                hunt_score = article.article_metadata.get('threat_hunting_score', 0) if article.article_metadata else 0
+                filter_result = content_filter.filter_content(
+                    article.content,
+                    min_confidence=test_request.junk_filter_threshold,
+                    hunt_score=hunt_score,
+                    article_id=article.id
+                )
+                content_to_use = filter_result.filtered_content or article.content
+
+            agent_models = config.agent_models if config.agent_models else {}
+            sigma_service = SigmaGenerationService(config_models=agent_models)
+
+            source_name = article.source.name if article.source else "Unknown Source"
+            article_url = article.canonical_url or "N/A"
+
+            sigma_result = await sigma_service.generate_sigma_rules(
+                article_title=article.title,
+                article_content=content_to_use,
+                source_name=source_name,
+                url=article_url,
+                ai_model="lmstudio",
+                article_id=article.id,
+                min_confidence=test_request.junk_filter_threshold,
+                max_attempts=test_request.max_attempts
+            )
+
+            return {
+                "success": True,
+                "agent_name": "SigmaAgent",
+                "article_id": test_request.article_id,
+                "article_title": article.title,
+                "qa_enabled": False,
+                "result": sigma_result
+            }
+        finally:
+            db_session.close()
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        error_msg = str(e).lower()
+        is_lmstudio_busy = (
+            "busy" in error_msg or
+            "unavailable" in error_msg or
+            "overloaded" in error_msg or
+            "503" in error_msg or
+            "429" in error_msg or
+            ("timeout" in error_msg and "read" in error_msg)
+        )
+
+        if is_lmstudio_busy:
+            logger.warning(f"Error testing SIGMA agent (LMStudio may be busy): {e}")
+            raise HTTPException(
+                status_code=503,
+                detail=(
+                    "LMStudio appears to be busy or unavailable. "
+                    "The model may be processing another request. "
+                    "Would you like to wait and try again, or retry later?"
+                )
+            )
+
+        logger.error(f"Error testing SIGMA agent: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.post("/config/test-rankagent")
