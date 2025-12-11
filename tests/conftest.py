@@ -7,6 +7,7 @@ import sys
 import pytest
 import pytest_asyncio
 import warnings
+import pydantic.warnings
 try:
     import pytest_asyncio
 except ImportError:  # Allow running targeted tests without pytest-asyncio
@@ -31,6 +32,12 @@ from unittest.mock import AsyncMock, MagicMock
 # Add project root to Python path
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
+
+# Silence known pydantic v2 config deprecation from third-party models
+warnings.filterwarnings(
+    "ignore",
+    category=pydantic.warnings.PydanticDeprecatedSince20,
+)
 
 # Import AI test fixtures
 try:

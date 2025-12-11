@@ -18,6 +18,8 @@ _langfuse_enabled = False
 
 # Store trace IDs for linking spans/generations
 _active_trace_id: Optional[str] = None
+# Cache of session_id -> trace_id observed during trace creation (in-process)
+_session_trace_cache: Dict[str, str] = {}
 
 
 def _get_langfuse_setting(key: str, env_key: str, default: Optional[str] = None) -> Optional[str]:
@@ -171,6 +173,8 @@ class _LangfuseWorkflowTrace(AbstractContextManager):
             self._span = self._span_cm.__enter__()
             self._trace_id_hash = getattr(self._span, "trace_id", None)
             _active_trace_id = self._trace_id_hash
+            if self._trace_id_hash and self.session_id:
+                _session_trace_cache[self.session_id] = self._trace_id_hash
             return self._span
         except Exception as span_error:
             logger.error(f"Failed to create LangFuse span: {span_error}")
@@ -264,6 +268,11 @@ def get_langfuse_trace_id_for_session(session_id: str) -> Optional[str]:
     if not is_langfuse_enabled():
         logger.debug("LangFuse is disabled; skipping trace lookup for session %s", session_id)
         return None
+
+    # First check in-process cache
+    cached = _session_trace_cache.get(session_id)
+    if cached:
+        return cached
 
     client = get_langfuse_client()
     if client is None:
