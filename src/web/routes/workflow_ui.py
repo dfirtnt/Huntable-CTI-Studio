@@ -53,11 +53,3 @@ async def workflow_queue_page_redirect(request: Request):
     from fastapi.responses import RedirectResponse
     return RedirectResponse(url="/workflow#queue", status_code=302)
 
-
-@router.get("/agent2", response_class=HTMLResponse)
-async def agent2_workflow_page(request: Request):
-    """Hybrid extractor preview page based on the workflow config UI."""
-    return templates.TemplateResponse(
-        "agent2.html",
-        {"request": request}
-    )
