@@ -1147,6 +1147,11 @@ class LLMService:
             detected_length = model_max_context  # Use model-specific fallback
             detection_method = 'fallback'
         
+        # If detection returned None (e.g., non-LMStudio provider skip), fall back to model_max_context
+        if detected_length is None:
+            detected_length = model_max_context
+            detection_method = f"{detection_method}_fallback_none"
+        
         # Trust detected context if it's reasonable (not too large, within model limits)
         # Only use very conservative caps if detection seems unreliable
         if detection_method == 'environment_override':
