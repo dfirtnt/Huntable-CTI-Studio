@@ -10,14 +10,14 @@
 A comprehensive threat intelligence aggregation and analysis platform designed for security researchers and threat hunters.
 
 ## 🚀 Key Features
-- Multi-source aggregation: Collect from 33+ RSS feeds, blogs, and vendor sites.
-- AI-powered threat analysis: Scoring, IOC extraction, SIGMA rule generation, and similarity matching.
-- Interactive web interface: Real-time monitoring, REST API (133+ endpoints), and backup management.
-- RAG-powered chat: Conversational AI with semantic search across threat intelligence database.
-- SIGMA rule system: AI-powered rule generation with similarity matching against 3,000+ community rules.
+- Multi-source aggregation: Collect from curated RSS feeds, blogs, and vendor sites.
+- AI-powered analysis: Scoring, IOC extraction, SIGMA rule generation, and similarity matching.
+- Web interface + REST API with OpenAPI docs; backup management included.
+- RAG-powered chat with semantic search across collected intelligence.
+- SIGMA rule system: AI rule generation with similarity matching against community rules.
 - OS Detection: Automated operating system detection for threat intelligence articles (Windows/Linux/MacOS).
-- Agentic Workflow: 7-step LangGraph-based automated pipeline (Junk Filter → Ranking → OS Detection → Extraction → SIGMA → Similarity → Queue).
-- Workflow Executions observability: Execution table now includes a toggle to surface CmdLine/ProcTree/Reg/Signature/EventID observable counts derived from ExtractAgent sub-agent results.
+- Agentic Workflow: LangGraph-based pipeline (Junk Filter → Ranking → OS Detection → Extraction → SIGMA → Similarity → Queue).
+- Workflow executions observability: execution table exposes observable counts from ExtractAgent sub-agents.
 
 ## 🏗️ Architecture
 - **Core Components**: FastAPI, PostgreSQL (with pgvector), Redis, Celery workers, LangGraph server, and Docker.

@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Misc workflow UI and test updates, including model provider/debug link fixes.
 - Workflow debug info now returns direct Langfuse trace URLs with host/project metadata to avoid search-only links.
 - Workflow LLM provider enable flags now default to enabled when a key is present, with env fallbacks.
+- Documentation true-up: README and docs index now match current compose services, ports (8001/2024/8888), and LMStudio defaults; Getting Started and Docker Architecture aligned to pgvector Postgres + containerized CLI; port guide updated and run_cli.sh now passes args directly to `python -m src.cli.main`.
 
 ### Fixed
 - **LMStudio Model Display & RAG Results**: LMStudio responses now report the actual model returned by the API (e.g., DeepSeek variants) and Sigma similarity search uses typed vector bindings to avoid asyncpg syntax errors; vector indexes rebuilt to allow embedding writes and restore RAG retrieval.
