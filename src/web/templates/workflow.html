@@ -6957,7 +6957,8 @@ async function retryExecution(executionId, useLangGraphServer = false) {
 function buildTraceUrl(info) {
     const host = (info.langfuse_host || '').replace(/\/$/, '');
     const projectId = info.langfuse_project_id;
-    const directId = info.trace_id || info.thread_id || info.session_id;
+    // Prefer deterministic ids (thread_id/session_id) over potentially wrong trace_id lookups
+    const directId = info.thread_id || info.session_id || info.trace_id;
 
     // Prefer direct construction when host + id present
     if (host && directId) {
