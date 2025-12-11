@@ -5908,13 +5908,43 @@ async function retryExecution(executionId, useLangGraphServer = false) {
     }
 }
 
+function buildTraceUrl(info) {
+    const host = (info.langfuse_host || '').replace(/\/$/, '');
+    const projectId = info.langfuse_project_id;
+    const directId = info.trace_id || info.thread_id || info.session_id;
+
+    if (host && directId) {
+        return projectId
+            ? `${host}/project/${projectId}/traces/${directId}`
+            : `${host}/traces/${directId}`;
+    }
+
+    if (info.agent_chat_url && info.agent_chat_url.includes('traces?search=')) {
+        try {
+            const url = new URL(info.agent_chat_url);
+            const searchId = url.searchParams.get('search');
+            const base = `${url.protocol}//${url.host}`;
+            const pidMatch = url.pathname.match(/project\/([^/]+)/);
+            const pid = projectId || (pidMatch ? pidMatch[1] : null);
+            const id = directId || searchId;
+            if (id) {
+                return pid ? `${base}/project/${pid}/traces/${id}` : `${base}/traces/${id}`;
+            }
+        } catch (e) {
+            console.warn('Failed to normalize Langfuse URL', e);
+        }
+    }
+
+    return info.agent_chat_url;
+}
+
 async function debugInAgentChat(executionId) {
     try {
         // Get debug info (Langfuse trace URL)
         const response = await fetch(`/api/workflow/executions/${executionId}/debug-info`);
         if (response.ok) {
             const info = await response.json();
-            const traceUrl = info.agent_chat_url;
+            const traceUrl = buildTraceUrl(info);
             
             if (traceUrl) {
                 // Check if Langfuse is configured
