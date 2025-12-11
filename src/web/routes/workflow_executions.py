@@ -919,7 +919,7 @@ async def get_workflow_debug_info(request: Request, execution_id: int):
             import hashlib
             session_id = f"workflow_exec_{execution_id}"
             trace_id_hash = hashlib.md5(session_id.encode()).hexdigest()
-            resolved_trace_id = None
+            resolved_trace_id = trace_id_hash  # deterministic fallback
             trace_lookup_used = False
             if langfuse_public_key:
                 actual_trace_id = get_langfuse_trace_id_for_session(session_id)
@@ -943,19 +943,11 @@ async def get_workflow_debug_info(request: Request, execution_id: int):
             # Normalize host URL (remove trailing slash)
             langfuse_host = langfuse_host.rstrip('/') if langfuse_host else "https://us.cloud.langfuse.com"
 
-            # Try direct trace URL if we resolved a real trace_id
-            agent_chat_url = None
-            if resolved_trace_id:
-                if langfuse_project_id:
-                    agent_chat_url = f"{langfuse_host}/project/{langfuse_project_id}/traces/{resolved_trace_id}"
-                else:
-                    agent_chat_url = f"{langfuse_host}/traces/{resolved_trace_id}"
+            # Always provide direct trace URL (deterministic hash even without lookup)
+            if langfuse_project_id:
+                agent_chat_url = f"{langfuse_host}/project/{langfuse_project_id}/traces/{resolved_trace_id}"
             else:
-                # Fallback to search by session_id to avoid stale hash links
-                if langfuse_project_id:
-                    agent_chat_url = f"{langfuse_host}/project/{langfuse_project_id}/traces?search={session_id}"
-                else:
-                    agent_chat_url = f"{langfuse_host}/traces?search={session_id}"
+                agent_chat_url = f"{langfuse_host}/traces/{resolved_trace_id}"
 
             logger.info(f"🔗 Generated Langfuse trace URL: {agent_chat_url}")
             logger.info(
@@ -980,9 +972,9 @@ async def get_workflow_debug_info(request: Request, execution_id: int):
                         "Opening Langfuse trace for execution #{}.\n"
                         "Trace ID: {}\n"
                         "Session ID: {}\n"
-                        "If you get a 404, the trace may not exist or Langfuse may have used a different trace_id. "
+                        "Using deterministic trace hash. If you get a 404, the trace may not exist yet. "
                         "Search for session_id '{}' in Langfuse UI."
-                    ).format(execution_id, trace_id_hash, session_id, session_id)
+                    ).format(execution_id, resolved_trace_id, session_id, session_id)
             else:
                 # Warn user that Langfuse may not be configured, but still try to open trace
                 logger.warning(
@@ -1007,6 +999,12 @@ async def get_workflow_debug_info(request: Request, execution_id: int):
                 "session_id": session_id,
                 "thread_id": trace_id_hash,
                 "graph_id": "agentic_workflow",
+                "langfuse_host": langfuse_host,
+                "langfuse_project_id": langfuse_project_id,
+                "search_url": (
+                    f"{langfuse_host}/project/{langfuse_project_id}/traces?search={session_id}"
+                    if langfuse_project_id else f"{langfuse_host}/traces?search={session_id}"
+                ),
                 "instructions": instructions,
                 "uses_langsmith": bool(langfuse_public_key)  # Keep field name for backwards compatibility
             }

@@ -66,26 +66,50 @@ class LLMService:
         self.lmstudio_model = default_model  # Keep for backward compatibility
 
         workflow_settings = self._load_workflow_provider_settings()
-        self.workflow_openai_enabled = self._bool_from_setting(
-            workflow_settings.get(WORKFLOW_PROVIDER_APPSETTING_KEYS["openai_enabled"]),
-            False
+        # Prefer AppSettings, fall back to env; if a key exists, default enable unless explicitly false
+        self.openai_api_key = (
+            workflow_settings.get(WORKFLOW_PROVIDER_APPSETTING_KEYS["openai_api_key"])
+            or os.getenv("WORKFLOW_OPENAI_API_KEY")
+            or os.getenv("OPENAI_API_KEY")
         )
-        self.workflow_anthropic_enabled = self._bool_from_setting(
-            workflow_settings.get(WORKFLOW_PROVIDER_APPSETTING_KEYS["anthropic_enabled"]),
-            False
+        self.anthropic_api_key = (
+            workflow_settings.get(WORKFLOW_PROVIDER_APPSETTING_KEYS["anthropic_api_key"])
+            or os.getenv("WORKFLOW_ANTHROPIC_API_KEY")
+            or os.getenv("ANTHROPIC_API_KEY")
         )
-        self.workflow_gemini_enabled = self._bool_from_setting(
-            workflow_settings.get(WORKFLOW_PROVIDER_APPSETTING_KEYS["gemini_enabled"]),
-            False
-        )
-        self.workflow_lmstudio_enabled = self._bool_from_setting(
-            workflow_settings.get(WORKFLOW_PROVIDER_APPSETTING_KEYS["lmstudio_enabled"]),
-            True
+        self.gemini_api_key = (
+            workflow_settings.get(WORKFLOW_PROVIDER_APPSETTING_KEYS["gemini_api_key"])
+            or os.getenv("WORKFLOW_GEMINI_API_KEY")
+            or os.getenv("GEMINI_API_KEY")
         )
 
-        self.openai_api_key = workflow_settings.get(WORKFLOW_PROVIDER_APPSETTING_KEYS["openai_api_key"]) or os.getenv("OPENAI_API_KEY")
-        self.anthropic_api_key = workflow_settings.get(WORKFLOW_PROVIDER_APPSETTING_KEYS["anthropic_api_key"]) or os.getenv("ANTHROPIC_API_KEY")
-        self.gemini_api_key = workflow_settings.get(WORKFLOW_PROVIDER_APPSETTING_KEYS["gemini_api_key"])
+        def _enabled(setting_key: str, env_key: str, default: bool) -> bool:
+            # AppSettings override, then env flag, else default
+            flag = workflow_settings.get(setting_key)
+            if flag is None:
+                flag = os.getenv(env_key)
+            return self._bool_from_setting(flag, default)
+
+        self.workflow_openai_enabled = _enabled(
+            WORKFLOW_PROVIDER_APPSETTING_KEYS["openai_enabled"],
+            "WORKFLOW_OPENAI_ENABLED",
+            bool(self.openai_api_key),
+        )
+        self.workflow_anthropic_enabled = _enabled(
+            WORKFLOW_PROVIDER_APPSETTING_KEYS["anthropic_enabled"],
+            "WORKFLOW_ANTHROPIC_ENABLED",
+            bool(self.anthropic_api_key),
+        )
+        self.workflow_gemini_enabled = _enabled(
+            WORKFLOW_PROVIDER_APPSETTING_KEYS["gemini_enabled"],
+            "WORKFLOW_GEMINI_ENABLED",
+            bool(self.gemini_api_key),
+        )
+        self.workflow_lmstudio_enabled = _enabled(
+            WORKFLOW_PROVIDER_APPSETTING_KEYS["lmstudio_enabled"],
+            "WORKFLOW_LMSTUDIO_ENABLED",
+            True,
+        )
 
         self.provider_defaults = {
             "lmstudio": default_model,
@@ -614,12 +638,12 @@ class LLMService:
     def _validate_provider(self, provider: str) -> None:
         if provider == "openai":
             if not self.workflow_openai_enabled:
-                raise RuntimeError("OpenAI provider is disabled for agentic workflows (enable it in Settings).")
+                raise RuntimeError("OpenAI provider is disabled for agentic workflows (enable WORKFLOW_OPENAI_ENABLED or set in Settings).")
             if not self.openai_api_key:
                 raise RuntimeError("OpenAI API key is not configured for agentic workflows.")
         elif provider == "anthropic":
             if not self.workflow_anthropic_enabled:
-                raise RuntimeError("Anthropic provider is disabled for agentic workflows (enable it in Settings).")
+                raise RuntimeError("Anthropic provider is disabled for agentic workflows (enable WORKFLOW_ANTHROPIC_ENABLED or set in Settings).")
             if not self.anthropic_api_key:
                 raise RuntimeError("Anthropic API key is not configured for agentic workflows.")
         elif provider == "gemini":
@@ -694,10 +718,11 @@ class LLMService:
         if not self.openai_api_key:
             raise RuntimeError("OpenAI API key not configured for agentic workflows.")
 
+        # gpt-4.1/gpt-5.x require max_completion_tokens (max_tokens unsupported)
         payload = {
             "model": model_name,
             "messages": messages,
-            "max_tokens": max_tokens,
+            "max_completion_tokens": max_tokens,
             "temperature": temperature,
         }
 

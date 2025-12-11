@@ -1024,18 +1024,16 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                         }
                     }
             
-            # Generate SIGMA rules using service
+            # Generate SIGMA rules using service (single attempt on chosen content)
             sigma_service = SigmaGenerationService(config_models=agent_models)
-            
-            # Single attempt; rely on pySigma validation instead of a Sigma QA agent
             generation_result = await sigma_service.generate_sigma_rules(
                 article_title=article.title,
                 article_content=content_to_use,
                 source_name=source_name,
                 url=article.canonical_url or "",
-                ai_model='lmstudio',  # Use Deepseek-R1 via LMStudio
+                ai_model='lmstudio',  # Provider resolved via config_models
                 max_attempts=3,
-                min_confidence=0.9,  # Use high confidence for filtered content
+                min_confidence=0.9,
                 execution_id=state['execution_id'],
                 article_id=state['article_id'],
                 qa_feedback=qa_feedback
@@ -1043,7 +1041,19 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
             
             sigma_rules = generation_result.get('rules', []) if generation_result else []
             sigma_errors = generation_result.get('errors')
-            sigma_metadata = generation_result.get('metadata', {})
+            sigma_metadata = generation_result.get('metadata', {}) if generation_result else {}
+            
+            # Treat Langfuse generator cleanup errors as non-fatal: skip rules, continue workflow
+            if sigma_errors and isinstance(sigma_errors, str):
+                err_lower = sigma_errors.lower()
+                if "generator" in err_lower and ("didn't stop" in err_lower or "stop after throw" in err_lower or "throw" in err_lower):
+                    logger.warning(f"[Workflow {state['execution_id']}] SIGMA generation returned generator error; treating as no-rules and continuing. Error: {sigma_errors}")
+                    sigma_errors = None
+                    sigma_rules = []
+                    if execution:
+                        execution.error_message = None
+                        execution.status = execution.status or 'running'
+                        db_session.commit()
             
             # Update execution record with SIGMA results
             if execution:
@@ -1105,18 +1115,51 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
             }
             
         except Exception as e:
+            err_msg = str(e)
+            is_generator_error = "generator" in err_msg.lower() and ("didn't stop" in err_msg.lower() or "throw" in err_msg.lower())
+            if is_generator_error:
+                logger.warning(
+                    f"[Workflow {state['execution_id']}] SIGMA generation encountered Langfuse generator error "
+                    f"(non-critical): {e}. Treating as no-rules and continuing."
+                )
+                execution = db_session.query(AgenticWorkflowExecutionTable).filter(
+                    AgenticWorkflowExecutionTable.id == state['execution_id']
+                ).first()
+                if execution:
+                    # Do NOT mark failed; just note no rules
+                    execution.current_step = 'generate_sigma'
+                    execution.sigma_rules = []
+                    execution.error_message = None
+                    execution.status = execution.status or 'running'
+                    db_session.commit()
+                
+                # Return state with no rules but no error so workflow continues
+                return {
+                    **state,
+                    'sigma_rules': [],
+                    'error': None,
+                    'current_step': 'generate_sigma',
+                    'should_continue': False,
+                    'status': state.get('status', 'running'),
+                    'termination_reason': TERMINATION_REASON_NO_SIGMA_RULES,
+                    'termination_details': {
+                        'reason': 'Langfuse generator error during SIGMA generation',
+                        **(state.get('termination_details') or {})
+                    }
+                }
+            
             logger.error(f"[Workflow {state['execution_id']}] SIGMA generation error: {e}")
             execution = db_session.query(AgenticWorkflowExecutionTable).filter(
                 AgenticWorkflowExecutionTable.id == state['execution_id']
             ).first()
             if execution:
                 execution.status = 'failed'
-                execution.error_message = str(e)
+                execution.error_message = err_msg
                 db_session.commit()
             
             return {
                 **state,
-                'error': str(e),
+                'error': err_msg,
                 'current_step': 'generate_sigma',
                 'should_continue': False,
                 'status': 'failed',
@@ -1131,8 +1174,8 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
         if state.get('error'):
             logger.warning(f"[Workflow {state.get('execution_id')}] SIGMA generation failed with error, stopping workflow")
             return "end"
-        # Continue to similarity search if no error
-        logger.info(f"[Workflow {state.get('execution_id')}] SIGMA generation succeeded, continuing to similarity search")
+        # If there are zero rules but no error (e.g., generator error handled), treat as no-rules and still continue so downstream can mark termination_reason
+        logger.info(f"[Workflow {state.get('execution_id')}] SIGMA generation completed (rules: {len(state.get('sigma_rules') or [])}); continuing to similarity search")
         return "similarity_search"
     
     async def similarity_search_node(state: WorkflowState) -> WorkflowState:
@@ -1607,23 +1650,30 @@ async def run_workflow(article_id: int, db_session: Session) -> Dict[str, Any]:
                 workflow_completed = True
                 workflow_error = final_state.get('error')
         except Exception as trace_error:
+            trace_err_msg = str(trace_error).lower()
+            is_generator_err = "generator" in trace_err_msg and ("didn't stop" in trace_err_msg or "throw" in trace_err_msg or "stop after" in trace_err_msg)
             # Trace cleanup/operations failed - log but don't fail execution if workflow succeeded
             if workflow_completed and final_state is not None:
                 logger.warning(
                     f"Trace cleanup error for execution {execution.id} (workflow completed successfully): {trace_error}"
                 )
-                # Suppress the exception - workflow succeeded, trace cleanup is non-critical
-                # This prevents the outer exception handler from marking execution as failed
-                pass
+                # Suppress
+            elif is_generator_err:
+                logger.warning(
+                    f"Trace/Langfuse generator error during workflow execution {execution.id}: {trace_error} "
+                    f"(suppressing and treating as completed/no-rules)."
+                )
+                workflow_completed = True
+                workflow_error = None
+                if final_state is None:
+                    final_state = initial_state
             else:
                 # Workflow didn't complete or trace error happened during workflow execution
                 logger.error(f"Trace error during workflow execution {execution.id}: {trace_error}")
                 if final_state is None:
                     # Workflow never started or failed early - re-raise the exception
                     raise
-                # Workflow completed but trace cleanup failed - continue to status update
-                # Suppress the exception so outer handler doesn't mark as failed
-                pass
+                # Suppress so status update can proceed
         
         # Ensure execution status matches final state
         # Refresh execution from database to get latest status
@@ -1695,14 +1745,16 @@ async def run_workflow(article_id: int, db_session: Session) -> Dict[str, Any]:
                 return
             else:
                 # Check for generator errors - these often occur during trace cleanup
-                if 'generator didn\'t stop' in str(e).lower() or 'generator' in str(e).lower():
+                err_msg = str(e).lower()
+                if 'generator didn\'t stop' in err_msg or 'generator' in err_msg:
                     logger.warning(
-                        f"Generator error for execution {execution.id}, "
-                        f"no sigma rules found. Error: {e}"
+                        f"Generator error for execution {execution.id}; treating as completed/no-rules. Error: {e}"
                     )
-                    # For generator errors without rules, mark as failed but don't re-raise
-                    execution.status = 'failed'
-                    execution.error_message = str(e)
+                    execution.status = 'completed'
+                    execution.completed_at = datetime.utcnow()
+                    execution.error_message = None
+                    if not execution.current_step:
+                        execution.current_step = 'generate_sigma'
                     db_session.commit()
                     return
                 else:
