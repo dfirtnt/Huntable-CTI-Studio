@@ -90,6 +90,10 @@ if redis_url:
 # Load task modules from all registered app configs.
 celery_app.autodiscover_tasks()
 
+# Ensure local task modules are registered
+import src.worker.tasks.annotation_embeddings  # noqa: E402,F401
+import src.worker.tasks.observable_training  # noqa: E402,F401
+
 
 # Define periodic tasks
 @celery_app.on_after_configure.connect

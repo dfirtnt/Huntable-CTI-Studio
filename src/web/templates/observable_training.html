@@ -1,0 +1,267 @@
+{% extends "base.html" %}
+
+{% block title %}Observable Extractor Training - Huntable Detection Studio{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+    <div class="mb-8">
+        <h1 class="text-3xl font-bold text-gray-900 dark:text-white mb-2">🧩 Observable Extractor Training</h1>
+        <p class="text-gray-600 dark:text-gray-400">Manage CMD and process lineage annotations used to power deterministic observable extractors feeding the SIGMA agent.</p>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4" id="observableStats">
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4" id="primaryTypeCard">
+            <h3 class="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">
+                <span id="primaryTypeLabel">CMD</span> Annotations
+            </h3>
+            <div class="text-3xl font-bold text-purple-600" id="primaryTotal">-</div>
+            <p class="text-xs text-gray-500 mt-1">
+                <span id="primaryUnused">0</span> unused · <span id="primaryUsed">0</span> used
+            </p>
+        </div>
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4" id="secondaryTypeCard">
+            <h3 class="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">
+                <span id="secondaryTypeLabel">Process Lineage</span>
+            </h3>
+            <div class="text-3xl font-bold text-amber-600" id="secondaryTotal">-</div>
+            <p class="text-xs text-gray-500 mt-1">
+                <span id="secondaryUnused">0</span> unused · <span id="secondaryUsed">0</span> used
+            </p>
+        </div>
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+            <h3 class="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">
+                Last Training Run (<span id="activeTypeLabel">CMD</span>)
+            </h3>
+            <div class="text-3xl font-bold text-green-600" id="lastTrainingCount">-</div>
+            <p class="text-xs text-gray-500 mt-1" id="lastTrainingTime">-</p>
+        </div>
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+            <h3 class="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">Dataset Directory</h3>
+            <div class="text-xs font-mono text-gray-700 dark:text-gray-200 truncate" id="datasetDir">-</div>
+            <p class="text-xs text-gray-500 mt-1">Artifacts stored under <span id="artifactDir">-</span></p>
+        </div>
+    </div>
+
+    <div class="flex flex-wrap items-center gap-3 mb-6">
+        <span class="text-sm font-semibold text-gray-600 dark:text-gray-300">Active Observable:</span>
+        <div class="inline-flex rounded-lg border border-purple-300 dark:border-purple-700 overflow-hidden" id="observableTypeButtons">
+            <button data-observable-type="CMD" class="px-3 py-1 text-xs font-semibold text-gray-700 dark:text-gray-200 bg-white">
+                CMD
+            </button>
+            <button data-observable-type="PROC_LINEAGE" class="px-3 py-1 text-xs font-semibold text-gray-700 dark:text-gray-200 bg-white border-l border-purple-200 dark:border-purple-600">
+                PROC_LINEAGE
+            </button>
+        </div>
+    </div>
+
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-8">
+        <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-4">
+            <div>
+                <h2 class="text-xl font-semibold text-gray-900 dark:text-white">🎯 <span id="trainingTypeLabel">CMD</span> Extractor Retraining</h2>
+                <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">Retrain the deterministic extractor using the latest annotations for this observable.</p>
+            </div>
+            <div class="flex gap-3">
+                <button id="trainObservableBtn" class="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500">Retrain Extractor</button>
+                <button id="refreshSummaryBtn" class="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500">Refresh Summary</button>
+            </div>
+        </div>
+        <div id="trainingStatus" class="text-sm text-gray-600 dark:text-gray-400 mb-2 hidden"></div>
+        <div id="trainingAlert" class="hidden mt-4 p-3 rounded-md bg-blue-50 text-blue-800 border border-blue-200 dark:bg-blue-900 dark:text-blue-100 dark:border-blue-700"></div>
+    </div>
+
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+        <div class="flex items-center justify-between mb-4">
+            <h2 class="text-xl font-semibold text-gray-900 dark:text-white">📚 Recent Artifacts</h2>
+            <span class="text-xs text-gray-500 dark:text-gray-400">Newest first</span>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700" id="artifactTable">
+                <thead class="bg-gray-50 dark:bg-gray-900">
+                    <tr>
+                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Version</th>
+                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Created</th>
+                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Samples</th>
+                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Dataset</th>
+                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Artifact</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700" id="artifactTableBody">
+                    <tr>
+                        <td colspan="5" class="px-4 py-4 text-center text-gray-500 dark:text-gray-400">Loading artifacts…</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+    let observableSummary = null;
+    let currentObservableType = 'CMD';
+    const TYPE_CONFIG = {
+        CMD: { label: 'CMD', textClass: 'text-purple-600' },
+        PROC_LINEAGE: { label: 'Process Lineage', textClass: 'text-amber-600' }
+    };
+    const TYPE_TEXT_CLASSES = Object.values(TYPE_CONFIG).map(cfg => cfg.textClass);
+
+    async function fetchObservableSummary() {
+        try {
+            const response = await fetch("/api/observables/training/summary");
+            if (!response.ok) throw new Error("Failed to load summary");
+            const data = await response.json();
+            updateSummaryCards(data);
+        } catch (error) {
+            showNotification(`Failed to load observable summary: ${error.message}`, "error");
+        }
+    }
+
+    function updateSummaryCards(data) {
+        observableSummary = data;
+        renderObservableTypeSection();
+    }
+
+    function renderObservableTypeSection() {
+        if (!observableSummary) return;
+        const typesMap = observableSummary.types || {};
+        const primaryType = currentObservableType;
+        const secondaryType = Object.keys(typesMap).find(type => type !== primaryType) || null;
+        updateAnnotationCard("primary", primaryType);
+        updateAnnotationCard("secondary", secondaryType);
+
+        const typeData = observableSummary.types?.[currentObservableType] || {};
+        const counts = typeData.counts || { total: 0, used: 0, unused: 0 };
+        const latest = typeData.latest_artifact;
+
+        const currentLabel = TYPE_CONFIG[currentObservableType]?.label || currentObservableType;
+        document.getElementById("activeTypeLabel").textContent = currentLabel;
+        document.getElementById("trainingTypeLabel").textContent = currentLabel;
+        document.getElementById("datasetDir").textContent = typeData.dataset_directory || "-";
+        document.getElementById("artifactDir").textContent = typeData.artifact_directory || "-";
+        document.getElementById("lastTrainingCount").textContent = latest?.annotation_count ?? counts.used ?? 0;
+        document.getElementById("lastTrainingTime").textContent = latest?.created_at ?? "No artifact yet";
+        updateTypeButtons();
+        populateArtifacts(typeData.recent_artifacts || []);
+    }
+
+    function populateArtifacts(artifacts) {
+        const tbody = document.getElementById("artifactTableBody");
+        tbody.innerHTML = "";
+
+        if (!artifacts.length) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="5" class="px-4 py-4 text-center text-gray-500 dark:text-gray-400">
+                        No artifacts have been generated yet.
+                    </td>
+                </tr>
+            `;
+            return;
+        }
+
+        artifacts.forEach(artifact => {
+            const row = document.createElement("tr");
+            row.innerHTML = `
+                <td class="px-4 py-2 font-mono text-sm text-gray-900 dark:text-gray-100">${artifact.version || "-"}</td>
+                <td class="px-4 py-2 text-sm text-gray-700 dark:text-gray-300">${artifact.created_at || "-"}</td>
+                <td class="px-4 py-2 text-sm text-gray-700 dark:text-gray-300">${artifact.annotation_count || 0}</td>
+                <td class="px-4 py-2 text-xs text-gray-500 dark:text-gray-400 truncate" title="${artifact.dataset_path || ''}">
+                    ${artifact.dataset_path || "-"}
+                </td>
+                <td class="px-4 py-2 text-xs text-gray-500 dark:text-gray-400 truncate" title="${artifact.artifact_path || ''}">
+                    ${artifact.artifact_path || "-"}
+                </td>
+            `;
+            tbody.appendChild(row);
+        });
+    }
+
+    async function triggerTraining() {
+        const button = document.getElementById("trainObservableBtn");
+        const status = document.getElementById("trainingStatus");
+        const alertBox = document.getElementById("trainingAlert");
+
+        button.disabled = true;
+        status.classList.remove("hidden");
+        status.textContent = `Submitting ${currentObservableType} training task…`;
+        alertBox.classList.add("hidden");
+
+        try {
+            const response = await fetch("/api/observables/training/run", { 
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ observable_type: currentObservableType })
+            });
+            if (!response.ok) throw new Error(await response.text());
+            const data = await response.json();
+
+            if (data.mode === "sync") {
+                alertBox.textContent = `Training completed synchronously. Processed ${data.result?.processed_count || 0} annotations.`;
+                alertBox.classList.remove("hidden");
+            } else {
+                alertBox.textContent = `Training task submitted. Track progress via task ID ${data.task_id}.`;
+                alertBox.classList.remove("hidden");
+            }
+
+            status.textContent = "Training request submitted.";
+            fetchObservableSummary();
+        } catch (error) {
+            status.textContent = "Failed to submit training.";
+            showNotification(`Training failed: ${error.message}`, "error");
+        } finally {
+            button.disabled = false;
+        }
+    }
+
+    function changeObservableType(type) {
+        if (!type || type === currentObservableType) return;
+        currentObservableType = type;
+        renderObservableTypeSection();
+    }
+
+    function updateTypeButtons() {
+        document.querySelectorAll("#observableTypeButtons [data-observable-type]").forEach(btn => {
+            if (btn.dataset.observableType === currentObservableType) {
+                btn.classList.add("bg-purple-600", "text-white");
+                btn.classList.remove("bg-white", "text-gray-700", "dark:text-gray-200");
+            } else {
+                btn.classList.remove("bg-purple-600", "text-white");
+                btn.classList.add("bg-white", "text-gray-700", "dark:text-gray-200");
+            }
+        });
+    }
+
+    function updateAnnotationCard(prefix, type) {
+        const card = document.getElementById(`${prefix}TypeCard`);
+        if (!card) return;
+
+        if (!type || !observableSummary?.types?.[type]) {
+            card.classList.add("hidden");
+            return;
+        }
+
+        card.classList.remove("hidden");
+        const counts = observableSummary.types[type]?.counts || { total: 0, unused: 0, used: 0 };
+        const label = TYPE_CONFIG[type]?.label || type;
+        const textClass = TYPE_CONFIG[type]?.textClass || TYPE_TEXT_CLASSES[0];
+
+        document.getElementById(`${prefix}TypeLabel`).textContent = label;
+        document.getElementById(`${prefix}Total`).textContent = counts.total;
+        document.getElementById(`${prefix}Unused`).textContent = counts.unused;
+        document.getElementById(`${prefix}Used`).textContent = counts.used;
+
+        const totalElement = document.getElementById(`${prefix}Total`);
+        TYPE_TEXT_CLASSES.forEach(cls => totalElement.classList.remove(cls));
+        totalElement.classList.add(textClass);
+    }
+
+    document.addEventListener("DOMContentLoaded", () => {
+        fetchObservableSummary();
+
+        document.getElementById("trainObservableBtn").addEventListener("click", triggerTraining);
+        document.getElementById("refreshSummaryBtn").addEventListener("click", fetchObservableSummary);
+        document.querySelectorAll("#observableTypeButtons [data-observable-type]").forEach(btn => {
+            btn.addEventListener("click", () => changeObservableType(btn.dataset.observableType));
+        });
+    });
+</script>
+{% endblock %}

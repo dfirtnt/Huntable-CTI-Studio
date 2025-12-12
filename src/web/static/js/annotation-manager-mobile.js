@@ -4,6 +4,16 @@
  * Enhanced version with touch support for iPhone/iPad usage
  */
 
+const HUNTABILITY_MODE = 'huntability';
+const OBSERVABLE_MODE = 'observables';
+const OBSERVABLE_TYPES = ['CMD', 'PROC_LINEAGE'];
+const MOBILE_ANNOTATION_LABELS = {
+    huntable: 'Huntable',
+    not_huntable: 'Not Huntable',
+    CMD: 'CMD',
+    PROC_LINEAGE: 'Process Lineage'
+};
+
 class MobileTextAnnotationManager {
     constructor(container, articleId) {
         this.container = container;
@@ -25,6 +35,22 @@ class MobileTextAnnotationManager {
         return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
                ('ontouchstart' in window) ||
                (navigator.maxTouchPoints > 0);
+    }
+
+    getAnnotationMode() {
+        return localStorage.getItem('annotationMode') || HUNTABILITY_MODE;
+    }
+
+    getObservableType() {
+        const stored = localStorage.getItem('observableType');
+        if (stored && OBSERVABLE_TYPES.includes(stored)) {
+            return stored;
+        }
+        return 'CMD';
+    }
+
+    getAnnotationLabel(type) {
+        return MOBILE_ANNOTATION_LABELS[type] || type;
     }
     
     init() {
@@ -298,7 +324,11 @@ class MobileTextAnnotationManager {
                     endOffset: selection.getRangeAt(0).endOffset
                 };
                 
-                this.showAnnotationMenu(event);
+                if (this.getAnnotationMode() === OBSERVABLE_MODE) {
+                    this.createAnnotation(this.getObservableType(), { skipLengthValidation: true });
+                } else {
+                    this.showAnnotationMenu(event);
+                }
             }
         }, 10);
     }
@@ -423,8 +453,10 @@ class MobileTextAnnotationManager {
             return;
         }
         
-        if (type && ['huntable', 'not_huntable'].includes(type)) {
-            this.createAnnotation(type);
+        const allowedTypes = ['huntable', 'not_huntable', ...OBSERVABLE_TYPES];
+        if (type && allowedTypes.includes(type)) {
+            const skipValidation = !this.shouldEnforceLength(type);
+            this.createAnnotation(type, { skipLengthValidation: skipValidation });
         }
     }
     
@@ -440,12 +472,17 @@ class MobileTextAnnotationManager {
         }
     }
     
-    async createAnnotation(type) {
+    shouldEnforceLength(type) {
+        return ['huntable', 'not_huntable'].includes(type);
+    }
+    
+    async createAnnotation(type, options = {}) {
         if (!this.currentSelection) return;
+        const skipLengthValidation = options.skipLengthValidation || false;
         
         // Validate length (must be ~1000 chars)
         const textLength = this.currentSelection.text.length;
-        if (textLength < 950 || textLength > 1050) {
+        if (!skipLengthValidation && (textLength < 950 || textLength > 1050)) {
             this.showNotification(
                 `Selection must be approximately 1000 characters (current: ${textLength})`,
                 'error'
@@ -461,13 +498,14 @@ class MobileTextAnnotationManager {
             const positions = this.calculateTextPositions();
             
             // Prepare annotation data
+            const context = this.calculateTextPositions();
             const annotationData = {
                 annotation_type: type,
                 selected_text: this.currentSelection.text,
-                start_position: positions.start,
-                end_position: positions.end,
-                context_before: positions.contextBefore,
-                context_after: positions.contextAfter,
+                start_position: context.start,
+                end_position: context.end,
+                context_before: context.contextBefore,
+                context_after: context.contextAfter,
                 confidence_score: 1.0
             };
             
@@ -494,7 +532,8 @@ class MobileTextAnnotationManager {
                 this.highlightAnnotation(result.annotation);
                 
                 // Show success message
-                this.showNotification(`Marked as ${type === 'huntable' ? 'Huntable' : 'Not Huntable'}`, 'success');
+                const label = this.getAnnotationLabel(type);
+                this.showNotification(`Saved ${label}`, 'success');
                 
                 // Hide menu
                 this.hideAnnotationMenu();
@@ -531,7 +570,8 @@ class MobileTextAnnotationManager {
         const highlight = document.createElement('span');
         highlight.className = `annotation-highlight annotation-${annotation.annotation_type}`;
         highlight.dataset.annotationId = annotation.id;
-        highlight.title = `Marked as ${annotation.annotation_type === 'huntable' ? 'Huntable' : 'Not Huntable'}`;
+        highlight.dataset.annotationType = annotation.annotation_type;
+        highlight.title = `Marked as ${this.getAnnotationLabel(annotation.annotation_type)}`;
         
         try {
             this.currentSelection.range.surroundContents(highlight);
@@ -586,7 +626,8 @@ class MobileTextAnnotationManager {
             const highlight = document.createElement('span');
             highlight.className = `annotation-highlight annotation-${annotation.annotation_type}`;
             highlight.dataset.annotationId = annotation.id;
-            highlight.title = `Marked as ${annotation.annotation_type === 'huntable' ? 'Huntable' : 'Not Huntable'}`;
+            highlight.dataset.annotationType = annotation.annotation_type;
+            highlight.title = `Marked as ${this.getAnnotationLabel(annotation.annotation_type)}`;
             highlight.textContent = selectedText;
             
             this.container.innerHTML = beforeText + highlight.outerHTML + afterText;
@@ -965,6 +1006,18 @@ class MobileTextAnnotationManager {
                 background-color: #fef2f2;
                 border: 1px solid #dc2626;
                 color: #dc2626;
+            }
+
+            .annotation-CMD {
+                background-color: #f3e8ff;
+                border: 1px solid #a855f7;
+                color: #6b21a8;
+            }
+
+            .annotation-PROC_LINEAGE {
+                background-color: #fef9c3;
+                border: 1px solid #f59e0b;
+                color: #92400e;
             }
             
             .annotation-loading {
