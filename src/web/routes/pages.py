@@ -477,6 +477,14 @@ async def ml_hunt_comparison_page(request: Request):
     )
 
 
+@router.get("/observables-training", response_class=HTMLResponse)
+async def observable_training_page(request: Request):
+    """Observable extractor training dashboard."""
+    return templates.TemplateResponse(
+        "observable_training.html", {"request": request, "environment": ENVIRONMENT}
+    )
+
+
 @router.get("/sigma-ab-test", response_class=HTMLResponse)
 async def sigma_ab_test_page(request: Request):
     """SIGMA rule A/B testing interface."""

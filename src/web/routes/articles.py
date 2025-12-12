@@ -262,6 +262,35 @@ async def api_classify_article(article_id: int, request: Request):
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
 
+@router.post("/{article_id}/mark-reviewed")
+async def api_mark_article_reviewed(article_id: int):
+    """Mark an article as reviewed (processing complete)."""
+    try:
+        article = await async_db_manager.get_article(article_id)
+        if not article:
+            raise HTTPException(status_code=404, detail="Article not found")
+
+        from src.models.article import ArticleUpdate
+
+        update_data = ArticleUpdate(processing_status="completed")
+        updated_article = await async_db_manager.update_article(article_id, update_data)
+
+        if not updated_article:
+            raise HTTPException(status_code=500, detail="Failed to update article")
+
+        return {
+            "success": True,
+            "article_id": article_id,
+            "processing_status": updated_article.processing_status,
+        }
+
+    except HTTPException:
+        raise
+    except Exception as exc:  # noqa: BLE001
+        logger.error("API mark reviewed error: %s", exc)
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
 @router.post("/bulk-action")
 async def api_bulk_action(request: Request):
     """API endpoint for performing bulk actions on multiple articles."""
@@ -342,4 +371,3 @@ async def delete_article(article_id: int):
     except Exception as exc:  # noqa: BLE001
         logger.error("Failed to delete article: %s", exc)
         raise HTTPException(status_code=500, detail=str(exc)) from exc
-

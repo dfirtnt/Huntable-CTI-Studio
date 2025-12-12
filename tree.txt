@@ -1,0 +1,535 @@
+.
+├── __pycache__
+├── alembic
+│   ├── __pycache__
+│   └── versions
+│       └── __pycache__
+├── allure-report
+│   ├── data
+│   │   ├── attachments
+│   │   └── test-cases
+│   ├── export
+│   ├── history
+│   ├── plugin
+│   │   ├── behaviors
+│   │   ├── packages
+│   │   └── screen-diff
+│   └── widgets
+├── allure-results
+│   └── history
+├── archived
+│   ├── backups
+│   │   └── backup_old_architecture
+│   │       ├── old_cli
+│   │       ├── old_config
+│   │       ├── old_data_export
+│   │       ├── old_database
+│   │       ├── old_documentation
+│   │       ├── old_testing
+│   │       ├── old_venv
+│   │       ├── old_web_server
+│   │       └── quality_assessment
+│   ├── langflow_components
+│   └── src
+│       └── utils
+├── assets
+├── backups
+│   ├── system_backup_20251207_013745
+│   │   ├── config
+│   │   ├── logs
+│   │   ├── models
+│   │   └── outputs
+│   │       ├── BenchmarksEvalReports
+│   │       ├── evaluation_data
+│   │       ├── evaluations
+│   │       ├── optimized_modules
+│   │       ├── reports
+│   │       └── training_data
+│   ├── system_backup_20251207_020002
+│   │   ├── config
+│   │   ├── logs
+│   │   ├── models
+│   │   └── outputs
+│   ├── system_backup_20251208_113603
+│   │   ├── config
+│   │   ├── logs
+│   │   ├── models
+│   │   └── outputs
+│   │       ├── BenchmarksEvalReports
+│   │       ├── evaluation_data
+│   │       ├── evaluations
+│   │       ├── optimized_modules
+│   │       ├── reports
+│   │       └── training_data
+│   ├── system_backup_20251209_020003
+│   │   ├── config
+│   │   ├── logs
+│   │   ├── models
+│   │   └── outputs
+│   └── system_backup_20251210_020001
+│       ├── config
+│       ├── logs
+│       ├── models
+│       └── outputs
+├── browser-extension
+│   └── icons
+├── config
+├── data
+│   └── sigma-repo
+│       ├── deprecated
+│       │   ├── cloud
+│       │   ├── linux
+│       │   ├── macos
+│       │   ├── other
+│       │   ├── web
+│       │   └── windows
+│       ├── documentation
+│       │   ├── logsource-guides
+│       │   └── tools
+│       ├── images
+│       ├── other
+│       ├── rules
+│       │   ├── application
+│       │   ├── category
+│       │   ├── cloud
+│       │   ├── identity
+│       │   ├── linux
+│       │   ├── macos
+│       │   ├── network
+│       │   ├── web
+│       │   └── windows
+│       ├── rules-compliance
+│       │   ├── other
+│       │   └── product
+│       ├── rules-dfir
+│       ├── rules-emerging-threats
+│       │   ├── 2010
+│       │   ├── 2014
+│       │   ├── 2015
+│       │   ├── 2017
+│       │   ├── 2018
+│       │   ├── 2019
+│       │   ├── 2020
+│       │   ├── 2021
+│       │   ├── 2022
+│       │   ├── 2023
+│       │   ├── 2024
+│       │   └── 2025
+│       ├── rules-placeholder
+│       │   ├── cloud
+│       │   └── windows
+│       ├── rules-threat-hunting
+│       │   ├── cloud
+│       │   ├── linux
+│       │   ├── macos
+│       │   ├── network
+│       │   ├── web
+│       │   └── windows
+│       ├── tests
+│       │   ├── __pycache__
+│       │   └── validate-sigma-schema
+│       └── unsupported
+│           ├── cloud
+│           ├── linux
+│           ├── network
+│           ├── other
+│           ├── web
+│           ├── windows
+│           └── zeek
+├── docs
+│   ├── archive
+│   ├── deployment
+│   ├── development
+│   ├── features
+│   ├── langflow_prompts
+│   └── operations
+├── init-scripts
+├── langgraph.json.old
+├── llm_env
+│   ├── bin
+│   ├── etc
+│   │   └── jupyter
+│   │       ├── jupyter_notebook_config.d
+│   │       ├── jupyter_server_config.d
+│   │       └── nbconfig
+│   ├── include
+│   │   └── python3.13
+│   ├── lib
+│   │   └── python3.13
+│   │       └── site-packages
+│   └── share
+│       ├── applications
+│       ├── icons
+│       │   └── hicolor
+│       ├── jupyter
+│       │   ├── kernels
+│       │   ├── lab
+│       │   ├── labextensions
+│       │   ├── nbconvert
+│       │   └── nbextensions
+│       └── man
+│           └── man1
+├── logs
+├── models
+├── nginx
+│   ├── nginx.conf
+│   └── ssl
+├── node_modules
+│   ├── @babel
+│   ├── @cspotcode
+│   │   └── source-map-support
+│   ├── @jridgewell
+│   │   ├── resolve-uri
+│   │   │   └── dist
+│   │   ├── sourcemap-codec
+│   │   │   ├── dist
+│   │   │   ├── src
+│   │   │   └── types
+│   │   └── trace-mapping
+│   │       └── dist
+│   ├── @playwright
+│   │   └── test
+│   ├── @puppeteer
+│   ├── @tootallnate
+│   ├── @tsconfig
+│   │   ├── node10
+│   │   ├── node12
+│   │   ├── node14
+│   │   └── node16
+│   ├── @types
+│   │   └── node
+│   │       ├── assert
+│   │       ├── compatibility
+│   │       ├── dns
+│   │       ├── fs
+│   │       ├── readline
+│   │       ├── stream
+│   │       ├── timers
+│   │       ├── ts5.6
+│   │       └── web-globals
+│   ├── acorn
+│   │   ├── bin
+│   │   └── dist
+│   ├── acorn-walk
+│   │   └── dist
+│   ├── allure-js-commons
+│   │   └── dist
+│   │       ├── cjs
+│   │       ├── esm
+│   │       └── types
+│   ├── allure-playwright
+│   │   └── dist
+│   │       ├── cjs
+│   │       ├── esm
+│   │       └── types
+│   ├── arg
+│   ├── charenc
+│   ├── create-require
+│   ├── crypt
+│   ├── diff
+│   │   ├── dist
+│   │   └── lib
+│   │       ├── convert
+│   │       ├── diff
+│   │       ├── patch
+│   │       └── util
+│   ├── is-buffer
+│   │   └── test
+│   ├── make-error
+│   │   └── dist
+│   ├── md5
+│   │   ├── demo
+│   │   └── dist
+│   ├── playwright
+│   │   ├── lib
+│   │   │   ├── agents
+│   │   │   ├── common
+│   │   │   ├── isomorphic
+│   │   │   ├── loader
+│   │   │   ├── matchers
+│   │   │   ├── mcp
+│   │   │   ├── plugins
+│   │   │   ├── reporters
+│   │   │   ├── runner
+│   │   │   ├── third_party
+│   │   │   ├── transform
+│   │   │   └── worker
+│   │   └── types
+│   ├── playwright-core
+│   │   ├── bin
+│   │   ├── lib
+│   │   │   ├── cli
+│   │   │   ├── client
+│   │   │   ├── generated
+│   │   │   ├── protocol
+│   │   │   ├── remote
+│   │   │   ├── server
+│   │   │   ├── third_party
+│   │   │   ├── utils
+│   │   │   ├── utilsBundleImpl
+│   │   │   └── vite
+│   │   └── types
+│   ├── ts-node
+│   │   ├── dist
+│   │   │   ├── child
+│   │   │   └── transpilers
+│   │   ├── dist-raw
+│   │   ├── esm
+│   │   ├── node10
+│   │   ├── node12
+│   │   ├── node14
+│   │   ├── node16
+│   │   ├── register
+│   │   └── transpilers
+│   ├── typescript
+│   │   ├── bin
+│   │   └── lib
+│   │       ├── cs
+│   │       ├── de
+│   │       ├── es
+│   │       ├── fr
+│   │       ├── it
+│   │       ├── ja
+│   │       ├── ko
+│   │       ├── pl
+│   │       ├── pt-br
+│   │       ├── ru
+│   │       ├── tr
+│   │       ├── zh-cn
+│   │       └── zh-tw
+│   ├── undici-types
+│   ├── v8-compile-cache-lib
+│   └── yn
+├── outputs
+│   ├── benchmarks
+│   ├── BenchmarksEvalReports
+│   ├── evaluation_data
+│   ├── evaluations
+│   ├── exports
+│   ├── optimized_modules
+│   ├── reports
+│   └── training_data
+├── resources
+│   └── regex
+├── scripts
+│   ├── __pycache__
+│   ├── analysis
+│   │   └── __pycache__
+│   ├── context_requests
+│   ├── maintenance
+│   ├── shell
+│   │   └── utilities
+│   └── testing
+│       └── __pycache__
+├── src
+│   ├── __pycache__
+│   ├── cli
+│   │   ├── __pycache__
+│   │   └── commands
+│   │       └── __pycache__
+│   ├── core
+│   │   └── __pycache__
+│   ├── database
+│   │   └── __pycache__
+│   ├── extractors
+│   │   └── __pycache__
+│   ├── models
+│   │   └── __pycache__
+│   ├── prompts
+│   ├── services
+│   │   ├── __pycache__
+│   │   └── evaluation
+│   │       └── __pycache__
+│   ├── utils
+│   │   ├── __pycache__
+│   │   └── temp
+│   ├── web
+│   │   ├── __pycache__
+│   │   ├── routes
+│   │   │   └── __pycache__
+│   │   ├── static
+│   │   │   └── js
+│   │   ├── templates
+│   │   └── utils
+│   │       └── __pycache__
+│   ├── worker
+│   │   ├── __pycache__
+│   │   └── tasks
+│   │       └── __pycache__
+│   └── workflows
+│       ├── __pycache__
+│       └── nodes
+├── test_backups
+│   └── system_backup_20251206_015729
+│       ├── config
+│       ├── logs
+│       ├── models
+│       └── outputs
+├── tests
+│   ├── __pycache__
+│   ├── api
+│   │   └── __pycache__
+│   ├── cli
+│   │   └── __pycache__
+│   ├── core
+│   │   └── __pycache__
+│   ├── e2e
+│   │   ├── __pycache__
+│   │   ├── fixtures
+│   │   │   └── __pycache__
+│   │   └── test-results
+│   │       └── videos
+│   ├── integration
+│   │   └── __pycache__
+│   ├── playwright
+│   ├── services
+│   │   └── __pycache__
+│   ├── smoke
+│   │   └── __pycache__
+│   ├── ui
+│   │   └── __pycache__
+│   ├── utils
+│   │   └── __pycache__
+│   └── workflows
+│       └── __pycache__
+├── utils
+│   └── temp
+├── venv
+│   ├── bin
+│   │   └── __pycache__
+│   ├── etc
+│   │   └── jupyter
+│   │       ├── jupyter_notebook_config.d
+│   │       ├── jupyter_server_config.d
+│   │       └── nbconfig
+│   ├── include
+│   │   ├── python3.13
+│   │   └── site
+│   │       └── python3.13
+│   ├── lib
+│   │   └── python3.13
+│   │       └── site-packages
+│   └── share
+│       ├── applications
+│       ├── icons
+│       │   └── hicolor
+│       ├── jupyter
+│       │   ├── kernels
+│       │   ├── lab
+│       │   ├── labextensions
+│       │   ├── nbconvert
+│       │   └── nbextensions
+│       └── man
+│           └── man1
+├── venv-lg
+│   ├── bin
+│   ├── include
+│   │   ├── python3.13
+│   │   └── site
+│   │       └── python3.13
+│   ├── lib
+│   │   └── python3.13
+│   │       └── site-packages
+│   └── share
+│       └── man
+│           └── man1
+├── venv-local-llm
+│   ├── bin
+│   ├── etc
+│   │   └── jupyter
+│   │       └── nbconfig
+│   ├── include
+│   │   └── python3.13
+│   ├── lib
+│   │   └── python3.13
+│   │       └── site-packages
+│   └── share
+│       └── jupyter
+│           └── nbextensions
+├── venv-ml
+│   ├── bin
+│   ├── etc
+│   │   └── jupyter
+│   │       ├── jupyter_server_config.d
+│   │       └── nbconfig
+│   ├── include
+│   │   └── site
+│   │       └── python3.9
+│   ├── lib
+│   │   └── python3.9
+│   │       └── site-packages
+│   └── share
+│       ├── jupyter
+│       │   ├── kernels
+│       │   ├── labextensions
+│       │   └── nbextensions
+│       └── man
+│           └── man1
+├── venv-play
+│   ├── bin
+│   ├── include
+│   │   ├── python3.13
+│   │   └── site
+│   │       └── python3.13
+│   └── lib
+│       └── python3.13
+│           └── site-packages
+├── venv-test
+│   ├── bin
+│   ├── etc
+│   │   └── jupyter
+│   │       ├── jupyter_notebook_config.d
+│   │       ├── jupyter_server_config.d
+│   │       └── nbconfig
+│   ├── include
+│   │   ├── python3.13
+│   │   └── site
+│   │       └── python3.13
+│   ├── lib
+│   │   └── python3.13
+│   │       └── site-packages
+│   └── share
+│       ├── applications
+│       ├── icons
+│       │   └── hicolor
+│       ├── jupyter
+│       │   ├── kernels
+│       │   ├── lab
+│       │   ├── labextensions
+│       │   ├── nbconvert
+│       │   └── nbextensions
+│       └── man
+│           └── man1
+├── workflows
+│   ├── __pycache__
+│   └── nodes
+│       └── __pycache__
+└── Workshop
+    ├── __pycache__
+    ├── data
+    │   ├── annotated
+    │   │   └── v0
+    │   ├── inception_txt
+    │   ├── raw
+    │   ├── schemas
+    │   └── splits
+    ├── evaluation
+    │   ├── metrics
+    │   ├── reports
+    │   └── results
+    ├── inference
+    ├── models
+    │   ├── bert_base
+    │   ├── roberta_base
+    │   └── secbert
+    ├── outputs
+    ├── regression
+    │   ├── results
+    │   └── test_set
+    ├── training
+    │   ├── __pycache__
+    │   └── config
+    └── utilities
+        └── __pycache__
+
+533 directories

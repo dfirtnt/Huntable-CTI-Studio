@@ -26,6 +26,7 @@ from . import (
     metrics,
     ml_hunt_comparison,
     models,
+    observable_training,
     pages,
     pdf,
     search,
@@ -76,6 +77,7 @@ def register_routes(app: FastAPI) -> None:
     app.include_router(dashboard.router)
     app.include_router(actions.router)
     app.include_router(ml_hunt_comparison.router)
+    app.include_router(observable_training.router)
     app.include_router(settings.router)
     app.include_router(gpt4o_router)
     app.include_router(workflow_config.router)

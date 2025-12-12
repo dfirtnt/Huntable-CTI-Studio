@@ -9,7 +9,12 @@ from datetime import datetime
 from fastapi import APIRouter, HTTPException
 
 from src.database.async_manager import async_db_manager
-from src.models.annotation import ArticleAnnotationCreate, ArticleAnnotationUpdate
+from src.models.annotation import (
+    ArticleAnnotationCreate,
+    ArticleAnnotationUpdate,
+    ANNOTATION_MODE_TYPES,
+    ALL_ANNOTATION_TYPES,
+)
 from src.models.article import ArticleUpdate
 from src.web.dependencies import logger
 
@@ -20,14 +25,31 @@ router = APIRouter(tags=["Annotations"])
 async def create_annotation(article_id: int, annotation_data: dict):
     """Create a new text annotation for an article."""
     try:
+        annotation_type = annotation_data.get("annotation_type")
+        if not annotation_type:
+            raise HTTPException(status_code=400, detail="annotation_type is required")
+
+        if annotation_type not in ALL_ANNOTATION_TYPES:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Unsupported annotation type '{annotation_type}'",
+            )
+
         text_length = len(annotation_data.get("selected_text", ""))
-        if text_length < 950 or text_length > 1050:
+        if annotation_type in ANNOTATION_MODE_TYPES["huntability"] and (
+            text_length < 950 or text_length > 1050
+        ):
             raise HTTPException(
                 status_code=400,
                 detail=(
                     "Annotation text must be approximately 1000 characters for training purposes "
                     f"(current: {text_length})"
                 ),
+            )
+        if annotation_type in ANNOTATION_MODE_TYPES["observables"] and text_length == 0:
+            raise HTTPException(
+                status_code=400,
+                detail="Annotation text is required for observable annotations",
             )
 
         article = await async_db_manager.get_article(article_id)
@@ -36,7 +58,7 @@ async def create_annotation(article_id: int, annotation_data: dict):
 
         annotation_create = ArticleAnnotationCreate(
             article_id=article_id,
-            annotation_type=annotation_data.get("annotation_type"),
+            annotation_type=annotation_type,
             selected_text=annotation_data.get("selected_text"),
             start_position=annotation_data.get("start_position"),
             end_position=annotation_data.get("end_position"),
@@ -143,6 +165,12 @@ async def get_annotation_stats():
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
 
+@router.get("/api/annotations/types")
+async def get_annotation_types():
+    """Return supported annotation modes and types."""
+    return {"success": True, "modes": ANNOTATION_MODE_TYPES}
+
+
 @router.get("/api/annotations/{annotation_id}")
 async def get_annotation(annotation_id: int):
     """Get a specific annotation by ID."""
@@ -218,4 +246,3 @@ async def delete_annotation(annotation_id: int):
     except Exception as exc:  # noqa: BLE001
         logger.error("Failed to delete annotation: %s", exc)
         raise HTTPException(status_code=500, detail=str(exc)) from exc
-

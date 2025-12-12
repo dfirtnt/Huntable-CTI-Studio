@@ -338,10 +338,34 @@
                             <span class="w-3 h-3 bg-red-100 dark:bg-red-900 border border-red-300 dark:border-red-700 rounded"></span>
                             <span class="text-xs text-gray-600 dark:text-gray-400">Not Huntable</span>
                         </div>
+                        </div>
+                    </div>
+                    <div class="flex flex-wrap items-center gap-3 mt-4">
+                        <div class="inline-flex rounded-lg border border-gray-300 dark:border-gray-600 overflow-hidden">
+                            <button id="annotation-mode-huntability" onclick="setAnnotationMode('huntability')" class="px-3 py-1 text-xs font-semibold text-gray-700 dark:text-gray-200 bg-white">
+                                Huntability Mode
+                            </button>
+                            <button id="annotation-mode-observables" onclick="setAnnotationMode('observables')" class="px-3 py-1 text-xs font-semibold text-gray-700 dark:text-gray-200 bg-white border-l border-gray-300 dark:border-gray-600">
+                                Observables Mode
+                            </button>
+                        </div>
+                        <div id="observable-type-picker" class="hidden items-center gap-2">
+                            <span class="text-xs font-semibold text-gray-600 dark:text-gray-300">Observable Type:</span>
+                            <div class="inline-flex rounded-lg border border-purple-300 dark:border-purple-700 overflow-hidden">
+                                <button data-observable-type="CMD" onclick="setObservableType('CMD')" class="px-3 py-1 text-xs font-semibold text-gray-700 dark:text-gray-200 bg-white">
+                                    CMD
+                                </button>
+                                <button data-observable-type="PROC_LINEAGE" onclick="setObservableType('PROC_LINEAGE')" class="px-3 py-1 text-xs font-semibold text-gray-700 dark:text-gray-200 bg-white border-l border-purple-200 dark:border-purple-600">
+                                    PROC_LINEAGE
+                                </button>
+                            </div>
+                        </div>
+                        <button id="mark-observable-reviewed" class="hidden px-3 py-1 text-xs font-semibold bg-green-600 text-white rounded-lg" onclick="markObservablesReviewed({{ article.id }})">
+                            Reviewed (No Observables)
+                        </button>
                     </div>
                 </div>
-            </div>
-            <div class="prose max-w-none relative">
+                <div class="prose max-w-none relative">
                 <div class="absolute top-4 right-4 flex items-center space-x-2 z-50">
                     <button id="toggle-annotations-btn" onclick="toggleAnnotationSystem()" 
                             class="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 bg-white dark:bg-gray-800 shadow-md border border-gray-200 dark:border-gray-700"
@@ -946,6 +970,28 @@ Please provide a detailed analysis based on the article content and the user's s
         // Load existing annotations
     });
     
+    const HUNTABILITY_MODE = 'huntability';
+    const OBSERVABLE_MODE = 'observables';
+    const OBSERVABLE_TYPES = ['CMD', 'PROC_LINEAGE'];
+    const ANNOTATION_STYLE_MAP = {
+        huntable: {
+            label: 'Huntable',
+            highlightClass: 'bg-blue-100 dark:bg-blue-900 border-blue-300 dark:border-blue-700 text-blue-800 dark:text-blue-200'
+        },
+        not_huntable: {
+            label: 'Not Huntable',
+            highlightClass: 'bg-red-100 dark:bg-red-900 border-red-300 dark:border-red-700 text-red-800 dark:text-red-200'
+        },
+        CMD: {
+            label: 'CMD',
+            highlightClass: 'bg-purple-100 dark:bg-purple-900 border-purple-300 dark:border-purple-700 text-purple-800 dark:text-purple-200'
+        },
+        PROC_LINEAGE: {
+            label: 'Process Lineage',
+            highlightClass: 'bg-amber-100 dark:bg-amber-900 border-amber-300 dark:border-amber-600 text-amber-800 dark:text-amber-200'
+        }
+    };
+
     // Simple Text Management System - Single Source of Truth
     class SimpleTextManager {
         constructor() {
@@ -955,6 +1001,9 @@ Please provide a detailed analysis based on the article content and the user's s
             this.maxUndoStates = 10;
             this.isSubmitting = false; // Prevent duplicate submissions
             this.selectionListenersAttached = false; // Track if selection listeners are attached
+            this.annotationMode = localStorage.getItem('annotationMode') || HUNTABILITY_MODE;
+            this.observableType = localStorage.getItem('observableType') || 'CMD';
+            this.articleId = {{ article.id }};
             
             // Check localStorage for annotation system state (default: enabled)
             const storedState = localStorage.getItem('annotationsEnabled');
@@ -980,6 +1029,7 @@ Please provide a detailed analysis based on the article content and the user's s
             
             // Update button state
             this.updateToggleButton();
+            this.updateModeUI();
         }
         
         updateToggleButton() {
@@ -996,6 +1046,78 @@ Please provide a detailed analysis based on the article content and the user's s
                 btn.classList.add('opacity-50');
                 icon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"></path>';
             }
+        }
+        
+        updateModeUI() {
+            const huntabilityBtn = document.getElementById('annotation-mode-huntability');
+            const observablesBtn = document.getElementById('annotation-mode-observables');
+            const observablePicker = document.getElementById('observable-type-picker');
+            const reviewedButton = document.getElementById('mark-observable-reviewed');
+
+            if (huntabilityBtn) {
+                if (this.annotationMode === HUNTABILITY_MODE) {
+                    huntabilityBtn.classList.add('bg-blue-600', 'text-white');
+                    huntabilityBtn.classList.remove('bg-white', 'text-gray-700');
+                } else {
+                    huntabilityBtn.classList.remove('bg-blue-600', 'text-white');
+                    huntabilityBtn.classList.add('bg-white', 'text-gray-700');
+                }
+            }
+
+            if (observablesBtn) {
+                if (this.annotationMode === OBSERVABLE_MODE) {
+                    observablesBtn.classList.add('bg-blue-600', 'text-white');
+                    observablesBtn.classList.remove('bg-white', 'text-gray-700');
+                } else {
+                    observablesBtn.classList.remove('bg-blue-600', 'text-white');
+                    observablesBtn.classList.add('bg-white', 'text-gray-700');
+                }
+            }
+
+            if (observablePicker) {
+                observablePicker.classList.toggle('hidden', this.annotationMode !== OBSERVABLE_MODE);
+            }
+
+            if (reviewedButton) {
+                reviewedButton.classList.toggle('hidden', this.annotationMode !== OBSERVABLE_MODE);
+            }
+
+            this.updateObservableTypeButtons();
+        }
+
+        updateObservableTypeButtons() {
+            OBSERVABLE_TYPES.forEach(type => {
+                const button = document.querySelector(`[data-observable-type="${type}"]`);
+                if (button) {
+                    if (this.observableType === type) {
+                        button.classList.add('bg-purple-600', 'text-white');
+                        button.classList.remove('bg-white', 'text-gray-700');
+                    } else {
+                        button.classList.remove('bg-purple-600', 'text-white');
+                        button.classList.add('bg-white', 'text-gray-700');
+                    }
+                }
+            });
+        }
+
+        setAnnotationMode(mode) {
+            if (![HUNTABILITY_MODE, OBSERVABLE_MODE].includes(mode)) {
+                return;
+            }
+            this.annotationMode = mode;
+            localStorage.setItem('annotationMode', mode);
+            this.updateModeUI();
+            showNotification(`Switched to ${mode === HUNTABILITY_MODE ? 'Huntability' : 'Observables'} mode`, 'info');
+        }
+
+        setObservableType(type) {
+            if (!OBSERVABLE_TYPES.includes(type)) {
+                return;
+            }
+            this.observableType = type;
+            localStorage.setItem('observableType', type);
+            this.updateObservableTypeButtons();
+            showNotification(`Observable type set to ${type}`, 'info');
         }
         
         enableAnnotations() {
@@ -1060,12 +1182,7 @@ Please provide a detailed analysis based on the article content and the user's s
             // Checking existing annotation: ${classification}
             
             // Check if this text is already highlighted by looking for spans with our classes
-            const cssClass = classification === 'huntable' 
-                ? 'bg-blue-100 dark:bg-blue-900' 
-                : 'bg-red-100 dark:bg-red-900';
-            
-            // Look for existing spans with our annotation classes
-            const existingSpans = this.contentElement.querySelectorAll(`span[class*="${cssClass.split(' ')[0]}"]`);
+            const existingSpans = this.contentElement.querySelectorAll(`span[data-annotation-type="${classification}"]`);
             let alreadyHighlighted = false;
             
             for (const span of existingSpans) {
@@ -1142,13 +1259,11 @@ Please provide a detailed analysis based on the article content and the user's s
                     range.setEnd(endNode, endOffset);
                     
                     // Create highlight span
-                    const cssClass = classification === 'huntable' 
-                        ? 'bg-blue-100 dark:bg-blue-900 border-blue-300 dark:border-blue-700 text-blue-800 dark:text-blue-200' 
-                        : 'bg-red-100 dark:bg-red-900 border-red-300 dark:border-red-700 text-red-800 dark:text-red-200';
-                    
+                    const style = this.getTypeStyle(classification);
                     const highlightSpan = document.createElement('span');
-                    highlightSpan.className = `px-1 py-0.5 rounded text-xs font-medium border ${cssClass}`;
-                    highlightSpan.title = `${classification === 'huntable' ? 'Huntable' : 'Not Huntable'}: ${text.substring(0, 50)}...`;
+                    highlightSpan.className = `px-1 py-0.5 rounded text-xs font-medium border ${style.highlightClass}`;
+                    highlightSpan.title = `${style.label}: ${text.substring(0, 50)}...`;
+                    highlightSpan.dataset.annotationType = classification;
                     highlightSpan.textContent = text;
                     
                     // Replace the range content with our highlight span
@@ -1176,10 +1291,26 @@ Please provide a detailed analysis based on the article content and the user's s
             
             // Create a simple visual indicator at the top of the content
             const indicator = document.createElement('div');
-            indicator.className = `p-2 mb-2 rounded border-l-4 ${classification === 'huntable' ? 'bg-blue-50 border-blue-400' : 'bg-red-50 border-red-400'}`;
+            const style = this.getTypeStyle(classification);
+            let containerClass = 'bg-gray-50 border-gray-400';
+            let textClass = 'text-gray-800';
+            if (classification === 'huntable') {
+                containerClass = 'bg-blue-50 border-blue-400';
+                textClass = 'text-blue-800';
+            } else if (classification === 'not_huntable') {
+                containerClass = 'bg-red-50 border-red-400';
+                textClass = 'text-red-800';
+            } else if (classification === 'CMD') {
+                containerClass = 'bg-purple-50 border-purple-400';
+                textClass = 'text-purple-800';
+            } else if (classification === 'PROC_LINEAGE') {
+                containerClass = 'bg-amber-50 border-amber-400';
+                textClass = 'text-amber-800';
+            }
+            indicator.className = `p-2 mb-2 rounded border-l-4 ${containerClass}`;
             indicator.innerHTML = `
-                <div class="text-sm font-medium ${classification === 'huntable' ? 'text-blue-800' : 'text-red-800'}">
-                    ${classification === 'huntable' ? '✓ Huntable' : '✗ Not Huntable'} Text Annotated
+                <div class="text-sm font-medium ${textClass}">
+                    ${style.label} Text Annotated
                 </div>
                 <div class="text-xs text-gray-600 mt-1">
                     "${text.substring(0, 100)}${text.length > 100 ? '...' : ''}"
@@ -1195,16 +1326,14 @@ Please provide a detailed analysis based on the article content and the user's s
         
         addLongTextClassification(start, end, classification, text) {
             // For very long text, try to highlight multiple parts of it
-            const cssClass = classification === 'huntable' 
-                ? 'bg-blue-100 dark:bg-blue-900 border-blue-300 dark:border-blue-700 text-blue-800 dark:text-blue-200' 
-                : 'bg-red-100 dark:bg-red-900 border-red-300 dark:border-red-700 text-red-800 dark:text-red-200';
+            const style = this.getTypeStyle(classification);
             
             // Get the current HTML content
             const content = this.contentElement.innerHTML;
             
             // Try to highlight the first 500 characters and add an indicator
             const shortText = text.substring(0, Math.min(500, text.length));
-            const highlightSpan = `<span class="px-1 py-0.5 rounded text-xs font-medium border ${cssClass}" title="${classification === 'huntable' ? 'Huntable' : 'Not Huntable'}: Long selection (${text.length} chars)">${shortText}${text.length > 500 ? '...' : ''}</span>`;
+            const highlightSpan = `<span class="px-1 py-0.5 rounded text-xs font-medium border ${style.highlightClass}" data-annotation-type="${classification}" title="${style.label}: Long selection (${text.length} chars)">${shortText}${text.length > 500 ? '...' : ''}</span>`;
             
             // Try to find and replace the text
             if (content.includes(shortText)) {
@@ -1213,7 +1342,7 @@ Please provide a detailed analysis based on the article content and the user's s
                 // Also try to highlight the end of the selection if it's very long
                 if (text.length > 1000) {
                     const endText = text.substring(text.length - 100);
-                    const endHighlightSpan = `<span class="px-1 py-0.5 rounded text-xs font-medium border ${cssClass}" title="End of long ${classification} selection">...${endText}</span>`;
+                    const endHighlightSpan = `<span class="px-1 py-0.5 rounded text-xs font-medium border ${style.highlightClass}" data-annotation-type="${classification}" title="End of long ${style.label} selection">...${endText}</span>`;
                     
                     if (newContent.includes(endText) && !newContent.includes(endHighlightSpan)) {
                         newContent = newContent.replace(endText, endHighlightSpan);
@@ -1226,7 +1355,7 @@ Please provide a detailed analysis based on the article content and the user's s
                 // Fallback to shorter text
                 const veryShortText = text.substring(0, Math.min(100, text.length));
                 if (content.includes(veryShortText)) {
-                    const shortHighlightSpan = `<span class="px-1 py-0.5 rounded text-xs font-medium border ${cssClass}" title="${classification === 'huntable' ? 'Huntable' : 'Not Huntable'}: Long selection (${text.length} chars)">${veryShortText}...</span>`;
+                    const shortHighlightSpan = `<span class="px-1 py-0.5 rounded text-xs font-medium border ${style.highlightClass}" data-annotation-type="${classification}" title="${style.label}: Long selection (${text.length} chars)">${veryShortText}...</span>`;
                     const newContent = content.replace(veryShortText, shortHighlightSpan);
                     this.contentElement.innerHTML = newContent;
                     console.log(`Added ${classification} highlight for part of long text selection`);
@@ -1305,19 +1434,12 @@ Please provide a detailed analysis based on the article content and the user's s
                 const clickedSpan = e.target.closest('span.px-1.py-0\\.5.rounded.text-xs.font-medium.border');
                 
                 if (clickedSpan) {
-                    // Check if it's a user annotation (not a keyword discriminator)
-                    const isHuntableAnnotation = clickedSpan.classList.contains('bg-blue-100') || clickedSpan.classList.contains('dark:bg-blue-900');
-                    const isNotHuntableAnnotation = clickedSpan.classList.contains('bg-red-100') || clickedSpan.classList.contains('dark:bg-red-900');
-                    
-                    if (isHuntableAnnotation || isNotHuntableAnnotation) {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        
-                        const annotationType = isHuntableAnnotation ? 'huntable' : 'not_huntable';
-                        const annotationText = clickedSpan.textContent;
-                        
-                        this.showRemoveAnnotationModal(clickedSpan, annotationType, annotationText);
-                    }
+                    const annotationType = clickedSpan.dataset.annotationType;
+                    if (!annotationType) return;
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const annotationText = clickedSpan.textContent;
+                    this.showRemoveAnnotationModal(clickedSpan, annotationType, annotationText);
                 }
             });
         }
@@ -1529,6 +1651,11 @@ Please provide a detailed analysis based on the article content and the user's s
                 textLength: selectedText.length,
                 textPreview: selectedText.substring(0, 100)
             });
+
+            if (this.annotationMode === OBSERVABLE_MODE) {
+                this.submitObservableAnnotation(min, max);
+                return;
+            }
             
             // Show classification modal with enhanced features
             this.showClassificationModal(selectedText, min, max);
@@ -2169,7 +2296,8 @@ Please provide a detailed analysis based on the article content and the user's s
                 await this.saveClassification(start, end, text, classification);
                 
                 // Show success message
-                this.showSuccessMessage('Text classified as ' + (classification === 'huntable' ? 'Huntable' : 'Not Huntable'));
+                const label = this.getAnnotationLabel(classification);
+                this.showSuccessMessage(`Text classified as ${label}`);
                 
             } finally {
                 // Reset submission state after a short delay to prevent rapid clicking
@@ -2207,7 +2335,7 @@ Please provide a detailed analysis based on the article content and the user's s
                 <div class="bg-white rounded-lg p-6 max-w-md w-full mx-4">
                     <h3 class="text-lg font-semibold mb-4">Remove Annotation</h3>
                     <p class="text-sm text-gray-600 mb-2">
-                        <strong>Type:</strong> ${annotationType === 'huntable' ? 'Huntable' : 'Not Huntable'}
+                        <strong>Type:</strong> ${this.getAnnotationLabel(annotationType)}
                     </p>
                     <p class="text-sm text-gray-600 mb-4">
                         <strong>Text:</strong> "${annotationText.substring(0, 100)}${annotationText.length > 100 ? '...' : ''}"
@@ -2319,7 +2447,8 @@ Please provide a detailed analysis based on the article content and the user's s
                     textPreview: text.substring(0, 100),
                     classification: classification
                 });
-                
+                const context = this.getContextAroundSelection(start, end);
+
                 const response = await fetch(`/api/articles/{{ article.id }}/annotations`, {
                     method: 'POST',
                     headers: {
@@ -2329,7 +2458,10 @@ Please provide a detailed analysis based on the article content and the user's s
                         selected_text: text,
                         start_position: start,
                         end_position: end,
-                        annotation_type: classification
+                        annotation_type: classification,
+                        context_before: context.before,
+                        context_after: context.after,
+                        confidence_score: 1.0
                     })
                 });
                 
@@ -2349,6 +2481,45 @@ Please provide a detailed analysis based on the article content and the user's s
                 console.error('Error saving classification:', error);
                 showNotification(`Failed to save annotation: ${error.message}`, 'error');
             }
+        }
+
+        getTypeStyle(annotationType) {
+            return ANNOTATION_STYLE_MAP[annotationType] || {
+                label: annotationType,
+                highlightClass: 'bg-gray-100 border-gray-300 text-gray-800'
+            };
+        }
+
+        getAnnotationLabel(annotationType) {
+            const style = this.getTypeStyle(annotationType);
+            return style.label;
+        }
+
+        getContextAroundSelection(start, end) {
+            const fullText = this.contentElement.textContent;
+            const contextBefore = fullText.substring(Math.max(0, start - 50), start);
+            const contextAfter = fullText.substring(end, Math.min(fullText.length, end + 50));
+            return { before: contextBefore, after: contextAfter };
+        }
+
+        async submitObservableAnnotation(start, end) {
+            const selectedText = this.contentElement.textContent.substring(start, end);
+            if (!selectedText || selectedText.length === 0) {
+                showNotification('Select text to annotate.', 'error');
+                return;
+            }
+
+            const label = this.getAnnotationLabel(this.observableType);
+            console.log('Creating observable annotation:', {
+                start,
+                end,
+                text: selectedText.substring(0, 100),
+                type: this.observableType
+            });
+
+            this.addUserClassification(start, end, this.observableType, selectedText);
+            await this.saveClassification(start, end, selectedText, this.observableType);
+            this.showSuccessMessage(`Saved ${label} observable`);
         }
     }
     
@@ -2370,6 +2541,16 @@ Please provide a detailed analysis based on the article content and the user's s
         } else {
             simpleTextManager.enableAnnotations();
         }
+    }
+    
+    function setAnnotationMode(mode) {
+        if (!simpleTextManager) return;
+        simpleTextManager.setAnnotationMode(mode);
+    }
+    
+    function setObservableType(type) {
+        if (!simpleTextManager) return;
+        simpleTextManager.setObservableType(type);
     }
     
     // iPhone Touch Support for Text Selection
@@ -2569,6 +2750,24 @@ Please provide a detailed analysis based on the article content and the user's s
         
         // Add iPhone instructions
         addiPhoneInstructions();
+    }
+
+    async function markObservablesReviewed(articleId) {
+        try {
+            showNotification('Marking article as reviewed...', 'info');
+            const response = await fetch(`/api/articles/${articleId}/mark-reviewed`, {
+                method: 'POST'
+            });
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`Failed to update status: ${errorText}`);
+            }
+            const result = await response.json();
+            showNotification(`Article marked as ${result.processing_status}`, 'success');
+        } catch (error) {
+            console.error('Failed to mark article reviewed:', error);
+            showNotification(`Failed to mark reviewed: ${error.message}`, 'error');
+        }
     }
     // Add mobile-friendly touch handlers for modal buttons
     function addMobileModalHandlers(modal, start, end) {
