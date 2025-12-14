@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+
+{% block title %}MLOps - Huntable Detection Studio{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+    <div class="mb-8">
+        <h1 class="text-3xl font-bold text-gray-900 dark:text-white mb-2">🧠 MLOps Control Center</h1>
+        <p class="text-gray-600 dark:text-gray-400">Manage model evaluation workflows, retraining tasks, and observable extractors from a single workspace.</p>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <!-- ML vs Hunt Comparison -->
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 hover:shadow-xl transition-shadow">
+            <div class="flex items-center mb-4">
+                <div class="bg-blue-100 dark:bg-blue-900 p-3 rounded-lg mr-4">
+                    <svg class="w-6 h-6 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                    </svg>
+                </div>
+                <div>
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white">ML vs Hunt Comparison</h3>
+                    <p class="text-sm text-gray-500 dark:text-gray-400">Model Performance</p>
+                </div>
+            </div>
+            <p class="text-gray-600 dark:text-gray-300 mb-4">Compare model output against the hunt scoring system, review confidence intervals, and trigger reprocessing for drift detection.</p>
+            <a href="/ml-hunt-comparison" class="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+                View Analysis
+                <svg class="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                </svg>
+            </a>
+        </div>
+
+        <!-- Observable Training -->
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 hover:shadow-xl transition-shadow">
+            <div class="flex items-center mb-4">
+                <div class="bg-purple-100 dark:bg-purple-900 p-3 rounded-lg mr-4">
+                    <svg class="w-6 h-6 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6l4 2"></path>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 13h2a9 9 0 018 8v2"></path>
+                    </svg>
+                </div>
+                <div>
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Observable Training</h3>
+                    <p class="text-sm text-gray-500 dark:text-gray-400">Extractor Control</p>
+                </div>
+            </div>
+            <p class="text-gray-600 dark:text-gray-300 mb-4">Review CMD/process lineage annotations, trigger extractor retraining, and download versioned artifacts used by the SIGMA agent.</p>
+            <a href="/observables-training" class="inline-flex items-center px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors">
+                Manage Observables
+                <svg class="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                </svg>
+            </a>
+        </div>
+    </div>
+
+    <div class="mt-12 bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+        <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">⚙️ Operational Checklist</h2>
+        <ul class="space-y-3 text-gray-600 dark:text-gray-300">
+            <li>• Backfill ML vs Hunt comparisons after ingesting large backlogs.</li>
+            <li>• Schedule observable extractor retraining after labeling new CMD/process samples.</li>
+            <li>• Watch for drift flags in the comparison dashboard to catch degraded classifiers early.</li>
+        </ul>
+    </div>
+</div>
+{% endblock %}

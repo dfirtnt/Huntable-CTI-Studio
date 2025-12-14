@@ -44,7 +44,8 @@ async def api_export_annotations():
             result = await session.execute(query)
             annotations = result.fetchall()
 
-        output = io.StringIO()
+        # Use newline='' so csv module controls line endings consistently.
+        output = io.StringIO(newline="")
         writer = csv.writer(
             output,
             quoting=csv.QUOTE_ALL,
@@ -56,10 +57,13 @@ async def api_export_annotations():
         )
 
         for annotation in annotations:
+            highlighted_text = annotation.highlighted_text or ""
+            # Normalize Windows-style escapes and line endings for cleaner CSV output.
+            highlighted_text = highlighted_text.replace("\\\\", "\\").replace("\r\n", "\n").replace("\r", "\n")
             writer.writerow(
                 [
                     annotation.record_number,
-                    annotation.highlighted_text,
+                    highlighted_text,
                     annotation.classification,
                     annotation.article_title,
                     annotation.classification_date.isoformat() if annotation.classification_date else "",
