@@ -76,3 +76,7 @@ langgraph-checkpoint>=0.2.0  # LangGraph checkpointing for state persistence
 langgraph-checkpoint-postgres>=0.2.0  # PostgreSQL checkpoint backend for LangGraph
 langgraph-cli>=0.4.0  # LangGraph CLI for HTTP server
 langfuse>=2.0.0  # Langfuse for LLM observability and tracing
+
+# Documentation
+mkdocs>=1.5.0  # Static docs site generator
+mkdocs-material>=9.5.0  # MkDocs theme used for published docs

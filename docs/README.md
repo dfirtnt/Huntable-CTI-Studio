@@ -1,36 +1,15 @@
-# CTI Scraper Documentation
+# Documentation Index
 
-Use this index to find accurate docs for the current codebase.
+Docs now follow the MkDocs Material navigation defined in `mkdocs.yml`. Use `mkdocs serve` to preview locally; the site sources live entirely in `/docs`.
 
-## Directory Structure (current)
-```
-docs/
-├── deployment/            # Docker + setup
-├── development/           # Dev and testing guides
-├── features/              # Feature-specific docs
-├── operations/            # Backup/source management/verification
-├── archive/               # Historical notes
-├── API_ENDPOINTS.md       # REST API reference
-├── RAG_SYSTEM.md          # RAG design and usage
-├── LANGGRAPH_INTEGRATION.md / LANGGRAPH_QUICKSTART.md
-├── WORKFLOW_DATA_FLOW.md  # Pipeline flow
-└── README.md              # This index
-```
+## Primary entry points
+- `index.md` — overview of Huntable CTI Studio, services, and stack health checks
+- `quickstart.md` — Docker-first end-to-end ingest → workflow → Sigma → pytest
+- `concepts/` — huntables, agents, pipelines, observables
+- `howto/` — run locally, add feeds, extract observables, generate Sigma, evaluate models
+- `reference/` — configuration, API, schemas, Sigma prompt, versioning
+- `internals/` — architecture diagrams, scoring, chunking, QA loops
+- `contributing.md` — contributor workflow and expectations
 
-## Quick Navigation
-- Getting started: `../README.md` → `deployment/GETTING_STARTED.md`
-- Architecture: `deployment/DOCKER_ARCHITECTURE.md`
-- Docker/ports: `development/PORT_CONFIGURATION.md`
-- Dev setup: `development/DEVELOPMENT_SETUP.md`
-- Testing: `../tests/TESTING.md`, `../tests/QUICK_START.md`, `development/WEB_APP_TESTING.md`
-- Backup/restore: `operations/BACKUP_AND_RESTORE.md`
-- Sources config: `operations/SOURCE_CONFIG_PRECEDENCE.md`, `config/sources.yaml`
-- AI/Workflow: `RAG_SYSTEM.md`, `LANGGRAPH_INTEGRATION.md`, `LANGGRAPH_QUICKSTART.md`, `WORKFLOW_DATA_FLOW.md`
-- SIGMA/OS detection/content filtering: files under `features/`
-
-## Contributing
-- Add new docs to the right subdir.
-- Update this README and `../docs/DOCUMENTATION.md` when adding/removing files.
-- Keep examples aligned with `docker-compose.yml`, `Dockerfile`, and current CLI (`./run_cli.sh --help`).
-
-_Last verified: Dec 2025_
+## Legacy material
+Historical docs remain under `docs/archive` and topic-specific folders (`features/`, `operations/`, `development/`). Keep them for reference but prefer the structure above as the source of truth.
