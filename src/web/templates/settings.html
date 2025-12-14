@@ -1761,6 +1761,11 @@
             toggleWorkflowLmstudioApiKeyVisibility();
         });
 
+        // Langfuse visibility toggles and test button
+        safeAddListener('toggleLangfusePublicKey', 'click', toggleLangfusePublicKeyVisibility);
+        safeAddListener('toggleLangfuseSecretKey', 'click', toggleLangfuseSecretKeyVisibility);
+        safeAddListener('testLangfuseConnection', 'click', testLangfuseConnection);
+
         // Test workflow API key buttons
         safeAddListener('testWorkflowOpenaiApiKey', 'click', function() {
             testWorkflowApiKey('openai');

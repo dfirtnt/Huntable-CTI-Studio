@@ -34,9 +34,9 @@ class TestMainAnalyticsPage:
         page.goto(f"{base_url}/analytics")
         page.wait_for_load_state("networkidle")
         
-        # Verify ML vs Hunt Comparison card
-        ml_card = page.locator("text=ML vs Hunt Comparison")
-        expect(ml_card).to_be_visible()
+        # Verify MLOps callout is visible
+        mlops_callout = page.locator("text=Looking for model workflows?")
+        expect(mlops_callout).to_be_visible()
         
         # Verify Scraper Metrics card
         scraper_card = page.locator("text=Scraper Metrics")
@@ -155,6 +155,54 @@ class TestMainAnalyticsPage:
         articles_text = total_articles.text_content()
         # Should be a number or dash
         assert articles_text is not None
+
+
+class TestMLOpsPage:
+    """Test the dedicated MLOps workspace."""
+
+    @pytest.mark.ui
+    @pytest.mark.analytics
+    def test_mlops_page_loads(self, page: Page):
+        """Ensure the MLOps page renders."""
+        base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
+        page.goto(f"{base_url}/mlops")
+        page.wait_for_load_state("networkidle")
+
+        expect(page).to_have_title("MLOps - Huntable CTI Scraper")
+        heading = page.locator("h1:has-text('🧠 MLOps Control Center')")
+        expect(heading).to_be_visible()
+
+    @pytest.mark.ui
+    @pytest.mark.analytics
+    def test_mlops_cards_display(self, page: Page):
+        """Verify ML vs Hunt and Observable cards live on MLOps page."""
+        base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
+        page.goto(f"{base_url}/mlops")
+        page.wait_for_load_state("networkidle")
+
+        ml_card = page.locator("text=ML vs Hunt Comparison")
+        expect(ml_card).to_be_visible()
+
+        observable_card = page.locator("text=Observable Training")
+        expect(observable_card).to_be_visible()
+
+    @pytest.mark.ui
+    @pytest.mark.analytics
+    def test_mlops_card_links(self, page: Page):
+        """Verify MLOps cards link to respective features."""
+        base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
+        page.goto(f"{base_url}/mlops")
+        page.wait_for_load_state("networkidle")
+
+        page.locator("a[href='/ml-hunt-comparison']").click()
+        page.wait_for_load_state("networkidle")
+        expect(page).to_have_url(f"{base_url}/ml-hunt-comparison")
+
+        page.goto(f"{base_url}/mlops")
+        page.wait_for_load_state("networkidle")
+        page.locator("a[href='/observables-training']").click()
+        page.wait_for_load_state("networkidle")
+        expect(page).to_have_url(f"{base_url}/observables-training")
     
     @pytest.mark.ui
     @pytest.mark.analytics
@@ -1032,4 +1080,3 @@ class TestChartInteractions:
         
         # Verify chart is still visible after load
         expect(chart_canvas).to_be_visible()
-

@@ -68,6 +68,20 @@ async def analytics_page(request: Request):
         )
 
 
+@router.get("/mlops", response_class=HTMLResponse)
+async def mlops_page(request: Request):
+    """MLOps control center page."""
+    try:
+        return templates.TemplateResponse("mlops.html", {"request": request})
+    except Exception as exc:
+        logger.error("MLOps page error: %s", exc)
+        return templates.TemplateResponse(
+            "error.html",
+            {"request": request, "error": str(exc)},
+            status_code=500,
+        )
+
+
 @router.get("/settings", response_class=HTMLResponse)
 async def settings_page(request: Request):
     """Settings page."""

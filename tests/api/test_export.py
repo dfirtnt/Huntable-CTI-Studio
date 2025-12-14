@@ -7,6 +7,8 @@ from __future__ import annotations
 from contextlib import asynccontextmanager
 from datetime import datetime
 from types import SimpleNamespace
+import csv
+import io
 
 import pytest
 
@@ -44,10 +46,17 @@ async def test_export_annotations_return_csv_with_bom(monkeypatch):
     rows = [
         SimpleNamespace(
             record_number=1,
-            highlighted_text="Example text with emoji 😊",
+            highlighted_text="Example text with emoji 😊\nand a newline, plus a comma, \"quoted\"",
             classification="Huntable",
             article_title="Threat Report",
             classification_date=datetime(2025, 12, 8, 17, 0, 0),
+        ),
+        SimpleNamespace(
+            record_number=2,
+            highlighted_text="Path with escapes C:\\\\Program Files\\\\WinRAR\\\\WinRAR.exe",
+            classification="Not Huntable",
+            article_title="Paths",
+            classification_date=datetime(2025, 12, 8, 17, 5, 0),
         )
     ]
 
@@ -70,6 +79,14 @@ async def test_export_annotations_return_csv_with_bom(monkeypatch):
 
     text = body.decode("utf-8")
     assert "Example text with emoji 😊" in text
+    assert "\"quoted\"" in text
     assert "Threat Report" in text
     assert "Huntable" in text
     assert 'attachment; filename="' in response.headers["content-disposition"]
+
+    # Ensure we can round-trip the CSV without losing fields.
+    reader = csv.reader(io.StringIO(text.lstrip("\ufeff")))
+    rows = list(reader)
+    assert len(rows) == 3  # header + two rows
+    assert rows[1][1].startswith("Example text")
+    assert "C:\\Program Files\\WinRAR\\WinRAR.exe" in rows[2][1]

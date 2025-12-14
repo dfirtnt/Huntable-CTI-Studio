@@ -1036,54 +1036,57 @@ async def api_test_langfuse_connection(request: Request):
             try:
                 from langfuse import Langfuse
                 from langfuse.types import TraceContext
+                from langfuse.api.client import AsyncFernLangfuse
+                from langfuse.api.core.api_error import ApiError
+                from langfuse.api.resources.commons.errors.unauthorized_error import (
+                    UnauthorizedError,
+                )
+                from langfuse.api.resources.commons.errors.access_denied_error import (
+                    AccessDeniedError,
+                )
 
-                # First, validate keys by making a direct API call to Langfuse
-                # This ensures we catch invalid keys immediately
                 base_url = host.rstrip("/")
-                # Use the traces endpoint which requires valid authentication
-                test_url = f"{base_url}/api/public/traces"
 
-                async with httpx.AsyncClient(timeout=10.0) as client:
-                    # Test authentication by calling a protected endpoint
-                    # Langfuse uses Basic Auth with public_key:secret_key
-                    import base64
-
-                    auth_string = f"{public_key}:{secret_key}"
-                    auth_bytes = auth_string.encode("ascii")
-                    auth_b64 = base64.b64encode(auth_bytes).decode("ascii")
-
-                    auth_response = await client.get(
-                        test_url,
-                        headers={
-                            "Authorization": f"Basic {auth_b64}",
-                            "Content-Type": "application/json",
-                        },
-                        params={"limit": 1},  # Just get one trace to test auth
+                # Validate the provided credentials against Langfuse's official API.
+                # Using the Fern client guarantees we hit the correct endpoint and
+                # get structured errors (401/403) instead of ambiguous responses.
+                async with httpx.AsyncClient(
+                    timeout=10.0, follow_redirects=True
+                ) as fern_http_client:
+                    fern_client = AsyncFernLangfuse(
+                        base_url=base_url,
+                        username=public_key,
+                        password=secret_key,
+                        x_langfuse_public_key=public_key,
+                        x_langfuse_sdk_name="cti-scraper",
+                        x_langfuse_sdk_version=os.getenv("APP_VERSION", "dev"),
+                        httpx_client=fern_http_client,
                     )
-
-                    # If auth fails, the keys are invalid
-                    if auth_response.status_code == 401:
+                    try:
+                        project_response = await fern_client.projects.get()
+                    except UnauthorizedError:
                         return {
                             "valid": False,
                             "message": "Invalid Langfuse API keys. Please check your Secret Key and Public Key.",
                         }
-                    elif auth_response.status_code == 403:
+                    except AccessDeniedError:
                         return {
                             "valid": False,
                             "message": "Langfuse API keys are not authorized. Please check your keys and permissions.",
                         }
-                    elif auth_response.status_code not in [200, 201]:
-                        # 200/201 means auth worked (even if no traces exist)
-                        try:
-                            error_detail = auth_response.json().get(
-                                "message", auth_response.text[:200]
-                            )
-                        except:
-                            error_detail = f"HTTP {auth_response.status_code}"
+                    except ApiError as api_error:
+                        error_detail = getattr(api_error, "body", None) or str(
+                            api_error
+                        )
                         return {
                             "valid": False,
                             "message": f"Langfuse API error: {error_detail}. Please check your Host URL and keys.",
                         }
+
+                resolved_project_id = (
+                    project_id
+                    or (project_response.data[0].id if project_response.data else None)
+                )
 
                 # If auth passed, also test the SDK client can create and flush data
                 langfuse_client = Langfuse(
@@ -1119,7 +1122,7 @@ async def api_test_langfuse_connection(request: Request):
 
                 return {
                     "valid": True,
-                    "message": f"Langfuse connection successful! Host: {host}, Project ID: {project_id or 'default'}",
+                    "message": f"Langfuse connection successful! Host: {host}, Project ID: {resolved_project_id or 'default'}",
                 }
 
             except ImportError as e:
