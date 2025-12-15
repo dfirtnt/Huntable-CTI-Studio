@@ -14,6 +14,7 @@ from src.models.annotation import (
     ArticleAnnotationUpdate,
     ANNOTATION_MODE_TYPES,
     ALL_ANNOTATION_TYPES,
+    ANNOTATION_USAGE_VALUES,
 )
 from src.models.article import ArticleUpdate
 from src.web.dependencies import logger
@@ -52,6 +53,22 @@ async def create_annotation(article_id: int, annotation_data: dict):
                 detail="Annotation text is required for observable annotations",
             )
 
+        usage = annotation_data.get("usage")
+        if annotation_type in ANNOTATION_MODE_TYPES["observables"]:
+            if not usage:
+                raise HTTPException(
+                    status_code=400,
+                    detail="usage is required for observable annotations",
+                )
+            usage = usage.lower()
+            if usage not in ANNOTATION_USAGE_VALUES:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Unsupported annotation usage '{usage}'",
+                )
+        else:
+            usage = usage or "train"
+
         article = await async_db_manager.get_article(article_id)
         if not article:
             raise HTTPException(status_code=404, detail="Article not found")
@@ -65,6 +82,7 @@ async def create_annotation(article_id: int, annotation_data: dict):
             context_before=annotation_data.get("context_before"),
             context_after=annotation_data.get("context_after"),
             confidence_score=annotation_data.get("confidence_score", 1.0),
+            usage=usage,
         )
 
         annotation = await async_db_manager.create_annotation(annotation_create)
@@ -202,6 +220,9 @@ async def update_annotation(annotation_id: int, update_data: ArticleAnnotationUp
 
     except HTTPException:
         raise
+    except ValueError as exc:
+        # Catch ValueError from service layer (e.g., usage immutability)
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
     except Exception as exc:  # noqa: BLE001
         logger.error("Failed to update annotation: %s", exc)
         raise HTTPException(status_code=500, detail=str(exc)) from exc

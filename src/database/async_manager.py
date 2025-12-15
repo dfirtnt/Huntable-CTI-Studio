@@ -1723,6 +1723,7 @@ class AsyncDatabaseManager:
                     context_before=annotation_data.context_before,
                     context_after=annotation_data.context_after,
                     confidence_score=annotation_data.confidence_score,
+                    usage=annotation_data.usage,
                     used_for_training=annotation_data.used_for_training,
                     created_at=datetime.now(),
                     updated_at=datetime.now(),
@@ -1795,6 +1796,13 @@ class AsyncDatabaseManager:
 
                 if not db_annotation:
                     return None
+
+                # Enforce usage immutability: usage cannot be changed after insert
+                if update_data.usage is not None and update_data.usage != db_annotation.usage:
+                    raise ValueError(
+                        f"Annotation usage cannot be modified once set. "
+                        f"Current usage: '{db_annotation.usage}', attempted: '{update_data.usage}'"
+                    )
 
                 # Update fields
                 if update_data.annotation_type is not None:
@@ -1933,6 +1941,7 @@ class AsyncDatabaseManager:
             used_for_training=db_annotation.used_for_training,
             created_at=db_annotation.created_at,
             updated_at=db_annotation.updated_at,
+            usage=db_annotation.usage,
         )
 
     async def get_annotation_with_article_info(

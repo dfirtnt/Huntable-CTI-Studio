@@ -23,6 +23,7 @@ SUPPORTED_OBSERVABLE_TYPES = ["CMD", "PROC_LINEAGE"]
 BASE_DATASET_DIR = Path("outputs/evaluation_data/observables")
 BASE_ARTIFACT_DIR = Path("outputs/observables")
 MANIFEST_FILENAME = "manifest.json"
+OBSERVABLE_USAGE_VALUES: Tuple[str, ...] = ("train", "eval", "gold")
 
 
 async def get_observable_training_summary() -> Dict[str, Any]:
@@ -36,15 +37,15 @@ async def get_observable_training_summary() -> Dict[str, Any]:
     for observable_type in SUPPORTED_OBSERVABLE_TYPES:
         dataset_dir, artifact_dir, manifest_path = _get_paths(observable_type)
         manifest = _load_manifest(manifest_path)
+        manifest_versions = manifest.get("versions", [])
         summary["types"][observable_type] = {
             "counts": counts.get(observable_type, {"total": 0, "used": 0, "unused": 0}),
             "dataset_directory": str(dataset_dir),
             "artifact_directory": str(artifact_dir),
             "active_version": manifest.get("active_version"),
-            "recent_artifacts": manifest.get("versions", [])[:5],
-            "latest_artifact": manifest.get("versions", [None])[0]
-            if manifest.get("versions")
-            else None,
+            "artifact_history_count": len(manifest_versions),
+            "recent_artifacts": manifest_versions[:5],
+            "latest_artifact": manifest_versions[0] if manifest_versions else None,
         }
 
     summary["total_annotations"] = sum(
@@ -55,62 +56,91 @@ async def get_observable_training_summary() -> Dict[str, Any]:
 
 def run_observable_training_job(observable_type: str) -> Dict[str, Any]:
     """Export unused annotations for the observable and create a new artifact."""
+    return export_observable_dataset(observable_type, usage="train")
+
+
+def export_observable_dataset(observable_type: str, usage: str = "train") -> Dict[str, Any]:
+    """Export annotations for a specific usage intent."""
+    usage = usage.lower()
+    if usage not in OBSERVABLE_USAGE_VALUES:
+        raise ValueError(f"Unsupported usage '{usage}'")
+    return _export_observable_dataset(observable_type, usage, mark_training=(usage == "train"))
+
+
+def _export_observable_dataset(
+    observable_type: str, usage: str, mark_training: bool
+) -> Dict[str, Any]:
     observable_type = observable_type.upper()
     if observable_type not in SUPPORTED_OBSERVABLE_TYPES:
         raise ValueError(f"Unsupported observable type '{observable_type}'")
 
     dataset_dir, artifact_dir, manifest_path = _get_paths(observable_type)
     dataset_dir.mkdir(parents=True, exist_ok=True)
-    artifact_dir.mkdir(parents=True, exist_ok=True)
+    if mark_training:
+        artifact_dir.mkdir(parents=True, exist_ok=True)
 
     db_manager = DatabaseManager()
     session = db_manager.get_session()
     try:
-        annotations_query = select(ArticleAnnotationTable).where(
+        filters = [
             ArticleAnnotationTable.annotation_type == observable_type,
-            ArticleAnnotationTable.used_for_training.is_(False),
-        )
+            ArticleAnnotationTable.usage == usage,
+        ]
+        if mark_training:
+            filters.append(ArticleAnnotationTable.used_for_training.is_(False))
+
+        annotations_query = select(ArticleAnnotationTable).where(*filters)
         annotations = session.execute(annotations_query).scalars().all()
         if not annotations:
             return {
                 "status": "no_data",
                 "processed_count": 0,
-                "message": f"No unused {observable_type} annotations available.",
+                "message": f"No {usage} {observable_type} annotations available.",
+                "usage": usage,
             }
 
         timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
-        dataset_path = dataset_dir / f"{observable_type.lower()}_{timestamp}.jsonl"
+        prefix = observable_type.lower() if usage == "train" else usage
+        dataset_path = dataset_dir / f"{prefix}_{timestamp}.jsonl"
         _write_dataset(dataset_path, annotations, observable_type)
 
-        artifact_path = artifact_dir / f"{observable_type.lower()}_{timestamp}.json"
-        artifact_payload = {
-            "version": timestamp,
-            "created_at": datetime.utcnow().isoformat(),
-            "annotation_type": observable_type,
-            "annotation_count": len(annotations),
-            "dataset_path": str(dataset_path),
-            "artifact_path": str(artifact_path),
-        }
-        artifact_path.write_text(json.dumps(artifact_payload, indent=2), encoding="utf-8")
-
-        annotation_ids = [annotation.id for annotation in annotations]
-        session.execute(
-            update(ArticleAnnotationTable)
-            .where(ArticleAnnotationTable.id.in_(annotation_ids))
-            .values(used_for_training=True)
-        )
-        session.commit()
-
-        _update_manifest(manifest_path, artifact_payload)
-
-        return {
+        result: Dict[str, Any] = {
             "status": "completed",
             "processed_count": len(annotations),
-            "artifact_path": str(artifact_path),
             "dataset_path": str(dataset_path),
-            "version": timestamp,
             "observable_type": observable_type,
+            "usage": usage,
         }
+
+        if mark_training:
+            artifact_path = artifact_dir / f"{observable_type.lower()}_{timestamp}.json"
+            artifact_payload = {
+                "version": timestamp,
+                "created_at": datetime.utcnow().isoformat(),
+                "annotation_type": observable_type,
+                "annotation_count": len(annotations),
+                "dataset_path": str(dataset_path),
+                "artifact_path": str(artifact_path),
+            }
+            artifact_path.write_text(json.dumps(artifact_payload, indent=2), encoding="utf-8")
+
+            annotation_ids = [annotation.id for annotation in annotations]
+            session.execute(
+                update(ArticleAnnotationTable)
+                .where(ArticleAnnotationTable.id.in_(annotation_ids))
+                .values(used_for_training=True)
+            )
+            session.commit()
+
+            _update_manifest(manifest_path, artifact_payload)
+            result.update(
+                {
+                    "artifact_path": str(artifact_path),
+                    "version": timestamp,
+                }
+            )
+
+        return result
     finally:
         session.close()
 
@@ -169,6 +199,7 @@ def _write_dataset(
                 "context_before": annotation.context_before,
                 "context_after": annotation.context_after,
                 "created_at": annotation.created_at.isoformat() if annotation.created_at else None,
+                "usage": annotation.usage,
             }
             dataset_file.write(json.dumps(payload, ensure_ascii=False) + "\n")
 
