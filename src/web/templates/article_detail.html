@@ -415,6 +415,20 @@
                                 </button>
                             </div>
                         </div>
+                        <div id="observable-usage-picker" class="hidden items-center gap-2">
+                            <span class="text-xs font-semibold text-gray-600 dark:text-gray-300">Dataset:</span>
+                            <div id="observableUsageButtons" class="inline-flex rounded-lg border border-purple-300 dark:border-purple-700 overflow-hidden">
+                                <button data-dataset-usage="train" onclick="setObservableDatasetUsage('train')" class="px-3 py-1 text-xs font-semibold text-gray-700 dark:text-gray-200 bg-white">
+                                    Training
+                                </button>
+                                <button data-dataset-usage="eval" onclick="setObservableDatasetUsage('eval')" class="px-3 py-1 text-xs font-semibold text-gray-700 dark:text-gray-200 bg-white border-l border-purple-200 dark:border-purple-600">
+                                    Evaluation
+                                </button>
+                                <button data-dataset-usage="gold" onclick="setObservableDatasetUsage('gold')" class="px-3 py-1 text-xs font-semibold text-gray-600 dark:text-gray-300 bg-white border-l border-purple-200 dark:border-purple-600">
+                                    Gold <span class="text-[10px] text-gray-400">(locked)</span>
+                                </button>
+                            </div>
+                        </div>
                         <button id="mark-observable-reviewed" class="hidden px-3 py-1 text-xs font-semibold bg-green-600 text-white rounded-lg" onclick="markObservablesReviewed({{ article.id }})">
                             Reviewed (No Observables)
                         </button>
@@ -1029,6 +1043,8 @@ Please provide a detailed analysis based on the article content and the user's s
     const HUNTABILITY_MODE = 'huntability';
     const OBSERVABLE_MODE = 'observables';
     const OBSERVABLE_TYPES = ['CMD', 'PROC_LINEAGE'];
+    const OBSERVABLE_DATASET_USAGES = ['train', 'eval', 'gold'];
+    const DATASET_USAGE_WARNING_KEY = 'observableDatasetUsageWarningShown';
     const ANNOTATION_STYLE_MAP = {
         huntable: {
             label: 'Huntable',
@@ -1070,6 +1086,7 @@ Please provide a detailed analysis based on the article content and the user's s
             this.mouseUpHandler = null;
             this.annotationMode = localStorage.getItem('annotationMode') || HUNTABILITY_MODE;
             this.observableType = localStorage.getItem('observableType') || 'CMD';
+            this.observableDatasetUsage = localStorage.getItem('observableDatasetUsage') || 'train';
             this.articleId = {{ article.id|default(0)|int }};
             this.lastObservableAnnotationKey = null;
             this.lastObservableAnnotationAt = 0;
@@ -1151,6 +1168,11 @@ Please provide a detailed analysis based on the article content and the user's s
 
             if (observablePicker) {
                 observablePicker.classList.toggle('hidden', this.annotationMode !== OBSERVABLE_MODE);
+            }
+
+            const usagePicker = document.getElementById('observable-usage-picker');
+            if (usagePicker) {
+                usagePicker.classList.toggle('hidden', this.annotationMode !== OBSERVABLE_MODE);
             }
 
             if (reviewedButton) {
@@ -1277,6 +1299,19 @@ Please provide a detailed analysis based on the article content and the user's s
             localStorage.setItem('observableType', type);
             this.updateObservableTypeButtons();
             showNotification(`Observable type set to ${type}`, 'info');
+        }
+
+        setObservableDatasetUsage(usage) {
+            const normalized = (usage || '').toLowerCase();
+            if (!OBSERVABLE_DATASET_USAGES.includes(normalized)) {
+                return;
+            }
+            this.observableDatasetUsage = normalized;
+            localStorage.setItem('observableDatasetUsage', normalized);
+            updateDatasetUsageButtons();
+            if (normalized !== 'train') {
+                showDatasetUsageWarningOnce();
+            }
         }
         
         enableAnnotations() {
@@ -3246,7 +3281,7 @@ Please provide a detailed analysis based on the article content and the user's s
             }, 2000);
         }
         
-        async saveClassification(start, end, text, classification, contextOverride = null) {
+        async saveClassification(start, end, text, classification, contextOverride = null, usage = null) {
             try {
                 console.log('Saving classification:', {
                     start: start,
@@ -3257,20 +3292,25 @@ Please provide a detailed analysis based on the article content and the user's s
                 });
                 const context = contextOverride || this.getContextAroundSelection(start, end);
 
+                const payload = {
+                    selected_text: text,
+                    start_position: start,
+                    end_position: end,
+                    annotation_type: classification,
+                    context_before: context.before,
+                    context_after: context.after,
+                    confidence_score: 1.0
+                };
+                if (usage && OBSERVABLE_TYPES.includes(classification)) {
+                    payload.usage = usage;
+                }
+
                 const response = await fetch(`/api/articles/{{ article.id }}/annotations`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                     },
-                    body: JSON.stringify({
-                        selected_text: text,
-                        start_position: start,
-                        end_position: end,
-                        annotation_type: classification,
-                        context_before: context.before,
-                        context_after: context.after,
-                        confidence_score: 1.0
-                    })
+                    body: JSON.stringify(payload)
                 });
                 
                 if (!response.ok) {
@@ -3373,7 +3413,8 @@ Please provide a detailed analysis based on the article content and the user's s
                 normalizedEnd,
                 selectedText,
                 this.observableType,
-                { before: '', after: '' }
+                { before: '', after: '' },
+                this.observableDatasetUsage
             );
             
             this.showSuccessMessage(`Saved ${label} observable`);
@@ -3387,6 +3428,10 @@ Please provide a detailed analysis based on the article content and the user's s
         // Expose for automation/tests and inline scripts
         window.simpleTextManager = simpleTextManager;
         window.SimpleTextManager = SimpleTextManager;
+        document.querySelectorAll("#observableUsageButtons [data-dataset-usage]").forEach(button => {
+            button.addEventListener("click", () => setObservableDatasetUsage(button.dataset.datasetUsage));
+        });
+        simpleTextManager.setObservableDatasetUsage(simpleTextManager.observableDatasetUsage);
         
         // Add iPhone touch support
         addiPhoneTouchSupport();
@@ -3411,6 +3456,32 @@ Please provide a detailed analysis based on the article content and the user's s
     function setObservableType(type) {
         if (!simpleTextManager) return;
         simpleTextManager.setObservableType(type);
+    }
+
+    function setObservableDatasetUsage(usage) {
+        if (!simpleTextManager) return;
+        simpleTextManager.setObservableDatasetUsage(usage);
+    }
+
+    function updateDatasetUsageButtons() {
+        if (!simpleTextManager) return;
+        const currentUsage = simpleTextManager.observableDatasetUsage || 'train';
+        document.querySelectorAll("#observableUsageButtons [data-dataset-usage]").forEach(button => {
+            const btnUsage = (button.dataset.datasetUsage || 'train').toLowerCase();
+            if (btnUsage === currentUsage) {
+                button.classList.add('bg-purple-600', 'text-white');
+                button.classList.remove('bg-white', 'text-gray-700', 'dark:text-gray-200');
+            } else {
+                button.classList.remove('bg-purple-600', 'text-white');
+                button.classList.add('bg-white', 'text-gray-700', 'dark:text-gray-200');
+            }
+        });
+    }
+
+    function showDatasetUsageWarningOnce() {
+        if (sessionStorage.getItem(DATASET_USAGE_WARNING_KEY)) return;
+        showNotification("Evaluation data is never used for training.", "info");
+        sessionStorage.setItem(DATASET_USAGE_WARNING_KEY, '1');
     }
     
     // iPhone Touch Support for Text Selection

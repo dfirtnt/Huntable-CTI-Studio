@@ -2,7 +2,7 @@
 
 from datetime import datetime
 from typing import Dict, Any, List, Optional
-from sqlalchemy import Column, Integer, String, DateTime, Boolean, Float, Text, ForeignKey, JSON, Numeric, ARRAY
+from sqlalchemy import Column, Integer, String, DateTime, Boolean, Float, Text, ForeignKey, JSON, Numeric, ARRAY, Enum, text, event, inspect
 from sqlalchemy.orm import declarative_base, relationship
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.sql import func
@@ -141,6 +141,13 @@ class ArticleAnnotationTable(Base):
     
     # Training tracking
     used_for_training = Column(Boolean, nullable=False, default=False)
+    usage = Column(
+        Enum("train", "eval", "gold", name="annotation_usage"),
+        nullable=False,
+        server_default=text("'train'"),
+        default="train",
+        index=True,
+    )
     
     # Timestamps
     created_at = Column(DateTime, nullable=False, default=func.now())
@@ -151,6 +158,16 @@ class ArticleAnnotationTable(Base):
     
     def __repr__(self):
         return f"<ArticleAnnotation(id={self.id}, type='{self.annotation_type}', text='{self.selected_text[:50]}...')>"
+
+
+@event.listens_for(ArticleAnnotationTable, "before_update", propagate=True)
+def _prevent_annotation_usage_change(mapper, connection, target):
+    hist = inspect(target).attrs.usage.history
+    if hist.has_changes():
+        added = hist.added[0] if hist.added else None
+        deleted = hist.deleted[0] if hist.deleted else None
+        if added is not None and deleted is not None and added != deleted:
+            raise ValueError("Annotation usage cannot be modified once set.")
 
 
 class ContentHashTable(Base):

@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **Annotation Usage Immutability**: Enforced usage field immutability in `AsyncDatabaseManager.update_annotation()` to prevent modification of annotation usage (train/eval/gold) after creation. Service layer now raises `ValueError` if usage change is attempted, which is converted to 422 HTTP response at API layer.
+
 ### Changed
 - Smoke runner now excludes `ui`/`slow` markers by default and enforces subprocess timeouts without relying on pytest-timeout.
 - Pytest config registers all UI markers and uses function-scoped asyncio loops to prevent teardown loop reuse errors; warnings from pydantic v2 deprecations are silenced in tests.

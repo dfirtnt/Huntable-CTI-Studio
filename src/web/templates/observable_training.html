@@ -9,6 +9,34 @@
         <p class="text-gray-600 dark:text-gray-400">Manage CMD and process lineage annotations used to power deterministic observable extractors feeding the SIGMA agent.</p>
     </div>
 
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-6" id="observableMetrics">
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+            <h3 class="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">Observable Types</h3>
+            <div class="text-3xl font-bold text-indigo-600" id="metricSupportedTypes">-</div>
+            <p class="text-xs text-gray-500 mt-1">Supported observable categories tracked by the training pipeline.</p>
+        </div>
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+            <h3 class="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">Total Annotations</h3>
+            <div class="text-3xl font-bold text-blue-600" id="metricTotalAnnotations">-</div>
+            <p class="text-xs text-gray-500 mt-1">All CMD and process lineage annotations recorded.</p>
+        </div>
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+            <h3 class="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">Unused Annotations</h3>
+            <div class="text-3xl font-bold text-emerald-600" id="metricUnusedAnnotations">-</div>
+            <p class="text-xs text-gray-500 mt-1"><span id="metricUnusedRatio">-</span> waiting for retraining.</p>
+        </div>
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+            <h3 class="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">Artifacts Tracked</h3>
+            <div class="text-3xl font-bold text-amber-600" id="metricArtifactHistoryCount">-</div>
+            <p class="text-xs text-gray-500 mt-1">Versioned extractor artifacts stored in the manifests.</p>
+        </div>
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+            <h3 class="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">Latest Artifact</h3>
+            <div class="text-2xl font-bold text-purple-600" id="metricLatestArtifactVersion">-</div>
+            <p class="text-xs text-gray-500 mt-1" id="metricLatestArtifactTime">-</p>
+        </div>
+    </div>
+
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4" id="observableStats">
         <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4" id="primaryTypeCard">
             <h3 class="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">
@@ -120,8 +148,41 @@
         renderObservableTypeSection();
     }
 
+    function updateMetricCards(data) {
+        if (!data) return;
+        const supportedTypeCount = Array.isArray(data.supported_types) ? data.supported_types.length : 0;
+        const totalAnnotations = data.total_annotations ?? 0;
+        const types = data.types || {};
+
+        let unusedAnnotations = 0;
+        let artifactHistory = 0;
+        Object.values(types).forEach(typeData => {
+            const counts = typeData.counts || {};
+            unusedAnnotations += counts.unused ?? 0;
+            artifactHistory += typeData.artifact_history_count ?? 0;
+        });
+
+        const unusedPercent =
+            totalAnnotations > 0 ? ((unusedAnnotations / totalAnnotations) * 100).toFixed(1) : "0.0";
+
+        document.getElementById("metricSupportedTypes").textContent = supportedTypeCount;
+        document.getElementById("metricTotalAnnotations").textContent = totalAnnotations;
+        document.getElementById("metricUnusedAnnotations").textContent = unusedAnnotations;
+        document.getElementById("metricUnusedRatio").textContent = `${unusedPercent}%`;
+        document.getElementById("metricArtifactHistoryCount").textContent = artifactHistory;
+
+        const selectedTypeData = types[currentObservableType] || {};
+        const latestArtifact = selectedTypeData.latest_artifact || {};
+        const latestVersion = selectedTypeData.active_version || latestArtifact?.version || "-";
+        const latestTime = latestArtifact?.created_at || "Not trained yet";
+
+        document.getElementById("metricLatestArtifactVersion").textContent = latestVersion;
+        document.getElementById("metricLatestArtifactTime").textContent = latestTime;
+    }
+
     function renderObservableTypeSection() {
         if (!observableSummary) return;
+        updateMetricCards(observableSummary);
         const typesMap = observableSummary.types || {};
         const primaryType = currentObservableType;
         const secondaryType = Object.keys(typesMap).find(type => type !== primaryType) || null;

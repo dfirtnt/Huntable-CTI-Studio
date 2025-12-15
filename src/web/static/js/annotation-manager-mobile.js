@@ -508,6 +508,9 @@ class MobileTextAnnotationManager {
                 context_after: context.contextAfter,
                 confidence_score: 1.0
             };
+            if (OBSERVABLE_TYPES.includes(type)) {
+                annotationData.usage = 'train';
+            }
             
             // Send to API
             const response = await fetch(`/api/articles/${this.articleId}/annotations`, {
