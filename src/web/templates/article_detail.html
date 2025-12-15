@@ -458,7 +458,7 @@
                         </svg>
                     </button>
                 </div>
-                <div id="article-content" class="whitespace-pre-wrap text-base text-gray-900 dark:text-gray-100 font-mono leading-relaxed select-text bg-white dark:bg-gray-950 p-6 rounded-lg border-2 border-gray-300 dark:border-gray-600 shadow-inner" style="color: #111827;"><br>{{ article.content|highlight_keywords(article.article_metadata)|safe }}</div>
+                <div id="article-content" class="whitespace-pre-wrap text-base text-gray-900 dark:text-gray-100 font-mono leading-relaxed select-text bg-white dark:bg-gray-950 p-6 rounded-lg border-2 border-gray-300 dark:border-gray-600 shadow-inner" style="color: #111827;">{{ article.content|highlight_keywords(article.article_metadata)|safe }}</div>
                 <div id="article-content-plain" class="hidden whitespace-pre-wrap text-base text-gray-900 dark:text-gray-100 font-mono leading-relaxed select-text bg-white dark:bg-gray-950 p-6 rounded-lg border-2 border-gray-300 dark:border-gray-600 shadow-inner" style="color: #111827;">{{ article.content|e }}</div>
             </div>
         </div>
