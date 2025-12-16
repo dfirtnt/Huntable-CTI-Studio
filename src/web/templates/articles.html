@@ -19,7 +19,7 @@
     </div>
 
     <!-- Filters & Sorting -->
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-8">
+    <div class="rounded-lg shadow p-6 mb-8" style="background-color: var(--color-bg-card);">
         <div class="flex items-center justify-between mb-4">
             <h2 class="text-xl font-semibold text-gray-900 dark:text-white">🔍 Filters, Search & Sorting</h2>
             <button id="filtersToggle" type="button" class="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors duration-200" aria-expanded="false" aria-controls="filtersContent">
@@ -39,7 +39,7 @@
                 <!-- Sort By -->
                 <div>
                     <label for="sort-by" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Sort By</label>
-                    <select name="sort_by" id="sort-by" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-sm">
+                    <select name="sort_by" id="sort-by" class="w-full px-3 py-2 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 text-sm" style="background-color: var(--color-bg-panel); border-color: var(--color-border); color: var(--color-text-primary);">
                         <option value="discovered_at" {% if filters.sort_by == 'discovered_at' %}selected{% endif %}>Discovery Date</option>
                         <option value="published_at" {% if filters.sort_by == 'published_at' %}selected{% endif %}>Publication Date</option>
                         <option value="title" {% if filters.sort_by == 'title' %}selected{% endif %}>Title</option>
@@ -54,7 +54,7 @@
                 <!-- Sort Order -->
                 <div>
                     <label for="sort-order" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Order</label>
-                    <select name="sort_order" id="sort-order" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-sm">
+                    <select name="sort_order" id="sort-order" class="w-full px-3 py-2 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 text-sm" style="background-color: var(--color-bg-panel); border-color: var(--color-border); color: var(--color-text-primary);">
                         <option value="desc" {% if filters.sort_order == 'desc' %}selected{% endif %}>Desc</option>
                         <option value="asc" {% if filters.sort_order == 'asc' %}selected{% endif %}>Asc</option>
                     </select>
@@ -73,7 +73,7 @@
                     <input type="text" name="search" id="search" autofocus value="{{ filters.search or '' }}" 
                            placeholder="Search titles, content, or use boolean logic..." 
                            title="{{ filters.search or '' }}"
-                           class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 text-sm"
+                           class="w-full px-3 py-2 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 text-sm" style="background-color: var(--color-bg-panel); border-color: var(--color-border); color: var(--color-text-primary);"
                            style="font-family: monospace;">
                     <button type="submit" class="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 hidden">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -155,7 +155,7 @@
             <div>
                 <label for="source" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Source</label>
                 <select name="source" id="source" 
-                        class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                        class="w-full px-3 py-2 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500" style="background-color: var(--color-bg-panel); border-color: var(--color-border); color: var(--color-text-primary);">
                     <option value="">All Sources</option>
                     {% for source in sources %}
                     <option value="{{ source.id }}" {% if filters.source|string == source.id|string or filters.source_id == source.id %}selected{% endif %}>
@@ -169,7 +169,7 @@
             <div>
                 <label for="per_page" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Per Page</label>
                 <select name="per_page" id="per_page" 
-                        class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                        class="w-full px-3 py-2 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500" style="background-color: var(--color-bg-panel); border-color: var(--color-border); color: var(--color-text-primary);">
                     <option value="20" {% if pagination.per_page|string == "20" %}selected{% endif %}>20</option>
                     <option value="50" {% if pagination.per_page|string == "50" %}selected{% endif %}>50</option>
                     <option value="100" {% if pagination.per_page|string == "100" %}selected{% endif %}>100</option>
@@ -180,7 +180,7 @@
             <div>
                 <label for="threat_hunting_range" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">RegexHuntScore</label>
                 <select name="threat_hunting_range" id="threat_hunting_range" 
-                        class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                        class="w-full px-3 py-2 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500" style="background-color: var(--color-bg-panel); border-color: var(--color-border); color: var(--color-text-primary);">
                     <option value="">All Scores</option>
                     <option value="80-100" {% if filters.threat_hunting_range == "80-100" %}selected{% endif %}>🎯 Excellent (80-100)</option>
                     <option value="60-79" {% if filters.threat_hunting_range == "60-79" %}selected{% endif %}>🟡 Good (60-79)</option>
@@ -195,7 +195,7 @@
         </form>
 
         <!-- Save Default Filters Button -->
-        <div class="mt-4 flex items-center justify-between p-3 bg-gray-50 border border-gray-200 rounded-md">
+        <div class="mt-4 flex items-center justify-between p-3 rounded-md" style="background-color: var(--color-bg-panel); border: 1px solid var(--color-border);">
             <div class="flex items-center space-x-2">
                 <button type="button" onclick="saveDefaultFilters()" 
                         class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-colors">
@@ -205,7 +205,7 @@
                     Set as Default Filters
                 </button>
                 <button type="button" onclick="clearDefaultFilters()" 
-                        class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
+                        class="inline-flex items-center px-4 py-2 text-sm font-medium rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500" style="background-color: var(--color-bg-panel); border: 1px solid var(--color-border); color: var(--color-text-secondary);">
                     <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
                     </svg>
@@ -233,7 +233,7 @@
     </div>
 
     <!-- Articles List -->
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+    <div class="rounded-lg shadow p-6" style="background-color: var(--color-bg-card);">
         <div class="mb-6">
             <div class="flex items-center justify-between">
                 <div class="flex items-center space-x-4">
@@ -287,7 +287,7 @@
         {% if articles %}
         <div class="space-y-4">
             {% for article in articles %}
-            <div class="p-6 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg hover:shadow-md transition-all duration-200 relative">
+            <div class="p-6 rounded-lg hover:shadow-md transition-all duration-200 relative" style="background-color: var(--color-bg-panel); border: 1px solid var(--color-border);">
                 <button onclick="copyArticleContent({{ article.id }})" 
                         class="absolute right-4 top-4 p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 z-10"
                         title="Copy article content">

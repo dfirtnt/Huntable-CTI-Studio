@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **Articles Page Dark Mode**: Darkened filter panel, dropdowns, article cards, and button bar using CSS variables (`--color-bg-card`, `--color-bg-panel`)
+
 ### Changed
 - **Fixed Navigation Bar**: Top navigation bar is now fixed/sticky and remains visible when scrolling down pages.
 
