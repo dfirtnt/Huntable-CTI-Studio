@@ -1,0 +1,28 @@
+<svg width="160" height="160" viewBox="0 0 160 160" xmlns="http://www.w3.org/2000/svg">
+    <!-- Background circle -->
+    <circle cx="80" cy="80" r="70" fill="#1a1a2e" opacity="0.9"/>
+    
+    <!-- Central hub -->
+    <circle cx="80" cy="80" r="15" fill="#8B5CF6" opacity="0.9"/>
+    <circle cx="80" cy="80" r="8" fill="#C4B5FD"/>
+    
+    <!-- Source nodes (6 around center) -->
+    <circle cx="50" cy="50" r="7" fill="#A78BFA" opacity="0.9"/>
+    <circle cx="110" cy="50" r="7" fill="#A78BFA" opacity="0.9"/>
+    <circle cx="50" cy="110" r="7" fill="#A78BFA" opacity="0.9"/>
+    <circle cx="110" cy="110" r="7" fill="#A78BFA" opacity="0.9"/>
+    <circle cx="45" cy="80" r="7" fill="#A78BFA" opacity="0.9"/>
+    <circle cx="115" cy="80" r="7" fill="#A78BFA" opacity="0.9"/>
+    
+    <!-- Connection lines -->
+    <line x1="50" y1="50" x2="80" y2="80" stroke="#8B5CF6" stroke-width="2" opacity="0.4"/>
+    <line x1="110" y1="50" x2="80" y2="80" stroke="#8B5CF6" stroke-width="2" opacity="0.4"/>
+    <line x1="50" y1="110" x2="80" y2="80" stroke="#8B5CF6" stroke-width="2" opacity="0.4"/>
+    <line x1="110" y1="110" x2="80" y2="80" stroke="#8B5CF6" stroke-width="2" opacity="0.4"/>
+    <line x1="45" y1="80" x2="80" y2="80" stroke="#8B5CF6" stroke-width="2" opacity="0.4"/>
+    <line x1="115" y1="80" x2="80" y2="80" stroke="#8B5CF6" stroke-width="2" opacity="0.4"/>
+    
+    <!-- RSS feed indicator (small waves) -->
+    <path d="M 50 50 Q 52 48 54 50" stroke="#C4B5FD" stroke-width="2" fill="none" opacity="0.6" stroke-linecap="round"/>
+    <path d="M 110 50 Q 112 48 114 50" stroke="#C4B5FD" stroke-width="2" fill="none" opacity="0.6" stroke-linecap="round"/>
+</svg>

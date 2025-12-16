@@ -8,7 +8,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
-- **Branding Icon Update**: Replaced shield emoji with custom SVG icon (H monogram with shield outline and crosshair elements) in navigation and favicon. Icon features deep navy background (#1a1a2e) with purple/white design elements for better visibility on gradient navigation bar. Icon size set to 38px (20% larger than previous 32px).
+- **Complete Icon System Redesign**: Replaced all emoji icons with custom SVG icons matching a cohesive design system
+  - **Brand Logo**: H monogram with shield outline and crosshair elements (38px in nav, deep navy background #1a1a2e)
+  - **Navigation Icons**: Created 7 custom icons (Articles, Sources, Analytics, MLOps, Diags, Agents, Settings) at 23px
+  - **Page Title Icons**: All destination pages now use matching 63px icons in page headers
+  - **Design System**: Deep navy backgrounds with purple/white theme (#8B5CF6, #A78BFA, #C4B5FD) for consistent brand identity
+  - **Icon Concepts**: Articles (document with text lines), Sources (hub with connected nodes), Analytics (bar chart with trend), MLOps (neural network), Diags (hexagonal diagnostic frame), Agents (central hub with nodes), Settings (gear with 8 teeth)
 
 ### Fixed
 - **Annotation Usage Immutability**: Enforced usage field immutability in `AsyncDatabaseManager.update_annotation()` to prevent modification of annotation usage (train/eval/gold) after creation. Service layer now raises `ValueError` if usage change is attempted, which is converted to 422 HTTP response at API layer.

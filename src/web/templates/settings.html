@@ -5,7 +5,10 @@
 {% block content %}
 <div class="container mx-auto px-4 py-8">
     <div class="mb-8">
-        <h1 class="text-3xl font-bold text-gray-900 dark:text-white mb-2">⚙️ Settings</h1>
+        <h1 class="text-3xl font-bold text-gray-900 dark:text-white mb-2 flex items-center gap-3">
+            <img src="/static/icons/settings-icon.svg" alt="Settings" class="w-[63px] h-[63px]" />
+            Settings
+        </h1>
         <p class="text-gray-600 dark:text-gray-400">Configure your Huntable CTI Studio preferences</p>
     </div>
 
@@ -331,6 +334,40 @@
                         </button>
                     </div>
                     <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Required for Anthropic-powered AI assistant</p>
+                </div>
+
+                <!-- Hugging Face API Token (used for gated models like CMDCaliper) -->
+                <div id="aiHfApiKeySection">
+                    <label for="aiHfApiKey" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        Hugging Face API Token
+                    </label>
+                    <div class="relative">
+                        <input type="password"
+                               id="aiHfApiKey"
+                               placeholder="hf_xxx (with access to gated models)"
+                               class="w-full px-3 py-2 pr-10 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                        <button type="button"
+                                id="toggleAiHfApiKey"
+                                class="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600">
+                            <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                            </svg>
+                        </button>
+                    </div>
+                    <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                        Required for gated Hugging Face models (e.g., CMDCaliper command-line extractor).
+                    </p>
+                    <div id="hfTestSection" class="mt-3">
+                        <div class="flex items-center justify-between">
+                            <p class="text-sm text-gray-500 dark:text-gray-400">Test Hugging Face token</p>
+                            <button id="testAiHfKey"
+                                    class="inline-flex items-center px-3 py-1 text-xs border border-gray-300 text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors rounded">
+                                Test Token
+                            </button>
+                        </div>
+                        <span id="aiHfStatus" class="text-sm"></span>
+                    </div>
                 </div>
 
                 <!-- OpenAI Test Section (only shown when OpenAI is selected) -->
@@ -693,6 +730,7 @@
         // Set AI model
         const aiModel = settings.aiModel || 'chatgpt';
         document.getElementById('aiModel').value = aiModel;
+        updateAiModelTestSections();
         
         // Set AI temperature
         const aiTemperature = settings.aiTemperature || '0.3';
@@ -705,6 +743,20 @@
 
         const aiAnthropicApiKey = settings.aiAnthropicApiKey || '';
         document.getElementById('aiAnthropicApiKey').value = aiAnthropicApiKey;
+        const aiHfApiKey = settings.aiHfApiKey || '';
+        const hfInput = document.getElementById('aiHfApiKey');
+        if (hfInput) {
+            hfInput.value = aiHfApiKey;
+        }
+        try {
+            const response = await fetch('/api/settings/HUGGINGFACE_API_TOKEN');
+            const data = await response.json();
+            if (data.success && data.exists && data.value) {
+                hfInput.value = data.value;
+            }
+        } catch (error) {
+            console.log('Could not fetch HUGGINGFACE_API_TOKEN from database:', error);
+        }
         
 
         // Load backup configuration
@@ -1042,6 +1094,7 @@
             aiTemperature: document.getElementById('aiTemperature').value,
             aiOpenaiApiKey: document.getElementById('aiOpenaiApiKey').value.trim() || '',
             aiAnthropicApiKey: document.getElementById('aiAnthropicApiKey').value.trim() || '',
+            aiHfApiKey: (document.getElementById('aiHfApiKey')?.value.trim() || ''),
             workflowOpenaiEnabled: document.getElementById('workflowOpenaiEnabled').checked,
             workflowAnthropicEnabled: document.getElementById('workflowAnthropicEnabled').checked,
             workflowGeminiEnabled: document.getElementById('workflowGeminiEnabled').checked,
@@ -1081,6 +1134,29 @@
             [WORKFLOW_PROVIDER_SETTING_KEYS.geminiApiKey]: settings.workflowGeminiApiKey
         };
         await persistWorkflowAppSettings(workflowSettingsPayload);
+
+        // Persist Hugging Face token to backend (so runtime services can access it)
+        try {
+            const hfToken = settings.aiHfApiKey;
+            if (hfToken) {
+                await fetch('/api/settings', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        key: 'HUGGINGFACE_API_TOKEN',
+                        value: hfToken
+                    })
+                });
+            } else {
+                await fetch('/api/settings/HUGGINGFACE_API_TOKEN', {
+                    method: 'DELETE'
+                });
+            }
+        } catch (error) {
+            console.error('❌ Error saving Hugging Face token:', error);
+        }
 
         // Save Langfuse keys to backend API
         try {
@@ -1410,6 +1486,81 @@
         });
     }
 
+    function testAiHfKey() {
+        const statusElement = document.getElementById('aiHfStatus');
+        const testButton = document.getElementById('testAiHfKey');
+        const apiKey = (document.getElementById('aiHfApiKey')?.value || '').trim();
+
+        if (!apiKey) {
+            statusElement.textContent = 'Please enter a Hugging Face token first';
+            statusElement.className = 'text-sm text-red-600';
+            return;
+        }
+
+        testButton.disabled = true;
+        testButton.textContent = 'Testing...';
+        statusElement.textContent = 'Validating token...';
+        statusElement.className = 'text-sm text-gray-600';
+
+        fetch('/api/test-hf-key', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                api_key: apiKey
+            })
+        }).then(async function(response) {
+            const payload = await response.json().catch(function() {
+                return {};
+            });
+            return {
+                ok: response.ok,
+                data: payload
+            };
+        }).then(function(result) {
+            const data = result.data || {};
+            if (result.ok && data.valid) {
+                statusElement.textContent = data.message || 'Token is valid';
+                statusElement.className = 'text-sm text-green-600';
+                persistHfToken(apiKey);
+            } else {
+                const message = data.detail || data.message || 'Invalid token or access denied';
+                statusElement.textContent = message;
+                statusElement.className = 'text-sm text-red-600';
+            }
+        }).catch(function(error) {
+            statusElement.textContent = 'Network error - please try again';
+            statusElement.className = 'text-sm text-red-600';
+        }).finally(function() {
+            testButton.disabled = false;
+            testButton.textContent = 'Test Token';
+        });
+    }
+
+    async function persistHfToken(token) {
+        try {
+            if (token) {
+                await fetch('/api/settings', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        key: 'HUGGINGFACE_API_TOKEN',
+                        value: token
+                    })
+                });
+            } else {
+                await fetch('/api/settings/HUGGINGFACE_API_TOKEN', {
+                    method: 'DELETE'
+                });
+            }
+        } catch (error) {
+            console.error('❌ Error persisting Hugging Face token:', error);
+        }
+    }
+
     function testAiLmstudioConnection() {
         const statusElement = document.getElementById('aiLmstudioStatus');
         const testButton = document.getElementById('testAiLmstudioConnection');
@@ -1682,6 +1833,26 @@
         }
     }
 
+    function toggleAiHfApiKeyVisibility() {
+        const input = document.getElementById('aiHfApiKey');
+        const button = document.getElementById('toggleAiHfApiKey');
+        if (!input || !button) return;
+        const icon = button.querySelector('svg');
+
+        if (input.type === 'password') {
+            input.type = 'text';
+            icon.innerHTML = `
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.878 9.878L3 3m6.878 6.878L21 21"></path>
+            `;
+        } else {
+            input.type = 'password';
+            icon.innerHTML = `
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+            `;
+        }
+    }
+
 
     
     // Show success notification
@@ -1723,6 +1894,9 @@
         safeAddListener('toggleAiAnthropicApiKey', 'click', function() {
             toggleAiAnthropicApiKeyVisibility();
         });
+        safeAddListener('toggleAiHfApiKey', 'click', function() {
+            toggleAiHfApiKeyVisibility();
+        });
 
         // AI model test buttons
         safeAddListener('testAiOpenaiKey', 'click', function() {
@@ -1731,6 +1905,9 @@
 
         safeAddListener('testAiAnthropicKey', 'click', function() {
             testAiAnthropicKey();
+        });
+        safeAddListener('testAiHfKey', 'click', function() {
+            testAiHfKey();
         });
 
         safeAddListener('testAiLmstudioConnection', 'click', function() {

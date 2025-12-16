@@ -1809,6 +1809,16 @@ class AsyncDatabaseManager:
                     db_annotation.annotation_type = update_data.annotation_type
                 if update_data.confidence_score is not None:
                     db_annotation.confidence_score = update_data.confidence_score
+                if update_data.selected_text is not None:
+                    db_annotation.selected_text = update_data.selected_text
+                if update_data.start_position is not None:
+                    db_annotation.start_position = update_data.start_position
+                if update_data.end_position is not None:
+                    db_annotation.end_position = update_data.end_position
+                if update_data.context_before is not None:
+                    db_annotation.context_before = update_data.context_before
+                if update_data.context_after is not None:
+                    db_annotation.context_after = update_data.context_after
 
                 db_annotation.updated_at = datetime.now()
 

@@ -19,9 +19,11 @@ from fastapi import APIRouter, HTTPException, Request
 from src.database.async_manager import async_db_manager
 from src.services.sigma_validator import validate_sigma_rule
 from src.services.provider_model_catalog import load_catalog, update_provider_models
+from src.services.cmdline_caliper import command_line_caliper_extractor
 from src.utils.llm_optimizer import (
     estimate_llm_cost,
     estimate_gpt4o_cost,
+    optimize_article_content,
 )  # Backward compatibility
 from src.utils.prompt_loader import format_prompt
 from src.utils.ioc_extractor import HybridIOCExtractor
@@ -639,6 +641,108 @@ async def api_test_gemini_key(request: Request):
     except Exception as exc:
         logger.error(f"Gemini API key test error: {exc}")
         raise HTTPException(status_code=500, detail=str(exc))
+
+
+async def _get_hf_token() -> Optional[str]:
+    """Load Hugging Face token from AppSettings or environment."""
+    token = None
+    try:
+        from sqlalchemy import select
+        from src.database.models import AppSettingsTable
+
+        async with async_db_manager.get_session() as session:
+            result = await session.execute(
+                select(AppSettingsTable).where(AppSettingsTable.key == "HUGGINGFACE_API_TOKEN")
+            )
+            setting = result.scalar_one_or_none()
+            if setting and setting.value:
+                token = setting.value.strip() or None
+    except Exception as exc:
+        logger.warning(f"Unable to load Hugging Face token from AppSettings: {exc}")
+
+    if token:
+        return token
+
+    for env_var in ("HUGGINGFACE_API_TOKEN", "HF_API_TOKEN", "HUGGINGFACE_HUB_TOKEN"):
+        env_val = os.getenv(env_var)
+        if env_val:
+            return env_val
+    return None
+
+
+@test_router.post("/test-hf-key")
+async def api_test_hf_key(request: Request):
+    """Validate a Hugging Face access token (used for gated models like CMDCaliper)."""
+    try:
+        body = await request.json()
+        token_raw = body.get("api_key")
+        token = token_raw.strip() if token_raw else None
+
+        if not token:
+            raise HTTPException(status_code=400, detail="Hugging Face token is required")
+
+        if not token.startswith("hf_"):
+            raise HTTPException(
+                status_code=400,
+                detail="Hugging Face tokens typically start with 'hf_'",
+            )
+
+        masked = f"{token[:6]}...{token[-4:]}" if len(token) > 12 else "***"
+        logger.info(f"🔑 Testing Hugging Face token (masked): {masked}")
+
+        async with httpx.AsyncClient() as client:
+            response = await client.get(
+                "https://huggingface.co/api/whoami-v2",
+                headers={"Authorization": f"Bearer {token}"},
+                timeout=10.0,
+            )
+
+        if response.status_code == 200:
+            data = response.json()
+            username = data.get("name") or data.get("email") or "Hugging Face user"
+            orgs = data.get("orgs") or []
+            gated_orgs = [
+                org.get("name") for org in orgs if isinstance(org, dict) and org.get("name")
+            ]
+            message_parts = [f"Token valid for {username}"]
+            if gated_orgs:
+                message_parts.append(f"Orgs: {', '.join(gated_orgs)}")
+            return {
+                "valid": True,
+                "message": "; ".join(message_parts),
+                "username": username,
+                "orgs": gated_orgs,
+            }
+
+        if response.status_code in {401, 403}:
+            raise HTTPException(
+                status_code=response.status_code,
+                detail="Unauthorized: token rejected or missing access to the requested repository",
+            )
+
+        detail = response.text[:200] if response.text else "Unknown Hugging Face error"
+        logger.warning(
+            f"Hugging Face token validation failed: {response.status_code} - {detail}"
+        )
+        raise HTTPException(
+            status_code=response.status_code,
+            detail=f"Hugging Face API returned {response.status_code}: {detail}",
+        )
+
+    except HTTPException:
+        raise
+    except httpx.TimeoutException:
+        raise HTTPException(
+            status_code=408, detail="Request timeout when contacting Hugging Face API"
+        )
+    except httpx.HTTPError as exc:
+        logger.error(f"Hugging Face token validation HTTP error: {exc}")
+        raise HTTPException(
+            status_code=502, detail="Network error when contacting Hugging Face API"
+        )
+    except Exception as exc:
+        logger.error(f"Unexpected Hugging Face token validation error: {exc}")
+        raise HTTPException(status_code=500, detail="Failed to validate Hugging Face token")
 
 
 async def _get_current_lmstudio_model() -> str:
@@ -2453,6 +2557,145 @@ async def api_extract_iocs(article_id: int, request: Request):
     except Exception as e:
         logger.error(f"IOCs extraction error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/{article_id}/extract-command-lines")
+async def api_extract_command_lines(article_id: int, request: Request):
+    """Extract command lines using CMDCaliper embeddings with optional content filtering."""
+    try:
+        article = await async_db_manager.get_article(article_id)
+        if not article:
+            raise HTTPException(status_code=404, detail="Article not found")
+
+        body = await request.json()
+        optimization_options = body.get("optimization_options") or {}
+        try:
+            use_filtering = bool(
+                body.get("use_filtering", optimization_options.get("useFiltering", True))
+            )
+            min_confidence = float(
+                body.get("min_confidence", optimization_options.get("minConfidence", 0.7))
+            )
+            similarity_threshold = float(body.get("similarity_threshold", 0.2))
+            max_results = int(body.get("max_results", 20))
+            max_candidates = int(body.get("max_candidates", 200))
+        except (ValueError, TypeError) as exc:
+            logger.warning("Invalid command extraction params: %s", exc)
+            raise HTTPException(
+                status_code=400,
+                detail="Invalid extraction parameters (min_confidence, similarity_threshold, max_results, max_candidates)",
+            )
+
+        max_results = max(1, min(max_results, 40))
+        max_candidates = max(max_results, min(max_candidates, 320))
+
+        force_regenerate = bool(body.get("force_regenerate", False))
+        store_chunk_analysis = bool(body.get("store_chunk_analysis", False))
+
+        existing_metadata = (
+            article.article_metadata.get("extracted_command_lines")
+            if article.article_metadata
+            else None
+        )
+
+        if (
+            existing_metadata
+            and not force_regenerate
+            and existing_metadata.get("content_hash") == article.content_hash
+            and existing_metadata.get("similarity_threshold") == similarity_threshold
+            and existing_metadata.get("min_confidence") == min_confidence
+        ):
+            return {
+                "success": bool(existing_metadata.get("command_lines")),
+                "command_lines": existing_metadata.get("command_lines", []),
+                "count": len(existing_metadata.get("command_lines", [])),
+                "content_filtering": existing_metadata.get(
+                    "content_filtering", {"enabled": False}
+                ),
+                "similarity_threshold": similarity_threshold,
+                "min_confidence": min_confidence,
+                "cached": True,
+                "extracted_at": existing_metadata.get("extracted_at"),
+            }
+
+        content_to_use = article.content or ""
+        content_filter_metadata: Dict[str, Any] = {"enabled": False}
+        if use_filtering:
+            try:
+                optimization_result = await optimize_article_content(
+                    content=article.content,
+                    min_confidence=min_confidence,
+                    article_metadata=article.article_metadata,
+                    content_hash=article.content_hash,
+                    article_id=article.id,
+                    store_analysis=store_chunk_analysis,
+                )
+                if optimization_result.get("success") and optimization_result.get(
+                    "filtered_content"
+                ):
+                    content_to_use = optimization_result["filtered_content"]
+                content_filter_metadata = {
+                    "enabled": bool(optimization_result.get("success")),
+                    "min_confidence": min_confidence,
+                    "tokens_saved": optimization_result.get("tokens_saved"),
+                    "cost_savings": optimization_result.get("cost_savings"),
+                    "chunks_removed": optimization_result.get("chunks_removed"),
+                    "chunks_kept": optimization_result.get("chunks_kept"),
+                    "cached": optimization_result.get("cached", False),
+                }
+            except Exception as exc:
+                logger.warning("Command line content filtering failed: %s", exc)
+        hf_token = await _get_hf_token()
+        if not hf_token:
+            raise HTTPException(
+                status_code=400,
+                detail="Hugging Face token not configured. Please add it in Settings.",
+            )
+        command_line_caliper_extractor.set_auth_token(hf_token)
+
+        command_lines = command_line_caliper_extractor.extract(
+            content_to_use,
+            similarity_threshold=similarity_threshold,
+            max_results=max_results,
+            max_candidates=max_candidates,
+        )
+
+        metadata_payload = {
+            "command_lines": command_lines,
+            "count": len(command_lines),
+            "extracted_at": datetime.now().isoformat(),
+            "content_filtering": content_filter_metadata,
+            "content_hash": article.content_hash,
+            "similarity_threshold": similarity_threshold,
+            "min_confidence": min_confidence,
+            "max_results": max_results,
+            "max_candidates": max_candidates,
+            "source": "cmdcaliper",
+        }
+        current_metadata = article.article_metadata or {}
+        current_metadata["extracted_command_lines"] = metadata_payload
+
+        from src.models.article import ArticleUpdate
+
+        update_data = ArticleUpdate(article_metadata=current_metadata)
+        await async_db_manager.update_article(article_id, update_data)
+
+        return {
+            "success": len(command_lines) > 0,
+            "command_lines": command_lines,
+            "count": len(command_lines),
+            "content_filtering": content_filter_metadata,
+            "similarity_threshold": similarity_threshold,
+            "min_confidence": min_confidence,
+            "cached": False,
+            "extracted_at": metadata_payload["extracted_at"],
+        }
+
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.error("Command line extraction error: %s", exc, exc_info=True)
+        raise HTTPException(status_code=500, detail=str(exc))
 
 
 @router.post("/{article_id}/extract-iocs-ctibert")

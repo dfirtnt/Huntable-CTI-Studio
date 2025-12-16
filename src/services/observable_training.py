@@ -18,6 +18,7 @@ from sqlalchemy import case, func, select, update
 from src.database.async_manager import async_db_manager
 from src.database.manager import DatabaseManager
 from src.database.models import ArticleAnnotationTable
+from src.web.dependencies import logger
 
 SUPPORTED_OBSERVABLE_TYPES = ["CMD", "PROC_LINEAGE"]
 BASE_DATASET_DIR = Path("outputs/evaluation_data/observables")
@@ -54,9 +55,43 @@ async def get_observable_training_summary() -> Dict[str, Any]:
     return summary
 
 
-def run_observable_training_job(observable_type: str) -> Dict[str, Any]:
-    """Export unused annotations for the observable and create a new artifact."""
-    return export_observable_dataset(observable_type, usage="train")
+def run_observable_training_job(observable_type: str, train_model: bool = True) -> Dict[str, Any]:
+    """
+    Export unused annotations for the observable, create a new artifact, and optionally train a model.
+    
+    Args:
+        observable_type: Type of observable (CMD, PROC_LINEAGE)
+        train_model: If True, train a model after exporting dataset (default: True)
+    """
+    # Export dataset (this now correctly excludes gold/eval annotations)
+    result = export_observable_dataset(observable_type, usage="train")
+    
+    # If dataset export failed or no data, return early
+    if result.get("status") != "completed":
+        return result
+    
+    # Train model if requested
+    if train_model and observable_type == "CMD":
+        try:
+            from src.services.model_training import train_cmd_extractor_model
+            
+            dataset_path = Path(result.get("dataset_path"))
+            if dataset_path.exists():
+                training_result = train_cmd_extractor_model(
+                    dataset_path=dataset_path,
+                    model_key="bert_base",  # Default to BERT, could be configurable
+                    version=result.get("version"),
+                )
+                result["model_training"] = training_result
+                logger.info(f"Model training completed for {observable_type}")
+        except Exception as e:
+            logger.error(f"Model training failed for {observable_type}: {e}")
+            result["model_training"] = {
+                "success": False,
+                "error": str(e)
+            }
+    
+    return result
 
 
 def export_observable_dataset(observable_type: str, usage: str = "train") -> Dict[str, Any]:
@@ -82,12 +117,25 @@ def _export_observable_dataset(
     db_manager = DatabaseManager()
     session = db_manager.get_session()
     try:
-        filters = [
-            ArticleAnnotationTable.annotation_type == observable_type,
-            ArticleAnnotationTable.usage == usage,
-        ]
+        # When marking for training, ONLY use annotations with usage="train"
+        # This explicitly excludes gold/eval annotations from training datasets
         if mark_training:
-            filters.append(ArticleAnnotationTable.used_for_training.is_(False))
+            if usage != "train":
+                raise ValueError(
+                    f"Cannot mark annotations for training with usage='{usage}'. "
+                    "Only usage='train' annotations can be used for training."
+                )
+            filters = [
+                ArticleAnnotationTable.annotation_type == observable_type,
+                ArticleAnnotationTable.usage == "train",  # Explicit: only train annotations
+                ArticleAnnotationTable.used_for_training.is_(False),
+            ]
+        else:
+            # For non-training exports (eval/gold), use the specified usage
+            filters = [
+                ArticleAnnotationTable.annotation_type == observable_type,
+                ArticleAnnotationTable.usage == usage,
+            ]
 
         annotations_query = select(ArticleAnnotationTable).where(*filters)
         annotations = session.execute(annotations_query).scalars().all()

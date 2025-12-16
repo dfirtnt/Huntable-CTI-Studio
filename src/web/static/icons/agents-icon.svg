@@ -1,0 +1,26 @@
+<svg width="160" height="160" viewBox="0 0 160 160" xmlns="http://www.w3.org/2000/svg">
+    <!-- Background circle -->
+    <circle cx="80" cy="80" r="70" fill="#1a1a2e" opacity="0.9"/>
+    
+    <!-- Central hub -->
+    <circle cx="80" cy="80" r="12" fill="#8B5CF6" opacity="0.9"/>
+    <circle cx="80" cy="80" r="6" fill="#C4B5FD"/>
+    
+    <!-- Agent nodes -->
+    <circle cx="50" cy="50" r="8" fill="#A78BFA" opacity="0.9"/>
+    <circle cx="110" cy="50" r="8" fill="#A78BFA" opacity="0.9"/>
+    <circle cx="50" cy="110" r="8" fill="#A78BFA" opacity="0.9"/>
+    <circle cx="110" cy="110" r="8" fill="#A78BFA" opacity="0.9"/>
+    
+    <!-- Connection lines -->
+    <line x1="50" y1="50" x2="80" y2="80" stroke="#8B5CF6" stroke-width="2.5" opacity="0.5"/>
+    <line x1="110" y1="50" x2="80" y2="80" stroke="#8B5CF6" stroke-width="2.5" opacity="0.5"/>
+    <line x1="50" y1="110" x2="80" y2="80" stroke="#8B5CF6" stroke-width="2.5" opacity="0.5"/>
+    <line x1="110" y1="110" x2="80" y2="80" stroke="#8B5CF6" stroke-width="2.5" opacity="0.5"/>
+    
+    <!-- Data flow indicators -->
+    <path d="M 58 58 L 72 72" stroke="#C4B5FD" stroke-width="2" opacity="0.6" stroke-linecap="round"/>
+    <path d="M 102 58 L 88 72" stroke="#C4B5FD" stroke-width="2" opacity="0.6" stroke-linecap="round"/>
+    <path d="M 58 102 L 72 88" stroke="#C4B5FD" stroke-width="2" opacity="0.6" stroke-linecap="round"/>
+    <path d="M 102 102 L 88 88" stroke="#C4B5FD" stroke-width="2" opacity="0.6" stroke-linecap="round"/>
+</svg>

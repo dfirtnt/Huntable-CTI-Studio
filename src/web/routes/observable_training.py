@@ -36,19 +36,28 @@ async def api_observable_training_summary():
 
 @router.post("/run")
 async def api_run_cmd_training(body: Dict[str, Any] | None = None):
-    """Trigger observable extractor training via Celery or fallback to synchronous mode."""
+    """
+    Trigger observable extractor training (dataset export + model training).
+    
+    The training process:
+    1. Exports unused 'train' annotations (excludes gold/eval)
+    2. Creates versioned dataset and artifact
+    3. Trains a model using the Workshop training scripts
+    """
     body = body or {}
     observable_type = (body.get("observable_type") or "CMD").upper()
+    train_model = body.get("train_model", True)  # Default to training model
     if observable_type not in SUPPORTED_OBSERVABLE_TYPES:
         raise HTTPException(status_code=400, detail="Unsupported observable type")
     try:
         if train_observable_extractor:
-            task = train_observable_extractor.delay(observable_type)
+            task = train_observable_extractor.delay(observable_type=observable_type, train_model=train_model)
             return {
                 "success": True,
                 "mode": "async",
                 "task_id": task.id,
                 "observable_type": observable_type,
+                "train_model": train_model,
                 "message": f"{observable_type} training task submitted",
             }
     except Exception as exc:  # noqa: BLE001
@@ -56,11 +65,12 @@ async def api_run_cmd_training(body: Dict[str, Any] | None = None):
 
     # Fallback to synchronous execution (useful for tests or environments without Celery)
     try:
-        result = run_observable_training_job(observable_type)
+        result = run_observable_training_job(observable_type, train_model=train_model)
         return {
             "success": True,
             "mode": "sync",
             "observable_type": observable_type,
+            "train_model": train_model,
             "result": result,
         }
     except Exception as exc:  # noqa: BLE001

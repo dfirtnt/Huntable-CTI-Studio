@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Dashboard - Huntable Detection Studio{% endblock %}
+{% block title %}Dashboard - Huntable CTI Studio{% endblock %}
 
 {% block content %}
 <div class="min-h-screen">

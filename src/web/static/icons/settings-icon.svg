@@ -1,0 +1,24 @@
+<svg width="160" height="160" viewBox="0 0 160 160" xmlns="http://www.w3.org/2000/svg">
+    <!-- Background circle -->
+    <circle cx="80" cy="80" r="70" fill="#1a1a2e" opacity="0.9"/>
+    
+    <!-- Outer gear ring -->
+    <circle cx="80" cy="80" r="40" fill="none" stroke="#8B5CF6" stroke-width="3" opacity="0.6"/>
+    
+    <!-- Gear teeth (8 teeth) -->
+    <rect x="75" y="35" width="10" height="12" fill="#A78BFA" rx="2"/>
+    <rect x="75" y="113" width="10" height="12" fill="#A78BFA" rx="2"/>
+    <rect x="35" y="75" width="12" height="10" fill="#A78BFA" rx="2"/>
+    <rect x="113" y="75" width="12" height="10" fill="#A78BFA" rx="2"/>
+    
+    <!-- Diagonal teeth -->
+    <rect x="95" y="50" width="8" height="10" fill="#A78BFA" rx="2" transform="rotate(45 99 55)"/>
+    <rect x="57" y="50" width="8" height="10" fill="#A78BFA" rx="2" transform="rotate(-45 61 55)"/>
+    <rect x="95" y="100" width="8" height="10" fill="#A78BFA" rx="2" transform="rotate(-45 99 105)"/>
+    <rect x="57" y="100" width="8" height="10" fill="#A78BFA" rx="2" transform="rotate(45 61 105)"/>
+    
+    <!-- Inner circle -->
+    <circle cx="80" cy="80" r="20" fill="#8B5CF6" opacity="0.3"/>
+    <circle cx="80" cy="80" r="12" fill="none" stroke="#C4B5FD" stroke-width="2.5"/>
+    <circle cx="80" cy="80" r="4" fill="#C4B5FD"/>
+</svg>
