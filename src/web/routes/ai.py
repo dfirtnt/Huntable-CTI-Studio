@@ -417,7 +417,7 @@ async def _post_lmstudio_chat(
                     # Last URL, raise connection error
                     raise HTTPException(
                         status_code=503,
-                        detail=f"Cannot connect to LMStudio service. Tried: {', '.join(lmstudio_urls)}. Last error: {str(e)}",
+                        detail=f"Cannot connect to LMStudio service. Please ensure LMStudio is running and accessible. Tried: {', '.join(lmstudio_urls)}. Last error: {str(e)}",
                     )
                 # Try next URL
                 logger.warning(
@@ -467,6 +467,18 @@ async def _post_lmstudio_chat(
                     "Retrying with fallback URL."
                 )
                 continue
+
+            # Check for common errors that indicate LMStudio isn't ready
+            error_lower = error_message.lower()
+            if response.status_code == 400 and (
+                "context length" in error_lower
+                or "model" in error_lower and "not loaded" in error_lower
+                or "no model" in error_lower
+            ):
+                raise HTTPException(
+                    status_code=500,
+                    detail="LMStudio is not ready. Please ensure LMStudio is running and a model is loaded.",
+                )
 
             # Include the actual error message in the exception
             raise HTTPException(
