@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **Branding Icon Update**: Replaced shield emoji with custom SVG icon (H monogram with shield outline and crosshair elements) in navigation and favicon. Icon features deep navy background (#1a1a2e) with purple/white design elements for better visibility on gradient navigation bar. Icon size set to 38px (20% larger than previous 32px).
+
 ### Fixed
 - **Annotation Usage Immutability**: Enforced usage field immutability in `AsyncDatabaseManager.update_annotation()` to prevent modification of annotation usage (train/eval/gold) after creation. Service layer now raises `ValueError` if usage change is attempted, which is converted to 422 HTTP response at API layer.
 
