@@ -121,15 +121,15 @@
 
     <!-- Job History -->
     <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-8">
-        <div class="flex items-center justify-between mb-4">
+        <div data-collapsible-panel="job-history" class="flex items-center justify-between mb-4 -m-6 p-6 pb-4 rounded-t-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors cursor-pointer">
             <h2 class="text-xl font-semibold text-gray-900 dark:text-white">📋 Recent Job History</h2>
-            <button id="jobHistoryToggle" class="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors duration-200">
-                <svg class="w-5 h-5 transform transition-transform duration-200 rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <span id="job-history-toggle" class="text-gray-500 dark:text-gray-400 transition-transform duration-200" aria-hidden="true">
+                <svg class="w-5 h-5 transform transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
                 </svg>
-            </button>
+            </span>
         </div>
-        <div id="jobHistoryContent" class="space-y-3 hidden">
+        <div id="job-history-content" class="space-y-3 hidden">
             <div class="animate-pulse">
                 <div class="h-4 bg-gray-200 dark:bg-gray-700 rounded w-full"></div>
                 <div class="h-4 bg-gray-200 dark:bg-gray-700 rounded w-3/4 mt-2"></div>
@@ -173,7 +173,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const workerStatus = document.getElementById('workerStatus');
     const queueStatus = document.getElementById('queueStatus');
     const activeTasks = document.getElementById('activeTasks');
-    const jobHistoryContent = document.getElementById('jobHistoryContent');
+    const jobHistoryContent = document.getElementById('job-history-content');
     
     console.log('Elements found:', {
         workerStatus: !!workerStatus,
@@ -186,7 +186,6 @@ document.addEventListener('DOMContentLoaded', function() {
         loadJobData();
         setupAutoRefresh();
         setupEventListeners();
-        setupJobHistoryToggle();
     } else {
         console.error('Required DOM elements not found');
         showError('Failed to initialize diagnostics - missing DOM elements');
@@ -226,25 +225,7 @@ function setupEventListeners() {
     }
 }
 
-function setupJobHistoryToggle() {
-    const toggleButton = document.getElementById('jobHistoryToggle');
-    const content = document.getElementById('jobHistoryContent');
-    const icon = toggleButton?.querySelector('svg');
-    
-    if (toggleButton && content && icon) {
-        toggleButton.addEventListener('click', function() {
-            const isHidden = content.classList.contains('hidden');
-            
-            if (isHidden) {
-                content.classList.remove('hidden');
-                icon.style.transform = 'rotate(0deg)';
-            } else {
-                content.classList.add('hidden');
-                icon.style.transform = 'rotate(180deg)';
-            }
-        });
-    }
-}
+// setupJobHistoryToggle removed - now handled by global initCollapsiblePanels()
 
 function setupAutoRefresh() {
     if (autoRefreshInterval) {
@@ -438,7 +419,7 @@ function updateActiveTasks(data) {
 }
 
 function updateJobHistory(data) {
-    const container = document.getElementById('jobHistoryContent');
+    const container = document.getElementById('job-history-content');
     console.log('Updating job history with data:', data);
     
     if (data.status === 'error') {

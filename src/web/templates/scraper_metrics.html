@@ -124,17 +124,17 @@
 
     <!-- Source Performance Table -->
     <div class="bg-white dark:bg-gray-800 rounded-lg shadow">
-        <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+        <div data-collapsible-panel="source-performance" class="px-6 py-4 border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors cursor-pointer">
             <div class="flex items-center justify-between">
                 <h3 class="text-lg font-semibold text-gray-900 dark:text-white">📊 Source Performance Details</h3>
-                <button id="sourcePerformanceToggle" class="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors duration-200">
-                    <svg class="w-5 h-5 transform transition-transform duration-200 rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <span id="source-performance-toggle" class="text-gray-500 dark:text-gray-400 transition-transform duration-200" aria-hidden="true">
+                    <svg class="w-5 h-5 transform transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
                     </svg>
-                </button>
+                </span>
             </div>
         </div>
-        <div id="sourcePerformanceContent" class="overflow-x-auto hidden">
+        <div id="source-performance-content" class="overflow-x-auto hidden">
             <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                 <thead class="bg-gray-50 dark:bg-gray-700">
                     <tr>
@@ -150,25 +150,6 @@
                     <!-- Table content will be loaded dynamically -->
                 </tbody>
             </table>
-        </div>
-    </div>
-
-    <!-- Article Ingestion Analytics -->
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow mt-8">
-        <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-            <div class="flex items-center justify-between">
-                <h3 class="text-lg font-semibold text-gray-900 dark:text-white">📊 Article Ingestion Analytics</h3>
-                <button id="ingestionAnalyticsToggle" class="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors duration-200">
-                    <svg class="w-5 h-5 transform transition-transform duration-200 rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
-                    </svg>
-                </button>
-            </div>
-        </div>
-        <div id="ingestionAnalyticsContent" class="p-6 hidden">
-            <div class="text-gray-600 dark:text-gray-400">
-                Click "Load Analytics" to view article collection trends
-            </div>
         </div>
     </div>
 </div>
@@ -209,7 +190,6 @@ async function loadScraperMetrics() {
         const ingestionData = await ingestionResponse.json();
         if (ingestionData.status === 'healthy' && ingestionData.ingestion) {
             renderIngestionCharts(ingestionData.ingestion);
-            renderIngestionAnalytics(ingestionData.ingestion);
         }
 
     } catch (error) {
@@ -302,72 +282,6 @@ function renderSourcePerformanceTable(data) {
         `;
         tbody.appendChild(row);
     });
-}
-
-// Render ingestion analytics content
-function renderIngestionAnalytics(ingestion) {
-    const content = document.getElementById('ingestionAnalyticsContent');
-    if (!content) return;
-    
-    content.innerHTML = `
-        <div class="space-y-6">
-            <!-- Summary Statistics -->
-            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <div class="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                    <h3 class="font-medium text-blue-900">Total Articles</h3>
-                    <p class="text-2xl font-bold text-blue-600">${ingestion.total_stats.total_articles.toLocaleString()}</p>
-                </div>
-                <div class="p-4 bg-green-50 border border-green-200 rounded-lg">
-                    <h3 class="font-medium text-green-900">Active Sources</h3>
-                    <p class="text-2xl font-bold text-green-600">${ingestion.total_stats.total_sources}</p>
-                </div>
-                <div class="p-4 bg-purple-50 border border-purple-200 rounded-lg">
-                    <h3 class="font-medium text-purple-900">Earliest Article</h3>
-                    <p class="text-sm font-bold text-purple-600">${ingestion.total_stats.earliest_article ? new Date(ingestion.total_stats.earliest_article).toLocaleDateString() : 'N/A'}</p>
-                </div>
-                <div class="p-4 bg-orange-50 border border-orange-200 rounded-lg">
-                    <h3 class="font-medium text-orange-900">Latest Article</h3>
-                    <p class="text-sm font-bold text-orange-600">${ingestion.total_stats.latest_article ? new Date(ingestion.total_stats.latest_article).toLocaleDateString() : 'N/A'}</p>
-                </div>
-            </div>
-
-            <!-- Source Breakdown -->
-            <div class="p-4 bg-slate-50 border border-slate-200 rounded-lg">
-                <h3 class="font-medium text-slate-900 mb-4">📰 Top Sources (Last 7 Days)</h3>
-                <div class="space-y-3">
-                    ${ingestion.source_breakdown.map(source => `
-                        <div class="p-3 bg-white rounded border border-slate-200">
-                            <div class="flex justify-between items-start mb-2">
-                                <span class="font-medium text-slate-900">${source.source_name}</span>
-                                <span class="text-sm font-bold text-blue-600">${source.articles_count} articles</span>
-                            </div>
-                            <div class="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
-                                <div class="text-center p-2 bg-blue-50 rounded">
-                                    <div class="font-medium text-blue-900">Average Hunt Score</div>
-                                    <div class="text-lg font-bold ${source.avg_hunt_score >= 60 ? 'text-green-600' : source.avg_hunt_score >= 40 ? 'text-yellow-600' : 'text-red-600'}">${source.avg_hunt_score.toFixed(1)}</div>
-                                </div>
-                                <div class="text-center p-2 bg-green-50 rounded">
-                                    <div class="font-medium text-green-900">Chosen</div>
-                                    <div class="text-sm font-bold text-green-600">${source.chosen_ratio}</div>
-                                    <div class="text-xs text-gray-600">${source.chosen_count}</div>
-                                </div>
-                                <div class="text-center p-2 bg-red-50 rounded">
-                                    <div class="font-medium text-red-900">Rejected</div>
-                                    <div class="text-sm font-bold text-red-600">${source.rejected_ratio}</div>
-                                    <div class="text-xs text-gray-600">${source.rejected_count}</div>
-                                </div>
-                                <div class="text-center p-2 bg-gray-50 rounded">
-                                    <div class="font-medium text-gray-900">Unclassified</div>
-                                    <div class="text-sm font-bold text-gray-600">${source.unclassified_ratio}</div>
-                                    <div class="text-xs text-gray-600">${source.unclassified_count}</div>
-                                </div>
-                            </div>
-                        </div>
-                    `).join('')}
-                </div>
-            </div>
-        </div>
-    `;
 }
 
 // Render ingestion analytics charts
@@ -480,45 +394,9 @@ function createHourlyChart(labels, data) {
     });
 }
 
-// Toggle functionality for Source Performance Details and Ingestion Analytics panels
+// Toggle functionality now handled by global initCollapsiblePanels() in base.html
 document.addEventListener('DOMContentLoaded', function() {
-    // Source Performance toggle
-    const sourceToggleButton = document.getElementById('sourcePerformanceToggle');
-    const sourceContent = document.getElementById('sourcePerformanceContent');
-    const sourceIcon = sourceToggleButton?.querySelector('svg');
-    
-    if (sourceToggleButton && sourceContent && sourceIcon) {
-        sourceToggleButton.addEventListener('click', function() {
-            const isHidden = sourceContent.classList.contains('hidden');
-            
-            if (isHidden) {
-                sourceContent.classList.remove('hidden');
-                sourceIcon.style.transform = 'rotate(0deg)';
-            } else {
-                sourceContent.classList.add('hidden');
-                sourceIcon.style.transform = 'rotate(180deg)';
-            }
-        });
-    }
-
-    // Ingestion Analytics toggle
-    const analyticsToggleButton = document.getElementById('ingestionAnalyticsToggle');
-    const analyticsContent = document.getElementById('ingestionAnalyticsContent');
-    const analyticsIcon = analyticsToggleButton?.querySelector('svg');
-    
-    if (analyticsToggleButton && analyticsContent && analyticsIcon) {
-        analyticsToggleButton.addEventListener('click', function() {
-            const isHidden = analyticsContent.classList.contains('hidden');
-            
-            if (isHidden) {
-                analyticsContent.classList.remove('hidden');
-                analyticsIcon.style.transform = 'rotate(0deg)';
-            } else {
-                analyticsContent.classList.add('hidden');
-                analyticsIcon.style.transform = 'rotate(180deg)';
-            }
-        });
-    }
+    // Legacy toggle code removed - panels now use data-collapsible-panel attribute
 });
 
 // Load metrics on page load

@@ -47,7 +47,7 @@ def highlight_keywords(content: str, metadata: Dict[str, Any]) -> str:
         ),
         "intelligence_matches": (
             "intelligence",
-            "bg-orange-100 dark:bg-orange-900 text-orange-800 dark:text-orange-200 border-orange-300 dark:border-orange-700",
+            "bg-orange-200 dark:bg-orange-950 text-orange-900 dark:text-orange-300 border-orange-400 dark:border-orange-800",
         ),
         "negative_matches": (
             "negative",

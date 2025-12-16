@@ -20,15 +20,15 @@
 
     <!-- Filters & Sorting -->
     <div class="rounded-lg shadow p-6 mb-8" style="background-color: var(--color-bg-card);">
-        <div class="flex items-center justify-between mb-4">
+        <div id="filtersHeader" data-collapsible-panel="filters" class="flex items-center justify-between mb-4 -m-6 p-6 pb-4 rounded-t-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
             <h2 class="text-xl font-semibold text-gray-900 dark:text-white">🔍 Filters, Search & Sorting</h2>
-            <button id="filtersToggle" type="button" class="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors duration-200" aria-expanded="false" aria-controls="filtersContent">
-                <svg class="w-5 h-5 transform rotate-180 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <span id="filters-toggle" class="text-gray-500 dark:text-gray-400 transition-transform duration-200" aria-hidden="true">
+                <svg class="w-5 h-5 transform transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
                 </svg>
-            </button>
+            </span>
         </div>
-        <div id="filtersContent" class="hidden" data-filters-active="{{ 'true' if filters.search or filters.source or filters.threat_hunting_range or filters.title_only else 'false' }}">
+        <div id="filters-content" class="hidden" data-filters-active="{{ 'true' if filters.search or filters.source or filters.threat_hunting_range or filters.title_only else 'false' }}">
         <form method="GET">
             <!-- Hidden inputs to preserve sort parameters -->
             <input type="hidden" name="sort_by" value="{{ filters.sort_by or 'published_at' }}">
@@ -1309,11 +1309,12 @@
     }
     
     document.addEventListener('DOMContentLoaded', function() {
-        const filtersToggle = document.getElementById('filtersToggle');
-        const filtersContent = document.getElementById('filtersContent');
+        const filtersHeader = document.getElementById('filtersHeader');
+        const filtersContent = document.getElementById('filters-content');
+        const filtersToggle = document.getElementById('filters-toggle');
         const filtersIcon = filtersToggle?.querySelector('svg');
 
-        if (filtersToggle && filtersContent && filtersIcon) {
+        if (filtersHeader && filtersContent) {
             const filtersPanelStateKey = 'cti_articles_filters_panel_open';
             const filtersActive = filtersContent.dataset.filtersActive === 'true';
             let shouldStartOpen = filtersActive;
@@ -1329,8 +1330,10 @@
 
             const setFiltersPanelState = (open) => {
                 filtersContent.classList.toggle('hidden', !open);
-                filtersIcon.style.transform = open ? 'rotate(0deg)' : 'rotate(180deg)';
-                filtersToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+                if (filtersIcon) {
+                    filtersIcon.style.transform = open ? 'rotate(180deg)' : 'rotate(0deg)';
+                }
+                filtersHeader.setAttribute('aria-expanded', open ? 'true' : 'false');
 
                 try {
                     sessionStorage.setItem(filtersPanelStateKey, open ? 'true' : 'false');
@@ -1339,12 +1342,18 @@
                 }
             };
 
-            // Keep the panel collapsed on first load
+            // Set initial state before global initCollapsiblePanels runs
             setFiltersPanelState(shouldStartOpen);
 
-            filtersToggle.addEventListener('click', function() {
-                const isHidden = filtersContent.classList.contains('hidden');
-                setFiltersPanelState(isHidden);
+            // Override the global handler to persist state
+            filtersHeader.addEventListener('click', function(e) {
+                // Let the global handler toggle, then persist state
+                setTimeout(() => {
+                    const isOpen = !filtersContent.classList.contains('hidden');
+                    try {
+                        sessionStorage.setItem(filtersPanelStateKey, isOpen ? 'true' : 'false');
+                    } catch (sessionError) {}
+                }, 0);
             });
         }
     });

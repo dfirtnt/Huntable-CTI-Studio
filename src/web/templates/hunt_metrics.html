@@ -139,17 +139,17 @@
 
     <!-- Keyword Analysis Table -->
     <div class="bg-white dark:bg-gray-800 rounded-lg shadow mb-8">
-        <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+        <div data-collapsible-panel="keyword-analysis" class="px-6 py-4 border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors cursor-pointer">
             <div class="flex items-center justify-between">
                 <h3 class="text-lg font-semibold text-gray-900 dark:text-white">🏷️ Keyword Performance Analysis</h3>
-                <button id="keywordAnalysisToggle" class="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors duration-200">
+                <span id="keyword-analysis-toggle" class="text-gray-500 dark:text-gray-400 transition-transform duration-200" aria-hidden="true">
                     <svg class="w-5 h-5 transform transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
                     </svg>
-                </button>
+                </span>
             </div>
         </div>
-        <div id="keywordAnalysisContent" class="overflow-x-auto hidden">
+        <div id="keyword-analysis-content" class="overflow-x-auto hidden">
             <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                 <thead class="bg-gray-50 dark:bg-gray-700">
                     <tr>
@@ -584,25 +584,6 @@ function renderRecentHighScoreArticles(data) {
 
 
 
-// Toggle functionality for Keyword Performance Analysis panel
-document.addEventListener('DOMContentLoaded', function() {
-    const toggleButton = document.getElementById('keywordAnalysisToggle');
-    const content = document.getElementById('keywordAnalysisContent');
-    const icon = toggleButton.querySelector('svg');
-    
-    if (toggleButton && content && icon) {
-        toggleButton.addEventListener('click', function() {
-            const isHidden = content.classList.contains('hidden');
-            
-            if (isHidden) {
-                content.classList.remove('hidden');
-                icon.style.transform = 'rotate(0deg)';
-            } else {
-                content.classList.add('hidden');
-                icon.style.transform = 'rotate(180deg)';
-            }
-        });
-    }
-});
+// Toggle functionality now handled by global initCollapsiblePanels() in base.html
 </script>
 {% endblock %}
