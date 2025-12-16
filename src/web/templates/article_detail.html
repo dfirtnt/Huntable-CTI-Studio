@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}{{ article.title[:50] }}... - Huntable Detection Studio{% endblock %}
+{% block title %}{{ article.title[:50] }}... - Huntable CTI Studio{% endblock %}
 
 {% block content %}
 <div class="container mx-auto px-4 py-8">
@@ -3344,7 +3344,8 @@ Please provide a detailed analysis based on the article content and the user's s
         }
 
         getContextAroundSelection(start, end) {
-            const fullText = this.contentElement.textContent;
+            // Use canonical text to ensure context matches the offset calculation buffer
+            const fullText = this.canonicalText || this.contentElement.textContent;
             const CONTEXT_RADIUS = 400; // capture broader context for observables training
             const contextBefore = fullText.substring(Math.max(0, start - CONTEXT_RADIUS), start);
             const contextAfter = fullText.substring(end, Math.min(fullText.length, end + CONTEXT_RADIUS));
@@ -3407,13 +3408,14 @@ Please provide a detailed analysis based on the article content and the user's s
             // Add highlight AFTER offset calculation (DOM mutation happens here)
             this.addUserClassification(normalizedStart, normalizedEnd, this.observableType, selectedText);
             
-            // Save with exact selection - no context for now (as per spec)
+            // Calculate context from canonical text
+            const context = this.getContextAroundSelection(normalizedStart, normalizedEnd);
             await this.saveClassification(
                 normalizedStart,
                 normalizedEnd,
                 selectedText,
                 this.observableType,
-                { before: '', after: '' },
+                context,
                 this.observableDatasetUsage
             );
             
@@ -4505,6 +4507,12 @@ Please provide a detailed analysis based on the article content and the user's s
                                 Chunk ML Feedback
                             </button>
                             
+                            <button onclick="generateAIAnalysis('cmdlines')" 
+                                    class="w-full inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-yellow-600 hover:bg-yellow-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500 transition-colors">
+                                <span class="mr-2">🧾</span>
+                                Extract Command Lines
+                            </button>
+
                             <button onclick="closeAIAssistantModal()" 
                                     class="w-full inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-gray-400 hover:bg-gray-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-400 transition-colors">
                                 Cancel
@@ -4565,7 +4573,17 @@ Please provide a detailed analysis based on the article content and the user's s
                 return;
             }
             
+            if (type === 'cmdlines' && (window.latestCommandLines || {{ 'true' if article.article_metadata and article.article_metadata.get('extracted_command_lines') else 'false' }})) {
+                const templateCmdlineData = {{ article.article_metadata.get('extracted_command_lines') | tojson if article.article_metadata and article.article_metadata.get('extracted_command_lines') else 'null' }};
+                const cmdlineData = window.latestCommandLines || templateCmdlineData;
+                console.log('Using command line data:', window.latestCommandLines ? 'from window.latestCommandLines' : 'from page template');
+                if (cmdlineData) {
+                    showCommandLinesModal(cmdlineData.command_lines, cmdlineData);
+                    return;
+                }
+            }
 
+            
             
             if (type === 'ranking' && {{ 'true' if article.article_metadata and article.article_metadata.get('gpt4o_ranking') else 'false' }}) {
                 const rankingData = {{ article.article_metadata.get('gpt4o_ranking') | tojson if article.article_metadata and article.article_metadata.get('gpt4o_ranking') else 'null' }};
@@ -4673,8 +4691,24 @@ Please provide a detailed analysis based on the article content and the user's s
         const operationData = {
             id: operationId,
             type: type,
-            typeText: type === 'sigma' ? 'SIGMA Rules' : type === 'ranking' ? (aiModel === 'chatgpt' ? 'GPT4o Ranking' : 'Local AI Ranking') : 'IOCs',
-            typeIcon: type === 'sigma' ? '🔍' : type === 'ranking' ? '📊' : '🔍',
+            typeText:
+                type === 'sigma'
+                    ? 'SIGMA Rules'
+                    : type === 'ranking'
+                        ? aiModel === 'chatgpt'
+                            ? 'GPT4o Ranking'
+                            : 'Local AI Ranking'
+                        : type === 'cmdlines'
+                            ? 'Command Lines'
+                            : 'IOCs',
+            typeIcon:
+                type === 'sigma'
+                    ? '🔍'
+                    : type === 'ranking'
+                        ? '📊'
+                        : type === 'cmdlines'
+                            ? '💻'
+                            : '🔍',
             articleId: articleId,
             articleTitle: {{ article.title | tojson }},
             startedAt: Date.now(),
@@ -4745,6 +4779,15 @@ Please provide a detailed analysis based on the article content and the user's s
         };
         document.addEventListener('keydown', handleEsc);
         
+        const loadingVerb = (type === 'sigma' || type === 'ranking') ? 'Generating' : 'Extracting';
+        const loadingDescription = type === 'sigma'
+            ? 'Creating detection rules'
+            : type === 'ranking'
+                ? (aiModel === 'chatgpt' ? 'Analyzing content with GPT-4o' : 'Analyzing content with local AI')
+                : type === 'cmdlines'
+                    ? 'Extracting command lines with CMDCaliper'
+                    : 'Extracting indicators of compromise';
+
         loadingModal.innerHTML = `
             <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
                 <div class="mt-3 text-center">
@@ -4754,8 +4797,8 @@ Please provide a detailed analysis based on the article content and the user's s
                             <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                         </svg>
                     </div>
-                    <h3 class="text-lg font-medium text-gray-900 mt-4">${typeIcon} ${type === 'sigma' ? 'Generating' : type === 'ranking' ? 'Generating' : 'Extracting'} ${typeText}...</h3>
-                    <p class="text-sm text-gray-500 mt-2">${type === 'sigma' ? 'Creating detection rules' : type === 'ranking' ? (aiModel === 'chatgpt' ? 'Analyzing content with GPT-4o' : 'Analyzing content with local AI') : 'Extracting indicators of compromise'} - this may take a few moments.</p>
+                    <h3 class="text-lg font-medium text-gray-900 mt-4">${typeIcon} ${loadingVerb} ${typeText}...</h3>
+                    <p class="text-sm text-gray-500 mt-2">${loadingDescription} - this may take a few moments.</p>
                     <div class="mt-6 flex flex-col items-center space-y-3">
                         <button id="cancelBtn" class="px-6 py-2.5 bg-red-600 text-white text-sm font-medium rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 shadow-sm transition-colors">
                             Cancel Operation
@@ -4785,7 +4828,13 @@ Please provide a detailed analysis based on the article content and the user's s
             });
             
             // Create the fetch promise
-            const endpoint = type === 'sigma' ? 'generate-sigma' : type === 'ranking' ? 'rank-with-gpt4o' : 'extract-iocs';
+            const endpoint = type === 'sigma'
+                ? 'generate-sigma'
+                : type === 'ranking'
+                    ? 'rank-with-gpt4o'
+                    : type === 'cmdlines'
+                        ? 'extract-command-lines'
+                        : 'extract-iocs';
             
             // Prepare request body
             const requestBody = {
@@ -4815,13 +4864,13 @@ Please provide a detailed analysis based on the article content and the user's s
             
             // Add author name for SIGMA rules
             if (type === 'sigma') {
-                const sigmaAuthor = settings.sigmaAuthor || 'Huntable Detection Studio User';
+                const sigmaAuthor = settings.sigmaAuthor || 'Huntable CTI Studio User';
                 requestBody.author_name = sigmaAuthor;
             }
             
             // Add optimization options for ranking, sigma, observables, and IOC extraction with LLM validation
             // Show optimization dialog for cloud models (for all features) and for IOC extraction with LLM validation (all models)
-            const shouldShowOptimization = (type === 'ranking' || type === 'sigma');
+            const shouldShowOptimization = (type === 'ranking' || type === 'sigma' || type === 'cmdlines');
             
             console.log('shouldShowOptimization:', shouldShowOptimization, 'type:', type, 'useLLMValidation:', useLLMValidation, 'aiModel:', aiModel);
             
@@ -4933,6 +4982,11 @@ Please provide a detailed analysis based on the article content and the user's s
 
                     // Automatically show the new rules
                     setTimeout(() => showSigmaRulesModal(data.rules, data), 500);
+                }
+                else if (type === 'cmdlines' && data.command_lines) {
+                    window.latestCommandLines = data;
+                    console.log('✅ Updated window.latestCommandLines with new command-line results');
+                    setTimeout(() => showCommandLinesModal(data.command_lines, data), 500);
                 }
             } else {
                 const error = await response.json();
@@ -6421,6 +6475,126 @@ Please provide a detailed analysis based on the article content and the user's s
             modal.remove();
         }
     }
+
+    let commandLinesEscHandler = null;
+
+    function escapeHtml(value) {
+        if (value === undefined || value === null) {
+            return '';
+        }
+        return value
+            .toString()
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;');
+    }
+
+    function showCommandLinesModal(commandLines = [], metadata = {}) {
+        closeCommandLinesModal();
+        const modal = document.createElement('div');
+        modal.id = 'commandLinesModal';
+        modal.className = 'fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50';
+        modal.addEventListener('click', function(e) {
+            if (e.target === modal) {
+                closeCommandLinesModal();
+            }
+        });
+
+        commandLinesEscHandler = function(e) {
+            if (e.key === 'Escape') {
+                closeCommandLinesModal();
+            }
+        };
+        document.addEventListener('keydown', commandLinesEscHandler);
+
+        const extractedAt = metadata?.extracted_at
+            ? new Date(metadata.extracted_at).toLocaleString()
+            : 'Unknown';
+        const filterInfo = metadata?.content_filtering || { enabled: false };
+        const filterSummary = filterInfo.enabled
+            ? `${filterInfo.chunks_removed || 0} chunks removed, ${filterInfo.tokens_saved || 0} tokens saved${filterInfo.cost_savings ? `, ≈$${filterInfo.cost_savings.toFixed(4)} saved` : ''}`
+            : 'Content filtering disabled';
+        const entriesHtml = Array.isArray(commandLines) && commandLines.length > 0
+            ? commandLines.map((entry, index) => `
+                <div class="bg-white border border-gray-200 rounded-lg p-3 space-y-2">
+                    <div class="flex items-center justify-between text-xs text-gray-500 uppercase">
+                        <span>Command ${index + 1}</span>
+                        <span>${((entry?.score || 0) * 100).toFixed(1)}%</span>
+                    </div>
+                    <pre class="text-sm font-mono text-gray-900 break-words bg-gray-50 px-2 py-1 rounded">${escapeHtml(entry?.text)}</pre>
+                    ${entry?.context ? `<div class="text-xs text-gray-600 italic">${escapeHtml(entry.context)}</div>` : ''}
+                </div>
+            `).join('')
+            : '<div class="text-sm text-gray-500 text-center py-8">No command lines detected.</div>';
+
+        const similarityPercent = ((metadata?.similarity_threshold || 0) * 100).toFixed(1);
+        const minConfidence = (metadata?.min_confidence ?? 0.7).toFixed(2);
+
+        modal.innerHTML = `
+            <div class="relative top-10 mx-auto p-5 border w-11/12 max-w-5xl shadow-lg rounded-md bg-white max-h-[90vh] overflow-y-auto">
+                <div class="flex items-start justify-between mb-4">
+                    <div>
+                        <h3 class="text-lg font-medium text-gray-900">🧾 Command Line Extraction</h3>
+                        <p class="text-xs text-gray-500 mt-1">
+                            Extracted at ${extractedAt}
+                            ${metadata?.cached ? '<span class="text-blue-600"> (Cached)</span>' : ''}
+                        </p>
+                    </div>
+                    <button onclick="closeCommandLinesModal()" class="text-gray-400 hover:text-gray-600">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </button>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs text-gray-600 mb-4">
+                    <div>
+                        <div class="text-[11px] uppercase text-gray-400">Similarity</div>
+                        <div class="font-semibold text-gray-900">${similarityPercent}%</div>
+                    </div>
+                    <div>
+                        <div class="text-[11px] uppercase text-gray-400">Filter confidence</div>
+                        <div class="font-semibold text-gray-900">${minConfidence}</div>
+                    </div>
+                    <div>
+                        <div class="text-[11px] uppercase text-gray-400">Filtering</div>
+                        <div class="font-semibold text-gray-900">${filterInfo.enabled ? 'Enabled' : 'Disabled'}</div>
+                    </div>
+                </div>
+
+                <div class="space-y-3">
+                    ${entriesHtml}
+                </div>
+
+                <div class="mt-6 border-t border-gray-200 pt-4 text-xs text-gray-600">
+                    ${filterSummary}
+                </div>
+
+                <div class="mt-6 flex justify-end gap-3">
+                    <button onclick="regenerateCommandLines()" class="px-4 py-2 bg-orange-600 text-white rounded-md hover:bg-orange-700 transition-colors">
+                        🔄 Regenerate
+                    </button>
+                    <button onclick="closeCommandLinesModal()" class="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 transition-colors">
+                        Close
+                    </button>
+                </div>
+            </div>
+        `;
+
+        document.body.appendChild(modal);
+        window.latestCommandLines = { command_lines: commandLines, metadata };
+    }
+
+    function closeCommandLinesModal() {
+        const modal = document.getElementById('commandLinesModal');
+        if (modal) {
+            modal.remove();
+        }
+        if (commandLinesEscHandler) {
+            document.removeEventListener('keydown', commandLinesEscHandler);
+            commandLinesEscHandler = null;
+        }
+    }
     
     async function detectOS() {
         closeAIAssistantModal();
@@ -7760,6 +7934,11 @@ ${JSON.stringify(rule.logsource, null, 2)}
         // Call generateAIAnalysis with force regeneration and LLM validation setting
         generateAIAnalysis('iocs', true, useLLMValidation);
     }
+
+    function regenerateCommandLines() {
+        closeCommandLinesModal();
+        generateAIAnalysis('cmdlines', true);
+    }
     
     function regenerateGPT4oRanking() {
         // Close current modal
@@ -7986,6 +8165,82 @@ ${JSON.stringify(rule.logsource, null, 2)}
                     })
                     .catch(error => {
                         console.error('Error fetching article data for IOCs:', error);
+                    });
+            }
+        } else if (hash === 'cmdlines') {
+            console.log('Processing cmdlines hash...');
+
+            const currentArticleId = window.location.pathname.split('/').pop();
+            const templateArticleId = {{ article.id }};
+
+            if (currentArticleId == templateArticleId) {
+                const hasCmdlines = {{ 'true' if article.article_metadata and article.article_metadata.get('extracted_command_lines') else 'false' }};
+                console.log('Has cmdlines (template):', hasCmdlines);
+
+                if (hasCmdlines) {
+                    const cmdlineData = {{ article.article_metadata.get('extracted_command_lines') | tojson if article.article_metadata and article.article_metadata.get('extracted_command_lines') else 'null' }};
+                    console.log('Command lines data (template):', cmdlineData);
+
+                    if (cmdlineData) {
+                        console.log('Auto-opening Command Lines modal from URL fragment (template)');
+                        setTimeout(() => showCommandLinesModal(cmdlineData.command_lines, cmdlineData), 500);
+                    }
+                } else {
+                    console.log('No command lines found in template data');
+                }
+            } else {
+                console.log('Different article, fetching command line data via API...');
+                fetch(`/api/articles/${currentArticleId}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        console.log('Fetched article data for command lines:', data);
+                        if (data.article_metadata && data.article_metadata.extracted_command_lines) {
+                            console.log('Auto-opening Command Lines modal from URL fragment (API)');
+                            setTimeout(() => showCommandLinesModal(data.article_metadata.extracted_command_lines.command_lines, data.article_metadata.extracted_command_lines), 500);
+                        } else {
+                            console.log('No command lines found for this article');
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error fetching article data for command lines:', error);
+                    });
+            }
+        } else if (hash === 'cmdlines') {
+            console.log('Processing cmdlines hash...');
+
+            const currentArticleId = window.location.pathname.split('/').pop();
+            const templateArticleId = {{ article.id }};
+
+            if (currentArticleId == templateArticleId) {
+                const hasCmdlines = {{ 'true' if article.article_metadata and article.article_metadata.get('extracted_command_lines') else 'false' }};
+                console.log('Has cmdlines (template):', hasCmdlines);
+
+                if (hasCmdlines) {
+                    const cmdlineData = {{ article.article_metadata.get('extracted_command_lines') | tojson if article.article_metadata and article.article_metadata.get('extracted_command_lines') else 'null' }};
+                    console.log('Command lines data (template):', cmdlineData);
+
+                    if (cmdlineData) {
+                        console.log('Auto-opening Command Lines modal from URL fragment (template)');
+                        setTimeout(() => showCommandLinesModal(cmdlineData.command_lines, cmdlineData), 500);
+                    }
+                } else {
+                    console.log('No command lines found in template data');
+                }
+            } else {
+                console.log('Different article, fetching command line data via API...');
+                fetch(`/api/articles/${currentArticleId}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        console.log('Fetched article data for command lines:', data);
+                        if (data.article_metadata && data.article_metadata.extracted_command_lines) {
+                            console.log('Auto-opening Command Lines modal from URL fragment (API)');
+                            setTimeout(() => showCommandLinesModal(data.article_metadata.extracted_command_lines.command_lines, data.article_metadata.extracted_command_lines), 500);
+                        } else {
+                            console.log('No command lines found for this article');
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error fetching article data for command lines:', error);
                     });
             }
         } else if (hash === 'ranking') {

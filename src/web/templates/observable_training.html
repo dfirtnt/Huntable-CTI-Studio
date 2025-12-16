@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Observable Extractor Training - Huntable Detection Studio{% endblock %}
+{% block title %}Observable Extractor Training - Huntable CTI Studio{% endblock %}
 
 {% block content %}
 <div class="container mx-auto px-4 py-8">
@@ -86,7 +86,7 @@
         <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-4">
             <div>
                 <h2 class="text-xl font-semibold text-gray-900 dark:text-white">🎯 <span id="trainingTypeLabel">CMD</span> Extractor Retraining</h2>
-                <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">Retrain the deterministic extractor using the latest annotations for this observable.</p>
+                <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">Export training dataset and train a model using unused 'train' annotations (excludes gold/eval).</p>
             </div>
             <div class="flex gap-3">
                 <button id="trainObservableBtn" class="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500">Retrain Extractor</button>
@@ -119,6 +119,65 @@
                     </tr>
                 </tbody>
             </table>
+        </div>
+    </div>
+
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+        <div class="flex items-center justify-between mb-4">
+            <h2 class="text-xl font-semibold text-gray-900 dark:text-white">📝 CMD Annotations Management</h2>
+            <button id="refreshAnnotationsBtn" class="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500 text-sm">Refresh</button>
+        </div>
+        <div class="mb-4 flex gap-4">
+            <label class="flex items-center gap-2">
+                <input type="checkbox" id="filterUnusedOnly" class="rounded">
+                <span class="text-sm text-gray-600 dark:text-gray-400">Show unused only</span>
+            </label>
+            <label class="flex items-center gap-2">
+                <select id="filterUsage" class="rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 px-2 py-1 text-sm">
+                    <option value="">All usage</option>
+                    <option value="train">Train</option>
+                    <option value="eval">Eval</option>
+                    <option value="gold">Gold</option>
+                </select>
+            </label>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700" id="annotationsTable">
+                <thead class="bg-gray-50 dark:bg-gray-900">
+                    <tr>
+                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">ID</th>
+                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Article</th>
+                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Text Preview</th>
+                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Length</th>
+                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Usage</th>
+                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Used</th>
+                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700" id="annotationsTableBody">
+                    <tr>
+                        <td colspan="7" class="px-4 py-4 text-center text-gray-500 dark:text-gray-400">Loading annotations…</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        <div class="mt-4 text-sm text-gray-600 dark:text-gray-400" id="annotationsPagination">
+            <span id="annotationsCount">-</span> annotations
+        </div>
+    </div>
+
+    <!-- Observable Extraction Evaluation Metrics -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-8">
+        <div class="flex items-center justify-between mb-4">
+            <h2 class="text-xl font-semibold text-gray-900 dark:text-white">🎯 Observable Extraction Evaluation</h2>
+            <button id="runObservableEvaluationBtn" 
+                    class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                Run Evaluation
+            </button>
+        </div>
+        
+        <div id="observableMetricsContainer">
+            <p class="text-gray-600 dark:text-gray-400">Loading observable metrics...</p>
         </div>
     </div>
 </div>
@@ -256,14 +315,28 @@
             const data = await response.json();
 
             if (data.mode === "sync") {
-                alertBox.textContent = `Training completed synchronously. Processed ${data.result?.processed_count || 0} annotations.`;
+                const processed = data.result?.processed_count || 0;
+                const modelTraining = data.result?.model_training;
+                let message = `Dataset export completed. Processed ${processed} annotations.`;
+                if (modelTraining?.success) {
+                    message += ` Model training completed: ${modelTraining.model_path}`;
+                    alertBox.className = "mt-4 p-3 rounded-md bg-green-50 text-green-800 border border-green-200 dark:bg-green-900 dark:text-green-100 dark:border-green-700";
+                } else if (modelTraining && !modelTraining.success) {
+                    message += ` Model training failed: ${modelTraining.error || 'Unknown error'}`;
+                    alertBox.className = "mt-4 p-3 rounded-md bg-red-50 text-red-800 border border-red-200 dark:bg-red-900 dark:text-red-100 dark:border-red-700";
+                } else {
+                    alertBox.className = "mt-4 p-3 rounded-md bg-blue-50 text-blue-800 border border-blue-200 dark:bg-blue-900 dark:text-blue-100 dark:border-blue-700";
+                }
+                alertBox.textContent = message;
                 alertBox.classList.remove("hidden");
             } else {
-                alertBox.textContent = `Training task submitted. Track progress via task ID ${data.task_id}.`;
+                alertBox.textContent = `Training task submitted (dataset export + model training). Track progress via task ID ${data.task_id}.`;
                 alertBox.classList.remove("hidden");
             }
 
-            status.textContent = "Training request submitted.";
+            status.textContent = data.train_model !== false 
+                ? "Training request submitted (dataset + model training)..." 
+                : "Training request submitted (dataset only)...";
             fetchObservableSummary();
         } catch (error) {
             status.textContent = "Failed to submit training.";
@@ -315,11 +388,456 @@
         totalElement.classList.add(textClass);
     }
 
+    // Annotation management
+    let currentAnnotations = [];
+    let editingAnnotationId = null;
+
+    async function fetchAnnotations() {
+        try {
+            const unusedOnly = document.getElementById("filterUnusedOnly")?.checked || false;
+            const usageFilter = document.getElementById("filterUsage")?.value || "";
+            
+            const params = new URLSearchParams({
+                annotation_type: "CMD",
+                limit: "100"
+            });
+            if (unusedOnly) {
+                params.append("used_for_training", "false");
+            }
+            if (usageFilter) {
+                params.append("usage", usageFilter);
+            }
+            
+            const response = await fetch(`/api/annotations?${params}`);
+            if (!response.ok) throw new Error("Failed to load annotations");
+            const data = await response.json();
+            currentAnnotations = data.annotations || [];
+            renderAnnotationsTable();
+            document.getElementById("annotationsCount").textContent = data.total || 0;
+        } catch (error) {
+            showNotification(`Failed to load annotations: ${error.message}`, "error");
+        }
+    }
+
+    function renderAnnotationsTable() {
+        const tbody = document.getElementById("annotationsTableBody");
+        if (!tbody) return;
+        
+        if (currentAnnotations.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="7" class="px-4 py-4 text-center text-gray-500 dark:text-gray-400">No annotations found</td></tr>';
+            return;
+        }
+        
+        tbody.innerHTML = currentAnnotations.map(ann => {
+            const textPreview = ann.selected_text.length > 80 
+                ? ann.selected_text.substring(0, 80) + "..." 
+                : ann.selected_text;
+            const usageBadge = ann.usage === "train" ? "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200" :
+                              ann.usage === "eval" ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200" :
+                              "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200";
+            
+            return `
+                <tr class="hover:bg-gray-50 dark:hover:bg-gray-700">
+                    <td class="px-4 py-2 text-sm text-gray-900 dark:text-gray-100">${ann.id}</td>
+                    <td class="px-4 py-2 text-sm text-gray-900 dark:text-gray-100">
+                        <a href="/articles/${ann.article_id}" class="text-blue-600 dark:text-blue-400 hover:underline">${ann.article_id}</a>
+                    </td>
+                    <td class="px-4 py-2 text-sm text-gray-900 dark:text-gray-100 font-mono text-xs">${escapeHtml(textPreview)}</td>
+                    <td class="px-4 py-2 text-sm text-gray-900 dark:text-gray-100">${ann.selected_text.length}</td>
+                    <td class="px-4 py-2 text-sm">
+                        <span class="px-2 py-1 rounded text-xs font-medium ${usageBadge}">${ann.usage}</span>
+                    </td>
+                    <td class="px-4 py-2 text-sm text-gray-900 dark:text-gray-100">${ann.used_for_training ? "✓" : "✗"}</td>
+                    <td class="px-4 py-2 text-sm">
+                        <button onclick="viewAnnotation(${ann.id})" class="text-blue-600 dark:text-blue-400 hover:underline mr-2">View</button>
+                        <button onclick="editAnnotation(${ann.id})" class="text-green-600 dark:text-green-400 hover:underline mr-2">Edit</button>
+                        <button onclick="deleteAnnotation(${ann.id})" class="text-red-600 dark:text-red-400 hover:underline">Delete</button>
+                    </td>
+                </tr>
+            `;
+        }).join("");
+    }
+
+    function escapeHtml(text) {
+        const div = document.createElement("div");
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    async function viewAnnotation(id) {
+        const ann = currentAnnotations.find(a => a.id === id);
+        if (!ann) {
+            showNotification("Annotation not found", "error");
+            return;
+        }
+        
+        const modal = document.createElement("div");
+        modal.className = "fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50";
+        modal.innerHTML = `
+            <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-6 max-w-3xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+                <h3 class="text-xl font-bold text-gray-900 dark:text-white mb-4">Annotation ${id}</h3>
+                <div class="space-y-3 text-sm">
+                    <div><strong>Article ID:</strong> <a href="/articles/${ann.article_id}" class="text-blue-600 dark:text-blue-400">${ann.article_id}</a></div>
+                    <div><strong>Type:</strong> ${ann.annotation_type}</div>
+                    <div><strong>Usage:</strong> ${ann.usage}</div>
+                    <div><strong>Used for Training:</strong> ${ann.used_for_training ? "Yes" : "No"}</div>
+                    <div><strong>Length:</strong> ${ann.selected_text.length} chars</div>
+                    <div><strong>Start:</strong> ${ann.start_position}</div>
+                    <div><strong>End:</strong> ${ann.end_position}</div>
+                    <div><strong>Context Before:</strong></div>
+                    <div class="bg-gray-100 dark:bg-gray-700 p-3 rounded font-mono text-xs whitespace-pre-wrap mb-3">${ann.context_before ? escapeHtml(ann.context_before) : '<span class="text-gray-400 italic">(empty)</span>'}</div>
+                    <div><strong>Selected Text:</strong></div>
+                    <div class="bg-blue-50 dark:bg-blue-900 p-3 rounded font-mono text-xs whitespace-pre-wrap mb-3 border-2 border-blue-300 dark:border-blue-700">${escapeHtml(ann.selected_text)}</div>
+                    <div><strong>Context After:</strong></div>
+                    <div class="bg-gray-100 dark:bg-gray-700 p-3 rounded font-mono text-xs whitespace-pre-wrap">${ann.context_after ? escapeHtml(ann.context_after) : '<span class="text-gray-400 italic">(empty)</span>'}</div>
+                </div>
+                <div class="mt-6 flex justify-end">
+                    <button onclick="this.closest('.fixed').remove()" class="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700">Close</button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+        modal.addEventListener("click", (e) => {
+            if (e.target === modal) modal.remove();
+        });
+    }
+
+    async function editAnnotation(id) {
+        const ann = currentAnnotations.find(a => a.id === id);
+        if (!ann) {
+            showNotification("Annotation not found", "error");
+            return;
+        }
+        
+        editingAnnotationId = id;
+        const modal = document.createElement("div");
+        modal.className = "fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50";
+        modal.innerHTML = `
+            <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-6 max-w-3xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+                <h3 class="text-xl font-bold text-gray-900 dark:text-white mb-4">Edit Annotation ${id}</h3>
+                <form id="editAnnotationForm" class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Selected Text</label>
+                        <textarea id="editSelectedText" rows="5" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 font-mono text-sm" required>${escapeHtml(ann.selected_text)}</textarea>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Start Position</label>
+                            <input type="number" id="editStartPosition" value="${ann.start_position}" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100" required>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">End Position</label>
+                            <input type="number" id="editEndPosition" value="${ann.end_position}" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100" required>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Context Before</label>
+                        <textarea id="editContextBefore" rows="4" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 font-mono text-xs whitespace-pre-wrap" placeholder="Text that appears before the selected text">${escapeHtml(ann.context_before || "")}</textarea>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Context After</label>
+                        <textarea id="editContextAfter" rows="4" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 font-mono text-xs whitespace-pre-wrap" placeholder="Text that appears after the selected text">${escapeHtml(ann.context_after || "")}</textarea>
+                    </div>
+                    <div class="flex justify-end gap-3">
+                        <button type="button" onclick="this.closest('.fixed').remove(); editingAnnotationId = null;" class="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700">Cancel</button>
+                        <button type="submit" class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700">Save</button>
+                    </div>
+                </form>
+            </div>
+        `;
+        document.body.appendChild(modal);
+        
+        document.getElementById("editAnnotationForm").addEventListener("submit", async (e) => {
+            e.preventDefault();
+            await saveAnnotationEdit();
+        });
+        
+        modal.addEventListener("click", (e) => {
+            if (e.target === modal) {
+                modal.remove();
+                editingAnnotationId = null;
+            }
+        });
+    }
+
+    async function saveAnnotationEdit() {
+        if (!editingAnnotationId) return;
+        
+        const selectedText = document.getElementById("editSelectedText").value;
+        const startPosition = parseInt(document.getElementById("editStartPosition").value);
+        const endPosition = parseInt(document.getElementById("editEndPosition").value);
+        const contextBefore = document.getElementById("editContextBefore").value;
+        const contextAfter = document.getElementById("editContextAfter").value;
+        
+        try {
+            const response = await fetch(`/api/annotations/${editingAnnotationId}`, {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    selected_text: selectedText,
+                    start_position: startPosition,
+                    end_position: endPosition,
+                    context_before: contextBefore || null,
+                    context_after: contextAfter || null
+                })
+            });
+            
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.detail || "Failed to update annotation");
+            }
+            
+            showNotification("Annotation updated successfully", "success");
+            document.querySelector(".fixed").remove();
+            editingAnnotationId = null;
+            await fetchAnnotations();
+        } catch (error) {
+            showNotification(`Failed to update annotation: ${error.message}`, "error");
+        }
+    }
+
+    async function deleteAnnotation(id) {
+        if (!confirm(`Are you sure you want to delete annotation ${id}? This cannot be undone.`)) {
+            return;
+        }
+        
+        try {
+            const response = await fetch(`/api/annotations/${id}`, {
+                method: "DELETE"
+            });
+            
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.detail || "Failed to delete annotation");
+            }
+            
+            showNotification("Annotation deleted successfully", "success");
+            await fetchAnnotations();
+        } catch (error) {
+            showNotification(`Failed to delete annotation: ${error.message}`, "error");
+        }
+    }
+
+
+    // Observable Evaluation Functions
+    let observableMetrics = null;
+
+    async function loadObservableMetrics() {
+        try {
+            const response = await fetch('/api/observables/evaluation/metrics/aggregated?observable_type=CMD&limit=10');
+            const data = await response.json();
+            if (data.success && data.aggregated) {
+                observableMetrics = data.aggregated;
+                renderObservableMetrics();
+            } else {
+                document.getElementById('observableMetricsContainer').innerHTML = 
+                    '<p class="text-gray-600 dark:text-gray-400">No observable metrics available yet.</p>';
+            }
+        } catch (error) {
+            console.error('Error loading observable metrics:', error);
+            document.getElementById('observableMetricsContainer').innerHTML = 
+                '<p class="text-red-600 dark:text-red-400">Error loading metrics.</p>';
+        }
+    }
+
+    function renderObservableMetrics() {
+        const container = document.getElementById('observableMetricsContainer');
+        if (!observableMetrics || Object.keys(observableMetrics).length === 0) {
+            container.innerHTML = '<p class="text-gray-600 dark:text-gray-400">No observable metrics available yet.</p>';
+            return;
+        }
+
+        let html = '';
+        const versions = Object.keys(observableMetrics).sort().reverse().slice(0, 5); // Latest 5 versions
+
+        for (const version of versions) {
+            const versionData = observableMetrics[version];
+            html += `<div class="mb-6 border-b border-gray-200 dark:border-gray-700 pb-4">`;
+            html += `<h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-3">Model Version: ${version}</h3>`;
+            
+            // Eval Metrics
+            if (versionData.eval && Object.keys(versionData.eval).length > 0) {
+                html += `<div class="mb-4">`;
+                html += `<h4 class="text-md font-medium text-gray-800 dark:text-gray-200 mb-2">📊 Eval Metrics (Learning Performance)</h4>`;
+                html += `<div class="grid grid-cols-2 md:grid-cols-4 gap-3">`;
+                const evalMetrics = versionData.eval;
+                if (evalMetrics.precision !== undefined) {
+                    html += `<div class="bg-blue-50 dark:bg-blue-900/20 p-3 rounded"><div class="text-xs text-gray-600 dark:text-gray-400">Precision</div><div class="text-lg font-bold text-blue-600">${(evalMetrics.precision * 100).toFixed(1)}%</div></div>`;
+                }
+                if (evalMetrics.recall !== undefined) {
+                    html += `<div class="bg-blue-50 dark:bg-blue-900/20 p-3 rounded"><div class="text-xs text-gray-600 dark:text-gray-400">Recall</div><div class="text-lg font-bold text-blue-600">${(evalMetrics.recall * 100).toFixed(1)}%</div></div>`;
+                }
+                if (evalMetrics.f1_score !== undefined) {
+                    html += `<div class="bg-blue-50 dark:bg-blue-900/20 p-3 rounded"><div class="text-xs text-gray-600 dark:text-gray-400">F1 Score</div><div class="text-lg font-bold text-blue-600">${(evalMetrics.f1_score * 100).toFixed(1)}%</div></div>`;
+                }
+                if (evalMetrics.token_overlap_f1 !== undefined) {
+                    html += `<div class="bg-blue-50 dark:bg-blue-900/20 p-3 rounded"><div class="text-xs text-gray-600 dark:text-gray-400">Token Overlap F1</div><div class="text-lg font-bold text-blue-600">${(evalMetrics.token_overlap_f1 * 100).toFixed(1)}%</div></div>`;
+                }
+                html += `</div></div>`;
+            }
+
+            // Gold Metrics
+            if (versionData.gold && Object.keys(versionData.gold).length > 0) {
+                html += `<div class="mb-4 border-t border-gray-300 dark:border-gray-600 pt-4">`;
+                html += `<h4 class="text-md font-medium text-yellow-600 dark:text-yellow-400 mb-2">⭐ Strict Correctness (Gold)</h4>`;
+                html += `<div class="grid grid-cols-2 md:grid-cols-3 gap-3 mb-3">`;
+                const goldMetrics = versionData.gold;
+                if (goldMetrics.exact_match_rate !== undefined) {
+                    html += `<div class="bg-yellow-50 dark:bg-yellow-900/20 p-3 rounded"><div class="text-xs text-gray-600 dark:text-gray-400">Exact Match %</div><div class="text-lg font-bold text-yellow-600">${(goldMetrics.exact_match_rate * 100).toFixed(1)}%</div></div>`;
+                }
+                if (goldMetrics.zero_fp_pass_rate !== undefined) {
+                    html += `<div class="bg-yellow-50 dark:bg-yellow-900/20 p-3 rounded"><div class="text-xs text-gray-600 dark:text-gray-400">Zero-FP Pass %</div><div class="text-lg font-bold text-yellow-600">${(goldMetrics.zero_fp_pass_rate * 100).toFixed(1)}%</div></div>`;
+                }
+                if (goldMetrics.over_extraction_rate !== undefined) {
+                    html += `<div class="bg-yellow-50 dark:bg-yellow-900/20 p-3 rounded"><div class="text-xs text-gray-600 dark:text-gray-400">Over-Extraction %</div><div class="text-lg font-bold text-yellow-600">${(goldMetrics.over_extraction_rate * 100).toFixed(1)}%</div></div>`;
+                }
+                if (goldMetrics.under_extraction_rate !== undefined) {
+                    html += `<div class="bg-yellow-50 dark:bg-yellow-900/20 p-3 rounded"><div class="text-xs text-gray-600 dark:text-gray-400">Under-Extraction %</div><div class="text-lg font-bold text-yellow-600">${(goldMetrics.under_extraction_rate * 100).toFixed(1)}%</div></div>`;
+                }
+                if (goldMetrics.hallucination_rate !== undefined) {
+                    html += `<div class="bg-yellow-50 dark:bg-yellow-900/20 p-3 rounded"><div class="text-xs text-gray-600 dark:text-gray-400">Hallucination %</div><div class="text-lg font-bold text-yellow-600">${(goldMetrics.hallucination_rate * 100).toFixed(1)}%</div></div>`;
+                }
+                html += `</div>`;
+                
+                // Worst-case indicators
+                html += `<div class="mt-3 p-3 bg-red-50 dark:bg-red-900/20 rounded border border-red-200 dark:border-red-800">`;
+                html += `<h5 class="text-sm font-semibold text-red-800 dark:text-red-300 mb-2">⚠️ Worst-Case Indicators</h5>`;
+                html += `<div class="space-y-1 text-sm">`;
+                if (goldMetrics.max_merged_commands_per_article !== undefined) {
+                    html += `<div>Max Merged Commands (single article): <span class="font-bold text-red-600">${goldMetrics.max_merged_commands_per_article}</span></div>`;
+                }
+                if (goldMetrics.articles_failing_zero_fp !== undefined) {
+                    html += `<div>Articles Failing Zero-FP: <span class="font-bold text-red-600">${goldMetrics.articles_failing_zero_fp}</span></div>`;
+                }
+                if (goldMetrics.articles_with_zero_gold !== undefined) {
+                    html += `<div>Articles with Zero Gold (hallucination test): <span class="font-bold text-red-600">${goldMetrics.articles_with_zero_gold}</span></div>`;
+                }
+                html += `</div>`;
+                
+                // Links to failing articles
+                html += `<div class="mt-2">`;
+                html += `<button onclick="loadFailingArticles('${version}')" class="text-xs text-red-600 dark:text-red-400 hover:underline">View Failing Articles →</button>`;
+                html += `</div>`;
+                html += `</div>`;
+            }
+            
+            html += `</div>`;
+        }
+
+        container.innerHTML = html || '<p class="text-gray-600 dark:text-gray-400">No metrics available.</p>';
+    }
+
+    async function runObservableEvaluation() {
+        const btn = document.getElementById('runObservableEvaluationBtn');
+        const originalText = btn.textContent;
+        btn.disabled = true;
+        btn.textContent = 'Running Evaluation...';
+
+        try {
+            // Get latest model version from manifest
+            let modelVersion = null;
+            try {
+                const manifestResponse = await fetch('/api/observables/training/summary');
+                const manifestData = await manifestResponse.json();
+                if (manifestData.success && manifestData.types && manifestData.types.CMD) {
+                    modelVersion = manifestData.types.CMD.active_version;
+                }
+            } catch (e) {
+                console.warn('Could not fetch manifest, using timestamp:', e);
+            }
+            
+            // Fallback to timestamp if no manifest version
+            if (!modelVersion) {
+                modelVersion = new Date().toISOString().replace(/[-:]/g, '').split('.')[0].slice(0, 14);
+            }
+
+            const response = await fetch('/api/observables/evaluation/run', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    model_name: 'CMD',
+                    model_version: modelVersion,
+                    observable_type: 'CMD',
+                    usages: ['eval', 'gold']
+                })
+            });
+
+            const data = await response.json();
+            if (data.success) {
+                showNotification('Evaluation completed successfully!', 'success');
+                await loadObservableMetrics();
+            } else {
+                showNotification('Evaluation failed: ' + (data.detail || 'Unknown error'), 'error');
+            }
+        } catch (error) {
+            console.error('Error running evaluation:', error);
+            showNotification('Error running evaluation: ' + error.message, 'error');
+        } finally {
+            btn.disabled = false;
+            btn.textContent = originalText;
+        }
+    }
+
+    async function loadFailingArticles(version) {
+        try {
+            const response = await fetch(`/api/observables/evaluation/failures?model_version=${version}&observable_type=CMD`);
+            const data = await response.json();
+            if (data.success && data.failures_by_type) {
+                let html = '<div class="mt-4 p-4 bg-gray-50 dark:bg-gray-900 rounded">';
+                html += '<h5 class="font-semibold mb-2">Failing Articles by Failure Type</h5>';
+                for (const [failureType, failures] of Object.entries(data.failures_by_type)) {
+                    html += `<div class="mb-3">`;
+                    html += `<div class="font-medium text-sm mb-1">${failureType.replace(/_/g, ' ').toUpperCase()}: ${failures.length} articles</div>`;
+                    html += `<div class="text-xs space-y-1">`;
+                    for (const failure of failures.slice(0, 10)) {
+                        html += `<div><a href="/articles/${failure.article_id}" target="_blank" class="text-blue-600 dark:text-blue-400 hover:underline">Article ${failure.article_id}</a> (${failure.failure_count} failures)</div>`;
+                    }
+                    if (failures.length > 10) {
+                        html += `<div class="text-gray-500">... and ${failures.length - 10} more</div>`;
+                    }
+                    html += `</div></div>`;
+                }
+                html += '</div>';
+                
+                // Append to container
+                const container = document.getElementById('observableMetricsContainer');
+                container.innerHTML = container.innerHTML + html;
+            }
+        } catch (error) {
+            console.error('Error loading failing articles:', error);
+            showNotification('Error loading failing articles: ' + error.message, 'error');
+        }
+    }
+
+    function showNotification(message, type = 'info') {
+        // Simple notification - you can enhance this with a toast library
+        const alertClass = type === 'error' ? 'bg-red-50 text-red-800 border-red-200 dark:bg-red-900 dark:text-red-100 dark:border-red-700' :
+                         type === 'success' ? 'bg-green-50 text-green-800 border-green-200 dark:bg-green-900 dark:text-green-100 dark:border-green-700' :
+                         'bg-blue-50 text-blue-800 border-blue-200 dark:bg-blue-900 dark:text-blue-100 dark:border-blue-700';
+        
+        const notification = document.createElement('div');
+        notification.className = `fixed top-4 right-4 p-4 rounded-lg border ${alertClass} z-50 shadow-lg`;
+        notification.textContent = message;
+        document.body.appendChild(notification);
+        
+        setTimeout(() => {
+            notification.remove();
+        }, 5000);
+    }
+
     document.addEventListener("DOMContentLoaded", () => {
         fetchObservableSummary();
+        fetchAnnotations();
+        loadObservableMetrics(); // Load metrics on page load
 
         document.getElementById("trainObservableBtn").addEventListener("click", triggerTraining);
         document.getElementById("refreshSummaryBtn").addEventListener("click", fetchObservableSummary);
+        document.getElementById("refreshAnnotationsBtn")?.addEventListener("click", fetchAnnotations);
+        document.getElementById("filterUnusedOnly")?.addEventListener("change", fetchAnnotations);
+        document.getElementById("filterUsage")?.addEventListener("change", fetchAnnotations);
+        document.getElementById("runObservableEvaluationBtn")?.addEventListener("click", runObservableEvaluation);
         document.querySelectorAll("#observableTypeButtons [data-observable-type]").forEach(btn => {
             btn.addEventListener("click", () => changeObservableType(btn.dataset.observableType));
         });

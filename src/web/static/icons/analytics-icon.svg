@@ -1,0 +1,22 @@
+<svg width="160" height="160" viewBox="0 0 160 160" xmlns="http://www.w3.org/2000/svg">
+    <!-- Background circle -->
+    <circle cx="80" cy="80" r="70" fill="#1a1a2e" opacity="0.9"/>
+    
+    <!-- Chart bars -->
+    <rect x="45" y="100" width="18" height="35" fill="#A78BFA" rx="2"/>
+    <rect x="71" y="75" width="18" height="60" fill="#C4B5FD" rx="2"/>
+    <rect x="97" y="50" width="18" height="85" fill="#8B5CF6" rx="2"/>
+    
+    <!-- Grid lines -->
+    <line x1="30" y1="140" x2="130" y2="140" stroke="#8B5CF6" stroke-width="1.5" opacity="0.3"/>
+    <line x1="30" y1="110" x2="130" y2="110" stroke="#8B5CF6" stroke-width="1.5" opacity="0.3"/>
+    <line x1="30" y1="80" x2="130" y2="80" stroke="#8B5CF6" stroke-width="1.5" opacity="0.3"/>
+    
+    <!-- Data points -->
+    <circle cx="54" cy="100" r="3" fill="#ffffff" opacity="0.9"/>
+    <circle cx="80" cy="75" r="3" fill="#ffffff" opacity="0.9"/>
+    <circle cx="106" cy="50" r="3" fill="#ffffff" opacity="0.9"/>
+    
+    <!-- Trend line -->
+    <path d="M 54 100 L 80 75 L 106 50" stroke="#8B5CF6" stroke-width="2.5" fill="none" opacity="0.6" stroke-linecap="round"/>
+</svg>

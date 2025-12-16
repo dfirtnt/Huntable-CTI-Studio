@@ -189,6 +189,63 @@ async def get_annotation_types():
     return {"success": True, "modes": ANNOTATION_MODE_TYPES}
 
 
+@router.get("/api/annotations")
+async def list_annotations(
+    annotation_type: str | None = None,
+    usage: str | None = None,
+    used_for_training: bool | None = None,
+    limit: int = 100,
+    offset: int = 0,
+):
+    """List annotations with optional filters."""
+    try:
+        from sqlalchemy import select, func
+        from src.database.models import ArticleAnnotationTable
+
+        async with async_db_manager.get_session() as session:
+            query = select(ArticleAnnotationTable)
+            
+            if annotation_type:
+                query = query.where(ArticleAnnotationTable.annotation_type == annotation_type)
+            if usage:
+                query = query.where(ArticleAnnotationTable.usage == usage)
+            if used_for_training is not None:
+                query = query.where(ArticleAnnotationTable.used_for_training == used_for_training)
+            
+            query = query.order_by(ArticleAnnotationTable.id.desc()).limit(limit).offset(offset)
+            
+            result = await session.execute(query)
+            db_annotations = result.scalars().all()
+            
+            annotations = [
+                async_db_manager._db_annotation_to_model(ann) for ann in db_annotations
+            ]
+            
+            # Get total count
+            count_query = select(func.count(ArticleAnnotationTable.id))
+            if annotation_type:
+                count_query = count_query.where(ArticleAnnotationTable.annotation_type == annotation_type)
+            if usage:
+                count_query = count_query.where(ArticleAnnotationTable.usage == usage)
+            if used_for_training is not None:
+                count_query = count_query.where(ArticleAnnotationTable.used_for_training == used_for_training)
+            
+            count_result = await session.execute(count_query)
+            total = count_result.scalar()
+            
+            return {
+                "success": True,
+                "annotations": annotations,
+                "total": total,
+                "limit": limit,
+                "offset": offset,
+            }
+
+    except Exception as exc:  # noqa: BLE001
+        logger.error("Failed to list annotations: %s", exc)
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
 @router.get("/api/annotations/{annotation_id}")
 async def get_annotation(annotation_id: int):
     """Get a specific annotation by ID."""

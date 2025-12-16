@@ -629,3 +629,57 @@ class AgentEvaluationTable(Base):
     
     def __repr__(self):
         return f"<AgentEvaluation(id={self.id}, agent_name='{self.agent_name}', evaluation_type='{self.evaluation_type}')>"
+
+
+class ObservableModelMetricsTable(Base):
+    """Database table for observable extraction model metrics (eval and gold)."""
+    
+    __tablename__ = 'observable_model_metrics'
+    
+    id = Column(Integer, primary_key=True, index=True)
+    model_name = Column(String(255), nullable=False, index=True)
+    model_version = Column(String(255), nullable=False, index=True)
+    observable_type = Column(String(50), nullable=False, index=True)
+    dataset_usage = Column(Enum("eval", "gold", name="dataset_usage"), nullable=False, index=True)
+    metric_name = Column(String(100), nullable=False, index=True)
+    metric_value = Column(Float, nullable=False)
+    sample_count = Column(Integer, nullable=False)
+    computed_at = Column(DateTime, nullable=False, default=func.now(), index=True)
+    
+    # Composite index for efficient queries
+    __table_args__ = (
+        {'postgresql_partition_by': 'RANGE (computed_at)'} if False else None,  # Placeholder for future partitioning
+    )
+    
+    def __repr__(self):
+        return f"<ObservableModelMetrics(id={self.id}, model='{self.model_name}', version='{self.model_version}', type='{self.observable_type}', usage='{self.dataset_usage}', metric='{self.metric_name}')>"
+
+
+class ObservableEvaluationFailureTable(Base):
+    """Database table for storing failure taxonomy per article during gold evaluation."""
+    
+    __tablename__ = 'observable_evaluation_failures'
+    
+    id = Column(Integer, primary_key=True, index=True)
+    model_name = Column(String(255), nullable=False, index=True)
+    model_version = Column(String(255), nullable=False, index=True)
+    observable_type = Column(String(50), nullable=False, index=True)
+    article_id = Column(Integer, ForeignKey('articles.id'), nullable=False, index=True)
+    
+    # Failure categories
+    failure_type = Column(String(50), nullable=False, index=True)  # merged_commands, truncated_span, argument_hallucination, context_bleed, etc.
+    failure_count = Column(Integer, nullable=False, default=0)
+    failure_details = Column(JSON, nullable=True)  # Store specific examples, spans, etc.
+    
+    # Article-level flags
+    zero_fp_pass = Column(Boolean, nullable=False, default=True)  # True if article passed zero-FP check
+    total_predictions = Column(Integer, nullable=False, default=0)
+    total_gold_spans = Column(Integer, nullable=False, default=0)
+    
+    computed_at = Column(DateTime, nullable=False, default=func.now(), index=True)
+    
+    # Relationships
+    article = relationship("ArticleTable", backref="observable_evaluation_failures")
+    
+    def __repr__(self):
+        return f"<ObservableEvaluationFailure(id={self.id}, model='{self.model_name}', version='{self.model_version}', article_id={self.article_id}, failure_type='{self.failure_type}')>"
