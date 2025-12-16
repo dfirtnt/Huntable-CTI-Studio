@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- **Fixed Navigation Bar**: Top navigation bar is now fixed/sticky and remains visible when scrolling down pages.
+
 - **Complete Icon System Redesign**: Replaced all emoji icons with custom SVG icons matching a cohesive design system
   - **Brand Logo**: H monogram with shield outline and crosshair elements (38px in nav, deep navy background #1a1a2e)
   - **Navigation Icons**: Created 7 custom icons (Articles, Sources, Analytics, MLOps, Diags, Agents, Settings) at 23px

@@ -1034,6 +1034,19 @@ class LLMService:
                                 await client.aclose()
                             except:
                                 pass
+                            
+                            # Check for common errors that indicate LMStudio isn't ready
+                            error_lower = error_message.lower()
+                            if (
+                                "context length" in error_lower
+                                or "model" in error_lower and "not loaded" in error_lower
+                                or "no model" in error_lower
+                            ):
+                                raise RuntimeError(
+                                    f"{failure_context}: LMStudio is not ready. "
+                                    f"Please ensure LMStudio is running and a model is loaded."
+                                )
+                            
                             raise RuntimeError(
                                 f"{failure_context}: Invalid request to LMStudio. "
                                 f"Status {response.status_code}: {error_message}. "
