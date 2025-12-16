@@ -375,6 +375,115 @@
         
         // Set active nav item on page load
         document.addEventListener('DOMContentLoaded', setActiveNavItem);
+        
+        /**
+         * Global Collapsible Panel System
+         * Makes entire panel header clickable, with proper accessibility support.
+         * 
+         * Usage: Add data-collapsible-panel="panelId" to the header element.
+         *        The content element should have id="panelId-content".
+         *        The toggle icon should have id="panelId-toggle".
+         * 
+         * Call initCollapsiblePanels() after dynamically adding panels.
+         */
+        function initCollapsiblePanels(container = document) {
+            container.querySelectorAll('[data-collapsible-panel]:not([data-collapsible-initialized])').forEach(header => {
+                const panelId = header.dataset.collapsiblePanel;
+                const content = document.getElementById(`${panelId}-content`);
+                const toggle = document.getElementById(`${panelId}-toggle`);
+                
+                if (!content) return;
+                
+                // Mark as initialized to prevent duplicate handlers
+                header.setAttribute('data-collapsible-initialized', 'true');
+                
+                // Set up accessibility attributes
+                header.setAttribute('role', 'button');
+                header.setAttribute('tabindex', '0');
+                header.setAttribute('aria-controls', `${panelId}-content`);
+                header.style.cursor = 'pointer';
+                
+                // Mark toggle icon as decorative
+                if (toggle) {
+                    toggle.setAttribute('aria-hidden', 'true');
+                }
+                
+                const updateState = () => {
+                    const isExpanded = !content.classList.contains('hidden');
+                    header.setAttribute('aria-expanded', isExpanded ? 'true' : 'false');
+                };
+                
+                const togglePanel = (e) => {
+                    // Don't toggle if clicking on interactive elements inside header
+                    const target = e.target;
+                    if (target.closest('button:not([data-collapsible-panel])') ||
+                        target.closest('a') ||
+                        target.closest('input') ||
+                        target.closest('select') ||
+                        target.closest('textarea') ||
+                        target.closest('label')) {
+                        return;
+                    }
+                    
+                    const isHidden = content.classList.contains('hidden');
+                    content.classList.toggle('hidden', !isHidden);
+                    
+                    if (toggle) {
+                        // Handle SVG rotation or text-based toggles
+                        if (toggle.tagName === 'svg' || toggle.querySelector('svg')) {
+                            const svg = toggle.tagName === 'svg' ? toggle : toggle.querySelector('svg');
+                            svg.style.transform = isHidden ? 'rotate(180deg)' : 'rotate(0deg)';
+                        } else {
+                            toggle.textContent = isHidden ? '▲' : '▼';
+                        }
+                    }
+                    
+                    updateState();
+                };
+                
+                // Click handler
+                header.addEventListener('click', togglePanel);
+                
+                // Keyboard handler (Enter and Space)
+                header.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        togglePanel(e);
+                    }
+                });
+                
+                // Set initial state
+                updateState();
+            });
+        }
+        
+        // Legacy support: toggleCollapsible function for onclick handlers
+        function toggleCollapsible(panelId) {
+            const content = document.getElementById(`${panelId}-content`);
+            const toggle = document.getElementById(`${panelId}-toggle`);
+            const header = document.querySelector(`[data-collapsible-panel="${panelId}"]`);
+            
+            if (content) {
+                const isHidden = content.classList.contains('hidden');
+                content.classList.toggle('hidden', !isHidden);
+                
+                if (toggle) {
+                    if (toggle.tagName === 'svg' || toggle.querySelector('svg')) {
+                        const svg = toggle.tagName === 'svg' ? toggle : toggle.querySelector('svg');
+                        svg.style.transform = isHidden ? 'rotate(180deg)' : 'rotate(0deg)';
+                    } else {
+                        toggle.textContent = isHidden ? '▲' : '▼';
+                    }
+                }
+                
+                if (header) {
+                    header.setAttribute('aria-expanded', isHidden ? 'true' : 'false');
+                }
+            }
+        }
+        
+        // Initialize collapsible panels on DOM ready
+        document.addEventListener('DOMContentLoaded', () => initCollapsiblePanels());
     </script>
 
     {% block scripts %}{% endblock %}

@@ -83,12 +83,12 @@
             <form id="workflowConfigForm" class="space-y-6">
                 <!-- Other Thresholds -->
                 <div class="border border-gray-200 dark:border-gray-700 rounded-lg">
-                    <button type="button" onclick="toggleCollapsible('other-thresholds-panel')" class="w-full flex items-center justify-between p-4 text-left hover:bg-gray-50 dark:hover:bg-gray-700 rounded-t-lg transition-colors">
+                    <div data-collapsible-panel="other-thresholds-panel" class="w-full flex items-center justify-between p-4 text-left hover:bg-gray-50 dark:hover:bg-gray-700 rounded-t-lg transition-colors cursor-pointer">
                         <div class="flex items-center gap-3">
                             <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Junk Filter</h3>
                         </div>
-                        <span id="other-thresholds-panel-toggle" class="text-gray-700 dark:text-gray-200 text-lg font-medium transform transition-transform">▼</span>
-                    </button>
+                        <span id="other-thresholds-panel-toggle" class="text-gray-700 dark:text-gray-200 text-lg font-medium transform transition-transform" aria-hidden="true">▼</span>
+                    </div>
                     <div id="other-thresholds-panel-content" class="hidden p-4 border-t border-gray-200 dark:border-gray-700 space-y-4">
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <!-- Junk Filter Threshold -->
@@ -122,12 +122,12 @@
 
                 <!-- QA Settings Panel -->
                 <div class="border border-gray-200 dark:border-gray-700 rounded-lg">
-                    <button type="button" onclick="toggleCollapsible('qa-settings-panel')" class="w-full flex items-center justify-between p-4 text-left hover:bg-gray-50 dark:hover:bg-gray-700 rounded-t-lg transition-colors">
+                    <div data-collapsible-panel="qa-settings-panel" class="w-full flex items-center justify-between p-4 text-left hover:bg-gray-50 dark:hover:bg-gray-700 rounded-t-lg transition-colors cursor-pointer">
                         <div class="flex items-center gap-3">
                             <h3 class="text-lg font-semibold text-gray-900 dark:text-white">QA Settings</h3>
                         </div>
-                        <span id="qa-settings-panel-toggle" class="text-gray-700 dark:text-gray-200 text-lg font-medium transform transition-transform">▼</span>
-                    </button>
+                        <span id="qa-settings-panel-toggle" class="text-gray-700 dark:text-gray-200 text-lg font-medium transform transition-transform" aria-hidden="true">▼</span>
+                    </div>
                     <div id="qa-settings-panel-content" class="hidden p-4 border-t border-gray-200 dark:border-gray-700 space-y-4">
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <!-- QA Max Retries -->
@@ -161,12 +161,12 @@
 
                 <!-- OS Detection Agent Panel -->
                 <div class="border border-gray-200 dark:border-gray-700 rounded-lg">
-                    <button type="button" onclick="toggleCollapsible('os-detection-panel')" class="w-full flex items-center justify-between p-4 text-left hover:bg-gray-50 dark:hover:bg-gray-700 rounded-t-lg transition-colors">
+                    <div data-collapsible-panel="os-detection-panel" class="w-full flex items-center justify-between p-4 text-left hover:bg-gray-50 dark:hover:bg-gray-700 rounded-t-lg transition-colors cursor-pointer">
                         <div class="flex items-center gap-3">
                             <h3 class="text-lg font-semibold text-gray-900 dark:text-white">OS Detection Agent</h3>
                         </div>
-                        <span id="os-detection-panel-toggle" class="text-gray-700 dark:text-gray-200 text-lg font-medium transform transition-transform">▼</span>
-                    </button>
+                        <span id="os-detection-panel-toggle" class="text-gray-700 dark:text-gray-200 text-lg font-medium transform transition-transform" aria-hidden="true">▼</span>
+                    </div>
                     <div id="os-detection-panel-content" class="hidden p-4 border-t border-gray-200 dark:border-gray-700 space-y-4">
                         <!-- OS Detection Agent Model -->
                         <div id="os-detection-model-container"></div>
@@ -177,13 +177,13 @@
 
                 <!-- Rank Agent Configs Panel -->
                 <div class="border border-gray-200 dark:border-gray-700 rounded-lg">
-                    <button type="button" onclick="toggleCollapsible('rank-agent-configs-panel')" class="w-full flex items-center justify-between p-4 text-left hover:bg-gray-50 dark:hover:bg-gray-700 rounded-t-lg transition-colors">
+                    <div data-collapsible-panel="rank-agent-configs-panel" class="w-full flex items-center justify-between p-4 text-left hover:bg-gray-50 dark:hover:bg-gray-700 rounded-t-lg transition-colors cursor-pointer">
                         <div class="flex items-center gap-3">
                             <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Rank Agent Configs</h3>
                             <span id="rank-agent-qa-badge" class="px-2 py-1 text-xs rounded-full bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300">QA: OFF</span>
                         </div>
-                        <span id="rank-agent-configs-panel-toggle" class="text-gray-700 dark:text-gray-200 text-lg font-medium transform transition-transform">▼</span>
-                    </button>
+                        <span id="rank-agent-configs-panel-toggle" class="text-gray-700 dark:text-gray-200 text-lg font-medium transform transition-transform" aria-hidden="true">▼</span>
+                    </div>
                     <div id="rank-agent-configs-panel-content" class="hidden p-4 border-t border-gray-200 dark:border-gray-700 space-y-4">
                         <!-- Rank Agent Model -->
                         <div>
@@ -318,13 +318,13 @@
 
                 <!-- Extract Agent Panel -->
                 <div class="border border-gray-200 dark:border-gray-700 rounded-lg">
-                    <button type="button" onclick="toggleCollapsible('extract-agent-panel')" class="w-full flex items-center justify-between p-4 text-left hover:bg-gray-50 dark:hover:bg-gray-700 rounded-t-lg transition-colors">
+                    <div data-collapsible-panel="extract-agent-panel" class="w-full flex items-center justify-between p-4 text-left hover:bg-gray-50 dark:hover:bg-gray-700 rounded-t-lg transition-colors cursor-pointer">
                         <div class="flex items-center gap-3">
                             <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Extract Agent</h3>
                             <span class="px-2 py-1 text-xs rounded-full bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300 font-medium">Supervisor</span>
                         </div>
-                        <span id="extract-agent-panel-toggle" class="text-gray-700 dark:text-gray-200 text-lg font-medium transform transition-transform">▼</span>
-                    </button>
+                        <span id="extract-agent-panel-toggle" class="text-gray-700 dark:text-gray-200 text-lg font-medium transform transition-transform" aria-hidden="true">▼</span>
+                    </div>
                     <div id="extract-agent-panel-content" class="hidden p-4 border-t border-gray-200 dark:border-gray-700 space-y-4">
                         <!-- Extract Agent Model -->
                         <div id="extract-agent-model-container"></div>
@@ -342,14 +342,14 @@
                             <div class="space-y-3">
                                 <!-- CmdlineExtract Sub-Agent Panel -->
                                 <div class="border border-gray-200 dark:border-gray-700 rounded-lg ml-4">
-                                    <button id="cmdlineextract-panel-btn" type="button" onclick="toggleCollapsible('cmdlineextract-agent-panel')" class="w-full flex items-center justify-between p-3 text-left hover:bg-gray-50 dark:hover:bg-gray-700 rounded-t-lg transition-colors">
+                                    <div id="cmdlineextract-panel-btn" data-collapsible-panel="cmdlineextract-agent-panel" class="w-full flex items-center justify-between p-3 text-left hover:bg-gray-50 dark:hover:bg-gray-700 rounded-t-lg transition-colors cursor-pointer">
                                         <div class="flex items-center gap-3">
                                             <h4 class="text-sm font-semibold text-gray-900 dark:text-white">CmdlineExtract (Command Line Extraction)</h4>
                                             <span id="cmdlineextract-agent-enabled-pill" class="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">Enabled</span>
                                             <span id="cmdlineextract-agent-qa-badge" class="px-2 py-1 text-xs rounded-full bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300">QA: OFF</span>
                                         </div>
-                                        <span id="cmdlineextract-agent-panel-toggle" class="text-gray-700 dark:text-gray-200 text-sm font-medium transform transition-transform">▼</span>
-                                    </button>
+                                        <span id="cmdlineextract-agent-panel-toggle" class="text-gray-700 dark:text-gray-200 text-sm font-medium transform transition-transform" aria-hidden="true">▼</span>
+                                    </div>
                                     <div id="cmdlineextract-agent-panel-content" class="hidden p-3 border-t border-gray-200 dark:border-gray-700 space-y-3">
                                         <!-- Enable/Disable Toggle -->
                                         <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-3 border border-gray-200 dark:border-gray-700">
@@ -496,14 +496,14 @@
 
                                 <!-- SigExtract Sub-Agent Panel -->
                                 <div class="border border-gray-200 dark:border-gray-700 rounded-lg ml-4">
-                                    <button type="button" onclick="toggleCollapsible('sigextract-agent-panel')" class="w-full flex items-center justify-between p-3 text-left hover:bg-gray-50 dark:hover:bg-gray-700 rounded-t-lg transition-colors">
+                                    <div data-collapsible-panel="sigextract-agent-panel" class="w-full flex items-center justify-between p-3 text-left hover:bg-gray-50 dark:hover:bg-gray-700 rounded-t-lg transition-colors cursor-pointer">
                                         <div class="flex items-center gap-3">
                                             <h4 class="text-sm font-semibold text-gray-900 dark:text-white">SigExtract (Query Extraction)</h4>
                                             <span id="sigextract-agent-enabled-pill" class="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">Enabled</span>
                                             <span id="sigextract-agent-qa-badge" class="px-2 py-1 text-xs rounded-full bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300">QA: OFF</span>
                                         </div>
-                                        <span id="sigextract-agent-panel-toggle" class="text-gray-700 dark:text-gray-200 text-sm font-medium transform transition-transform">▼</span>
-                                    </button>
+                                        <span id="sigextract-agent-panel-toggle" class="text-gray-700 dark:text-gray-200 text-sm font-medium transform transition-transform" aria-hidden="true">▼</span>
+                                    </div>
                                     <div id="sigextract-agent-panel-content" class="hidden p-3 border-t border-gray-200 dark:border-gray-700 space-y-3">
                                         <!-- Enable/Disable Toggle -->
                                         <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-3 border border-gray-200 dark:border-gray-700">
@@ -650,14 +650,14 @@
 
                                 <!-- EventCodeExtract Sub-Agent Panel -->
                                 <div class="border border-gray-200 dark:border-gray-700 rounded-lg ml-4">
-                                    <button type="button" onclick="toggleCollapsible('eventcodeextract-agent-panel')" class="w-full flex items-center justify-between p-3 text-left hover:bg-gray-50 dark:hover:bg-gray-700 rounded-t-lg transition-colors">
+                                    <div data-collapsible-panel="eventcodeextract-agent-panel" class="w-full flex items-center justify-between p-3 text-left hover:bg-gray-50 dark:hover:bg-gray-700 rounded-t-lg transition-colors cursor-pointer">
                                         <div class="flex items-center gap-3">
                                             <h4 class="text-sm font-semibold text-gray-900 dark:text-white">EventCodeExtract (Event ID Extraction)</h4>
                                             <span id="eventcodeextract-agent-enabled-pill" class="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">Enabled</span>
                                             <span id="eventcodeextract-agent-qa-badge" class="px-2 py-1 text-xs rounded-full bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300">QA: OFF</span>
                                         </div>
-                                        <span id="eventcodeextract-agent-panel-toggle" class="text-gray-700 dark:text-gray-200 text-sm font-medium transform transition-transform">▼</span>
-                                    </button>
+                                        <span id="eventcodeextract-agent-panel-toggle" class="text-gray-700 dark:text-gray-200 text-sm font-medium transform transition-transform" aria-hidden="true">▼</span>
+                                    </div>
                                     <div id="eventcodeextract-agent-panel-content" class="hidden p-3 border-t border-gray-200 dark:border-gray-700 space-y-3">
                                         <!-- Enable/Disable Toggle -->
                                         <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-3 border border-gray-200 dark:border-gray-700">
@@ -804,14 +804,14 @@
 
                                 <!-- ProcTreeExtract Sub-Agent Panel -->
                                 <div class="border border-gray-200 dark:border-gray-700 rounded-lg ml-4">
-                                    <button type="button" onclick="toggleCollapsible('proctreeextract-agent-panel')" class="w-full flex items-center justify-between p-3 text-left hover:bg-gray-50 dark:hover:bg-gray-700 rounded-t-lg transition-colors">
+                                    <div data-collapsible-panel="proctreeextract-agent-panel" class="w-full flex items-center justify-between p-3 text-left hover:bg-gray-50 dark:hover:bg-gray-700 rounded-t-lg transition-colors cursor-pointer">
                                         <div class="flex items-center gap-3">
                                             <h4 class="text-sm font-semibold text-gray-900 dark:text-white">ProcTreeExtract (Process Lineage)</h4>
                                             <span id="proctreeextract-agent-enabled-pill" class="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">Enabled</span>
                                             <span id="proctreeextract-agent-qa-badge" class="px-2 py-1 text-xs rounded-full bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300">QA: OFF</span>
                                         </div>
-                                        <span id="proctreeextract-agent-panel-toggle" class="text-gray-700 dark:text-gray-200 text-sm font-medium transform transition-transform">▼</span>
-                                    </button>
+                                        <span id="proctreeextract-agent-panel-toggle" class="text-gray-700 dark:text-gray-200 text-sm font-medium transform transition-transform" aria-hidden="true">▼</span>
+                                    </div>
                                     <div id="proctreeextract-agent-panel-content" class="hidden p-3 border-t border-gray-200 dark:border-gray-700 space-y-3">
                                         <!-- Enable/Disable Toggle -->
                                         <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-3 border border-gray-200 dark:border-gray-700">
@@ -958,14 +958,14 @@
 
                                 <!-- RegExtract Sub-Agent Panel -->
                                 <div class="border border-gray-200 dark:border-gray-700 rounded-lg ml-4">
-                                    <button type="button" onclick="toggleCollapsible('regextract-agent-panel')" class="w-full flex items-center justify-between p-3 text-left hover:bg-gray-50 dark:hover:bg-gray-700 rounded-t-lg transition-colors">
+                                    <div data-collapsible-panel="regextract-agent-panel" class="w-full flex items-center justify-between p-3 text-left hover:bg-gray-50 dark:hover:bg-gray-700 rounded-t-lg transition-colors cursor-pointer">
                                         <div class="flex items-center gap-3">
                                             <h4 class="text-sm font-semibold text-gray-900 dark:text-white">RegExtract (Registry Extraction)</h4>
                                             <span id="regextract-agent-enabled-pill" class="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">Enabled</span>
                                             <span id="regextract-agent-qa-badge" class="px-2 py-1 text-xs rounded-full bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300">QA: OFF</span>
                                         </div>
-                                        <span id="regextract-agent-panel-toggle" class="text-gray-700 dark:text-gray-200 text-sm font-medium transform transition-transform">▼</span>
-                                    </button>
+                                        <span id="regextract-agent-panel-toggle" class="text-gray-700 dark:text-gray-200 text-sm font-medium transform transition-transform" aria-hidden="true">▼</span>
+                                    </div>
                                     <div id="regextract-agent-panel-content" class="hidden p-3 border-t border-gray-200 dark:border-gray-700 space-y-3">
                                         <!-- Enable/Disable Toggle -->
                                         <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-3 border border-gray-200 dark:border-gray-700">
@@ -1116,13 +1116,13 @@
 
                 <!-- SIGMA Generator Agent Panel -->
                 <div class="border border-gray-200 dark:border-gray-700 rounded-lg">
-                    <button type="button" onclick="toggleCollapsible('sigma-agent-panel')" class="w-full flex items-center justify-between p-4 text-left hover:bg-gray-50 dark:hover:bg-gray-700 rounded-t-lg transition-colors">
+                    <div data-collapsible-panel="sigma-agent-panel" class="w-full flex items-center justify-between p-4 text-left hover:bg-gray-50 dark:hover:bg-gray-700 rounded-t-lg transition-colors cursor-pointer">
                         <div class="flex items-center gap-3">
                             <h3 class="text-lg font-semibold text-gray-900 dark:text-white">SIGMA Generator Agent</h3>
                             <span id="sigma-agent-qa-badge" class="px-2 py-1 text-xs rounded-full bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300">QA: OFF</span>
                         </div>
-                        <span id="sigma-agent-panel-toggle" class="text-gray-700 dark:text-gray-200 text-lg font-medium transform transition-transform">▼</span>
-                    </button>
+                        <span id="sigma-agent-panel-toggle" class="text-gray-700 dark:text-gray-200 text-lg font-medium transform transition-transform" aria-hidden="true">▼</span>
+                    </div>
                     <div id="sigma-agent-panel-content" class="hidden p-4 border-t border-gray-200 dark:border-gray-700 space-y-4">
                         <!-- SIGMA Agent Model -->
                         <div id="sigma-agent-model-container"></div>
@@ -2696,13 +2696,13 @@ function renderAgentPrompts() {
         
         return `
             <div class="border border-gray-200 dark:border-gray-700 rounded-lg mb-4">
-                <button type="button" onclick="toggleCollapsible('${panelId}')" class="w-full flex items-center justify-between p-3 text-left hover:bg-gray-50 dark:hover:bg-gray-700 rounded-t-lg transition-colors">
+                <div data-collapsible-panel="${panelId}" class="w-full flex items-center justify-between p-3 text-left hover:bg-gray-50 dark:hover:bg-gray-700 rounded-t-lg transition-colors cursor-pointer" role="button" tabindex="0" aria-expanded="${isEditing ? 'true' : 'false'}" aria-controls="${panelId}-content">
                     <div class="flex items-center gap-3">
                         <h4 class="text-md font-semibold text-gray-900 dark:text-white">Prompt</h4>
                         <span class="text-xs text-gray-500 dark:text-gray-400">Model: <span class="font-mono">${escapeHtml(model)}</span></span>
                     </div>
-                    <span id="${panelId}-toggle" class="text-gray-700 dark:text-gray-200 text-sm font-medium transform transition-transform">${isEditing ? '▲' : '▼'}</span>
-                </button>
+                    <span id="${panelId}-toggle" class="text-gray-700 dark:text-gray-200 text-sm font-medium transform transition-transform" aria-hidden="true">${isEditing ? '▲' : '▼'}</span>
+                </div>
                 <div id="${panelId}-content" class="${isEditing ? '' : 'hidden'} p-4 border-t border-gray-200 dark:border-gray-700">
                     <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
                         <div class="flex items-center justify-between mb-3">
@@ -2782,6 +2782,11 @@ function renderAgentPrompts() {
             </div>
         `;
     }).join('');
+    
+    // Re-initialize collapsible panels for dynamically added content
+    if (typeof initCollapsiblePanels === 'function') {
+        initCollapsiblePanels(container);
+    }
 }
 
 function editPrompt(agentName) {
@@ -4354,13 +4359,13 @@ function renderSinglePrompt(agentName, promptData, prefix) {
     
     return `
         <div class="border border-gray-200 dark:border-gray-700 rounded-lg">
-            <button type="button" onclick="toggleCollapsible('${panelId}')" class="w-full flex items-center justify-between p-3 text-left hover:bg-gray-50 dark:hover:bg-gray-700 rounded-t-lg transition-colors">
+            <div data-collapsible-panel="${panelId}" class="w-full flex items-center justify-between p-3 text-left hover:bg-gray-50 dark:hover:bg-gray-700 rounded-t-lg transition-colors cursor-pointer" role="button" tabindex="0" aria-expanded="${isEditing ? 'true' : 'false'}" aria-controls="${panelId}-content">
                 <div class="flex items-center gap-3">
                     <h4 class="text-sm font-semibold text-gray-900 dark:text-white">${escapeHtml(agentName)} Prompt</h4>
                     <span class="text-xs text-gray-500 dark:text-gray-400">Model: <span class="font-mono">${escapeHtml(model)}</span></span>
                 </div>
-                <span id="${panelId}-toggle" class="text-gray-700 dark:text-gray-200 text-sm font-medium transform transition-transform">${isEditing ? '▲' : '▼'}</span>
-            </button>
+                <span id="${panelId}-toggle" class="text-gray-700 dark:text-gray-200 text-sm font-medium transform transition-transform" aria-hidden="true">${isEditing ? '▲' : '▼'}</span>
+            </div>
             <div id="${panelId}-content" class="${isEditing ? '' : 'hidden'} p-4 border-t border-gray-200 dark:border-gray-700">
                 <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
                     <div class="flex items-center justify-between mb-3">
@@ -4439,13 +4444,13 @@ function renderQAPrompt(agentName, containerId) {
     
     container.innerHTML = `
         <div class="border border-gray-200 dark:border-gray-700 rounded-lg">
-            <button type="button" onclick="toggleCollapsible('${panelId}')" class="w-full flex items-center justify-between p-3 text-left hover:bg-gray-50 dark:hover:bg-gray-700 rounded-t-lg transition-colors">
+            <div data-collapsible-panel="${panelId}" class="w-full flex items-center justify-between p-3 text-left hover:bg-gray-50 dark:hover:bg-gray-700 rounded-t-lg transition-colors cursor-pointer" role="button" tabindex="0" aria-expanded="${isEditing ? 'true' : 'false'}" aria-controls="${panelId}-content">
                 <div class="flex items-center gap-3">
                     <h4 class="text-sm font-semibold text-gray-900 dark:text-white">${escapeHtml(agentName)} QA Prompt</h4>
                     <span class="text-xs text-gray-500 dark:text-gray-400">Model: <span class="font-mono">${escapeHtml(model)}</span></span>
                 </div>
-                <span id="${panelId}-toggle" class="text-gray-700 dark:text-gray-200 text-sm font-medium transform transition-transform">${isEditing ? '▲' : '▼'}</span>
-            </button>
+                <span id="${panelId}-toggle" class="text-gray-700 dark:text-gray-200 text-sm font-medium transform transition-transform" aria-hidden="true">${isEditing ? '▲' : '▼'}</span>
+            </div>
             <div id="${panelId}-content" class="${isEditing ? '' : 'hidden'} p-4 border-t border-gray-200 dark:border-gray-700">
                 <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
                     <div class="flex items-center justify-between mb-3">
@@ -4506,6 +4511,11 @@ function renderQAPrompt(agentName, containerId) {
             </div>
         </div>
     `;
+    
+    // Re-initialize collapsible panels for dynamically added content
+    if (typeof initCollapsiblePanels === 'function') {
+        initCollapsiblePanels(container);
+    }
 }
 
 function loadQASettings2() {
