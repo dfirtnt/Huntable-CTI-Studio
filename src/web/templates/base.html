@@ -70,6 +70,7 @@
         .nav-item {
             color: var(--color-text-secondary);
             transition: color 0.2s ease;
+            position: relative;
         }
         
         .nav-item img {
@@ -88,6 +89,19 @@
         .nav-item.active {
             color: var(--color-brand);
             position: relative;
+            text-shadow: 0 0 6px rgba(139, 92, 246, 0.8);
+        }
+        
+        .nav-item:not(:last-child)::after {
+            content: '';
+            position: absolute;
+            height: 32px;
+            width: 1px;
+            top: 50%;
+            right: -0.25rem;
+            transform: translateY(-50%);
+            background-color: rgba(255, 255, 255, 0.1);
+            border-radius: 1px;
         }
         
         .nav-item.active img {
@@ -97,13 +111,13 @@
         .nav-item.active::after {
             content: '';
             position: absolute;
+            left: -0.5rem;
+            right: -0.5rem;
             bottom: 0;
-            left: 50%;
-            transform: translateX(-50%);
-            width: 100%;
             height: 2px;
-            background-color: var(--color-brand);
+            background: linear-gradient(90deg, #9f7aea, #7c3aed, #a855f7);
             border-radius: 1px;
+            box-shadow: 0 0 8px rgba(122, 79, 255, 0.9);
         }
         
         .nav-brand-accent {
@@ -191,51 +205,51 @@
         }
     </style>
 </head>
-<body class="bg-gray-50 dark:bg-gray-900 min-h-screen flex flex-col pt-16" style="background-color: var(--color-bg-app);">
+<body class="bg-gray-50 dark:bg-gray-900 min-h-screen flex flex-col pt-[70px]" style="background-color: var(--color-bg-app);">
 
     <!-- Navigation -->
     <nav class="gradient-bg shadow-lg border-b fixed top-0 left-0 right-0 z-50" style="border-color: var(--color-border);">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="flex items-center h-16 justify-center">
+            <div class="flex items-center h-[70px] justify-center">
                 <div class="flex-shrink-0 mr-6">
                     <a href="/" class="flex items-center gap-2 cursor-pointer transition-opacity hover:opacity-80">
-                        <img src="/static/icons/huntable-icon.svg" alt="Huntable" class="w-[38px] h-[38px] nav-brand-accent" />
+                        <img src="/static/icons/huntable-icon.svg" alt="Huntable" class="w-[57px] h-[57px] nav-brand-accent" />
                         <h1 class="text-xl font-bold leading-tight" style="color: var(--color-text-primary);">Huntable<br>CTI Studio</h1>
                     </a>
                 </div>
                 <div class="hidden md:flex items-center justify-center gap-8 flex-1">
                     <a href="/articles" class="nav-item flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium relative">
-                        <img src="/static/icons/articles-icon.svg" alt="Articles" class="w-[23px] h-[23px]" />
+                        <img src="/static/icons/articles-icon.svg" alt="Articles" class="w-[35px] h-[35px]" />
                         Articles
                     </a>
                     <a href="/sources" class="nav-item flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium relative">
-                        <img src="/static/icons/sources-icon.svg" alt="Sources" class="w-[23px] h-[23px]" />
+                        <img src="/static/icons/sources-icon.svg" alt="Sources" class="w-[35px] h-[35px]" />
                         Sources
                     </a>
                     <a href="/analytics" class="nav-item flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium relative">
-                        <img src="/static/icons/analytics-icon.svg" alt="Analytics" class="w-[23px] h-[23px]" />
+                        <img src="/static/icons/analytics-icon.svg" alt="Analytics" class="w-[35px] h-[35px]" />
                         Analytics
                     </a>
                     <a href="/mlops" class="nav-item flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium relative">
-                        <img src="/static/icons/mlops-icon.svg" alt="MLOps" class="w-[23px] h-[23px]" />
+                        <img src="/static/icons/mlops-icon.svg" alt="MLOps" class="w-[35px] h-[35px]" />
                         MLOps
                     </a>
                     <a href="/workflow" class="nav-item flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium relative">
-                        <img src="/static/icons/agents-icon.svg" alt="Agents" class="w-[23px] h-[23px]" />
+                        <img src="/static/icons/agents-icon.svg" alt="Agents" class="w-[35px] h-[35px]" />
                         Agents
                     </a>
                     <a href="/diags" class="nav-item flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium relative">
-                        <img src="/static/icons/diags-icon.svg" alt="Diags" class="w-[23px] h-[23px]" />
+                        <img src="/static/icons/diags-icon.svg" alt="Diags" class="w-[35px] h-[35px]" />
                         Diags
                     </a>
                     <a href="/settings" class="nav-item flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium relative">
-                        <img src="/static/icons/settings-icon.svg" alt="Settings" class="w-[23px] h-[23px]" />
+                        <img src="/static/icons/settings-icon.svg" alt="Settings" class="w-[35px] h-[35px]" />
                         Settings
                     </a>
                 </div>
                 <div class="flex-shrink-0 ml-6 invisible md:block" aria-hidden="true">
                     <div class="flex items-center gap-2">
-                        <img src="/static/icons/huntable-icon.svg" alt="Huntable" class="w-[38px] h-[38px] nav-brand-accent" />
+                        <img src="/static/icons/huntable-icon.svg" alt="Huntable" class="w-[57px] h-[57px] nav-brand-accent" />
                         <h1 class="text-xl font-bold leading-tight" style="color: var(--color-text-primary);">Huntable<br>CTI Studio</h1>
                     </div>
                 </div>

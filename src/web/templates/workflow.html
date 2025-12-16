@@ -49,6 +49,188 @@
 .dark #executionDetailContent details summary {
     color: rgb(209 213 219) !important; /* text-gray-300 */
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   WORKFLOW PAGE - Unified Dark Theme
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* Root agents panel */
+.dark .agents-panel {
+    background: rgb(15, 20, 35) !important;
+    border: 1px solid rgba(139, 92, 246, 0.2) !important;
+    border-radius: 16px !important;
+}
+
+/* Override white/light backgrounds inside agents-panel */
+.dark .agents-panel .bg-white,
+.dark .agents-panel .bg-gray-50,
+.dark .agents-panel .bg-gray-100 {
+    background: transparent !important;
+}
+
+/* Level 1: Top-level bordered panels */
+.dark .agents-panel > form > .border {
+    background: rgb(20, 28, 48) !important;
+    border-color: rgba(139, 92, 246, 0.15) !important;
+    border-radius: 12px !important;
+}
+
+/* Level 2: Panel content areas */
+.dark .agents-panel [id$="-content"]:not(.hidden) {
+    background: rgb(22, 30, 52) !important;
+}
+
+/* Level 3: Nested bordered elements */
+.dark .agents-panel .border.rounded-lg {
+    background: rgb(26, 34, 56) !important;
+    border-color: rgba(99, 102, 241, 0.12) !important;
+}
+
+/* Level 4: Inner content blocks */
+.dark .agents-panel .bg-gray-50 {
+    background: rgb(30, 40, 65) !important;
+    border-color: rgba(129, 140, 248, 0.1) !important;
+}
+
+/* Input fields */
+.dark .agents-panel input:not([type="checkbox"]),
+.dark .agents-panel select,
+.dark .agents-panel textarea {
+    background: rgb(18, 24, 42) !important;
+    border-color: rgba(139, 92, 246, 0.25) !important;
+    color: rgb(241, 245, 249) !important;
+}
+
+.dark .agents-panel input:focus,
+.dark .agents-panel select:focus,
+.dark .agents-panel textarea:focus {
+    border-color: rgba(139, 92, 246, 0.5) !important;
+    box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.15) !important;
+    outline: none !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   AGENTS PANEL TEXT - Proper Contrast
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* CRITICAL: Panel header text - must override Tailwind's text-gray-900 */
+.dark .agents-panel h3.text-gray-900,
+.dark .agents-panel h3.text-lg,
+.dark .agents-panel [data-collapsible-panel] h3,
+.dark .agents-panel [data-collapsible-panel] .text-gray-900 {
+    color: rgb(248, 250, 252) !important;
+}
+
+/* Headings - brightest white */
+.dark .agents-panel h1,
+.dark .agents-panel h2,
+.dark .agents-panel h3,
+.dark .agents-panel h4,
+.dark .agents-panel h5,
+.dark .agents-panel .text-gray-900,
+.dark .agents-panel .dark\:text-white {
+    color: rgb(248, 250, 252) !important;
+}
+
+/* Labels and secondary text */
+.dark .agents-panel label,
+.dark .agents-panel .text-gray-700,
+.dark .agents-panel .dark\:text-gray-300 {
+    color: rgb(203, 213, 225) !important;
+}
+
+/* Helper/hint text */
+.dark .agents-panel p.text-xs,
+.dark .agents-panel p.text-sm,
+.dark .agents-panel .text-gray-500,
+.dark .agents-panel .text-gray-600,
+.dark .agents-panel .dark\:text-gray-400 {
+    color: rgb(160, 175, 200) !important;
+}
+
+/* Toggle carets - bright */
+.dark .agents-panel [id$="-toggle"] {
+    color: rgb(248, 250, 252) !important;
+}
+
+/* Model names / mono text */
+.dark .agents-panel .font-mono {
+    color: rgb(196, 181, 253) !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   BADGES
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.dark .agents-panel .bg-green-100,
+.dark .agents-panel .dark\:bg-green-900 {
+    background: rgba(34, 197, 94, 0.2) !important;
+    color: rgb(134, 239, 172) !important;
+}
+
+.dark .agents-panel .bg-yellow-100,
+.dark .agents-panel .dark\:bg-yellow-900\/30 {
+    background: rgba(234, 179, 8, 0.2) !important;
+    color: rgb(253, 224, 71) !important;
+}
+
+.dark .agents-panel .bg-gray-200,
+.dark .agents-panel .dark\:bg-gray-700 {
+    background: rgba(71, 85, 105, 0.5) !important;
+    color: rgb(203, 213, 225) !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   SECTIONS OUTSIDE AGENTS-PANEL (Presets, Context Window, Config Display, Overview)
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* Override bg-white dark:bg-gray-800 cards */
+.dark #tab-content-config > .bg-white,
+.dark #tab-content-config .bg-white.dark\:bg-gray-800 {
+    background: rgb(20, 28, 48) !important;
+    border-color: rgba(139, 92, 246, 0.15) !important;
+}
+
+/* Current config display (bg-gray-50) */
+.dark #currentConfig {
+    background: rgb(26, 34, 56) !important;
+    border-color: rgba(99, 102, 241, 0.12) !important;
+}
+
+/* Workflow Overview section */
+.dark .bg-white.dark\:bg-gray-800.rounded-lg.shadow-lg.p-6:last-of-type {
+    background: rgb(15, 20, 35) !important;
+    border: 1px solid rgba(139, 92, 246, 0.2) !important;
+}
+
+/* Workflow step cards */
+.dark .bg-cyan-50,
+.dark .dark\:bg-cyan-900\/20,
+.dark .bg-blue-50,
+.dark .dark\:bg-blue-900\/20,
+.dark .bg-green-50,
+.dark .dark\:bg-green-900\/20,
+.dark .bg-yellow-50,
+.dark .dark\:bg-yellow-900\/20,
+.dark .bg-orange-50,
+.dark .dark\:bg-orange-900\/20,
+.dark .bg-red-50,
+.dark .dark\:bg-red-900\/20,
+.dark .bg-purple-50,
+.dark .dark\:bg-purple-900\/20 {
+    background: rgb(26, 34, 56) !important;
+}
+
+/* Sub-agent cards in workflow overview */
+.dark .bg-white.dark\:bg-gray-800.rounded {
+    background: rgb(30, 40, 65) !important;
+}
+
+/* Hover states */
+.dark .agents-panel [data-collapsible-panel]:hover {
+    background: rgba(139, 92, 246, 0.1) !important;
+}
+
 </style>
 <script>
     window.initialCommercialModelCatalog = {{ provider_model_catalog | tojson | safe }};
@@ -79,13 +261,13 @@
 
     <!-- Configuration Tab -->
     <div id="tab-content-config" class="tab-content">
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mb-8">
+        <div class="agents-panel rounded-lg shadow-lg p-6 mb-8">
             <form id="workflowConfigForm" class="space-y-6">
                 <!-- Other Thresholds -->
                 <div class="border border-gray-200 dark:border-gray-700 rounded-lg">
                     <div data-collapsible-panel="other-thresholds-panel" class="w-full flex items-center justify-between p-4 text-left hover:bg-gray-50 dark:hover:bg-gray-700 rounded-t-lg transition-colors cursor-pointer">
                         <div class="flex items-center gap-3">
-                            <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Junk Filter</h3>
+                            <h3 class="text-lg font-semibold" style="color: #f8fafc !important;" style="color: #f8fafc !important;">Junk Filter</h3>
                         </div>
                         <span id="other-thresholds-panel-toggle" class="text-gray-700 dark:text-gray-200 text-lg font-medium transform transition-transform" aria-hidden="true">▼</span>
                     </div>
@@ -124,7 +306,7 @@
                 <div class="border border-gray-200 dark:border-gray-700 rounded-lg">
                     <div data-collapsible-panel="qa-settings-panel" class="w-full flex items-center justify-between p-4 text-left hover:bg-gray-50 dark:hover:bg-gray-700 rounded-t-lg transition-colors cursor-pointer">
                         <div class="flex items-center gap-3">
-                            <h3 class="text-lg font-semibold text-gray-900 dark:text-white">QA Settings</h3>
+                            <h3 class="text-lg font-semibold" style="color: #f8fafc !important;">QA Settings</h3>
                         </div>
                         <span id="qa-settings-panel-toggle" class="text-gray-700 dark:text-gray-200 text-lg font-medium transform transition-transform" aria-hidden="true">▼</span>
                     </div>
@@ -163,7 +345,7 @@
                 <div class="border border-gray-200 dark:border-gray-700 rounded-lg">
                     <div data-collapsible-panel="os-detection-panel" class="w-full flex items-center justify-between p-4 text-left hover:bg-gray-50 dark:hover:bg-gray-700 rounded-t-lg transition-colors cursor-pointer">
                         <div class="flex items-center gap-3">
-                            <h3 class="text-lg font-semibold text-gray-900 dark:text-white">OS Detection Agent</h3>
+                            <h3 class="text-lg font-semibold" style="color: #f8fafc !important;">OS Detection Agent</h3>
                         </div>
                         <span id="os-detection-panel-toggle" class="text-gray-700 dark:text-gray-200 text-lg font-medium transform transition-transform" aria-hidden="true">▼</span>
                     </div>
@@ -179,7 +361,7 @@
                 <div class="border border-gray-200 dark:border-gray-700 rounded-lg">
                     <div data-collapsible-panel="rank-agent-configs-panel" class="w-full flex items-center justify-between p-4 text-left hover:bg-gray-50 dark:hover:bg-gray-700 rounded-t-lg transition-colors cursor-pointer">
                         <div class="flex items-center gap-3">
-                            <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Rank Agent Configs</h3>
+                            <h3 class="text-lg font-semibold" style="color: #f8fafc !important;">Rank Agent Configs</h3>
                             <span id="rank-agent-qa-badge" class="px-2 py-1 text-xs rounded-full bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300">QA: OFF</span>
                         </div>
                         <span id="rank-agent-configs-panel-toggle" class="text-gray-700 dark:text-gray-200 text-lg font-medium transform transition-transform" aria-hidden="true">▼</span>
@@ -191,7 +373,7 @@
                             <div id="rank-agent-model-container"></div>
                         </div>
                         <!-- Test Buttons -->
-                        <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+                        <div class="bg-gray-50 rounded-lg p-4 border border-gray-200 dark:border-gray-700" style="background: rgb(26, 34, 56) !important;">
                             <div class="flex gap-2">
                                 <button type="button" onclick="const id = promptForArticleId(2155); if (id) testRankAgent(id);" class="w-full px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-md transition-colors">
                                     🎯 Test with Custom ArticleID
@@ -234,7 +416,7 @@
                             <div id="rank-agent-prompt-container"></div>
                         </div>
                         <!-- Rank QA Agent Toggle -->
-                        <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+                        <div class="bg-gray-50 rounded-lg p-4 border border-gray-200 dark:border-gray-700" style="background: rgb(26, 34, 56) !important;">
                             <div class="flex items-center justify-between">
                                 <div>
                                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -254,7 +436,7 @@
                                 </label>
                             </div>
                         </div>
-                        <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-4 border border-gray-200 dark:border-gray-700 space-y-3">
+                        <div class="bg-gray-50 rounded-lg p-4 border border-gray-200 dark:border-gray-700 space-y-3" style="background: rgb(26, 34, 56) !important;">
                             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">
                                 Rank QA Model Provider
                             </label>
@@ -320,7 +502,7 @@
                 <div class="border border-gray-200 dark:border-gray-700 rounded-lg">
                     <div data-collapsible-panel="extract-agent-panel" class="w-full flex items-center justify-between p-4 text-left hover:bg-gray-50 dark:hover:bg-gray-700 rounded-t-lg transition-colors cursor-pointer">
                         <div class="flex items-center gap-3">
-                            <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Extract Agent</h3>
+                            <h3 class="text-lg font-semibold" style="color: #f8fafc !important;">Extract Agent</h3>
                             <span class="px-2 py-1 text-xs rounded-full bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300 font-medium">Supervisor</span>
                         </div>
                         <span id="extract-agent-panel-toggle" class="text-gray-700 dark:text-gray-200 text-lg font-medium transform transition-transform" aria-hidden="true">▼</span>
@@ -336,7 +518,7 @@
                         <!-- Sub-Agents Section -->
                         <div class="mt-6 pt-6 border-t-2 border-yellow-300 dark:border-yellow-700">
                             <div class="mb-4">
-                                <h4 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Extract Agent Sub-Agents</h4>
+                                <h4 class="text-sm font-semibold" style="color: #cbd5e1 !important; mb-1">Extract Agent Sub-Agents</h4>
                                 <p class="text-xs text-gray-500 dark:text-gray-400">Specialized extraction agents orchestrated by the Supervisor</p>
                             </div>
                             <div class="space-y-3">
@@ -344,7 +526,7 @@
                                 <div class="border border-gray-200 dark:border-gray-700 rounded-lg ml-4">
                                     <div id="cmdlineextract-panel-btn" data-collapsible-panel="cmdlineextract-agent-panel" class="w-full flex items-center justify-between p-3 text-left hover:bg-gray-50 dark:hover:bg-gray-700 rounded-t-lg transition-colors cursor-pointer">
                                         <div class="flex items-center gap-3">
-                                            <h4 class="text-sm font-semibold text-gray-900 dark:text-white">CmdlineExtract (Command Line Extraction)</h4>
+                                            <h4 class="text-sm font-semibold" style="color: #f8fafc !important;">CmdlineExtract (Command Line Extraction)</h4>
                                             <span id="cmdlineextract-agent-enabled-pill" class="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">Enabled</span>
                                             <span id="cmdlineextract-agent-qa-badge" class="px-2 py-1 text-xs rounded-full bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300">QA: OFF</span>
                                         </div>
@@ -352,7 +534,7 @@
                                     </div>
                                     <div id="cmdlineextract-agent-panel-content" class="hidden p-3 border-t border-gray-200 dark:border-gray-700 space-y-3">
                                         <!-- Enable/Disable Toggle -->
-                                        <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-3 border border-gray-200 dark:border-gray-700">
+                                        <div class="bg-gray-50 rounded-lg p-3 border border-gray-200 dark:border-gray-700" style="background: rgb(26, 34, 56) !important;">
                                             <div class="flex items-center justify-between">
                                                 <div>
                                                     <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Enable CmdlineExtract</label>
@@ -368,7 +550,7 @@
                                             </div>
                                         </div>
                                         <!-- Model Selection -->
-                                        <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-3 border border-gray-200 dark:border-gray-700 space-y-3">
+                                        <div class="bg-gray-50 rounded-lg p-3 border border-gray-200 dark:border-gray-700 space-y-3" style="background: rgb(26, 34, 56) !important;">
                                             <label class="flex items-center gap-2 text-xs font-medium text-gray-700 dark:text-gray-300">
                                                 Model Provider
                                                 <button type="button"
@@ -417,13 +599,13 @@
                                             </div>
                                         </div>
                                         <!-- Temperature -->
-                                        <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-3 border border-gray-200 dark:border-gray-700">
+                                        <div class="bg-gray-50 rounded-lg p-3 border border-gray-200 dark:border-gray-700" style="background: rgb(26, 34, 56) !important;">
                                             <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">Temperature</label>
                                             <input type="number" id="cmdlineextract-temperature" name="agent_models[CmdlineExtract_temperature]" min="0" max="2" step="0.1" value="0.0" onchange="autoSaveModelChange()" class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white text-xs">
                                             <p class="text-[10px] text-gray-500 dark:text-gray-400 mt-1">0.0 = deterministic, higher = more creative</p>
                                         </div>
                                         <!-- Test Buttons -->
-                                        <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-3 border border-gray-200 dark:border-gray-700">
+                                        <div class="bg-gray-50 rounded-lg p-3 border border-gray-200 dark:border-gray-700" style="background: rgb(26, 34, 56) !important;">
                                             <div class="flex gap-2">
                                                 <button type="button" onclick="const id = promptForArticleId(2155); if (id) testSubAgent('CmdlineExtract', id);" class="w-full px-3 py-2 bg-green-600 hover:bg-green-700 text-white text-xs font-medium rounded-md transition-colors">
                                                     🎯 Test with Custom ArticleID
@@ -431,7 +613,7 @@
                                             </div>
                                         </div>
                                         <div id="cmdlineextract-agent-prompt-container"></div>
-                                        <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-3 border border-gray-200 dark:border-gray-700">
+                                        <div class="bg-gray-50 rounded-lg p-3 border border-gray-200 dark:border-gray-700" style="background: rgb(26, 34, 56) !important;">
                                             <div class="flex items-center justify-between">
                                                 <div>
                                                     <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">CmdlineExtract QA Agent</label>
@@ -444,7 +626,7 @@
                                             </div>
                                         </div>
                                         <!-- CmdLine QA Model -->
-                                        <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-3 border border-gray-200 dark:border-gray-700 space-y-3">
+                                        <div class="bg-gray-50 rounded-lg p-3 border border-gray-200 dark:border-gray-700 space-y-3" style="background: rgb(26, 34, 56) !important;">
                                             <label class="block text-xs font-medium text-gray-700 dark:text-gray-300">CmdLine QA Model Provider</label>
                                             <select id="cmdlineqa-provider"
                                                     name="agent_models[CmdLineQA_provider]"
@@ -498,7 +680,7 @@
                                 <div class="border border-gray-200 dark:border-gray-700 rounded-lg ml-4">
                                     <div data-collapsible-panel="sigextract-agent-panel" class="w-full flex items-center justify-between p-3 text-left hover:bg-gray-50 dark:hover:bg-gray-700 rounded-t-lg transition-colors cursor-pointer">
                                         <div class="flex items-center gap-3">
-                                            <h4 class="text-sm font-semibold text-gray-900 dark:text-white">SigExtract (Query Extraction)</h4>
+                                            <h4 class="text-sm font-semibold" style="color: #f8fafc !important;">SigExtract (Query Extraction)</h4>
                                             <span id="sigextract-agent-enabled-pill" class="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">Enabled</span>
                                             <span id="sigextract-agent-qa-badge" class="px-2 py-1 text-xs rounded-full bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300">QA: OFF</span>
                                         </div>
@@ -506,7 +688,7 @@
                                     </div>
                                     <div id="sigextract-agent-panel-content" class="hidden p-3 border-t border-gray-200 dark:border-gray-700 space-y-3">
                                         <!-- Enable/Disable Toggle -->
-                                        <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-3 border border-gray-200 dark:border-gray-700">
+                                        <div class="bg-gray-50 rounded-lg p-3 border border-gray-200 dark:border-gray-700" style="background: rgb(26, 34, 56) !important;">
                                             <div class="flex items-center justify-between">
                                                 <div>
                                                     <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Enable SigExtract</label>
@@ -522,7 +704,7 @@
                                             </div>
                                         </div>
                                         <!-- Model Selection -->
-                                        <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-3 border border-gray-200 dark:border-gray-700 space-y-3">
+                                        <div class="bg-gray-50 rounded-lg p-3 border border-gray-200 dark:border-gray-700 space-y-3" style="background: rgb(26, 34, 56) !important;">
                                             <label class="flex items-center gap-2 text-xs font-medium text-gray-700 dark:text-gray-300">
                                                 Model Provider
                                                 <button type="button"
@@ -571,13 +753,13 @@
                                             </div>
                                         </div>
                                         <!-- Temperature -->
-                                        <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-3 border border-gray-200 dark:border-gray-700">
+                                        <div class="bg-gray-50 rounded-lg p-3 border border-gray-200 dark:border-gray-700" style="background: rgb(26, 34, 56) !important;">
                                             <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">Temperature</label>
                                             <input type="number" id="sigextract-temperature" name="agent_models[SigExtract_temperature]" min="0" max="2" step="0.1" value="0.0" onchange="autoSaveModelChange()" class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white text-xs">
                                             <p class="text-[10px] text-gray-500 dark:text-gray-400 mt-1">0.0 = deterministic, higher = more creative</p>
                                         </div>
                                         <!-- Test Buttons -->
-                                        <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-3 border border-gray-200 dark:border-gray-700">
+                                        <div class="bg-gray-50 rounded-lg p-3 border border-gray-200 dark:border-gray-700" style="background: rgb(26, 34, 56) !important;">
                                             <div class="flex gap-2">
                                                 <button type="button" onclick="const id = promptForArticleId(2155); if (id) testSubAgent('SigExtract', id);" class="w-full px-3 py-2 bg-green-600 hover:bg-green-700 text-white text-xs font-medium rounded-md transition-colors">
                                                     🎯 Test with Custom ArticleID
@@ -585,7 +767,7 @@
                                             </div>
                                         </div>
                                         <div id="sigextract-agent-prompt-container"></div>
-                                        <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-3 border border-gray-200 dark:border-gray-700">
+                                        <div class="bg-gray-50 rounded-lg p-3 border border-gray-200 dark:border-gray-700" style="background: rgb(26, 34, 56) !important;">
                                             <div class="flex items-center justify-between">
                                                 <div>
                                                     <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">SigExtract QA Agent</label>
@@ -598,7 +780,7 @@
                                             </div>
                                         </div>
                                         <!-- Sig QA Model -->
-                                        <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-3 border border-gray-200 dark:border-gray-700 space-y-3">
+                                        <div class="bg-gray-50 rounded-lg p-3 border border-gray-200 dark:border-gray-700 space-y-3" style="background: rgb(26, 34, 56) !important;">
                                             <label class="block text-xs font-medium text-gray-700 dark:text-gray-300">Sig QA Model Provider</label>
                                             <select id="sigqa-provider"
                                                     name="agent_models[SigQA_provider]"
@@ -652,7 +834,7 @@
                                 <div class="border border-gray-200 dark:border-gray-700 rounded-lg ml-4">
                                     <div data-collapsible-panel="eventcodeextract-agent-panel" class="w-full flex items-center justify-between p-3 text-left hover:bg-gray-50 dark:hover:bg-gray-700 rounded-t-lg transition-colors cursor-pointer">
                                         <div class="flex items-center gap-3">
-                                            <h4 class="text-sm font-semibold text-gray-900 dark:text-white">EventCodeExtract (Event ID Extraction)</h4>
+                                            <h4 class="text-sm font-semibold" style="color: #f8fafc !important;">EventCodeExtract (Event ID Extraction)</h4>
                                             <span id="eventcodeextract-agent-enabled-pill" class="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">Enabled</span>
                                             <span id="eventcodeextract-agent-qa-badge" class="px-2 py-1 text-xs rounded-full bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300">QA: OFF</span>
                                         </div>
@@ -660,7 +842,7 @@
                                     </div>
                                     <div id="eventcodeextract-agent-panel-content" class="hidden p-3 border-t border-gray-200 dark:border-gray-700 space-y-3">
                                         <!-- Enable/Disable Toggle -->
-                                        <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-3 border border-gray-200 dark:border-gray-700">
+                                        <div class="bg-gray-50 rounded-lg p-3 border border-gray-200 dark:border-gray-700" style="background: rgb(26, 34, 56) !important;">
                                             <div class="flex items-center justify-between">
                                                 <div>
                                                     <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Enable EventCodeExtract</label>
@@ -676,7 +858,7 @@
                                             </div>
                                         </div>
                                         <!-- Model Selection -->
-                                        <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-3 border border-gray-200 dark:border-gray-700 space-y-3">
+                                        <div class="bg-gray-50 rounded-lg p-3 border border-gray-200 dark:border-gray-700 space-y-3" style="background: rgb(26, 34, 56) !important;">
                                             <label class="flex items-center gap-2 text-xs font-medium text-gray-700 dark:text-gray-300">
                                                 Model Provider
                                                 <button type="button"
@@ -725,13 +907,13 @@
                                             </div>
                                         </div>
                                         <!-- Temperature -->
-                                        <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-3 border border-gray-200 dark:border-gray-700">
+                                        <div class="bg-gray-50 rounded-lg p-3 border border-gray-200 dark:border-gray-700" style="background: rgb(26, 34, 56) !important;">
                                             <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">Temperature</label>
                                             <input type="number" id="eventcodeextract-temperature" name="agent_models[EventCodeExtract_temperature]" min="0" max="2" step="0.1" value="0.0" onchange="autoSaveModelChange()" class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white text-xs">
                                             <p class="text-[10px] text-gray-500 dark:text-gray-400 mt-1">0.0 = deterministic, higher = more creative</p>
                                         </div>
                                         <!-- Test Buttons -->
-                                        <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-3 border border-gray-200 dark:border-gray-700">
+                                        <div class="bg-gray-50 rounded-lg p-3 border border-gray-200 dark:border-gray-700" style="background: rgb(26, 34, 56) !important;">
                                             <div class="flex gap-2">
                                                 <button type="button" onclick="const id = promptForArticleId(2155); if (id) testSubAgent('EventCodeExtract', id);" class="w-full px-3 py-2 bg-green-600 hover:bg-green-700 text-white text-xs font-medium rounded-md transition-colors">
                                                     🎯 Test with Custom ArticleID
@@ -739,7 +921,7 @@
                                             </div>
                                         </div>
                                         <div id="eventcodeextract-agent-prompt-container"></div>
-                                        <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-3 border border-gray-200 dark:border-gray-700">
+                                        <div class="bg-gray-50 rounded-lg p-3 border border-gray-200 dark:border-gray-700" style="background: rgb(26, 34, 56) !important;">
                                             <div class="flex items-center justify-between">
                                                 <div>
                                                     <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">EventCodeExtract QA Agent</label>
@@ -752,7 +934,7 @@
                                             </div>
                                         </div>
                                         <!-- EventCode QA Model -->
-                                        <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-3 border border-gray-200 dark:border-gray-700 space-y-3">
+                                        <div class="bg-gray-50 rounded-lg p-3 border border-gray-200 dark:border-gray-700 space-y-3" style="background: rgb(26, 34, 56) !important;">
                                             <label class="block text-xs font-medium text-gray-700 dark:text-gray-300">EventCode QA Model Provider</label>
                                             <select id="eventcodeqa-provider"
                                                     name="agent_models[EventCodeQA_provider]"
@@ -806,7 +988,7 @@
                                 <div class="border border-gray-200 dark:border-gray-700 rounded-lg ml-4">
                                     <div data-collapsible-panel="proctreeextract-agent-panel" class="w-full flex items-center justify-between p-3 text-left hover:bg-gray-50 dark:hover:bg-gray-700 rounded-t-lg transition-colors cursor-pointer">
                                         <div class="flex items-center gap-3">
-                                            <h4 class="text-sm font-semibold text-gray-900 dark:text-white">ProcTreeExtract (Process Lineage)</h4>
+                                            <h4 class="text-sm font-semibold" style="color: #f8fafc !important;">ProcTreeExtract (Process Lineage)</h4>
                                             <span id="proctreeextract-agent-enabled-pill" class="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">Enabled</span>
                                             <span id="proctreeextract-agent-qa-badge" class="px-2 py-1 text-xs rounded-full bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300">QA: OFF</span>
                                         </div>
@@ -814,7 +996,7 @@
                                     </div>
                                     <div id="proctreeextract-agent-panel-content" class="hidden p-3 border-t border-gray-200 dark:border-gray-700 space-y-3">
                                         <!-- Enable/Disable Toggle -->
-                                        <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-3 border border-gray-200 dark:border-gray-700">
+                                        <div class="bg-gray-50 rounded-lg p-3 border border-gray-200 dark:border-gray-700" style="background: rgb(26, 34, 56) !important;">
                                             <div class="flex items-center justify-between">
                                                 <div>
                                                     <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Enable ProcTreeExtract</label>
@@ -830,7 +1012,7 @@
                                             </div>
                                         </div>
                                         <!-- Model Selection -->
-                                        <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-3 border border-gray-200 dark:border-gray-700 space-y-3">
+                                        <div class="bg-gray-50 rounded-lg p-3 border border-gray-200 dark:border-gray-700 space-y-3" style="background: rgb(26, 34, 56) !important;">
                                             <label class="flex items-center gap-2 text-xs font-medium text-gray-700 dark:text-gray-300">
                                                 Model Provider
                                                 <button type="button"
@@ -879,13 +1061,13 @@
                                             </div>
                                         </div>
                                         <!-- Temperature -->
-                                        <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-3 border border-gray-200 dark:border-gray-700">
+                                        <div class="bg-gray-50 rounded-lg p-3 border border-gray-200 dark:border-gray-700" style="background: rgb(26, 34, 56) !important;">
                                             <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">Temperature</label>
                                             <input type="number" id="proctreeextract-temperature" name="agent_models[ProcTreeExtract_temperature]" min="0" max="2" step="0.1" value="0.0" onchange="autoSaveModelChange()" class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white text-xs">
                                             <p class="text-[10px] text-gray-500 dark:text-gray-400 mt-1">0.0 = deterministic, higher = more creative</p>
                                         </div>
                                         <!-- Test Buttons -->
-                                        <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-3 border border-gray-200 dark:border-gray-700">
+                                        <div class="bg-gray-50 rounded-lg p-3 border border-gray-200 dark:border-gray-700" style="background: rgb(26, 34, 56) !important;">
                                             <div class="flex gap-2">
                                                 <button type="button" onclick="const id = promptForArticleId(2155); if (id) testSubAgent('ProcTreeExtract', id);" class="w-full px-3 py-2 bg-green-600 hover:bg-green-700 text-white text-xs font-medium rounded-md transition-colors">
                                                     🎯 Test with Custom ArticleID
@@ -893,7 +1075,7 @@
                                             </div>
                                         </div>
                                         <div id="proctreeextract-agent-prompt-container"></div>
-                                        <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-3 border border-gray-200 dark:border-gray-700">
+                                        <div class="bg-gray-50 rounded-lg p-3 border border-gray-200 dark:border-gray-700" style="background: rgb(26, 34, 56) !important;">
                                             <div class="flex items-center justify-between">
                                                 <div>
                                                     <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">ProcTreeExtract QA Agent</label>
@@ -906,7 +1088,7 @@
                                             </div>
                                         </div>
                                         <!-- ProcTree QA Model -->
-                                        <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-3 border border-gray-200 dark:border-gray-700 space-y-3">
+                                        <div class="bg-gray-50 rounded-lg p-3 border border-gray-200 dark:border-gray-700 space-y-3" style="background: rgb(26, 34, 56) !important;">
                                             <label class="block text-xs font-medium text-gray-700 dark:text-gray-300">ProcTree QA Model Provider</label>
                                             <select id="proctreeqa-provider"
                                                     name="agent_models[ProcTreeQA_provider]"
@@ -960,7 +1142,7 @@
                                 <div class="border border-gray-200 dark:border-gray-700 rounded-lg ml-4">
                                     <div data-collapsible-panel="regextract-agent-panel" class="w-full flex items-center justify-between p-3 text-left hover:bg-gray-50 dark:hover:bg-gray-700 rounded-t-lg transition-colors cursor-pointer">
                                         <div class="flex items-center gap-3">
-                                            <h4 class="text-sm font-semibold text-gray-900 dark:text-white">RegExtract (Registry Extraction)</h4>
+                                            <h4 class="text-sm font-semibold" style="color: #f8fafc !important;">RegExtract (Registry Extraction)</h4>
                                             <span id="regextract-agent-enabled-pill" class="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">Enabled</span>
                                             <span id="regextract-agent-qa-badge" class="px-2 py-1 text-xs rounded-full bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300">QA: OFF</span>
                                         </div>
@@ -968,7 +1150,7 @@
                                     </div>
                                     <div id="regextract-agent-panel-content" class="hidden p-3 border-t border-gray-200 dark:border-gray-700 space-y-3">
                                         <!-- Enable/Disable Toggle -->
-                                        <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-3 border border-gray-200 dark:border-gray-700">
+                                        <div class="bg-gray-50 rounded-lg p-3 border border-gray-200 dark:border-gray-700" style="background: rgb(26, 34, 56) !important;">
                                             <div class="flex items-center justify-between">
                                                 <div>
                                                     <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Enable RegExtract</label>
@@ -984,7 +1166,7 @@
                                             </div>
                                         </div>
                                         <!-- Model Selection -->
-                                        <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-3 border border-gray-200 dark:border-gray-700 space-y-3">
+                                        <div class="bg-gray-50 rounded-lg p-3 border border-gray-200 dark:border-gray-700 space-y-3" style="background: rgb(26, 34, 56) !important;">
                                             <label class="flex items-center gap-2 text-xs font-medium text-gray-700 dark:text-gray-300">
                                                 Model Provider
                                                 <button type="button"
@@ -1033,13 +1215,13 @@
                                             </div>
                                         </div>
                                         <!-- Temperature -->
-                                        <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-3 border border-gray-200 dark:border-gray-700">
+                                        <div class="bg-gray-50 rounded-lg p-3 border border-gray-200 dark:border-gray-700" style="background: rgb(26, 34, 56) !important;">
                                             <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">Temperature</label>
                                             <input type="number" id="regextract-temperature" name="agent_models[RegExtract_temperature]" min="0" max="2" step="0.1" value="0.0" onchange="autoSaveModelChange()" class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white text-xs">
                                             <p class="text-[10px] text-gray-500 dark:text-gray-400 mt-1">0.0 = deterministic, higher = more creative</p>
                                         </div>
                                         <!-- Test Buttons -->
-                                        <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-3 border border-gray-200 dark:border-gray-700">
+                                        <div class="bg-gray-50 rounded-lg p-3 border border-gray-200 dark:border-gray-700" style="background: rgb(26, 34, 56) !important;">
                                             <div class="flex gap-2">
                                                 <button type="button" onclick="const id = promptForArticleId(2155); if (id) testSubAgent('RegExtract', id);" class="w-full px-3 py-2 bg-green-600 hover:bg-green-700 text-white text-xs font-medium rounded-md transition-colors">
                                                     🎯 Test with Custom ArticleID
@@ -1047,7 +1229,7 @@
                                             </div>
                                         </div>
                                         <div id="regextract-agent-prompt-container"></div>
-                                        <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-3 border border-gray-200 dark:border-gray-700">
+                                        <div class="bg-gray-50 rounded-lg p-3 border border-gray-200 dark:border-gray-700" style="background: rgb(26, 34, 56) !important;">
                                             <div class="flex items-center justify-between">
                                                 <div>
                                                     <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">RegExtract QA Agent</label>
@@ -1060,7 +1242,7 @@
                                             </div>
                                         </div>
                                         <!-- Reg QA Model -->
-                                        <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-3 border border-gray-200 dark:border-gray-700 space-y-3">
+                                        <div class="bg-gray-50 rounded-lg p-3 border border-gray-200 dark:border-gray-700 space-y-3" style="background: rgb(26, 34, 56) !important;">
                                             <label class="block text-xs font-medium text-gray-700 dark:text-gray-300">Reg QA Model Provider</label>
                                             <select id="regqa-provider"
                                                     name="agent_models[RegQA_provider]"
@@ -1118,7 +1300,7 @@
                 <div class="border border-gray-200 dark:border-gray-700 rounded-lg">
                     <div data-collapsible-panel="sigma-agent-panel" class="w-full flex items-center justify-between p-4 text-left hover:bg-gray-50 dark:hover:bg-gray-700 rounded-t-lg transition-colors cursor-pointer">
                         <div class="flex items-center gap-3">
-                            <h3 class="text-lg font-semibold text-gray-900 dark:text-white">SIGMA Generator Agent</h3>
+                            <h3 class="text-lg font-semibold" style="color: #f8fafc !important;">SIGMA Generator Agent</h3>
                             <span id="sigma-agent-qa-badge" class="px-2 py-1 text-xs rounded-full bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300">QA: OFF</span>
                         </div>
                         <span id="sigma-agent-panel-toggle" class="text-gray-700 dark:text-gray-200 text-lg font-medium transform transition-transform" aria-hidden="true">▼</span>
@@ -1127,7 +1309,7 @@
                         <!-- SIGMA Agent Model -->
                         <div id="sigma-agent-model-container"></div>
                         <!-- Similarity Threshold -->
-                        <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+                        <div class="bg-gray-50 rounded-lg p-4 border border-gray-200 dark:border-gray-700" style="background: rgb(26, 34, 56) !important;">
                             <label for="similarityThreshold" class="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                                 Similarity Threshold
                                 <button type="button" 
@@ -1152,7 +1334,7 @@
                             <p id="similarityThreshold-error" class="text-xs text-red-500 dark:text-red-400 mt-1 hidden"></p>
                         </div>
                         <!-- SIGMA Agent Test Buttons -->
-                        <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+                        <div class="bg-gray-50 rounded-lg p-4 border border-gray-200 dark:border-gray-700" style="background: rgb(26, 34, 56) !important;">
                             <div class="flex items-start gap-2 mb-3 text-xs text-gray-600 dark:text-gray-300">
                                 <svg class="w-4 h-4 mt-0.5 text-gray-500 dark:text-gray-400" fill="currentColor" viewBox="0 0 20 20" title="In live workflow, the SIGMA agent ingests observables produced by the Extract Agent, not raw article content.">
                                     <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/>
@@ -1168,7 +1350,7 @@
                         <!-- SIGMA Agent Prompt -->
                         <div id="sigma-agent-prompt-container"></div>
                         <!-- SIGMA QA Agent Toggle -->
-                        <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+                        <div class="bg-gray-50 rounded-lg p-4 border border-gray-200 dark:border-gray-700" style="background: rgb(26, 34, 56) !important;">
                             <div class="flex items-center justify-between">
                                 <div>
                                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -1192,7 +1374,7 @@
                         <div id="sigma-agent-qa-prompt-container" class="hidden"></div>
                         
                         <!-- SIGMA Fallback Toggle -->
-                        <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+                        <div class="bg-gray-50 rounded-lg p-4 border border-gray-200 dark:border-gray-700" style="background: rgb(26, 34, 56) !important;">
                             <div class="flex items-center justify-between">
                                 <div>
                                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -1213,7 +1395,7 @@
                         </div>
                         
                         <!-- Embedding Model Selection for SIGMA Similarity Search -->
-                        <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+                        <div class="bg-gray-50 rounded-lg p-4 border border-gray-200 dark:border-gray-700" style="background: rgb(26, 34, 56) !important;">
                             <label for="sigma-embedding-model" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                                 Embedding Model (for SIGMA Similarity Search)
                             </label>
@@ -1231,8 +1413,8 @@
                 </div>
 
                 <!-- Preset Management -->
-                <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mb-6 border border-gray-200 dark:border-gray-700">
-                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">💾 Configuration Presets</h3>
+                <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mb-6 border border-gray-200 dark:border-gray-700" style="background: rgb(20, 28, 48) !important; border-color: rgba(139, 92, 246, 0.15) !important;">
+                    <h3 class="text-lg font-semibold" style="color: #f8fafc !important;">💾 Configuration Presets</h3>
                     <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">Save and load complete workflow configurations as local files.</p>
                     <div class="flex flex-wrap gap-3">
                         <button type="button" 
@@ -1255,8 +1437,8 @@
                 </div>
 
                 <!-- Context Window Command Generator -->
-                <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mb-6 border border-gray-200 dark:border-gray-700">
-                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">🔧 LMStudio Context Window Commands</h3>
+                <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mb-6 border border-gray-200 dark:border-gray-700" style="background: rgb(20, 28, 48) !important; border-color: rgba(139, 92, 246, 0.15) !important;">
+                    <h3 class="text-lg font-semibold" style="color: #f8fafc !important;">🔧 LMStudio Context Window Commands</h3>
                     <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">Generate commands to set context windows for all selected models in your terminal.</p>
                     <div class="flex flex-wrap gap-3 items-end">
                         <div class="flex-1 min-w-[200px]">
@@ -1297,7 +1479,7 @@
                             <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">
                                 Copy and run these commands in your terminal to set context windows for all selected models:
                             </p>
-                            <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+                            <div class="bg-gray-50 rounded-lg p-4 border border-gray-200 dark:border-gray-700" style="background: rgb(26, 34, 56) !important;">
                                 <div class="flex justify-between items-center mb-2">
                                     <label class="text-sm font-medium text-gray-700 dark:text-gray-300">Commands:</label>
                                     <button onclick="copyContextWindowCommands()" class="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-md transition-colors">
@@ -1319,8 +1501,8 @@
                 </div>
 
                 <!-- Current Config Display -->
-                <div id="currentConfig" class="bg-gray-50 dark:bg-gray-900 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
-                    <p class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Current Configuration:</p>
+                <div id="currentConfig" class="bg-gray-50 rounded-lg p-4 border border-gray-200 dark:border-gray-700" style="background: rgb(26, 34, 56) !important;" style="background: rgb(26, 34, 56) !important; border-color: rgba(99, 102, 241, 0.12) !important;">
+                    <p class="text-sm font-medium" style="color: #cbd5e1 !important;">Current Configuration:</p>
                     <div id="configDisplay" class="text-sm text-gray-600 dark:text-gray-300">
                         Loading...
                     </div>
@@ -1344,69 +1526,69 @@
         </div>
 
         <!-- Workflow Overview -->
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
-            <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">📊 Workflow Overview</h2>
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6" style="background: rgb(15, 20, 35) !important; border: 1px solid rgba(139, 92, 246, 0.2) !important;">
+            <h2 class="text-xl font-semibold" style="color: #f8fafc !important;">📊 Workflow Overview</h2>
             <div class="space-y-4">
                 <!-- Main Workflow Steps -->
                 <div class="grid grid-cols-1 md:grid-cols-7 gap-3">
-                    <div class="text-center p-4 bg-cyan-50 dark:bg-cyan-900/20 rounded-lg border border-cyan-200 dark:border-cyan-800">
-                        <div class="text-2xl font-bold text-cyan-600 dark:text-cyan-400">0</div>
-                        <div class="text-xs text-gray-600 dark:text-gray-300 mt-1">OS Detection</div>
+                    <div class="text-center p-4 rounded-lg border" style="background: rgba(6, 182, 212, 0.15) !important; border-color: rgba(6, 182, 212, 0.3) !important;">
+                        <div class="text-2xl font-bold" style="color: #22d3ee !important;">0</div>
+                        <div class="text-xs mt-1" style="color: #cbd5e1 !important;">OS Detection</div>
                     </div>
-                    <div class="text-center p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
-                        <div class="text-2xl font-bold text-blue-600 dark:text-blue-400">1</div>
-                        <div class="text-xs text-gray-600 dark:text-gray-300 mt-1">Junk Filter</div>
+                    <div class="text-center p-4 rounded-lg border" style="background: rgba(59, 130, 246, 0.15) !important; border-color: rgba(59, 130, 246, 0.3) !important;">
+                        <div class="text-2xl font-bold" style="color: #60a5fa !important;">1</div>
+                        <div class="text-xs mt-1" style="color: #cbd5e1 !important;">Junk Filter</div>
                     </div>
-                    <div class="text-center p-4 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
-                        <div class="text-2xl font-bold text-green-600 dark:text-green-400">2</div>
-                        <div class="text-xs text-gray-600 dark:text-gray-300 mt-1">LLM Ranking</div>
+                    <div class="text-center p-4 rounded-lg border" style="background: rgba(34, 197, 94, 0.15) !important; border-color: rgba(34, 197, 94, 0.3) !important;">
+                        <div class="text-2xl font-bold" style="color: #4ade80 !important;">2</div>
+                        <div class="text-xs mt-1" style="color: #cbd5e1 !important;">LLM Ranking</div>
                     </div>
-                    <div class="text-center p-4 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg border-2 border-yellow-500 dark:border-yellow-600 shadow-md">
-                        <div class="text-2xl font-bold text-yellow-600 dark:text-yellow-400">3</div>
-                        <div class="text-xs font-semibold text-gray-700 dark:text-gray-200 mt-1">Extract Agent</div>
-                        <div class="mt-2 text-[10px] text-yellow-700 dark:text-yellow-300 font-medium">5 Sub-Agents</div>
+                    <div class="text-center p-4 rounded-lg border-2 shadow-md" style="background: rgba(234, 179, 8, 0.2) !important; border-color: rgba(234, 179, 8, 0.5) !important;">
+                        <div class="text-2xl font-bold" style="color: #facc15 !important;">3</div>
+                        <div class="text-xs font-semibold mt-1" style="color: #f8fafc !important;">Extract Agent</div>
+                        <div class="mt-2 text-[10px] font-medium" style="color: #fde047 !important;">5 Sub-Agents</div>
                     </div>
-                    <div class="text-center p-4 bg-orange-50 dark:bg-orange-900/20 rounded-lg border border-orange-200 dark:border-orange-800">
-                        <div class="text-2xl font-bold text-orange-600 dark:text-orange-400">4</div>
-                        <div class="text-xs text-gray-600 dark:text-gray-300 mt-1">Generate SIGMA</div>
+                    <div class="text-center p-4 rounded-lg border" style="background: rgba(249, 115, 22, 0.15) !important; border-color: rgba(249, 115, 22, 0.3) !important;">
+                        <div class="text-2xl font-bold" style="color: #fb923c !important;">4</div>
+                        <div class="text-xs mt-1" style="color: #cbd5e1 !important;">Generate SIGMA</div>
                     </div>
-                    <div class="text-center p-4 bg-pink-50 dark:bg-pink-900/20 rounded-lg border border-pink-200 dark:border-pink-800">
-                        <div class="text-2xl font-bold text-pink-600 dark:text-pink-400">5</div>
-                        <div class="text-xs text-gray-600 dark:text-gray-300 mt-1">Similarity Search</div>
+                    <div class="text-center p-4 rounded-lg border" style="background: rgba(236, 72, 153, 0.15) !important; border-color: rgba(236, 72, 153, 0.3) !important;">
+                        <div class="text-2xl font-bold" style="color: #f472b6 !important;">5</div>
+                        <div class="text-xs mt-1" style="color: #cbd5e1 !important;">Similarity Search</div>
                     </div>
-                    <div class="text-center p-4 bg-purple-50 dark:bg-purple-900/20 rounded-lg border border-purple-200 dark:border-purple-800">
-                        <div class="text-2xl font-bold text-purple-600 dark:text-purple-400">6</div>
-                        <div class="text-xs text-gray-600 dark:text-gray-300 mt-1">Queue</div>
+                    <div class="text-center p-4 rounded-lg border" style="background: rgba(168, 85, 247, 0.15) !important; border-color: rgba(168, 85, 247, 0.3) !important;">
+                        <div class="text-2xl font-bold" style="color: #c084fc !important;">6</div>
+                        <div class="text-xs mt-1" style="color: #cbd5e1 !important;">Queue</div>
                     </div>
                 </div>
                 
                 <!-- Extract Agent Sub-Agents Detail -->
                 <div class="ml-0 md:ml-[calc(42.857%+0.75rem)] pl-0 md:pl-0">
-                    <div class="bg-gradient-to-r from-yellow-50 to-amber-50 dark:from-yellow-900/30 dark:to-amber-900/30 rounded-lg p-3 border border-yellow-200 dark:border-yellow-800">
+                    <div class="rounded-lg p-3 border" style="background: linear-gradient(to right, rgba(234, 179, 8, 0.15), rgba(245, 158, 11, 0.15)) !important; border-color: rgba(234, 179, 8, 0.3) !important;">
                         <div class="flex items-center gap-2 mb-2">
-                            <div class="w-1 h-4 bg-yellow-500 dark:bg-yellow-600 rounded-full"></div>
-                            <span class="text-xs font-semibold text-gray-700 dark:text-gray-300">Extract Agent Sub-Agents:</span>
+                            <div class="w-1 h-4 rounded-full" style="background: #eab308 !important;"></div>
+                            <span class="text-xs font-semibold" style="color: #cbd5e1 !important;">Extract Agent Sub-Agents:</span>
                         </div>
                         <div class="grid grid-cols-2 md:grid-cols-5 gap-2">
-                            <div class="bg-white dark:bg-gray-800 rounded px-2 py-1.5 text-center border border-gray-200 dark:border-gray-700">
-                                <div class="text-[10px] font-semibold text-gray-700 dark:text-gray-300">CmdLine</div>
-                                <div class="text-[8px] text-gray-500 dark:text-gray-500 mt-0.5">Extract</div>
+                            <div class="rounded px-2 py-1.5 text-center border" style="background: rgb(30, 40, 65) !important; border-color: rgba(99, 102, 241, 0.15) !important;">
+                                <div class="text-[10px] font-semibold" style="color: #cbd5e1 !important;">CmdLine</div>
+                                <div class="text-[8px] mt-0.5" style="color: #94a3b8 !important;">Extract</div>
                             </div>
-                            <div class="bg-white dark:bg-gray-800 rounded px-2 py-1.5 text-center border border-gray-200 dark:border-gray-700">
-                                <div class="text-[10px] font-semibold text-gray-700 dark:text-gray-300">SigExtract</div>
-                                <div class="text-[8px] text-gray-500 dark:text-gray-500 mt-0.5">Queries</div>
+                            <div class="rounded px-2 py-1.5 text-center border" style="background: rgb(30, 40, 65) !important; border-color: rgba(99, 102, 241, 0.15) !important;">
+                                <div class="text-[10px] font-semibold" style="color: #cbd5e1 !important;">SigExtract</div>
+                                <div class="text-[8px] mt-0.5" style="color: #94a3b8 !important;">Queries</div>
                             </div>
-                            <div class="bg-white dark:bg-gray-800 rounded px-2 py-1.5 text-center border border-gray-200 dark:border-gray-700">
-                                <div class="text-[10px] font-semibold text-gray-700 dark:text-gray-300">EventCode</div>
-                                <div class="text-[8px] text-gray-500 dark:text-gray-500 mt-0.5">Event IDs</div>
+                            <div class="rounded px-2 py-1.5 text-center border" style="background: rgb(30, 40, 65) !important; border-color: rgba(99, 102, 241, 0.15) !important;">
+                                <div class="text-[10px] font-semibold" style="color: #cbd5e1 !important;">EventCode</div>
+                                <div class="text-[8px] mt-0.5" style="color: #94a3b8 !important;">Event IDs</div>
                             </div>
-                            <div class="bg-white dark:bg-gray-800 rounded px-2 py-1.5 text-center border border-gray-200 dark:border-gray-700">
-                                <div class="text-[10px] font-semibold text-gray-700 dark:text-gray-300">ProcTree</div>
-                                <div class="text-[8px] text-gray-500 dark:text-gray-500 mt-0.5">Lineage</div>
+                            <div class="rounded px-2 py-1.5 text-center border" style="background: rgb(30, 40, 65) !important; border-color: rgba(99, 102, 241, 0.15) !important;">
+                                <div class="text-[10px] font-semibold" style="color: #cbd5e1 !important;">ProcTree</div>
+                                <div class="text-[8px] mt-0.5" style="color: #94a3b8 !important;">Lineage</div>
                             </div>
-                            <div class="bg-white dark:bg-gray-800 rounded px-2 py-1.5 text-center border border-gray-200 dark:border-gray-700">
-                                <div class="text-[10px] font-semibold text-gray-700 dark:text-gray-300">RegExtract</div>
-                                <div class="text-[8px] text-gray-500 dark:text-gray-500 mt-0.5">Registry</div>
+                            <div class="rounded px-2 py-1.5 text-center border" style="background: rgb(30, 40, 65) !important; border-color: rgba(99, 102, 241, 0.15) !important;">
+                                <div class="text-[10px] font-semibold" style="color: #cbd5e1 !important;">RegExtract</div>
+                                <div class="text-[8px] mt-0.5" style="color: #94a3b8 !important;">Registry</div>
                             </div>
                         </div>
                     </div>
@@ -2064,7 +2246,7 @@ function renderAgentModels() {
             const isAllChecked = selectedOSArray.includes('All');
             
             return `
-                <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+                <div class="bg-gray-50 rounded-lg p-4 border border-gray-200 dark:border-gray-700" style="background: rgb(26, 34, 56) !important;">
                     <div class="flex items-center justify-between mb-3">
                         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">
                             ${agentLabels[agentName] || agentName}
@@ -2183,7 +2365,7 @@ function renderAgentModels() {
         const currentModel = (agentModels && agentModels[agentName]) || '';
         
         return `
-            <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-4 border border-gray-200 dark:border-gray-700 space-y-3">
+            <div class="bg-gray-50 rounded-lg p-4 border border-gray-200 dark:border-gray-700 space-y-3" style="background: rgb(26, 34, 56) !important;">
                 <div class="flex items-center justify-between mb-2">
                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">
                         ${agentLabels[agentName] || agentName}
@@ -2704,7 +2886,7 @@ function renderAgentPrompts() {
                     <span id="${panelId}-toggle" class="text-gray-700 dark:text-gray-200 text-sm font-medium transform transition-transform" aria-hidden="true">${isEditing ? '▲' : '▼'}</span>
                 </div>
                 <div id="${panelId}-content" class="${isEditing ? '' : 'hidden'} p-4 border-t border-gray-200 dark:border-gray-700">
-                    <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+                    <div class="bg-gray-50 rounded-lg p-4 border border-gray-200 dark:border-gray-700" style="background: rgb(26, 34, 56) !important;">
                         <div class="flex items-center justify-between mb-3">
                             <div>
                                 <h4 class="text-md font-semibold text-gray-900 dark:text-white">${displayName}</h4>
@@ -2903,12 +3085,12 @@ function showPromptHistoryModal(agentName, versions) {
                             </div>
                             ${v.instructions ? `
                                 <div class="mb-4">
-                                    <div class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Instructions:</div>
+                                    <div class="text-sm font-semibold" style="color: #cbd5e1 !important; mb-2">Instructions:</div>
                                     <div class="text-sm font-mono bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 p-3 rounded-md whitespace-pre-wrap break-words max-h-96 overflow-y-auto text-gray-800 dark:text-gray-200 leading-relaxed">${escapeHtml(v.instructions)}</div>
                                 </div>
                             ` : ''}
                             <div>
-                                <div class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Prompt:</div>
+                                <div class="text-sm font-semibold" style="color: #cbd5e1 !important; mb-2">Prompt:</div>
                                 <div class="text-sm font-mono bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 p-3 rounded-md whitespace-pre-wrap break-words max-h-96 overflow-y-auto text-gray-800 dark:text-gray-200 leading-relaxed">${escapeHtml(v.prompt)}</div>
                             </div>
                         </div>
@@ -3381,7 +3563,7 @@ function renderAgentModels(lmstudioModels) {
         const lmstudioModel = currentProvider === 'lmstudio' ? currentModel : '';
         const modelOptions = buildOptions(lmstudioModel, 'Select a model (required)');
         rankContainer.innerHTML = `
-            <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-4 border border-gray-200 dark:border-gray-700 space-y-3">
+            <div class="bg-gray-50 rounded-lg p-4 border border-gray-200 dark:border-gray-700 space-y-3" style="background: rgb(26, 34, 56) !important;">
                 <div class="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     <span>Rank Agent Model</span>
                     <button type="button" 
@@ -3441,7 +3623,7 @@ function renderAgentModels(lmstudioModels) {
         const isAllChecked = selectedOSArray.includes('All');
         
         osContainer.innerHTML = `
-            <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+            <div class="bg-gray-50 rounded-lg p-4 border border-gray-200 dark:border-gray-700" style="background: rgb(26, 34, 56) !important;">
                 <label class="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
                     OS Detection Agent Model
                     <button type="button" 
@@ -3572,7 +3754,7 @@ function renderAgentModels(lmstudioModels) {
             return `<option value="${escapeHtml(modelId)}" ${lmstudioModel === modelId ? 'selected' : ''}>${escapeHtml(modelId)}</option>`;
         }).join('');
         extractContainer.innerHTML = `
-            <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-4 border border-gray-200 dark:border-gray-700 space-y-3">
+            <div class="bg-gray-50 rounded-lg p-4 border border-gray-200 dark:border-gray-700 space-y-3" style="background: rgb(26, 34, 56) !important;">
                 <div class="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     <span>Extract Agent Model</span>
                     <button type="button" 
@@ -3623,7 +3805,7 @@ function renderAgentModels(lmstudioModels) {
             return `<option value="${escapeHtml(modelId)}" ${lmstudioModel === modelId ? 'selected' : ''}>${escapeHtml(modelId)}</option>`;
         }).join('');
         sigmaContainer.innerHTML = `
-            <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-4 border border-gray-200 dark:border-gray-700 space-y-3">
+            <div class="bg-gray-50 rounded-lg p-4 border border-gray-200 dark:border-gray-700 space-y-3" style="background: rgb(26, 34, 56) !important;">
                 <div class="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     <span>SIGMA Generator Agent Model</span>
                     <button type="button" 
@@ -4274,6 +4456,11 @@ function renderAgentPrompts() {
         const promptData = agentPrompts['SigmaAgent'];
         sigmaPromptContainer.innerHTML = renderSinglePrompt('SigmaAgent', promptData, 'sigma-agent');
     }
+    
+    // Re-initialize collapsible panels for dynamically added prompt panels
+    if (typeof initCollapsiblePanels === 'function') {
+        initCollapsiblePanels();
+    }
 }
 
 function getCurrentModelForAgent(agentName) {
@@ -4361,13 +4548,13 @@ function renderSinglePrompt(agentName, promptData, prefix) {
         <div class="border border-gray-200 dark:border-gray-700 rounded-lg">
             <div data-collapsible-panel="${panelId}" class="w-full flex items-center justify-between p-3 text-left hover:bg-gray-50 dark:hover:bg-gray-700 rounded-t-lg transition-colors cursor-pointer" role="button" tabindex="0" aria-expanded="${isEditing ? 'true' : 'false'}" aria-controls="${panelId}-content">
                 <div class="flex items-center gap-3">
-                    <h4 class="text-sm font-semibold text-gray-900 dark:text-white">${escapeHtml(agentName)} Prompt</h4>
+                    <h4 class="text-sm font-semibold" style="color: #f8fafc !important;">${escapeHtml(agentName)} Prompt</h4>
                     <span class="text-xs text-gray-500 dark:text-gray-400">Model: <span class="font-mono">${escapeHtml(model)}</span></span>
                 </div>
                 <span id="${panelId}-toggle" class="text-gray-700 dark:text-gray-200 text-sm font-medium transform transition-transform" aria-hidden="true">${isEditing ? '▲' : '▼'}</span>
             </div>
             <div id="${panelId}-content" class="${isEditing ? '' : 'hidden'} p-4 border-t border-gray-200 dark:border-gray-700">
-                <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+                <div class="bg-gray-50 rounded-lg p-4 border border-gray-200 dark:border-gray-700" style="background: rgb(26, 34, 56) !important;">
                     <div class="flex items-center justify-between mb-3">
                         <div>
                             <p class="text-xs text-gray-500 dark:text-gray-400">Model: <span class="font-mono">${escapeHtml(model)}</span></p>
@@ -4446,13 +4633,13 @@ function renderQAPrompt(agentName, containerId) {
         <div class="border border-gray-200 dark:border-gray-700 rounded-lg">
             <div data-collapsible-panel="${panelId}" class="w-full flex items-center justify-between p-3 text-left hover:bg-gray-50 dark:hover:bg-gray-700 rounded-t-lg transition-colors cursor-pointer" role="button" tabindex="0" aria-expanded="${isEditing ? 'true' : 'false'}" aria-controls="${panelId}-content">
                 <div class="flex items-center gap-3">
-                    <h4 class="text-sm font-semibold text-gray-900 dark:text-white">${escapeHtml(agentName)} QA Prompt</h4>
+                    <h4 class="text-sm font-semibold" style="color: #f8fafc !important;">${escapeHtml(agentName)} QA Prompt</h4>
                     <span class="text-xs text-gray-500 dark:text-gray-400">Model: <span class="font-mono">${escapeHtml(model)}</span></span>
                 </div>
                 <span id="${panelId}-toggle" class="text-gray-700 dark:text-gray-200 text-sm font-medium transform transition-transform" aria-hidden="true">${isEditing ? '▲' : '▼'}</span>
             </div>
             <div id="${panelId}-content" class="${isEditing ? '' : 'hidden'} p-4 border-t border-gray-200 dark:border-gray-700">
-                <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+                <div class="bg-gray-50 rounded-lg p-4 border border-gray-200 dark:border-gray-700" style="background: rgb(26, 34, 56) !important;">
                     <div class="flex items-center justify-between mb-3">
                         <div>
                             <p class="text-xs text-gray-500 dark:text-gray-400">Model: <span class="font-mono">${escapeHtml(model)}</span></p>
