@@ -341,18 +341,18 @@
                     </div>
                 </div>
 
-                <!-- OS Detection Agent Panel -->
+                <!-- OS Detection Panel -->
                 <div class="border border-gray-200 dark:border-gray-700 rounded-lg">
                     <div data-collapsible-panel="os-detection-panel" class="w-full flex items-center justify-between p-4 text-left hover:bg-gray-50 dark:hover:bg-gray-700 rounded-t-lg transition-colors cursor-pointer">
                         <div class="flex items-center gap-3">
-                            <h3 class="text-lg font-semibold" style="color: #f8fafc !important;">OS Detection Agent</h3>
+                            <h3 class="text-lg font-semibold" style="color: #f8fafc !important;">OS Detection</h3>
                         </div>
                         <span id="os-detection-panel-toggle" class="text-gray-700 dark:text-gray-200 text-lg font-medium transform transition-transform" aria-hidden="true">▼</span>
                     </div>
                     <div id="os-detection-panel-content" class="hidden p-4 border-t border-gray-200 dark:border-gray-700 space-y-4">
-                        <!-- OS Detection Agent Model -->
+                        <!-- OS Detection Model -->
                         <div id="os-detection-model-container"></div>
-                        <!-- OS Detection Agent Prompt -->
+                        <!-- OS Detection Prompt -->
                         <div id="os-detection-prompt-container"></div>
                     </div>
                 </div>
@@ -498,27 +498,25 @@
                     </div>
                     </div>
 
-                <!-- Extract Agent Panel -->
+                <!-- Extract Agents Panel -->
                 <div class="border border-gray-200 dark:border-gray-700 rounded-lg">
                     <div data-collapsible-panel="extract-agent-panel" class="w-full flex items-center justify-between p-4 text-left hover:bg-gray-50 dark:hover:bg-gray-700 rounded-t-lg transition-colors cursor-pointer">
                         <div class="flex items-center gap-3">
-                            <h3 class="text-lg font-semibold" style="color: #f8fafc !important;">Extract Agent</h3>
+                            <h3 class="text-lg font-semibold" style="color: #f8fafc !important;">Extract Agents</h3>
                             <span class="px-2 py-1 text-xs rounded-full bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300 font-medium">Supervisor</span>
                         </div>
                         <span id="extract-agent-panel-toggle" class="text-gray-700 dark:text-gray-200 text-lg font-medium transform transition-transform" aria-hidden="true">▼</span>
                     </div>
                     <div id="extract-agent-panel-content" class="hidden p-4 border-t border-gray-200 dark:border-gray-700 space-y-4">
-                        <!-- Extract Agent Model -->
+                        <!-- Extract Agents Fallback Model -->
                         <div id="extract-agent-model-container"></div>
-                        <!-- Extract Agent Prompt -->
-                        <div id="extract-agent-prompt-container"></div>
                         <!-- Extract QA Agent Prompt -->
                         <div id="extract-agent-qa-prompt-container" class="hidden"></div>
                         
                         <!-- Sub-Agents Section -->
                         <div class="mt-6 pt-6 border-t-2 border-yellow-300 dark:border-yellow-700">
                             <div class="mb-4">
-                                <h4 class="text-sm font-semibold" style="color: #cbd5e1 !important; mb-1">Extract Agent Sub-Agents</h4>
+                                <h4 class="text-sm font-semibold" style="color: #cbd5e1 !important; mb-1">Extract Agents Sub-Agents</h4>
                                 <p class="text-xs text-gray-500 dark:text-gray-400">Specialized extraction agents orchestrated by the Supervisor</p>
                             </div>
                             <div class="space-y-3">
@@ -578,7 +576,7 @@
                                                         name="agent_models[CmdlineExtract_model]"
                                                         onchange="autoSaveModelChange()"
                                                         class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-xs">
-                                                    <option value="">Use Extract Agent Model</option>
+                                                    <option value="">Use Extract Agents Fallback Model</option>
                                                 </select>
                                             </div>
                                             <div data-agent-prefix="cmdlineextract" data-provider="openai" class="hidden">
@@ -732,7 +730,7 @@
                                                         name="agent_models[SigExtract_model]"
                                                         onchange="autoSaveModelChange()"
                                                         class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-xs">
-                                                    <option value="">Use Extract Agent Model</option>
+                                                    <option value="">Use Extract Agents Fallback Model</option>
                                                 </select>
                                             </div>
                                             <div data-agent-prefix="sigextract" data-provider="openai" class="hidden">
@@ -832,7 +830,7 @@
 
                                 <!-- EventCodeExtract Sub-Agent Panel -->
                                 <div class="border border-gray-200 dark:border-gray-700 rounded-lg ml-4">
-                                    <div data-collapsible-panel="eventcodeextract-agent-panel" class="w-full flex items-center justify-between p-3 text-left hover:bg-gray-50 dark:hover:bg-gray-700 rounded-t-lg transition-colors cursor-pointer" style="background-color: #1d3067;">
+                                    <div data-collapsible-panel="eventcodeextract-agent-panel" class="w-full flex items-center justify-between p-3 text-left hover:bg-gray-50 dark:hover:bg-gray-700 rounded-t-lg transition-colors cursor-pointer" style="background-color: rgba(35, 20, 72, 0.5);">
                                         <div class="flex items-center gap-3">
                                             <h4 class="text-sm font-semibold" style="color: #f8fafc !important;">EventCodeExtract (Event ID Extraction)</h4>
                                             <span id="eventcodeextract-agent-enabled-pill" class="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">Enabled</span>
@@ -886,7 +884,7 @@
                                                         name="agent_models[EventCodeExtract_model]"
                                                         onchange="autoSaveModelChange()"
                                                         class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-xs">
-                                                    <option value="">Use Extract Agent Model</option>
+                                                    <option value="">Use Extract Agents Fallback Model</option>
                                                 </select>
                                             </div>
                                             <div data-agent-prefix="eventcodeextract" data-provider="openai" class="hidden">
@@ -986,7 +984,7 @@
 
                                 <!-- ProcTreeExtract Sub-Agent Panel -->
                                 <div class="border border-gray-200 dark:border-gray-700 rounded-lg ml-4">
-                                    <div data-collapsible-panel="proctreeextract-agent-panel" class="w-full flex items-center justify-between p-3 text-left hover:bg-gray-50 dark:hover:bg-gray-700 rounded-t-lg transition-colors cursor-pointer" style="background-color: #1d3067;">
+                                    <div data-collapsible-panel="proctreeextract-agent-panel" class="w-full flex items-center justify-between p-3 text-left hover:bg-gray-50 dark:hover:bg-gray-700 rounded-t-lg transition-colors cursor-pointer" style="background-color: rgba(35, 20, 72, 0.5);">
                                         <div class="flex items-center gap-3">
                                             <h4 class="text-sm font-semibold" style="color: #f8fafc !important;">ProcTreeExtract (Process Lineage)</h4>
                                             <span id="proctreeextract-agent-enabled-pill" class="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">Enabled</span>
@@ -1040,7 +1038,7 @@
                                                         name="agent_models[ProcTreeExtract_model]"
                                                         onchange="autoSaveModelChange()"
                                                         class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-xs">
-                                                    <option value="">Use Extract Agent Model</option>
+                                                    <option value="">Use Extract Agents Fallback Model</option>
                                                 </select>
                                             </div>
                                             <div data-agent-prefix="proctreeextract" data-provider="openai" class="hidden">
@@ -1140,7 +1138,7 @@
 
                                 <!-- RegExtract Sub-Agent Panel -->
                                 <div class="border border-gray-200 dark:border-gray-700 rounded-lg ml-4">
-                                    <div data-collapsible-panel="regextract-agent-panel" class="w-full flex items-center justify-between p-3 text-left hover:bg-gray-50 dark:hover:bg-gray-700 rounded-t-lg transition-colors cursor-pointer" style="background-color: #1d3067;">
+                                    <div data-collapsible-panel="regextract-agent-panel" class="w-full flex items-center justify-between p-3 text-left hover:bg-gray-50 dark:hover:bg-gray-700 rounded-t-lg transition-colors cursor-pointer" style="background-color: rgba(35, 20, 72, 0.5);">
                                         <div class="flex items-center gap-3">
                                             <h4 class="text-sm font-semibold" style="color: #f8fafc !important;">RegExtract (Registry Extraction)</h4>
                                             <span id="regextract-agent-enabled-pill" class="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">Enabled</span>
@@ -1194,7 +1192,7 @@
                                                         name="agent_models[RegExtract_model]"
                                                         onchange="autoSaveModelChange()"
                                                         class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-xs">
-                                                    <option value="">Use Extract Agent Model</option>
+                                                    <option value="">Use Extract Agents Fallback Model</option>
                                                 </select>
                                             </div>
                                             <div data-agent-prefix="regextract" data-provider="openai" class="hidden">
@@ -1336,10 +1334,10 @@
                         <!-- SIGMA Agent Test Buttons -->
                         <div class="bg-gray-50 rounded-lg p-4 border border-gray-200 dark:border-gray-700" style="background: rgb(26, 34, 56) !important;">
                             <div class="flex items-start gap-2 mb-3 text-xs text-gray-600 dark:text-gray-300">
-                                <svg class="w-4 h-4 mt-0.5 text-gray-500 dark:text-gray-400" fill="currentColor" viewBox="0 0 20 20" title="In live workflow, the SIGMA agent ingests observables produced by the Extract Agent, not raw article content.">
+                                <svg class="w-4 h-4 mt-0.5 text-gray-500 dark:text-gray-400" fill="currentColor" viewBox="0 0 20 20" title="In live workflow, the SIGMA agent ingests observables produced by the Extract Agents, not raw article content.">
                                     <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/>
                                 </svg>
-                                <p class="leading-snug">Test requests here run directly on article content. In the actual workflow, SIGMA generation ingests observables emitted by the Extract Agent.</p>
+                                <p class="leading-snug">Test requests here run directly on article content. In the actual workflow, SIGMA generation ingests observables emitted by the Extract Agents.</p>
                             </div>
                             <div class="flex gap-2">
                                 <button type="button" onclick="const id = promptForArticleId(2155); if (id) testSigmaAgent(id);" class="w-full px-4 py-2 bg-[#4b4e77] hover:bg-[#7C3AED] text-white text-sm font-medium rounded-md transition-colors">
@@ -1545,7 +1543,7 @@
                     </div>
                     <div class="text-center p-4 rounded-lg border-2 shadow-md" style="background: rgba(234, 179, 8, 0.2) !important; border-color: rgba(234, 179, 8, 0.5) !important;">
                         <div class="text-2xl font-bold" style="color: #facc15 !important;">3</div>
-                        <div class="text-xs font-semibold mt-1" style="color: #f8fafc !important;">Extract Agent</div>
+                        <div class="text-xs font-semibold mt-1" style="color: #f8fafc !important;">Extract Agents</div>
                         <div class="mt-2 text-[10px] font-medium" style="color: #fde047 !important;">5 Sub-Agents</div>
                     </div>
                     <div class="text-center p-4 rounded-lg border" style="background: rgba(249, 115, 22, 0.15) !important; border-color: rgba(249, 115, 22, 0.3) !important;">
@@ -1562,12 +1560,12 @@
                     </div>
                 </div>
                 
-                <!-- Extract Agent Sub-Agents Detail -->
+                <!-- Extract Agents Sub-Agents Detail -->
                 <div class="ml-0 md:ml-[calc(42.857%+0.75rem)] pl-0 md:pl-0">
                     <div class="rounded-lg p-3 border" style="background: linear-gradient(to right, rgba(234, 179, 8, 0.15), rgba(245, 158, 11, 0.15)) !important; border-color: rgba(234, 179, 8, 0.3) !important;">
                         <div class="flex items-center gap-2 mb-2">
                             <div class="w-1 h-4 rounded-full" style="background: #eab308 !important;"></div>
-                            <span class="text-xs font-semibold" style="color: #cbd5e1 !important;">Extract Agent Sub-Agents:</span>
+                            <span class="text-xs font-semibold" style="color: #cbd5e1 !important;">Extract Agents Sub-Agents:</span>
                         </div>
                         <div class="grid grid-cols-2 md:grid-cols-5 gap-2">
                             <div class="rounded px-2 py-1.5 text-center border" style="background: rgb(30, 40, 65) !important; border-color: rgba(99, 102, 241, 0.15) !important;">
@@ -2217,8 +2215,8 @@ function renderAgentModels() {
     const agents = ['RankAgent', 'OSDetectionAgent', 'ExtractAgent', 'CmdlineExtract', 'SigExtract', 'EventCodeExtract', 'ProcTreeExtract', 'RegExtract', 'SigmaAgent'];
     const agentLabels = {
         'RankAgent': 'Rank Agent',
-        'OSDetectionAgent': 'OS Detection Agent',
-        'ExtractAgent': 'Extract Agent',
+        'OSDetectionAgent': 'OS Detection',
+        'ExtractAgent': 'Extract Agents',
         'CmdlineExtract': 'CmdlineExtract (Command Line Extraction)',
         'SigExtract': 'SigExtract (Query Extraction)',
         'EventCodeExtract': 'EventCodeExtract (Event ID Extraction)',
@@ -2860,10 +2858,10 @@ function renderAgentPrompts() {
     // Display name mapping for agents
     const agentDisplayNames = {
         'QAAgent': 'QA Agent (CMD)',
-        'ExtractAgent': 'Extract Agent',
+        'ExtractAgent': 'Extract Agents',
         'RankAgent': 'Rank Agent',
         'SigmaAgent': 'SIGMA Generator Agent',
-        'OSDetectionAgent': 'OS Detection Agent'
+        'OSDetectionAgent': 'OS Detection'
     };
     
     container.innerHTML = Object.keys(agentPrompts).map(agentName => {
@@ -3487,12 +3485,12 @@ function renderAgentModels(lmstudioModels) {
         'os-detection': {
             container: 'os-detection-model-container',
             agentName: 'OSDetectionAgent',
-            labels: { main: 'OS Detection Agent' }
+            labels: { main: 'OS Detection' }
         },
         'extract-agent': {
             container: 'extract-agent-model-container',
             agentName: 'ExtractAgent',
-            labels: { main: 'Extract Agent' }
+            labels: { main: 'Extract Agents' }
         },
         'sigma-agent': {
             container: 'sigma-agent-model-container',
@@ -3614,7 +3612,7 @@ function renderAgentModels(lmstudioModels) {
         `;
     }
     
-    // Render OS Detection Agent Model
+    // Render OS Detection Model
     const osContainer = getContainer('os-detection-model-container');
     if (osContainer) {
         const currentEmbeddingModel = agentModels['OSDetectionAgent_embedding'] || 'ibm-research/CTI-BERT';
@@ -3632,7 +3630,7 @@ function renderAgentModels(lmstudioModels) {
         osContainer.innerHTML = `
             <div class="bg-gray-50 rounded-lg p-4 border border-gray-200 dark:border-gray-700" style="background: rgb(26, 34, 56) !important;">
                 <label class="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
-                    OS Detection Agent Model
+                    OS Detection Model
                     <button type="button" 
                             onclick="showHelp('osDetectionAgent')"
                             class="text-blue-500 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 focus:outline-none"
@@ -3749,7 +3747,7 @@ function renderAgentModels(lmstudioModels) {
         `;
     }
     
-    // Render Extract Agent Model
+    // Render Extract Agents Fallback Model
     const extractContainer = getContainer('extract-agent-model-container');
     if (extractContainer) {
         const currentModel = agentModels['ExtractAgent'] || '';
@@ -3763,7 +3761,7 @@ function renderAgentModels(lmstudioModels) {
         extractContainer.innerHTML = `
             <div class="bg-gray-50 rounded-lg p-4 border border-gray-200 dark:border-gray-700 space-y-3" style="background: rgb(26, 34, 56) !important;">
                 <div class="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    <span>Extract Agent Model</span>
+                    <span>Extract Agents Fallback Model</span>
                     <button type="button" 
                             onclick="showHelp('extractAgent')"
                             class="text-blue-500 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 focus:outline-none"
@@ -3873,7 +3871,7 @@ function renderAgentModels(lmstudioModels) {
                 const isUnavailable = !availableModelIds.includes(modelId) ? ' (not in LM Studio)' : '';
                 return `<option value="${escapeHtml(modelId)}" ${isSelected}>${escapeHtml(modelId)}${isUnavailable}</option>`;
             }).join('');
-            select.innerHTML = '<option value="">Use Extract Agent Model</option>' + modelOptions;
+            select.innerHTML = '<option value="">Use Extract Agents Fallback Model</option>' + modelOptions;
             // Add onChange handler if not already present
             if (!select.getAttribute('onchange')) {
                 select.setAttribute('onchange', 'autoSaveModelChange()');
@@ -3883,11 +3881,11 @@ function renderAgentModels(lmstudioModels) {
 
     const qaModelSelectors = [
         { id: 'rankqa-model', placeholder: 'Use Rank Agent model', key: 'RankAgentQA' },
-        { id: 'cmdlineqa-model', placeholder: 'Use Extract Agent model', key: 'CmdLineQA' },
-        { id: 'sigqa-model', placeholder: 'Use Extract Agent model', key: 'SigQA' },
-        { id: 'eventcodeqa-model', placeholder: 'Use Extract Agent model', key: 'EventCodeQA' },
-        { id: 'proctreeqa-model', placeholder: 'Use Extract Agent model', key: 'ProcTreeQA' },
-        { id: 'regqa-model', placeholder: 'Use Extract Agent model', key: 'RegQA' }
+        { id: 'cmdlineqa-model', placeholder: 'Use Extract Agents model', key: 'CmdLineQA' },
+        { id: 'sigqa-model', placeholder: 'Use Extract Agents model', key: 'SigQA' },
+        { id: 'eventcodeqa-model', placeholder: 'Use Extract Agents model', key: 'EventCodeQA' },
+        { id: 'proctreeqa-model', placeholder: 'Use Extract Agents model', key: 'ProcTreeQA' },
+        { id: 'regqa-model', placeholder: 'Use Extract Agents model', key: 'RegQA' }
     ];
 
     qaModelSelectors.forEach(selector => {
@@ -4397,13 +4395,13 @@ async function loadAgentPrompts() {
 function renderAgentPrompts() {
     const agentDisplayNames = {
         'QAAgent': 'QA Agent (CMD)',
-        'ExtractAgent': 'Extract Agent',
+        'ExtractAgent': 'Extract Agents',
         'RankAgent': 'Rank Agent',
         'SigmaAgent': 'SIGMA Generator Agent',
-        'OSDetectionAgent': 'OS Detection Agent'
+        'OSDetectionAgent': 'OS Detection'
     };
     
-    // Render OS Detection Agent Prompt
+    // Render OS Detection Prompt
     const osPromptContainer = document.getElementById('os-detection-prompt-container');
     if (osPromptContainer && agentPrompts['OSDetectionAgent']) {
         const promptData = agentPrompts['OSDetectionAgent'];
@@ -4415,13 +4413,6 @@ function renderAgentPrompts() {
     if (rankPromptContainer && agentPrompts['RankAgent']) {
         const promptData = agentPrompts['RankAgent'];
         rankPromptContainer.innerHTML = renderSinglePrompt('RankAgent', promptData, 'rank-agent');
-    }
-    
-    // Render Extract Agent Prompt
-    const extractPromptContainer = document.getElementById('extract-agent-prompt-container');
-    if (extractPromptContainer && agentPrompts['ExtractAgent']) {
-        const promptData = agentPrompts['ExtractAgent'];
-        extractPromptContainer.innerHTML = renderSinglePrompt('ExtractAgent', promptData, 'extract-agent');
     }
     
     // Render Sub-Agent Prompts
@@ -5069,7 +5060,7 @@ async function applyPreset(preset) {
                 rankTempInput.value = preset.agent_models.RankAgent_temperature;
             }
             
-            // Extract Agent
+            // Extract Agents
             const extractModelSelect = document.getElementById('extractagent-model-2');
             if (extractModelSelect && preset.agent_models.ExtractAgent) {
                 extractModelSelect.value = preset.agent_models.ExtractAgent;
@@ -6385,7 +6376,7 @@ async function viewExecution(executionId) {
                 });
             }
             
-            // Step 3: Extract Agent
+            // Step 3: Extract Agents
             if (exec.extraction_result) {
                 const observables = exec.extraction_result.observables || [];
                 const summary = exec.extraction_result.summary || {};
@@ -6457,7 +6448,7 @@ async function viewExecution(executionId) {
                 // Show filtered content that was sent to extraction agent
                 const extractInputContentLength = exec.junk_filter_result?.filtered_length || exec.article_content?.length || 0;
                 const extractInputDetails = exec.article_content && exec.article_content.length > 0 ? `<details class="mt-2 w-full">
-                    <summary class="cursor-pointer text-xs text-gray-700 dark:text-white hover:text-gray-900 dark:hover:text-gray-100">View Filtered Content Sent to Extract Agent (${extractInputContentLength} chars)</summary>
+                    <summary class="cursor-pointer text-xs text-gray-700 dark:text-white hover:text-gray-900 dark:hover:text-gray-100">View Filtered Content Sent to Extract Agents (${extractInputContentLength} chars)</summary>
                     <div class="mt-2 w-full max-h-96 overflow-y-auto bg-gray-50 dark:bg-gray-900 rounded p-2 border text-xs font-mono text-gray-900 dark:text-white whitespace-pre-wrap break-words">
                         ${String(exec.article_content).replace(/</g, '&lt;').replace(/>/g, '&gt;')}
                     </div>
@@ -6467,7 +6458,7 @@ async function viewExecution(executionId) {
                 const extractModel = getModel('ExtractAgent');
                 
                 steps.push({
-                    name: 'Step 3: Extract Agent',
+                    name: 'Step 3: Extract Agents',
                     input: `<div class="space-y-1">
                         <div>• Filtered article content (${extractInputContentLength} chars)</div>
                         <div>• Article title: "${exec.article_title || 'N/A'}"</div>
@@ -7821,7 +7812,7 @@ function showHelp(fieldName) {
                       <p class="text-sm text-gray-600 dark:text-gray-400"><strong>Recommended:</strong> 0.4-0.6 (0.5 is balanced). Lower = stricter (fewer duplicates), Higher = more lenient (more rules queued)</p>`
         },
         'osDetectionAgent': {
-            title: 'OS Detection Agent Model',
+            title: 'OS Detection Model',
             content: `<p class="mb-2"><strong>Description:</strong></p>
                       <p class="mb-2">Configures the models used for operating system detection from threat intelligence articles. OS detection determines which articles continue through the workflow (Windows-only by default).</p>
                       <p class="mb-2"><strong>Embedding Model:</strong></p>
@@ -7864,15 +7855,14 @@ function showHelp(fieldName) {
                       <p class="text-sm text-gray-600 dark:text-gray-400"><strong>Recommended:</strong> Use a model optimized for classification/ranking tasks. Temperature 0.0 for consistent results.</p>`
         },
         'extractAgent': {
-            title: 'Extract Agent Model',
+            title: 'Extract Agents Fallback Model',
             content: `<p class="mb-2"><strong>Description:</strong></p>
-                      <p class="mb-2">The LLM model used by the Extract Agent to extract behaviors, IOCs, and technical details from threat intelligence articles. This is the primary extraction model that orchestrates sub-agents.</p>
+                      <p class="mb-2">The default LLM model used by sub-agents when no specific model is configured for them.</p>
                       <p class="mb-2"><strong>How it works:</strong></p>
                       <ul class="list-disc list-inside mb-2 space-y-1">
-                          <li>Extract Agent analyzes article content for actionable intelligence</li>
-                          <li>Orchestrates specialized sub-agents (CmdlineExtract, SigExtract, etc.)</li>
-                          <li>Extracts: command lines, registry keys, file paths, process trees, event codes</li>
-                          <li>Outputs structured extraction results for SIGMA rule generation</li>
+                          <li>Each sub-agent can have its own model configured</li>
+                          <li>If a sub-agent has no model set, it falls back to this model</li>
+                          <li>The extraction workflow runs sub-agents sequentially via Python (not LLM orchestration)</li>
                       </ul>
                       <p class="mb-2"><strong>Sub-Agents:</strong></p>
                       <ul class="list-disc list-inside mb-2 space-y-1">
@@ -7890,7 +7880,7 @@ function showHelp(fieldName) {
                       <p class="mb-2">The LLM model used to generate SIGMA detection rules from extracted behaviors and IOCs. Converts threat intelligence into actionable detection rules.</p>
                       <p class="mb-2"><strong>How it works:</strong></p>
                       <ul class="list-disc list-inside mb-2 space-y-1">
-                          <li>Receives extracted behaviors and IOCs from Extract Agent</li>
+                          <li>Receives extracted behaviors and IOCs from Extract Agents</li>
                           <li>Generates SIGMA YAML rules following SIGMA specification</li>
                           <li>Creates detection rules for Windows Event Logs, Sysmon, etc.</li>
                           <li>Rules are then checked for similarity against existing rules</li>
@@ -7918,12 +7908,12 @@ function showHelp(fieldName) {
                       </ul>
                       <p class="mb-2"><strong>How it works:</strong></p>
                       <ul class="list-disc list-inside mb-2 space-y-1">
-                          <li>Orchestrated by the Extract Agent supervisor</li>
+                          <li>Orchestrated by the Extract Agents supervisor</li>
                           <li>Focuses specifically on command-line indicators</li>
                           <li>Outputs structured command line data for SIGMA rules</li>
-                          <li>Can use Extract Agent model or override with dedicated model</li>
+                          <li>Can use Extract Agents model or override with dedicated model</li>
                       </ul>
-                      <p class="text-sm text-gray-600 dark:text-gray-400"><strong>Recommended:</strong> Leave blank to use Extract Agent model, or specify a model optimized for command-line extraction if needed.</p>`
+                      <p class="text-sm text-gray-600 dark:text-gray-400"><strong>Recommended:</strong> Leave blank to use Extract Agents model, or specify a model optimized for command-line extraction if needed.</p>`
         },
         'sigExtract': {
             title: 'SigExtract Model',
@@ -7938,12 +7928,12 @@ function showHelp(fieldName) {
                       </ul>
                       <p class="mb-2"><strong>How it works:</strong></p>
                       <ul class="list-disc list-inside mb-2 space-y-1">
-                          <li>Orchestrated by the Extract Agent supervisor</li>
+                          <li>Orchestrated by the Extract Agents supervisor</li>
                           <li>Identifies detection patterns in threat intelligence</li>
                           <li>Extracts query logic that can be converted to SIGMA rules</li>
-                          <li>Can use Extract Agent model or override with dedicated model</li>
+                          <li>Can use Extract Agents model or override with dedicated model</li>
                       </ul>
-                      <p class="text-sm text-gray-600 dark:text-gray-400"><strong>Recommended:</strong> Leave blank to use Extract Agent model, or specify a model with strong pattern recognition capabilities.</p>`
+                      <p class="text-sm text-gray-600 dark:text-gray-400"><strong>Recommended:</strong> Leave blank to use Extract Agents model, or specify a model with strong pattern recognition capabilities.</p>`
         },
         'eventCodeExtract': {
             title: 'EventCodeExtract Model',
@@ -7958,12 +7948,12 @@ function showHelp(fieldName) {
                       </ul>
                       <p class="mb-2"><strong>How it works:</strong></p>
                       <ul class="list-disc list-inside mb-2 space-y-1">
-                          <li>Orchestrated by the Extract Agent supervisor</li>
+                          <li>Orchestrated by the Extract Agents supervisor</li>
                           <li>Identifies Windows Event Log indicators</li>
                           <li>Extracts event codes used in SIGMA detection rules</li>
-                          <li>Can use Extract Agent model or override with dedicated model</li>
+                          <li>Can use Extract Agents model or override with dedicated model</li>
                       </ul>
-                      <p class="text-sm text-gray-600 dark:text-gray-400"><strong>Recommended:</strong> Leave blank to use Extract Agent model, or specify a model familiar with Windows Event Log structures.</p>`
+                      <p class="text-sm text-gray-600 dark:text-gray-400"><strong>Recommended:</strong> Leave blank to use Extract Agents model, or specify a model familiar with Windows Event Log structures.</p>`
         },
         'procTreeExtract': {
             title: 'ProcTreeExtract Model',
@@ -7978,12 +7968,12 @@ function showHelp(fieldName) {
                       </ul>
                       <p class="mb-2"><strong>How it works:</strong></p>
                       <ul class="list-disc list-inside mb-2 space-y-1">
-                          <li>Orchestrated by the Extract Agent supervisor</li>
+                          <li>Orchestrated by the Extract Agents supervisor</li>
                           <li>Identifies process relationships and execution chains</li>
                           <li>Extracts process tree data for SIGMA rule generation</li>
-                          <li>Can use Extract Agent model or override with dedicated model</li>
+                          <li>Can use Extract Agents model or override with dedicated model</li>
                       </ul>
-                      <p class="text-sm text-gray-600 dark:text-gray-400"><strong>Recommended:</strong> Leave blank to use Extract Agent model, or specify a model with strong understanding of process relationships.</p>`
+                      <p class="text-sm text-gray-600 dark:text-gray-400"><strong>Recommended:</strong> Leave blank to use Extract Agents model, or specify a model with strong understanding of process relationships.</p>`
         },
         'regExtract': {
             title: 'RegExtract Model',
@@ -7998,12 +7988,12 @@ function showHelp(fieldName) {
                       </ul>
                       <p class="mb-2"><strong>How it works:</strong></p>
                       <ul class="list-disc list-inside mb-2 space-y-1">
-                          <li>Orchestrated by the Extract Agent supervisor</li>
+                          <li>Orchestrated by the Extract Agents supervisor</li>
                           <li>Identifies Windows Registry indicators</li>
                           <li>Extracts registry data for SIGMA rule generation</li>
-                          <li>Can use Extract Agent model or override with dedicated model</li>
+                          <li>Can use Extract Agents model or override with dedicated model</li>
                       </ul>
-                      <p class="text-sm text-gray-600 dark:text-gray-400"><strong>Recommended:</strong> Leave blank to use Extract Agent model, or specify a model familiar with Windows Registry structures.</p>`
+                      <p class="text-sm text-gray-600 dark:text-gray-400"><strong>Recommended:</strong> Leave blank to use Extract Agents model, or specify a model familiar with Windows Registry structures.</p>`
         }
     };
     
