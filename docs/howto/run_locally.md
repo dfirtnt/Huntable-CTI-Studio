@@ -24,8 +24,7 @@ What happens:
 ## Service endpoints
 - Web UI + API: http://localhost:8001
 - OpenAPI docs: http://localhost:8001/docs
-- LangGraph server debug port (proxied by web): http://localhost:2024
-- Ports exposed by default: `8001`, `2024`, `8888`, `5432` (Postgres), `6379` (Redis)
+- Ports exposed by default: `8001`, `8888`, `5432` (Postgres), `6379` (Redis)
 
 ## Verify health
 ```bash

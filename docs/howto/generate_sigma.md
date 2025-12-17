@@ -17,7 +17,7 @@ Clone/pull the SigmaHQ repository and index rules into PostgreSQL:
 ## 2) Trigger workflow for the article
 Sigma runs automatically after extraction:
 ```bash
-EXECUTION_ID=$(curl -s -X POST "http://localhost:8001/api/workflow/articles/${ARTICLE_ID}/trigger?use_langgraph_server=false" | jq -r '.execution_id')
+EXECUTION_ID=$(curl -s -X POST "http://localhost:8001/api/workflow/articles/${ARTICLE_ID}/trigger" | jq -r '.execution_id')
 ```
 The Sigma agent prefers `extraction_result.content` when `discrete_huntables_count > 0`; if none are present and `sigma_fallback_enabled` is true, it falls back to filtered article content.
 

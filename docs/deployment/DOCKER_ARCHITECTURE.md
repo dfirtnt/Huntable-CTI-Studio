@@ -5,12 +5,10 @@ This reflects the current `docker-compose.yml`.
 ## Services
 - **postgres** (`pgvector/pgvector:pg15`): primary DB, volume `postgres_data`, healthcheck `pg_isready`.
 - **redis** (`redis:7-alpine`): cache/broker, appendonly enabled, volume `redis_data`.
-- **web**: FastAPI app, command `uvicorn src.web.modern_main:app --host 0.0.0.0 --port 8001 --reload`; mounts source/config/logs/tests/models/outputs; ports `8001:8001`, `LANGGRAPH_PORT (default 2024):2024`, `8888:8888`; depends on postgres/redis.
+- **web**: FastAPI app, command `uvicorn src.web.modern_main:app --host 0.0.0.0 --port 8001 --reload`; mounts source/config/logs/tests/models/outputs; ports `8001:8001`, `8888:8888`; depends on postgres/redis.
 - **worker**: Celery worker `celery -A src.worker.celery_app worker --loglevel=debug`; shares code/config volumes; uses same DB/Redis env.
 - **scheduler**: Celery beat `celery -A src.worker.celery_app beat --loglevel=debug`; shares code/config volumes.
 - **cli** (profile `tools`): runs `python -m src.cli.main` with the same env/volumes for DB parity.
-
-Optional/disabled: LangGraph server and LangFlow blocks are commented out in compose; if enabled, they would run alongside the above.
 
 ## Key environment
 - `POSTGRES_PASSWORD` required; `DATABASE_URL` injected by compose: `postgresql+asyncpg://cti_user:${POSTGRES_PASSWORD}@postgres:5432/cti_scraper`.
@@ -19,7 +17,7 @@ Optional/disabled: LangGraph server and LangFlow blocks are commented out in com
 - Timezone: `TZ=America/New_York`.
 
 ## Volumes & mounts
-- Named volumes: `postgres_data`, `redis_data`, `langflow_data` (unused unless LangFlow enabled).
+- Named volumes: `postgres_data`, `redis_data`.
 - Bind mounts: `./src`, `./config`, `./logs`, `./tests`, `./outputs`, `./models`, `./scripts`, `./allure-results`, `./test-results`, `./backups` (web only), Docker socket for web/worker.
 
 ## Health checks
@@ -31,7 +29,7 @@ Optional/disabled: LangGraph server and LangFlow blocks are commented out in com
 
 ## Networking
 - Single bridge network `cti_network`; services address each other by name (`postgres`, `redis`, `web`).
-- External access via mapped ports 8001 (API/UI), 2024 (LangGraph endpoint served by the web container), and 8888 (debug/aux port if needed).
+- External access via mapped ports 8001 (API/UI) and 8888 (debug/aux port if needed).
 
 ## CLI alignment
 `./run_cli.sh` passes args directly to `python -m src.cli.main`, ensuring the containerized CLI uses the same Postgres and Redis as the web app.

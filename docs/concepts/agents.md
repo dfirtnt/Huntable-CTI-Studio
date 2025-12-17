@@ -19,7 +19,7 @@ The agentic workflow is a chain of specialized workers executed by Celery when y
 Each sub-agent returns `items` and `count`; the supervisor aggregates them into `observables`, `discrete_huntables_count`, and a `content` string that Sigma consumes.
 
 ## Execution surfaces
-- **API**: `POST /api/workflow/articles/{article_id}/trigger?use_langgraph_server=false` (fast path). Set `use_langgraph_server=true` to route through the LangGraph server on `:2024` for traceable debugging.
+- **API**: `POST /api/workflow/articles/{article_id}/trigger` triggers the workflow via Celery.
 - **UI**: Article page → **Send to Workflow**. The Workflow page surfaces executions and per-step statuses; article pages render extraction results and Sigma output when present.
 
 ## Operational guardrails (from legacy agent SOP)

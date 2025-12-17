@@ -585,7 +585,7 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                 execution.current_step = 'extract_agent'
                 db_session.commit()
             
-            # Extract behaviors using sequential sub-agents and Supervisor (like LangGraph server workflow)
+            # Extract behaviors using sequential sub-agents and Supervisor
             logger.info(f"[Workflow {state['execution_id']}] Step 3: Extract Agent (Supervisor Mode with Sub-Agents)")
             
             config_obj = trigger_service.get_active_config()

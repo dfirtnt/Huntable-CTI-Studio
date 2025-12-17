@@ -718,9 +718,6 @@ async function updateServicesHealth() {
                                     ${serviceName === 'lmstudio' ? `
                                         <p class="font-medium">${serviceData.models_available} models available</p>
                                         <p class="text-xs text-gray-600">${serviceData.models.slice(0, 3).join(', ')}${serviceData.models.length > 3 ? '...' : ''}</p>
-                                    ` : serviceName === 'langgraph' ? `
-                                        <p class="font-medium">Server: ${serviceData.url || 'N/A'}</p>
-                                        ${serviceData.version ? `<p class="text-xs text-gray-600">Version: ${serviceData.version}</p>` : ''}
                                     ` : serviceName === 'langfuse' ? `
                                         <p class="font-medium">${serviceData.configured ? 'Configured' : 'Not configured'}</p>
                                         ${serviceData.message ? `<p class="text-xs text-gray-600">${serviceData.message}</p>` : ''}
