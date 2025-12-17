@@ -53,6 +53,7 @@
             
             /* Neutral Surfaces - Subtle Contrast */
             --color-bg-app: #111827;
+            --color-bg-content: #0a0e1a;
             --color-bg-card: #1f2937;
             --color-bg-panel: #374151;
             --color-border: #374151;
@@ -258,7 +259,7 @@
     </nav>
 
     <!-- Main Content -->
-    <main class="flex-1">
+    <main class="flex-1" style="background-color: var(--color-bg-content);">
         {% block content %}{% endblock %}
     </main>
 
