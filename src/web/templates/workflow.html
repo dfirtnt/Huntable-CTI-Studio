@@ -375,7 +375,7 @@
                         <!-- Test Buttons -->
                         <div class="bg-gray-50 rounded-lg p-4 border border-gray-200 dark:border-gray-700" style="background: rgb(26, 34, 56) !important;">
                             <div class="flex gap-2">
-                                <button type="button" onclick="const id = promptForArticleId(2155); if (id) testRankAgent(id);" class="w-full px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-md transition-colors">
+                                <button type="button" onclick="const id = promptForArticleId(2155); if (id) testRankAgent(id);" class="w-full px-4 py-2 bg-[#8B5CF6] hover:bg-[#7C3AED] text-white text-sm font-medium rounded-md transition-colors">
                                     🎯 Test with Custom ArticleID
                                 </button>
                             </div>
@@ -436,7 +436,7 @@
                                 </label>
                             </div>
                         </div>
-                        <div class="bg-gray-50 rounded-lg p-4 border border-gray-200 dark:border-gray-700 space-y-3" style="background: rgb(26, 34, 56) !important;">
+                        <div id="rank-agent-qa-configs" class="hidden bg-gray-50 rounded-lg p-4 border border-gray-200 dark:border-gray-700 space-y-3" style="background: rgb(26, 34, 56) !important;">
                             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">
                                 Rank QA Model Provider
                             </label>
@@ -524,7 +524,7 @@
                             <div class="space-y-3">
                                 <!-- CmdlineExtract Sub-Agent Panel -->
                                 <div class="border border-gray-200 dark:border-gray-700 rounded-lg ml-4">
-                                    <div id="cmdlineextract-panel-btn" data-collapsible-panel="cmdlineextract-agent-panel" class="w-full flex items-center justify-between p-3 text-left hover:bg-gray-50 dark:hover:bg-gray-700 rounded-t-lg transition-colors cursor-pointer">
+                                    <div id="cmdlineextract-panel-btn" data-collapsible-panel="cmdlineextract-agent-panel" class="w-full flex items-center justify-between p-3 text-left hover:bg-gray-50 dark:hover:bg-gray-700 rounded-t-lg transition-colors cursor-pointer" style="background-color: #ebdbc3;"
                                         <div class="flex items-center gap-3">
                                             <h4 class="text-sm font-semibold" style="color: #f8fafc !important;">CmdlineExtract (Command Line Extraction)</h4>
                                             <span id="cmdlineextract-agent-enabled-pill" class="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">Enabled</span>
@@ -607,7 +607,7 @@
                                         <!-- Test Buttons -->
                                         <div class="bg-gray-50 rounded-lg p-3 border border-gray-200 dark:border-gray-700" style="background: rgb(26, 34, 56) !important;">
                                             <div class="flex gap-2">
-                                                <button type="button" onclick="const id = promptForArticleId(2155); if (id) testSubAgent('CmdlineExtract', id);" class="w-full px-3 py-2 bg-green-600 hover:bg-green-700 text-white text-xs font-medium rounded-md transition-colors">
+                                                <button type="button" onclick="const id = promptForArticleId(2155); if (id) testSubAgent('CmdlineExtract', id);" class="w-full px-3 py-2 bg-[#8B5CF6] hover:bg-[#7C3AED] text-white text-xs font-medium rounded-md transition-colors">
                                                     🎯 Test with Custom ArticleID
                                                 </button>
                                             </div>
@@ -678,7 +678,7 @@
 
                                 <!-- SigExtract Sub-Agent Panel -->
                                 <div class="border border-gray-200 dark:border-gray-700 rounded-lg ml-4">
-                                    <div data-collapsible-panel="sigextract-agent-panel" class="w-full flex items-center justify-between p-3 text-left hover:bg-gray-50 dark:hover:bg-gray-700 rounded-t-lg transition-colors cursor-pointer">
+                                    <div data-collapsible-panel="sigextract-agent-panel" class="w-full flex items-center justify-between p-3 text-left hover:bg-gray-50 dark:hover:bg-gray-700 rounded-t-lg transition-colors cursor-pointer" style="background-color: #ebdbc3;"
                                         <div class="flex items-center gap-3">
                                             <h4 class="text-sm font-semibold" style="color: #f8fafc !important;">SigExtract (Query Extraction)</h4>
                                             <span id="sigextract-agent-enabled-pill" class="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">Enabled</span>
@@ -761,7 +761,7 @@
                                         <!-- Test Buttons -->
                                         <div class="bg-gray-50 rounded-lg p-3 border border-gray-200 dark:border-gray-700" style="background: rgb(26, 34, 56) !important;">
                                             <div class="flex gap-2">
-                                                <button type="button" onclick="const id = promptForArticleId(2155); if (id) testSubAgent('SigExtract', id);" class="w-full px-3 py-2 bg-green-600 hover:bg-green-700 text-white text-xs font-medium rounded-md transition-colors">
+                                                <button type="button" onclick="const id = promptForArticleId(2155); if (id) testSubAgent('SigExtract', id);" class="w-full px-3 py-2 bg-[#8B5CF6] hover:bg-[#7C3AED] text-white text-xs font-medium rounded-md transition-colors">
                                                     🎯 Test with Custom ArticleID
                                                 </button>
                                             </div>
@@ -832,7 +832,7 @@
 
                                 <!-- EventCodeExtract Sub-Agent Panel -->
                                 <div class="border border-gray-200 dark:border-gray-700 rounded-lg ml-4">
-                                    <div data-collapsible-panel="eventcodeextract-agent-panel" class="w-full flex items-center justify-between p-3 text-left hover:bg-gray-50 dark:hover:bg-gray-700 rounded-t-lg transition-colors cursor-pointer">
+                                    <div data-collapsible-panel="eventcodeextract-agent-panel" class="w-full flex items-center justify-between p-3 text-left hover:bg-gray-50 dark:hover:bg-gray-700 rounded-t-lg transition-colors cursor-pointer" style="background-color: #ebdbc3;"
                                         <div class="flex items-center gap-3">
                                             <h4 class="text-sm font-semibold" style="color: #f8fafc !important;">EventCodeExtract (Event ID Extraction)</h4>
                                             <span id="eventcodeextract-agent-enabled-pill" class="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">Enabled</span>
@@ -915,7 +915,7 @@
                                         <!-- Test Buttons -->
                                         <div class="bg-gray-50 rounded-lg p-3 border border-gray-200 dark:border-gray-700" style="background: rgb(26, 34, 56) !important;">
                                             <div class="flex gap-2">
-                                                <button type="button" onclick="const id = promptForArticleId(2155); if (id) testSubAgent('EventCodeExtract', id);" class="w-full px-3 py-2 bg-green-600 hover:bg-green-700 text-white text-xs font-medium rounded-md transition-colors">
+                                                <button type="button" onclick="const id = promptForArticleId(2155); if (id) testSubAgent('EventCodeExtract', id);" class="w-full px-3 py-2 bg-[#8B5CF6] hover:bg-[#7C3AED] text-white text-xs font-medium rounded-md transition-colors">
                                                     🎯 Test with Custom ArticleID
                                                 </button>
                                             </div>
@@ -986,7 +986,7 @@
 
                                 <!-- ProcTreeExtract Sub-Agent Panel -->
                                 <div class="border border-gray-200 dark:border-gray-700 rounded-lg ml-4">
-                                    <div data-collapsible-panel="proctreeextract-agent-panel" class="w-full flex items-center justify-between p-3 text-left hover:bg-gray-50 dark:hover:bg-gray-700 rounded-t-lg transition-colors cursor-pointer">
+                                    <div data-collapsible-panel="proctreeextract-agent-panel" class="w-full flex items-center justify-between p-3 text-left hover:bg-gray-50 dark:hover:bg-gray-700 rounded-t-lg transition-colors cursor-pointer" style="background-color: #ebdbc3;"
                                         <div class="flex items-center gap-3">
                                             <h4 class="text-sm font-semibold" style="color: #f8fafc !important;">ProcTreeExtract (Process Lineage)</h4>
                                             <span id="proctreeextract-agent-enabled-pill" class="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">Enabled</span>
@@ -1069,7 +1069,7 @@
                                         <!-- Test Buttons -->
                                         <div class="bg-gray-50 rounded-lg p-3 border border-gray-200 dark:border-gray-700" style="background: rgb(26, 34, 56) !important;">
                                             <div class="flex gap-2">
-                                                <button type="button" onclick="const id = promptForArticleId(2155); if (id) testSubAgent('ProcTreeExtract', id);" class="w-full px-3 py-2 bg-green-600 hover:bg-green-700 text-white text-xs font-medium rounded-md transition-colors">
+                                                <button type="button" onclick="const id = promptForArticleId(2155); if (id) testSubAgent('ProcTreeExtract', id);" class="w-full px-3 py-2 bg-[#8B5CF6] hover:bg-[#7C3AED] text-white text-xs font-medium rounded-md transition-colors">
                                                     🎯 Test with Custom ArticleID
                                                 </button>
                                             </div>
@@ -1140,7 +1140,7 @@
 
                                 <!-- RegExtract Sub-Agent Panel -->
                                 <div class="border border-gray-200 dark:border-gray-700 rounded-lg ml-4">
-                                    <div data-collapsible-panel="regextract-agent-panel" class="w-full flex items-center justify-between p-3 text-left hover:bg-gray-50 dark:hover:bg-gray-700 rounded-t-lg transition-colors cursor-pointer">
+                                    <div data-collapsible-panel="regextract-agent-panel" class="w-full flex items-center justify-between p-3 text-left hover:bg-gray-50 dark:hover:bg-gray-700 rounded-t-lg transition-colors cursor-pointer" style="background-color: #ebdbc3;"
                                         <div class="flex items-center gap-3">
                                             <h4 class="text-sm font-semibold" style="color: #f8fafc !important;">RegExtract (Registry Extraction)</h4>
                                             <span id="regextract-agent-enabled-pill" class="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">Enabled</span>
@@ -1223,7 +1223,7 @@
                                         <!-- Test Buttons -->
                                         <div class="bg-gray-50 rounded-lg p-3 border border-gray-200 dark:border-gray-700" style="background: rgb(26, 34, 56) !important;">
                                             <div class="flex gap-2">
-                                                <button type="button" onclick="const id = promptForArticleId(2155); if (id) testSubAgent('RegExtract', id);" class="w-full px-3 py-2 bg-green-600 hover:bg-green-700 text-white text-xs font-medium rounded-md transition-colors">
+                                                <button type="button" onclick="const id = promptForArticleId(2155); if (id) testSubAgent('RegExtract', id);" class="w-full px-3 py-2 bg-[#8B5CF6] hover:bg-[#7C3AED] text-white text-xs font-medium rounded-md transition-colors">
                                                     🎯 Test with Custom ArticleID
                                                 </button>
                                             </div>
@@ -1342,7 +1342,7 @@
                                 <p class="leading-snug">Test requests here run directly on article content. In the actual workflow, SIGMA generation ingests observables emitted by the Extract Agent.</p>
                             </div>
                             <div class="flex gap-2">
-                                <button type="button" onclick="const id = promptForArticleId(2155); if (id) testSigmaAgent(id);" class="w-full px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-md transition-colors">
+                                <button type="button" onclick="const id = promptForArticleId(2155); if (id) testSigmaAgent(id);" class="w-full px-4 py-2 bg-[#8B5CF6] hover:bg-[#7C3AED] text-white text-sm font-medium rounded-md transition-colors">
                                     🎯 Test with Custom ArticleID
                                 </button>
                             </div>
@@ -1422,7 +1422,7 @@
                                 class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors font-medium">
                             💾 Save Preset
                         </button>
-                        <label for="load-preset-input" class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md transition-colors font-medium cursor-pointer">
+                        <label for="load-preset-input" class="px-4 py-2 bg-[#8B5CF6] hover:bg-[#7C3AED] text-white rounded-md transition-colors font-medium cursor-pointer">
                             📂 Load Preset
                         </label>
                         <input type="file" 
@@ -1604,7 +1604,7 @@
                 <button onclick="refreshExecutions()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors">
                     🔄 Refresh
                 </button>
-                <button onclick="showTriggerWorkflowModal()" class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md transition-colors">
+                <button onclick="showTriggerWorkflowModal()" class="px-4 py-2 bg-[#8B5CF6] hover:bg-[#7C3AED] text-white rounded-md transition-colors">
                     ➕ Trigger Workflow
                 </button>
                 <button onclick="triggerStuckExecutions()" class="px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-md transition-colors" id="triggerStuckBtn">
@@ -1727,7 +1727,7 @@
                         <button onclick="closeTriggerWorkflowModal()" class="px-4 py-2 bg-gray-300 hover:bg-gray-400 dark:bg-gray-600 dark:hover:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-md transition-colors">
                             Cancel
                         </button>
-                        <button onclick="triggerWorkflow()" class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md transition-colors">
+                        <button onclick="triggerWorkflow()" class="px-4 py-2 bg-[#8B5CF6] hover:bg-[#7C3AED] text-white rounded-md transition-colors">
                             Trigger
                         </button>
                     </div>
@@ -1808,7 +1808,7 @@
                         <!-- Content loaded dynamically -->
                     </div>
                     <div class="flex space-x-4 pt-4 border-t sticky bottom-0 bg-white dark:bg-gray-800">
-                        <button onclick="approveRule(currentRuleId)" class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md">
+                        <button onclick="approveRule(currentRuleId)" class="px-4 py-2 bg-[#8B5CF6] hover:bg-[#7C3AED] text-white rounded-md">
                             ✅ Approve
                         </button>
                         <button onclick="rejectRule(currentRuleId)" class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md">
@@ -2878,7 +2878,7 @@ function renderAgentPrompts() {
         
         return `
             <div class="border border-gray-200 dark:border-gray-700 rounded-lg mb-4">
-                <div data-collapsible-panel="${panelId}" class="w-full flex items-center justify-between p-3 text-left hover:bg-gray-50 dark:hover:bg-gray-700 rounded-t-lg transition-colors cursor-pointer" role="button" tabindex="0" aria-expanded="${isEditing ? 'true' : 'false'}" aria-controls="${panelId}-content">
+                <div data-collapsible-panel="${panelId}" class="w-full flex items-center justify-between p-3 text-left hover:bg-gray-50 dark:hover:bg-gray-700 rounded-t-lg transition-colors cursor-pointer" role="button" tabindex="0" aria-expanded="${isEditing ? 'true' : 'false'}" aria-controls="${panelId}-content" style="background-color: #ebdbc3;">
                     <div class="flex items-center gap-3">
                         <h4 class="text-md font-semibold text-gray-900 dark:text-white">Prompt</h4>
                         <span class="text-xs text-gray-500 dark:text-gray-400">Model: <span class="font-mono">${escapeHtml(model)}</span></span>
@@ -2908,7 +2908,7 @@ function renderAgentPrompts() {
                                         📜 History
                                     </button>
                                     <button onclick="editPrompt('${agentName}')" 
-                                            class="px-3 py-1 bg-green-600 hover:bg-green-700 text-white text-sm rounded-md transition-colors">
+                                            class="px-3 py-1 bg-[#8B5CF6] hover:bg-[#7C3AED] text-white text-sm rounded-md transition-colors">
                                         ✏️ Edit
                                     </button>
                                 `}
@@ -3217,6 +3217,7 @@ window.updateQABadge = function(agentPrefix) {
     }
     
     // Update badge based on checkbox state
+    const qaConfigs = document.getElementById(`${agentPrefix}-qa-configs`);
     if (checkbox.checked) {
         badge.textContent = 'QA: ON';
         badge.className = 'px-2 py-1 text-xs rounded-full bg-green-200 text-green-800 dark:bg-green-900 dark:text-green-300';
@@ -3240,6 +3241,9 @@ window.updateQABadge = function(agentPrefix) {
                 renderQAPrompt('QAAgent', `${agentPrefix}-qa-prompt-container`);
             }
         }
+        if (qaConfigs) {
+            qaConfigs.classList.remove('hidden');
+        }
     } else {
         badge.textContent = 'QA: OFF';
         badge.className = 'px-2 py-1 text-xs rounded-full bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300';
@@ -3247,6 +3251,9 @@ window.updateQABadge = function(agentPrefix) {
         const qaPromptContainer = document.getElementById(`${agentPrefix}-qa-prompt-container`);
         if (qaPromptContainer) {
             qaPromptContainer.classList.add('hidden');
+        }
+        if (qaConfigs) {
+            qaConfigs.classList.add('hidden');
         }
     }
 };
@@ -4546,7 +4553,7 @@ function renderSinglePrompt(agentName, promptData, prefix) {
     
     return `
         <div class="border border-gray-200 dark:border-gray-700 rounded-lg">
-            <div data-collapsible-panel="${panelId}" class="w-full flex items-center justify-between p-3 text-left hover:bg-gray-50 dark:hover:bg-gray-700 rounded-t-lg transition-colors cursor-pointer" role="button" tabindex="0" aria-expanded="${isEditing ? 'true' : 'false'}" aria-controls="${panelId}-content">
+            <div data-collapsible-panel="${panelId}" class="w-full flex items-center justify-between p-3 text-left hover:bg-gray-50 dark:hover:bg-gray-700 rounded-t-lg transition-colors cursor-pointer" role="button" tabindex="0" aria-expanded="${isEditing ? 'true' : 'false'}" aria-controls="${panelId}-content" style="background-color: #ebdbc3;">
                 <div class="flex items-center gap-3">
                     <h4 class="text-sm font-semibold" style="color: #f8fafc !important;">${escapeHtml(agentName)} Prompt</h4>
                     <span class="text-xs text-gray-500 dark:text-gray-400">Model: <span class="font-mono">${escapeHtml(model)}</span></span>
@@ -4575,7 +4582,7 @@ function renderSinglePrompt(agentName, promptData, prefix) {
                                     📜 History
                                 </button>
                                 <button onclick="editPrompt('${agentName}')" 
-                                        class="px-3 py-1 bg-green-600 hover:bg-green-700 text-white text-sm rounded-md transition-colors">
+                                        class="px-3 py-1 bg-[#8B5CF6] hover:bg-[#7C3AED] text-white text-sm rounded-md transition-colors">
                                     ✏️ Edit
                                 </button>
                             `}
@@ -4631,7 +4638,7 @@ function renderQAPrompt(agentName, containerId) {
     
     container.innerHTML = `
         <div class="border border-gray-200 dark:border-gray-700 rounded-lg">
-            <div data-collapsible-panel="${panelId}" class="w-full flex items-center justify-between p-3 text-left hover:bg-gray-50 dark:hover:bg-gray-700 rounded-t-lg transition-colors cursor-pointer" role="button" tabindex="0" aria-expanded="${isEditing ? 'true' : 'false'}" aria-controls="${panelId}-content">
+            <div data-collapsible-panel="${panelId}" class="w-full flex items-center justify-between p-3 text-left hover:bg-gray-50 dark:hover:bg-gray-700 rounded-t-lg transition-colors cursor-pointer" role="button" tabindex="0" aria-expanded="${isEditing ? 'true' : 'false'}" aria-controls="${panelId}-content" style="background-color: #ebdbc3;">
                 <div class="flex items-center gap-3">
                     <h4 class="text-sm font-semibold" style="color: #f8fafc !important;">${escapeHtml(agentName)} QA Prompt</h4>
                     <span class="text-xs text-gray-500 dark:text-gray-400">Model: <span class="font-mono">${escapeHtml(model)}</span></span>
@@ -4660,7 +4667,7 @@ function renderQAPrompt(agentName, containerId) {
                                     📜 History
                                 </button>
                                 <button onclick="editPrompt('${agentName}')" 
-                                        class="px-3 py-1 bg-green-600 hover:bg-green-700 text-white text-sm rounded-md transition-colors">
+                                        class="px-3 py-1 bg-[#8B5CF6] hover:bg-[#7C3AED] text-white text-sm rounded-md transition-colors">
                                     ✏️ Edit
                                 </button>
                             `}
