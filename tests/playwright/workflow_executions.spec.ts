@@ -210,17 +210,15 @@ test.describe.skip(
     expect(modalVisible === false || alertText?.includes('Workflow') || alertText?.includes('Execution ID') || alertText?.includes('triggered')).toBeTruthy();
   });
 
-  test.skip('should support LangGraph Server option', async ({ page }) => {
+  test.skip('should execute workflow via modal', async ({ page }) => {
     // DISABLED: May create workflow execution records in production database. No isolated test environment available.
     // This test only applies to the Execute Workflow modal (workflow_executions.html)
-    // The Trigger Workflow modal (workflow.html) doesn't have LangGraph option
     // Look for Execute Workflow button (only exists in workflow_executions.html, not workflow.html)
     const executeButton = page.locator('button:has-text("Execute Workflow"), button:has-text("▶️"), button[onclick*="openExecuteModal"]').first();
     const buttonExists = await executeButton.isVisible({ timeout: 2000 }).catch(() => false);
     
     if (!buttonExists) {
       // Execute Workflow modal not available (we're on unified workflow page)
-      // Skip this test - LangGraph option only exists in standalone executions page
       test.skip();
       return;
     }
@@ -232,32 +230,15 @@ test.describe.skip(
     const modal = page.locator('#executeModal');
     await expect(modal).toBeVisible();
     
-    // Check checkbox exists
-    const langGraphCheckbox = page.locator('#useLangGraphServer');
-    await expect(langGraphCheckbox).toBeVisible();
-    
-    // Check checkbox label
-    await expect(page.locator('label:has-text("Use LangGraph Server")')).toBeVisible();
-    
-    // Check checkbox is unchecked by default
-    await expect(langGraphCheckbox).not.toBeChecked();
-    
-    // Click checkbox
-    await langGraphCheckbox.click();
-    
-    // Check checkbox is now checked
-    await expect(langGraphCheckbox).toBeChecked();
-    
     // Fill article ID
     const articleIdInput = page.locator('#articleIdInput');
     await articleIdInput.fill(TEST_ARTICLE_ID);
     
-    // Set up API response interception with langgraph parameter
+    // Set up API response interception
     const responsePromise = page.waitForResponse(
       (resp) => {
         const url = resp.url();
-        return url.includes(`/api/workflow/articles/${TEST_ARTICLE_ID}/trigger`) && 
-               url.includes('use_langgraph_server=true') &&
+        return url.includes(`/api/workflow/articles/${TEST_ARTICLE_ID}/trigger`) &&
                resp.request().method() === 'POST';
       },
       { timeout: 10000 }
@@ -269,9 +250,7 @@ test.describe.skip(
     // Wait for response if API is available
     const response = await responsePromise;
     if (response) {
-      // Accept any response status - we're just testing that the checkbox works
-      // The API might return 400/404/500 for various reasons, but the important thing
-      // is that the request was made with use_langgraph_server=true
+      // Accept any response status - we're just testing that the request works
       expect(response.status()).toBeGreaterThanOrEqual(200);
     }
   });

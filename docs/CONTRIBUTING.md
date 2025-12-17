@@ -173,7 +173,7 @@ CTIScraper/
 
 ## Testing
 
-**For comprehensive testing documentation, see [Testing Guide](tests/TESTING.md)**
+**For comprehensive testing documentation, see the Testing Guide in the `tests/` directory.**
 
 ### Quick Testing Commands
 
@@ -348,7 +348,7 @@ Add any other context or screenshots.
 
 **Do not report security issues through public GitHub issues.**
 
-Please report security vulnerabilities via email to `security@ctiscraper.com`. See our [Security Policy](.github/SECURITY.md) for more details.
+Please report security vulnerabilities via email to `security@ctiscraper.com`.
 
 ## Documentation
 

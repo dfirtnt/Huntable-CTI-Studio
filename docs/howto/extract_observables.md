@@ -16,7 +16,7 @@ ARTICLE_ID=$(curl -s -X POST http://localhost:8001/api/scrape-url \
 
 ## 2) Trigger the workflow
 ```bash
-EXECUTION_ID=$(curl -s -X POST "http://localhost:8001/api/workflow/articles/${ARTICLE_ID}/trigger?use_langgraph_server=false" | jq -r '.execution_id')
+EXECUTION_ID=$(curl -s -X POST "http://localhost:8001/api/workflow/articles/${ARTICLE_ID}/trigger" | jq -r '.execution_id')
 ```
 If an execution is already running, the endpoint returns a 400 with the existing execution ID; wait for it to finish or clear the stuck run.
 

@@ -12,7 +12,7 @@ Configuration is driven by `.env`, `docker-compose.yml`, and YAML files under `c
 - `DISABLE_SOURCE_AUTO_SYNC`: disable initial YAML seeding even when <5 sources exist
 
 ## Docker Compose services
-- **web**: FastAPI app (`uvicorn src.web.modern_main:app --reload`), ports `8001`, `2024` (LangGraph proxy), `8888`
+- **web**: FastAPI app (`uvicorn src.web.modern_main:app --reload`), ports `8001`, `8888`
 - **worker**: Celery worker
 - **scheduler**: Celery beat
 - **postgres**: `pgvector/pgvector:pg15` on `5432`, volume `postgres_data`
@@ -27,7 +27,6 @@ Configuration is driven by `.env`, `docker-compose.yml`, and YAML files under `c
 ## Port mappings
 Default host ports (see `../development/PORT_CONFIGURATION.md`):
 - Web/API: `8001`
-- LangGraph server (proxied): `2024`
 - Aux/debug: `8888`
 - Postgres: `5432`
 - Redis: `6379`

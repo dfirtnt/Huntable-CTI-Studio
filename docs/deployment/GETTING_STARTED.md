@@ -18,12 +18,11 @@ cp .env.example .env              # set POSTGRES_PASSWORD and API keys
 Access:
 - Web UI/API: http://localhost:8001
 - API docs: http://localhost:8001/docs
-- LangGraph debug port (forwarded by web container): http://localhost:2024
 
 ## Services (from `docker-compose.yml`)
 - postgres: `pgvector/pgvector:pg15`, persistent volume `postgres_data`, port 5432
 - redis: `redis:7-alpine`, volume `redis_data`, port 6379
-- web: FastAPI app (`uvicorn src.web.modern_main:app --reload`), ports 8001/2024/8888
+- web: FastAPI app (`uvicorn src.web.modern_main:app --reload`), ports 8001/8888
 - worker: Celery worker
 - scheduler: Celery beat
 - cli (profile `tools`): `python -m src.cli.main`
@@ -34,7 +33,7 @@ Set these in `.env` before running `./start.sh`:
 - `OPENAI_API_KEY` / `ANTHROPIC_API_KEY` / `CHATGPT_API_KEY` (optional AI features)
 - `LMSTUDIO_API_URL` (default: `http://host.docker.internal:1234/v1`)
 - `LMSTUDIO_MODEL`, `LMSTUDIO_MODEL_RANK`, `LMSTUDIO_MODEL_EXTRACT`, `LMSTUDIO_MODEL_SIGMA` (defaults set in compose)
-- `LANGSMITH_API_KEY` if using LangSmith tracing
+- `LANGSMITH_API_KEY` (optional, for tracing)
 
 Notes:
 - `.env.example` shows legacy SQLite defaults; Docker uses PostgreSQL via `DATABASE_URL=postgresql+asyncpg://cti_user:${POSTGRES_PASSWORD}@postgres:5432/cti_scraper` defined in compose.
@@ -59,7 +58,7 @@ docker-compose logs -f web
 ```
 
 ## Troubleshooting
-- Port conflicts: adjust host ports in `docker-compose.yml` (`8001`, `2024`, `8888`)
+- Port conflicts: adjust host ports in `docker-compose.yml` (`8001`, `8888`)
 - Database auth errors: ensure `POSTGRES_PASSWORD` is set and matches `.env` and compose
 - AI errors: confirm API keys or LM Studio endpoint reachable
 - CLI errors: use `./run_cli.sh --help` to see current commands; arguments are passed directly to `python -m src.cli.main`

@@ -191,10 +191,9 @@ The Huntable agentic workflow runs whenever you trigger `/api/workflow/articles/
 
 ## Execution Methods
 
-The workflow can be executed via three methods:
+The workflow can be executed via two methods:
 
 1. **Celery** (Production) - Background execution, fast, used by default from article page
-2. **LangGraph Server** (Debugging) - HTTP API with full debugging capabilities when that service is enabled
-3. **Direct Test** (Testing) - Single agent testing from the configuration page
+2. **Direct Test** (Testing) - Single agent testing from the configuration page
 
 See [architecture](../internals/architecture.md) for detailed diagrams and flow breakdowns.

@@ -7993,7 +7993,7 @@ ${JSON.stringify(rule.logsource, null, 2)}
         try {
             showNotification('Triggering workflow...', 'info');
             
-            const response = await fetch(`/api/workflow/articles/${articleId}/trigger?use_langgraph_server=false`, {
+            const response = await fetch(`/api/workflow/articles/${articleId}/trigger`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

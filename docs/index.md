@@ -11,13 +11,13 @@ Huntable CTI Studio (CTIScraper) collects threat intelligence, extracts huntable
 ## Highlights
 - **Multi-source aggregation**: RSS feeds, direct scrape endpoints, and browser extension inputs feed the pipeline.
 - **Agentic workflow**: Junk filter → LLM ranking → Extract Agent (command-line, registry, process tree, event IDs, Sigma query patterns) → Sigma generation → similarity search → queue.
-- **Storage & services**: FastAPI web app, PostgreSQL + pgvector, Redis, Celery worker/scheduler, optional LangGraph server debugging on `:2024` (service commented out by default in compose).
+- **Storage & services**: FastAPI web app, PostgreSQL + pgvector, Redis, Celery worker/scheduler.
 - **Detection support**: PySigma validation, SigmaHQ similarity matching, and coverage classification with embeddings.
 - **Chat & search**: RAG-powered search across collected intelligence, plus observable-aware annotations.
 
 ## Running the stack
 - Requirements: Docker + Docker Compose plugin, `.env` populated with `POSTGRES_PASSWORD` and optional LLM keys.
-- Start: `./start.sh` builds and launches the compose stack (web on `8001`, aux on `8888`, optional LangGraph debug port on `2024` if that service is enabled).
+- Start: `./start.sh` builds and launches the compose stack (web on `8001`, aux on `8888`).
 - Health: `curl http://localhost:8001/health` or open `http://localhost:8001/docs` for the live OpenAPI schema.
 
 ## Where to go next

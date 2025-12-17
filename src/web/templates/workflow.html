@@ -1431,6 +1431,8 @@
                     </div>
                     <p class="text-xs text-gray-500 dark:text-gray-400 mt-3">
                         Presets include: thresholds, model selections, QA toggles, temperature settings, extract agent toggles, and sigma fallback settings.
+                        <br>
+                        <strong>Note:</strong> Presets do not include prompt/instruction content.
                     </p>
                 </div>
 
@@ -7121,27 +7123,19 @@ async function viewExecution(executionId) {
     }
 }
 
-async function retryExecution(executionId, useLangGraphServer = false) {
-    const mode = useLangGraphServer ? 'synchronously (wait for completion)' : 'asynchronously (background)';
-    if (!confirm(`Retry execution ${executionId} ${mode}?`)) return;
+async function retryExecution(executionId) {
+    if (!confirm(`Retry execution ${executionId}?`)) return;
     
     try {
-        const url = `/api/workflow/executions/${executionId}/retry?use_langgraph_server=${useLangGraphServer}`;
+        const url = `/api/workflow/executions/${executionId}/retry`;
         const response = await fetch(url, { method: 'POST' });
         
         if (response.ok) {
             const result = await response.json();
-            if (result.via_direct_execution) {
-                alert('✅ Retry completed\n\n' +
-                      'Execution finished synchronously.\n' +
-                      'Langfuse traces created (if enabled).\n' +
-                      'Click "Debug" button to view traces.');
-            } else {
-                alert('✅ Retry queued\n\n' +
-                      'Execution running in background via Celery.\n' +
-                      'Langfuse traces will be created (if enabled).\n' +
-                      'Check execution status to see progress.');
-            }
+            alert('✅ Retry queued\n\n' +
+                  'Execution running in background via Celery.\n' +
+                  'Langfuse traces will be created (if enabled).\n' +
+                  'Check execution status to see progress.');
             await loadExecutions();
         } else {
             const error = await response.json();
@@ -7341,8 +7335,7 @@ async function triggerWorkflow() {
         messageDiv.textContent = 'Triggering workflow...';
         messageDiv.classList.remove('hidden');
         
-        // Always use Celery (fast, production mode) - no LangGraph server option
-        const response = await fetch(`/api/workflow/articles/${articleId}/trigger?use_langgraph_server=false`, {
+        const response = await fetch(`/api/workflow/articles/${articleId}/trigger`, {
             method: 'POST'
         });
         

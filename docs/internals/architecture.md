@@ -23,9 +23,9 @@ ASCII diagrams of the main workflows in Huntable CTI Studio. Use these to orient
 │                        Docker Container Environment                            │
 │                                                                                 │
 │  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐          │
-│  │    Web      │  │   Worker    │  │  Scheduler  │  │   Ollama    │          │
+│  │    Web      │  │   Worker    │  │  Scheduler  │  │  LM Studio  │          │
 │  │  (FastAPI)  │  │  (Celery)   │  │  (Celery)   │  │    (LLM)    │          │
-│  │   Port 8001 │  │             │  │             │  │  Port 11434 │          │
+│  │   Port 8001 │  │             │  │             │  │  Port 1234  │          │
 │  └─────────────┘  └─────────────┘  └─────────────┘  └─────────────┘          │
 │                                                                                 │
 │  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐          │
@@ -399,7 +399,7 @@ API Endpoints:
 ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
 │   LLM Services  │    │   RAG Chat      │    │ SIGMA Generation│
 │                 │    │                 │    │                 │
-│ • Ollama (Local)│    │ • Vector Search │    │ • AI Analysis   │
+│ • LM Studio     │    │ • Vector Search │    │ • AI Analysis   │
 │ • OpenAI GPT-4  │    │ • Context Build │    │ • pySIGMA Valid │
 │ • Claude 3      │    │ • Semantic Q&A  │    │ • Rule Creation │
 └─────────┬───────┘    └─────────┬───────┘    └─────────┬───────┘
