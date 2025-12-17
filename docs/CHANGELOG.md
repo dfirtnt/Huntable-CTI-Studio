@@ -605,6 +605,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- **Navigation UI**: Removed vertical divider borders between navigation items that were overlapping text
 - **SIGMA Generation Quality Restoration**: Fixed deteriorated SIGMA rule generation that was producing malformed rules
   - Reverted uncommitted prompt simplification in `src/prompts/sigma_generation.txt` that removed critical guidance
   - Restored detailed SIGMA Rule Requirements and Rule Guidelines explaining separation of detection vs tags
