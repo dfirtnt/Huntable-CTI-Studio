@@ -11,6 +11,7 @@ from datetime import datetime
 from fastapi import APIRouter, HTTPException, Response
 
 from src.database.async_manager import async_db_manager
+from src.models.annotation import ANNOTATION_MODE_TYPES
 from src.web.dependencies import logger
 
 router = APIRouter(tags=["Export"])
@@ -33,6 +34,12 @@ async def api_export_annotations():
                         WHEN aa.annotation_type = 'not_huntable' THEN 'Not Huntable'
                         ELSE aa.annotation_type
                     END as classification,
+                    aa.annotation_type,
+                    aa.usage,
+                    aa.used_for_training,
+                    aa.context_before,
+                    aa.context_after,
+                    aa.confidence_score,
                     a.title as article_title,
                     aa.created_at as classification_date
                 FROM article_annotations aa
@@ -53,18 +60,51 @@ async def api_export_annotations():
             escapechar="\\",
         )
         writer.writerow(
-            ["record_number", "highlighted_text", "classification", "article_title", "classification_date"]
+            [
+                "record_number",
+                "highlighted_text",
+                "classification",
+                "annotation_mode",
+                "annotation_type",
+                "usage",
+                "used_for_training",
+                "confidence_score",
+                "context_before",
+                "context_after",
+                "article_title",
+                "classification_date",
+            ]
         )
+
+        annotation_type_mode_map = {
+            annotation_type.lower(): mode.capitalize()
+            for mode, types in ANNOTATION_MODE_TYPES.items()
+            for annotation_type in types
+        }
 
         for annotation in annotations:
             highlighted_text = annotation.highlighted_text or ""
             # Normalize Windows-style escapes and line endings for cleaner CSV output.
             highlighted_text = highlighted_text.replace("\\\\", "\\").replace("\r\n", "\n").replace("\r", "\n")
+            annotation_type = (annotation.annotation_type or "").strip()
+            annotation_mode = annotation_type_mode_map.get(annotation_type.lower(), "Custom")
+            usage = annotation.usage or ""
+            used_for_training = bool(annotation.used_for_training)
+            confidence_score = annotation.confidence_score if annotation.confidence_score is not None else 0.0
+            context_before = annotation.context_before or ""
+            context_after = annotation.context_after or ""
             writer.writerow(
                 [
                     annotation.record_number,
                     highlighted_text,
                     annotation.classification,
+                    annotation_mode,
+                    annotation_type,
+                    usage,
+                    used_for_training,
+                    confidence_score,
+                    context_before,
+                    context_after,
                     annotation.article_title,
                     annotation.classification_date.isoformat() if annotation.classification_date else "",
                 ]

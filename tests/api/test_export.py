@@ -50,14 +50,26 @@ async def test_export_annotations_return_csv_with_bom(monkeypatch):
             classification="Huntable",
             article_title="Threat Report",
             classification_date=datetime(2025, 12, 8, 17, 0, 0),
+            annotation_type="huntable",
+            usage="train",
+            used_for_training=True,
+            confidence_score=0.85,
+            context_before="before",
+            context_after="after",
         ),
         SimpleNamespace(
             record_number=2,
             highlighted_text="Path with escapes C:\\\\Program Files\\\\WinRAR\\\\WinRAR.exe",
-            classification="Not Huntable",
+            classification="Huntable",
             article_title="Paths",
             classification_date=datetime(2025, 12, 8, 17, 5, 0),
-        )
+            annotation_type="CMD",
+            usage="eval",
+            used_for_training=False,
+            confidence_score=0.15,
+            context_before="",
+            context_after="",
+        ),
     ]
 
     monkeypatch.setattr(
@@ -88,5 +100,27 @@ async def test_export_annotations_return_csv_with_bom(monkeypatch):
     reader = csv.reader(io.StringIO(text.lstrip("\ufeff")))
     rows = list(reader)
     assert len(rows) == 3  # header + two rows
-    assert rows[1][1].startswith("Example text")
-    assert "C:\\Program Files\\WinRAR\\WinRAR.exe" in rows[2][1]
+    # Validate header columns (annotation metadata included).
+    header = rows[0]
+    assert "annotation_mode" in header
+    assert "annotation_type" in header
+    assert header.index("annotation_mode") == 3
+
+    # Validate first (huntability) row metadata
+    first_row = rows[1]
+    assert first_row[1].startswith("Example text")
+    assert first_row[3] == "Huntability"
+    assert first_row[4] == "huntable"
+    assert first_row[5] == "train"
+    assert first_row[6] == "True"
+    assert first_row[7] == "0.85"
+
+    # Validate observable row
+    second_row = rows[2]
+    assert second_row[1].startswith("Path with escapes")
+    assert second_row[3] == "Observables"
+    assert second_row[4] == "CMD"
+    assert second_row[5] == "eval"
+    assert second_row[6] == "False"
+    assert second_row[7] == "0.15"
+    assert "WinRAR.exe" in second_row[1]
