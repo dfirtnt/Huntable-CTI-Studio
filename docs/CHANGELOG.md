@@ -8,6 +8,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- **LangFuse Session Tracking**: Fixed workflow debug links to properly associate traces with sessions in LangFuse
+  - Corrected trace ID storage: now uses 32-character `trace_id` instead of 16-character span `id`
+  - Added explicit `span.update_trace(session_id=...)` call required for LangFuse 3.x OpenTelemetry integration
+  - Session pages now properly display all workflow traces grouped by execution
+  - Debug buttons now link directly to session view: `sessions/workflow_exec_{execution_id}`
+  - Added comprehensive LangFuse debugging documentation to `DEBUGGING_TOOLS_GUIDE.md` and `WORKFLOW_DATA_FLOW.md`
 - **Articles Page Dark Mode**: Darkened filter panel, dropdowns, article cards, and button bar using CSS variables (`--color-bg-card`, `--color-bg-panel`)
 
 ### Changed

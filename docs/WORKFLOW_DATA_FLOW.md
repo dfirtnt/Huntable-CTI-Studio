@@ -296,6 +296,87 @@ FROM agentic_workflow_executions
 WHERE article_id = 1427;
 ```
 
+## LangFuse Trace Creation and Session Tracking
+
+Every workflow execution creates a LangFuse trace with session tracking for debugging and monitoring.
+
+### Trace Lifecycle
+
+1. **Session Creation**: Each execution creates a session with ID format `workflow_exec_{execution_id}`
+2. **Trace Creation**: A trace is created with a 32-character trace ID
+3. **Span Recording**: Individual workflow steps are recorded as spans within the trace
+4. **Trace Flush**: Traces are flushed at execution completion or error
+
+### Implementation
+
+The LangFuse integration is implemented in `src/utils/langfuse_client.py` using the LangFuse OpenTelemetry SDK:
+
+```python
+from langfuse.types import TraceContext
+
+# Create trace context with session_id
+trace_context = TraceContext(
+    session_id=f"workflow_exec_{execution_id}",
+    user_id=f"article_{article_id}",
+)
+
+# Start trace as current span
+span_cm = client.start_as_current_span(
+    trace_context=trace_context,
+    name=f"agentic_workflow_execution_{execution_id}",
+    input={"execution_id": execution_id, "article_id": article_id},
+    metadata={"workflow_type": "agentic_workflow", ...}
+)
+span = span_cm.__enter__()
+
+# Explicitly associate with session (required in LangFuse 3.x)
+span.update_trace(session_id=session_id)
+
+# Store trace_id (32 chars) for debug links
+trace_id = span.trace_id
+```
+
+### Session Association
+
+In LangFuse 3.x with OpenTelemetry, two steps are required to associate a trace with a session:
+
+1. **Pass session_id in TraceContext**: This provides context during span creation
+2. **Call span.update_trace()**: This explicitly associates the trace with the session
+
+Without the explicit `update_trace()` call, the session view in LangFuse will be empty even though traces exist.
+
+### Trace Storage
+
+The trace ID is stored in the database for debug link generation:
+
+```python
+# In agentic_workflow.py
+trace_id_value = getattr(trace, "trace_id", None) or getattr(trace, "id", None)
+execution.trace_id = trace_id_value  # 32-char trace ID, not 16-char span ID
+db_session.commit()
+```
+
+**Important**: Store the `trace_id` (32 characters), not the span `id` (16 characters). The span ID is insufficient for LangFuse trace lookups.
+
+### Debug Links
+
+Debug buttons in the UI generate LangFuse session URLs:
+
+```python
+# In workflow_executions.py
+session_id = f"workflow_exec_{execution.id}"
+agent_chat_url = f"{langfuse_host}/project/{project_id}/sessions/{session_id}"
+```
+
+**Example URL**: `https://us.cloud.langfuse.com/project/cmhk4f8nr02m9ad07cq29m3be/sessions/workflow_exec_86`
+
+### Viewing Traces
+
+- **Session View** (recommended): Shows all traces for an execution grouped together
+- **Trace View**: Shows individual trace details with spans, inputs, outputs, and token usage
+
+See [DEBUGGING_TOOLS_GUIDE.md](DEBUGGING_TOOLS_GUIDE.md#langfuse-workflow-debugging) for detailed debugging instructions.
+
 ## Execution Methods: Celery vs LangGraph Server vs Direct
 
 The workflow can be executed via three different methods, each serving different purposes:

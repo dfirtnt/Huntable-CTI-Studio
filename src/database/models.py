@@ -484,6 +484,10 @@ class AgenticWorkflowConfigTable(Base):
     # Default False (no fallback - SIGMA only generates from extracted observables)
     sigma_fallback_enabled = Column(Boolean, nullable=False, default=False)
     
+    # Rank Agent enabled: if False, skip ranking step and proceed directly to extraction
+    # Default True (rank agent is enabled by default)
+    rank_agent_enabled = Column(Boolean, nullable=False, default=True)
+    
     # QA Agent max retries: Maximum number of times QA Agent will give feedback to counterpart agent
     qa_max_retries = Column(Integer, nullable=False, default=5)
     
