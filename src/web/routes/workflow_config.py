@@ -139,9 +139,10 @@ async def update_workflow_config(request: Request, config_update: WorkflowConfig
             current_config = db_session.query(AgenticWorkflowConfigTable).filter(
                 AgenticWorkflowConfigTable.is_active == True
             ).first()
-            
+
             if current_config:
                 current_config.is_active = False
+                db_session.flush()  # Ensure old config is deactivated before creating new one
                 new_version = current_config.version + 1
             else:
                 new_version = 1
@@ -256,113 +257,39 @@ async def get_agent_prompts(request: Request):
             extract_model = agent_models.get("ExtractAgent") or extract_model_env or default_model
             sigma_model = agent_models.get("SigmaAgent") or sigma_model_env or default_model
             
-            # Load default prompts from files if not in database
-            from pathlib import Path
-            prompts_dir = Path(__file__).parent.parent.parent / "prompts"
-            
-            default_prompts = {}
-            
-            # ExtractAgent
-            extract_agent_path = prompts_dir / "ExtractAgent"
-            extract_instructions_path = prompts_dir / "ExtractAgentInstructions.txt"
-            if extract_agent_path.exists() and extract_instructions_path.exists():
-                with open(extract_agent_path, 'r') as f:
-                    extract_prompt = f.read()
-                with open(extract_instructions_path, 'r') as f:
-                    extract_instructions = f.read()
-                default_prompts["ExtractAgent"] = {
-                    "prompt": extract_prompt,
-                    "instructions": extract_instructions,
-                    "model": extract_model
-                }
-            
-            # RankAgent
-            rank_prompt_path = prompts_dir / "lmstudio_sigma_ranking.txt"
-            if rank_prompt_path.exists():
-                with open(rank_prompt_path, 'r') as f:
-                    rank_prompt = f.read()
-                default_prompts["RankAgent"] = {
-                    "prompt": rank_prompt,
-                    "instructions": "",
-                    "model": rank_model
-                }
-            
-            # SigmaAgent
-            sigma_prompt_path = prompts_dir / "sigma_generation.txt"
-            if sigma_prompt_path.exists():
-                with open(sigma_prompt_path, 'r') as f:
-                    sigma_prompt = f.read()
-                default_prompts["SigmaAgent"] = {
-                    "prompt": sigma_prompt,
-                    "instructions": "",
-                    "model": sigma_model
-                }
-            
-            # QAAgent
-            qa_agent_path = prompts_dir / "QAAgentCMD"
-            if qa_agent_path.exists():
-                with open(qa_agent_path, 'r') as f:
-                    qa_prompt = f.read()
-                default_prompts["QAAgent"] = {
-                    "prompt": qa_prompt,
-                    "instructions": "",
-                    "model": extract_model  # Use extract model for QA
-                }
+            # IMPORTANT: Only return prompts from database (what workflow actually uses)
+            # The workflow has NO file fallback - it requires prompts to be in the database
+            # Showing file-based prompts in UI would be misleading
 
-            # --- New Sub-Agents ---
+            prompts_dict = {}
+
+            # Sub-agents list for model assignment
             sub_agents = [
-                ("CmdlineExtract", "CmdLineQA"),
-                ("SigExtract", "SigQA"),
-                ("EventCodeExtract", "EventCodeQA"),
-                ("ProcTreeExtract", "ProcTreeQA"),
-                ("RegExtract", "RegQA")
+                "CmdlineExtract", "CmdLineQA",
+                "SigExtract", "SigQA",
+                "EventCodeExtract", "EventCodeQA",
+                "ProcTreeExtract", "ProcTreeQA",
+                "RegExtract", "RegQA"
             ]
-            
-            for agent_name, qa_name in sub_agents:
-                # Load Extraction Agent
-                agent_path = prompts_dir / agent_name
-                if agent_path.exists():
-                    with open(agent_path, 'r') as f:
-                        prompt_content = f.read()
-                    default_prompts[agent_name] = {
-                        "prompt": prompt_content,
-                        "instructions": "", # Instructions are inside the JSON prompt file
-                        "model": extract_model
-                    }
-                
-                # Load QA Agent
-                qa_path = prompts_dir / qa_name
-                if qa_path.exists():
-                     with open(qa_path, 'r') as f:
-                        qa_content = f.read()
-                     default_prompts[qa_name] = {
-                        "prompt": qa_content,
-                        "instructions": "",
-                        "model": extract_model
-                     }
 
-            # Merge database prompts with defaults (database takes precedence)
+            # Only use database prompts (what workflow actually uses)
             if config.agent_prompts:
                 for agent_name, prompt_data in config.agent_prompts.items():
-                    # Preserve model info if not in database prompt data
-                    if agent_name in default_prompts and "model" not in prompt_data:
-                        prompt_data["model"] = default_prompts[agent_name].get("model", default_model)
-                    elif agent_name not in default_prompts:
-                        # Add model info for agents not in defaults
+                    # Add model info if not in database prompt data
+                    if "model" not in prompt_data:
                         if agent_name == "ExtractAgent":
                             prompt_data["model"] = extract_model
                         elif agent_name == "RankAgent":
                             prompt_data["model"] = rank_model
                         elif agent_name == "SigmaAgent":
                             prompt_data["model"] = sigma_model
-                        # Use extract model for sub-agents
-                        elif agent_name in [a for pair in sub_agents for a in pair]:
-                             prompt_data["model"] = extract_model
+                        elif agent_name in sub_agents:
+                            prompt_data["model"] = extract_model
                         else:
                             prompt_data["model"] = default_model
-                    default_prompts[agent_name] = prompt_data
-            
-            return {"prompts": default_prompts}
+                    prompts_dict[agent_name] = prompt_data
+
+            return {"prompts": prompts_dict}
         finally:
             db_session.close()
             
@@ -390,13 +317,14 @@ async def update_agent_prompts(request: Request, prompt_update: AgentPromptUpdat
             
             # Get existing prompts or create new dict
             agent_prompts = current_config.agent_prompts.copy() if current_config.agent_prompts else {}
-            
+
             # Get current prompt values for version history
             old_prompt = agent_prompts.get(prompt_update.agent_name, {}).get("prompt", "")
             old_instructions = agent_prompts.get(prompt_update.agent_name, {}).get("instructions", "")
-            
+
             # Deactivate current config
             current_config.is_active = False
+            db_session.flush()  # Ensure old config is deactivated before creating new one
             new_version = current_config.version + 1
             
             # Update or create agent prompt
@@ -519,9 +447,10 @@ async def rollback_agent_prompt(request: Request, agent_name: str, rollback_requ
             
             if not current_config:
                 raise HTTPException(status_code=404, detail="No active workflow configuration found")
-            
+
             # Deactivate current config
             current_config.is_active = False
+            db_session.flush()  # Ensure old config is deactivated before creating new one
             new_version = current_config.version + 1
             
             # Get existing prompts
@@ -786,6 +715,139 @@ async def test_sub_agent(request: Request, test_request: TestSubAgentRequest):
                         error_detail = "The prompt is too long for the model's context window. Please increase the context length in LMStudio or use a shorter prompt."
             
             raise HTTPException(status_code=500, detail=error_detail)
+
+
+@router.post("/config/prompts/bootstrap")
+async def bootstrap_prompts_from_files(request: Request):
+    """Bootstrap agent prompts from flat files into database (one-time initialization)."""
+    try:
+        db_manager = DatabaseManager()
+        db_session = db_manager.get_session()
+
+        try:
+            current_config = db_session.query(AgenticWorkflowConfigTable).filter(
+                AgenticWorkflowConfigTable.is_active == True
+            ).first()
+
+            if not current_config:
+                raise HTTPException(status_code=404, detail="No active workflow configuration found")
+
+            # Load prompts from files
+            from pathlib import Path
+            import os
+            prompts_dir = Path(__file__).parent.parent.parent / "prompts"
+
+            default_model = os.getenv("LMSTUDIO_MODEL", "mistralai/mistral-7b-instruct-v0.3")
+            rank_model_env = os.getenv("LMSTUDIO_MODEL_RANK", "").strip()
+            extract_model_env = os.getenv("LMSTUDIO_MODEL_EXTRACT", "").strip()
+            sigma_model_env = os.getenv("LMSTUDIO_MODEL_SIGMA", "").strip()
+
+            agent_models = current_config.agent_models if current_config.agent_models is not None else {}
+            rank_model = agent_models.get("RankAgent") or rank_model_env or "[Not configured - requires LMSTUDIO_MODEL_RANK]"
+            extract_model = agent_models.get("ExtractAgent") or extract_model_env or default_model
+            sigma_model = agent_models.get("SigmaAgent") or sigma_model_env or default_model
+
+            loaded_prompts = {}
+
+            # RankAgent
+            rank_prompt_path = prompts_dir / "lmstudio_sigma_ranking.txt"
+            if rank_prompt_path.exists():
+                with open(rank_prompt_path, 'r') as f:
+                    loaded_prompts["RankAgent"] = {
+                        "prompt": f.read(),
+                        "instructions": ""
+                    }
+
+            # SigmaAgent
+            sigma_prompt_path = prompts_dir / "sigma_generation.txt"
+            if sigma_prompt_path.exists():
+                with open(sigma_prompt_path, 'r') as f:
+                    loaded_prompts["SigmaAgent"] = {
+                        "prompt": f.read(),
+                        "instructions": ""
+                    }
+
+            # QAAgent
+            qa_agent_path = prompts_dir / "QAAgentCMD"
+            if qa_agent_path.exists():
+                with open(qa_agent_path, 'r') as f:
+                    loaded_prompts["QAAgent"] = {
+                        "prompt": f.read(),
+                        "instructions": ""
+                    }
+
+            # Sub-Agents
+            sub_agents = [
+                ("CmdlineExtract", "CmdLineQA"),
+                ("SigExtract", "SigQA"),
+                ("EventCodeExtract", "EventCodeQA"),
+                ("ProcTreeExtract", "ProcTreeQA"),
+                ("RegExtract", "RegQA")
+            ]
+
+            for agent_name, qa_name in sub_agents:
+                # Load Extraction Agent
+                agent_path = prompts_dir / agent_name
+                if agent_path.exists():
+                    with open(agent_path, 'r') as f:
+                        loaded_prompts[agent_name] = {
+                            "prompt": f.read(),
+                            "instructions": ""
+                        }
+
+                # Load QA Agent
+                qa_path = prompts_dir / qa_name
+                if qa_path.exists():
+                    with open(qa_path, 'r') as f:
+                        loaded_prompts[qa_name] = {
+                            "prompt": f.read(),
+                            "instructions": ""
+                        }
+
+            if not loaded_prompts:
+                raise HTTPException(status_code=404, detail="No prompt files found to bootstrap from")
+
+            # Deactivate current config
+            current_config.is_active = False
+            db_session.flush()
+            new_version = current_config.version + 1
+
+            # Create new config with bootstrapped prompts
+            new_config = AgenticWorkflowConfigTable(
+                min_hunt_score=current_config.min_hunt_score,
+                ranking_threshold=current_config.ranking_threshold,
+                similarity_threshold=current_config.similarity_threshold,
+                junk_filter_threshold=current_config.junk_filter_threshold,
+                version=new_version,
+                is_active=True,
+                description="Bootstrapped prompts from files",
+                agent_prompts=loaded_prompts,
+                agent_models=current_config.agent_models.copy() if current_config.agent_models else {},
+                qa_enabled=current_config.qa_enabled.copy() if current_config.qa_enabled else {},
+                sigma_fallback_enabled=current_config.sigma_fallback_enabled if hasattr(current_config, 'sigma_fallback_enabled') else False,
+                qa_max_retries=current_config.qa_max_retries if hasattr(current_config, 'qa_max_retries') else 5
+            )
+
+            db_session.add(new_config)
+            db_session.commit()
+            db_session.refresh(new_config)
+
+            logger.info(f"Bootstrapped {len(loaded_prompts)} prompts from files into config version {new_version}")
+
+            return {
+                "success": True,
+                "message": f"Successfully bootstrapped {len(loaded_prompts)} agent prompts from files",
+                "version": new_version,
+                "prompts_loaded": list(loaded_prompts.keys())
+            }
+        finally:
+            db_session.close()
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error bootstrapping prompts: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.post("/config/test-sigmaagent")

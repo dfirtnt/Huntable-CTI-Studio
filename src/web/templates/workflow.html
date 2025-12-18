@@ -2847,8 +2847,35 @@ async function loadAgentPrompts() {
         }
     } catch (error) {
         console.error('Error loading agent prompts:', error);
-        document.getElementById('agentPromptsContainer').innerHTML = 
+        document.getElementById('agentPromptsContainer').innerHTML =
             '<div class="text-center text-red-500 py-4">Error loading agent prompts</div>';
+    }
+}
+
+async function bootstrapPromptsFromFiles() {
+    if (!confirm('Import default prompts from files into database?\n\nThis will create a new config version with all default prompts loaded.')) {
+        return;
+    }
+
+    try {
+        const response = await fetch('/api/workflow/config/prompts/bootstrap', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+        });
+
+        if (response.ok) {
+            const result = await response.json();
+            alert(`Successfully imported ${result.prompts_loaded.length} prompts:\n\n${result.prompts_loaded.join(', ')}`);
+            // Reload prompts and config
+            await loadAgentPrompts();
+            await loadConfig();
+        } else {
+            const error = await response.json();
+            alert('Error importing prompts: ' + (error.detail || 'Unknown error'));
+        }
+    } catch (error) {
+        console.error('Error bootstrapping prompts:', error);
+        alert('Error importing prompts from files');
     }
 }
 
@@ -2856,9 +2883,18 @@ let editingPrompts = {}; // Track which prompts are being edited
 
 function renderAgentPrompts() {
     const container = document.getElementById('agentPromptsContainer');
-    
+
     if (!agentPrompts || Object.keys(agentPrompts).length === 0) {
-        container.innerHTML = '<div class="text-center text-gray-500 dark:text-gray-400 py-4">No agent prompts found</div>';
+        container.innerHTML = `
+            <div class="text-center py-8">
+                <p class="text-gray-500 dark:text-gray-400 mb-4">No agent prompts found in database</p>
+                <p class="text-sm text-gray-400 dark:text-gray-500 mb-4">Load default prompts from files to get started</p>
+                <button onclick="bootstrapPromptsFromFiles()"
+                        class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-md transition-colors">
+                    📥 Import Default Prompts
+                </button>
+            </div>
+        `;
         return;
     }
 
@@ -3045,7 +3081,7 @@ async function saveAgentPrompt(agentName) {
             editingPrompts[agentName] = false;
             alert(`Agent prompt updated successfully for ${agentName}`);
             await loadAgentPrompts();
-            await loadConfig(); // Reload config to get updated version
+            await loadConfig(true); // Reload config to get updated version (skip prompt reload since we just did it)
         } else {
             const error = await response.json();
             alert('Error updating agent prompt: ' + (error.detail || 'Unknown error'));
@@ -3162,7 +3198,7 @@ async function rollbackPrompt(agentName, versionId) {
             alert(`Rolled back ${agentName} successfully`);
             closePromptHistoryModal();
             await loadAgentPrompts();
-            await loadConfig();
+            await loadConfig(true); // Skip prompt reload since we just did it
         } else {
             const error = await response.json();
             alert('Error rolling back: ' + (error.detail || 'Unknown error'));
@@ -3324,19 +3360,19 @@ function toggleCollapsible(panelId) {
 }
 
 
-async function loadConfig() {
+async function loadConfig(skipPromptReload = false) {
     try {
         const response = await fetch('/api/workflow/config');
         if (response.ok) {
             const fetchedConfig = await response.json();
-            
+
             // Preserve qa_enabled from currentConfig if it exists and fetched config doesn't have it
             if (currentConfig?.qa_enabled && (!fetchedConfig.qa_enabled || Object.keys(fetchedConfig.qa_enabled).length === 0)) {
                 fetchedConfig.qa_enabled = currentConfig.qa_enabled;
             }
-            
+
             currentConfig = fetchedConfig;
-            
+
             // Populate form fields
             if (currentConfig.ranking_threshold !== undefined) {
                 document.getElementById('rankingThreshold').value = currentConfig.ranking_threshold;
@@ -3353,7 +3389,7 @@ async function loadConfig() {
                     qaMaxRetriesInput.value = currentConfig.qa_max_retries;
                 }
             }
-            
+
             // Display current config
             const configDisplay = document.getElementById('configDisplay');
             if (configDisplay) {
@@ -3372,11 +3408,13 @@ async function loadConfig() {
             console.warn('Config API failed, using empty config');
             currentConfig = { agent_models: {} };
         }
-        
+
         // Always load agent models and prompts, even if config API failed
         await refreshCommercialModelCatalog();
         await loadAgentModels();
-        await loadAgentPrompts();
+        if (!skipPromptReload) {
+            await loadAgentPrompts();
+        }
         refreshAllProviderBlocks();
         
         // Load QA settings
@@ -5348,36 +5386,45 @@ async function saveAgentPrompt2(agentName) {
             // Force explicit re-render of the saved agent's container as a safety measure
             // Use setTimeout to ensure DOM updates are complete
             setTimeout(() => {
-                const subAgentMap = {
+                const agentMap = {
+                    'OSDetectionAgent': { container: 'os-detection-prompt-container', prefix: 'os-detection' },
+                    'RankAgent': { container: 'rank-agent-prompt-container', prefix: 'rank-agent' },
+                    'SigmaAgent': { container: 'sigma-agent-prompt-container', prefix: 'sigma-agent' },
                     'CmdlineExtract': { container: 'cmdlineextract-agent-prompt-container', prefix: 'cmdlineextract-agent' },
                     'SigExtract': { container: 'sigextract-agent-prompt-container', prefix: 'sigextract-agent' },
                     'EventCodeExtract': { container: 'eventcodeextract-agent-prompt-container', prefix: 'eventcodeextract-agent' },
                     'ProcTreeExtract': { container: 'proctreeextract-agent-prompt-container', prefix: 'proctreeextract-agent' },
-                    'RegExtract': { container: 'regextract-agent-prompt-container', prefix: 'regextract-agent' }
+                    'RegExtract': { container: 'regextract-agent-prompt-container', prefix: 'regextract-agent' },
+                    // QA Agents
+                    'CmdLineQA': { container: 'cmdlineextract-agent-qa-prompt-container', prefix: 'cmdlineextract-agent' },
+                    'SigQA': { container: 'sigextract-agent-qa-prompt-container', prefix: 'sigextract-agent' },
+                    'EventCodeQA': { container: 'eventcodeextract-agent-qa-prompt-container', prefix: 'eventcodeextract-agent' },
+                    'ProcTreeQA': { container: 'proctreeextract-agent-qa-prompt-container', prefix: 'proctreeextract-agent' },
+                    'RegQA': { container: 'regextract-agent-qa-prompt-container', prefix: 'regextract-agent' }
                 };
-                
-                const subAgentInfo = subAgentMap[agentName];
-                if (subAgentInfo) {
-                    const subAgentContainer = document.getElementById(subAgentInfo.container);
-                    if (subAgentContainer) {
+
+                const agentInfo = agentMap[agentName];
+                if (agentInfo) {
+                    const agentContainer = document.getElementById(agentInfo.container);
+                    if (agentContainer) {
                         // Double-check agentPrompts still has our data, if not restore it
                         if (!agentPrompts[agentName] || agentPrompts[agentName].prompt !== savedPromptData.prompt) {
                             agentPrompts[agentName] = savedPromptData;
                         }
                         // Force re-render with saved data
-                        subAgentContainer.innerHTML = renderSinglePrompt(agentName, agentPrompts[agentName], subAgentInfo.prefix);
+                        agentContainer.innerHTML = renderSinglePrompt(agentName, agentPrompts[agentName], agentInfo.prefix);
                         // Re-initialize collapsible panels
                         setTimeout(() => {
                             if (typeof initCollapsiblePanels === 'function') {
-                                initCollapsiblePanels(subAgentContainer);
+                                initCollapsiblePanels(agentContainer);
                             }
                         }, 0);
                     }
                 }
             }, 50);
-            
+
             // Reload config to get updated version (but don't reload prompts - we already have the latest)
-            await loadConfig();
+            await loadConfig(true);
             
             // Always update QA prompt (even if container is hidden) so it shows fresh data when expanded
             const qaEnabled = currentConfig?.qa_enabled || {};
@@ -5501,13 +5548,68 @@ function getAllSelectedModels() {
     return Array.from(models).sort();
 }
 
+// Get only LMStudio models from selected models
+function getLMStudioModelsOnly() {
+    const models = new Set();
+    
+    // Main agent models - only include if provider is 'lmstudio'
+    const rankProvider = document.getElementById('rankagent-provider')?.value || 'lmstudio';
+    if (rankProvider === 'lmstudio') {
+        const rankModel = document.getElementById('rankagent-model-2')?.value.trim();
+        if (rankModel && !isEmbeddingModel(rankModel)) models.add(rankModel);
+    }
+    
+    const extractProvider = document.getElementById('extractagent-provider')?.value || 'lmstudio';
+    if (extractProvider === 'lmstudio') {
+        const extractModel = document.getElementById('extractagent-model-2')?.value.trim();
+        if (extractModel && !isEmbeddingModel(extractModel)) models.add(extractModel);
+    }
+    
+    const sigmaProvider = document.getElementById('sigmaagent-provider')?.value || 'lmstudio';
+    if (sigmaProvider === 'lmstudio') {
+        const sigmaModel = document.getElementById('sigmaagent-model-2')?.value.trim();
+        if (sigmaModel && !isEmbeddingModel(sigmaModel)) models.add(sigmaModel);
+    }
+    
+    // Sub-agent models (only if explicitly set, not using ExtractAgent model)
+    // Sub-agents have their own provider selectors
+    const subAgents = [
+        { name: 'CmdlineExtract', id: 'cmdlineextract-model', providerId: 'cmdlineextract-provider' },
+        { name: 'SigExtract', id: 'sigextract-model', providerId: 'sigextract-provider' },
+        { name: 'EventCodeExtract', id: 'eventcodeextract-model', providerId: 'eventcodeextract-provider' },
+        { name: 'ProcTreeExtract', id: 'proctreeextract-model', providerId: 'proctreeextract-provider' },
+        { name: 'RegExtract', id: 'regextract-model', providerId: 'regextract-provider' }
+    ];
+    
+    subAgents.forEach(subAgent => {
+        const provider = document.getElementById(subAgent.providerId)?.value || 'lmstudio';
+        if (provider === 'lmstudio') {
+            const select = document.getElementById(subAgent.id);
+            if (select && select.value && select.value.trim()) {
+                const model = select.value.trim();
+                if (!isEmbeddingModel(model)) {
+                    models.add(model);
+                }
+            }
+        }
+    });
+    
+    // OS Detection fallback model (always LMStudio, no provider selector)
+    const osFallback = document.getElementById('osdetectionagent-fallback-model-2')?.value.trim();
+    if (osFallback && !isEmbeddingModel(osFallback)) models.add(osFallback);
+    
+    // Note: OS Detection embedding and Sigma embedding models are excluded (they're text encoders)
+    
+    return Array.from(models).sort();
+}
+
 // Generate context window commands for all selected models
 function generateContextWindowCommands() {
-    const models = getAllSelectedModels();
+    const models = getLMStudioModelsOnly();
     const contextLength = document.getElementById('context-window-length')?.value || '16384';
     
     if (models.length === 0) {
-        alert('No models selected. Please select at least one model from the dropdowns above.');
+        alert('No LMStudio models selected. Please select at least one LMStudio model from the dropdowns above.');
         return;
     }
     
