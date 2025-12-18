@@ -5855,15 +5855,20 @@ function updateLMStudioContextPanelVisibility() {
     if (!panel) return;
     
     // Check if LMStudio is enabled in settings
-    if (!enabledProviders.lmstudio) {
+    if (!enabledProviders || !enabledProviders.lmstudio) {
         panel.style.display = 'none';
         return;
     }
     
     // Use getLMStudioModelsOnly() to check if there are any LMStudio models selected
     // This function already has the correct logic to check provider and model
+    if (typeof getLMStudioModelsOnly !== 'function') {
+        panel.style.display = 'none';
+        return;
+    }
+    
     const lmstudioModels = getLMStudioModelsOnly();
-    const hasLMStudio = lmstudioModels.length > 0;
+    const hasLMStudio = Array.isArray(lmstudioModels) && lmstudioModels.length > 0;
     
     // Show panel if any LMStudio models are selected, hide otherwise
     panel.style.display = hasLMStudio ? '' : 'none';
@@ -5873,22 +5878,31 @@ function getLMStudioModelsOnly() {
     const models = new Set();
     
     // Main agent models - only include if provider is 'lmstudio'
-    const rankProvider = document.getElementById('rankagent-provider')?.value || 'lmstudio';
-    if (rankProvider === 'lmstudio') {
-        const rankModel = document.getElementById('rankagent-model-2')?.value.trim();
-        if (rankModel && !isEmbeddingModel(rankModel)) models.add(rankModel);
+    const rankProviderSelect = document.getElementById('rankagent-provider');
+    if (rankProviderSelect) {
+        const rankProvider = (rankProviderSelect.value || '').trim().toLowerCase();
+        if (rankProvider === 'lmstudio') {
+            const rankModel = document.getElementById('rankagent-model-2')?.value.trim();
+            if (rankModel && !isEmbeddingModel(rankModel)) models.add(rankModel);
+        }
     }
     
-    const extractProvider = document.getElementById('extractagent-provider')?.value || 'lmstudio';
-    if (extractProvider === 'lmstudio') {
-        const extractModel = document.getElementById('extractagent-model-2')?.value.trim();
-        if (extractModel && !isEmbeddingModel(extractModel)) models.add(extractModel);
+    const extractProviderSelect = document.getElementById('extractagent-provider');
+    if (extractProviderSelect) {
+        const extractProvider = (extractProviderSelect.value || '').trim().toLowerCase();
+        if (extractProvider === 'lmstudio') {
+            const extractModel = document.getElementById('extractagent-model-2')?.value.trim();
+            if (extractModel && !isEmbeddingModel(extractModel)) models.add(extractModel);
+        }
     }
     
-    const sigmaProvider = document.getElementById('sigmaagent-provider')?.value || 'lmstudio';
-    if (sigmaProvider === 'lmstudio') {
-        const sigmaModel = document.getElementById('sigmaagent-model-2')?.value.trim();
-        if (sigmaModel && !isEmbeddingModel(sigmaModel)) models.add(sigmaModel);
+    const sigmaProviderSelect = document.getElementById('sigmaagent-provider');
+    if (sigmaProviderSelect) {
+        const sigmaProvider = (sigmaProviderSelect.value || '').trim().toLowerCase();
+        if (sigmaProvider === 'lmstudio') {
+            const sigmaModel = document.getElementById('sigmaagent-model-2')?.value.trim();
+            if (sigmaModel && !isEmbeddingModel(sigmaModel)) models.add(sigmaModel);
+        }
     }
     
     // Sub-agent models (only if explicitly set, not using ExtractAgent model)
@@ -5902,23 +5916,29 @@ function getLMStudioModelsOnly() {
     ];
     
     subAgents.forEach(subAgent => {
-        const provider = document.getElementById(subAgent.providerId)?.value || 'lmstudio';
-        if (provider === 'lmstudio') {
-            const select = document.getElementById(subAgent.id);
-            if (select && select.value && select.value.trim()) {
-                const model = select.value.trim();
-                if (!isEmbeddingModel(model)) {
-                    models.add(model);
-                }
+        const providerSelect = document.getElementById(subAgent.providerId);
+        if (!providerSelect) return; // Skip if provider dropdown doesn't exist
+        
+        const provider = (providerSelect.value || '').trim().toLowerCase();
+        if (provider !== 'lmstudio') return; // Only process LMStudio providers
+        
+        const select = document.getElementById(subAgent.id);
+        if (select && select.value && select.value.trim()) {
+            const model = select.value.trim();
+            if (!isEmbeddingModel(model)) {
+                models.add(model);
             }
         }
     });
     
     // OS Detection fallback model (only if provider is LMStudio)
-    const osFallbackProvider = document.getElementById('osdetectionagent-fallback-provider')?.value || 'lmstudio';
-    if (osFallbackProvider === 'lmstudio') {
-        const osFallback = document.getElementById('osdetectionagent-fallback-model-2')?.value.trim();
-        if (osFallback && !isEmbeddingModel(osFallback)) models.add(osFallback);
+    const osFallbackProviderSelect = document.getElementById('osdetectionagent-fallback-provider');
+    if (osFallbackProviderSelect) {
+        const osFallbackProvider = (osFallbackProviderSelect.value || '').trim().toLowerCase();
+        if (osFallbackProvider === 'lmstudio') {
+            const osFallback = document.getElementById('osdetectionagent-fallback-model-2')?.value.trim();
+            if (osFallback && !isEmbeddingModel(osFallback)) models.add(osFallback);
+        }
     }
     
     // Note: OS Detection embedding and Sigma embedding models are excluded (they're text encoders)
