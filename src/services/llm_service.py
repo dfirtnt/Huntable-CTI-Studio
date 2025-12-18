@@ -2616,16 +2616,8 @@ IMPORTANT: Your response must end with a valid JSON object matching the structur
                 # Log the actual response for debugging
                 logger.info(f"{agent_name} response (first 1000 chars): {response_text[:1000]}")
                 
-                # Log completion to Langfuse
-                if generation:
-                    response_text_preview = response_text[:500]
-                    log_llm_completion(
-                        generation=generation,
-                        input_messages=messages,
-                        output=response_text_preview,
-                        usage=response.get('usage', {}),
-                        metadata={"agent_name": agent_name, "attempt": current_try}
-                    )
+                # Note: We'll log completion to Langfuse AFTER parsing JSON
+                # so we can include the parsed result in the output field
                 
                 # Extract JSON with multiple strategies and escape sequence fixing
                 last_result = None
@@ -2777,7 +2769,33 @@ IMPORTANT: Your response must end with a valid JSON object matching the structur
                 # Ensure we have a result
                 if not last_result:
                     last_result = {"items": [], "count": 0, "error": "Failed to parse response"}
-                
+
+                # Log completion to Langfuse with parsed result
+                if generation:
+                    # Create a summary of the parsed result for the output field
+                    output_summary = {
+                        "parsed_items_count": last_result.get("count", len(last_result.get("items", []))),
+                        "has_error": "error" in last_result,
+                    }
+                    # Include a preview of items if present
+                    if "items" in last_result and last_result["items"]:
+                        output_summary["items_preview"] = last_result["items"][:3]
+                    elif "cmdline_items" in last_result and last_result["cmdline_items"]:
+                        output_summary["cmdline_items_preview"] = last_result["cmdline_items"][:3]
+
+                    log_llm_completion(
+                        generation=generation,
+                        input_messages=messages,
+                        output=json.dumps(output_summary, indent=2),
+                        usage=response.get('usage', {}),
+                        metadata={
+                            "agent_name": agent_name,
+                            "attempt": current_try,
+                            "parsed_result_keys": list(last_result.keys()),
+                            "item_count": output_summary["parsed_items_count"]
+                        }
+                    )
+
                 # If no QA config, return immediately
                 if not qa_prompt_config:
                     return last_result
