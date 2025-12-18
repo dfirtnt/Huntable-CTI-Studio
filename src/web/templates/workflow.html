@@ -2082,10 +2082,16 @@ function refreshProviderDropdowns() {
         // If current value is no longer available, select first option
         if (currentValue && !providerOptions.find(opt => opt.value === currentValue)) {
             if (select.options.length > 0) {
+                const newValue = select.options[0].value;
                 select.selectedIndex = 0;
-                // Trigger change event to update visibility
-                select.dispatchEvent(new Event('change'));
+                // Only trigger change event if value actually changed
+                if (newValue !== currentValue) {
+                    select.dispatchEvent(new Event('change'));
+                }
             }
+        } else if (currentValue && select.value !== currentValue) {
+            // Restore selection if it was preserved but not set correctly
+            select.value = currentValue;
         }
     });
 }
@@ -2865,8 +2871,9 @@ function onAgentProviderChange(agentPrefix) {
     if (provider === 'lmstudio') {
         // Clear commercial provider inputs
         modelInputs.forEach(input => input.value = '');
+        // Don't clear LMStudio dropdown - preserve selection if valid
     } else {
-        // Clear LMStudio model dropdown
+        // Clear LMStudio model dropdown only if switching away from LMStudio
         if (modelSelect) {
             // Only clear if current value might be from wrong provider
             // Check if value looks like LMStudio model (not common OpenAI/Anthropic patterns)
@@ -2875,6 +2882,12 @@ function onAgentProviderChange(agentPrefix) {
                 modelSelect.value = '';
             }
         }
+        // Clear commercial inputs when switching away from them
+        modelInputs.forEach(input => {
+            if (provider !== input.id.split('-').pop()) {
+                input.value = '';
+            }
+        });
     }
     
     if (typeof window.renderSubAgentCommercialInputs === 'function') {
