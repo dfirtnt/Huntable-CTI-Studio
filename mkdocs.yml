@@ -36,6 +36,7 @@ nav:
       - Port Configuration: development/PORT_CONFIGURATION.md
       - Web App Testing: development/WEB_APP_TESTING.md
       - Database Queries: development/DATABASE_QUERY_GUIDE.md
+      - Debugging Tools: DEBUGGING_TOOLS_GUIDE.md
   - Features:
       - Content Filtering: features/CONTENT_FILTERING.md
       - OS Detection: features/OS_DETECTION.md

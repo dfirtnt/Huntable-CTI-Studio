@@ -193,6 +193,32 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                 'termination_details': state.get('termination_details')
             }
     
+    def rank_agent_bypass_node(state: WorkflowState) -> WorkflowState:
+        """Bypass node when rank agent is disabled - sets should_continue=True and skips ranking."""
+        logger.info(f"[Workflow {state['execution_id']}] Rank Agent disabled - bypassing ranking step")
+        
+        # Update execution record
+        execution = db_session.query(AgenticWorkflowExecutionTable).filter(
+            AgenticWorkflowExecutionTable.id == state['execution_id']
+        ).first()
+        
+        if execution:
+            execution.current_step = 'rank_article_bypassed'
+            execution.ranking_score = None
+            execution.ranking_reasoning = "Rank Agent disabled - bypassed"
+            db_session.commit()
+        
+        return {
+            **state,
+            'ranking_score': None,
+            'ranking_reasoning': 'Rank Agent disabled - bypassed',
+            'should_continue': True,
+            'current_step': 'rank_article_bypassed',
+            'status': state.get('status', 'running'),
+            'termination_reason': state.get('termination_reason'),
+            'termination_details': state.get('termination_details')
+        }
+    
     async def rank_article_node(state: WorkflowState) -> WorkflowState:
         """Step 2: Rank article using LLM."""
         try:
@@ -1449,6 +1475,16 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
         
         return "end"
     
+    def check_rank_agent_enabled(state: WorkflowState) -> str:
+        """Check if rank agent is enabled and route accordingly."""
+        config = state.get('config', {})
+        rank_agent_enabled = config.get('rank_agent_enabled', True) if isinstance(config, dict) else True
+        
+        if rank_agent_enabled:
+            return "rank_article"
+        else:
+            return "rank_agent_bypass"
+    
     def check_should_continue_after_rank(state: WorkflowState) -> str:
         """Check if workflow should continue after ranking."""
         if state.get('should_continue', False):
@@ -1462,6 +1498,7 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
     # Add nodes
     workflow.add_node("junk_filter", junk_filter_node)
     workflow.add_node("rank_article", rank_article_node)
+    workflow.add_node("rank_agent_bypass", rank_agent_bypass_node)
     workflow.add_node("os_detection", os_detection_node)
     workflow.add_node("extract_agent", extract_agent_node)
     workflow.add_node("generate_sigma", generate_sigma_node)
@@ -1478,7 +1515,14 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
             "end": END
         }
     )
-    workflow.add_edge("junk_filter", "rank_article")
+    workflow.add_conditional_edges(
+        "junk_filter",
+        check_rank_agent_enabled,
+        {
+            "rank_article": "rank_article",
+            "rank_agent_bypass": "rank_agent_bypass"
+        }
+    )
     workflow.add_conditional_edges(
         "rank_article",
         check_should_continue_after_rank,
@@ -1487,6 +1531,7 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
             "end": END
         }
     )
+    workflow.add_edge("rank_agent_bypass", "extract_agent")
     workflow.add_edge("extract_agent", "generate_sigma")
     workflow.add_conditional_edges(
         "generate_sigma",
@@ -1536,14 +1581,16 @@ async def run_workflow(article_id: int, db_session: Session) -> Dict[str, Any]:
             'similarity_threshold': config_obj.similarity_threshold if config_obj else 0.5,
             'junk_filter_threshold': config_obj.junk_filter_threshold if config_obj else 0.8,
             'qa_enabled': config_obj.qa_enabled if config_obj and config_obj.qa_enabled and isinstance(config_obj.qa_enabled, dict) else {},
-            'agent_models': config_obj.agent_models if config_obj and config_obj.agent_models and isinstance(config_obj.agent_models, dict) else {}
+            'agent_models': config_obj.agent_models if config_obj and config_obj.agent_models and isinstance(config_obj.agent_models, dict) else {},
+            'rank_agent_enabled': config_obj.rank_agent_enabled if config_obj and hasattr(config_obj, 'rank_agent_enabled') else True
         } if config_obj else {
             'min_hunt_score': 97.0,
             'ranking_threshold': 6.0,
             'similarity_threshold': 0.5,
             'junk_filter_threshold': 0.8,
             'qa_enabled': {},
-            'agent_models': {}
+            'agent_models': {},
+            'rank_agent_enabled': True
         }
         
         # Initialize state
@@ -1606,13 +1653,13 @@ async def run_workflow(article_id: int, db_session: Session) -> Dict[str, Any]:
         workflow_completed = False
         workflow_error = None
         final_state = None
-        
+
         try:
             with trace_workflow_execution(execution_id=execution.id, article_id=article_id) as trace:
                 # Persist Langfuse trace_id immediately so debug links can be direct
                 try:
                     if trace:
-                        trace_id_value = getattr(trace, "id", None) or getattr(trace, "trace_id", None)
+                        trace_id_value = getattr(trace, "trace_id", None) or getattr(trace, "id", None)
                         if trace_id_value:
                             # Refresh execution to avoid stale state
                             db_session.refresh(execution)
@@ -1634,6 +1681,11 @@ async def run_workflow(article_id: int, db_session: Session) -> Dict[str, Any]:
                             )
                 except Exception as trace_persist_error:
                     logger.debug(f"Could not persist Langfuse trace_id for execution {execution.id}: {trace_persist_error}")
+                    # Rollback any failed transaction from trace persistence
+                    try:
+                        db_session.rollback()
+                    except Exception:
+                        pass
 
                 workflow_graph = create_agentic_workflow(db_session)
                 final_state = await workflow_graph.ainvoke(initial_state)
@@ -1704,7 +1756,16 @@ async def run_workflow(article_id: int, db_session: Session) -> Dict[str, Any]:
         
         # Ensure execution status matches final state
         # Refresh execution from database to get latest status
-        db_session.refresh(execution)
+        try:
+            db_session.refresh(execution)
+        except Exception as refresh_error:
+            logger.warning(f"Error refreshing execution: {refresh_error}")
+            # Rollback and get fresh copy
+            try:
+                db_session.rollback()
+            except Exception:
+                pass
+
         execution = db_session.query(AgenticWorkflowExecutionTable).filter(
             AgenticWorkflowExecutionTable.id == execution.id
         ).first()
@@ -1750,13 +1811,27 @@ async def run_workflow(article_id: int, db_session: Session) -> Dict[str, Any]:
         }
         
     except Exception as e:
+        # Rollback any failed transaction
+        try:
+            db_session.rollback()
+        except Exception as rollback_error:
+            logger.warning(f"Error rolling back transaction: {rollback_error}")
+
         # Only mark as failed if this is NOT a trace cleanup error for a completed workflow
         # Check if execution exists and has sigma_rules (indicating workflow succeeded)
         if execution:
             # Refresh execution from database to get latest state including sigma_rules
-            db_session.refresh(execution)
+            try:
+                db_session.refresh(execution)
+            except Exception as refresh_error:
+                logger.warning(f"Error refreshing execution: {refresh_error}")
+                # Try to get a fresh copy from database
+                execution = db_session.query(AgenticWorkflowExecutionTable).filter(
+                    AgenticWorkflowExecutionTable.id == execution.id
+                ).first()
+
             # Check if workflow actually completed successfully despite the error
-            if execution.sigma_rules and len(execution.sigma_rules) > 0:
+            if execution and execution.sigma_rules and len(execution.sigma_rules) > 0:
                 # Workflow succeeded - don't mark as failed
                 logger.warning(
                     f"Outer exception handler caught error for execution {execution.id}, "
