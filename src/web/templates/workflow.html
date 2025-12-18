@@ -2649,6 +2649,7 @@ const providerSelections = [
         { prefix: 'rankagent', key: 'RankAgent_provider', modelKey: 'RankAgent' },
         { prefix: 'extractagent', key: 'ExtractAgent_provider', modelKey: 'ExtractAgent' },
         { prefix: 'sigmaagent', key: 'SigmaAgent_provider', modelKey: 'SigmaAgent' },
+        { prefix: 'osdetectionagent-fallback', key: 'OSDetectionAgent_fallback_provider', modelKey: 'OSDetectionAgent_fallback' },
         // Sub-agents
         { prefix: 'cmdlineextract', key: 'CmdlineExtract_provider', modelKey: 'CmdlineExtract_model' },
         { prefix: 'sigextract', key: 'SigExtract_provider', modelKey: 'SigExtract_model' },
@@ -3471,20 +3472,31 @@ const updateQABadge = window.updateQABadge;
 // Toggle fallback model enable/disable
 window.toggleFallbackModel = function() {
     const toggle = document.getElementById('osdetectionagent-fallback-enabled');
-    const select = document.getElementById('osdetectionagent-fallback-model-2');
+    const container = document.getElementById('osdetectionagent-fallback-container');
     
-    if (!toggle || !select) {
-        console.error('toggleFallbackModel: Toggle or select element not found');
+    if (!toggle || !container) {
+        console.error('toggleFallbackModel: Toggle or container element not found');
         return;
     }
     
     if (toggle.checked) {
-        // Enable the dropdown
-        select.disabled = false;
+        // Show the fallback model selection container
+        container.classList.remove('hidden');
+        container.style.display = 'block';
     } else {
-        // Disable the dropdown and clear its value
-        select.disabled = true;
-        select.value = '';
+        // Hide and clear the fallback model selection
+        container.classList.add('hidden');
+        container.style.display = 'none';
+        
+        // Clear all model inputs
+        const lmstudioSelect = document.getElementById('osdetectionagent-fallback-model-2');
+        const openaiInput = document.getElementById('osdetectionagent-fallback-model-openai');
+        const anthropicInput = document.getElementById('osdetectionagent-fallback-model-anthropic');
+        
+        if (lmstudioSelect) lmstudioSelect.value = '';
+        if (openaiInput) openaiInput.value = '';
+        if (anthropicInput) anthropicInput.value = '';
+        
         // Trigger auto-save to persist the cleared value
         if (typeof autoSaveModelChange === 'function') {
             autoSaveModelChange();
@@ -3836,6 +3848,7 @@ function renderAgentModels(lmstudioModels) {
     if (osContainer) {
         const currentEmbeddingModel = agentModels['OSDetectionAgent_embedding'] || 'ibm-research/CTI-BERT';
         const currentFallbackModel = agentModels['OSDetectionAgent_fallback'] || '';
+        const currentFallbackProvider = agentModels['OSDetectionAgent_fallback_provider'] || 'lmstudio';
         const currentSelectedOS = agentModels['OSDetectionAgent_selected_os'] || ['Windows'];
         const selectedOSArray = Array.isArray(currentSelectedOS) ? currentSelectedOS : (currentSelectedOS ? [currentSelectedOS] : ['Windows']);
         
@@ -3845,6 +3858,9 @@ function renderAgentModels(lmstudioModels) {
         const isNetworkChecked = selectedOSArray.includes('Network') || selectedOSArray.includes('All');
         const isOtherChecked = selectedOSArray.includes('Other') || selectedOSArray.includes('All');
         const isAllChecked = selectedOSArray.includes('All');
+        
+        // Only use currentFallbackModel for LMStudio dropdown if provider is lmstudio
+        const lmstudioFallbackModel = currentFallbackProvider === 'lmstudio' ? currentFallbackModel : '';
         
         osContainer.innerHTML = `
             <div class="bg-gray-50 rounded-lg p-4 border border-gray-200 dark:border-gray-700" style="background: rgb(26, 34, 56) !important;">
@@ -3871,7 +3887,7 @@ function renderAgentModels(lmstudioModels) {
                 </div>
                 <div class="mb-3">
                     <div class="flex items-center justify-between mb-1">
-                        <label for="osdetectionagent-fallback-model-2" class="block text-xs font-medium text-gray-600 dark:text-gray-400">Fallback Model (Optional)</label>
+                        <label class="block text-xs font-medium text-gray-600 dark:text-gray-400">Fallback LLM (Optional)</label>
                         <label class="relative inline-flex items-center cursor-pointer">
                             <input type="checkbox" 
                                    id="osdetectionagent-fallback-enabled" 
@@ -3881,16 +3897,25 @@ function renderAgentModels(lmstudioModels) {
                             <div class="w-9 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-purple-300 dark:peer-focus:ring-purple-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-purple-600"></div>
                         </label>
                     </div>
-                    <select id="osdetectionagent-fallback-model-2" 
-                            name="agent_models[OSDetectionAgent_fallback]"
-                            onchange="autoSaveModelChange()"
-                            class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-sm"
-                            ${currentFallbackModel ? '' : 'disabled'}>
-                        <option value="">Use default</option>
-                        ${sortedModelIds.map(modelId => `<option value="${escapeHtml(modelId)}" ${currentFallbackModel === modelId ? 'selected' : ''}>${escapeHtml(modelId)}</option>`).join('')}
-                    </select>
-                    <p class="text-[10px] text-gray-500 dark:text-gray-400 mt-1">Leave blank to use primary OS model.</p>
-
+                    <div id="osdetectionagent-fallback-container" class="${currentFallbackModel ? '' : 'hidden'}" style="display: ${currentFallbackModel ? 'block' : 'none'};">
+                        ${buildProviderSelect('osdetectionagent-fallback', currentFallbackProvider)}
+                        <p class="text-[10px] text-gray-500 dark:text-gray-400 mt-1 mb-2">LLM fallback when embedding confidence is low</p>
+                        <div data-agent-prefix="osdetectionagent-fallback" data-provider="lmstudio">
+                            <select id="osdetectionagent-fallback-model-2" 
+                                    name="agent_models[OSDetectionAgent_fallback]"
+                                    onchange="autoSaveModelChange()"
+                                    class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-sm">
+                                <option value="">Use default</option>
+                                ${sortedModelIds.map(modelId => `<option value="${escapeHtml(modelId)}" ${lmstudioFallbackModel === modelId ? 'selected' : ''}>${escapeHtml(modelId)}</option>`).join('')}
+                            </select>
+                        </div>
+                        <div data-agent-prefix="osdetectionagent-fallback" data-provider="openai" class="hidden">
+                            ${buildCommercialProviderInput('osdetectionagent-fallback', 'openai', currentFallbackProvider, currentFallbackModel)}
+                        </div>
+                        <div data-agent-prefix="osdetectionagent-fallback" data-provider="anthropic" class="hidden">
+                            ${buildCommercialProviderInput('osdetectionagent-fallback', 'anthropic', currentFallbackProvider, currentFallbackModel)}
+                        </div>
+                    </div>
                 </div>
                 <div>
                     <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-2">
@@ -4490,7 +4515,8 @@ window.autoSaveModelChange = async function autoSaveModelChange() {
             RankAgent_provider: rankProvider,
             RankAgent_temperature: parseFloat(document.getElementById('rankagent-temperature')?.value) || 0.0,
             OSDetectionAgent_embedding: document.getElementById('osdetectionagent-embedding-model-2')?.value.trim() || 'ibm-research/CTI-BERT',
-            OSDetectionAgent_fallback: document.getElementById('osdetectionagent-fallback-model-2')?.value.trim() || null,
+            OSDetectionAgent_fallback: getActiveAgentModelValue('osdetectionagent-fallback', document.getElementById('osdetectionagent-fallback-provider')?.value || 'lmstudio'),
+            OSDetectionAgent_fallback_provider: document.getElementById('osdetectionagent-fallback-provider')?.value || 'lmstudio',
             OSDetectionAgent_selected_os: osSelection,
             ExtractAgent: extractModelValue,
             ExtractAgent_provider: extractProvider,
@@ -5960,8 +5986,12 @@ function getCurrentFormState() {
     const osEmbedding = document.getElementById('osdetectionagent-embedding-model-2')?.value.trim();
     if (osEmbedding) agent_models.OSDetectionAgent_embedding = osEmbedding;
     
-    const osFallback = document.getElementById('osdetectionagent-fallback-model-2')?.value.trim();
-    if (osFallback) agent_models.OSDetectionAgent_fallback = osFallback;
+    const osFallbackProvider = document.getElementById('osdetectionagent-fallback-provider')?.value || 'lmstudio';
+    const osFallback = getActiveAgentModelValue('osdetectionagent-fallback', osFallbackProvider);
+    if (osFallback) {
+        agent_models.OSDetectionAgent_fallback = osFallback;
+        agent_models.OSDetectionAgent_fallback_provider = osFallbackProvider;
+    }
     
     // Get sub-agent models
     const subAgents = [
