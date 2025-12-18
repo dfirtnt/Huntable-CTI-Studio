@@ -11,6 +11,7 @@
 - Sub-agent and QA agent model dropdowns check provider before populating
 - OS Detection fallback now persists correctly (only saves when toggle is checked)
 - Fixed LMStudio model selection being cleared unnecessarily when provider dropdowns refresh
+- Selected Models display now filters by QA enabled status (Rank/Extract/SIGMA only show if QA enabled)
 
 ### Added
 - OS Detection fallback LLM now supports cloud providers (OpenAI, Anthropic)
