@@ -5860,44 +5860,12 @@ function updateLMStudioContextPanelVisibility() {
         return;
     }
     
-    // Check if any agents are using LMStudio provider AND have a model selected
-    const lmstudioAgents = [
-        { providerId: 'rankagent-provider', modelId: 'rankagent-model-2' },
-        { providerId: 'extractagent-provider', modelId: 'extractagent-model-2' },
-        { providerId: 'sigmaagent-provider', modelId: 'sigmaagent-model-2' },
-        { providerId: 'cmdlineextract-provider', modelId: 'cmdlineextract-model' },
-        { providerId: 'sigextract-provider', modelId: 'sigextract-model' },
-        { providerId: 'eventcodeextract-provider', modelId: 'eventcodeextract-model' },
-        { providerId: 'proctreeextract-provider', modelId: 'proctreeextract-model' },
-        { providerId: 'regextract-provider', modelId: 'regextract-model' },
-        { providerId: 'cmdlineqa-provider', modelId: 'cmdlineqa-model' },
-        { providerId: 'sigqa-provider', modelId: 'sigqa-model' },
-        { providerId: 'eventcodeqa-provider', modelId: 'eventcodeqa-model' },
-        { providerId: 'proctreeqa-provider', modelId: 'proctreeqa-model' },
-        { providerId: 'regqa-provider', modelId: 'regqa-model' },
-        { providerId: 'rankqa-provider', modelId: 'rankqa-model' },
-        { providerId: 'osdetectionagent-fallback-provider', modelId: 'osdetectionagent-fallback-model-2' }
-    ];
+    // Use getLMStudioModelsOnly() to check if there are any LMStudio models selected
+    // This function already has the correct logic to check provider and model
+    const lmstudioModels = getLMStudioModelsOnly();
+    const hasLMStudio = lmstudioModels.length > 0;
     
-    const hasLMStudio = lmstudioAgents.some(agent => {
-        const providerSelect = document.getElementById(agent.providerId);
-        const modelSelect = document.getElementById(agent.modelId);
-        
-        // Check if provider is LMStudio
-        if (!providerSelect || providerSelect.value !== 'lmstudio') {
-            return false;
-        }
-        
-        // Check if model select exists and has a value
-        if (modelSelect) {
-            const modelValue = modelSelect.value.trim();
-            return modelValue && modelValue !== '';
-        }
-        
-        return false;
-    });
-    
-    // Show panel if any LMStudio providers with models are selected, hide otherwise
+    // Show panel if any LMStudio models are selected, hide otherwise
     panel.style.display = hasLMStudio ? '' : 'none';
 }
 
