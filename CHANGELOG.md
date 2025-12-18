@@ -4,6 +4,7 @@
 - Model provider dropdowns in workflow configuration now respect Settings selection
 - Deselected providers in AL/ML Assistant Configuration no longer appear in agent workflow config page
 - Provider options are dynamically filtered based on `WORKFLOW_*_ENABLED` settings from `/api/settings`
+- LMStudio Context Window Commands panel now hidden when no LMStudio providers are selected in workflow config
 
 ## 2025-12-16
 
