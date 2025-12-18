@@ -1491,7 +1491,7 @@
                 </div>
 
                 <!-- Context Window Command Generator -->
-                <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mb-6 border border-gray-200 dark:border-gray-700" style="background: rgb(20, 28, 48) !important; border-color: rgba(139, 92, 246, 0.15) !important;">
+                <div id="lmstudio-context-panel" class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mb-6 border border-gray-200 dark:border-gray-700" style="background: rgb(20, 28, 48) !important; border-color: rgba(139, 92, 246, 0.15) !important;">
                     <h3 class="text-lg font-semibold" style="color: #f8fafc !important;">🔧 LMStudio Context Window Commands</h3>
                     <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">Generate commands to set context windows for all selected models in your terminal.</p>
                     <div class="flex flex-wrap gap-3 items-end">
@@ -2830,6 +2830,7 @@ function onAgentProviderChange(agentPrefix) {
     if (typeof window.renderSubAgentCommercialInputs === 'function') {
         window.renderSubAgentCommercialInputs(agentPrefix);
     }
+    updateLMStudioContextPanelVisibility();
     autoSaveModelChange();
 }
 // Keep a reference the stub can call even if overwritten order varies
@@ -5686,6 +5687,44 @@ function getAllSelectedModels() {
 }
 
 // Get only LMStudio models from selected models
+// Check if any LMStudio providers are selected and update panel visibility
+function updateLMStudioContextPanelVisibility() {
+    const panel = document.getElementById('lmstudio-context-panel');
+    if (!panel) return;
+    
+    // Check if LMStudio is enabled in settings
+    if (!enabledProviders.lmstudio) {
+        panel.style.display = 'none';
+        return;
+    }
+    
+    // Check if any agents are using LMStudio provider
+    const lmstudioProviders = [
+        'rankagent-provider',
+        'extractagent-provider',
+        'sigmaagent-provider',
+        'cmdlineextract-provider',
+        'sigextract-provider',
+        'eventcodeextract-provider',
+        'proctreeextract-provider',
+        'regextract-provider',
+        'cmdlineqa-provider',
+        'sigqa-provider',
+        'eventcodeqa-provider',
+        'proctreeqa-provider',
+        'regqa-provider',
+        'rankqa-provider'
+    ];
+    
+    const hasLMStudio = lmstudioProviders.some(id => {
+        const select = document.getElementById(id);
+        return select && select.value === 'lmstudio';
+    });
+    
+    // Show panel if any LMStudio providers are selected, hide otherwise
+    panel.style.display = hasLMStudio ? '' : 'none';
+}
+
 function getLMStudioModelsOnly() {
     const models = new Set();
     
@@ -8901,6 +8940,12 @@ if (document.readyState === 'loading') {
         if (typeof refreshAllProviderBlocks === 'function') {
             refreshAllProviderBlocks();
         }
+        
+        // Update LMStudio context panel visibility after config loads
+        if (typeof updateLMStudioContextPanelVisibility === 'function') {
+            updateLMStudioContextPanelVisibility();
+        }
+        
         // __dbgLog('H5', 'DOMContentLoaded fired', { ready: document.readyState });
     });
 } else {
@@ -8919,6 +8964,12 @@ if (document.readyState === 'loading') {
         if (typeof refreshAllProviderBlocks === 'function') {
             refreshAllProviderBlocks();
         }
+        
+        // Update LMStudio context panel visibility after config loads
+        if (typeof updateLMStudioContextPanelVisibility === 'function') {
+            updateLMStudioContextPanelVisibility();
+        }
+        
         // __dbgLog('H5', 'DOMContentLoaded immediate branch', { ready: document.readyState });
     })();
 }
