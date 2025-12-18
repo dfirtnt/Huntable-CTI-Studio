@@ -3571,19 +3571,20 @@ async function loadConfig(skipPromptReload = false) {
             if (configDisplay) {
                 // Build selected models summary
                 const models = currentConfig.agent_models || {};
+                const disabled = getDisabledExtractAgentsFromConfig(currentConfig);
                 const selectedModels = [];
                 
-                // Main agents
+                // Main agents (always enabled)
                 if (models.RankAgent) selectedModels.push(`Rank: ${models.RankAgent} (${models.RankAgent_provider || 'lmstudio'})`);
                 if (models.ExtractAgent) selectedModels.push(`Extract: ${models.ExtractAgent} (${models.ExtractAgent_provider || 'lmstudio'})`);
                 if (models.SigmaAgent) selectedModels.push(`SIGMA: ${models.SigmaAgent} (${models.SigmaAgent_provider || 'lmstudio'})`);
                 if (models.OSDetectionAgent_fallback) selectedModels.push(`OS Fallback: ${models.OSDetectionAgent_fallback} (${models.OSDetectionAgent_fallback_provider || 'lmstudio'})`);
                 
-                // Sub-agents (only if different from fallback)
+                // Sub-agents (only if enabled and has model)
                 ['CmdlineExtract', 'SigExtract', 'EventCodeExtract', 'ProcTreeExtract', 'RegExtract'].forEach(agent => {
                     const modelKey = `${agent}_model`;
                     const providerKey = `${agent}_provider`;
-                    if (models[modelKey]) {
+                    if (models[modelKey] && !disabled.includes(agent)) {
                         selectedModels.push(`${agent}: ${models[modelKey]} (${models[providerKey] || 'lmstudio'})`);
                     }
                 });
@@ -6407,19 +6408,20 @@ if (workflowConfigForm) {
             if (configDisplay) {
                 // Build selected models summary
                 const models = updatedConfig.agent_models || {};
+                const disabled = getDisabledExtractAgentsFromConfig(updatedConfig);
                 const selectedModels = [];
                 
-                // Main agents
+                // Main agents (always enabled)
                 if (models.RankAgent) selectedModels.push(`Rank: ${models.RankAgent} (${models.RankAgent_provider || 'lmstudio'})`);
                 if (models.ExtractAgent) selectedModels.push(`Extract: ${models.ExtractAgent} (${models.ExtractAgent_provider || 'lmstudio'})`);
                 if (models.SigmaAgent) selectedModels.push(`SIGMA: ${models.SigmaAgent} (${models.SigmaAgent_provider || 'lmstudio'})`);
                 if (models.OSDetectionAgent_fallback) selectedModels.push(`OS Fallback: ${models.OSDetectionAgent_fallback} (${models.OSDetectionAgent_fallback_provider || 'lmstudio'})`);
                 
-                // Sub-agents (only if different from fallback)
+                // Sub-agents (only if enabled and has model)
                 ['CmdlineExtract', 'SigExtract', 'EventCodeExtract', 'ProcTreeExtract', 'RegExtract'].forEach(agent => {
                     const modelKey = `${agent}_model`;
                     const providerKey = `${agent}_provider`;
-                    if (models[modelKey]) {
+                    if (models[modelKey] && !disabled.includes(agent)) {
                         selectedModels.push(`${agent}: ${models[modelKey]} (${models[providerKey] || 'lmstudio'})`);
                     }
                 });
