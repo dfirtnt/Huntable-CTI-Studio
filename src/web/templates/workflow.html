@@ -1971,25 +1971,11 @@ if (typeof window !== 'undefined' && typeof window.refreshAllProviderBlocks !== 
     };
 }
 
-// #region agent log helper
+// #region agent log helper (disabled)
 function __dbgLog(hypothesisId, message, data) {
-    try {
-        fetch('http://127.0.0.1:7242/ingest/358b7f6e-3cf0-4ca2-8faf-57b269e739b7', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                sessionId: 'debug-session',
-                runId: 'run-pre-fix',
-                hypothesisId,
-                location: 'workflow.html',
-                message,
-                data,
-                timestamp: Date.now()
-            })
-        }).catch(() => {});
-    } catch (_) {}
+    // Debug logging disabled - no-op to prevent network errors
+    // Original implementation attempted to send logs to http://127.0.0.1:7242/ingest
 }
-__dbgLog('H1', 'script_loaded', { page: 'workflow' });
 // #endregion
 
 const providerOptions = [
@@ -2625,6 +2611,7 @@ const subAgentCommercialMap = {
     eventcodeextract: { modelKey: 'EventCodeExtract_model' },
     proctreeextract: { modelKey: 'ProcTreeExtract_model' },
     regextract: { modelKey: 'RegExtract_model' },
+    rankqa: { modelKey: 'RankAgentQA' },
     cmdlineqa: { modelKey: 'CmdLineQA' },
     sigqa: { modelKey: 'SigQA' },
     eventcodeqa: { modelKey: 'EventCodeQA' },
@@ -2698,7 +2685,7 @@ if (typeof window !== 'undefined' && typeof window.renderSubAgentCommercialInput
             if (!container) return;
 
             const catalog = Array.isArray(catalogs[p]) ? catalogs[p] : [];
-            __dbgLog('H2', 'renderSubAgentCommercialInputs entry', { agentPrefix, provider, catalogLen: catalog.length });
+            // __dbgLog('H2', 'renderSubAgentCommercialInputs entry', { agentPrefix, provider, catalogLen: catalog.length });
             if (catalog.length > 0) {
                 const options = catalog.map(modelId => {
                     const selected = modelId === currentModel ? 'selected' : '';
@@ -2737,7 +2724,7 @@ function onAgentProviderChange(agentPrefix) {
     const select = document.getElementById(`${agentPrefix}-provider`);
     if (!select) return;
     const provider = (select.value || 'lmstudio').toString().trim().toLowerCase();
-    __dbgLog('H3', 'onAgentProviderChange', { agentPrefix, provider });
+    // __dbgLog('H3', 'onAgentProviderChange', { agentPrefix, provider });
     updateAgentProviderVisibility(agentPrefix, provider);
     if (typeof window.renderSubAgentCommercialInputs === 'function') {
         window.renderSubAgentCommercialInputs(agentPrefix);
@@ -2754,7 +2741,7 @@ function refreshAllProviderBlocks() {
     selects.forEach(select => {
         const prefix = select.id.replace(/-provider$/, '');
         const provider = (select.value || 'lmstudio').toString().trim().toLowerCase();
-        __dbgLog('H4', 'refreshAllProviderBlocks iterate', { prefix, provider });
+        // __dbgLog('H4', 'refreshAllProviderBlocks iterate', { prefix, provider });
         updateAgentProviderVisibility(prefix, provider);
         if (typeof window.renderSubAgentCommercialInputs === 'function') {
             window.renderSubAgentCommercialInputs(prefix);
@@ -4461,9 +4448,17 @@ function renderAgentPrompts() {
     
     subAgents.forEach(subAgent => {
         const container = document.getElementById(subAgent.container);
+        // Always re-render if container exists and prompt data is available (even if hidden)
+        // This ensures fresh data is shown when the modal is expanded
         if (container && agentPrompts[subAgent.name]) {
             const promptData = agentPrompts[subAgent.name];
             container.innerHTML = renderSinglePrompt(subAgent.name, promptData, subAgent.prefix);
+            // Re-initialize collapsible panels after rendering
+            setTimeout(() => {
+                if (typeof initCollapsiblePanels === 'function') {
+                    initCollapsiblePanels(container);
+                }
+            }, 0);
         }
     });
     
@@ -4477,9 +4472,17 @@ function renderAgentPrompts() {
     
     qaAgents.forEach(qaAgent => {
         const container = document.getElementById(qaAgent.container);
+        // Always re-render if container exists and prompt data is available (even if hidden)
+        // This ensures fresh data is shown when the modal is expanded
         if (container && agentPrompts[qaAgent.name]) {
             const promptData = agentPrompts[qaAgent.name];
             container.innerHTML = renderSinglePrompt(qaAgent.name, promptData, qaAgent.prefix);
+            // Re-initialize collapsible panels after rendering
+            setTimeout(() => {
+                if (typeof initCollapsiblePanels === 'function') {
+                    initCollapsiblePanels(container);
+                }
+            }, 0);
         }
     });
     
@@ -4733,9 +4736,14 @@ function renderQAPrompt(agentName, containerId) {
     `;
     
     // Re-initialize collapsible panels for dynamically added content
-    if (typeof initCollapsiblePanels === 'function') {
-        initCollapsiblePanels(container);
-    }
+    // Use setTimeout to ensure DOM is updated before initialization
+    setTimeout(() => {
+        if (typeof initCollapsiblePanels === 'function') {
+            // Initialize within container first, then globally to catch any missed panels
+            initCollapsiblePanels(container);
+            initCollapsiblePanels();
+        }
+    }, 0);
 }
 
 function loadQASettings2() {
@@ -5318,11 +5326,60 @@ async function saveAgentPrompt2(agentName) {
         if (response.ok) {
             const result = await response.json();
             editingPrompts[agentName] = false;
-            alert(`Agent prompt updated successfully for ${agentName}`);
-            await loadAgentPrompts();
-            await loadConfig(); // Reload config to get updated version
             
-            // Also update QA prompt if it's visible
+            // Update agentPrompts immediately with the saved data
+            // This ensures the UI shows fresh data even if API has slight delay
+            if (!agentPrompts) agentPrompts = {};
+            // Use the promptData we just saved (it's what was sent to API and is guaranteed correct)
+            const savedPromptData = {
+                prompt: promptData.prompt,
+                instructions: promptData.instructions || '',
+                model: agentPrompts[agentName]?.model || 'Not configured'
+            };
+            // CRITICAL: Update agentPrompts with saved data BEFORE any rendering
+            // This ensures renderAgentPrompts() uses the correct data
+            agentPrompts[agentName] = savedPromptData;
+            
+            alert(`Agent prompt updated successfully for ${agentName}`);
+            
+            // Re-render all prompts - this will use the updated agentPrompts[agentName]
+            renderAgentPrompts();
+            
+            // Force explicit re-render of the saved agent's container as a safety measure
+            // Use setTimeout to ensure DOM updates are complete
+            setTimeout(() => {
+                const subAgentMap = {
+                    'CmdlineExtract': { container: 'cmdlineextract-agent-prompt-container', prefix: 'cmdlineextract-agent' },
+                    'SigExtract': { container: 'sigextract-agent-prompt-container', prefix: 'sigextract-agent' },
+                    'EventCodeExtract': { container: 'eventcodeextract-agent-prompt-container', prefix: 'eventcodeextract-agent' },
+                    'ProcTreeExtract': { container: 'proctreeextract-agent-prompt-container', prefix: 'proctreeextract-agent' },
+                    'RegExtract': { container: 'regextract-agent-prompt-container', prefix: 'regextract-agent' }
+                };
+                
+                const subAgentInfo = subAgentMap[agentName];
+                if (subAgentInfo) {
+                    const subAgentContainer = document.getElementById(subAgentInfo.container);
+                    if (subAgentContainer) {
+                        // Double-check agentPrompts still has our data, if not restore it
+                        if (!agentPrompts[agentName] || agentPrompts[agentName].prompt !== savedPromptData.prompt) {
+                            agentPrompts[agentName] = savedPromptData;
+                        }
+                        // Force re-render with saved data
+                        subAgentContainer.innerHTML = renderSinglePrompt(agentName, agentPrompts[agentName], subAgentInfo.prefix);
+                        // Re-initialize collapsible panels
+                        setTimeout(() => {
+                            if (typeof initCollapsiblePanels === 'function') {
+                                initCollapsiblePanels(subAgentContainer);
+                            }
+                        }, 0);
+                    }
+                }
+            }, 50);
+            
+            // Reload config to get updated version (but don't reload prompts - we already have the latest)
+            await loadConfig();
+            
+            // Always update QA prompt (even if container is hidden) so it shows fresh data when expanded
             const qaEnabled = currentConfig?.qa_enabled || {};
             const qaAgentMap = {
                 'QAAgent': { prefix: 'rank-agent', container: 'rank-qa-agent-prompt-content' },
@@ -5336,7 +5393,8 @@ async function saveAgentPrompt2(agentName) {
             const qaInfo = qaAgentMap[agentName];
             if (qaInfo) {
                 const qaPromptContainer = document.getElementById(qaInfo.container);
-                if (qaPromptContainer && !qaPromptContainer.classList.contains('hidden')) {
+                if (qaPromptContainer) {
+                    // Always re-render, even if hidden, so fresh data is shown when expanded
                     if (agentName === 'QAAgent') {
                         renderQAPrompt('QAAgent', 'rank-qa-agent-prompt-content');
                     } else {
@@ -5344,6 +5402,8 @@ async function saveAgentPrompt2(agentName) {
                     }
                 }
             } else {
+                // For sub-agents, renderAgentPrompts() already handled them above
+                // But ensure QA prompts are also updated if this is an extract agent
                 const extractToQA = {
                     'SigExtract': { qaName: 'SigQA', prefix: 'sigextract-agent' },
                     'EventCodeExtract': { qaName: 'EventCodeQA', prefix: 'eventcodeextract-agent' },
@@ -5353,7 +5413,8 @@ async function saveAgentPrompt2(agentName) {
                 const qaMapping = extractToQA[agentName];
                 if (qaMapping && qaEnabled[agentName]) {
                     const qaPromptContainer = document.getElementById(`${qaMapping.prefix}-qa-prompt-container`);
-                    if (qaPromptContainer && !qaPromptContainer.classList.contains('hidden')) {
+                    if (qaPromptContainer) {
+                        // Always re-render, even if hidden, so fresh data is shown when expanded
                         renderQAPrompt(qaMapping.qaName, qaPromptContainer.id);
                     }
                 }
@@ -8504,6 +8565,7 @@ const subAgentModelKeysGlobal = {
     eventcodeextract: 'EventCodeExtract_model',
     proctreeextract: 'ProcTreeExtract_model',
     regextract: 'RegExtract_model',
+    rankqa: 'RankAgentQA',
     cmdlineqa: 'CmdLineQA',
     sigqa: 'SigQA',
     eventcodeqa: 'EventCodeQA',
@@ -8561,7 +8623,7 @@ if (document.readyState === 'loading') {
         if (typeof refreshAllProviderBlocks === 'function') {
             refreshAllProviderBlocks();
         }
-        __dbgLog('H5', 'DOMContentLoaded fired', { ready: document.readyState });
+        // __dbgLog('H5', 'DOMContentLoaded fired', { ready: document.readyState });
     });
 } else {
     // DOM is already loaded, run immediately
@@ -8574,7 +8636,7 @@ if (document.readyState === 'loading') {
     if (typeof refreshAllProviderBlocks === 'function') {
         refreshAllProviderBlocks();
     }
-    __dbgLog('H5', 'DOMContentLoaded immediate branch', { ready: document.readyState });
+    // __dbgLog('H5', 'DOMContentLoaded immediate branch', { ready: document.readyState });
 }
 </script>
 {% endblock %}
