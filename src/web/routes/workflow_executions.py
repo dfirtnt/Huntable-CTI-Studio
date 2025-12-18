@@ -698,6 +698,56 @@ async def cancel_workflow_execution(request: Request, execution_id: int):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.post("/executions/cancel-all-running")
+async def cancel_all_running_executions(request: Request):
+    """
+    Cancel all running or pending workflow executions.
+    
+    Marks all executions with status 'running' or 'pending' as failed with a cancellation message.
+    Note: This only marks the executions as cancelled in the database.
+    The actual Celery tasks may continue running until they complete or time out.
+    """
+    try:
+        db_manager = get_db_manager()
+        db_session = db_manager.get_session()
+        
+        try:
+            # Find all running or pending executions
+            running_executions = db_session.query(AgenticWorkflowExecutionTable).filter(
+                AgenticWorkflowExecutionTable.status.in_(['running', 'pending'])
+            ).all()
+            
+            if not running_executions:
+                return {
+                    "success": True,
+                    "message": "No running or pending executions found",
+                    "count": 0
+                }
+            
+            count = 0
+            for execution in running_executions:
+                original_status = execution.status
+                execution.status = 'failed'
+                execution.error_message = f"Execution cancelled by user (was {original_status})"
+                execution.completed_at = datetime.utcnow()
+                count += 1
+            
+            db_session.commit()
+            logger.info(f"Cancelled {count} running/pending execution(s) by user")
+            
+            return {
+                "success": True,
+                "message": f"Cancelled {count} execution(s) successfully",
+                "count": count
+            }
+        finally:
+            db_session.close()
+            
+    except Exception as e:
+        logger.error(f"Error cancelling all running executions: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 def _get_langfuse_setting(db_session: Session, key: str, env_key: str, default: Optional[str] = None) -> Optional[str]:
     """Get Langfuse setting from database first, then fall back to environment variable.
     
@@ -802,36 +852,18 @@ async def get_workflow_debug_info(request: Request, execution_id: int):
                 session_id
             )
 
-            # Always generate Langfuse trace URL (traces may exist even if keys aren't currently configured)
+            # Always generate Langfuse session URL (sessions provide better workflow overview)
             # Normalize host URL (remove trailing slash)
             langfuse_host = langfuse_host.rstrip('/') if langfuse_host else "https://us.cloud.langfuse.com"
 
-            # Prefer direct trace URL when resolved; otherwise fall back to session filter search
-            if resolved_trace_id:
-                if langfuse_project_id:
-                    agent_chat_url = f"{langfuse_host}/project/{langfuse_project_id}/traces/{resolved_trace_id}"
-                else:
-                    agent_chat_url = f"{langfuse_host}/traces/{resolved_trace_id}"
+            # Generate direct session URL using session_id
+            # Session URLs are more useful for workflows as they show all traces in the execution
+            if langfuse_project_id:
+                agent_chat_url = f"{langfuse_host}/project/{langfuse_project_id}/sessions/{session_id}"
             else:
-                import json, urllib.parse
-                filters_payload = {
-                    "filters": [
-                        {"key": "sessionId", "value": session_id}
-                    ],
-                    "searchQuery": session_id,
-                    "searchColumns": ["id", "name", "sessionId"],
-                    "orderBy": {
-                        "column": "timestamp",
-                        "order": "DESC"
-                    }
-                }
-                filters = urllib.parse.quote(json.dumps(filters_payload))
-                if langfuse_project_id:
-                    agent_chat_url = f"{langfuse_host}/project/{langfuse_project_id}/traces?filters={filters}"
-                else:
-                    agent_chat_url = f"{langfuse_host}/traces?filters={filters}"
+                agent_chat_url = f"{langfuse_host}/sessions/{session_id}"
 
-            logger.info(f"🔗 Generated Langfuse trace URL: {agent_chat_url}")
+            logger.info(f"🔗 Generated Langfuse session URL: {agent_chat_url}")
             logger.info(
                 "   Trace ID: %s (lookup=%s, hash=%s), Session ID: %s (execution #%s)",
                 resolved_trace_id,
@@ -843,25 +875,23 @@ async def get_workflow_debug_info(request: Request, execution_id: int):
 
             if langfuse_public_key:
                 instructions = (
-                    "Opening Langfuse trace for execution #{}.\n"
-                    "Trace ID: {}\n"
+                    "Opening Langfuse session for execution #{}.\n"
                     "Session ID: {}\n"
-                    "Trace ID resolved by searching Langfuse for session_id '{}'."
-                ).format(execution_id, resolved_trace_id or "n/a", session_id, session_id)
+                    "This session contains all traces for this workflow execution."
+                ).format(execution_id, session_id)
             else:
-                # Warn user that Langfuse may not be configured, but still try to open trace
+                # Warn user that Langfuse may not be configured, but still try to open session
                 logger.warning(
                     f"⚠️ Langfuse keys not configured for execution {execution_id}. "
-                    f"Opening trace URL anyway - trace may exist if execution ran with Langfuse enabled. "
+                    f"Opening session URL anyway - session may exist if execution ran with Langfuse enabled. "
                     f"Configure Langfuse in Settings page or set LANGFUSE_PUBLIC_KEY/LANGFUSE_SECRET_KEY in environment."
                 )
                 instructions = (
-                    "Opening Langfuse trace for execution #{}.\n"
-                    "Trace ID: {}\n"
+                    "Opening Langfuse session for execution #{}.\n"
                     "Session ID: {}\n"
-                    "Note: Langfuse keys not configured. Trace will only exist if execution ran with Langfuse tracing enabled. "
+                    "Note: Langfuse keys not configured. Session will only exist if execution ran with Langfuse tracing enabled. "
                     "If you get a 404, search for session_id '{}' in Langfuse UI."
-                ).format(execution_id, trace_id_hash, session_id, session_id)
+                ).format(execution_id, session_id, session_id)
 
             return {
                 "execution_id": execution_id,
@@ -903,13 +933,19 @@ async def trigger_workflow_for_article(request: Request, article_id: int):
         db_session = db_manager.get_session()
         
         try:
+            # Ensure we have a clean transaction state
+            try:
+                db_session.rollback()
+            except Exception:
+                pass
+
             trigger_service = WorkflowTriggerService(db_session)
-            
+
             # Check for existing active executions BEFORE triggering
             # Also check for stuck pending executions (older than 5 minutes)
             from datetime import timedelta
             cutoff_time = datetime.utcnow() - timedelta(minutes=5)
-            
+
             existing_execution = db_session.query(AgenticWorkflowExecutionTable).filter(
                 AgenticWorkflowExecutionTable.article_id == article_id,
                 AgenticWorkflowExecutionTable.status.in_(['pending', 'running'])
@@ -969,5 +1005,10 @@ async def trigger_workflow_for_article(request: Request, article_id: int):
     except HTTPException:
         raise
     except Exception as e:
+        # Rollback any failed transaction
+        try:
+            db_session.rollback()
+        except Exception:
+            pass
         logger.error(f"Error triggering workflow for article {article_id}: {e}")
         raise HTTPException(status_code=500, detail=str(e))
