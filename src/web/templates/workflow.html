@@ -2002,16 +2002,93 @@ function __dbgLog(hypothesisId, message, data) {
 }
 // #endregion
 
-const providerOptions = [
+// All available providers - will be filtered based on Settings
+const allProviderOptions = [
     { value: 'lmstudio', label: 'LMStudio (Local)' },
     { value: 'openai', label: 'OpenAI (Cloud)' },
     { value: 'anthropic', label: 'Anthropic Claude (Cloud)' }
 ];
 
+// Current enabled providers - updated from Settings
+let providerOptions = [...allProviderOptions];
+
+// Track enabled provider settings
+let enabledProviders = {
+    lmstudio: true,  // LMStudio always available (local)
+    openai: true,
+    anthropic: true
+};
+
 const providerDefaults = {
     openai: 'gpt-4o-mini',
     anthropic: 'claude-sonnet-4-5'
 };
+
+// Fetch enabled providers from Settings
+async function loadEnabledProviders() {
+    try {
+        const response = await fetch('/api/settings');
+        if (!response.ok) {
+            console.warn('Failed to fetch settings, using all providers');
+            return;
+        }
+        const data = await response.json();
+        const settings = data.settings || {};
+        
+        // Map settings keys to provider names (API returns uppercase keys)
+        enabledProviders = {
+            lmstudio: settings.WORKFLOW_LMSTUDIO_ENABLED !== 'false',  // default to true
+            openai: settings.WORKFLOW_OPENAI_ENABLED === 'true',
+            anthropic: settings.WORKFLOW_ANTHROPIC_ENABLED === 'true'
+        };
+        
+        // Filter providerOptions based on enabled settings
+        providerOptions = allProviderOptions.filter(opt => enabledProviders[opt.value]);
+        
+        console.log('Enabled providers:', enabledProviders);
+        console.log('Filtered provider options:', providerOptions);
+        
+        // Refresh all provider dropdowns
+        refreshProviderDropdowns();
+    } catch (error) {
+        console.error('Error loading enabled providers:', error);
+    }
+}
+
+// Refresh all provider dropdowns with current enabled providers
+function refreshProviderDropdowns() {
+    // Update all hardcoded provider selects
+    const providerSelects = document.querySelectorAll('select[id$="-provider"]');
+    providerSelects.forEach(select => {
+        const currentValue = select.value;
+        const currentOptions = Array.from(select.options).map(opt => ({
+            value: opt.value,
+            selected: opt.selected
+        }));
+        
+        // Clear and repopulate options
+        select.innerHTML = '';
+        providerOptions.forEach(opt => {
+            const option = document.createElement('option');
+            option.value = opt.value;
+            option.textContent = opt.label;
+            // Preserve selection if still available
+            if (opt.value === currentValue) {
+                option.selected = true;
+            }
+            select.appendChild(option);
+        });
+        
+        // If current value is no longer available, select first option
+        if (currentValue && !providerOptions.find(opt => opt.value === currentValue)) {
+            if (select.options.length > 0) {
+                select.selectedIndex = 0;
+                // Trigger change event to update visibility
+                select.dispatchEvent(new Event('change'));
+            }
+        }
+    });
+}
 
 // Allow-list style checks to keep provider dropdowns focused on valid models
 const providerModelGuards = {
@@ -6386,7 +6463,7 @@ function renderExecutions() {
             <td class="px-6 py-4 whitespace-nowrap text-sm">
                 <button onclick="viewExecution(${exec.id})" class="text-blue-600 hover:text-blue-800 dark:text-blue-400 mr-2">View</button>
                 ${(exec.status === 'running' || exec.status === 'pending') ? `<button onclick="openLiveExecutionView(${exec.id})" class="text-green-600 hover:text-green-900 dark:text-green-400 dark:hover:text-green-300 mr-2" title="Live streaming view for execution ${exec.id}">📺 Live</button>` : ''}
-                <button onclick="debugInAgentChat(${exec.id})" class="text-purple-600 hover:text-purple-800 dark:text-purple-400 mr-2" title="Open in Langfuse. Note: Traces only exist if execution ran with Langfuse tracing enabled. Use 'View' for database details.">🔍 Debug</button>
+                <button onclick="debugInAgentChat(${exec.id})" class="text-purple-600 hover:text-purple-800 dark:text-purple-400 mr-2" title="Open in Langfuse. Note: Traces only exist if execution ran with Langfuse tracing enabled. Use 'View' for database details.">🔍 Trace</button>
                 ${exec.status === 'failed' ? `
                     <button onclick="retryExecution(${exec.id}, false)" class="text-green-600 hover:text-green-800 dark:text-green-400 mr-2" title="Retry in background via Celery (async, returns immediately)">Retry</button>
                     ${debugMode ? `<button onclick="retryExecution(${exec.id}, true)" class="text-purple-600 hover:text-purple-800 dark:text-purple-400" title="Retry synchronously and wait for completion (returns result)">Retry (Wait)</button>` : ''}
@@ -7397,7 +7474,7 @@ async function retryExecution(executionId, useLangGraphServer = false) {
                 alert('✅ Retry completed\n\n' +
                       'Execution finished synchronously.\n' +
                       'Langfuse traces created (if enabled).\n' +
-                      'Click "Debug" button to view traces.');
+                      'Click "Trace" button to view traces.');
             } else {
                 alert('✅ Retry queued\n\n' +
                       'Execution running in background via Celery.\n' +
@@ -8810,9 +8887,13 @@ window.renderSubAgentCommercialInputs = renderSubAgentCommercialInputsGlobal;
 
 // Run immediately if DOM is ready, otherwise wait for DOMContentLoaded
 if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', () => {
+    document.addEventListener('DOMContentLoaded', async () => {
         initializeSaveButton();
         initializeTabs();
+        
+        // Load enabled providers from Settings FIRST before rendering
+        await loadEnabledProviders();
+        
         // Ensure agent model containers are rendered even if config hasn't loaded yet
         if (typeof loadAgentModels === 'function') {
             loadAgentModels().catch(err => console.error('Error loading agent models on init:', err));
@@ -8824,16 +8905,22 @@ if (document.readyState === 'loading') {
     });
 } else {
     // DOM is already loaded, run immediately
-    initializeSaveButton();
-    initializeTabs();
-    // Ensure agent model containers are rendered even if config hasn't loaded yet
-    if (typeof loadAgentModels === 'function') {
-        loadAgentModels().catch(err => console.error('Error loading agent models on init:', err));
-    }
-    if (typeof refreshAllProviderBlocks === 'function') {
-        refreshAllProviderBlocks();
-    }
-    // __dbgLog('H5', 'DOMContentLoaded immediate branch', { ready: document.readyState });
+    (async () => {
+        initializeSaveButton();
+        initializeTabs();
+        
+        // Load enabled providers from Settings FIRST before rendering
+        await loadEnabledProviders();
+        
+        // Ensure agent model containers are rendered even if config hasn't loaded yet
+        if (typeof loadAgentModels === 'function') {
+            loadAgentModels().catch(err => console.error('Error loading agent models on init:', err));
+        }
+        if (typeof refreshAllProviderBlocks === 'function') {
+            refreshAllProviderBlocks();
+        }
+        // __dbgLog('H5', 'DOMContentLoaded immediate branch', { ready: document.readyState });
+    })();
 }
 </script>
 {% endblock %}
