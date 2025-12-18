@@ -5854,24 +5854,27 @@ function updateLMStudioContextPanelVisibility() {
     const panel = document.getElementById('lmstudio-context-panel');
     if (!panel) return;
     
+    // Default to hidden
+    panel.style.display = 'none';
+    
     // Check if LMStudio is enabled in settings
     if (!enabledProviders || !enabledProviders.lmstudio) {
-        panel.style.display = 'none';
         return;
     }
     
     // Use getLMStudioModelsOnly() to check if there are any LMStudio models selected
     // This function already has the correct logic to check provider and model
     if (typeof getLMStudioModelsOnly !== 'function') {
-        panel.style.display = 'none';
         return;
     }
     
     const lmstudioModels = getLMStudioModelsOnly();
     const hasLMStudio = Array.isArray(lmstudioModels) && lmstudioModels.length > 0;
     
-    // Show panel if any LMStudio models are selected, hide otherwise
-    panel.style.display = hasLMStudio ? '' : 'none';
+    // Show panel only if LMStudio models are found
+    if (hasLMStudio) {
+        panel.style.display = '';
+    }
 }
 
 function getLMStudioModelsOnly() {
