@@ -2682,9 +2682,35 @@ function applyProviderSelections(models) {
         }
 
         const select = document.getElementById(`${selection.prefix}-provider`);
+        const prevProvider = select?.value?.toString().trim().toLowerCase() || 'lmstudio';
+        
         if (select) {
             select.value = provider;
         }
+        
+        // If provider changed, clear model fields that don't match new provider
+        if (prevProvider !== provider) {
+            const modelSelect = document.getElementById(`${selection.prefix}-model-2`) || document.getElementById(`${selection.prefix}-model`);
+            const modelInputs = [
+                document.getElementById(`${selection.prefix}-model-openai`),
+                document.getElementById(`${selection.prefix}-model-anthropic`)
+            ].filter(Boolean);
+            
+            if (provider === 'lmstudio') {
+                // Clear commercial provider inputs
+                modelInputs.forEach(input => input.value = '');
+            } else {
+                // Clear LMStudio model dropdown if switching away from LMStudio
+                if (modelSelect) {
+                    const currentValue = modelSelect.value;
+                    // Only clear if value looks like LMStudio model
+                    if (currentValue && !currentValue.match(/^(gpt|o[13]|text-|davinci|curie|babbage|ada|whisper|omni|turbo|claude)/i)) {
+                        modelSelect.value = '';
+                    }
+                }
+            }
+        }
+        
         updateAgentProviderVisibility(selection.prefix, provider);
         if (typeof window.renderSubAgentCommercialInputs === 'function') {
             window.renderSubAgentCommercialInputs(selection.prefix);
@@ -2827,6 +2853,29 @@ function onAgentProviderChange(agentPrefix) {
     const provider = (select.value || 'lmstudio').toString().trim().toLowerCase();
     // __dbgLog('H3', 'onAgentProviderChange', { agentPrefix, provider });
     updateAgentProviderVisibility(agentPrefix, provider);
+    
+    // Clear model dropdowns/inputs when provider changes to ensure alignment
+    const modelSelect = document.getElementById(`${agentPrefix}-model-2`) || document.getElementById(`${agentPrefix}-model`);
+    const modelInputs = [
+        document.getElementById(`${agentPrefix}-model-openai`),
+        document.getElementById(`${agentPrefix}-model-anthropic`)
+    ].filter(Boolean);
+    
+    if (provider === 'lmstudio') {
+        // Clear commercial provider inputs
+        modelInputs.forEach(input => input.value = '');
+    } else {
+        // Clear LMStudio model dropdown
+        if (modelSelect) {
+            // Only clear if current value might be from wrong provider
+            // Check if value looks like LMStudio model (not common OpenAI/Anthropic patterns)
+            const currentValue = modelSelect.value;
+            if (currentValue && !currentValue.match(/^(gpt|o[13]|text-|davinci|curie|babbage|ada|whisper|omni|turbo|claude)/i)) {
+                modelSelect.value = '';
+            }
+        }
+    }
+    
     if (typeof window.renderSubAgentCommercialInputs === 'function') {
         window.renderSubAgentCommercialInputs(agentPrefix);
     }
@@ -4019,29 +4068,43 @@ function renderAgentModels(lmstudioModels) {
         `;
     }
     
-    // Populate sub-agent model dropdowns
+    // Populate sub-agent model dropdowns - only populate if LMStudio provider is selected
     const subAgents = [
-        { name: 'CmdlineExtract', id: 'cmdlineextract-model' },
-        { name: 'SigExtract', id: 'sigextract-model' },
-        { name: 'EventCodeExtract', id: 'eventcodeextract-model' },
-        { name: 'ProcTreeExtract', id: 'proctreeextract-model' },
-        { name: 'RegExtract', id: 'regextract-model' }
+        { name: 'CmdlineExtract', id: 'cmdlineextract-model', providerId: 'cmdlineextract-provider' },
+        { name: 'SigExtract', id: 'sigextract-model', providerId: 'sigextract-provider' },
+        { name: 'EventCodeExtract', id: 'eventcodeextract-model', providerId: 'eventcodeextract-provider' },
+        { name: 'ProcTreeExtract', id: 'proctreeextract-model', providerId: 'proctreeextract-provider' },
+        { name: 'RegExtract', id: 'regextract-model', providerId: 'regextract-provider' }
     ];
     
     subAgents.forEach(subAgent => {
         const select = document.getElementById(subAgent.id);
-        if (select) {
+        const providerSelect = document.getElementById(subAgent.providerId);
+        if (select && providerSelect) {
+            const currentProvider = (providerSelect.value || 'lmstudio').toString().trim().toLowerCase();
             const currentModel = agentModels[`${subAgent.name}_model`] || '';
-            // Use deduplicated sorted models, ensure current model is in the list
-            const normalizedCurrent = currentModel ? normalizeModelId(currentModel) : null;
-            const allModelIds = [...new Set([...sortedModelIds, ...(currentModel && !sortedModelIds.some(m => normalizeModelId(m) === normalizedCurrent) ? [currentModel] : [])])].sort();
             
-            const modelOptions = allModelIds.map(modelId => {
-                const isSelected = currentModel === modelId ? 'selected' : '';
-                const isUnavailable = !availableModelIds.includes(modelId) ? ' (not in LM Studio)' : '';
-                return `<option value="${escapeHtml(modelId)}" ${isSelected}>${escapeHtml(modelId)}${isUnavailable}</option>`;
-            }).join('');
-            select.innerHTML = '<option value="">Use Extract Agents Fallback Model</option>' + modelOptions;
+            // Only populate LMStudio models if provider is LMStudio
+            if (currentProvider === 'lmstudio') {
+                // Use deduplicated sorted models, ensure current model is in the list (if it's an LMStudio model)
+                const normalizedCurrent = currentModel ? normalizeModelId(currentModel) : null;
+                // Only include currentModel if it looks like an LMStudio model
+                const isLMStudioModel = !currentModel || !currentModel.match(/^(gpt|o[13]|text-|davinci|curie|babbage|ada|whisper|omni|turbo|claude)/i);
+                const allModelIds = [...new Set([
+                    ...sortedModelIds, 
+                    ...(currentModel && isLMStudioModel && !sortedModelIds.some(m => normalizeModelId(m) === normalizedCurrent) ? [currentModel] : [])
+                ])].sort();
+                
+                const modelOptions = allModelIds.map(modelId => {
+                    const isSelected = currentModel === modelId ? 'selected' : '';
+                    const isUnavailable = !availableModelIds.includes(modelId) ? ' (not in LM Studio)' : '';
+                    return `<option value="${escapeHtml(modelId)}" ${isSelected}>${escapeHtml(modelId)}${isUnavailable}</option>`;
+                }).join('');
+                select.innerHTML = '<option value="">Use Extract Agents Fallback Model</option>' + modelOptions;
+            } else {
+                // Provider is not LMStudio - clear dropdown (commercial provider inputs will be visible)
+                select.innerHTML = '<option value="">Use Extract Agents Fallback Model</option>';
+            }
             // Add onChange handler if not already present
             if (!select.getAttribute('onchange')) {
                 select.setAttribute('onchange', 'autoSaveModelChange()');
@@ -4050,19 +4113,31 @@ function renderAgentModels(lmstudioModels) {
     });
 
     const qaModelSelectors = [
-        { id: 'rankqa-model', placeholder: 'Use Rank Agent model', key: 'RankAgentQA' },
-        { id: 'cmdlineqa-model', placeholder: 'Use Extract Agents model', key: 'CmdLineQA' },
-        { id: 'sigqa-model', placeholder: 'Use Extract Agents model', key: 'SigQA' },
-        { id: 'eventcodeqa-model', placeholder: 'Use Extract Agents model', key: 'EventCodeQA' },
-        { id: 'proctreeqa-model', placeholder: 'Use Extract Agents model', key: 'ProcTreeQA' },
-        { id: 'regqa-model', placeholder: 'Use Extract Agents model', key: 'RegQA' }
+        { id: 'rankqa-model', placeholder: 'Use Rank Agent model', key: 'RankAgentQA', providerId: 'rankqa-provider' },
+        { id: 'cmdlineqa-model', placeholder: 'Use Extract Agents model', key: 'CmdLineQA', providerId: 'cmdlineqa-provider' },
+        { id: 'sigqa-model', placeholder: 'Use Extract Agents model', key: 'SigQA', providerId: 'sigqa-provider' },
+        { id: 'eventcodeqa-model', placeholder: 'Use Extract Agents model', key: 'EventCodeQA', providerId: 'eventcodeqa-provider' },
+        { id: 'proctreeqa-model', placeholder: 'Use Extract Agents model', key: 'ProcTreeQA', providerId: 'proctreeqa-provider' },
+        { id: 'regqa-model', placeholder: 'Use Extract Agents model', key: 'RegQA', providerId: 'regqa-provider' }
     ];
 
     qaModelSelectors.forEach(selector => {
         const selectEl = document.getElementById(selector.id);
-        if (selectEl) {
+        const providerSelect = document.getElementById(selector.providerId);
+        if (selectEl && providerSelect) {
+            const currentProvider = (providerSelect.value || 'lmstudio').toString().trim().toLowerCase();
             const currentModel = agentModels[selector.key] || '';
-            selectEl.innerHTML = buildOptions(currentModel, selector.placeholder);
+            
+            // Only populate LMStudio models if provider is LMStudio
+            if (currentProvider === 'lmstudio') {
+                // Only include currentModel if it looks like an LMStudio model
+                const isLMStudioModel = !currentModel || !currentModel.match(/^(gpt|o[13]|text-|davinci|curie|babbage|ada|whisper|omni|turbo|claude)/i);
+                const modelToUse = isLMStudioModel ? currentModel : '';
+                selectEl.innerHTML = buildOptions(modelToUse, selector.placeholder);
+            } else {
+                // Provider is not LMStudio - clear dropdown (commercial provider inputs will be visible)
+                selectEl.innerHTML = buildOptions('', selector.placeholder);
+            }
         }
         
         // Load QA temperature
