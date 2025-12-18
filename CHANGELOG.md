@@ -16,7 +16,7 @@
 - OS Detection fallback LLM now supports cloud providers (OpenAI, Anthropic)
 - Provider selector added for OS Detection fallback model configuration
 - Fallback model respects provider selection and uses appropriate input type
-- Current Configuration display now shows all selected models with their providers
+- Current Configuration display now shows selected models with their providers (filtered by enabled status)
 
 ## 2025-12-16
 
