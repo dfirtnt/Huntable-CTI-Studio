@@ -3571,14 +3571,24 @@ async function loadConfig(skipPromptReload = false) {
             if (configDisplay) {
                 // Build selected models summary
                 const models = currentConfig.agent_models || {};
+                const qaEnabled = currentConfig.qa_enabled || {};
                 const disabled = getDisabledExtractAgentsFromConfig(currentConfig);
                 const selectedModels = [];
                 
-                // Main agents (always enabled)
-                if (models.RankAgent) selectedModels.push(`Rank: ${models.RankAgent} (${models.RankAgent_provider || 'lmstudio'})`);
-                if (models.ExtractAgent) selectedModels.push(`Extract: ${models.ExtractAgent} (${models.ExtractAgent_provider || 'lmstudio'})`);
-                if (models.SigmaAgent) selectedModels.push(`SIGMA: ${models.SigmaAgent} (${models.SigmaAgent_provider || 'lmstudio'})`);
-                if (models.OSDetectionAgent_fallback) selectedModels.push(`OS Fallback: ${models.OSDetectionAgent_fallback} (${models.OSDetectionAgent_fallback_provider || 'lmstudio'})`);
+                // Main agents (only if QA enabled)
+                if (models.RankAgent && qaEnabled.RankAgent) {
+                    selectedModels.push(`Rank: ${models.RankAgent} (${models.RankAgent_provider || 'lmstudio'})`);
+                }
+                if (models.ExtractAgent && qaEnabled.ExtractAgent) {
+                    selectedModels.push(`Extract: ${models.ExtractAgent} (${models.ExtractAgent_provider || 'lmstudio'})`);
+                }
+                if (models.SigmaAgent && qaEnabled.SigmaAgent) {
+                    selectedModels.push(`SIGMA: ${models.SigmaAgent} (${models.SigmaAgent_provider || 'lmstudio'})`);
+                }
+                // OS Fallback only shows if toggle was enabled (model exists means toggle was on)
+                if (models.OSDetectionAgent_fallback) {
+                    selectedModels.push(`OS Fallback: ${models.OSDetectionAgent_fallback} (${models.OSDetectionAgent_fallback_provider || 'lmstudio'})`);
+                }
                 
                 // Sub-agents (only if enabled and has model)
                 ['CmdlineExtract', 'SigExtract', 'EventCodeExtract', 'ProcTreeExtract', 'RegExtract'].forEach(agent => {
@@ -6408,14 +6418,24 @@ if (workflowConfigForm) {
             if (configDisplay) {
                 // Build selected models summary
                 const models = updatedConfig.agent_models || {};
+                const qaEnabled = updatedConfig.qa_enabled || {};
                 const disabled = getDisabledExtractAgentsFromConfig(updatedConfig);
                 const selectedModels = [];
                 
-                // Main agents (always enabled)
-                if (models.RankAgent) selectedModels.push(`Rank: ${models.RankAgent} (${models.RankAgent_provider || 'lmstudio'})`);
-                if (models.ExtractAgent) selectedModels.push(`Extract: ${models.ExtractAgent} (${models.ExtractAgent_provider || 'lmstudio'})`);
-                if (models.SigmaAgent) selectedModels.push(`SIGMA: ${models.SigmaAgent} (${models.SigmaAgent_provider || 'lmstudio'})`);
-                if (models.OSDetectionAgent_fallback) selectedModels.push(`OS Fallback: ${models.OSDetectionAgent_fallback} (${models.OSDetectionAgent_fallback_provider || 'lmstudio'})`);
+                // Main agents (only if QA enabled)
+                if (models.RankAgent && qaEnabled.RankAgent) {
+                    selectedModels.push(`Rank: ${models.RankAgent} (${models.RankAgent_provider || 'lmstudio'})`);
+                }
+                if (models.ExtractAgent && qaEnabled.ExtractAgent) {
+                    selectedModels.push(`Extract: ${models.ExtractAgent} (${models.ExtractAgent_provider || 'lmstudio'})`);
+                }
+                if (models.SigmaAgent && qaEnabled.SigmaAgent) {
+                    selectedModels.push(`SIGMA: ${models.SigmaAgent} (${models.SigmaAgent_provider || 'lmstudio'})`);
+                }
+                // OS Fallback only shows if toggle was enabled (model exists means toggle was on)
+                if (models.OSDetectionAgent_fallback) {
+                    selectedModels.push(`OS Fallback: ${models.OSDetectionAgent_fallback} (${models.OSDetectionAgent_fallback_provider || 'lmstudio'})`);
+                }
                 
                 // Sub-agents (only if enabled and has model)
                 ['CmdlineExtract', 'SigExtract', 'EventCodeExtract', 'ProcTreeExtract', 'RegExtract'].forEach(agent => {
