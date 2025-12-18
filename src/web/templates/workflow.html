@@ -5799,30 +5799,44 @@ function updateLMStudioContextPanelVisibility() {
         return;
     }
     
-    // Check if any agents are using LMStudio provider
-    const lmstudioProviders = [
-        'rankagent-provider',
-        'extractagent-provider',
-        'sigmaagent-provider',
-        'cmdlineextract-provider',
-        'sigextract-provider',
-        'eventcodeextract-provider',
-        'proctreeextract-provider',
-        'regextract-provider',
-        'cmdlineqa-provider',
-        'sigqa-provider',
-        'eventcodeqa-provider',
-        'proctreeqa-provider',
-        'regqa-provider',
-        'rankqa-provider'
+    // Check if any agents are using LMStudio provider AND have a model selected
+    const lmstudioAgents = [
+        { providerId: 'rankagent-provider', modelId: 'rankagent-model-2' },
+        { providerId: 'extractagent-provider', modelId: 'extractagent-model-2' },
+        { providerId: 'sigmaagent-provider', modelId: 'sigmaagent-model-2' },
+        { providerId: 'cmdlineextract-provider', modelId: 'cmdlineextract-model' },
+        { providerId: 'sigextract-provider', modelId: 'sigextract-model' },
+        { providerId: 'eventcodeextract-provider', modelId: 'eventcodeextract-model' },
+        { providerId: 'proctreeextract-provider', modelId: 'proctreeextract-model' },
+        { providerId: 'regextract-provider', modelId: 'regextract-model' },
+        { providerId: 'cmdlineqa-provider', modelId: 'cmdlineqa-model' },
+        { providerId: 'sigqa-provider', modelId: 'sigqa-model' },
+        { providerId: 'eventcodeqa-provider', modelId: 'eventcodeqa-model' },
+        { providerId: 'proctreeqa-provider', modelId: 'proctreeqa-model' },
+        { providerId: 'regqa-provider', modelId: 'regqa-model' },
+        { providerId: 'rankqa-provider', modelId: 'rankqa-model' },
+        { providerId: 'osdetectionagent-fallback-provider', modelId: 'osdetectionagent-fallback-model-2' }
     ];
     
-    const hasLMStudio = lmstudioProviders.some(id => {
-        const select = document.getElementById(id);
-        return select && select.value === 'lmstudio';
+    const hasLMStudio = lmstudioAgents.some(agent => {
+        const providerSelect = document.getElementById(agent.providerId);
+        const modelSelect = document.getElementById(agent.modelId);
+        
+        // Check if provider is LMStudio and model is selected
+        if (!providerSelect || providerSelect.value !== 'lmstudio') {
+            return false;
+        }
+        
+        // If model select exists and is visible, check if it has a value
+        if (modelSelect && modelSelect.offsetParent !== null) {
+            const modelValue = modelSelect.value.trim();
+            return modelValue && modelValue !== '';
+        }
+        
+        return false;
     });
     
-    // Show panel if any LMStudio providers are selected, hide otherwise
+    // Show panel if any LMStudio providers with models are selected, hide otherwise
     panel.style.display = hasLMStudio ? '' : 'none';
 }
 
@@ -5871,9 +5885,12 @@ function getLMStudioModelsOnly() {
         }
     });
     
-    // OS Detection fallback model (always LMStudio, no provider selector)
-    const osFallback = document.getElementById('osdetectionagent-fallback-model-2')?.value.trim();
-    if (osFallback && !isEmbeddingModel(osFallback)) models.add(osFallback);
+    // OS Detection fallback model (only if provider is LMStudio)
+    const osFallbackProvider = document.getElementById('osdetectionagent-fallback-provider')?.value || 'lmstudio';
+    if (osFallbackProvider === 'lmstudio') {
+        const osFallback = document.getElementById('osdetectionagent-fallback-model-2')?.value.trim();
+        if (osFallback && !isEmbeddingModel(osFallback)) models.add(osFallback);
+    }
     
     // Note: OS Detection embedding and Sigma embedding models are excluded (they're text encoders)
     
