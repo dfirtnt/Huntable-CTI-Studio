@@ -214,5 +214,5 @@ docker exec cti_postgres psql -U cti_user -d cti_scraper -c "SELECT 1;"
 ## Related Documentation
 
 - [Backup and Restore Guide](./BACKUP_AND_RESTORE.md)
-- [ML Model Versioning System](../../src/utils/model_versioning.py)
+- **ML Model Versioning System**: See model_versioning.py in src/utils/
 
