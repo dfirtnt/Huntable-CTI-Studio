@@ -74,13 +74,58 @@ def get_database_info() -> Dict[str, Any]:
         model_versions_result = subprocess.run(model_versions_cmd, capture_output=True, text=True, check=True)
         model_versions_count = model_versions_result.stdout.strip()
         
-        return {
+        # Get chunk_analysis_results count (for ML hunt comparison metrics)
+        chunk_analysis_cmd = get_docker_exec_cmd(
+            'cti_postgres',
+            "psql -U cti_user -d cti_scraper -c \"SELECT COUNT(*) FROM chunk_analysis_results;\" -t"
+        )
+        chunk_analysis_result = subprocess.run(chunk_analysis_cmd, capture_output=True, text=True, check=True)
+        chunk_analysis_count = chunk_analysis_result.stdout.strip()
+        
+        # Get model file paths from ml_model_versions (for model file tracking)
+        model_files_cmd = get_docker_exec_cmd(
+            'cti_postgres',
+            "psql -U cti_user -d cti_scraper -c \"SELECT DISTINCT model_file_path FROM ml_model_versions WHERE model_file_path IS NOT NULL;\" -t"
+        )
+        model_files_result = subprocess.run(model_files_cmd, capture_output=True, text=True, check=True)
+        model_file_paths = [line.strip() for line in model_files_result.stdout.strip().split('\n') if line.strip()]
+        
+        # Get counts for new tables (for restore verification)
+        table_counts = {}
+        new_tables = [
+            'observable_model_metrics',
+            'observable_evaluation_failures',
+            'agent_evaluations',
+            'agentic_workflow_executions',
+            'sigma_rules',
+            'article_sigma_matches',
+            'sigma_rule_queue'
+        ]
+        
+        for table in new_tables:
+            try:
+                count_cmd = get_docker_exec_cmd(
+                    'cti_postgres',
+                    f"psql -U cti_user -d cti_scraper -c \"SELECT COUNT(*) FROM {table};\" -t"
+                )
+                count_result = subprocess.run(count_cmd, capture_output=True, text=True, check=True)
+                table_counts[f'{table}_count'] = count_result.stdout.strip()
+            except subprocess.CalledProcessError:
+                # Table may not exist in older backups, skip silently
+                pass
+        
+        metadata = {
             'database_size': db_size,
             'table_stats': tables_result.stdout.strip(),
             'ml_model_versions_count': model_versions_count,
+            'chunk_analysis_results_count': chunk_analysis_count,
+            'model_file_paths': model_file_paths,
             'backup_timestamp': datetime.now().isoformat(),
             'postgres_version': '15-alpine'
         }
+        metadata.update(table_counts)
+        
+        return metadata
     except subprocess.CalledProcessError as e:
         print(f"Warning: Could not get database info: {e}")
         return {
@@ -130,6 +175,45 @@ def create_backup(backup_dir: str = 'backups', compress: bool = True) -> str:
         
         if result.returncode != 0:
             print(f"❌ Backup failed: {result.stderr}")
+            # Clean up empty backup file if it exists
+            if backup_filepath.exists():
+                backup_filepath.unlink()
+            sys.exit(1)
+        
+        # Verify backup file was created and is not empty
+        if not backup_filepath.exists():
+            print("❌ Backup file was not created")
+            sys.exit(1)
+        
+        backup_size = backup_filepath.stat().st_size
+        if backup_size == 0:
+            print("❌ Backup file is empty - backup may have failed silently")
+            backup_filepath.unlink()
+            sys.exit(1)
+        
+        print(f"✅ Backup file created: {backup_size:,} bytes")
+        
+        # Validate SQL content
+        try:
+            with open(backup_filepath, 'r') as f:
+                first_line = f.readline().strip()
+                # Read a bit more to check for SQL content
+                content_sample = f.read(1000)
+            
+            # Check for PostgreSQL dump markers
+            if not (first_line.startswith("-- PostgreSQL database dump") or 
+                    first_line.startswith("--") or
+                    "CREATE" in content_sample or
+                    "COPY" in content_sample or
+                    "INSERT" in content_sample):
+                print("❌ Backup file does not appear to be a valid PostgreSQL dump")
+                backup_filepath.unlink()
+                sys.exit(1)
+            
+            print("✅ Backup file contains valid SQL content")
+        except Exception as e:
+            print(f"❌ Error validating backup content: {e}")
+            backup_filepath.unlink()
             sys.exit(1)
         
         # Get database metadata
