@@ -754,7 +754,8 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                         execution_id=state['execution_id'],
                         model_name=agent_model,
                         temperature=float(agent_temperature),
-                        qa_model_override=qa_model_override
+                        qa_model_override=qa_model_override,
+                        use_hybrid_extractor=False  # UI-triggered workflows use prompt from config
                     )
                     
                     # Store Result

@@ -668,5 +668,104 @@ test.describe.skip(
     // Verify modal is still visible (didn't crash)
     await expect(executionModal).toBeVisible();
   });
+
+  test('should have white text for View summary elements in dark mode', async ({ page }) => {
+    // Enable dark mode
+    await page.emulateMedia({ colorScheme: 'dark' });
+    
+    // Wait for executions to load
+    await page.waitForLoadState('networkidle');
+    await page.waitForTimeout(1000);
+    
+    // Look for View button in the executions table
+    const viewButton = page.locator('button:has-text("View")').first();
+    const viewButtonExists = await viewButton.isVisible({ timeout: 5000 }).catch(() => false);
+    
+    if (!viewButtonExists) {
+      test.skip('No View button found to test text colors');
+      return;
+    }
+    
+    // Click View button to open execution detail modal
+    await viewButton.click();
+    
+    // Wait for modal to be visible
+    const executionModal = page.locator('#executionModal');
+    await expect(executionModal).toBeVisible({ timeout: 5000 });
+    
+    // Wait for content to load
+    await page.waitForTimeout(2000);
+    
+    // Check that execution detail content exists
+    const contentDiv = page.locator('#executionDetailContent');
+    await expect(contentDiv).toBeVisible();
+    
+    // Find all "View" summary elements
+    const viewSummaries = contentDiv.locator('summary:has-text("View")');
+    const count = await viewSummaries.count();
+    
+    if (count === 0) {
+      test.skip('No View summary elements found in execution detail');
+      return;
+    }
+    
+    // Check each View summary element has white color
+    for (let i = 0; i < count; i++) {
+      const summary = viewSummaries.nth(i);
+      await expect(summary).toBeVisible();
+      
+      // Get computed color
+      const color = await summary.evaluate((el) => {
+        const computed = window.getComputedStyle(el);
+        return computed.color;
+      });
+      
+      // Check if color is white or very close to white (rgb(255, 255, 255) or rgba equivalent)
+      const isWhite = color.includes('255, 255, 255') || 
+                     color.includes('rgb(255, 255, 255)') ||
+                     color.includes('rgba(255, 255, 255') ||
+                     color === '#ffffff' ||
+                     color === 'white';
+      
+      if (!isWhite) {
+        const text = await summary.textContent();
+        console.log(`View summary "${text}" has color: ${color}`);
+        // Don't fail immediately, log all issues first
+      }
+    }
+    
+    // Also check specific View elements that should be white
+    const specificViews = [
+      'View Content Sent to OS Detection',
+      'View Original Article Content',
+      'View Ranking Reasoning',
+      'View Filtered Content Sent to Rank Agent',
+      'View Filtered Content Sent to Extract Agents',
+      'View Extracted Content Sent to SIGMA Agent',
+      'View Similarity Results',
+      'View SIGMA Rules Sent to Similarity Search',
+      'View Queued Rules',
+      'View Full Rule JSON'
+    ];
+    
+    for (const viewText of specificViews) {
+      const summary = contentDiv.locator(`summary:has-text("${viewText}")`).first();
+      const exists = await summary.isVisible({ timeout: 1000 }).catch(() => false);
+      
+      if (exists) {
+        const color = await summary.evaluate((el) => {
+          return window.getComputedStyle(el).color;
+        });
+        
+        const isWhite = color.includes('255, 255, 255') || 
+                       color.includes('rgb(255, 255, 255)') ||
+                       color.includes('rgba(255, 255, 255') ||
+                       color === '#ffffff' ||
+                       color === 'white';
+        
+        expect(isWhite).toBe(true, `"${viewText}" should be white but got color: ${color}`);
+      }
+    }
+  });
 });
 

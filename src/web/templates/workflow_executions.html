@@ -17,10 +17,10 @@
                 <button onclick="refreshExecutions()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors">
                     🔄 Refresh
                 </button>
-                <button onclick="triggerStuckExecutions()" class="px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-md transition-colors" id="triggerStuckBtn">
+                <button onclick="triggerStuckExecutions()" class="px-4 py-2 bg-red-700 hover:bg-red-800 text-white rounded-md transition-colors border border-black" id="triggerStuckBtn">
                     ⚡ Trigger Stuck
                 </button>
-                <button onclick="cleanupStaleExecutions()" class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md transition-colors">
+                <button onclick="cleanupStaleExecutions()" class="px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-md transition-colors" title="Mark running or pending executions older than 15 minutes as failed">
                     🧹 Cleanup Stale
                 </button>
                 <select id="statusFilter" onchange="filterExecutions()" class="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-700 dark:text-white">
