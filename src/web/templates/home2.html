@@ -269,7 +269,29 @@ document.addEventListener('DOMContentLoaded', function() {
     const opts = {
         responsive: true,
         maintainAspectRatio: false,
-        plugins: { legend: { display: false } },
+        plugins: { 
+            legend: { display: false },
+            tooltip: {
+                enabled: true,
+                mode: 'index',
+                intersect: false,
+                displayColors: false,
+                titleFont: { size: 0 },
+                callbacks: {
+                    title: function() {
+                        return '';
+                    },
+                    label: function(context) {
+                        return context.parsed.y;
+                    }
+                },
+                backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                titleColor: '#fff',
+                bodyColor: '#fff',
+                borderColor: 'rgba(255, 255, 255, 0.1)',
+                borderWidth: 1
+            }
+        },
         scales: {
             x: { grid: { color: 'rgba(113, 113, 122, 0.1)' } },
             y: { grid: { color: 'rgba(113, 113, 122, 0.1)' } }
