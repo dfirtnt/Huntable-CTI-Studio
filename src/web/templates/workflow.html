@@ -3556,6 +3556,29 @@ async function loadConfig(skipPromptReload = false) {
             // Display current config
             const configDisplay = document.getElementById('configDisplay');
             if (configDisplay) {
+                // Build selected models summary
+                const models = currentConfig.agent_models || {};
+                const selectedModels = [];
+                
+                // Main agents
+                if (models.RankAgent) selectedModels.push(`Rank: ${models.RankAgent} (${models.RankAgent_provider || 'lmstudio'})`);
+                if (models.ExtractAgent) selectedModels.push(`Extract: ${models.ExtractAgent} (${models.ExtractAgent_provider || 'lmstudio'})`);
+                if (models.SigmaAgent) selectedModels.push(`SIGMA: ${models.SigmaAgent} (${models.SigmaAgent_provider || 'lmstudio'})`);
+                if (models.OSDetectionAgent_fallback) selectedModels.push(`OS Fallback: ${models.OSDetectionAgent_fallback} (${models.OSDetectionAgent_fallback_provider || 'lmstudio'})`);
+                
+                // Sub-agents (only if different from fallback)
+                ['CmdlineExtract', 'SigExtract', 'EventCodeExtract', 'ProcTreeExtract', 'RegExtract'].forEach(agent => {
+                    const modelKey = `${agent}_model`;
+                    const providerKey = `${agent}_provider`;
+                    if (models[modelKey]) {
+                        selectedModels.push(`${agent}: ${models[modelKey]} (${models[providerKey] || 'lmstudio'})`);
+                    }
+                });
+                
+                const modelsHtml = selectedModels.length > 0 
+                    ? `<div class="mt-2"><strong>Selected Models:</strong><ul class="list-disc list-inside ml-2 mt-1">${selectedModels.map(m => `<li class="text-xs">${m}</li>`).join('')}</ul></div>`
+                    : '';
+                
                 configDisplay.innerHTML = `
                     <div class="space-y-1">
                         <p><strong>Version:</strong> ${currentConfig.version || 'N/A'}</p>
@@ -3563,6 +3586,7 @@ async function loadConfig(skipPromptReload = false) {
                         <p><strong>Junk Filter Threshold:</strong> ${currentConfig.junk_filter_threshold || 'N/A'}</p>
                         <p><strong>Similarity Threshold:</strong> ${currentConfig.similarity_threshold || 'N/A'}</p>
                         <p><strong>Updated:</strong> ${new Date(currentConfig.updated_at).toLocaleString()}</p>
+                        ${modelsHtml}
                     </div>
                 `;
             }
@@ -6357,6 +6381,29 @@ if (workflowConfigForm) {
             // Update config display
             const configDisplay = document.getElementById('configDisplay');
             if (configDisplay) {
+                // Build selected models summary
+                const models = updatedConfig.agent_models || {};
+                const selectedModels = [];
+                
+                // Main agents
+                if (models.RankAgent) selectedModels.push(`Rank: ${models.RankAgent} (${models.RankAgent_provider || 'lmstudio'})`);
+                if (models.ExtractAgent) selectedModels.push(`Extract: ${models.ExtractAgent} (${models.ExtractAgent_provider || 'lmstudio'})`);
+                if (models.SigmaAgent) selectedModels.push(`SIGMA: ${models.SigmaAgent} (${models.SigmaAgent_provider || 'lmstudio'})`);
+                if (models.OSDetectionAgent_fallback) selectedModels.push(`OS Fallback: ${models.OSDetectionAgent_fallback} (${models.OSDetectionAgent_fallback_provider || 'lmstudio'})`);
+                
+                // Sub-agents (only if different from fallback)
+                ['CmdlineExtract', 'SigExtract', 'EventCodeExtract', 'ProcTreeExtract', 'RegExtract'].forEach(agent => {
+                    const modelKey = `${agent}_model`;
+                    const providerKey = `${agent}_provider`;
+                    if (models[modelKey]) {
+                        selectedModels.push(`${agent}: ${models[modelKey]} (${models[providerKey] || 'lmstudio'})`);
+                    }
+                });
+                
+                const modelsHtml = selectedModels.length > 0 
+                    ? `<div class="mt-2"><strong>Selected Models:</strong><ul class="list-disc list-inside ml-2 mt-1">${selectedModels.map(m => `<li class="text-xs">${m}</li>`).join('')}</ul></div>`
+                    : '';
+                
                 configDisplay.innerHTML = `
                     <div class="space-y-1">
                         <p><strong>Version:</strong> ${updatedConfig.version || 'N/A'}</p>
@@ -6364,6 +6411,7 @@ if (workflowConfigForm) {
                         <p><strong>Junk Filter Threshold:</strong> ${updatedConfig.junk_filter_threshold || 'N/A'}</p>
                         <p><strong>Similarity Threshold:</strong> ${updatedConfig.similarity_threshold || 'N/A'}</p>
                         <p><strong>Updated:</strong> ${new Date(updatedConfig.updated_at).toLocaleString()}</p>
+                        ${modelsHtml}
                     </div>
                 `;
             }
