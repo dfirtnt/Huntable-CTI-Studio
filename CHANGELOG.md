@@ -9,6 +9,7 @@
 - Model dropdowns now only show models from selected provider (LMStudio dropdowns only contain LMStudio models)
 - Model fields are cleared when provider changes to prevent cross-provider model selection
 - Sub-agent and QA agent model dropdowns check provider before populating
+- OS Detection fallback now persists correctly (only saves when toggle is checked)
 
 ### Added
 - OS Detection fallback LLM now supports cloud providers (OpenAI, Anthropic)
