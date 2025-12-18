@@ -2727,6 +2727,11 @@ function applyProviderSelections(models) {
     if (providerAdjusted && typeof window.autoSaveModelChange === 'function') {
         setTimeout(() => window.autoSaveModelChange(), 0);
     }
+    
+    // Update LMStudio context panel visibility after provider selections are applied
+    if (typeof updateLMStudioContextPanelVisibility === 'function') {
+        updateLMStudioContextPanelVisibility();
+    }
 }
 
 function syncProviderVisibilityAndInputs() {
