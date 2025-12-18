@@ -9,6 +9,11 @@
 - Model fields are cleared when provider changes to prevent cross-provider model selection
 - Sub-agent and QA agent model dropdowns check provider before populating
 
+### Added
+- OS Detection fallback LLM now supports cloud providers (OpenAI, Anthropic)
+- Provider selector added for OS Detection fallback model configuration
+- Fallback model respects provider selection and uses appropriate input type
+
 ## 2025-12-16
 
 ### Changed
