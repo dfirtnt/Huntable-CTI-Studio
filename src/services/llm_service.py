@@ -2486,7 +2486,8 @@ CRITICAL: {instructions} If you are a reasoning model, you may include reasoning
         execution_id: Optional[int] = None,
         model_name: Optional[str] = None,
         temperature: float = 0.0,
-        qa_model_override: Optional[str] = None
+        qa_model_override: Optional[str] = None,
+        use_hybrid_extractor: Optional[bool] = None
     ) -> Dict[str, Any]:
         """
         Run a generic extraction agent with optional QA loop.
@@ -2499,13 +2500,21 @@ CRITICAL: {instructions} If you are a reasoning model, you may include reasoning
             prompt_config: Extraction prompt configuration
             qa_prompt_config: QA prompt configuration (optional)
             max_retries: Max QA retries
+            use_hybrid_extractor: If False, skip hybrid extractor and use LLM prompt. 
+                                 If None, use env var USE_HYBRID_CMDLINE_EXTRACTOR (default: True)
             
         Returns:
             Dict with extraction results
         """
         logger.info(f"Running extraction agent {agent_name} (QA enabled: {bool(qa_prompt_config)})")
 
-        if agent_name == "CmdlineExtract" and os.getenv("USE_HYBRID_CMDLINE_EXTRACTOR", "true").lower() in {"1", "true", "yes"}:
+        # Determine if hybrid extractor should be used
+        should_use_hybrid = use_hybrid_extractor
+        if should_use_hybrid is None:
+            # Default to env var behavior for backward compatibility
+            should_use_hybrid = os.getenv("USE_HYBRID_CMDLINE_EXTRACTOR", "true").lower() in {"1", "true", "yes"}
+
+        if agent_name == "CmdlineExtract" and should_use_hybrid:
             logger.info("Using hybrid command-line extractor pipeline for CmdlineExtract")
             try:
                 from src.extractors.hybrid_cmdline_extractor import extract_commands

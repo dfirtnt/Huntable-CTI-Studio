@@ -50,6 +50,41 @@
     color: rgb(209 213 219) !important; /* text-gray-300 */
 }
 
+/* Override: View summaries with inline styles should be white */
+.dark #executionDetailContent details summary[style*="color"] {
+    color: #ffffff !important;
+}
+
+/* Process Lineage Extraction should be white - must come FIRST to override universal rule */
+.dark #executionDetailContent summary.process-lineage-extraction,
+.dark #executionDetailContent summary.process-lineage-extraction[class*="text-gray"],
+.dark #executionDetailContent summary.process-lineage-extraction[class*="dark:text-gray"],
+.dark #executionDetailContent summary.process-lineage-extraction[class*="text-gray-400"],
+.dark #executionDetailContent summary.process-lineage-extraction[class*="dark:text-gray-300"] {
+    color: #ffffff !important;
+}
+
+.dark #executionDetailContent summary.process-lineage-extraction * {
+    color: #ffffff !important;
+}
+
+/* Ensure all View summary elements and their children are white - must come before universal rule */
+.dark #executionDetailContent summary[style*="color"],
+.dark #executionDetailContent summary[style*="color"] * {
+    color: #ffffff !important;
+}
+
+/* All text in execution detail view should be #111827 in dark mode */
+/* Apply to all elements except colored status elements, process-lineage-extraction, and View summaries */
+.dark #executionDetailContent,
+.dark #executionDetailContent div:not([class*="text-red"]):not([class*="text-green"]):not([class*="text-yellow"]):not([class*="text-blue"]):not([class*="text-purple"]):not([class*="text-cyan"]):not([class*="text-indigo"]):not(button):not(a):not([style*="color"]),
+.dark #executionDetailContent span:not([class*="text-red"]):not([class*="text-green"]):not([class*="text-yellow"]):not([class*="text-blue"]):not([class*="text-purple"]):not([class*="text-cyan"]):not([class*="text-indigo"]):not(button):not(a):not([style*="color"]),
+.dark #executionDetailContent p:not([class*="text-red"]):not([class*="text-green"]):not([class*="text-yellow"]):not([class*="text-blue"]):not([class*="text-purple"]):not([class*="text-cyan"]):not([class*="text-indigo"]):not(button):not(a):not([style*="color"]),
+.dark #executionDetailContent strong:not([class*="text-red"]):not([class*="text-green"]):not([class*="text-yellow"]):not([class*="text-blue"]):not([class*="text-purple"]):not([class*="text-cyan"]):not([class*="text-indigo"]):not(button):not(a):not([style*="color"]),
+.dark #executionDetailContent li:not([class*="text-red"]):not([class*="text-green"]):not([class*="text-yellow"]):not([class*="text-blue"]):not([class*="text-purple"]):not([class*="text-cyan"]):not([class*="text-indigo"]):not(button):not(a):not([style*="color"]) {
+    color: #111827 !important;
+}
+
 /* ═══════════════════════════════════════════════════════════════════════════
    WORKFLOW PAGE - Unified Dark Theme
    ═══════════════════════════════════════════════════════════════════════════ */
@@ -1431,8 +1466,6 @@
                     </div>
                     <p class="text-xs text-gray-500 dark:text-gray-400 mt-3">
                         Presets include: thresholds, model selections, QA toggles, temperature settings, extract agent toggles, and sigma fallback settings.
-                        <br>
-                        <strong>Note:</strong> Presets do not include prompt/instruction content.
                     </p>
                 </div>
 
@@ -6250,7 +6283,7 @@ async function viewExecution(executionId) {
                         .map(([os, sim]) => `<div>• ${os}: ${(sim * 100).toFixed(1)}%</div>`)
                         .join('');
                     similaritiesHtml = `<details class="mt-2 w-full">
-                        <summary class="cursor-pointer text-xs text-gray-700 dark:text-white hover:text-gray-900 dark:hover:text-gray-100">View OS Similarity Scores</summary>
+                        <summary class="cursor-pointer text-xs text-gray-700 dark:text-white hover:text-gray-900 dark:hover:text-gray-100" style="color: #ffffff !important;">View OS Similarity Scores</summary>
                         <div class="mt-2 w-full bg-gray-50 dark:bg-gray-900 rounded p-2 border text-xs text-gray-900 dark:text-white">
                             ${similaritiesList}
                         </div>
@@ -6267,7 +6300,7 @@ async function viewExecution(executionId) {
                 
                 const osInputContentLength = exec.junk_filter_result?.filtered_length || exec.article_content?.length || 0;
                 const osInputDetails = exec.article_content ? `<details class="mt-2 w-full">
-                    <summary class="cursor-pointer text-xs text-gray-700 dark:text-white hover:text-gray-900 dark:hover:text-gray-100">View Content Sent to OS Detection (${osInputContentLength} chars)</summary>
+                    <summary class="cursor-pointer text-xs text-gray-700 dark:text-white hover:text-gray-900 dark:hover:text-gray-100" style="color: #ffffff !important;">View Content Sent to OS Detection (${osInputContentLength} chars)</summary>
                     <div class="mt-2 w-full max-h-96 overflow-y-auto bg-gray-50 dark:bg-gray-900 rounded p-2 border text-xs font-mono text-gray-900 dark:text-white whitespace-pre-wrap break-words">
                         ${exec.article_content.replace(/</g, '&lt;').replace(/>/g, '&gt;')}
                     </div>
@@ -6314,7 +6347,7 @@ async function viewExecution(executionId) {
             if (exec.junk_filter_result) {
                 const originalContentPreview = exec.article_content_preview || '';
                 const contentInputDetails = exec.article_content ? `<details class="mt-2 w-full">
-                    <summary class="cursor-pointer text-xs text-gray-700 dark:text-white hover:text-gray-900 dark:hover:text-gray-100">View Original Article Content</summary>
+                    <summary class="cursor-pointer text-xs text-gray-700 dark:text-white hover:text-gray-900 dark:hover:text-gray-100" style="color: #ffffff !important;">View Original Article Content</summary>
                     <div class="mt-2 w-full max-h-96 overflow-y-auto bg-gray-50 dark:bg-gray-900 rounded p-2 border text-xs font-mono text-gray-900 dark:text-white whitespace-pre-wrap break-words">
                         ${exec.article_content.replace(/</g, '&lt;').replace(/>/g, '&gt;')}
                     </div>
@@ -6340,7 +6373,7 @@ async function viewExecution(executionId) {
             // Step 2: Rank Article
             if (exec.ranking_score !== null && exec.ranking_score !== undefined) {
                 const rankingDetails = exec.ranking_reasoning ? `<details class="mt-2 w-full">
-                    <summary class="cursor-pointer text-xs text-gray-700 dark:text-white hover:text-gray-900 dark:hover:text-gray-100">View Ranking Reasoning (Full LLM Output)</summary>
+                    <summary class="cursor-pointer text-xs text-gray-700 dark:text-white hover:text-gray-900 dark:hover:text-gray-100" style="color: #ffffff !important;">View Ranking Reasoning (Full LLM Output)</summary>
                     <div class="mt-2 w-full max-h-96 overflow-y-auto bg-gray-50 dark:bg-gray-900 rounded p-2 border text-xs font-mono text-gray-900 dark:text-white whitespace-pre-wrap break-words">
                         ${exec.ranking_reasoning.substring(0, 5000)}${exec.ranking_reasoning.length > 5000 ? '\n\n... (truncated)' : ''}
                     </div>
@@ -6349,7 +6382,7 @@ async function viewExecution(executionId) {
                 // Show filtered content that was sent to ranking agent
                 const filteredContentLength = exec.junk_filter_result?.filtered_length || exec.article_content?.length || 0;
                 const filteredContentDetails = exec.article_content ? `<details class="mt-2 w-full">
-                    <summary class="cursor-pointer text-xs text-gray-700 dark:text-white hover:text-gray-900 dark:hover:text-gray-100">View Filtered Content Sent to Rank Agent (${filteredContentLength} chars)</summary>
+                    <summary class="cursor-pointer text-xs text-gray-700 dark:text-white hover:text-gray-900 dark:hover:text-gray-100" style="color: #ffffff !important;">View Filtered Content Sent to Rank Agent (${filteredContentLength} chars)</summary>
                     <div class="mt-2 w-full max-h-96 overflow-y-auto bg-gray-50 dark:bg-gray-900 rounded p-2 border text-xs font-mono text-gray-900 dark:text-white whitespace-pre-wrap break-words">
                         ${exec.article_content.replace(/</g, '&lt;').replace(/>/g, '&gt;')}
                     </div>
@@ -6450,7 +6483,7 @@ async function viewExecution(executionId) {
                 // Show filtered content that was sent to extraction agent
                 const extractInputContentLength = exec.junk_filter_result?.filtered_length || exec.article_content?.length || 0;
                 const extractInputDetails = exec.article_content && exec.article_content.length > 0 ? `<details class="mt-2 w-full">
-                    <summary class="cursor-pointer text-xs text-gray-700 dark:text-white hover:text-gray-900 dark:hover:text-gray-100">View Filtered Content Sent to Extract Agents (${extractInputContentLength} chars)</summary>
+                    <summary class="cursor-pointer text-xs text-gray-700 dark:text-white hover:text-gray-900 dark:hover:text-gray-100" style="color: #ffffff !important;">View Filtered Content Sent to Extract Agents (${extractInputContentLength} chars)</summary>
                     <div class="mt-2 w-full max-h-96 overflow-y-auto bg-gray-50 dark:bg-gray-900 rounded p-2 border text-xs font-mono text-gray-900 dark:text-white whitespace-pre-wrap break-words">
                         ${String(exec.article_content).replace(/</g, '&lt;').replace(/>/g, '&gt;')}
                     </div>
@@ -6513,7 +6546,7 @@ async function viewExecution(executionId) {
                         const qaIssues = Array.isArray(qaResult?.issues) ? qaResult.issues : [];
                         
                         const itemsHtml = items.length > 0 ? `<details class="mt-2">
-                            <summary class="cursor-pointer text-xs text-gray-600 dark:text-gray-300 hover:text-gray-700 dark:hover:text-gray-200">View ${items.length} Items</summary>
+                            <summary class="cursor-pointer text-xs text-gray-600 dark:text-gray-300 hover:text-gray-700 dark:hover:text-gray-200" style="color: #ffffff !important;">View ${items.length} Items</summary>
                             <div class="mt-2 max-h-64 overflow-y-auto bg-gray-50 dark:bg-gray-900 p-3 rounded border border-gray-200 dark:border-gray-700 text-xs">
                                 <div class="space-y-2">
                                     ${items.slice(0, 20).map((item, idx) => {
@@ -6529,7 +6562,7 @@ async function viewExecution(executionId) {
                         </details>` : '';
                         
                         const rawHtml = raw && Object.keys(raw).length > 0 ? `<details class="mt-2">
-                            <summary class="cursor-pointer text-xs text-gray-600 dark:text-gray-300 hover:text-gray-700 dark:hover:text-gray-200">View Raw Agent Response</summary>
+                            <summary class="cursor-pointer text-xs text-gray-600 dark:text-gray-300 hover:text-gray-700 dark:hover:text-gray-200" style="color: #ffffff !important;">View Raw Agent Response</summary>
                             <div class="mt-2 bg-gray-50 dark:bg-gray-900 p-3 rounded border border-gray-200 dark:border-gray-700 text-xs font-mono text-gray-600 dark:text-gray-300 whitespace-pre-wrap break-words">
                                 ${JSON.stringify(raw, null, 2).replace(/</g, '&lt;').replace(/>/g, '&gt;')}
                             </div>
@@ -6551,8 +6584,10 @@ async function viewExecution(executionId) {
                             </div>
                         </div>` : '';
                         
+                        const isProcessLineage = subAgent.key === 'process_lineage';
+                        const subAgentStyle = 'style="color: #ffffff !important;"';
                         return `<details class="mt-2 border border-cyan-200 dark:border-cyan-700 rounded-lg overflow-hidden">
-                            <summary class="bg-cyan-50 dark:bg-cyan-900/30 px-4 py-3 cursor-pointer font-medium text-gray-400 dark:text-gray-300 hover:bg-cyan-100 dark:hover:bg-cyan-900/50 text-sm">
+                            <summary class="bg-cyan-50 dark:bg-cyan-900/30 px-4 py-3 cursor-pointer font-medium text-gray-400 dark:text-gray-300 hover:bg-cyan-100 dark:hover:bg-cyan-900/50 text-sm ${isProcessLineage ? 'process-lineage-extraction' : ''}" ${subAgentStyle}>
                                 ${subAgent.icon} ${subAgent.display} <span class="text-white dark:text-white">${count > 0 ? `(${count} items)` : '(0 items)'}</span>${qaVerdict ? ` ${qaVerdict === 'pass' ? '✅' : qaVerdict === 'fail' ? '❌' : '⚠️'}` : ''}
                             </summary>
                             <div class="p-4 space-y-3 bg-white dark:bg-gray-800">
@@ -6597,21 +6632,21 @@ async function viewExecution(executionId) {
                     const supervisorDetails = `<div class="p-4 space-y-3 bg-white dark:bg-gray-800">
                         <div>
                             <strong class="text-gray-900 dark:text-white text-sm">Inputs:</strong>
-                            <div class="mt-1 text-xs">
-                                <div>• Sub-Agent Results: ${Object.keys(subresults).length} sub-agents</div>
+                            <div class="mt-1 text-xs" style="color: #ffffff !important;">
+                                <div style="color: #ffffff !important;">• Sub-Agent Results: ${Object.keys(subresults).length} sub-agents</div>
                                 ${Object.entries(subresults).map(([key, data]) => {
                                     const count = data?.count || data?.items?.length || 0;
                                     const displayName = key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-                                    return `<div>• ${displayName}: ${count} items</div>`;
+                                    return `<div style="color: #ffffff !important;">• ${displayName}: ${count} items</div>`;
                                 }).join('')}
                             </div>
                         </div>
                         <div>
                             <strong class="text-gray-900 dark:text-white text-sm">Outputs:</strong>
-                            <div class="mt-1 text-xs">
-                                <div>• Total Observables: <strong>${discreteHuntablesCount}</strong></div>
-                                <div>• Aggregated from ${Object.keys(subresults).length} sub-agents</div>
-                                ${summary.platforms_detected && summary.platforms_detected.length > 0 ? `<div>• Platforms: ${summary.platforms_detected.join(', ')}</div>` : ''}
+                            <div class="mt-1 text-xs" style="color: #ffffff !important;">
+                                <div style="color: #ffffff !important;">• Total Observables: <strong style="color: #ffffff !important;">${discreteHuntablesCount}</strong></div>
+                                <div style="color: #ffffff !important;">• Aggregated from ${Object.keys(subresults).length} sub-agents</div>
+                                ${summary.platforms_detected && summary.platforms_detected.length > 0 ? `<div style="color: #ffffff !important;">• Platforms: ${summary.platforms_detected.join(', ')}</div>` : ''}
                             </div>
                             ${exec.extraction_result.content ? `<details class="mt-2">
                                 <summary class="cursor-pointer text-xs !text-white dark:!text-white hover:text-gray-900 dark:hover:text-gray-100" style="color: white !important;">View Aggregated Content Summary</summary>
@@ -6821,7 +6856,7 @@ async function viewExecution(executionId) {
                     
                     return `
                     <details class="mt-3 w-full border border-gray-300 dark:border-gray-600 rounded-lg overflow-hidden" ${idx === 0 ? 'open' : ''}>
-                        <summary class="cursor-pointer bg-gray-50 dark:bg-gray-900/30 px-4 py-3 font-semibold text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-900/50 text-sm">
+                        <summary class="cursor-pointer bg-gray-50 dark:bg-gray-900/30 px-4 py-3 font-semibold text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-900/50 text-sm" style="color: #ffffff !important;">
                             Rule ${idx + 1}: ${ruleTitle}
                         </summary>
                         <div class="p-4 bg-white dark:bg-gray-800 space-y-4">
@@ -6889,7 +6924,7 @@ async function viewExecution(executionId) {
                             ` : ''}
                             
                             <details class="mt-2">
-                                <summary class="cursor-pointer text-xs text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200">
+                                <summary class="cursor-pointer text-xs text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200" style="color: #ffffff !important;">
                                     View Full Rule JSON
                                 </summary>
                                 <pre class="mt-2 bg-gray-50 dark:bg-gray-900 p-3 rounded text-xs overflow-x-auto border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300">${JSON.stringify(rule, null, 2).replace(/</g, '&lt;').replace(/>/g, '&gt;')}</pre>
@@ -6903,7 +6938,7 @@ async function viewExecution(executionId) {
                 // Show extracted content that was sent to SIGMA generation
                 const extractContentForSigma = exec.extraction_result?.content || '';
                 const extractContentDetails = extractContentForSigma ? `<details class="mt-2 w-full">
-                    <summary class="cursor-pointer text-xs text-gray-700 dark:text-white hover:text-gray-900 dark:hover:text-gray-100">View Extracted Content Sent to SIGMA Agent</summary>
+                    <summary class="cursor-pointer text-xs text-gray-700 dark:text-white hover:text-gray-900 dark:hover:text-gray-100" style="color: #ffffff !important;">View Extracted Content Sent to SIGMA Agent</summary>
                     <div class="mt-2 w-full max-h-96 overflow-y-auto bg-gray-50 dark:bg-gray-900 rounded p-2 border text-xs font-mono text-gray-900 dark:text-white whitespace-pre-wrap break-words">
                         ${extractContentForSigma.replace(/</g, '&lt;').replace(/>/g, '&gt;')}
                     </div>
@@ -6914,12 +6949,12 @@ async function viewExecution(executionId) {
                 
                 steps.push({
                     name: 'Step 4: Generate SIGMA',
-                    input: `<div class="space-y-1">
-                        <div>• Extracted huntables: ${exec.extraction_result ? (exec.extraction_result.discrete_huntables_count || 0) : 0}</div>
-                        <div>• Observables: ${exec.extraction_result ? (exec.extraction_result.observables?.length || 0) : 0}</div>
-                        <div>• Article title: "${exec.article_title || 'N/A'}"</div>
-                        <div>• SigmaAgent prompt from workflow config</div>
-                        <div>• Model: <span class="font-mono text-xs">${sigmaModel}</span></div>
+                    input: `<div class="space-y-1" style="color: #ffffff !important;">
+                        <div style="color: #ffffff !important;">• Extracted huntables: ${exec.extraction_result ? (exec.extraction_result.discrete_huntables_count || 0) : 0}</div>
+                        <div style="color: #ffffff !important;">• Observables: ${exec.extraction_result ? (exec.extraction_result.observables?.length || 0) : 0}</div>
+                        <div style="color: #ffffff !important;">• Article title: "${exec.article_title || 'N/A'}"</div>
+                        <div style="color: #ffffff !important;">• SigmaAgent prompt from workflow config</div>
+                        <div style="color: #ffffff !important;">• Model: <span class="font-mono text-xs" style="color: #ffffff !important;">${sigmaModel}</span></div>
                     </div>`,
                     inputDetails: extractContentDetails,
                     output: `<div class="space-y-1 text-gray-700 dark:text-gray-300">
@@ -6935,7 +6970,7 @@ async function viewExecution(executionId) {
             if (exec.similarity_results !== null && exec.similarity_results !== undefined && Array.isArray(exec.similarity_results)) {
                 const maxSim = exec.similarity_results.length > 0 ? exec.similarity_results.reduce((max, r) => Math.max(max, r.max_similarity || 0), 0) : 0;
                 const similarityDetails = exec.similarity_results.length > 0 ? `<details class="mt-2 w-full" open>
-                    <summary class="cursor-pointer text-xs text-gray-700 dark:text-white hover:text-gray-900 dark:hover:text-gray-100 font-medium">🔍 View Similarity Results (${exec.similarity_results.reduce((sum, r) => sum + (r.similar_rules?.length || 0), 0)} similar rules found)</summary>
+                    <summary class="cursor-pointer text-xs text-gray-700 dark:text-white hover:text-gray-900 dark:hover:text-gray-100 font-medium" style="color: #ffffff !important;">🔍 View Similarity Results (${exec.similarity_results.reduce((sum, r) => sum + (r.similar_rules?.length || 0), 0)} similar rules found)</summary>
                     <div class="mt-2 w-full max-h-96 overflow-y-auto bg-gray-50 dark:bg-gray-900 rounded p-2 border text-xs space-y-3">
                         ${exec.similarity_results.map((result, idx) => `
                             <div class="mb-3 p-3 bg-white dark:bg-gray-800 rounded border border-gray-200 dark:border-gray-700">
@@ -6981,7 +7016,7 @@ async function viewExecution(executionId) {
                     `Rule ${idx + 1}: ${rule.title || 'Untitled'}` + (rule.description ? `\n${rule.description.substring(0, 200)}...` : '')
                 ).join('\n\n') : '';
                 const sigmaRulesInputDetails = sigmaRulesForSearch ? `<details class="mt-2 w-full">
-                    <summary class="cursor-pointer text-xs text-gray-700 dark:text-white hover:text-gray-900 dark:hover:text-gray-100">View SIGMA Rules Sent to Similarity Search</summary>
+                    <summary class="cursor-pointer text-xs text-gray-700 dark:text-white hover:text-gray-900 dark:hover:text-gray-100" style="color: #ffffff !important;">View SIGMA Rules Sent to Similarity Search</summary>
                     <div class="mt-2 w-full max-h-96 overflow-y-auto bg-gray-50 dark:bg-gray-900 rounded p-2 border text-xs font-mono text-gray-900 dark:text-white whitespace-pre-wrap break-words">
                         ${sigmaRulesForSearch.replace(/</g, '&lt;').replace(/>/g, '&gt;')}
                     </div>
@@ -7015,7 +7050,7 @@ async function viewExecution(executionId) {
             const queuedCount = exec.queued_rules_count || 0;
             const queuedRuleIds = exec.queued_rule_ids || [];
             const queueDetails = queuedCount > 0 ? `<details class="mt-2 w-full">
-                <summary class="cursor-pointer text-xs text-gray-700 dark:text-white hover:text-gray-900 dark:hover:text-gray-100">View Queued Rules</summary>
+                <summary class="cursor-pointer text-xs text-gray-700 dark:text-white hover:text-gray-900 dark:hover:text-gray-100" style="color: #ffffff !important;">View Queued Rules</summary>
                 <div class="mt-2 w-full max-h-48 overflow-y-auto bg-gray-50 dark:bg-gray-900 rounded p-2 border text-xs">
                     <div class="text-gray-700 dark:text-gray-300 mb-2">
                         <span class="font-semibold text-purple-600 dark:text-purple-400 cursor-pointer hover:underline" onclick="navigateToQueuedRules(${exec.id}, ${JSON.stringify(queuedRuleIds)})">${queuedCount} rule(s) queued for review</span>
@@ -7123,19 +7158,27 @@ async function viewExecution(executionId) {
     }
 }
 
-async function retryExecution(executionId) {
-    if (!confirm(`Retry execution ${executionId}?`)) return;
+async function retryExecution(executionId, useLangGraphServer = false) {
+    const mode = useLangGraphServer ? 'synchronously (wait for completion)' : 'asynchronously (background)';
+    if (!confirm(`Retry execution ${executionId} ${mode}?`)) return;
     
     try {
-        const url = `/api/workflow/executions/${executionId}/retry`;
+        const url = `/api/workflow/executions/${executionId}/retry?use_langgraph_server=${useLangGraphServer}`;
         const response = await fetch(url, { method: 'POST' });
         
         if (response.ok) {
             const result = await response.json();
-            alert('✅ Retry queued\n\n' +
-                  'Execution running in background via Celery.\n' +
-                  'Langfuse traces will be created (if enabled).\n' +
-                  'Check execution status to see progress.');
+            if (result.via_direct_execution) {
+                alert('✅ Retry completed\n\n' +
+                      'Execution finished synchronously.\n' +
+                      'Langfuse traces created (if enabled).\n' +
+                      'Click "Debug" button to view traces.');
+            } else {
+                alert('✅ Retry queued\n\n' +
+                      'Execution running in background via Celery.\n' +
+                      'Langfuse traces will be created (if enabled).\n' +
+                      'Check execution status to see progress.');
+            }
             await loadExecutions();
         } else {
             const error = await response.json();
@@ -7335,7 +7378,8 @@ async function triggerWorkflow() {
         messageDiv.textContent = 'Triggering workflow...';
         messageDiv.classList.remove('hidden');
         
-        const response = await fetch(`/api/workflow/articles/${articleId}/trigger`, {
+        // Always use Celery (fast, production mode) - no LangGraph server option
+        const response = await fetch(`/api/workflow/articles/${articleId}/trigger?use_langgraph_server=false`, {
             method: 'POST'
         });
         
