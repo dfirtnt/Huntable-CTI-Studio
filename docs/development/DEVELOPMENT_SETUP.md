@@ -756,10 +756,8 @@ python run_tests.py --docker --smoke
 
 ## Next Steps
 
-- **Learn test categories** → [Testing Guide](../tests/TESTING.md)
+- **Learn test categories** → See the testing guide in the tests directory
 - **Test web interface** → [Web App Testing](WEB_APP_TESTING.md)
-- **Test API endpoints** → [API Testing](API_TESTING.md)
-- **Set up CI/CD** → [CI/CD Integration](CICD_TESTING.md)
 
 ## Resources
 
@@ -767,8 +765,7 @@ python run_tests.py --docker --smoke
 - [pytest-asyncio](https://pytest-asyncio.readthedocs.io/)
 - [Playwright Python](https://playwright.dev/python/)
 - [Faker Documentation](https://faker.readthedocs.io/)
-- [Docker Testing Guide](DOCKER_ARCHITECTURE.md)
-- [API Testing Guide](API_ENDPOINTS.md)
+- [Docker Architecture Guide](../deployment/DOCKER_ARCHITECTURE.md)
 
 ---
 
