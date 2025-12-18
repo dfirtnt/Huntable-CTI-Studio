@@ -4539,8 +4539,16 @@ window.autoSaveModelChange = async function autoSaveModelChange() {
             RankAgent_provider: rankProvider,
             RankAgent_temperature: parseFloat(document.getElementById('rankagent-temperature')?.value) || 0.0,
             OSDetectionAgent_embedding: document.getElementById('osdetectionagent-embedding-model-2')?.value.trim() || 'ibm-research/CTI-BERT',
-            OSDetectionAgent_fallback: getActiveAgentModelValue('osdetectionagent-fallback', document.getElementById('osdetectionagent-fallback-provider')?.value || 'lmstudio'),
-            OSDetectionAgent_fallback_provider: document.getElementById('osdetectionagent-fallback-provider')?.value || 'lmstudio',
+            OSDetectionAgent_fallback: (() => {
+                const toggle = document.getElementById('osdetectionagent-fallback-enabled');
+                if (!toggle || !toggle.checked) return null;
+                return getActiveAgentModelValue('osdetectionagent-fallback', document.getElementById('osdetectionagent-fallback-provider')?.value || 'lmstudio');
+            })(),
+            OSDetectionAgent_fallback_provider: (() => {
+                const toggle = document.getElementById('osdetectionagent-fallback-enabled');
+                if (!toggle || !toggle.checked) return null;
+                return document.getElementById('osdetectionagent-fallback-provider')?.value || 'lmstudio';
+            })(),
             OSDetectionAgent_selected_os: osSelection,
             ExtractAgent: extractModelValue,
             ExtractAgent_provider: extractProvider,
@@ -6027,11 +6035,14 @@ function getCurrentFormState() {
     const osEmbedding = document.getElementById('osdetectionagent-embedding-model-2')?.value.trim();
     if (osEmbedding) agent_models.OSDetectionAgent_embedding = osEmbedding;
     
-    const osFallbackProvider = document.getElementById('osdetectionagent-fallback-provider')?.value || 'lmstudio';
-    const osFallback = getActiveAgentModelValue('osdetectionagent-fallback', osFallbackProvider);
-    if (osFallback) {
-        agent_models.OSDetectionAgent_fallback = osFallback;
-        agent_models.OSDetectionAgent_fallback_provider = osFallbackProvider;
+    const fallbackToggle = document.getElementById('osdetectionagent-fallback-enabled');
+    if (fallbackToggle && fallbackToggle.checked) {
+        const osFallbackProvider = document.getElementById('osdetectionagent-fallback-provider')?.value || 'lmstudio';
+        const osFallback = getActiveAgentModelValue('osdetectionagent-fallback', osFallbackProvider);
+        if (osFallback) {
+            agent_models.OSDetectionAgent_fallback = osFallback;
+            agent_models.OSDetectionAgent_fallback_provider = osFallbackProvider;
+        }
     }
     
     // Get sub-agent models
