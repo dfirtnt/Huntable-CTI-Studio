@@ -5878,13 +5878,13 @@ function updateLMStudioContextPanelVisibility() {
         const providerSelect = document.getElementById(agent.providerId);
         const modelSelect = document.getElementById(agent.modelId);
         
-        // Check if provider is LMStudio and model is selected
+        // Check if provider is LMStudio
         if (!providerSelect || providerSelect.value !== 'lmstudio') {
             return false;
         }
         
-        // If model select exists and is visible, check if it has a value
-        if (modelSelect && modelSelect.offsetParent !== null) {
+        // Check if model select exists and has a value
+        if (modelSelect) {
             const modelValue = modelSelect.value.trim();
             return modelValue && modelValue !== '';
         }
