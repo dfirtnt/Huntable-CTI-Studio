@@ -37,6 +37,7 @@ from . import (
     scrape,
     workflow_config,
     workflow_executions,
+    evaluation_api,
     workflow_ui,
     sigma_queue,
     sigma_ab_test,
@@ -85,6 +86,7 @@ def register_routes(app: FastAPI) -> None:
     app.include_router(workflow_config.router)
     app.include_router(workflow_executions.router)
     app.include_router(workflow_ui.router)
+    app.include_router(evaluation_api.router)
     app.include_router(sigma_queue.router)
     app.include_router(sigma_ab_test.router)
     app.include_router(sigma_similarity_test.router)
