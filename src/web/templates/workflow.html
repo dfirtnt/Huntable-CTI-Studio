@@ -1762,7 +1762,7 @@
 
         <!-- Trigger Workflow Modal -->
         <div id="triggerWorkflowModal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-            <div class="relative top-20 mx-auto p-5 border w-11/12 md:w-1/2 lg:w-1/3 shadow-lg rounded-md bg-white dark:bg-gray-800">
+            <div class="relative top-20 mx-auto p-5 border w-11/12 md:w-2/3 lg:w-1/2 shadow-lg rounded-md bg-white dark:bg-gray-800">
                 <div class="flex justify-between items-center mb-4">
                     <h3 class="text-xl font-bold text-gray-900 dark:text-gray-300">Trigger Workflow</h3>
                     <button onclick="closeTriggerWorkflowModal()" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">✕</button>
@@ -1780,6 +1780,95 @@
                                placeholder="Enter article ID">
                         <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Enter the ID of the article to process</p>
                     </div>
+                    
+                    <!-- QA Agent Provider/Model Selector -->
+                    <div class="border-t border-gray-200 dark:border-gray-700 pt-4">
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+                            QA Agent Configuration
+                        </label>
+                        <div class="space-y-3">
+                            <!-- Provider Selection -->
+                            <div>
+                                <label for="qaMasterProvider" class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                                    Provider
+                                </label>
+                                <select id="qaMasterProvider"
+                                        onchange="onQAMasterProviderChange()"
+                                        class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white text-sm">
+                                    <option value="">-- No override --</option>
+                                    <option value="lmstudio">LMStudio (Local)</option>
+                                    <option value="openai">OpenAI (Cloud)</option>
+                                    <option value="anthropic">Anthropic Claude (Cloud)</option>
+                                </select>
+                            </div>
+                            
+                            <!-- Model Selection (LMStudio) -->
+                            <div id="qaMasterModelLmstudio" class="hidden">
+                                <label for="qaMasterModel" class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                                    Model
+                                </label>
+                                <select id="qaMasterModel"
+                                        class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-sm">
+                                    <option value="">-- Select model --</option>
+                                </select>
+                            </div>
+                            
+                            <!-- Model Selection (OpenAI) -->
+                            <div id="qaMasterModelOpenai" class="hidden">
+                                <label for="qaMasterModelOpenaiInput" class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                                    Model
+                                </label>
+                                <select id="qaMasterModelOpenaiInput"
+                                        class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-sm">
+                                    <option value="">Select an OpenAI model</option>
+                                </select>
+                            </div>
+                            
+                            <!-- Model Selection (Anthropic) -->
+                            <div id="qaMasterModelAnthropic" class="hidden">
+                                <label for="qaMasterModelAnthropicInput" class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                                    Model
+                                </label>
+                                <select id="qaMasterModelAnthropicInput"
+                                        class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-sm">
+                                    <option value="">Select a Claude model</option>
+                                </select>
+                            </div>
+                            
+                            <!-- Mode Selection -->
+                            <div>
+                                <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-2">
+                                    Apply Mode
+                                </label>
+                                <div class="space-y-2">
+                                    <label class="flex items-center">
+                                        <input type="radio" 
+                                               name="qaMasterMode" 
+                                               value="default" 
+                                               checked
+                                               onchange="onQAMasterModeChange()"
+                                               class="mr-2 text-purple-600 focus:ring-purple-500">
+                                        <span class="text-xs text-gray-700 dark:text-gray-300">Default (can be overridden by individual QA agents)</span>
+                                    </label>
+                                    <label class="flex items-center">
+                                        <input type="radio" 
+                                               name="qaMasterMode" 
+                                               value="enforced"
+                                               onchange="onQAMasterModeChange()"
+                                               class="mr-2 text-purple-600 focus:ring-purple-500">
+                                        <span class="text-xs text-gray-700 dark:text-gray-300">Enforced (overrides all QA agents)</span>
+                                    </label>
+                                </div>
+                            </div>
+                            
+                            <button type="button"
+                                    onclick="applyQAMasterSettings()"
+                                    class="w-full px-3 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-md text-sm transition-colors">
+                                Apply to All QA Agents
+                            </button>
+                        </div>
+                    </div>
+                    
                     <div class="flex justify-end space-x-3">
                         <button onclick="closeTriggerWorkflowModal()" class="px-4 py-2 bg-gray-300 hover:bg-gray-400 dark:bg-gray-600 dark:hover:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-md transition-colors">
                             Cancel
@@ -3590,8 +3679,9 @@ async function loadConfig(skipPromptReload = false) {
                 if (models.SigmaAgent && qaEnabled.SigmaAgent) {
                     selectedModels.push(`SIGMA: ${models.SigmaAgent} (${models.SigmaAgent_provider || 'lmstudio'})`);
                 }
-                // OS Fallback only shows if toggle was enabled (model exists means toggle was on)
-                if (models.OSDetectionAgent_fallback) {
+                // OS Fallback only shows if toggle is currently enabled
+                const fallbackToggle = document.getElementById('osdetectionagent-fallback-enabled');
+                if (models.OSDetectionAgent_fallback && fallbackToggle && fallbackToggle.checked) {
                     selectedModels.push(`OS Fallback: ${models.OSDetectionAgent_fallback} (${models.OSDetectionAgent_fallback_provider || 'lmstudio'})`);
                 }
                 
@@ -3600,7 +3690,17 @@ async function loadConfig(skipPromptReload = false) {
                     const modelKey = `${agent}_model`;
                     const providerKey = `${agent}_provider`;
                     if (models[modelKey] && !disabled.includes(agent)) {
-                        selectedModels.push(`${agent}: ${models[modelKey]} (${models[providerKey] || 'lmstudio'})`);
+                        // Infer provider from model name if provider is missing or incorrect
+                        let provider = models[providerKey];
+                        if (!provider || provider === 'lmstudio') {
+                            const inferredProvider = inferProviderFromModel(models[modelKey]);
+                            if (inferredProvider) {
+                                provider = inferredProvider;
+                            } else {
+                                provider = provider || 'lmstudio';
+                            }
+                        }
+                        selectedModels.push(`${agent}: ${models[modelKey]} (${provider})`);
                     }
                 });
                 
@@ -6428,8 +6528,9 @@ if (workflowConfigForm) {
                 if (models.SigmaAgent && qaEnabled.SigmaAgent) {
                     selectedModels.push(`SIGMA: ${models.SigmaAgent} (${models.SigmaAgent_provider || 'lmstudio'})`);
                 }
-                // OS Fallback only shows if toggle was enabled (model exists means toggle was on)
-                if (models.OSDetectionAgent_fallback) {
+                // OS Fallback only shows if toggle is currently enabled
+                const fallbackToggle = document.getElementById('osdetectionagent-fallback-enabled');
+                if (models.OSDetectionAgent_fallback && fallbackToggle && fallbackToggle.checked) {
                     selectedModels.push(`OS Fallback: ${models.OSDetectionAgent_fallback} (${models.OSDetectionAgent_fallback_provider || 'lmstudio'})`);
                 }
                 
@@ -6438,7 +6539,17 @@ if (workflowConfigForm) {
                     const modelKey = `${agent}_model`;
                     const providerKey = `${agent}_provider`;
                     if (models[modelKey] && !disabled.includes(agent)) {
-                        selectedModels.push(`${agent}: ${models[modelKey]} (${models[providerKey] || 'lmstudio'})`);
+                        // Infer provider from model name if provider is missing or incorrect
+                        let provider = models[providerKey];
+                        if (!provider || provider === 'lmstudio') {
+                            const inferredProvider = inferProviderFromModel(models[modelKey]);
+                            if (inferredProvider) {
+                                provider = inferredProvider;
+                            } else {
+                                provider = provider || 'lmstudio';
+                            }
+                        }
+                        selectedModels.push(`${agent}: ${models[modelKey]} (${provider})`);
                     }
                 });
                 
@@ -7899,6 +8010,9 @@ function showTriggerWorkflowModal() {
     document.getElementById('triggerArticleId').value = '';
     document.getElementById('triggerWorkflowMessage').classList.add('hidden');
     
+    // Initialize QA master settings
+    initializeQAMasterSettings();
+    
     // Focus input field after modal is visible
     setTimeout(() => {
         const input = document.getElementById('triggerArticleId');
@@ -7955,6 +8069,238 @@ async function triggerWorkflow() {
         messageDiv.className = 'mt-4 p-3 rounded-md bg-red-100 dark:bg-red-900/30 border border-red-300 dark:border-red-700 text-red-800 dark:text-red-300';
         messageDiv.textContent = `Error: ${error.message}`;
     }
+}
+
+// QA Master Settings Functions
+let qaMasterEnforced = false;
+
+async function initializeQAMasterSettings() {
+    // Reset QA master settings
+    document.getElementById('qaMasterProvider').value = '';
+    document.getElementById('qaMasterModel').value = '';
+    document.getElementById('qaMasterModelOpenaiInput').value = '';
+    document.getElementById('qaMasterModelAnthropicInput').value = '';
+    document.querySelector('input[name="qaMasterMode"][value="default"]').checked = true;
+    qaMasterEnforced = false;
+    
+    // Hide all model sections
+    document.getElementById('qaMasterModelLmstudio').classList.add('hidden');
+    document.getElementById('qaMasterModelOpenai').classList.add('hidden');
+    document.getElementById('qaMasterModelAnthropic').classList.add('hidden');
+    
+    // Load LMStudio models
+    await loadQAMasterLMStudioModels();
+    
+    // Load commercial provider models
+    loadQAMasterCommercialModels();
+    
+    // Update individual QA agent selector states
+    updateIndividualQASelectorStates();
+}
+
+async function loadQAMasterLMStudioModels() {
+    try {
+        const response = await fetch('/api/lmstudio-models');
+        const data = await response.json();
+        
+        if (data.success && data.models && data.models.length > 0) {
+            const select = document.getElementById('qaMasterModel');
+            if (select) {
+                select.innerHTML = '<option value="">-- Select model --</option>';
+                const sortedModels = [...data.models].sort();
+                sortedModels.forEach(model => {
+                    const option = document.createElement('option');
+                    option.value = model;
+                    option.textContent = model;
+                    select.appendChild(option);
+                });
+            }
+        }
+    } catch (error) {
+        console.error('Error loading LMStudio models for QA master:', error);
+    }
+}
+
+function loadQAMasterCommercialModels() {
+    const openaiSelect = document.getElementById('qaMasterModelOpenaiInput');
+    const anthropicSelect = document.getElementById('qaMasterModelAnthropicInput');
+    
+    // Use window.commercialModelCatalog if available, fallback to global commercialModelCatalog
+    const catalog = window.commercialModelCatalog || (typeof commercialModelCatalog !== 'undefined' ? commercialModelCatalog : null);
+    
+    if (openaiSelect && catalog && catalog.openai) {
+        const openaiModels = getCommercialProviderModels('openai');
+        if (openaiModels && openaiModels.length > 0) {
+            openaiSelect.innerHTML = '<option value="">Select an OpenAI model</option>';
+            openaiModels.forEach(model => {
+                const option = document.createElement('option');
+                option.value = model;
+                option.textContent = model;
+                openaiSelect.appendChild(option);
+            });
+        }
+    }
+    
+    if (anthropicSelect && catalog && catalog.anthropic) {
+        const anthropicModels = getCommercialProviderModels('anthropic');
+        if (anthropicModels && anthropicModels.length > 0) {
+            anthropicSelect.innerHTML = '<option value="">Select a Claude model</option>';
+            anthropicModels.forEach(model => {
+                const option = document.createElement('option');
+                option.value = model;
+                option.textContent = model;
+                anthropicSelect.appendChild(option);
+            });
+        }
+    }
+}
+
+function onQAMasterProviderChange() {
+    const provider = document.getElementById('qaMasterProvider').value;
+    
+    // Hide all model sections
+    document.getElementById('qaMasterModelLmstudio').classList.add('hidden');
+    document.getElementById('qaMasterModelOpenai').classList.add('hidden');
+    document.getElementById('qaMasterModelAnthropic').classList.add('hidden');
+    
+    // Clear model values
+    document.getElementById('qaMasterModel').value = '';
+    document.getElementById('qaMasterModelOpenaiInput').value = '';
+    document.getElementById('qaMasterModelAnthropicInput').value = '';
+    
+    // Show appropriate model section
+    if (provider === 'lmstudio') {
+        document.getElementById('qaMasterModelLmstudio').classList.remove('hidden');
+    } else if (provider === 'openai') {
+        document.getElementById('qaMasterModelOpenai').classList.remove('hidden');
+    } else if (provider === 'anthropic') {
+        document.getElementById('qaMasterModelAnthropic').classList.remove('hidden');
+    }
+    
+    // Update individual QA selector states (in case provider was cleared)
+    updateIndividualQASelectorStates();
+}
+
+function onQAMasterModeChange() {
+    const mode = document.querySelector('input[name="qaMasterMode"]:checked').value;
+    qaMasterEnforced = mode === 'enforced';
+    updateIndividualQASelectorStates();
+}
+
+function updateIndividualQASelectorStates() {
+    const qaAgentPrefixes = ['rankqa', 'cmdlineqa', 'sigqa', 'eventcodeqa', 'proctreeqa', 'regqa'];
+    const masterProvider = document.getElementById('qaMasterProvider');
+    const hasMasterProvider = masterProvider && masterProvider.value;
+    
+    qaAgentPrefixes.forEach(prefix => {
+        const providerSelect = document.getElementById(`${prefix}-provider`);
+        const modelSelect = document.getElementById(`${prefix}-model`);
+        const modelOpenai = document.getElementById(`${prefix}-model-openai`);
+        const modelAnthropic = document.getElementById(`${prefix}-model-anthropic`);
+        
+        if (qaMasterEnforced && hasMasterProvider) {
+            // Disable individual selectors when enforced mode is active and provider is set
+            if (providerSelect) providerSelect.disabled = true;
+            if (modelSelect) modelSelect.disabled = true;
+            if (modelOpenai) modelOpenai.disabled = true;
+            if (modelAnthropic) modelAnthropic.disabled = true;
+        } else {
+            // Enable individual selectors (either not enforced, or no master provider set)
+            if (providerSelect) providerSelect.disabled = false;
+            if (modelSelect) modelSelect.disabled = false;
+            if (modelOpenai) modelOpenai.disabled = false;
+            if (modelAnthropic) modelAnthropic.disabled = false;
+        }
+    });
+}
+
+async function applyQAMasterSettings() {
+    const provider = document.getElementById('qaMasterProvider').value;
+    
+    if (!provider) {
+        alert('Please select a provider first.');
+        return;
+    }
+    
+    let model = '';
+    if (provider === 'lmstudio') {
+        model = document.getElementById('qaMasterModel').value;
+    } else if (provider === 'openai') {
+        model = document.getElementById('qaMasterModelOpenaiInput').value;
+    } else if (provider === 'anthropic') {
+        model = document.getElementById('qaMasterModelAnthropicInput').value;
+    }
+    
+    if (!model) {
+        alert('Please select a model first.');
+        return;
+    }
+    
+    const mode = document.querySelector('input[name="qaMasterMode"]:checked').value;
+    const isEnforced = mode === 'enforced';
+    
+    // QA agent prefixes and their corresponding agent model keys
+    const qaAgents = [
+        { prefix: 'rankqa', key: 'RankAgentQA' },
+        { prefix: 'cmdlineqa', key: 'CmdLineQA' },
+        { prefix: 'sigqa', key: 'SigQA' },
+        { prefix: 'eventcodeqa', key: 'EventCodeQA' },
+        { prefix: 'proctreeqa', key: 'ProcTreeQA' },
+        { prefix: 'regqa', key: 'RegQA' }
+    ];
+    
+    // Apply to all QA agents
+    qaAgents.forEach(agent => {
+        // Set provider
+        const providerSelect = document.getElementById(`${agent.prefix}-provider`);
+        if (providerSelect) {
+            providerSelect.value = provider;
+            onAgentProviderChange(agent.prefix);
+        }
+        
+        // Set model based on provider
+        if (provider === 'lmstudio') {
+            const modelSelect = document.getElementById(`${agent.prefix}-model`);
+            if (modelSelect) {
+                modelSelect.value = model;
+            }
+        } else if (provider === 'openai') {
+            const modelInput = document.getElementById(`${agent.prefix}-model-openai`);
+            if (modelInput) {
+                modelInput.value = model;
+            }
+        } else if (provider === 'anthropic') {
+            const modelInput = document.getElementById(`${agent.prefix}-model-anthropic`);
+            if (modelInput) {
+                modelInput.value = model;
+            }
+        }
+        
+        // If enforced mode, disable the selectors
+        if (isEnforced) {
+            if (providerSelect) providerSelect.disabled = true;
+            const modelSelect = document.getElementById(`${agent.prefix}-model`);
+            const modelOpenai = document.getElementById(`${agent.prefix}-model-openai`);
+            const modelAnthropic = document.getElementById(`${agent.prefix}-model-anthropic`);
+            if (modelSelect) modelSelect.disabled = true;
+            if (modelOpenai) modelOpenai.disabled = true;
+            if (modelAnthropic) modelAnthropic.disabled = true;
+        }
+    });
+    
+    // Auto-save the changes
+    await autoSaveModelChange();
+    
+    // Show success message
+    const messageDiv = document.getElementById('triggerWorkflowMessage');
+    messageDiv.className = 'mt-4 p-3 rounded-md bg-green-100 dark:bg-green-900/30 border border-green-300 dark:border-green-700 text-green-800 dark:text-green-300';
+    messageDiv.textContent = `✅ QA Agent settings applied to all QA agents (${isEnforced ? 'enforced' : 'default'} mode)`;
+    messageDiv.classList.remove('hidden');
+    
+    // Hide message after 3 seconds
+    setTimeout(() => {
+        messageDiv.classList.add('hidden');
+    }, 3000);
 }
 
 // Close modal when clicking outside
