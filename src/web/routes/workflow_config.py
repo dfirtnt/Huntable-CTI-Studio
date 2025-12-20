@@ -32,7 +32,6 @@ class WorkflowConfigResponse(BaseModel):
     agent_models: Optional[Dict[str, Any]] = None  # Changed from Dict[str, str] to allow None values
     qa_enabled: Optional[Dict[str, bool]] = None
     sigma_fallback_enabled: bool = False
-    rank_agent_enabled: bool = True
     qa_max_retries: int = 5
     created_at: str
     updated_at: str
@@ -49,8 +48,7 @@ class WorkflowConfigUpdate(BaseModel):
     agent_models: Optional[Dict[str, Any]] = None  # Changed from Dict[str, str] to allow numeric temperatures
     qa_enabled: Optional[Dict[str, bool]] = None
     sigma_fallback_enabled: Optional[bool] = False
-    rank_agent_enabled: Optional[bool] = True
-    qa_max_retries: Optional[int] = Field(None, ge=1, le=3, description="Maximum QA retry attempts (1-3)")
+    qa_max_retries: Optional[int] = Field(None, ge=1, le=20, description="Maximum QA retry attempts (1-20)")
 
 
 class AgentPromptUpdate(BaseModel):
@@ -91,7 +89,6 @@ async def get_workflow_config(request: Request):
                     is_active=True,
                     description="Default configuration",
                     sigma_fallback_enabled=False,
-                    rank_agent_enabled=True,
                     qa_enabled={},
                     qa_max_retries=5
                 )
@@ -118,7 +115,6 @@ async def get_workflow_config(request: Request):
                 agent_models=agent_models,
                 qa_enabled=qa_enabled,
                 sigma_fallback_enabled=config.sigma_fallback_enabled if hasattr(config, 'sigma_fallback_enabled') else False,
-                rank_agent_enabled=config.rank_agent_enabled if hasattr(config, 'rank_agent_enabled') else True,
                 qa_max_retries=config.qa_max_retries if hasattr(config, 'qa_max_retries') else 5,
                 created_at=config.created_at.isoformat(),
                 updated_at=config.updated_at.isoformat()
@@ -165,12 +161,11 @@ async def update_workflow_config(request: Request, config_update: WorkflowConfig
             
             # Create new config version
             sigma_fallback = config_update.sigma_fallback_enabled if config_update.sigma_fallback_enabled is not None else (current_config.sigma_fallback_enabled if current_config and hasattr(current_config, 'sigma_fallback_enabled') else False)
-            rank_agent_enabled = config_update.rank_agent_enabled if config_update.rank_agent_enabled is not None else (current_config.rank_agent_enabled if current_config and hasattr(current_config, 'rank_agent_enabled') else True)
             qa_max_retries = config_update.qa_max_retries if config_update.qa_max_retries is not None else (current_config.qa_max_retries if current_config and hasattr(current_config, 'qa_max_retries') else 5)
             
             # Validate qa_max_retries
-            if not (1 <= qa_max_retries <= 3):
-                raise HTTPException(status_code=400, detail=f"QA max retries must be between 1 and 3, got {qa_max_retries}")
+            if not (1 <= qa_max_retries <= 20):
+                raise HTTPException(status_code=400, detail=f"QA max retries must be between 1 and 20, got {qa_max_retries}")
             
             # Merge agent_models instead of replacing (preserve existing models when updating)
             merged_agent_models = None
@@ -198,7 +193,6 @@ async def update_workflow_config(request: Request, config_update: WorkflowConfig
                 agent_models=merged_agent_models,
                 qa_enabled=config_update.qa_enabled if config_update.qa_enabled is not None else (current_config.qa_enabled if current_config and current_config.qa_enabled is not None else {}),
                 sigma_fallback_enabled=sigma_fallback,
-                rank_agent_enabled=rank_agent_enabled,
                 qa_max_retries=qa_max_retries
             )
             
@@ -221,7 +215,6 @@ async def update_workflow_config(request: Request, config_update: WorkflowConfig
                 agent_models=new_config.agent_models,
                 qa_enabled=new_config.qa_enabled,
                 sigma_fallback_enabled=new_config.sigma_fallback_enabled,
-                rank_agent_enabled=new_config.rank_agent_enabled,
                 qa_max_retries=new_config.qa_max_retries,
                 created_at=new_config.created_at.isoformat(),
                 updated_at=new_config.updated_at.isoformat()
@@ -479,10 +472,6 @@ async def rollback_agent_prompt(request: Request, agent_name: str, rollback_requ
                 is_active=True,
                 description=current_config.description or "Rolled back configuration",
                 agent_prompts=agent_prompts,
-                agent_models=current_config.agent_models.copy() if current_config.agent_models else {},
-                qa_enabled=current_config.qa_enabled.copy() if current_config.qa_enabled else {},
-                sigma_fallback_enabled=current_config.sigma_fallback_enabled if hasattr(current_config, 'sigma_fallback_enabled') else False,
-                rank_agent_enabled=current_config.rank_agent_enabled if hasattr(current_config, 'rank_agent_enabled') else True,
                 qa_max_retries=current_config.qa_max_retries if hasattr(current_config, 'qa_max_retries') else 5
             )
             
