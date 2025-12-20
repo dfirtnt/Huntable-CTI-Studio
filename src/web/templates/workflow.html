@@ -291,6 +291,9 @@
             <button onclick="switchTab('queue')" id="tab-queue" class="tab-button border-b-2 border-transparent py-4 px-1 text-sm font-medium text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-300 dark:hover:text-gray-200">
                 📥 SIGMA Queue
             </button>
+            <button onclick="switchTab('evals')" id="tab-evals" class="tab-button border-b-2 border-transparent py-4 px-1 text-sm font-medium text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-300 dark:hover:text-gray-200">
+                🧪 Evals
+            </button>
         </nav>
     </div>
 
@@ -418,7 +421,7 @@
                                            id="rank-agent-enabled" 
                                            name="rank_agent_enabled"
                                            class="sr-only peer"
-                                           onchange="updateSaveButtonState()">
+                                           onchange="updateRankQAState(false); updateSaveButtonState();">
                                     <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 dark:peer-focus:ring-purple-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-purple-600"></div>
                                 </label>
                             </div>
@@ -1968,6 +1971,120 @@
             </div>
         </div>
     </div>
+
+    <!-- Evals Tab -->
+    <div id="tab-content-evals" class="tab-content hidden">
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mb-6">
+            <h2 class="text-2xl font-semibold text-gray-900 dark:text-white mb-4">Preset Evaluation</h2>
+            <p class="text-gray-600 dark:text-gray-300 mb-6">
+                Run preset-based evaluations against Gold articles from Langfuse datasets.
+                Each evaluation creates an immutable snapshot of the current preset configuration.
+            </p>
+
+            <!-- Evaluation Configuration -->
+            <div class="space-y-4 mb-6">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        Dataset Name
+                    </label>
+                    <input 
+                        type="text" 
+                        id="evalDatasetName" 
+                        value="cmdline_extractor_gt" 
+                        class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                        placeholder="cmdline_extractor_gt"
+                    />
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                        Name of the Langfuse dataset containing Gold articles
+                    </p>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        Preset (Optional)
+                    </label>
+                    <select 
+                        id="evalPresetId" 
+                        class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    >
+                        <option value="">Use Active Preset</option>
+                    </select>
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                        Leave empty to use the currently active preset
+                    </p>
+                </div>
+            </div>
+
+            <!-- Start Evaluation Button -->
+            <button 
+                id="startEvalBtn" 
+                onclick="startEvaluation()"
+                class="w-full px-6 py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+                🚀 Start Evaluation Run
+            </button>
+
+            <!-- Evaluation Status -->
+            <div id="evalStatusContainer" class="mt-6 hidden">
+                <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-4 mb-4">
+                    <div class="flex items-center justify-between mb-2">
+                        <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Evaluation Status</h3>
+                        <div class="flex gap-2">
+                            <button 
+                                id="viewLangfuseBtn"
+                                onclick="viewEvalInLangfuse()" 
+                                class="px-3 py-1 text-sm bg-purple-600 hover:bg-purple-700 text-white rounded-md hidden"
+                            >
+                                🔍 View in Langfuse
+                            </button>
+                            <button 
+                                onclick="refreshEvalStatus()" 
+                                class="px-3 py-1 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-md"
+                            >
+                                🔄 Refresh
+                            </button>
+                        </div>
+                    </div>
+                    <div id="evalStatusContent" class="space-y-2">
+                        <!-- Status loaded dynamically -->
+                    </div>
+                </div>
+
+                <!-- Progress Bar -->
+                <div id="evalProgressContainer" class="mb-4 hidden">
+                    <div class="flex justify-between text-sm text-gray-600 dark:text-gray-400 mb-1">
+                        <span id="evalProgressText">Progress</span>
+                        <span id="evalProgressPercent">0%</span>
+                    </div>
+                    <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2.5">
+                        <div 
+                            id="evalProgressBar" 
+                            class="bg-green-600 h-2.5 rounded-full transition-all duration-300"
+                            style="width: 0%"
+                        ></div>
+                    </div>
+                </div>
+
+                <!-- Results -->
+                <div id="evalResultsContainer" class="hidden">
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+                            <div class="text-sm text-gray-600 dark:text-gray-300">Accuracy</div>
+                            <div id="evalAccuracy" class="text-2xl font-bold text-green-600 dark:text-green-400">-</div>
+                        </div>
+                        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+                            <div class="text-sm text-gray-600 dark:text-gray-300">Mean Count Diff</div>
+                            <div id="evalMeanDiff" class="text-2xl font-bold text-blue-600 dark:text-blue-400">-</div>
+                        </div>
+                        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+                            <div class="text-sm text-gray-600 dark:text-gray-300">Status</div>
+                            <div id="evalPassed" class="text-2xl font-bold">-</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
 
 <script>
@@ -2054,6 +2171,8 @@ function switchTab(tab) {
             loadExecutions().catch(err => console.error('Error loading executions:', err));
     } else if (tab === 'queue') {
             loadQueue().catch(err => console.error('Error loading queue:', err));
+    } else if (tab === 'evals') {
+            loadEvalPresets().catch(err => console.error('Error loading eval presets:', err));
         }
     } catch (error) {
         console.error(`Error loading tab ${tab}:`, error);
@@ -2302,6 +2421,410 @@ if (
     commercialModelCatalog = window.initialCommercialModelCatalog || defaultCommercialModelCatalog;
 }
 
+// ============================================================================
+// UNIFIED AGENT CONFIGURATION SYSTEM
+// ============================================================================
+// Single source of truth for all agent provider/model configuration
+// Eliminates code duplication across main agents, sub-agents, and QA agents
+
+/**
+ * Agent configuration registry
+ * Defines all agents with their properties for unified handling
+ */
+const AGENT_CONFIG = {
+    // Main agents
+    rankagent: {
+        prefix: 'rankagent',
+        providerKey: 'RankAgent_provider',
+        modelKey: 'RankAgent',
+        temperatureKey: 'RankAgent_temperature',
+        name: 'RankAgent',
+        isSubAgent: false,
+        isQA: false,
+        hasFallback: false
+    },
+    extractagent: {
+        prefix: 'extractagent',
+        providerKey: 'ExtractAgent_provider',
+        modelKey: 'ExtractAgent',
+        temperatureKey: null,
+        name: 'ExtractAgent',
+        isSubAgent: false,
+        isQA: false,
+        hasFallback: true  // Used as fallback for sub-agents
+    },
+    sigmaagent: {
+        prefix: 'sigmaagent',
+        providerKey: 'SigmaAgent_provider',
+        modelKey: 'SigmaAgent',
+        temperatureKey: null,
+        name: 'SigmaAgent',
+        isSubAgent: false,
+        isQA: false,
+        hasFallback: false
+    },
+    'osdetectionagent-fallback': {
+        prefix: 'osdetectionagent-fallback',
+        providerKey: 'OSDetectionAgent_fallback_provider',
+        modelKey: 'OSDetectionAgent_fallback',
+        temperatureKey: null,
+        name: 'OSDetectionAgent_fallback',
+        isSubAgent: false,
+        isQA: false,
+        hasFallback: false
+    },
+    // Extract sub-agents
+    cmdlineextract: {
+        prefix: 'cmdlineextract',
+        providerKey: 'CmdlineExtract_provider',
+        modelKey: 'CmdlineExtract_model',
+        temperatureKey: 'CmdlineExtract_temperature',
+        name: 'CmdlineExtract',
+        isSubAgent: true,
+        isQA: false,
+        hasFallback: true,
+        fallbackAgent: 'extractagent'
+    },
+    sigextract: {
+        prefix: 'sigextract',
+        providerKey: 'SigExtract_provider',
+        modelKey: 'SigExtract_model',
+        temperatureKey: 'SigExtract_temperature',
+        name: 'SigExtract',
+        isSubAgent: true,
+        isQA: false,
+        hasFallback: true,
+        fallbackAgent: 'extractagent'
+    },
+    eventcodeextract: {
+        prefix: 'eventcodeextract',
+        providerKey: 'EventCodeExtract_provider',
+        modelKey: 'EventCodeExtract_model',
+        temperatureKey: 'EventCodeExtract_temperature',
+        name: 'EventCodeExtract',
+        isSubAgent: true,
+        isQA: false,
+        hasFallback: true,
+        fallbackAgent: 'extractagent'
+    },
+    proctreeextract: {
+        prefix: 'proctreeextract',
+        providerKey: 'ProcTreeExtract_provider',
+        modelKey: 'ProcTreeExtract_model',
+        temperatureKey: 'ProcTreeExtract_temperature',
+        name: 'ProcTreeExtract',
+        isSubAgent: true,
+        isQA: false,
+        hasFallback: true,
+        fallbackAgent: 'extractagent'
+    },
+    regextract: {
+        prefix: 'regextract',
+        providerKey: 'RegExtract_provider',
+        modelKey: 'RegExtract_model',
+        temperatureKey: 'RegExtract_temperature',
+        name: 'RegExtract',
+        isSubAgent: true,
+        isQA: false,
+        hasFallback: true,
+        fallbackAgent: 'extractagent'
+    },
+    // QA agents
+    rankqa: {
+        prefix: 'rankqa',
+        providerKey: 'RankAgentQA_provider',
+        modelKey: 'RankAgentQA',
+        temperatureKey: 'RankAgentQA_temperature',
+        name: 'RankAgentQA',
+        isSubAgent: false,
+        isQA: true,
+        hasFallback: false
+    },
+    cmdlineqa: {
+        prefix: 'cmdlineqa',
+        providerKey: 'CmdLineQA_provider',
+        modelKey: 'CmdLineQA',
+        temperatureKey: 'CmdLineQA_temperature',
+        name: 'CmdLineQA',
+        isSubAgent: false,
+        isQA: true,
+        hasFallback: false
+    },
+    sigqa: {
+        prefix: 'sigqa',
+        providerKey: 'SigQA_provider',
+        modelKey: 'SigQA',
+        temperatureKey: 'SigQA_temperature',
+        name: 'SigQA',
+        isSubAgent: false,
+        isQA: true,
+        hasFallback: false
+    },
+    eventcodeqa: {
+        prefix: 'eventcodeqa',
+        providerKey: 'EventCodeQA_provider',
+        modelKey: 'EventCodeQA',
+        temperatureKey: 'EventCodeQA_temperature',
+        name: 'EventCodeQA',
+        isSubAgent: false,
+        isQA: true,
+        hasFallback: false
+    },
+    proctreeqa: {
+        prefix: 'proctreeqa',
+        providerKey: 'ProcTreeQA_provider',
+        modelKey: 'ProcTreeQA',
+        temperatureKey: 'ProcTreeQA_temperature',
+        name: 'ProcTreeQA',
+        isSubAgent: false,
+        isQA: true,
+        hasFallback: false
+    },
+    regqa: {
+        prefix: 'regqa',
+        providerKey: 'RegQA_provider',
+        modelKey: 'RegQA',
+        temperatureKey: 'RegQA_temperature',
+        name: 'RegQA',
+        isSubAgent: false,
+        isQA: true,
+        hasFallback: false
+    }
+};
+
+/**
+ * Get agent configuration by prefix
+ */
+function getAgentConfig(agentPrefix) {
+    return AGENT_CONFIG[agentPrefix] || null;
+}
+
+/**
+ * Get all agent configs matching criteria
+ */
+function getAgentConfigs(filter = {}) {
+    return Object.values(AGENT_CONFIG).filter(config => {
+        if (filter.isSubAgent !== undefined && config.isSubAgent !== filter.isSubAgent) return false;
+        if (filter.isQA !== undefined && config.isQA !== filter.isQA) return false;
+        if (filter.hasFallback !== undefined && config.hasFallback !== filter.hasFallback) return false;
+        return true;
+    });
+}
+
+/**
+ * Unified function to get agent provider value from DOM
+ */
+function getAgentProvider(agentPrefix) {
+    const config = getAgentConfig(agentPrefix);
+    if (!config) return 'lmstudio';
+    
+    const providerSelect = document.getElementById(`${agentPrefix}-provider`);
+    return (providerSelect?.value || 'lmstudio').toString().trim().toLowerCase();
+}
+
+/**
+ * Unified function to get agent model value from DOM (respects provider)
+ */
+function getAgentModel(agentPrefix, provider = null) {
+    const config = getAgentConfig(agentPrefix);
+    if (!config) return null;
+    
+    const actualProvider = provider || getAgentProvider(agentPrefix);
+    return getActiveAgentModelValue(agentPrefix, actualProvider);
+}
+
+/**
+ * Unified function to set agent provider value in DOM
+ */
+function setAgentProvider(agentPrefix, provider) {
+    const config = getAgentConfig(agentPrefix);
+    if (!config) return false;
+    
+    const providerSelect = document.getElementById(`${agentPrefix}-provider`);
+    if (providerSelect) {
+        providerSelect.value = provider;
+        // Trigger change event to update visibility
+        providerSelect.dispatchEvent(new Event('change', { bubbles: true }));
+        return true;
+    }
+    return false;
+}
+
+/**
+ * Unified function to set agent model value in DOM (respects provider)
+ */
+function setAgentModel(agentPrefix, model, provider = null) {
+    const config = getAgentConfig(agentPrefix);
+    if (!config) return false;
+    
+    const actualProvider = provider || getAgentProvider(agentPrefix);
+    
+    if (actualProvider === 'lmstudio') {
+        const select = document.getElementById(`${agentPrefix}-model-2`) || document.getElementById(`${agentPrefix}-model`);
+        if (select) {
+            select.value = model || '';
+            return true;
+        }
+    } else {
+        const input = document.getElementById(`${agentPrefix}-model-${actualProvider}`);
+        if (input) {
+            input.value = model || '';
+            return true;
+        }
+    }
+    return false;
+}
+
+/**
+ * Unified function to collect all agent provider/model values for saving
+ */
+function collectAllAgentConfigs(models = null) {
+    const agentModelsData = models || agentModels || {};
+    const collected = {};
+    
+    Object.values(AGENT_CONFIG).forEach(config => {
+        // Get provider
+        const provider = getAgentProvider(config.prefix);
+        collected[config.providerKey] = provider;
+        
+        // Get model (respects provider)
+        const model = getAgentModel(config.prefix, provider);
+        if (model) {
+            collected[config.modelKey] = model;
+        }
+        
+        // Get temperature if applicable
+        if (config.temperatureKey) {
+            const tempInput = document.getElementById(`${config.prefix}-temperature`);
+            if (tempInput) {
+                const tempValue = parseFloat(tempInput.value);
+                if (!isNaN(tempValue)) {
+                    collected[config.temperatureKey] = tempValue;
+                }
+            }
+        }
+    });
+    
+    return collected;
+}
+
+/**
+ * Unified function to apply agent provider/model values from config
+ */
+function applyAgentConfigs(models = null) {
+    const agentModelsData = models || agentModels || {};
+    
+    Object.values(AGENT_CONFIG).forEach(config => {
+        // Get provider from config
+        const provider = (agentModelsData[config.providerKey] || 'lmstudio').toString().trim().toLowerCase();
+        
+        // Set provider in DOM
+        setAgentProvider(config.prefix, provider);
+        
+        // Get model from config
+        const model = agentModelsData[config.modelKey] || '';
+        
+        // Set model in DOM (respects provider)
+        if (model) {
+            setAgentModel(config.prefix, model, provider);
+        }
+        
+        // Set temperature if applicable
+        if (config.temperatureKey && agentModelsData[config.temperatureKey] !== undefined) {
+            const tempInput = document.getElementById(`${config.prefix}-temperature`);
+            if (tempInput) {
+                tempInput.value = agentModelsData[config.temperatureKey];
+            }
+        }
+    });
+    
+    // Update provider visibility for all agents
+    refreshAllProviderBlocks();
+}
+
+/**
+ * Unified function to build provider/model selector UI for any agent
+ */
+function buildAgentProviderModelUI(agentPrefix, currentProvider = 'lmstudio', currentModel = '', lmstudioModels = [], options = {}) {
+    const config = getAgentConfig(agentPrefix);
+    if (!config) {
+        console.warn(`buildAgentProviderModelUI: Unknown agent prefix: ${agentPrefix}`);
+        return '';
+    }
+    
+    const {
+        showTemperature = false,
+        temperatureDefault = 0.0,
+        lmstudioPlaceholder = config.isSubAgent ? 'Use Extract Agents Fallback Model' : 'Select a model',
+        sizeClass = config.isSubAgent ? 'text-xs' : 'text-sm',
+        paddingClass = config.isSubAgent ? 'px-2 py-1.5' : 'px-3 py-2'
+    } = options;
+    
+    // Build LMStudio model options
+    const lmstudioOptions = lmstudioModels.map(modelId => {
+        const isSelected = currentProvider === 'lmstudio' && currentModel === modelId ? 'selected' : '';
+        return `<option value="${escapeHtml(modelId)}" ${isSelected}>${escapeHtml(modelId)}</option>`;
+    }).join('');
+    
+    // Determine name attribute
+    const nameAttr = `name="agent_models[${config.modelKey}]"`;
+    
+    // Build provider select
+    const providerSelect = buildProviderSelect(agentPrefix, currentProvider);
+    
+    // Build LMStudio model select
+    const lmstudioSelect = `
+        <select id="${agentPrefix}-model${config.isSubAgent ? '' : '-2'}"
+                ${nameAttr}
+                onchange="autoSaveModelChange()"
+                class="w-full ${paddingClass} border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono ${sizeClass}">
+            <option value="">${lmstudioPlaceholder}</option>
+            ${lmstudioOptions}
+        </select>
+    `;
+    
+    // Build commercial provider inputs
+    const openaiInput = buildCommercialProviderInput(agentPrefix, 'openai', currentProvider, currentModel);
+    const anthropicInput = buildCommercialProviderInput(agentPrefix, 'anthropic', currentProvider, currentModel);
+    
+    // Build temperature input if needed
+    const temperatureInput = showTemperature && config.temperatureKey ? `
+        <div class="mt-3">
+            <label class="block ${sizeClass} font-medium text-gray-700 dark:text-gray-300 mb-2">Temperature</label>
+            <input type="number" 
+                   id="${agentPrefix}-temperature" 
+                   ${config.temperatureKey ? `name="agent_models[${config.temperatureKey}]"` : ''}
+                   min="0" max="2" step="0.1" 
+                   value="${temperatureDefault}" 
+                   onchange="autoSaveModelChange()" 
+                   class="w-full ${paddingClass} border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white ${sizeClass}">
+        </div>
+    ` : '';
+    
+    return {
+        providerSelect,
+        lmstudioSelect,
+        openaiInput,
+        anthropicInput,
+        temperatureInput,
+        html: `
+            <div class="space-y-3">
+                ${providerSelect}
+                <div data-agent-prefix="${agentPrefix}" data-provider="lmstudio">
+                    ${lmstudioSelect}
+                </div>
+                <div data-agent-prefix="${agentPrefix}" data-provider="openai" class="hidden">
+                    ${openaiInput}
+                </div>
+                <div data-agent-prefix="${agentPrefix}" data-provider="anthropic" class="hidden">
+                    ${anthropicInput}
+                </div>
+                ${temperatureInput}
+            </div>
+        `
+    };
+}
+
 function getCommercialProviderModels(provider) {
     const catalog = commercialModelCatalog[provider];
     if (!Array.isArray(catalog)) {
@@ -2320,25 +2843,9 @@ function buildCommercialProviderInput(agentPrefix, provider, currentProvider, cu
     const elementId = `${agentPrefix}-model-${provider}`;
     const catalog = getCommercialProviderModels(provider);
 
-    // Determine the name attribute for form submission
-    // Main agents use agent_models[AgentName], sub-agents use agent_models[AgentName_model]
-    const agentNameMap = {
-        'rankagent': 'RankAgent',
-        'extractagent': 'ExtractAgent',
-        'sigmaagent': 'SigmaAgent',
-        'cmdlineextract': 'CmdlineExtract_model',
-        'sigextract': 'SigExtract_model',
-        'eventcodeextract': 'EventCodeExtract_model',
-        'proctreeextract': 'ProcTreeExtract_model',
-        'regextract': 'RegExtract_model',
-        'rankqa': 'RankAgentQA',
-        'cmdlineqa': 'CmdLineQA',
-        'sigqa': 'SigQA',
-        'eventcodeqa': 'EventCodeQA',
-        'proctreeqa': 'ProcTreeQA',
-        'regqa': 'RegQA'
-    };
-    const nameAttr = agentNameMap[agentPrefix] ? `name="agent_models[${agentNameMap[agentPrefix]}]"` : '';
+    // Determine the name attribute for form submission using unified AGENT_CONFIG
+    const config = getAgentConfig(agentPrefix);
+    const nameAttr = config ? `name="agent_models[${config.modelKey}]"` : '';
 
     if (!catalog || catalog.length === 0) {
         return `
@@ -2740,33 +3247,22 @@ async function loadLMStudioModels() {
 
 }
 
-const providerSelections = [
-        { prefix: 'rankagent', key: 'RankAgent_provider', modelKey: 'RankAgent' },
-        { prefix: 'extractagent', key: 'ExtractAgent_provider', modelKey: 'ExtractAgent' },
-        { prefix: 'sigmaagent', key: 'SigmaAgent_provider', modelKey: 'SigmaAgent' },
-        { prefix: 'osdetectionagent-fallback', key: 'OSDetectionAgent_fallback_provider', modelKey: 'OSDetectionAgent_fallback' },
-        // Sub-agents
-        { prefix: 'cmdlineextract', key: 'CmdlineExtract_provider', modelKey: 'CmdlineExtract_model' },
-        { prefix: 'sigextract', key: 'SigExtract_provider', modelKey: 'SigExtract_model' },
-        { prefix: 'eventcodeextract', key: 'EventCodeExtract_provider', modelKey: 'EventCodeExtract_model' },
-        { prefix: 'proctreeextract', key: 'ProcTreeExtract_provider', modelKey: 'ProcTreeExtract_model' },
-        { prefix: 'regextract', key: 'RegExtract_provider', modelKey: 'RegExtract_model' },
-        // QA agents
-        { prefix: 'rankqa', key: 'RankAgentQA_provider', modelKey: 'RankAgentQA' },
-        { prefix: 'cmdlineqa', key: 'CmdLineQA_provider', modelKey: 'CmdLineQA' },
-        { prefix: 'sigqa', key: 'SigQA_provider', modelKey: 'SigQA' },
-        { prefix: 'eventcodeqa', key: 'EventCodeQA_provider', modelKey: 'EventCodeQA' },
-        { prefix: 'proctreeqa', key: 'ProcTreeQA_provider', modelKey: 'ProcTreeQA' },
-        { prefix: 'regqa', key: 'RegQA_provider', modelKey: 'RegQA' }
-    ];
+// Generate providerSelections from unified AGENT_CONFIG
+const providerSelections = Object.values(AGENT_CONFIG).map(config => ({
+    prefix: config.prefix,
+    key: config.providerKey,
+    modelKey: config.modelKey
+}));
 
 function applyProviderSelections(models) {
     const activeModels = models || agentModels || {};
+    // Update global agentModels to ensure renderSubAgentCommercialInputs has access to latest values
+    agentModels = activeModels;
     let providerAdjusted = false;
 
-    providerSelections.forEach(selection => {
-        const storedProvider = (activeModels && activeModels[selection.key]) || '';
-        const storedModel = selection.modelKey ? activeModels?.[selection.modelKey] : null;
+    Object.values(AGENT_CONFIG).forEach(config => {
+        const storedProvider = (activeModels && activeModels[config.providerKey]) || '';
+        const storedModel = config.modelKey ? activeModels?.[config.modelKey] : null;
         const inferredProvider = inferProviderFromModel(storedModel);
 
         let provider = storedProvider || inferredProvider || 'lmstudio';
@@ -2777,7 +3273,7 @@ function applyProviderSelections(models) {
             providerAdjusted = true;
         }
 
-        const select = document.getElementById(`${selection.prefix}-provider`);
+        const select = document.getElementById(`${config.prefix}-provider`);
         const prevProvider = select?.value?.toString().trim().toLowerCase() || 'lmstudio';
         
         if (select) {
@@ -2786,10 +3282,10 @@ function applyProviderSelections(models) {
         
         // If provider changed, clear model fields that don't match new provider
         if (prevProvider !== provider) {
-            const modelSelect = document.getElementById(`${selection.prefix}-model-2`) || document.getElementById(`${selection.prefix}-model`);
+            const modelSelect = document.getElementById(`${config.prefix}-model-2`) || document.getElementById(`${config.prefix}-model`);
             const modelInputs = [
-                document.getElementById(`${selection.prefix}-model-openai`),
-                document.getElementById(`${selection.prefix}-model-anthropic`)
+                document.getElementById(`${config.prefix}-model-openai`),
+                document.getElementById(`${config.prefix}-model-anthropic`)
             ].filter(Boolean);
             
             if (provider === 'lmstudio') {
@@ -2807,9 +3303,18 @@ function applyProviderSelections(models) {
             }
         }
         
-        updateAgentProviderVisibility(selection.prefix, provider);
+        updateAgentProviderVisibility(config.prefix, provider);
         if (typeof window.renderSubAgentCommercialInputs === 'function') {
-            window.renderSubAgentCommercialInputs(selection.prefix);
+            window.renderSubAgentCommercialInputs(config.prefix);
+        }
+        
+        // Ensure model value is set for the selected provider
+        if (storedModel && provider !== 'lmstudio') {
+            // For commercial providers, set the model input value
+            const modelInput = document.getElementById(`${config.prefix}-model-${provider}`);
+            if (modelInput && modelInput.value !== storedModel) {
+                modelInput.value = storedModel;
+            }
         }
     });
 
@@ -2824,28 +3329,24 @@ function applyProviderSelections(models) {
 }
 
 function syncProviderVisibilityAndInputs() {
-    providerSelections.forEach(selection => {
-        const select = document.getElementById(`${selection.prefix}-provider`);
+    Object.values(AGENT_CONFIG).forEach(config => {
+        const select = document.getElementById(`${config.prefix}-provider`);
         if (!select) return;
         const provider = (select.value || 'lmstudio').toString().trim().toLowerCase();
-        updateAgentProviderVisibility(selection.prefix, provider);
-        renderSubAgentCommercialInputs(selection.prefix);
+        updateAgentProviderVisibility(config.prefix, provider);
+        if (typeof window.renderSubAgentCommercialInputs === 'function') {
+            window.renderSubAgentCommercialInputs(config.prefix);
+        }
     });
 }
 
-const subAgentCommercialMap = {
-    cmdlineextract: { modelKey: 'CmdlineExtract_model' },
-    sigextract: { modelKey: 'SigExtract_model' },
-    eventcodeextract: { modelKey: 'EventCodeExtract_model' },
-    proctreeextract: { modelKey: 'ProcTreeExtract_model' },
-    regextract: { modelKey: 'RegExtract_model' },
-    rankqa: { modelKey: 'RankAgentQA' },
-    cmdlineqa: { modelKey: 'CmdLineQA' },
-    sigqa: { modelKey: 'SigQA' },
-    eventcodeqa: { modelKey: 'EventCodeQA' },
-    proctreeqa: { modelKey: 'ProcTreeQA' },
-    regqa: { modelKey: 'RegQA' }
-};
+// Generate subAgentCommercialMap from unified AGENT_CONFIG
+const subAgentCommercialMap = {};
+Object.values(AGENT_CONFIG).forEach(config => {
+    if (config.isSubAgent || config.isQA) {
+        subAgentCommercialMap[config.prefix] = { modelKey: config.modelKey };
+    }
+});
 
 // Define and export globally so inline handlers can always reach it
 if (typeof window !== 'undefined') {
@@ -2965,7 +3466,18 @@ function onAgentProviderChange(agentPrefix) {
     if (provider === 'lmstudio') {
         // Clear commercial provider inputs
         modelInputs.forEach(input => input.value = '');
-        // Don't clear LMStudio dropdown - preserve selection if valid
+        // Repopulate LMStudio model dropdown for sub-agents
+        const subAgentMap = {
+            'cmdlineextract': 'CmdlineExtract',
+            'sigextract': 'SigExtract',
+            'eventcodeextract': 'EventCodeExtract',
+            'proctreeextract': 'ProcTreeExtract',
+            'regextract': 'RegExtract'
+        };
+        const agentName = subAgentMap[agentPrefix];
+        if (agentName && typeof repopulateSubAgentModelDropdown === 'function') {
+            repopulateSubAgentModelDropdown(agentPrefix, agentName);
+        }
     } else {
         // Clear LMStudio model dropdown only if switching away from LMStudio
         if (modelSelect) {
@@ -3636,9 +4148,10 @@ async function loadConfig(skipPromptReload = false) {
         if (response.ok) {
             const fetchedConfig = await response.json();
 
-            // Preserve qa_enabled from currentConfig if it exists and fetched config doesn't have it
-            if (currentConfig?.qa_enabled && (!fetchedConfig.qa_enabled || Object.keys(fetchedConfig.qa_enabled).length === 0)) {
-                fetchedConfig.qa_enabled = currentConfig.qa_enabled;
+            // Always use fetched config from database (source of truth)
+            // Ensure qa_enabled is at least an empty object if not present
+            if (!fetchedConfig.qa_enabled) {
+                fetchedConfig.qa_enabled = {};
             }
 
             currentConfig = fetchedConfig;
@@ -3733,9 +4246,15 @@ async function loadConfig(skipPromptReload = false) {
         }
         refreshAllProviderBlocks();
         
-        // Load QA settings
-        loadQASettings2();
+        // Load QA settings - ensure currentConfig.qa_enabled is properly set
+        if (currentConfig && !currentConfig.qa_enabled) {
+            currentConfig.qa_enabled = {};
+        }
+        
+        // Sync extract agent toggles first, then load QA settings
+        // This ensures extract agent state is correct before QA settings are applied
         syncExtractAgentTogglesFromConfig();
+        loadQASettings2();
         
         // Load SIGMA fallback setting
         const sigmaFallbackCheckbox = document.getElementById('sigma-fallback-enabled');
@@ -3749,6 +4268,17 @@ async function loadConfig(skipPromptReload = false) {
         } else if (rankAgentEnabledCheckbox) {
             // Default to true if not specified
             rankAgentEnabledCheckbox.checked = true;
+        }
+        
+        // Update Rank QA state based on Rank Agent enabled state (restore from config on initial load)
+        updateRankQAState(true);
+        
+        // Add event listener to Rank Agent toggle to update Rank QA state (don't restore on toggle)
+        if (rankAgentEnabledCheckbox) {
+            rankAgentEnabledCheckbox.addEventListener('change', () => {
+                updateRankQAState(false); // Don't restore from config when toggling
+                updateSaveButtonState();
+            });
         }
         
         // Initialize change tracking after config is loaded
@@ -3864,6 +4394,48 @@ async function loadAgentModels() {
     }
 }
 
+// Cache model lists for repopulating dropdowns when provider changes
+let cachedSortedModelIds = [];
+let cachedAvailableModelIds = [];
+
+function repopulateSubAgentModelDropdown(agentPrefix, agentName) {
+    /**Repopulate a single sub-agent's model dropdown when provider changes to LMStudio.*/
+    const select = document.getElementById(`${agentPrefix}-model`);
+    if (!select) {
+        console.warn(`Model select not found for ${agentPrefix}`);
+        return;
+    }
+    
+    const agentModels = currentConfig?.agent_models || {};
+    const currentModel = agentModels[`${agentName}_model`] || '';
+    
+    if (cachedSortedModelIds.length === 0) {
+        // No cached models - try to reload
+        loadAgentModels().catch(err => console.error('Error reloading models:', err));
+        return;
+    }
+    
+    // Normalize model IDs
+    const normalizeModelId = (modelId) => {
+        if (typeof modelId !== 'string') return modelId;
+        return modelId.replace(/:\d+$/, '');
+    };
+    
+    const normalizedCurrent = currentModel ? normalizeModelId(currentModel) : null;
+    const isLMStudioModel = !currentModel || !currentModel.match(/^(gpt|o[13]|text-|davinci|curie|babbage|ada|whisper|omni|turbo|claude)/i);
+    const allModelIds = [...new Set([
+        ...cachedSortedModelIds, 
+        ...(currentModel && isLMStudioModel && !cachedSortedModelIds.some(m => normalizeModelId(m) === normalizedCurrent) ? [currentModel] : [])
+    ])].sort();
+    
+    const modelOptions = allModelIds.map(modelId => {
+        const isSelected = currentModel === modelId ? 'selected' : '';
+        const isUnavailable = !cachedAvailableModelIds.includes(modelId) ? ' (not in LM Studio)' : '';
+        return `<option value="${escapeHtml(modelId)}" ${isSelected}>${escapeHtml(modelId)}${isUnavailable}</option>`;
+    }).join('');
+    select.innerHTML = '<option value="">Use Extract Agents Fallback Model</option>' + modelOptions;
+}
+
 function renderAgentModels(lmstudioModels) {
     const agentMappings = {
         'os-detection': {
@@ -3893,6 +4465,9 @@ function renderAgentModels(lmstudioModels) {
     
     const availableModelIds = lmstudioModels.map(m => typeof m === 'string' ? m : m.id);
     
+    // Cache model lists for repopulating dropdowns
+    cachedAvailableModelIds = availableModelIds;
+    
     // Create a map of normalized -> original (prefer base model without suffix)
     const modelMap = new Map();
     for (const modelId of availableModelIds) {
@@ -3906,6 +4481,9 @@ function renderAgentModels(lmstudioModels) {
     // Get unique models (using normalized deduplication)
     const uniqueModelIds = Array.from(modelMap.values()).sort();
     const sortedModelIds = uniqueModelIds;
+    
+    // Cache sorted model IDs for repopulating dropdowns
+    cachedSortedModelIds = sortedModelIds;
 
     const buildOptions = (currentModel, placeholder) => {
         // Normalize current model for comparison
@@ -4246,84 +4824,113 @@ function renderAgentModels(lmstudioModels) {
         `;
     }
     
-    // Populate sub-agent model dropdowns - only populate if LMStudio provider is selected
-    const subAgents = [
-        { name: 'CmdlineExtract', id: 'cmdlineextract-model', providerId: 'cmdlineextract-provider' },
-        { name: 'SigExtract', id: 'sigextract-model', providerId: 'sigextract-provider' },
-        { name: 'EventCodeExtract', id: 'eventcodeextract-model', providerId: 'eventcodeextract-provider' },
-        { name: 'ProcTreeExtract', id: 'proctreeextract-model', providerId: 'proctreeextract-provider' },
-        { name: 'RegExtract', id: 'regextract-model', providerId: 'regextract-provider' }
-    ];
+    // Populate sub-agent model dropdowns using unified system
+    const subAgentConfigs = getAgentConfigs({ isSubAgent: true, hasFallback: true });
     
-    subAgents.forEach(subAgent => {
-        const select = document.getElementById(subAgent.id);
-        const providerSelect = document.getElementById(subAgent.providerId);
-        if (select && providerSelect) {
-            const currentProvider = (providerSelect.value || 'lmstudio').toString().trim().toLowerCase();
-            const currentModel = agentModels[`${subAgent.name}_model`] || '';
+    subAgentConfigs.forEach(config => {
+        const select = document.getElementById(`${config.prefix}-model`);
+        const providerSelect = document.getElementById(`${config.prefix}-provider`);
+        
+        if (!select) {
+            console.warn(`Model select element not found for ${config.name}: ${config.prefix}-model`);
+            return;
+        }
+        
+        if (!providerSelect) {
+            console.warn(`Provider select element not found for ${config.name}: ${config.prefix}-provider`);
+            // Still try to populate with default provider (lmstudio)
+            const currentModel = agentModels[config.modelKey] || '';
+            const normalizedCurrent = currentModel ? normalizeModelId(currentModel) : null;
+            const isLMStudioModel = !currentModel || !currentModel.match(/^(gpt|o[13]|text-|davinci|curie|babbage|ada|whisper|omni|turbo|claude)/i);
+            const allModelIds = [...new Set([
+                ...sortedModelIds, 
+                ...(currentModel && isLMStudioModel && !sortedModelIds.some(m => normalizeModelId(m) === normalizedCurrent) ? [currentModel] : [])
+            ])].sort();
             
-            // Only populate LMStudio models if provider is LMStudio
-            if (currentProvider === 'lmstudio') {
-                // Use deduplicated sorted models, ensure current model is in the list (if it's an LMStudio model)
-                const normalizedCurrent = currentModel ? normalizeModelId(currentModel) : null;
-                // Only include currentModel if it looks like an LMStudio model
-                const isLMStudioModel = !currentModel || !currentModel.match(/^(gpt|o[13]|text-|davinci|curie|babbage|ada|whisper|omni|turbo|claude)/i);
-                const allModelIds = [...new Set([
-                    ...sortedModelIds, 
-                    ...(currentModel && isLMStudioModel && !sortedModelIds.some(m => normalizeModelId(m) === normalizedCurrent) ? [currentModel] : [])
-                ])].sort();
-                
-                const modelOptions = allModelIds.map(modelId => {
-                    const isSelected = currentModel === modelId ? 'selected' : '';
-                    const isUnavailable = !availableModelIds.includes(modelId) ? ' (not in LM Studio)' : '';
-                    return `<option value="${escapeHtml(modelId)}" ${isSelected}>${escapeHtml(modelId)}${isUnavailable}</option>`;
-                }).join('');
-                select.innerHTML = '<option value="">Use Extract Agents Fallback Model</option>' + modelOptions;
-            } else {
-                // Provider is not LMStudio - clear dropdown (commercial provider inputs will be visible)
-                select.innerHTML = '<option value="">Use Extract Agents Fallback Model</option>';
-            }
-            // Add onChange handler if not already present
+            const modelOptions = allModelIds.map(modelId => {
+                const isSelected = currentModel === modelId ? 'selected' : '';
+                const isUnavailable = !availableModelIds.includes(modelId) ? ' (not in LM Studio)' : '';
+                return `<option value="${escapeHtml(modelId)}" ${isSelected}>${escapeHtml(modelId)}${isUnavailable}</option>`;
+            }).join('');
+            select.innerHTML = '<option value="">Use Extract Agents Fallback Model</option>' + modelOptions;
             if (!select.getAttribute('onchange')) {
                 select.setAttribute('onchange', 'autoSaveModelChange()');
             }
+            return;
+        }
+        
+        const currentProvider = (providerSelect.value || 'lmstudio').toString().trim().toLowerCase();
+        const currentModel = agentModels[config.modelKey] || '';
+        
+        // Only populate LMStudio models if provider is LMStudio
+        if (currentProvider === 'lmstudio') {
+            // Use deduplicated sorted models, ensure current model is in the list (if it's an LMStudio model)
+            const normalizedCurrent = currentModel ? normalizeModelId(currentModel) : null;
+            // Only include currentModel if it looks like an LMStudio model
+            const isLMStudioModel = !currentModel || !currentModel.match(/^(gpt|o[13]|text-|davinci|curie|babbage|ada|whisper|omni|turbo|claude)/i);
+            const allModelIds = [...new Set([
+                ...sortedModelIds, 
+                ...(currentModel && isLMStudioModel && !sortedModelIds.some(m => normalizeModelId(m) === normalizedCurrent) ? [currentModel] : [])
+            ])].sort();
+            
+            const modelOptions = allModelIds.map(modelId => {
+                const isSelected = currentModel === modelId ? 'selected' : '';
+                const isUnavailable = !availableModelIds.includes(modelId) ? ' (not in LM Studio)' : '';
+                return `<option value="${escapeHtml(modelId)}" ${isSelected}>${escapeHtml(modelId)}${isUnavailable}</option>`;
+            }).join('');
+            select.innerHTML = '<option value="">Use Extract Agents Fallback Model</option>' + modelOptions;
+        } else {
+            // Provider is not LMStudio - clear dropdown (commercial provider inputs will be visible)
+            select.innerHTML = '<option value="">Use Extract Agents Fallback Model</option>';
+        }
+        // Add onChange handler if not already present
+        if (!select.getAttribute('onchange')) {
+            select.setAttribute('onchange', 'autoSaveModelChange()');
         }
     });
 
-    const qaModelSelectors = [
-        { id: 'rankqa-model', placeholder: 'Use Rank Agent model', key: 'RankAgentQA', providerId: 'rankqa-provider' },
-        { id: 'cmdlineqa-model', placeholder: 'Use Extract Agents model', key: 'CmdLineQA', providerId: 'cmdlineqa-provider' },
-        { id: 'sigqa-model', placeholder: 'Use Extract Agents model', key: 'SigQA', providerId: 'sigqa-provider' },
-        { id: 'eventcodeqa-model', placeholder: 'Use Extract Agents model', key: 'EventCodeQA', providerId: 'eventcodeqa-provider' },
-        { id: 'proctreeqa-model', placeholder: 'Use Extract Agents model', key: 'ProcTreeQA', providerId: 'proctreeqa-provider' },
-        { id: 'regqa-model', placeholder: 'Use Extract Agents model', key: 'RegQA', providerId: 'regqa-provider' }
-    ];
-
-    qaModelSelectors.forEach(selector => {
-        const selectEl = document.getElementById(selector.id);
-        const providerSelect = document.getElementById(selector.providerId);
-        if (selectEl && providerSelect) {
-            const currentProvider = (providerSelect.value || 'lmstudio').toString().trim().toLowerCase();
-            const currentModel = agentModels[selector.key] || '';
-            
-            // Only populate LMStudio models if provider is LMStudio
-            if (currentProvider === 'lmstudio') {
-                // Only include currentModel if it looks like an LMStudio model
-                const isLMStudioModel = !currentModel || !currentModel.match(/^(gpt|o[13]|text-|davinci|curie|babbage|ada|whisper|omni|turbo|claude)/i);
-                const modelToUse = isLMStudioModel ? currentModel : '';
-                selectEl.innerHTML = buildOptions(modelToUse, selector.placeholder);
-            } else {
-                // Provider is not LMStudio - clear dropdown (commercial provider inputs will be visible)
-                selectEl.innerHTML = buildOptions('', selector.placeholder);
-            }
+    // Populate QA agent model dropdowns using unified system
+    const qaConfigs = getAgentConfigs({ isQA: true });
+    
+    qaConfigs.forEach(config => {
+        const selectEl = document.getElementById(`${config.prefix}-model`);
+        const providerSelect = document.getElementById(`${config.prefix}-provider`);
+        
+        if (!selectEl) {
+            console.warn(`QA model select element not found for ${config.name}: ${config.prefix}-model`);
+            return;
+        }
+        
+        if (!providerSelect) {
+            console.warn(`QA provider select element not found for ${config.name}: ${config.prefix}-provider`);
+            return;
+        }
+        
+        const currentProvider = (providerSelect.value || 'lmstudio').toString().trim().toLowerCase();
+        const currentModel = agentModels[config.modelKey] || '';
+        
+        // Determine placeholder based on QA agent type
+        const placeholder = config.name === 'RankAgentQA' 
+            ? 'Use Rank Agent model' 
+            : 'Use Extract Agents model';
+        
+        // Only populate LMStudio models if provider is LMStudio
+        if (currentProvider === 'lmstudio') {
+            // Only include currentModel if it looks like an LMStudio model
+            const isLMStudioModel = !currentModel || !currentModel.match(/^(gpt|o[13]|text-|davinci|curie|babbage|ada|whisper|omni|turbo|claude)/i);
+            const modelToUse = isLMStudioModel ? currentModel : '';
+            selectEl.innerHTML = buildOptions(modelToUse, placeholder);
+        } else {
+            // Provider is not LMStudio - clear dropdown (commercial provider inputs will be visible)
+            selectEl.innerHTML = buildOptions('', placeholder);
         }
         
         // Load QA temperature
-        const tempKey = `${selector.key}_temperature`;
-        const tempId = selector.id.replace('-model', '-temperature');
-        const tempInput = document.getElementById(tempId);
-        if (tempInput && agentModels[tempKey] !== undefined) {
-            tempInput.value = agentModels[tempKey];
+        if (config.temperatureKey) {
+            const tempInput = document.getElementById(`${config.prefix}-temperature`);
+            if (tempInput && agentModels[config.temperatureKey] !== undefined) {
+                tempInput.value = agentModels[config.temperatureKey];
+            }
         }
     });
 
@@ -4628,97 +5235,41 @@ window.updateOSSelection = async function updateOSSelection() {
 
 window.autoSaveModelChange = async function autoSaveModelChange() {
     try {
-        const rankProvider = document.getElementById('rankagent-provider')?.value || 'lmstudio';
-        const extractProvider = document.getElementById('extractagent-provider')?.value || 'lmstudio';
-        const sigmaProvider = document.getElementById('sigmaagent-provider')?.value || 'lmstudio';
-
-        const rankModelValue = getActiveAgentModelValue('rankagent', rankProvider);
-        const extractModelValue = getActiveAgentModelValue('extractagent', extractProvider);
-        const sigmaModelValue = getActiveAgentModelValue('sigmaagent', sigmaProvider);
-
-        console.log('Rank Agent model change:', {
-            provider: rankProvider,
-            model: rankModelValue
-        });
-
-        // Collect OS selections
+        // Collect all agent configs using unified system
+        const collectedAgentConfigs = collectAllAgentConfigs();
+        
+        // Collect OS selections (special case, not in AGENT_CONFIG)
         const osCheckboxes = document.querySelectorAll('input[name="os_selection[]"]:not([disabled])');
         const selectedOS = Array.from(osCheckboxes)
             .filter(cb => cb.checked)
             .map(cb => cb.value);
-        // Default to Windows if nothing selected
         const osSelection = selectedOS.length > 0 ? selectedOS : ['Windows'];
         
-        // Sub-agent providers
-        const cmdlineProvider = document.getElementById('cmdlineextract-provider')?.value || 'lmstudio';
-        const sigextractProvider = document.getElementById('sigextract-provider')?.value || 'lmstudio';
-        const eventcodeProvider = document.getElementById('eventcodeextract-provider')?.value || 'lmstudio';
-        const proctreeProvider = document.getElementById('proctreeextract-provider')?.value || 'lmstudio';
-        const regextractProvider = document.getElementById('regextract-provider')?.value || 'lmstudio';
-
-        // Sub-agent model values (respecting provider selection)
-        const cmdlineModelValue = getActiveAgentModelValue('cmdlineextract', cmdlineProvider);
-        const sigextractModelValue = getActiveAgentModelValue('sigextract', sigextractProvider);
-        const eventcodeModelValue = getActiveAgentModelValue('eventcodeextract', eventcodeProvider);
-        const proctreeModelValue = getActiveAgentModelValue('proctreeextract', proctreeProvider);
-        const regextractModelValue = getActiveAgentModelValue('regextract', regextractProvider);
-
+        // Special handling for OS Detection embedding (not in AGENT_CONFIG)
+        const osEmbedding = document.getElementById('osdetectionagent-embedding-model-2')?.value.trim() || 'ibm-research/CTI-BERT';
+        
+        // Special handling for OS Detection fallback (conditional)
+        const osFallbackToggle = document.getElementById('osdetectionagent-fallback-enabled');
+        const osFallbackEnabled = osFallbackToggle && osFallbackToggle.checked;
+        if (!osFallbackEnabled) {
+            collectedAgentConfigs.OSDetectionAgent_fallback = null;
+            collectedAgentConfigs.OSDetectionAgent_fallback_provider = null;
+        }
+        
+        // Special handling for Sigma embedding model (not in AGENT_CONFIG)
+        const sigmaEmbedding = document.getElementById('sigma-embedding-model')?.value.trim() || null;
+        
         const agentModelsData = {
-            RankAgent: rankModelValue,
-            RankAgent_provider: rankProvider,
-            RankAgent_temperature: parseFloat(document.getElementById('rankagent-temperature')?.value) || 0.0,
-            OSDetectionAgent_embedding: document.getElementById('osdetectionagent-embedding-model-2')?.value.trim() || 'ibm-research/CTI-BERT',
-            OSDetectionAgent_fallback: (() => {
-                const toggle = document.getElementById('osdetectionagent-fallback-enabled');
-                if (!toggle || !toggle.checked) return null;
-                return getActiveAgentModelValue('osdetectionagent-fallback', document.getElementById('osdetectionagent-fallback-provider')?.value || 'lmstudio');
-            })(),
-            OSDetectionAgent_fallback_provider: (() => {
-                const toggle = document.getElementById('osdetectionagent-fallback-enabled');
-                if (!toggle || !toggle.checked) return null;
-                return document.getElementById('osdetectionagent-fallback-provider')?.value || 'lmstudio';
-            })(),
+            ...collectedAgentConfigs,
+            OSDetectionAgent_embedding: osEmbedding,
             OSDetectionAgent_selected_os: osSelection,
-            ExtractAgent: extractModelValue,
-            ExtractAgent_provider: extractProvider,
-            SigmaAgent: sigmaModelValue,
-            SigmaAgent_provider: sigmaProvider,
-            CmdlineExtract_model: cmdlineModelValue,
-            CmdlineExtract_provider: cmdlineProvider,
-            CmdlineExtract_temperature: parseFloat(document.getElementById('cmdlineextract-temperature')?.value) || 0.0,
-            SigExtract_model: sigextractModelValue,
-            SigExtract_provider: sigextractProvider,
-            SigExtract_temperature: parseFloat(document.getElementById('sigextract-temperature')?.value) || 0.0,
-            EventCodeExtract_model: eventcodeModelValue,
-            EventCodeExtract_provider: eventcodeProvider,
-            EventCodeExtract_temperature: parseFloat(document.getElementById('eventcodeextract-temperature')?.value) || 0.0,
-            ProcTreeExtract_model: proctreeModelValue,
-            ProcTreeExtract_provider: proctreeProvider,
-            ProcTreeExtract_temperature: parseFloat(document.getElementById('proctreeextract-temperature')?.value) || 0.0,
-            RegExtract_model: regextractModelValue,
-            RegExtract_provider: regextractProvider,
-            RegExtract_temperature: parseFloat(document.getElementById('regextract-temperature')?.value) || 0.0,
-            SigmaEmbeddingModel: document.getElementById('sigma-embedding-model')?.value.trim() || null,
-            // QA agents
-            RankAgentQA: getActiveAgentModelValue('rankqa', document.getElementById('rankqa-provider')?.value || 'lmstudio'),
-            RankAgentQA_provider: document.getElementById('rankqa-provider')?.value || 'lmstudio',
-            RankAgentQA_temperature: parseFloat(document.getElementById('rankqa-temperature')?.value) || 0.1,
-            CmdLineQA: getActiveAgentModelValue('cmdlineqa', document.getElementById('cmdlineqa-provider')?.value || 'lmstudio'),
-            CmdLineQA_provider: document.getElementById('cmdlineqa-provider')?.value || 'lmstudio',
-            CmdLineQA_temperature: parseFloat(document.getElementById('cmdlineqa-temperature')?.value) || 0.1,
-            SigQA: getActiveAgentModelValue('sigqa', document.getElementById('sigqa-provider')?.value || 'lmstudio'),
-            SigQA_provider: document.getElementById('sigqa-provider')?.value || 'lmstudio',
-            SigQA_temperature: parseFloat(document.getElementById('sigqa-temperature')?.value) || 0.1,
-            EventCodeQA: getActiveAgentModelValue('eventcodeqa', document.getElementById('eventcodeqa-provider')?.value || 'lmstudio'),
-            EventCodeQA_provider: document.getElementById('eventcodeqa-provider')?.value || 'lmstudio',
-            EventCodeQA_temperature: parseFloat(document.getElementById('eventcodeqa-temperature')?.value) || 0.1,
-            ProcTreeQA: getActiveAgentModelValue('proctreeqa', document.getElementById('proctreeqa-provider')?.value || 'lmstudio'),
-            ProcTreeQA_provider: document.getElementById('proctreeqa-provider')?.value || 'lmstudio',
-            ProcTreeQA_temperature: parseFloat(document.getElementById('proctreeqa-temperature')?.value) || 0.1,
-            RegQA: getActiveAgentModelValue('regqa', document.getElementById('regqa-provider')?.value || 'lmstudio'),
-            RegQA_provider: document.getElementById('regqa-provider')?.value || 'lmstudio',
-            RegQA_temperature: parseFloat(document.getElementById('regqa-temperature')?.value) || 0.1
+            SigmaEmbeddingModel: sigmaEmbedding
         };
+        
+        console.log('Rank Agent model change:', {
+            provider: collectedAgentConfigs.RankAgent_provider,
+            model: collectedAgentConfigs.RankAgent
+        });
         
         // Remove null/empty string values (but keep 0.0 for temperature)
         // CRITICAL: RankAgent must be included if it has a value (even if empty string, to override env var)
@@ -5157,11 +5708,18 @@ function renderQAPrompt(agentName, containerId) {
 }
 
 function loadQASettings2() {
-    const qaEnabled = currentConfig?.qa_enabled || {};
+    // Ensure we have a valid qa_enabled object
+    const qaEnabled = (currentConfig?.qa_enabled && typeof currentConfig.qa_enabled === 'object') 
+        ? currentConfig.qa_enabled 
+        : {};
     
-    // Set checkboxes
+    // Debug logging (can be removed after verification)
+    if (Object.keys(qaEnabled).length > 0) {
+        console.log('Loading QA settings:', qaEnabled);
+    }
+    
+    // Set checkboxes (skip RankAgent - it's handled by updateRankQAState)
     const agents = [
-        { name: 'RankAgent', id: 'qa-rankagent', prefix: 'rank-agent' },
         { name: 'CmdlineExtract', id: 'qa-cmdlineextract', prefix: 'cmdlineextract-agent' },
         { name: 'SigExtract', id: 'qa-sigextract', prefix: 'sigextract-agent' },
         { name: 'EventCodeExtract', id: 'qa-eventcodeextract', prefix: 'eventcodeextract-agent' },
@@ -5173,7 +5731,7 @@ function loadQASettings2() {
     agents.forEach(agent => {
         const checkbox = document.getElementById(agent.id);
         if (checkbox) {
-            const shouldBeChecked = qaEnabled[agent.name] || false;
+            const shouldBeChecked = qaEnabled[agent.name] === true;
             
             // Set checkbox state - do this first
             checkbox.checked = shouldBeChecked;
@@ -5193,6 +5751,71 @@ function loadQASettings2() {
     extractSubAgents.forEach(agentName => {
         updateQAStateForSubagent(agentName);
     });
+    
+    // Update Rank QA state based on Rank Agent enabled state (handles RankAgent QA checkbox)
+    // This must run AFTER other QA settings are loaded to ensure correct state
+    // On initial load, restore from config; when called from toggle, don't restore
+    updateRankQAState(true);
+}
+
+/**
+ * Update Rank QA Agent checkbox state based on Rank Agent enabled state
+ * When Rank Agent is disabled, Rank QA must also be disabled and unchecked
+ */
+function updateRankQAState(restoreFromConfig = false) {
+    const rankAgentEnabledCheckbox = document.getElementById('rank-agent-enabled');
+    const rankQACheckbox = document.getElementById('qa-rankagent');
+    
+    if (!rankQACheckbox) return;
+    
+    const rankAgentEnabled = rankAgentEnabledCheckbox ? rankAgentEnabledCheckbox.checked : true;
+    
+    if (!rankAgentEnabled) {
+        // Rank Agent disabled: disable Rank QA checkbox and uncheck it
+        rankQACheckbox.disabled = true;
+        rankQACheckbox.checked = false;
+        
+        // Update label wrapper styling
+        const labelWrapper = rankQACheckbox.closest('label');
+        if (labelWrapper) {
+            labelWrapper.classList.add('opacity-50', 'cursor-not-allowed');
+            labelWrapper.classList.remove('cursor-pointer');
+        }
+        
+        // Update badge
+        updateQABadge('rank-agent');
+        
+        // Force browser to recognize the checked state
+        void rankQACheckbox.offsetHeight;
+        rankQACheckbox.dispatchEvent(new Event('change', { bubbles: true }));
+    } else {
+        // Rank Agent enabled: enable Rank QA checkbox
+        rankQACheckbox.disabled = false;
+        
+        // Only restore from config on initial page load, not when toggling
+        if (restoreFromConfig && currentConfig?.qa_enabled && typeof currentConfig.qa_enabled === 'object') {
+            const shouldBeChecked = currentConfig.qa_enabled.RankAgent === true;
+            rankQACheckbox.checked = shouldBeChecked;
+        } else {
+            // When toggling Rank Agent on, don't automatically check Rank QA
+            // Always leave it unchecked when enabling Rank Agent via toggle
+            rankQACheckbox.checked = false;
+        }
+        
+        // Restore label wrapper styling
+        const labelWrapper = rankQACheckbox.closest('label');
+        if (labelWrapper) {
+            labelWrapper.classList.remove('opacity-50', 'cursor-not-allowed');
+            labelWrapper.classList.add('cursor-pointer');
+        }
+        
+        // Update badge
+        updateQABadge('rank-agent');
+        
+        // Force browser to recognize the checked state
+        void rankQACheckbox.offsetHeight;
+        rankQACheckbox.dispatchEvent(new Event('change', { bubbles: true }));
+    }
 }
 
 function getDisabledExtractAgentsFromConfig(config) {
@@ -5286,6 +5909,15 @@ async function persistExtractAgentSettings() {
         
         if (response.ok) {
             const updatedConfig = await response.json();
+            
+            // Preserve QA settings from currentConfig if response doesn't have them or they're incomplete
+            if (currentConfig?.qa_enabled && Object.keys(currentConfig.qa_enabled).length > 0) {
+                updatedConfig.qa_enabled = {
+                    ...(updatedConfig.qa_enabled || {}),
+                    ...currentConfig.qa_enabled
+                };
+            }
+            
             currentConfig = updatedConfig;
             agentPrompts = updatedConfig.agent_prompts || agentPrompts || {};
             disabledExtractAgents = new Set(getDisabledExtractAgentsFromConfig(updatedConfig));
@@ -5342,13 +5974,28 @@ function updateQAStateForSubagent(agentName) {
         const agentPrefix = `${agentName.toLowerCase()}-agent`;
         updateQABadge(agentPrefix);
     } else {
-        // Subagent enabled: enable QA checkbox (preserve checked state)
+        // Subagent enabled: enable QA checkbox and restore state from config
         qaCheckbox.disabled = false;
+        
+        // Restore QA checkbox state from currentConfig if available
+        if (currentConfig?.qa_enabled && typeof currentConfig.qa_enabled === 'object') {
+            const shouldBeChecked = currentConfig.qa_enabled[agentName] === true;
+            qaCheckbox.checked = shouldBeChecked;
+            // Force browser to recognize the checked state
+            void qaCheckbox.offsetHeight;
+            // Trigger change event to ensure Tailwind peer-checked classes update
+            qaCheckbox.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+        
         // Restore label wrapper styling
         if (labelWrapper) {
             labelWrapper.classList.remove('opacity-50', 'cursor-not-allowed');
             labelWrapper.classList.add('cursor-pointer');
         }
+        
+        // Update badge to reflect current state
+        const agentPrefix = `${agentName.toLowerCase()}-agent`;
+        updateQABadge(agentPrefix);
     }
 }
 
@@ -6405,6 +7052,29 @@ if (workflowConfigForm) {
         qaEnabled[agentName] = checkbox ? checkbox.checked : false;
     });
     
+    // If Rank Agent is disabled, Rank QA must also be disabled
+    const rankAgentEnabled = document.getElementById('rank-agent-enabled')?.checked ?? true;
+    if (!rankAgentEnabled) {
+        qaEnabled.RankAgent = false;
+    }
+    
+    // Collect all agent provider/model values using unified system
+    const collectedAgentConfigs = collectAllAgentConfigs();
+    
+    // Special handling for OS Detection embedding (not in AGENT_CONFIG)
+    const osEmbedding = document.getElementById('osdetectionagent-embedding-model-2')?.value.trim() || 'ibm-research/CTI-BERT';
+    
+    // Special handling for OS Detection fallback (conditional)
+    const osFallbackToggle = document.getElementById('osdetectionagent-fallback-enabled');
+    const osFallbackEnabled = osFallbackToggle && osFallbackToggle.checked;
+    if (!osFallbackEnabled) {
+        collectedAgentConfigs.OSDetectionAgent_fallback = null;
+        collectedAgentConfigs.OSDetectionAgent_fallback_provider = null;
+    }
+    
+    // Special handling for Sigma embedding model (not in AGENT_CONFIG)
+    const sigmaEmbedding = document.getElementById('sigma-embedding-model')?.value.trim() || null;
+    
     const formData = {
         min_hunt_score: currentConfig?.min_hunt_score || 97.0,
         junk_filter_threshold: parseFloat(document.getElementById('junkFilterThreshold').value),
@@ -6412,21 +7082,9 @@ if (workflowConfigForm) {
         similarity_threshold: parseFloat(document.getElementById('similarityThreshold').value),
         description: null,
         agent_models: {
-            RankAgent: document.getElementById('rankagent-model-2')?.value.trim() || null,
-            RankAgent_temperature: parseFloat(document.getElementById('rankagent-temperature')?.value) || 0.0,
-            OSDetectionAgent_embedding: document.getElementById('osdetectionagent-embedding-model-2')?.value.trim() || 'ibm-research/CTI-BERT',
-            OSDetectionAgent_fallback: document.getElementById('osdetectionagent-fallback-model-2')?.value.trim() || null,
-            ExtractAgent: document.getElementById('extractagent-model-2')?.value.trim() || null,
-            SigmaAgent: document.getElementById('sigmaagent-model-2')?.value.trim() || null,
-            SigExtract_model: document.getElementById('sigextract-model')?.value.trim() || null,
-            SigExtract_temperature: parseFloat(document.getElementById('sigextract-temperature')?.value) || 0.0,
-            EventCodeExtract_model: document.getElementById('eventcodeextract-model')?.value.trim() || null,
-            EventCodeExtract_temperature: parseFloat(document.getElementById('eventcodeextract-temperature')?.value) || 0.0,
-            ProcTreeExtract_model: document.getElementById('proctreeextract-model')?.value.trim() || null,
-            ProcTreeExtract_temperature: parseFloat(document.getElementById('proctreeextract-temperature')?.value) || 0.0,
-            RegExtract_model: document.getElementById('regextract-model')?.value.trim() || null,
-            RegExtract_temperature: parseFloat(document.getElementById('regextract-temperature')?.value) || 0.0,
-            SigmaEmbeddingModel: document.getElementById('sigma-embedding-model')?.value.trim() || null,
+            ...collectedAgentConfigs,
+            OSDetectionAgent_embedding: osEmbedding,
+            SigmaEmbeddingModel: sigmaEmbedding,
             // QA model overrides
             RankAgentQA: document.getElementById('rankqa-model')?.value.trim() || null,
             CmdLineQA: document.getElementById('cmdlineqa-model')?.value.trim() || null,
@@ -6490,9 +7148,16 @@ if (workflowConfigForm) {
         if (response.ok) {
             const updatedConfig = await response.json();
             
-            // Ensure qa_enabled is preserved from what we sent if not in response or is empty
-            if (!updatedConfig.qa_enabled || Object.keys(updatedConfig.qa_enabled).length === 0) {
-                updatedConfig.qa_enabled = qaEnabled;
+            // Always merge qa_enabled from what we sent to ensure all settings are preserved
+            // This handles cases where backend might not return complete qa_enabled dict
+            if (qaEnabled && Object.keys(qaEnabled).length > 0) {
+                updatedConfig.qa_enabled = {
+                    ...(updatedConfig.qa_enabled || {}),
+                    ...qaEnabled
+                };
+            } else if (!updatedConfig.qa_enabled || Object.keys(updatedConfig.qa_enabled).length === 0) {
+                // Fallback: use what we sent if response is empty
+                updatedConfig.qa_enabled = qaEnabled || {};
             }
             
             // Update currentConfig with the response to ensure QA settings are preserved
@@ -9392,7 +10057,7 @@ function initializeTabs() {
             window.location.hash = 'executions';
             return;
         }
-        if (hash && ['config', 'executions', 'queue'].includes(hash)) {
+        if (hash && ['config', 'executions', 'queue', 'evals'].includes(hash)) {
             switchTab(hash);
         } else {
             // Default to config tab
@@ -9410,7 +10075,7 @@ function initializeTabs() {
         hash = 'executions';
         window.location.hash = 'executions';
         switchTab('executions');
-    } else if (hash && ['config', 'executions', 'queue'].includes(hash)) {
+    } else if (hash && ['config', 'executions', 'queue', 'evals'].includes(hash)) {
         switchTab(hash);
     } else {
         // Default to config tab
@@ -9426,6 +10091,255 @@ function initializeSaveButton() {
         saveButton.classList.add('opacity-50', 'cursor-not-allowed');
         saveButton.style.opacity = '0.5';
         saveButton.style.cursor = 'not-allowed';
+    }
+}
+
+// Evaluation Functions
+let currentEvalRunId = null;
+let evalStatusInterval = null;
+
+async function loadEvalPresets() {
+    try {
+        const response = await fetch('/api/evaluations/workflow-configs');
+        const data = await response.json();
+        const presetSelect = document.getElementById('evalPresetId');
+        
+        // Clear existing options except "Use Active Preset"
+        presetSelect.innerHTML = '<option value="">Use Active Preset</option>';
+        
+        // Add preset options
+        data.configs.forEach(config => {
+            const option = document.createElement('option');
+            option.value = config.id;
+            option.textContent = `${config.description || `Config v${config.version}`} ${config.is_active ? '(Active)' : ''}`;
+            presetSelect.appendChild(option);
+        });
+    } catch (error) {
+        console.error('Error loading eval presets:', error);
+        alert('Failed to load presets: ' + error.message);
+    }
+}
+
+async function startEvaluation() {
+    const btn = document.getElementById('startEvalBtn');
+    const datasetName = document.getElementById('evalDatasetName').value.trim() || 'cmdline_extractor_gt';
+    const presetId = document.getElementById('evalPresetId').value;
+    
+    if (!datasetName) {
+        alert('Dataset name is required');
+        return;
+    }
+    
+    btn.disabled = true;
+    btn.textContent = 'Starting...';
+    
+    try {
+        const requestBody = {
+            dataset_name: datasetName
+        };
+        
+        if (presetId) {
+            requestBody.preset_id = parseInt(presetId);
+        }
+        
+        const response = await fetch('/api/evaluations/run-preset', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(requestBody)
+        });
+        
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.detail || 'Failed to start evaluation');
+        }
+        
+        const data = await response.json();
+        currentEvalRunId = data.eval_run_id;
+        
+        // Show status container
+        document.getElementById('evalStatusContainer').classList.remove('hidden');
+        
+        // Start polling for status
+        startEvalStatusPolling();
+        
+        alert('Evaluation started successfully');
+        btn.disabled = false;
+        btn.textContent = '🚀 Start Evaluation Run';
+        
+    } catch (error) {
+        console.error('Error starting evaluation:', error);
+        alert('Failed to start evaluation: ' + error.message);
+        btn.disabled = false;
+        btn.textContent = '🚀 Start Evaluation Run';
+    }
+}
+
+function startEvalStatusPolling() {
+    if (evalStatusInterval) {
+        clearInterval(evalStatusInterval);
+    }
+    
+    // Poll immediately, then every 3 seconds
+    refreshEvalStatus();
+    evalStatusInterval = setInterval(refreshEvalStatus, 3000);
+}
+
+function stopEvalStatusPolling() {
+    if (evalStatusInterval) {
+        clearInterval(evalStatusInterval);
+        evalStatusInterval = null;
+    }
+}
+
+async function refreshEvalStatus() {
+    if (!currentEvalRunId) {
+        return;
+    }
+    
+    try {
+        const response = await fetch(`/api/evaluations/runs/${currentEvalRunId}/status`);
+        if (!response.ok) {
+            throw new Error('Failed to fetch status');
+        }
+        
+        const data = await response.json();
+        updateEvalStatusDisplay(data);
+        
+        // Stop polling if completed or failed
+        if (data.status === 'completed' || data.status === 'failed') {
+            stopEvalStatusPolling();
+        }
+    } catch (error) {
+        console.error('Error refreshing eval status:', error);
+    }
+}
+
+// Store eval run ID for Langfuse access
+let currentEvalRunIdForLangfuse = null;
+
+async function viewEvalInLangfuse() {
+    if (!currentEvalRunIdForLangfuse) {
+        alert('No evaluation run selected. Start an evaluation first.');
+        return;
+    }
+    
+    try {
+        // Get debug info (Langfuse trace URL) - same pattern as workflow executions
+        const response = await fetch(`/api/evaluations/runs/${currentEvalRunIdForLangfuse}/debug-info`);
+        if (response.ok) {
+            const info = await response.json();
+            const traceUrl = info.agent_chat_url || info.search_url;
+            
+            if (traceUrl) {
+                // Check if Langfuse is configured
+                if (!info.uses_langsmith && info.instructions && info.instructions.includes('not configured')) {
+                    const proceed = confirm(
+                        'Langfuse keys are not configured. The trace will only exist if the evaluation ran with Langfuse tracing enabled.\n\n' +
+                        'Would you like to open the trace URL anyway?'
+                    );
+                    if (!proceed) {
+                        return;
+                    }
+                }
+                
+                // Log instructions if available
+                if (info.instructions) {
+                    console.log('Debug Instructions:', info.instructions);
+                }
+                
+                // Show helpful message with search info
+                let message = 'Opening Langfuse session...\n\n';
+                if (info.session_id) {
+                    message += `If the session is not found (404), search for:\n`;
+                    message += `Session ID: ${info.session_id}\n`;
+                    message += `\nUse the search/filter in Langfuse UI to find traces by session_id.`;
+                }
+                
+                // Open Langfuse session directly in new tab
+                window.open(traceUrl, '_blank');
+                
+                // Show message after a brief delay
+                setTimeout(() => {
+                    if (info.instructions) {
+                        console.log('Langfuse Debug Info:', info);
+                    }
+                }, 100);
+            } else {
+                alert('Langfuse URL not available. Make sure Langfuse is configured.');
+            }
+        } else {
+            const error = await response.json();
+            alert('Failed to get Langfuse URL: ' + (error.detail || 'Unknown error'));
+        }
+    } catch (error) {
+        console.error('Error opening Langfuse:', error);
+        alert('Error opening Langfuse: ' + error.message);
+    }
+}
+
+function updateEvalStatusDisplay(data) {
+    const statusContent = document.getElementById('evalStatusContent');
+    const progressContainer = document.getElementById('evalProgressContainer');
+    const resultsContainer = document.getElementById('evalResultsContainer');
+    const langfuseBtn = document.getElementById('viewLangfuseBtn');
+    
+    // Store eval run ID for Langfuse access
+    currentEvalRunIdForLangfuse = data.eval_run_id || null;
+    
+    // Show Langfuse button if we have an eval run ID
+    if (currentEvalRunIdForLangfuse) {
+        langfuseBtn.classList.remove('hidden');
+    } else {
+        langfuseBtn.classList.add('hidden');
+    }
+    
+    // Status text
+    let statusHtml = `
+        <div class="flex items-center gap-2 mb-2">
+            <span class="font-medium text-gray-900 dark:text-white">Status:</span>
+            <span class="px-2 py-1 rounded text-sm font-semibold ${
+                data.status === 'completed' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' :
+                data.status === 'running' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200' :
+                data.status === 'failed' ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200' :
+                'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200'
+            }">${data.status.toUpperCase()}</span>
+        </div>
+        <div class="text-sm text-gray-600 dark:text-gray-400">
+            <div>Eval Run ID: <code class="bg-gray-100 dark:bg-gray-700 px-1 rounded">${data.eval_run_id}</code></div>
+            ${data.langfuse_experiment_name ? `<div>Experiment: ${data.langfuse_experiment_name}</div>` : ''}
+            ${data.error_message ? `<div class="text-red-600 dark:text-red-400 mt-2">Error: ${data.error_message}</div>` : ''}
+        </div>
+    `;
+    statusContent.innerHTML = statusHtml;
+    
+    // Progress bar
+    if (data.total_items > 0) {
+        progressContainer.classList.remove('hidden');
+        const progress = (data.completed_items / data.total_items) * 100;
+        document.getElementById('evalProgressText').textContent = 
+            `Processing: ${data.completed_items} / ${data.total_items} articles`;
+        document.getElementById('evalProgressPercent').textContent = `${Math.round(progress)}%`;
+        document.getElementById('evalProgressBar').style.width = `${progress}%`;
+    } else {
+        progressContainer.classList.add('hidden');
+    }
+    
+    // Results
+    if (data.status === 'completed' && data.accuracy !== null) {
+        resultsContainer.classList.remove('hidden');
+        document.getElementById('evalAccuracy').textContent = 
+            data.accuracy !== null ? `${(data.accuracy * 100).toFixed(1)}%` : '-';
+        document.getElementById('evalMeanDiff').textContent = 
+            data.mean_count_diff !== null ? data.mean_count_diff.toFixed(2) : '-';
+        document.getElementById('evalPassed').textContent = 
+            data.passed ? '✅ Passed' : '❌ Failed';
+        document.getElementById('evalPassed').className = 
+            data.passed ? 'text-2xl font-bold text-green-600 dark:text-green-400' : 
+            'text-2xl font-bold text-red-600 dark:text-red-400';
+    } else {
+        resultsContainer.classList.add('hidden');
     }
 }
 
