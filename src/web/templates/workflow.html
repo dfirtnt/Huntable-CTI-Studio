@@ -5257,8 +5257,21 @@ window.autoSaveModelChange = async function autoSaveModelChange() {
         const osFallbackToggle = document.getElementById('osdetectionagent-fallback-enabled');
         const osFallbackEnabled = osFallbackToggle && osFallbackToggle.checked;
         if (!osFallbackEnabled) {
+            // Explicitly remove fallback when toggle is disabled
             collectedAgentConfigs.OSDetectionAgent_fallback = null;
             collectedAgentConfigs.OSDetectionAgent_fallback_provider = null;
+        } else {
+            // Explicitly collect fallback when toggle is enabled (override collectAllAgentConfigs result)
+            const provider = getAgentProvider('osdetectionagent-fallback') || 'lmstudio';
+            const model = getAgentModel('osdetectionagent-fallback', provider);
+            collectedAgentConfigs.OSDetectionAgent_fallback_provider = provider;
+            // Only set model if a value is selected (not empty string)
+            if (model) {
+                collectedAgentConfigs.OSDetectionAgent_fallback = model;
+            } else {
+                // If no model selected but toggle is enabled, keep existing value (don't set to null)
+                // This allows the toggle to be enabled without requiring immediate model selection
+            }
         }
         
         // Special handling for Sigma embedding model (not in AGENT_CONFIG)
@@ -5278,13 +5291,21 @@ window.autoSaveModelChange = async function autoSaveModelChange() {
         
         // Remove null/empty string values (but keep 0.0 for temperature)
         // CRITICAL: RankAgent must be included if it has a value (even if empty string, to override env var)
+        // CRITICAL: Preserve null values for keys that need explicit removal (e.g., OSDetectionAgent_fallback)
         const cleanedAgentModels = {};
+        const keysToPreserveNull = ['OSDetectionAgent_fallback', 'OSDetectionAgent_fallback_provider'];
         for (const [key, value] of Object.entries(agentModelsData)) {
             // Always include RankAgent if it has a value (non-null, even if empty string)
             if (key === 'RankAgent') {
                 // Include if value exists (not null) - empty string is valid to clear it
                 if (rankModelValue !== null && rankModelValue !== undefined) {
                     cleanedAgentModels[key] = rankModelValue;
+                }
+            } else if (keysToPreserveNull.includes(key)) {
+                // Preserve null values for keys that need explicit removal
+                // Also include non-empty values (when toggle is enabled with a model selected)
+                if (value === null || value !== '') {
+                    cleanedAgentModels[key] = value;
                 }
             } else if (value !== null && value !== '') {
                 cleanedAgentModels[key] = value;
@@ -7073,8 +7094,21 @@ if (workflowConfigForm) {
     const osFallbackToggle = document.getElementById('osdetectionagent-fallback-enabled');
     const osFallbackEnabled = osFallbackToggle && osFallbackToggle.checked;
     if (!osFallbackEnabled) {
+        // Explicitly remove fallback when toggle is disabled
         collectedAgentConfigs.OSDetectionAgent_fallback = null;
         collectedAgentConfigs.OSDetectionAgent_fallback_provider = null;
+    } else {
+        // Explicitly collect fallback when toggle is enabled (override collectAllAgentConfigs result)
+        const provider = getAgentProvider('osdetectionagent-fallback') || 'lmstudio';
+        const model = getAgentModel('osdetectionagent-fallback', provider);
+        collectedAgentConfigs.OSDetectionAgent_fallback_provider = provider;
+        // Only set model if a value is selected (not empty string)
+        if (model) {
+            collectedAgentConfigs.OSDetectionAgent_fallback = model;
+        } else {
+            // If no model selected but toggle is enabled, keep existing value (don't set to null)
+            // This allows the toggle to be enabled without requiring immediate model selection
+        }
     }
     
     // Special handling for Sigma embedding model (not in AGENT_CONFIG)
@@ -7128,9 +7162,17 @@ if (workflowConfigForm) {
     }
     
     // Remove null values from agent_models
+    // CRITICAL: Preserve null values for keys that need explicit removal (e.g., OSDetectionAgent_fallback)
+    const keysToPreserveNull = ['OSDetectionAgent_fallback', 'OSDetectionAgent_fallback_provider'];
     const cleanedAgentModels = {};
     for (const [key, value] of Object.entries(formData.agent_models)) {
-        if (value !== null && value !== '') {
+        if (keysToPreserveNull.includes(key)) {
+            // Preserve null values for keys that need explicit removal
+            // Also include non-empty values (when toggle is enabled with a model selected)
+            if (value === null || value !== '') {
+                cleanedAgentModels[key] = value;
+            }
+        } else if (value !== null && value !== '') {
             cleanedAgentModels[key] = value;
         }
     }
