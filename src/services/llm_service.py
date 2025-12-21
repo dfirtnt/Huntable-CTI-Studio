@@ -160,6 +160,15 @@ class LLMService:
         # Recommended settings for reasoning models (temperature/top_p work well for structured output)
         # Temperature 0.0 for deterministic scoring
         self.temperature = float(os.getenv("LMSTUDIO_TEMPERATURE", "0.0"))
+        
+        # Per-agent temperature settings (from config, fallback to global)
+        self.temperature_rank = float(
+            config_models.get("RankAgent_temperature", os.getenv("LMSTUDIO_TEMPERATURE", "0.0"))
+        )
+        self.temperature_sigma = float(
+            config_models.get("SigmaAgent_temperature", os.getenv("LMSTUDIO_TEMPERATURE", "0.0"))
+        )
+        
         self.top_p = float(os.getenv("LMSTUDIO_TOP_P", "0.9"))
         self.seed = int(os.getenv("LMSTUDIO_SEED", "42")) if os.getenv("LMSTUDIO_SEED") else None
         

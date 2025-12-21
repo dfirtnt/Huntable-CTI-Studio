@@ -354,7 +354,7 @@ class SigmaGenerationService:
                     model_name=model_name,
                     messages=converted_messages,
                     max_tokens=max_tokens,
-                    temperature=self.llm_service.temperature,
+                    temperature=self.llm_service.temperature_sigma,
                     timeout=300.0,
                     failure_context=f"Failed to generate SIGMA rules via {provider}",
                     top_p=self.llm_service.top_p,
