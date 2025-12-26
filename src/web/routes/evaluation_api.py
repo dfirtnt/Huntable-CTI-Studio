@@ -1001,3 +1001,43 @@ async def get_subagent_eval_status(request: Request, eval_record_id: int):
         logger.error(f"Error getting subagent eval status: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
+
+@router.delete("/subagent-eval-clear-pending")
+async def clear_pending_eval_records(
+    request: Request,
+    subagent: str = Query(..., description="Subagent name")
+):
+    """Delete all pending evaluation records for a subagent."""
+    try:
+        db_manager = DatabaseManager()
+        db_session = db_manager.get_session()
+        
+        try:
+            # Find all pending records for this subagent
+            pending_records = db_session.query(SubagentEvaluationTable).filter(
+                SubagentEvaluationTable.subagent_name == subagent,
+                SubagentEvaluationTable.status == 'pending'
+            ).all()
+            
+            deleted_count = len(pending_records)
+            
+            # Delete the records
+            for record in pending_records:
+                db_session.delete(record)
+            
+            db_session.commit()
+            
+            logger.info(f"Deleted {deleted_count} pending evaluation records for subagent {subagent}")
+            
+            return {
+                'success': True,
+                'deleted_count': deleted_count,
+                'subagent': subagent,
+                'message': f"Deleted {deleted_count} pending evaluation record(s)"
+            }
+        finally:
+            db_session.close()
+    except Exception as e:
+        logger.error(f"Error clearing pending eval records: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+

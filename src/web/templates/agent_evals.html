@@ -128,9 +128,14 @@
     <div class="eval-card rounded-lg shadow-lg p-6">
         <div class="flex justify-between items-center mb-4">
             <h2 class="text-xl font-semibold text-gray-900 dark:text-white">Results Comparison</h2>
-            <button id="loadPreviousResultsBtn" class="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 text-sm">
-                Load Previous Results
-            </button>
+            <div class="flex gap-2">
+                <button id="clearPendingBtn" class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 text-sm">
+                    Clear Pending Records
+                </button>
+                <button id="loadPreviousResultsBtn" class="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 text-sm">
+                    Load Previous Results
+                </button>
+            </div>
         </div>
         <div id="resultsTable" class="comparison-table">
             <p class="text-sm text-gray-500 dark:text-gray-400">Run an evaluation to see results, or click "Load Previous Results" to view past evaluations.</p>
@@ -596,7 +601,7 @@ async function pollSubagentResults(executions) {
             const subagent = currentSubagent;
             const response = await fetch(`/api/evaluations/subagent-eval-results?subagent=${subagent}`);
             
-            if (!response.ok) {
+                        if (!response.ok) {
                 console.warn(`Failed to get eval results: ${response.status}`);
                 return;
             }
@@ -744,7 +749,7 @@ document.getElementById('selectAllBtn').addEventListener('click', () => {
     evalArticles.forEach(article => {
         selectedArticleUrls.add(article.url);
         const checkbox = document.getElementById(`article-${article.url}`);
-        if (checkbox) checkbox.checked = true;
+            if (checkbox) checkbox.checked = true;
     });
     updateRunButton();
 });
@@ -815,10 +820,49 @@ async function loadPreviousResults() {
     }
 }
 
+// Clear pending evaluation records
+async function clearPendingRecords() {
+    const subagent = document.getElementById('subagentSelect').value;
+    const resultsTable = document.getElementById('resultsTable');
+    
+    // Confirm deletion
+    if (!confirm(`Are you sure you want to delete all pending evaluation records for ${subagent}? This action cannot be undone.`)) {
+        return;
+    }
+    
+    resultsTable.innerHTML = '<p class="text-sm text-gray-500 dark:text-gray-400">Clearing pending records...</p>';
+    
+    try {
+        const response = await fetch(`/api/evaluations/subagent-eval-clear-pending?subagent=${subagent}`, {
+            method: 'DELETE'
+        });
+        
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({ detail: response.statusText }));
+            throw new Error(errorData.detail || `HTTP ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        // Show success message
+        resultsTable.innerHTML = `<p class="text-sm text-green-600 dark:text-green-400">✅ ${data.message}</p>`;
+        
+        // Reload results to show updated list (without pending records)
+        setTimeout(() => {
+            loadPreviousResults();
+        }, 1000);
+        
+    } catch (error) {
+        console.error('Error clearing pending records:', error);
+        resultsTable.innerHTML = `<p class="text-sm text-red-600 dark:text-red-400">❌ Error: ${error.message}</p>`;
+    }
+}
+
 // Event listeners
 document.getElementById('loadEvalArticlesBtn').addEventListener('click', loadEvalArticles);
 document.getElementById('runEvalBtn').addEventListener('click', runEvaluation);
 document.getElementById('loadPreviousResultsBtn').addEventListener('click', loadPreviousResults);
+document.getElementById('clearPendingBtn').addEventListener('click', clearPendingRecords);
 document.getElementById('selectAllBtn').addEventListener('click', () => {
     selectedArticleUrls.clear();
     evalArticles.forEach(article => {
@@ -832,7 +876,7 @@ document.getElementById('deselectAllBtn').addEventListener('click', () => {
     selectedArticleUrls.clear();
     evalArticles.forEach(article => {
         const checkbox = document.getElementById(`article-${article.url}`);
-        if (checkbox) checkbox.checked = false;
+            if (checkbox) checkbox.checked = false;
     });
     updateRunButton();
 });
