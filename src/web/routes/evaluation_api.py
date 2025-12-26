@@ -1041,3 +1041,67 @@ async def clear_pending_eval_records(
         logger.error(f"Error clearing pending eval records: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
+
+@router.post("/subagent-eval-backfill")
+async def backfill_eval_records(
+    request: Request,
+    subagent: str = Query(..., description="Subagent name")
+):
+    """Backfill pending eval records for completed workflow executions."""
+    try:
+        from src.workflows.agentic_workflow import _update_subagent_eval_on_completion
+        
+        db_manager = DatabaseManager()
+        db_session = db_manager.get_session()
+        
+        try:
+            # Find all pending eval records for this subagent
+            pending_evals = db_session.query(SubagentEvaluationTable).filter(
+                SubagentEvaluationTable.subagent_name == subagent,
+                SubagentEvaluationTable.status == 'pending'
+            ).all()
+            
+            updated_count = 0
+            failed_count = 0
+            
+            for eval_record in pending_evals:
+                if not eval_record.workflow_execution_id:
+                    continue
+                    
+                execution = db_session.query(AgenticWorkflowExecutionTable).filter(
+                    AgenticWorkflowExecutionTable.id == eval_record.workflow_execution_id
+                ).first()
+                
+                if not execution or execution.status != 'completed':
+                    continue
+                
+                # Use the existing update function
+                try:
+                    _update_subagent_eval_on_completion(execution, db_session)
+                    # Check if it was updated
+                    db_session.refresh(eval_record)
+                    if eval_record.status == 'completed':
+                        updated_count += 1
+                    elif eval_record.status == 'failed':
+                        failed_count += 1
+                except Exception as e:
+                    logger.warning(f"Error updating eval record {eval_record.id}: {e}")
+                    failed_count += 1
+            
+            db_session.commit()
+            
+            logger.info(f"Backfilled {updated_count} eval records for subagent {subagent}")
+            
+            return {
+                'success': True,
+                'updated_count': updated_count,
+                'failed_count': failed_count,
+                'subagent': subagent,
+                'message': f"Updated {updated_count} record(s), {failed_count} marked as failed"
+            }
+        finally:
+            db_session.close()
+    except Exception as e:
+        logger.error(f"Error backfilling eval records: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
