@@ -687,3 +687,102 @@ class ObservableEvaluationFailureTable(Base):
     
     def __repr__(self):
         return f"<ObservableEvaluationFailure(id={self.id}, model='{self.model_name}', version='{self.model_version}', article_id={self.article_id}, failure_type='{self.failure_type}')>"
+
+
+class SubagentEvaluationTable(Base):
+    """Database table for storing subagent evaluation results."""
+    
+    __tablename__ = 'subagent_evaluations'
+    
+    id = Column(Integer, primary_key=True, index=True)
+    subagent_name = Column(String(50), nullable=False, index=True)  # cmdline, sigextract, event_ids, etc.
+    article_url = Column(Text, nullable=False, index=True)  # Full URL (not just ID) to survive rehydration
+    article_id = Column(Integer, ForeignKey('articles.id'), nullable=True, index=True)  # Resolved article ID if found
+    
+    # Expected vs actual counts
+    expected_count = Column(Integer, nullable=False)
+    actual_count = Column(Integer, nullable=True)  # Extracted from workflow execution result
+    score = Column(Integer, nullable=True)  # actual_count - expected_count (0 = perfect, negative = under, positive = over)
+    
+    # Workflow execution and config tracking
+    workflow_execution_id = Column(Integer, ForeignKey('agentic_workflow_executions.id'), nullable=True, index=True)
+    workflow_config_id = Column(Integer, ForeignKey('agentic_workflow_config.id'), nullable=True, index=True)
+    workflow_config_version = Column(Integer, nullable=True)
+    
+    # Status tracking
+    status = Column(String(20), nullable=False, default='pending', index=True)  # pending, completed, failed
+    
+    # Timestamps
+    created_at = Column(DateTime, nullable=False, default=func.now(), index=True)
+    completed_at = Column(DateTime, nullable=True)
+    
+    # Relationships
+    article = relationship("ArticleTable", backref="subagent_evaluations")
+    workflow_execution = relationship("AgenticWorkflowExecutionTable", backref="subagent_evaluations")
+    workflow_config = relationship("AgenticWorkflowConfigTable", backref="subagent_evaluations")
+    
+    def __repr__(self):
+        return f"<SubagentEvaluation(id={self.id}, subagent='{self.subagent_name}', url='{self.article_url[:50]}...', score={self.score})>"
+
+
+class EvalPresetSnapshotTable(Base):
+    """Database table for immutable preset snapshots used in evaluation."""
+    
+    __tablename__ = 'eval_preset_snapshots'
+    
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
+    original_preset_id = Column(Integer, ForeignKey('agentic_workflow_config.id'), nullable=False, index=True)
+    original_preset_version = Column(Integer, nullable=False)
+    
+    # Full snapshot (immutable)
+    snapshot_data = Column(JSONB, nullable=False)  # Complete config + resolved prompts
+    
+    # Snapshot hash for deduplication and auditability
+    # SHA-256 hash of canonicalized snapshot_data JSON
+    snapshot_hash = Column(Text, unique=True, nullable=False, index=True)
+    
+    # Metadata
+    created_at = Column(DateTime, nullable=False, default=func.now(), index=True)
+    created_by = Column(String(255), nullable=True)
+    description = Column(Text, nullable=True)
+    
+    def __repr__(self):
+        return f"<EvalPresetSnapshot(id={self.id}, original_preset_id={self.original_preset_id}, version={self.original_preset_version})>"
+
+
+class EvalRunTable(Base):
+    """Database table for tracking evaluation runs."""
+    
+    __tablename__ = 'eval_runs'
+    
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
+    preset_snapshot_id = Column(UUID(as_uuid=True), ForeignKey('eval_preset_snapshots.id'), nullable=False, index=True)
+    dataset_name = Column(String(255), nullable=False, index=True)
+    
+    # Progress tracking
+    status = Column(String(50), nullable=False, default='queued', index=True)  # queued → running → completed/failed
+    completed_items = Column(Integer, nullable=False, default=0)
+    total_items = Column(Integer, nullable=False, default=0)  # Set immediately after dataset load
+    
+    # Langfuse references
+    langfuse_experiment_id = Column(String(255), nullable=True)
+    langfuse_experiment_name = Column(String(500), nullable=True)
+    
+    # Results (aggregated)
+    accuracy = Column(Float, nullable=True)
+    mean_count_diff = Column(Float, nullable=True)
+    passed = Column(Boolean, nullable=True)  # accuracy == 1.0
+    
+    # Error handling
+    error_message = Column(Text, nullable=True)
+    
+    # Timestamps
+    created_at = Column(DateTime, nullable=False, default=func.now(), index=True)
+    started_at = Column(DateTime, nullable=True)
+    completed_at = Column(DateTime, nullable=True)
+    
+    # Relationships
+    preset_snapshot = relationship("EvalPresetSnapshotTable", backref="eval_runs")
+    
+    def __repr__(self):
+        return f"<EvalRun(id={self.id}, status='{self.status}', completed_items={self.completed_items}/{self.total_items})>"

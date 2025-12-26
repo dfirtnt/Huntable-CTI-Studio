@@ -69,7 +69,9 @@ async def api_dashboard_data():
 
             if created_at_str:
                 try:
-                    created_at = datetime.fromisoformat(str(created_at_str).replace("Z", "+00:00"))
+                    created_at = datetime.fromisoformat(
+                        str(created_at_str).replace("Z", "+00:00")
+                    )
                     date_key = created_at.strftime("%Y-%m-%d")
                     hour_key = created_at.strftime("%H")
 
@@ -83,13 +85,19 @@ async def api_dashboard_data():
 
         failing_sources = []
         for source in sources:
+            # Skip manual source from failure metrics
+            if getattr(source, "identifier", "") == "manual":
+                continue
+
             if not getattr(source, "active", True):
                 last_success = getattr(source, "last_success", None)
                 consecutive_failures = getattr(source, "consecutive_failures", 0)
                 failing_sources.append(
                     {
                         "name": getattr(source, "name", "Unknown Source"),
-                        "last_success": last_success.isoformat() if last_success else "Never",
+                        "last_success": last_success.isoformat()
+                        if last_success
+                        else "Never",
                         "last_success_text": _format_time_ago(last_success),
                         "consecutive_failures": consecutive_failures,
                     }
@@ -153,7 +161,9 @@ async def api_dashboard_data():
                 }
             )
 
-        recent_activities.sort(key=lambda item: item.get("timestamp", datetime.min), reverse=True)
+        recent_activities.sort(
+            key=lambda item: item.get("timestamp", datetime.min), reverse=True
+        )
         recent_activities = recent_activities[:4]
 
         async with async_db_manager.get_session() as session:
@@ -180,7 +190,14 @@ async def api_dashboard_data():
             efficiency_result = await session.execute(efficiency_query)
             efficiency_row = efficiency_result.fetchone()
             filter_efficiency = (
-                round((efficiency_row.scored_articles / efficiency_row.total_articles * 100), 1)
+                round(
+                    (
+                        efficiency_row.scored_articles
+                        / efficiency_row.total_articles
+                        * 100
+                    ),
+                    1,
+                )
                 if efficiency_row.total_articles > 0
                 else 0
             )
@@ -215,7 +232,9 @@ async def api_dashboard_data():
             metadata = db_article.article_metadata or {}
             hunt_score = metadata.get("threat_hunting_score", 0)
             training_category = metadata.get("training_category")
-            classification = training_category.capitalize() if training_category else "Unclassified"
+            classification = (
+                training_category.capitalize() if training_category else "Unclassified"
+            )
 
             # Format publication date
             published_at_str = "Unknown"
@@ -233,12 +252,18 @@ async def api_dashboard_data():
                     "classification": classification,
                     "published_at": published_at_str,
                     "url": db_article.canonical_url,
-                    "source_name": db_article.source_name if hasattr(db_article, "source_name") else "Unknown Source",
+                    "source_name": db_article.source_name
+                    if hasattr(db_article, "source_name")
+                    else "Unknown Source",
                 }
             )
 
         return {
-            "health": {"uptime": round(uptime, 1), "total_sources": total_sources, "avg_response_time": 1.42},
+            "health": {
+                "uptime": round(uptime, 1),
+                "total_sources": total_sources,
+                "avg_response_time": 1.42,
+            },
             "volume": {"daily": daily_data, "hourly": hourly_data},
             "failing_sources": failing_sources[:10],
             "top_articles": top_articles,
@@ -265,4 +290,3 @@ async def api_dashboard_data():
                 "filter_efficiency": 0,
             },
         }
-

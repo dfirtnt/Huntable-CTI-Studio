@@ -175,9 +175,21 @@ async def update_workflow_config(request: Request, config_update: WorkflowConfig
                     merged_agent_models = current_config.agent_models.copy()
                 else:
                     merged_agent_models = {}
-                # Update with new values from config_update
-                merged_agent_models.update(config_update.agent_models)
-                logger.info(f"Merged agent_models: {merged_agent_models} (update: {config_update.agent_models}, current: {current_config.agent_models if current_config else None})")
+                # First, identify keys that should be removed (explicitly set to None in update)
+                keys_to_remove = set()
+                if config_update.agent_models:
+                    for key, value in config_update.agent_models.items():
+                        if value is None:
+                            keys_to_remove.add(key)
+                # Update with new values from config_update (excluding None values)
+                for key, value in config_update.agent_models.items():
+                    if value is not None:
+                        merged_agent_models[key] = value
+                # Remove keys that were explicitly set to None
+                for key in keys_to_remove:
+                    if key in merged_agent_models:
+                        del merged_agent_models[key]
+                logger.info(f"Merged agent_models: {merged_agent_models} (update: {config_update.agent_models}, current: {current_config.agent_models if current_config else None}, removed: {list(keys_to_remove)})")
             elif current_config:
                 merged_agent_models = current_config.agent_models
             

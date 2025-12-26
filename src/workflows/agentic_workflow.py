@@ -24,7 +24,7 @@ from sqlalchemy.orm.attributes import flag_modified
 
 from src.database.models import (
     ArticleTable, AgenticWorkflowExecutionTable, SigmaRuleQueueTable,
-    AgenticWorkflowConfigTable
+    AgenticWorkflowConfigTable, SubagentEvaluationTable
 )
 from src.utils.content_filter import ContentFilter
 from src.services.llm_service import LLMService
@@ -83,6 +83,84 @@ class WorkflowState(TypedDict):
     status: Optional[str]
     termination_reason: Optional[str]
     termination_details: Optional[Dict[str, Any]]
+
+
+def _update_subagent_eval_on_completion(execution: AgenticWorkflowExecutionTable, db_session: Session) -> None:
+    """
+    Update SubagentEvaluationTable when workflow execution completes.
+    Extracts count from extraction_result.subresults.{subagent_name} and calculates score.
+    """
+    try:
+        config_snapshot = execution.config_snapshot or {}
+        subagent_name = config_snapshot.get('subagent_eval')
+        
+        if not subagent_name:
+            # Not an eval run
+            return
+        
+        # Find the eval record for this execution
+        eval_record = db_session.query(SubagentEvaluationTable).filter(
+            SubagentEvaluationTable.workflow_execution_id == execution.id
+        ).first()
+        
+        if not eval_record:
+            logger.warning(f"No SubagentEvaluation record found for execution {execution.id}")
+            return
+        
+        # Extract count from extraction_result
+        extraction_result = execution.extraction_result
+        if not extraction_result or not isinstance(extraction_result, dict):
+            logger.warning(f"No extraction_result for execution {execution.id}")
+            eval_record.status = 'failed'
+            db_session.commit()
+            return
+        
+        subresults = extraction_result.get('subresults', {})
+        if not isinstance(subresults, dict):
+            logger.warning(f"No subresults in extraction_result for execution {execution.id}")
+            eval_record.status = 'failed'
+            db_session.commit()
+            return
+        
+        # Get count for the specific subagent
+        subagent_result = subresults.get(subagent_name, {})
+        if not isinstance(subagent_result, dict):
+            logger.warning(f"No {subagent_name} result in subresults for execution {execution.id}")
+            eval_record.status = 'failed'
+            db_session.commit()
+            return
+        
+        # Extract count (prefer count field, fallback to items array length)
+        actual_count = subagent_result.get('count')
+        if actual_count is None:
+            items = subagent_result.get('items', [])
+            if isinstance(items, list):
+                actual_count = len(items)
+            else:
+                actual_count = 0
+        
+        if not isinstance(actual_count, int):
+            actual_count = int(actual_count) if actual_count else 0
+        
+        # Calculate score
+        score = actual_count - eval_record.expected_count
+        
+        # Update eval record
+        eval_record.actual_count = actual_count
+        eval_record.score = score
+        eval_record.status = 'completed'
+        eval_record.completed_at = datetime.utcnow()
+        
+        logger.info(
+            f"Updated SubagentEvaluation {eval_record.id}: "
+            f"subagent={subagent_name}, expected={eval_record.expected_count}, "
+            f"actual={actual_count}, score={score}"
+        )
+        
+    except Exception as e:
+        logger.error(f"Error updating SubagentEvaluation for execution {execution.id}: {e}", exc_info=True)
+        # Don't fail the workflow if eval update fails
+        pass
 
 
 def create_agentic_workflow(db_session: Session) -> StateGraph:
@@ -194,24 +272,29 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
             }
     
     def rank_agent_bypass_node(state: WorkflowState) -> WorkflowState:
-        """Bypass node when rank agent is disabled - sets should_continue=True and skips ranking."""
-        logger.info(f"[Workflow {state['execution_id']}] Rank Agent disabled - bypassing ranking step")
-        
-        # Update execution record
+        """Bypass node when rank agent is disabled or skipped for evals - sets should_continue=True and skips ranking."""
         execution = db_session.query(AgenticWorkflowExecutionTable).filter(
             AgenticWorkflowExecutionTable.id == state['execution_id']
         ).first()
         
+        # Determine bypass reason
+        config_snapshot = execution.config_snapshot if execution else {}
+        is_eval_run = config_snapshot.get('eval_run', False) or config_snapshot.get('skip_rank_agent', False)
+        bypass_reason = "Rank Agent skipped for eval run" if is_eval_run else "Rank Agent disabled - bypassed"
+        
+        logger.info(f"[Workflow {state['execution_id']}] {bypass_reason}")
+        
+        # Update execution record
         if execution:
             execution.current_step = 'rank_article_bypassed'
             execution.ranking_score = None
-            execution.ranking_reasoning = "Rank Agent disabled - bypassed"
+            execution.ranking_reasoning = bypass_reason
             db_session.commit()
         
         return {
             **state,
             'ranking_score': None,
-            'ranking_reasoning': 'Rank Agent disabled - bypassed',
+            'ranking_reasoning': bypass_reason,
             'should_continue': True,
             'current_step': 'rank_article_bypassed',
             'status': state.get('status', 'running'),
@@ -470,27 +553,46 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                 execution.current_step = 'os_detection'
                 db_session.commit()
             
-            # Import OS detection service
-            from src.services.os_detection_service import OSDetectionService
-            
-            # Get OS detection config from workflow config
+            # Check if OS detection should be skipped (for eval runs)
             config = state.get('config')
-            agent_models = config.get('agent_models', {}) if config and isinstance(config, dict) else {}
-            embedding_model = agent_models.get('OSDetectionAgent_embedding', 'ibm-research/CTI-BERT')
-            fallback_model = agent_models.get('OSDetectionAgent_fallback')
-            
-            # Initialize service with configured embedding model
-            service = OSDetectionService(model_name=embedding_model)
-            
-            # Detect OS with configured fallback model
-            os_result = await service.detect_os(
-                content=content,
-                use_classifier=True,
-                use_fallback=True,
-                fallback_model=fallback_model
+            config_snapshot = execution.config_snapshot if execution else {}
+            skip_os_detection = (
+                config_snapshot.get('skip_os_detection', False) or
+                config_snapshot.get('eval_run', False) or
+                state.get('skip_os_detection', False)
             )
             
-            detected_os = os_result.get('operating_system', 'Unknown') if os_result else 'Unknown'
+            if skip_os_detection:
+                logger.info(f"[Workflow {state['execution_id']}] Skipping OS Detection (eval run)")
+                # For eval runs, force Windows detection to allow workflow to continue
+                detected_os = 'Windows'
+                os_result = {
+                    'operating_system': 'Windows',
+                    'method': 'eval_skip',
+                    'confidence': 1.0,
+                    'similarities': {'Windows': 1.0}
+                }
+            else:
+                # Import OS detection service
+                from src.services.os_detection_service import OSDetectionService
+                
+                # Get OS detection config from workflow config
+                agent_models = config.get('agent_models', {}) if config and isinstance(config, dict) else {}
+                embedding_model = agent_models.get('OSDetectionAgent_embedding', 'ibm-research/CTI-BERT')
+                fallback_model = agent_models.get('OSDetectionAgent_fallback')
+                
+                # Initialize service with configured embedding model
+                service = OSDetectionService(model_name=embedding_model)
+                
+                # Detect OS with configured fallback model
+                os_result = await service.detect_os(
+                    content=content,
+                    use_classifier=True,
+                    use_fallback=True,
+                    fallback_model=fallback_model
+                )
+                
+                detected_os = os_result.get('operating_system', 'Unknown') if os_result else 'Unknown'
             
             # Check if Windows is detected or has the highest similarity
             # This handles cases where Windows has highest similarity but confidence is low
@@ -633,7 +735,28 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
             }
             
             # Get config models for LLMService
+            # For eval runs, exclude SigmaAgent to avoid loading the SIGMA model unnecessarily
             agent_models = config_obj.agent_models if config_obj else None
+            if agent_models:
+                # Check if this is an eval run (check both config_snapshot and state config)
+                config_snapshot = execution.config_snapshot if execution else {}
+                state_config = state.get('config', {})
+                is_eval_run = (
+                    config_snapshot.get('eval_run', False) or
+                    config_snapshot.get('skip_sigma_generation', False) or
+                    state_config.get('eval_run', False) or
+                    state_config.get('skip_sigma_generation', False)
+                )
+                if is_eval_run:
+                    # Remove SigmaAgent from models to prevent loading it
+                    original_count = len(agent_models)
+                    agent_models = {k: v for k, v in agent_models.items() if not k.startswith('SigmaAgent')}
+                    filtered_count = len(agent_models)
+                    logger.info(
+                        f"[Workflow {state['execution_id']}] Eval run: Excluding SigmaAgent models from LLMService initialization "
+                        f"(filtered {original_count} -> {filtered_count} models). "
+                        f"Remaining models: {list(agent_models.keys())}"
+                    )
             llm_service = LLMService(config_models=agent_models)
             
             # --- Sub-Agents (including CmdlineExtract) ---
@@ -1478,8 +1601,26 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
     def check_rank_agent_enabled(state: WorkflowState) -> str:
         """Check if rank agent is enabled and route accordingly."""
         config = state.get('config', {})
-        rank_agent_enabled = config.get('rank_agent_enabled', True) if isinstance(config, dict) else True
         
+        # Check if this is an eval run that should skip rank agent
+        execution = db_session.query(AgenticWorkflowExecutionTable).filter(
+            AgenticWorkflowExecutionTable.id == state['execution_id']
+        ).first()
+        
+        if execution:
+            config_snapshot = execution.config_snapshot or {}
+            skip_rank_agent = (
+                config_snapshot.get('skip_rank_agent', False) or
+                config_snapshot.get('eval_run', False) or
+                state.get('skip_rank_agent', False)
+            )
+            
+            if skip_rank_agent:
+                logger.info(f"[Workflow {state['execution_id']}] Skipping Rank Agent (eval run)")
+                return "rank_agent_bypass"
+        
+        # Check config setting
+        rank_agent_enabled = config.get('rank_agent_enabled', True) if isinstance(config, dict) else True
         if rank_agent_enabled:
             return "rank_article"
         else:
@@ -1491,6 +1632,31 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
             return "extract_agent"
         else:
             return "end"
+    
+    def check_should_skip_sigma_for_eval(state: WorkflowState) -> str:
+        """Check if SIGMA generation should be skipped for eval runs."""
+        execution = db_session.query(AgenticWorkflowExecutionTable).filter(
+            AgenticWorkflowExecutionTable.id == state['execution_id']
+        ).first()
+        
+        if execution:
+            config_snapshot = execution.config_snapshot or {}
+            skip_sigma = (
+                config_snapshot.get('skip_sigma_generation', False) or
+                config_snapshot.get('eval_run', False) or
+                state.get('skip_sigma_generation', False)
+            )
+            
+            if skip_sigma:
+                logger.info(f"[Workflow {state['execution_id']}] Skipping SIGMA generation (eval run)")
+                # Mark execution as completed after extraction
+                execution.status = 'completed'
+                execution.current_step = 'extract_agent'
+                execution.completed_at = datetime.utcnow()
+                db_session.commit()
+                return "end"
+        
+        return "generate_sigma"
     
     # Build workflow graph
     workflow = StateGraph(WorkflowState)
@@ -1532,7 +1698,14 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
         }
     )
     workflow.add_edge("rank_agent_bypass", "extract_agent")
-    workflow.add_edge("extract_agent", "generate_sigma")
+    workflow.add_conditional_edges(
+        "extract_agent",
+        check_should_skip_sigma_for_eval,
+        {
+            "generate_sigma": "generate_sigma",
+            "end": END
+        }
+    )
     workflow.add_conditional_edges(
         "generate_sigma",
         check_sigma_generation,
@@ -1592,6 +1765,22 @@ async def run_workflow(article_id: int, db_session: Session) -> Dict[str, Any]:
             'agent_models': {},
             'rank_agent_enabled': True
         }
+        
+        # Merge config_snapshot from execution (for eval runs and other overrides)
+        # Use deep merge for nested dicts like agent_models, agent_prompts, qa_enabled
+        if execution.config_snapshot:
+            snapshot = execution.config_snapshot
+            # Merge top-level values
+            for key, value in snapshot.items():
+                if key in ('agent_models', 'agent_prompts', 'qa_enabled') and isinstance(value, dict):
+                    # Deep merge nested dicts - preserve existing values, add/update from snapshot
+                    if key in config and isinstance(config[key], dict):
+                        config[key] = {**config[key], **value}
+                    else:
+                        config[key] = value.copy() if isinstance(value, dict) else value
+                else:
+                    # Overwrite other values (eval flags, thresholds, etc.)
+                    config[key] = value
         
         # Initialize state
         execution.status = 'running'
@@ -1793,8 +1982,18 @@ async def run_workflow(article_id: int, db_session: Session) -> Dict[str, Any]:
                 execution.status = 'completed'
                 execution.completed_at = datetime.utcnow()
                 execution.current_step = final_state.get('current_step', 'rank_article')
+                
                 db_session.commit()
+                
+                # Update SubagentEvaluationTable if this is an eval run
+                # Do this AFTER commit to ensure execution.extraction_result is saved
+                _update_subagent_eval_on_completion(execution, db_session)
+                
                 logger.info(f"[Workflow {execution.id}] Marked as 'completed' - workflow finished normally")
+            elif execution.status == 'completed':
+                # Execution already marked as completed - still update eval if needed
+                # This handles cases where execution was completed elsewhere
+                _update_subagent_eval_on_completion(execution, db_session)
             elif execution.status == 'failed':
                 # Already marked as failed - ensure current_step is correct
                 if not execution.current_step or execution.current_step == 'promote_to_queue':

@@ -196,14 +196,14 @@
 
                     <button onclick="triggerWorkflowForArticle({{ article.id }})" 
                             id="triggerWorkflowBtn"
-                            class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 dark:bg-green-500 dark:hover:bg-green-600 transition-colors">
+                            class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-[#4b4e77] hover:bg-[#7C3AED] transition-colors">
                         <span class="mr-2">⚡</span>
                         <span id="triggerWorkflowBtnText">Send to Workflow</span>
                     </button>
 
                     <div class="relative inline-block" id="aiAssistantWrapper">
                         <button id="aiAssistantBtn" onclick="showAIAssistant()" 
-                                class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-colors">
+                                class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-[#4b4e77] hover:bg-[#7C3AED] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-colors">
                             <span class="mr-2">🤖</span>
                             AL/ML Assistant
                         </button>
@@ -430,7 +430,7 @@
                                 </button>
                             </div>
                         </div>
-                        <button id="mark-observable-reviewed" class="hidden px-3 py-1 text-xs font-semibold bg-green-600 text-white rounded-lg" onclick="markObservablesReviewed({{ article.id }})">
+                        <button id="mark-observable-reviewed" class="hidden px-3 py-1 text-xs font-semibold bg-[#4b4e77] text-white rounded-lg hover:bg-[#7C3AED] transition-colors" onclick="markObservablesReviewed({{ article.id }})">
                             Reviewed (No Observables)
                         </button>
                     </div>
@@ -1268,10 +1268,10 @@ Please provide a detailed analysis based on the article content and the user's s
                 const button = document.querySelector(`[data-observable-type="${type}"]`);
                 if (button) {
                     if (this.observableType === type) {
-                        button.classList.add('bg-purple-600', 'text-white');
+                        button.classList.add('bg-[#4b4e77]', 'text-white');
                         button.classList.remove('bg-white', 'text-gray-700');
                     } else {
-                        button.classList.remove('bg-purple-600', 'text-white');
+                        button.classList.remove('bg-[#4b4e77]', 'text-white');
                         button.classList.add('bg-white', 'text-gray-700');
                     }
                 }
@@ -3472,10 +3472,10 @@ Please provide a detailed analysis based on the article content and the user's s
         document.querySelectorAll("#observableUsageButtons [data-dataset-usage]").forEach(button => {
             const btnUsage = (button.dataset.datasetUsage || 'train').toLowerCase();
             if (btnUsage === currentUsage) {
-                button.classList.add('bg-purple-600', 'text-white');
+                button.classList.add('bg-[#4b4e77]', 'text-white');
                 button.classList.remove('bg-white', 'text-gray-700', 'dark:text-gray-200');
             } else {
-                button.classList.remove('bg-purple-600', 'text-white');
+                button.classList.remove('bg-[#4b4e77]', 'text-white');
                 button.classList.add('bg-white', 'text-gray-700', 'dark:text-gray-200');
             }
         });
@@ -4469,7 +4469,7 @@ Please provide a detailed analysis based on the article content and the user's s
                     
                     <div class="space-y-3">
                         <button onclick="generateAIAnalysis('sigma')"
-                                class="w-full inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors"
+                                class="w-full inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-[#4b4e77] hover:bg-[#7C3AED] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-colors"
                                 title="${hasSigmaRules ? 'Display existing SIGMA detection rules' : 'Generate SIGMA detection rules for this article'}">
                             <span class="mr-2">🔍</span>
                             ${hasSigmaRules ? 'Display SIGMA Rules' : 'Generate SIGMA Rules'}
@@ -4479,14 +4479,14 @@ Please provide a detailed analysis based on the article content and the user's s
                         
 
                         <button onclick="generateAIAnalysis('ranking')" 
-                                class="w-full inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors">
+                                class="w-full inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-[#4b4e77] hover:bg-[#7C3AED] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-colors">
                             <span class="mr-2">📊</span>
                             ${rankingButtonText}
                         </button>
                         
                         
                         <button onclick="showCustomPromptModal()" 
-                                class="w-full inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-colors">
+                                class="w-full inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-[#4b4e77] hover:bg-[#7C3AED] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-colors">
                             <span class="mr-2">💬</span>
                             Custom Prompt
                         </button>
@@ -4497,19 +4497,19 @@ Please provide a detailed analysis based on the article content and the user's s
                         
                         <div class="space-y-3">
                             <button onclick="detectOS()" 
-                                    class="w-full inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-cyan-600 hover:bg-cyan-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-cyan-500 transition-colors">
+                                    class="w-full inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-[#4b4e77] hover:bg-[#7C3AED] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-colors">
                                 <span class="mr-2">💻</span>
                                 Detect Operating System
                             </button>
 
                             <button onclick="showChunkDebugModal()" 
-                                    class="w-full inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-gray-600 hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-colors">
+                                    class="w-full inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-[#4b4e77] hover:bg-[#7C3AED] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-colors">
                                 <span class="mr-2">🔍</span>
                                 Chunk ML Feedback
                             </button>
                             
                             <button onclick="generateAIAnalysis('cmdlines')" 
-                                    class="w-full inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-yellow-600 hover:bg-yellow-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500 transition-colors">
+                                    class="w-full inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-[#4b4e77] hover:bg-[#7C3AED] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-colors">
                                 <span class="mr-2">🧾</span>
                                 Extract Command Lines
                             </button>
@@ -5439,7 +5439,7 @@ Please provide a detailed analysis based on the article content and the user's s
                             Cancel
                         </button>
                         <button onclick="generateCustomPrompt()" 
-                                class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-colors">
+                                class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-[#4b4e77] hover:bg-[#7C3AED] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-colors">
                             <span class="mr-2">🤖</span>
                             Generate Response
                         </button>
@@ -5704,7 +5704,7 @@ Please provide a detailed analysis based on the article content and the user's s
                 
                 <div class="mt-4 flex justify-end space-x-3">
                     <button onclick="showCustomPromptModal()" 
-                            class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-colors">
+                            class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-[#4b4e77] hover:bg-[#7C3AED] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-colors">
                         <span class="mr-2">💬</span>
                         Ask a new question
                     </button>
@@ -5799,7 +5799,7 @@ Please provide a detailed analysis based on the article content and the user's s
                     <h3 class="text-xl font-bold text-gray-900">📚 Custom Prompt History</h3>
                     <div class="flex space-x-3">
                         <button onclick="showCustomPromptModal()" 
-                                class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-colors">
+                                class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-[#4b4e77] hover:bg-[#7C3AED] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-colors">
                             <span class="mr-2">💬</span>
                             Ask New Question
                         </button>
@@ -6047,22 +6047,22 @@ Please provide a detailed analysis based on the article content and the user's s
                 <div class="mt-4 flex justify-between items-center">
                     <div class="flex space-x-2">
                         <button onclick="regenerateSigmaRules()" 
-                                class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors">
+                                class="px-4 py-2 bg-[#4b4e77] text-white rounded-md hover:bg-[#7C3AED] transition-colors">
                             🔄 Regenerate
                         </button>
                         <button id="checkSimilarRulesBtn" onclick="checkSimilarSigmaRules(false)" 
-                                class="px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
+                                class="px-4 py-2 bg-[#4b4e77] text-white rounded-md hover:bg-[#7C3AED] transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
                                 title="Search for similar rules in SigmaHQ repository"
                                 disabled>
                             🔍 Check Similar Rules
                         </button>
                         <button id="regenerateSimilarRulesBtn" onclick="checkSimilarSigmaRules(true)"
-                                class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed hidden"
+                                class="px-4 py-2 bg-[#4b4e77] text-white rounded-md hover:bg-[#7C3AED] transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed hidden"
                                 title="Re-run similar rules search (forces re-check)">
                             🔄 Regenerate Similar
                         </button>
                         <button id="embedArticleBtn" onclick="generateArticleEmbedding()" 
-                                class="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
+                                class="px-4 py-2 bg-[#4b4e77] text-white rounded-md hover:bg-[#7C3AED] transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
                                 title="Generate article embedding for semantic search"
                                 disabled>
                             🧬 Embed Article
@@ -6837,7 +6837,7 @@ Please provide a detailed analysis based on the article content and the user's s
                         
                         <div class="mt-4 pt-4 border-t">
                             <button onclick="this.closest('.fixed').remove()" 
-                                    class="w-full inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-cyan-600 hover:bg-cyan-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-cyan-500 transition-colors">
+                                    class="w-full inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-[#4b4e77] hover:bg-[#7C3AED] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-colors">
                                 Close
                             </button>
                         </div>
@@ -8903,10 +8903,10 @@ ${JSON.stringify(rule.logsource, null, 2)}
                         <button onclick="filterChunks('threat')" class="px-4 py-2 bg-orange-600 text-white rounded-md hover:bg-orange-700 transition-colors">
                             Show Threat Keywords
                         </button>
-                        <button onclick="filterChunks('perfect')" class="px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors">
+                        <button onclick="filterChunks('perfect')" class="px-4 py-2 bg-[#4b4e77] text-white rounded-md hover:bg-[#7C3AED] transition-colors">
                             Show Perfect Discriminators
                         </button>
-                        <button onclick="filterChunks('ml')" class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors">
+                        <button onclick="filterChunks('ml')" class="px-4 py-2 bg-[#4b4e77] text-white rounded-md hover:bg-[#7C3AED] transition-colors">
                             Show ML Predictions
                         </button>
                         <button onclick="filterChunks('confidenceBand')" class="px-4 py-2 bg-teal-600 text-white rounded-md hover:bg-teal-700 transition-colors" title="Show chunks with confidence between 40% and 60%">
@@ -9592,7 +9592,7 @@ ${JSON.stringify(rule.logsource, null, 2)}
         if (contentLength > contentLimit) {
             // Disable button and add explanation
             button.disabled = true;
-            button.className = button.className.replace('bg-purple-600 hover:bg-purple-700', 'bg-gray-400 cursor-not-allowed');
+            button.className = button.className.replace('bg-[#4b4e77] hover:bg-[#7C3AED]', 'bg-gray-400 cursor-not-allowed');
             button.removeAttribute('title'); // Remove tooltip to avoid grey box
             
             // Add warning icon
@@ -9765,7 +9765,7 @@ ${JSON.stringify(rule.logsource, null, 2)}
                     
                     <!-- Actions -->
                     <div class="flex justify-end space-x-3">
-                        <button onclick="showFeedbackComparison()" class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700">
+                        <button onclick="showFeedbackComparison()" class="px-4 py-2 bg-[#4b4e77] text-white rounded hover:bg-[#7C3AED] transition-colors">
                             View Feedback Impact
                         </button>
                         <button onclick="closeComparisonModal()" class="px-4 py-2 bg-gray-300 text-gray-700 rounded hover:bg-gray-400">
