@@ -129,6 +129,9 @@
         <div class="flex justify-between items-center mb-4">
             <h2 class="text-xl font-semibold text-gray-900 dark:text-white">Results Comparison</h2>
             <div class="flex gap-2">
+                <button id="backfillEvalBtn" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm">
+                    Update Pending Records
+                </button>
                 <button id="clearPendingBtn" class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 text-sm">
                     Clear Pending Records
                 </button>
@@ -820,6 +823,39 @@ async function loadPreviousResults() {
     }
 }
 
+// Backfill pending evaluation records
+async function backfillEvalRecords() {
+    const subagent = document.getElementById('subagentSelect').value;
+    const resultsTable = document.getElementById('resultsTable');
+    
+    resultsTable.innerHTML = '<p class="text-sm text-gray-500 dark:text-gray-400">Updating pending records...</p>';
+    
+    try {
+        const response = await fetch(`/api/evaluations/subagent-eval-backfill?subagent=${subagent}`, {
+            method: 'POST'
+        });
+        
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({ detail: response.statusText }));
+            throw new Error(errorData.detail || `HTTP ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        // Show success message
+        resultsTable.innerHTML = `<p class="text-sm text-green-600 dark:text-green-400">✅ ${data.message}</p>`;
+        
+        // Reload results to show updated list
+        setTimeout(() => {
+            loadPreviousResults();
+        }, 1000);
+        
+    } catch (error) {
+        console.error('Error backfilling eval records:', error);
+        resultsTable.innerHTML = `<p class="text-sm text-red-600 dark:text-red-400">❌ Error: ${error.message}</p>`;
+    }
+}
+
 // Clear pending evaluation records
 async function clearPendingRecords() {
     const subagent = document.getElementById('subagentSelect').value;
@@ -862,6 +898,7 @@ async function clearPendingRecords() {
 document.getElementById('loadEvalArticlesBtn').addEventListener('click', loadEvalArticles);
 document.getElementById('runEvalBtn').addEventListener('click', runEvaluation);
 document.getElementById('loadPreviousResultsBtn').addEventListener('click', loadPreviousResults);
+document.getElementById('backfillEvalBtn').addEventListener('click', backfillEvalRecords);
 document.getElementById('clearPendingBtn').addEventListener('click', clearPendingRecords);
 document.getElementById('selectAllBtn').addEventListener('click', () => {
     selectedArticleUrls.clear();
