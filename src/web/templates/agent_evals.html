@@ -64,26 +64,30 @@
         <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">Configuration</h2>
         
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <!-- Dataset Selection -->
+            <!-- Subagent Selection -->
             <div>
                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Dataset
+                    Extractor Subagent
                 </label>
-                <select id="datasetSelect" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white">
-                    <option value="cmdline_extractor_gt">cmdline_extractor_gt</option>
+                <select id="subagentSelect" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white">
+                    <option value="cmdline">CommandLine</option>
+                    <option value="sigextract">SigExtract</option>
+                    <option value="event_ids">Event IDs</option>
+                    <option value="process_lineage">Process Lineage</option>
+                    <option value="registry_keys">Registry Keys</option>
                 </select>
-                <button id="loadDatasetBtn" class="mt-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
-                    Load Articles
+                <button id="loadEvalArticlesBtn" class="mt-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+                    Load Eval Articles
                 </button>
             </div>
 
-            <!-- Preset Selection -->
+            <!-- Active Config Display -->
             <div>
                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Workflow Presets (Select Multiple)
+                    Active Workflow Config
                 </label>
-                <div id="presetList" class="space-y-2 max-h-48 overflow-y-auto border border-gray-300 dark:border-gray-600 rounded-lg p-3 bg-white dark:bg-gray-800">
-                    <p class="text-sm text-gray-500 dark:text-gray-400">Loading presets...</p>
+                <div id="activeConfigDisplay" class="p-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800">
+                    <p class="text-sm text-gray-500 dark:text-gray-400">Loading config...</p>
                 </div>
             </div>
         </div>
@@ -122,63 +126,196 @@
 
     <!-- Results Comparison -->
     <div class="eval-card rounded-lg shadow-lg p-6">
-        <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">Results Comparison</h2>
+        <div class="flex justify-between items-center mb-4">
+            <h2 class="text-xl font-semibold text-gray-900 dark:text-white">Results Comparison</h2>
+            <button id="loadPreviousResultsBtn" class="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 text-sm">
+                Load Previous Results
+            </button>
+        </div>
         <div id="resultsTable" class="comparison-table">
-            <p class="text-sm text-gray-500 dark:text-gray-400">Run an evaluation to see results.</p>
+            <p class="text-sm text-gray-500 dark:text-gray-400">Run an evaluation to see results, or click "Load Previous Results" to view past evaluations.</p>
         </div>
     </div>
 </div>
 </div>
 
 <script>
-let datasetItems = [];
-let workflowConfigs = [];
-let selectedArticles = new Set();
-let selectedPresets = new Set();
+let evalArticles = [];
+let activeConfig = null;
+let selectedArticleUrls = new Set();
+let currentSubagent = 'cmdline';
 let executionResults = {};
 
-// Load workflow presets
-async function loadPresets() {
+// Load active workflow config
+async function loadActiveConfig() {
     try {
-        const response = await fetch('/api/evaluations/workflow-configs');
+        const response = await fetch('/api/workflow/config');
         const data = await response.json();
-        workflowConfigs = data.configs;
+        activeConfig = data;
         
-        const presetList = document.getElementById('presetList');
-        presetList.innerHTML = '';
+        const configDisplay = document.getElementById('activeConfigDisplay');
         
-        workflowConfigs.forEach(config => {
+        // Build selected models summary - only show enabled agents
+        const models = data.agent_models || {};
+        const qaEnabled = data.qa_enabled || {};
+        const selectedModels = [];
+        
+        // Get disabled extract agents from config (same logic as workflow.html)
+        function getDisabledExtractAgentsFromConfig(config) {
+            if (!config) return [];
+            const prompts = config.agent_prompts || {};
+            const extractSettings = prompts.ExtractAgentSettings || prompts.ExtractAgent || {};
+            const disabledRaw = extractSettings.disabled_agents || extractSettings.disabled_sub_agents || [];
+            
+            if (Array.isArray(disabledRaw)) {
+                return disabledRaw;
+            }
+            
+            if (disabledRaw && typeof disabledRaw === 'object') {
+                return Object.entries(disabledRaw)
+                    .filter(([_, value]) => value === false || value === 0 || (typeof value === 'string' && value.toLowerCase() === 'false'))
+                    .map(([key]) => key);
+            }
+            
+            return [];
+        }
+        
+        const disabled = getDisabledExtractAgentsFromConfig(data);
+        const disabledSet = new Set(disabled);
+        
+        // Main agents (only if QA enabled)
+        if (models.SigmaAgent && qaEnabled.SigmaAgent) {
+            const provider = models.SigmaAgent_provider || 'lmstudio';
+            selectedModels.push(`SIGMA: ${models.SigmaAgent} (${provider})`);
+        }
+        // Note: Extract and Rank agents are not shown in Selected Models (only SIGMA and sub-agents)
+        
+        // Sub-agents (only if enabled and has model)
+        ['CmdlineExtract', 'SigExtract', 'EventCodeExtract', 'ProcTreeExtract', 'RegExtract'].forEach(agent => {
+            const modelKey = `${agent}_model`;
+            // Only show if model exists and agent is not disabled
+            if (models[modelKey] && !disabledSet.has(agent)) {
+                const provider = models[`${agent}_provider`] || 'lmstudio';
+                selectedModels.push(`${agent}: ${models[modelKey]} (${provider})`);
+            }
+        });
+        
+        const modelsHtml = selectedModels.length > 0 
+            ? `<div class="mt-2 pt-2 border-t border-gray-300 dark:border-gray-600"><p class="text-xs font-medium text-gray-300 dark:text-gray-300 mb-1">Selected Models:</p><div class="space-y-1 text-xs text-gray-400 dark:text-gray-400">${selectedModels.join('<br>')}</div></div>`
+            : '';
+        
+        const updatedDate = data.updated_at ? new Date(data.updated_at).toLocaleString() : 'N/A';
+        
+        configDisplay.innerHTML = `
+            <div class="space-y-1 text-sm text-gray-400 dark:text-gray-400">
+                <p><strong class="text-gray-300 dark:text-gray-300">Version:</strong> ${data.version || 'N/A'}</p>
+                <p><strong class="text-gray-300 dark:text-gray-300">Junk Filter Threshold:</strong> ${data.junk_filter_threshold || 'N/A'}</p>
+                <p><strong class="text-gray-300 dark:text-gray-300">Updated:</strong> ${updatedDate}</p>
+                ${modelsHtml}
+            </div>
+        `;
+    } catch (error) {
+        console.error('Error loading active config:', error);
+        const configDisplay = document.getElementById('activeConfigDisplay');
+        configDisplay.innerHTML = '<p class="text-sm text-red-600 dark:text-red-400">Error loading config</p>';
+    }
+}
+
+// Load eval articles for selected subagent
+async function loadEvalArticles() {
+    const subagent = document.getElementById('subagentSelect').value;
+    currentSubagent = subagent;
+    const loadBtn = document.getElementById('loadEvalArticlesBtn');
+    const articleList = document.getElementById('articleList');
+    
+    loadBtn.disabled = true;
+    loadBtn.textContent = 'Loading...';
+    articleList.innerHTML = '<p class="text-sm text-gray-500 dark:text-gray-400">Loading articles...</p>';
+    
+    try {
+        const response = await fetch(`/api/evaluations/subagent-eval-articles?subagent=${subagent}`);
+        
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({ detail: response.statusText }));
+            throw new Error(errorData.detail || `HTTP ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        if (!data || !Array.isArray(data.articles)) {
+            throw new Error('Invalid response format: articles array not found');
+        }
+        
+        evalArticles = data.articles || [];
+        articleList.innerHTML = '';
+        selectedArticleUrls.clear();
+        
+        if (evalArticles.length === 0) {
+            articleList.innerHTML = '<p class="text-sm text-gray-500 dark:text-gray-400">No eval articles found for this subagent.</p>';
+            loadBtn.disabled = false;
+            loadBtn.textContent = 'Load Eval Articles';
+            return;
+        }
+        
+        evalArticles.forEach((article) => {
             const div = document.createElement('div');
-            div.className = 'flex items-center gap-2';
+            div.className = 'flex items-center gap-3 p-2 border border-gray-300 dark:border-gray-600 rounded hover:bg-gray-50 dark:hover:bg-gray-800';
+            
             const checkbox = document.createElement('input');
             checkbox.type = 'checkbox';
-            checkbox.value = config.id;
-            checkbox.id = `preset-${config.id}`;
+            checkbox.value = article.url;
+            checkbox.id = `article-${article.url}`;
             checkbox.className = 'w-4 h-4 text-green-600 rounded';
+            checkbox.checked = true; // Auto-select all by default
+            selectedArticleUrls.add(article.url);
             checkbox.addEventListener('change', (e) => {
                 if (e.target.checked) {
-                    selectedPresets.add(parseInt(e.target.value));
+                    selectedArticleUrls.add(article.url);
                 } else {
-                    selectedPresets.delete(parseInt(e.target.value));
+                    selectedArticleUrls.delete(article.url);
                 }
                 updateRunButton();
             });
             
             const label = document.createElement('label');
-            label.htmlFor = `preset-${config.id}`;
-            label.className = 'text-sm text-gray-700 dark:text-gray-300 cursor-pointer';
-            label.textContent = `${config.description} ${config.is_active ? '(Active)' : ''}`;
+            label.htmlFor = `article-${article.url}`;
+            label.className = 'flex-1 text-sm text-gray-700 dark:text-gray-300 cursor-pointer';
+            
+            const urlDisplay = article.url.length > 60 ? article.url.substring(0, 60) + '...' : article.url;
+            const foundBadge = article.found ? 
+                '<span class="text-xs bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 px-2 py-1 rounded ml-2">Found</span>' :
+                '<span class="text-xs bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200 px-2 py-1 rounded ml-2">Not Found</span>';
+            
+            label.innerHTML = `
+                <span class="font-medium">${urlDisplay}</span>
+                <span class="text-gray-500 dark:text-gray-400 ml-2">Expected: ${article.expected_count}</span>
+                ${foundBadge}
+            `;
             
             div.appendChild(checkbox);
             div.appendChild(label);
-            presetList.appendChild(div);
+            articleList.appendChild(div);
         });
+        
+        // Show success message
+        const successMsg = document.createElement('p');
+        successMsg.className = 'text-sm text-green-600 dark:text-green-400 mt-2';
+        successMsg.textContent = `✅ Loaded ${evalArticles.length} article(s)`;
+        articleList.appendChild(successMsg);
+        
+        updateRunButton();
+        
     } catch (error) {
-        console.error('Error loading presets:', error);
+        console.error('Error loading eval articles:', error);
+        articleList.innerHTML = `<p class="text-sm text-red-600 dark:text-red-400">❌ Error: ${error.message}</p>`;
+        alert('Failed to load eval articles: ' + error.message);
+    } finally {
+        loadBtn.disabled = false;
+        loadBtn.textContent = 'Load Eval Articles';
     }
 }
 
-// Load dataset articles
+// Legacy function - kept for compatibility but not used
 async function loadDataset() {
     const datasetName = document.getElementById('datasetSelect').value;
     const loadBtn = document.getElementById('loadDatasetBtn');
@@ -365,13 +502,18 @@ async function loadDataset() {
 // Update run button state
 function updateRunButton() {
     const runBtn = document.getElementById('runEvalBtn');
-    runBtn.disabled = selectedArticles.size === 0 || selectedPresets.size === 0;
+    runBtn.disabled = selectedArticleUrls.size === 0;
 }
 
 // Run evaluation
 async function runEvaluation() {
-    if (selectedArticles.size === 0 || selectedPresets.size === 0) {
-        alert('Please select at least one article and one preset');
+    if (selectedArticleUrls.size === 0) {
+        alert('Please select at least one article');
+        return;
+    }
+    
+    if (!activeConfig) {
+        alert('Active config not loaded. Please refresh the page.');
         return;
     }
     
@@ -381,15 +523,16 @@ async function runEvaluation() {
     
     runBtn.disabled = true;
     statusDiv.classList.remove('hidden');
-    statusText.textContent = `Triggering ${selectedArticles.size * selectedPresets.size} workflow executions...`;
+    statusText.textContent = `Triggering ${selectedArticleUrls.size} workflow executions...`;
     
     try {
-        const response = await fetch('/api/evaluations/run', {
+        const response = await fetch('/api/evaluations/run-subagent-eval', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                article_ids: Array.from(selectedArticles),
-                config_ids: Array.from(selectedPresets),
+                subagent_name: currentSubagent,
+                article_urls: Array.from(selectedArticleUrls),
+                use_active_config: true,
             }),
         });
         
@@ -405,8 +548,20 @@ async function runEvaluation() {
             statusText.textContent = `✅ Triggered ${data.executions.length} executions. Polling for results...`;
             statusText.className = 'text-sm text-gray-600 dark:text-gray-400';
             
+            // Store execution info for polling
+            executionResults = {};
+            for (const exec of data.executions) {
+                executionResults[exec.execution_id] = {
+                    execution_id: exec.execution_id,
+                    article_id: exec.article_id,
+                    url: exec.url,
+                    eval_record_id: exec.eval_record_id,
+                    status: 'pending'
+                };
+            }
+            
             // Poll for results
-            await pollResults(data.executions);
+            await pollSubagentResults(data.executions);
         } else {
             throw new Error(data.message || 'No executions were created');
         }
@@ -419,8 +574,8 @@ async function runEvaluation() {
     }
 }
 
-// Poll for execution results
-async function pollResults(executions) {
+// Poll for subagent eval results
+async function pollSubagentResults(executions) {
     const statusText = document.getElementById('evalStatusText');
     const maxAttempts = 60;
     let attempts = 0;
@@ -437,39 +592,40 @@ async function pollResults(executions) {
         let pending = 0;
         
         try {
-            // Use Promise.all to handle all polling requests
-            const results = await Promise.all(executions.map(async (exec) => {
-                if (!executionResults[exec.execution_id]) {
-                    try {
-                        const response = await fetch(`/api/evaluations/executions/${exec.execution_id}/results`);
-                        if (!response.ok) {
-                            console.warn(`Failed to get results for execution ${exec.execution_id}: ${response.status}`);
-                            return null;
-                        }
-                        const result = await response.json();
-                        
-                        if (result.status === 'completed' || result.status === 'failed') {
-                            executionResults[exec.execution_id] = result;
-                            return 'completed';
-                        } else {
-                            return 'pending';
-                        }
-                    } catch (error) {
-                        console.error(`Error polling execution ${exec.execution_id}:`, error);
-                        return null;
-                    }
-                } else {
-                    return 'completed';
+            // Poll subagent eval results instead of individual executions
+            const subagent = currentSubagent;
+            const response = await fetch(`/api/evaluations/subagent-eval-results?subagent=${subagent}`);
+            
+            if (!response.ok) {
+                console.warn(`Failed to get eval results: ${response.status}`);
+                return;
+            }
+            
+            const data = await response.json();
+            const results = data.results || [];
+            
+            // Update executionResults with latest data
+            for (const result of results) {
+                if (result.execution_id && executionResults[result.execution_id]) {
+                    executionResults[result.execution_id] = {
+                        ...executionResults[result.execution_id],
+                        status: result.status,
+                        actual_count: result.actual_count,
+                        expected_count: result.expected_count,
+                        score: result.score
+                    };
                 }
-            }));
+            }
             
-            completed = results.filter(r => r === 'completed').length;
-            pending = results.filter(r => r === 'pending').length;
+            // Count completed vs pending
+            const completed = results.filter(r => r.status === 'completed').length;
+            const pending = results.filter(r => r.status === 'pending').length;
+            const failed = results.filter(r => r.status === 'failed').length;
             
-            statusText.textContent = `⏳ Completed: ${completed}/${executions.length}, Pending: ${pending}`;
+            statusText.textContent = `⏳ Completed: ${completed}/${results.length}, Pending: ${pending}, Failed: ${failed}`;
             
             // Stop polling if all completed or max attempts reached
-            if (completed === executions.length || attempts >= maxAttempts) {
+            if (completed + failed === results.length || attempts >= maxAttempts) {
                 if (pollInterval) {
                     clearInterval(pollInterval);
                     pollInterval = null;
@@ -481,7 +637,7 @@ async function pollResults(executions) {
                 
                 // Small delay to ensure UI updates
                 setTimeout(() => {
-                    renderResults(executions);
+                    renderSubagentResults(results);
                 }, 100);
             } else if (isPolling) {
                 // Schedule next poll
@@ -503,103 +659,76 @@ async function pollResults(executions) {
     pollOnce();
 }
 
-// Render comparison results
-function renderResults(executions) {
+// Render subagent eval results with color-coded scores
+function renderSubagentResults(results) {
     const resultsTable = document.getElementById('resultsTable');
     
-    // Group by article
-    const byArticle = {};
-    executions.forEach(exec => {
-        const articleId = exec.article_id;
-        if (!byArticle[articleId]) {
-            byArticle[articleId] = {
-                article_id: articleId,
-                results: [],
-            };
-        }
-        const result = executionResults[exec.execution_id] || { status: 'pending' };
-        byArticle[articleId].results.push({
-            config_version: exec.config_version,
-            execution_id: exec.execution_id,
-            cmdline_count: result.cmdline_count || 0,
-            status: result.status,
-        });
-    });
-    
-    // Get expected counts from dataset items
-    datasetItems.forEach(item => {
-        let articleId = item.article_id;
-        if (!articleId && item.metadata) {
-            articleId = item.metadata.article_id;
-        }
-        if (!articleId && item.input) {
-            articleId = item.input.article_id;
-        }
-        
-        // Convert to number if string
-        if (articleId && typeof articleId === 'string' && !isNaN(articleId)) {
-            articleId = parseInt(articleId);
-        }
-        
-        // Set expected count if we have a valid article ID
-        if (articleId && typeof articleId === 'number') {
-            // Find or create entry for this article
-            if (!byArticle[articleId]) {
-                byArticle[articleId] = {
-                    article_id: articleId,
-                    results: [],
-                    expected_count: 0,
-                };
-            }
-            
-            // Set expected count from item
-            const expected = item.expected_count || (item.expected_output && item.expected_output.expected_count);
-            if (expected !== undefined && expected !== null) {
-                byArticle[articleId].expected_count = typeof expected === 'number' ? expected : parseInt(expected) || 0;
-            }
-        }
-    });
+    if (!results || results.length === 0) {
+        resultsTable.innerHTML = '<p class="text-sm text-gray-500 dark:text-gray-400">No results available.</p>';
+        return;
+    }
     
     // Build table
     let html = '<table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">';
     html += '<thead class="bg-gray-50 dark:bg-gray-800">';
     html += '<tr>';
-    html += '<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Article ID</th>';
+    html += '<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Article URL</th>';
     html += '<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Expected</th>';
-    
-    // Preset columns
-    workflowConfigs.filter(c => selectedPresets.has(c.id)).forEach(config => {
-        html += `<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">${config.description}</th>`;
-    });
-    
+    html += '<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Actual</th>';
+    html += '<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Score</th>';
+    html += '<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Status</th>';
     html += '</tr></thead><tbody class="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">';
     
-    Object.values(byArticle).forEach(article => {
-        html += '<tr>';
-        html += `<td class="px-4 py-3 text-sm text-gray-900 dark:text-white">${article.article_id}</td>`;
-        html += `<td class="px-4 py-3 text-sm text-gray-900 dark:text-white font-medium">${article.expected_count}</td>`;
+    results.forEach(result => {
+        const urlDisplay = result.url.length > 70 ? result.url.substring(0, 70) + '...' : result.url;
+        const expectedCount = result.expected_count || 0;
+        const actualCount = result.actual_count !== null ? result.actual_count : '-';
+        const score = result.score !== null ? result.score : '-';
         
-        workflowConfigs.filter(c => selectedPresets.has(c.id)).forEach(config => {
-            const result = article.results.find(r => r.config_version === config.version);
-            if (result) {
-                const predictedCount = result.cmdline_count || 0;
-                const expectedCount = article.expected_count || 0;
-                const diff = Math.abs(predictedCount - expectedCount);
-                const exact = predictedCount === expectedCount;
-                const statusClass = result.status === 'completed' 
-                    ? (exact ? 'status-exact' : 'status-mismatch')
-                    : 'status-pending';
-                
-                html += `<td class="px-4 py-3 text-sm">`;
-                html += `<div class="flex items-center gap-2">`;
-                html += `<span class="font-medium">${predictedCount}</span>`;
-                html += `<span class="status-badge ${statusClass}">${exact ? '✓' : `±${diff}`}</span>`;
-                html += `</div></td>`;
+        // Determine color coding based on score
+        let scoreClass = 'status-pending';
+        let scoreDisplay = '-';
+        let scoreBadge = '';
+        
+        if (result.status === 'completed' && result.score !== null) {
+            const absScore = Math.abs(result.score);
+            if (result.score === 0) {
+                scoreClass = 'status-exact'; // Green
+                scoreDisplay = '0';
+                scoreBadge = '✓';
+            } else if (absScore <= 2) {
+                scoreClass = 'status-warning'; // Yellow
+                scoreDisplay = result.score > 0 ? `+${result.score}` : `${result.score}`;
+                scoreBadge = `±${absScore}`;
             } else {
-                html += `<td class="px-4 py-3 text-sm text-gray-400">-</td>`;
+                scoreClass = 'status-mismatch'; // Red
+                scoreDisplay = result.score > 0 ? `+${result.score}` : `${result.score}`;
+                scoreBadge = `±${absScore}`;
             }
-        });
+        } else if (result.status === 'failed') {
+            scoreClass = 'status-mismatch';
+            scoreDisplay = 'Failed';
+        }
         
+        // Status badge
+        const statusClass = result.status === 'completed' 
+            ? (result.score === 0 ? 'status-exact' : scoreClass)
+            : (result.status === 'failed' ? 'status-mismatch' : 'status-pending');
+        
+        html += '<tr>';
+        html += `<td class="px-4 py-3 text-sm text-gray-900 dark:text-white" title="${result.url}">${urlDisplay}</td>`;
+        html += `<td class="px-4 py-3 text-sm text-gray-900 dark:text-white font-medium">${expectedCount}</td>`;
+        html += `<td class="px-4 py-3 text-sm text-gray-900 dark:text-white">${actualCount}</td>`;
+        html += `<td class="px-4 py-3 text-sm">`;
+        html += `<div class="flex items-center gap-2">`;
+        html += `<span class="font-medium">${actualCount !== '-' ? `${actualCount} (${scoreDisplay})` : '-'}</span>`;
+        if (scoreBadge) {
+            html += `<span class="status-badge ${scoreClass}">${scoreBadge}</span>`;
+        }
+        html += `</div></td>`;
+        html += `<td class="px-4 py-3 text-sm">`;
+        html += `<span class="status-badge ${statusClass}">${result.status}</span>`;
+        html += `</td>`;
         html += '</tr>';
     });
     
@@ -608,35 +737,115 @@ function renderResults(executions) {
 }
 
 // Event listeners
-document.getElementById('loadDatasetBtn').addEventListener('click', loadDataset);
+document.getElementById('loadEvalArticlesBtn').addEventListener('click', loadEvalArticles);
 document.getElementById('runEvalBtn').addEventListener('click', runEvaluation);
 document.getElementById('selectAllBtn').addEventListener('click', () => {
-    selectedArticles.clear();
-    datasetItems.forEach(item => {
-        let articleId = item.article_id || item.metadata?.article_id || item.input?.article_id;
-        if (articleId && typeof articleId === 'number') {
-            selectedArticles.add(articleId);
-            const checkbox = document.getElementById(`article-${articleId}`);
-            if (checkbox) checkbox.checked = true;
-        }
+    selectedArticleUrls.clear();
+    evalArticles.forEach(article => {
+        selectedArticleUrls.add(article.url);
+        const checkbox = document.getElementById(`article-${article.url}`);
+        if (checkbox) checkbox.checked = true;
     });
     updateRunButton();
 });
 document.getElementById('deselectAllBtn').addEventListener('click', () => {
-    selectedArticles.clear();
-    datasetItems.forEach(item => {
-        let articleId = item.article_id || item.metadata?.article_id || item.input?.article_id;
-        if (articleId && typeof articleId === 'number') {
-            const checkbox = document.getElementById(`article-${articleId}`);
-            if (checkbox) checkbox.checked = false;
-        }
+    selectedArticleUrls.clear();
+    evalArticles.forEach(article => {
+        const checkbox = document.getElementById(`article-${article.url}`);
+        if (checkbox) checkbox.checked = false;
     });
-    selectedArticles.clear();
     updateRunButton();
 });
 
+// Load previous results for current subagent
+async function loadPreviousResults() {
+    const subagent = document.getElementById('subagentSelect').value;
+    const resultsTable = document.getElementById('resultsTable');
+    
+    resultsTable.innerHTML = '<p class="text-sm text-gray-500 dark:text-gray-400">Loading previous results...</p>';
+    
+    try {
+        const response = await fetch(`/api/evaluations/subagent-eval-results?subagent=${subagent}`);
+        
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({ detail: response.statusText }));
+            throw new Error(errorData.detail || `HTTP ${response.status}`);
+        }
+        
+        const data = await response.json();
+        const results = data.results || [];
+        
+        if (results.length === 0) {
+            resultsTable.innerHTML = '<p class="text-sm text-gray-500 dark:text-gray-400">No previous results found for this subagent.</p>';
+            return;
+        }
+        
+        // Group by config version to show latest run
+        const byConfigVersion = {};
+        results.forEach(result => {
+            const version = result.config_version || 'unknown';
+            if (!byConfigVersion[version]) {
+                byConfigVersion[version] = [];
+            }
+            byConfigVersion[version].push(result);
+        });
+        
+        // Get the latest config version
+        const latestVersion = Math.max(...Object.keys(byConfigVersion).map(v => v === 'unknown' ? 0 : parseInt(v)));
+        const latestResults = byConfigVersion[latestVersion] || results;
+        
+        // Sort by created_at descending (most recent first)
+        latestResults.sort((a, b) => {
+            const dateA = new Date(a.created_at || 0);
+            const dateB = new Date(b.created_at || 0);
+            return dateB - dateA;
+        });
+        
+        renderSubagentResults(latestResults);
+        
+        // Show info message
+        const infoMsg = document.createElement('p');
+        infoMsg.className = 'text-sm text-blue-600 dark:text-blue-400 mt-2';
+        infoMsg.textContent = `✅ Loaded ${latestResults.length} result(s) from config version ${latestVersion}`;
+        resultsTable.appendChild(infoMsg);
+        
+    } catch (error) {
+        console.error('Error loading previous results:', error);
+        resultsTable.innerHTML = `<p class="text-sm text-red-600 dark:text-red-400">❌ Error: ${error.message}</p>`;
+    }
+}
+
+// Event listeners
+document.getElementById('loadEvalArticlesBtn').addEventListener('click', loadEvalArticles);
+document.getElementById('runEvalBtn').addEventListener('click', runEvaluation);
+document.getElementById('loadPreviousResultsBtn').addEventListener('click', loadPreviousResults);
+document.getElementById('selectAllBtn').addEventListener('click', () => {
+    selectedArticleUrls.clear();
+    evalArticles.forEach(article => {
+        selectedArticleUrls.add(article.url);
+        const checkbox = document.getElementById(`article-${article.url}`);
+        if (checkbox) checkbox.checked = true;
+    });
+    updateRunButton();
+});
+document.getElementById('deselectAllBtn').addEventListener('click', () => {
+    selectedArticleUrls.clear();
+    evalArticles.forEach(article => {
+        const checkbox = document.getElementById(`article-${article.url}`);
+        if (checkbox) checkbox.checked = false;
+    });
+    updateRunButton();
+});
+
+// Auto-load previous results when subagent changes
+document.getElementById('subagentSelect').addEventListener('change', () => {
+    // Clear current results
+    const resultsTable = document.getElementById('resultsTable');
+    resultsTable.innerHTML = '<p class="text-sm text-gray-500 dark:text-gray-400">Select a subagent and load articles to run evaluation.</p>';
+});
+
 // Initialize
-loadPresets();
+loadActiveConfig();
 </script>
 {% endblock %}
 

@@ -36,10 +36,16 @@ async def api_sources_failing():
         failing_sources: list[dict[str, Any]] = []
 
         for source in sources:
+            # Skip manual source from failure metrics
+            if getattr(source, "identifier", "") == "manual":
+                continue
+
             consecutive_failures = getattr(source, "consecutive_failures", 0)
             if consecutive_failures > 0:
                 last_success = source.last_success
-                last_success_str = last_success.strftime("%Y-%m-%d") if last_success else "Never"
+                last_success_str = (
+                    last_success.strftime("%Y-%m-%d") if last_success else "Never"
+                )
 
                 failing_sources.append(
                     {
@@ -107,7 +113,9 @@ async def api_collect_from_source(source_id: int):
         celery_app.config_from_object("src.worker.celeryconfig")
 
         task = celery_app.send_task(
-            "src.worker.celery_app.collect_from_source", args=[source_id], queue="collection"
+            "src.worker.celery_app.collect_from_source",
+            args=[source_id],
+            queue="collection",
         )
 
         return {
@@ -128,7 +136,9 @@ async def api_update_source_min_content_length(source_id: int, request: dict):
         min_content_length = request.get("min_content_length")
 
         if min_content_length is None:
-            raise HTTPException(status_code=400, detail="min_content_length is required")
+            raise HTTPException(
+                status_code=400, detail="min_content_length is required"
+            )
 
         if not isinstance(min_content_length, int) or min_content_length < 0:
             raise HTTPException(
@@ -181,7 +191,9 @@ async def api_update_source_lookback(source_id: int, request: dict):
         if not updated_source:
             raise HTTPException(status_code=500, detail="Failed to update source")
 
-        logger.info("Updated lookback window for source %s to %s days", source_id, lookback_days)
+        logger.info(
+            "Updated lookback window for source %s to %s days", source_id, lookback_days
+        )
 
         return {
             "success": True,
@@ -263,9 +275,9 @@ async def api_source_stats(source_id: int):
         articles = await async_db_manager.list_articles_by_source(source_id)
 
         total_articles = len(articles)
-        avg_content_length = sum(len(article.content or "") for article in articles) / max(
-            total_articles, 1
-        )
+        avg_content_length = sum(
+            len(article.content or "") for article in articles
+        ) / max(total_articles, 1)
 
         threat_hunting_scores = []
         for article in articles:
@@ -305,4 +317,3 @@ async def api_source_stats(source_id: int):
     except Exception as exc:
         logger.error("API source stats error: %s", exc)
         raise HTTPException(status_code=500, detail=str(exc)) from exc
-
