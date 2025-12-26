@@ -1,3 +1,22 @@
+## 2025-12-26
+
+### Fixed
+- **Source Configuration Fixes**: Resolved RSS and web scraping issues for multiple CTI sources
+  - Sekoia.io: Switched to web scraping with proper article discovery
+  - VMRay Blog: RSS URL corrected, quality filters adjusted
+  - Splunk Security Blog: Web scraping configuration updated
+  - Assetnote Research: Switched from broken RSS to web scraping
+  - CrowdStrike Intelligence Blog: Web scraping selectors improved
+  - Corelight Bright Ideas Blog: Atlas framework selectors added
+  - Group-IB Threat Intelligence: RSS URL corrected
+  - Red Canary Blog: RSS quality filters optimized
+- **RSS Parser Enhancements**: Improved quality filtering for RSS-only sources with configurable word/content limits
+- **Dashboard Metrics**: Excluded manual source from failing sources metrics to show accurate CTI source health
+- **API Improvements**: Failing sources API now filters out system-generated manual source
+
+### Added
+- **Comprehensive Source Coverage**: 11+ major security sources now operational for threat intelligence collection
+
 ## 2025-12-18
 
 ### Fixed
