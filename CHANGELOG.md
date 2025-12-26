@@ -13,9 +13,23 @@
 - **RSS Parser Enhancements**: Improved quality filtering for RSS-only sources with configurable word/content limits
 - **Dashboard Metrics**: Excluded manual source from failing sources metrics to show accurate CTI source health
 - **API Improvements**: Failing sources API now filters out system-generated manual source
+- **Eval System Fixes**: Fixed config merge to preserve nested dicts (agent_models, agent_prompts, qa_enabled) when merging config_snapshot
+- **Eval Record Updates**: Fixed eval records not updating when workflow execution status is already 'completed'
+- **API Endpoint Bug**: Fixed indentation bug in subagent-eval-results endpoint that caused incorrect result filtering
 
 ### Added
 - **Comprehensive Source Coverage**: 11+ major security sources now operational for threat intelligence collection
+- **Subagent Evaluation System**: Complete evaluation framework for testing extractor subagents
+  - Evaluation articles stored in `config/eval_articles.yaml` with expected observable counts
+  - `SubagentEvaluationTable` database table for tracking evaluation results
+  - UI at `/mlops/agent-evals` for running and viewing evaluations
+  - Scoring system: perfect score is 0 (exact match), shows deviation from expected count
+  - Color-coded results: green (0), yellow (±1-2), red (±3+)
+- **Eval Workflow Optimizations**: 
+  - Skip OS Detection, Rank Agent, and SIGMA generation for eval runs to save time
+  - Filter out SigmaAgent models during eval runs to prevent loading unnecessary 30b model
+  - Eval runs terminate after extractor agent completes
+- **Clear Pending Records**: Added button to delete pending evaluation records from UI
 
 ## 2025-12-18
 
