@@ -1,3 +1,24 @@
+## 2025-12-27
+
+### Fixed
+- **Eval Workflow Boolean Handling**: Fixed skip flags (skip_os_detection, skip_rank_agent, skip_sigma_generation) to handle both boolean and string "true"/"false" values from JSONB config_snapshot
+- **Eval Workflow Execution**: Fixed eval workflows not skipping OS detection due to string boolean values in config_snapshot
+- **Config Snapshot Parsing**: Added JSONB parsing fallback for config_snapshot when it's not already a dict
+
+### Added
+- **Aggregate Eval Scoring**: Added comprehensive aggregate scoring per workflow config version
+  - Mean Score: Average deviation across all eval articles
+  - Mean Absolute Error (MAE): Average absolute deviation
+  - Mean Squared Error (MSE): Squared deviation metric
+  - Perfect Match Percentage: % of articles with exact match (score = 0)
+  - Score Distribution: Breakdown of scores by range (0, ±1-2, ±3+)
+  - API endpoint: `/api/evaluations/subagent-eval-aggregate` with config version grouping
+  - UI display: "Aggregate Scores by Config Version" section in agent evals page
+  - Color-coded MAE display (green/yellow/red based on threshold)
+
+### Changed
+- **Eval Articles**: Removed BleepingComputer article from cmdline extractor eval set (reduced from 9 to 8 articles)
+
 ## 2025-12-26
 
 ### Fixed
