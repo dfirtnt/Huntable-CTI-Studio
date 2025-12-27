@@ -736,7 +736,7 @@ sources:
     url: "https://www.assetnote.io/resources/research/"
     rss_url: "https://www.assetnote.io/resources/research/rss.xml"  # Verified feed
     check_frequency: 1800  # 30 minutes
-    active: false
+    active: true
     config:
       allow: ["www.assetnote.io"]
       post_url_regex: ["^https://www\\.assetnote\\.io/resources/research/.*"]
@@ -769,8 +769,7 @@ sources:
           ".blog-post-content",
           "main article",
           ".research-content",
-          ".text-rich-text",
-          ".research-notes",
+          ".text-rich-text.research-notes",
           "article",
           "main",
           ".content"

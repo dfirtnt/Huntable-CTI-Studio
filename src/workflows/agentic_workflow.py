@@ -279,7 +279,14 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
         
         # Determine bypass reason
         config_snapshot = execution.config_snapshot if execution else {}
-        is_eval_run = config_snapshot.get('eval_run', False) or config_snapshot.get('skip_rank_agent', False)
+        # Handle both boolean and string "true"/"false" values from JSON
+        eval_run_flag = config_snapshot.get('eval_run', False)
+        if isinstance(eval_run_flag, str):
+            eval_run_flag = eval_run_flag.lower() == 'true'
+        skip_rank_flag = config_snapshot.get('skip_rank_agent', False)
+        if isinstance(skip_rank_flag, str):
+            skip_rank_flag = skip_rank_flag.lower() == 'true'
+        is_eval_run = eval_run_flag or skip_rank_flag
         bypass_reason = "Rank Agent skipped for eval run" if is_eval_run else "Rank Agent disabled - bypassed"
         
         logger.info(f"[Workflow {state['execution_id']}] {bypass_reason}")
@@ -556,10 +563,32 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
             # Check if OS detection should be skipped (for eval runs)
             config = state.get('config')
             config_snapshot = execution.config_snapshot if execution else {}
+            # Handle JSONB - it might be a dict or need parsing
+            if config_snapshot and not isinstance(config_snapshot, dict):
+                import json
+                if isinstance(config_snapshot, str):
+                    try:
+                        config_snapshot = json.loads(config_snapshot)
+                    except:
+                        config_snapshot = {}
+                else:
+                    config_snapshot = {}
+            
+            # Handle both boolean and string "true"/"false" values from JSON
+            skip_os_detection_flag = config_snapshot.get('skip_os_detection', False) if config_snapshot else False
+            if isinstance(skip_os_detection_flag, str):
+                skip_os_detection_flag = skip_os_detection_flag.lower() == 'true'
+            eval_run_flag = config_snapshot.get('eval_run', False) if config_snapshot else False
+            if isinstance(eval_run_flag, str):
+                eval_run_flag = eval_run_flag.lower() == 'true'
+            state_skip_flag = state.get('skip_os_detection', False)
+            if isinstance(state_skip_flag, str):
+                state_skip_flag = state_skip_flag.lower() == 'true'
+            
             skip_os_detection = (
-                config_snapshot.get('skip_os_detection', False) or
-                config_snapshot.get('eval_run', False) or
-                state.get('skip_os_detection', False)
+                skip_os_detection_flag or
+                eval_run_flag or
+                state_skip_flag
             )
             
             if skip_os_detection:
@@ -741,11 +770,19 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                 # Check if this is an eval run (check both config_snapshot and state config)
                 config_snapshot = execution.config_snapshot if execution else {}
                 state_config = state.get('config', {})
+                # Handle both boolean and string "true"/"false" values from JSON
+                def _bool_from_value(val):
+                    if isinstance(val, bool):
+                        return val
+                    if isinstance(val, str):
+                        return val.lower() == 'true'
+                    return bool(val)
+                
                 is_eval_run = (
-                    config_snapshot.get('eval_run', False) or
-                    config_snapshot.get('skip_sigma_generation', False) or
-                    state_config.get('eval_run', False) or
-                    state_config.get('skip_sigma_generation', False)
+                    _bool_from_value(config_snapshot.get('eval_run', False)) or
+                    _bool_from_value(config_snapshot.get('skip_sigma_generation', False)) or
+                    _bool_from_value(state_config.get('eval_run', False)) or
+                    _bool_from_value(state_config.get('skip_sigma_generation', False))
                 )
                 if is_eval_run:
                     # Remove SigmaAgent from models to prevent loading it
@@ -1609,10 +1646,18 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
         
         if execution:
             config_snapshot = execution.config_snapshot or {}
+            # Handle both boolean and string "true"/"false" values from JSON
+            def _bool_from_value(val):
+                if isinstance(val, bool):
+                    return val
+                if isinstance(val, str):
+                    return val.lower() == 'true'
+                return bool(val)
+            
             skip_rank_agent = (
-                config_snapshot.get('skip_rank_agent', False) or
-                config_snapshot.get('eval_run', False) or
-                state.get('skip_rank_agent', False)
+                _bool_from_value(config_snapshot.get('skip_rank_agent', False)) or
+                _bool_from_value(config_snapshot.get('eval_run', False)) or
+                _bool_from_value(state.get('skip_rank_agent', False))
             )
             
             if skip_rank_agent:
@@ -1641,10 +1686,18 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
         
         if execution:
             config_snapshot = execution.config_snapshot or {}
+            # Handle both boolean and string "true"/"false" values from JSON
+            def _bool_from_value(val):
+                if isinstance(val, bool):
+                    return val
+                if isinstance(val, str):
+                    return val.lower() == 'true'
+                return bool(val)
+            
             skip_sigma = (
-                config_snapshot.get('skip_sigma_generation', False) or
-                config_snapshot.get('eval_run', False) or
-                state.get('skip_sigma_generation', False)
+                _bool_from_value(config_snapshot.get('skip_sigma_generation', False)) or
+                _bool_from_value(config_snapshot.get('eval_run', False)) or
+                _bool_from_value(state.get('skip_sigma_generation', False))
             )
             
             if skip_sigma:
