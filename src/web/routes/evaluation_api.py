@@ -1105,3 +1105,105 @@ async def backfill_eval_records(
         logger.error(f"Error backfilling eval records: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
+
+@router.get("/subagent-eval-aggregate")
+async def get_subagent_eval_aggregate(
+    request: Request,
+    subagent: str = Query(..., description="Subagent name"),
+    config_version: Optional[int] = Query(None, description="Optional: filter by config version")
+):
+    """Get aggregate scores per config version for a subagent."""
+    try:
+        db_manager = DatabaseManager()
+        db_session = db_manager.get_session()
+        
+        try:
+            query = db_session.query(SubagentEvaluationTable).filter(
+                SubagentEvaluationTable.subagent_name == subagent
+            )
+            
+            if config_version:
+                query = query.filter(SubagentEvaluationTable.workflow_config_version == config_version)
+            
+            all_records = query.order_by(
+                SubagentEvaluationTable.workflow_config_version.desc(),
+                SubagentEvaluationTable.created_at.desc()
+            ).all()
+            
+            # Group by config version
+            by_config_version = {}
+            for record in all_records:
+                version = record.workflow_config_version
+                if version not in by_config_version:
+                    by_config_version[version] = []
+                by_config_version[version].append(record)
+            
+            # Calculate aggregate metrics per config version
+            aggregates = []
+            for version, records in sorted(by_config_version.items(), reverse=True):
+                completed_records = [r for r in records if r.status == 'completed' and r.score is not None]
+                failed_records = [r for r in records if r.status == 'failed']
+                pending_records = [r for r in records if r.status == 'pending']
+                
+                if not completed_records:
+                    aggregates.append({
+                        'config_version': version,
+                        'total_articles': len(records),
+                        'completed': len(completed_records),
+                        'failed': len(failed_records),
+                        'pending': len(pending_records),
+                        'mean_score': None,
+                        'mean_absolute_error': None,
+                        'mean_squared_error': None,
+                        'perfect_matches': 0,
+                        'perfect_match_percentage': 0.0,
+                        'score_distribution': {
+                            'exact': 0,
+                            'within_2': 0,
+                            'over_2': 0
+                        }
+                    })
+                    continue
+                
+                # Calculate metrics
+                scores = [r.score for r in completed_records]
+                mean_score = sum(scores) / len(scores)
+                mean_absolute_error = sum(abs(s) for s in scores) / len(scores)
+                mean_squared_error = sum(s * s for s in scores) / len(scores)
+                perfect_matches = sum(1 for s in scores if s == 0)
+                perfect_match_percentage = (perfect_matches / len(completed_records)) * 100
+                
+                # Score distribution
+                exact = sum(1 for s in scores if s == 0)
+                within_2 = sum(1 for s in scores if abs(s) <= 2 and s != 0)
+                over_2 = sum(1 for s in scores if abs(s) > 2)
+                
+                aggregates.append({
+                    'config_version': version,
+                    'total_articles': len(records),
+                    'completed': len(completed_records),
+                    'failed': len(failed_records),
+                    'pending': len(pending_records),
+                    'mean_score': round(mean_score, 2),
+                    'mean_absolute_error': round(mean_absolute_error, 2),
+                    'mean_squared_error': round(mean_squared_error, 2),
+                    'perfect_matches': perfect_matches,
+                    'perfect_match_percentage': round(perfect_match_percentage, 1),
+                    'score_distribution': {
+                        'exact': exact,
+                        'within_2': within_2,
+                        'over_2': over_2
+                    }
+                })
+            
+            return {
+                'subagent': subagent,
+                'aggregates': aggregates,
+                'total_config_versions': len(aggregates)
+            }
+        finally:
+            db_session.close()
+    except Exception as e:
+        logger.error(f"Error getting aggregate eval scores: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+

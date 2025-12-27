@@ -140,6 +140,13 @@
                 </button>
             </div>
         </div>
+        
+        <!-- Aggregate Scores Section -->
+        <div id="aggregateScores" class="mb-6 hidden">
+            <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-3">Aggregate Scores by Config Version</h3>
+            <div id="aggregateScoresContent" class="space-y-4"></div>
+        </div>
+        
         <div id="resultsTable" class="comparison-table">
             <p class="text-sm text-gray-500 dark:text-gray-400">Run an evaluation to see results, or click "Load Previous Results" to view past evaluations.</p>
         </div>
@@ -765,12 +772,94 @@ document.getElementById('deselectAllBtn').addEventListener('click', () => {
     updateRunButton();
 });
 
+// Load aggregate scores for current subagent
+async function loadAggregateScores() {
+    const subagent = document.getElementById('subagentSelect').value;
+    const aggregateScores = document.getElementById('aggregateScores');
+    const aggregateScoresContent = document.getElementById('aggregateScoresContent');
+    
+    try {
+        const response = await fetch(`/api/evaluations/subagent-eval-aggregate?subagent=${subagent}`);
+        
+        if (!response.ok) {
+            return; // Silently fail - aggregates are optional
+        }
+        
+        const data = await response.json();
+        const aggregates = data.aggregates || [];
+        
+        if (aggregates.length === 0) {
+            aggregateScores.classList.add('hidden');
+            return;
+        }
+        
+        aggregateScores.classList.remove('hidden');
+        aggregateScoresContent.innerHTML = '';
+        
+        aggregates.forEach(agg => {
+            const card = document.createElement('div');
+            card.className = 'p-4 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800';
+            
+            let metricsHtml = '';
+            if (agg.mean_score !== null) {
+                const maeClass = agg.mean_absolute_error <= 2 ? 'text-green-600 dark:text-green-400' : 
+                                 agg.mean_absolute_error <= 5 ? 'text-yellow-600 dark:text-yellow-400' : 
+                                 'text-red-600 dark:text-red-400';
+                
+                metricsHtml = `
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                        <div>
+                            <div class="text-gray-500 dark:text-gray-400">Mean Score</div>
+                            <div class="font-semibold text-gray-900 dark:text-white">${agg.mean_score}</div>
+                        </div>
+                        <div>
+                            <div class="text-gray-500 dark:text-gray-400">Mean Absolute Error</div>
+                            <div class="font-semibold ${maeClass}">${agg.mean_absolute_error}</div>
+                        </div>
+                        <div>
+                            <div class="text-gray-500 dark:text-gray-400">Perfect Matches</div>
+                            <div class="font-semibold text-gray-900 dark:text-white">${agg.perfect_matches}/${agg.completed} (${agg.perfect_match_percentage}%)</div>
+                        </div>
+                        <div>
+                            <div class="text-gray-500 dark:text-gray-400">Score Distribution</div>
+                            <div class="font-semibold text-gray-900 dark:text-white text-xs">
+                                <span class="text-green-600 dark:text-green-400">${agg.score_distribution.exact} exact</span>, 
+                                <span class="text-yellow-600 dark:text-yellow-400">${agg.score_distribution.within_2} ±1-2</span>, 
+                                <span class="text-red-600 dark:text-red-400">${agg.score_distribution.over_2} ±3+</span>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            } else {
+                metricsHtml = `<p class="text-sm text-gray-500 dark:text-gray-400">No completed evaluations yet (${agg.pending} pending, ${agg.failed} failed)</p>`;
+            }
+            
+            card.innerHTML = `
+                <div class="flex justify-between items-start mb-2">
+                    <h4 class="text-md font-semibold text-gray-900 dark:text-white">Config Version ${agg.config_version}</h4>
+                    <span class="text-xs text-gray-500 dark:text-gray-400">${agg.completed}/${agg.total_articles} completed</span>
+                </div>
+                ${metricsHtml}
+            `;
+            
+            aggregateScoresContent.appendChild(card);
+        });
+        
+    } catch (error) {
+        console.error('Error loading aggregate scores:', error);
+        aggregateScores.classList.add('hidden');
+    }
+}
+
 // Load previous results for current subagent
 async function loadPreviousResults() {
     const subagent = document.getElementById('subagentSelect').value;
     const resultsTable = document.getElementById('resultsTable');
     
     resultsTable.innerHTML = '<p class="text-sm text-gray-500 dark:text-gray-400">Loading previous results...</p>';
+    
+    // Load aggregate scores
+    await loadAggregateScores();
     
     try {
         const response = await fetch(`/api/evaluations/subagent-eval-results?subagent=${subagent}`);

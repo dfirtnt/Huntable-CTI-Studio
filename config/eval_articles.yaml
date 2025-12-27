@@ -6,8 +6,6 @@ subagents:
   cmdline:
     - url: "https://www.fortinet.com/blog/threat-research/teamcity-intrusion-saga-apt29-suspected-exploiting-cve-2023-42793"
       expected_count: 39
-    - url: "https://www.bleepingcomputer.com/news/security/harvard-university-discloses-data-breach-affecting-alumni-donors/"
-      expected_count: 24
     - url: "https://www.proofpoint.com/us/blog/threat-insight/bitter-end-unraveling-eight-years-espionage-antics-part-one"
       expected_count: 15
     - url: "https://thedfirreport.com/2024/04/01/from-onenote-to-ransomnote-an-ice-cold-intrusion/"
@@ -17,7 +15,7 @@ subagents:
     - url: "https://thedfirreport.com/2025/09/08/blurring-the-lines-intrusion-shows-connection-with-three-major-ransomware-gangs/"
       expected_count: 6
     - url: "https://www.huntress.com/blog/velociraptor-misuse-part-one-wsus-up"
-      expected_count: 5
+      expected_count: 6
     - url: "https://cloud.google.com/blog/topics/threat-intelligence/analysis-of-unc1549-ttps-targeting-aerospace-defense"
       expected_count: 5
     - url: "https://isc.sans.edu/diary/rss/32484"
