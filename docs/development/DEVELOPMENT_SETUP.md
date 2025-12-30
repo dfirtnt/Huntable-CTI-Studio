@@ -17,8 +17,9 @@ Comprehensive guide for setting up the CTIScraper development environment, inclu
 
 ### Prerequisites
 
-- Python 3.11+ (for most environments)
-- Python 3.9 (for ML environment)
+- **Docker uses Python 3.11** (standardized in Dockerfile)
+- **Local development**: Python 3.11+ recommended for most environments
+- **ML environment**: Python 3.9.6 for specific ML library compatibility (local venv only)
 - Docker and Docker Compose
 - Git
 
@@ -40,23 +41,26 @@ python run_tests.py --install
 
 CTIScraper uses multiple virtual environments for different development workflows:
 
-### 1. `venv-test` (Python 3.13.7)
+### 1. `venv-test` (Python 3.13.7 - local only)
 **Purpose**: Testing and development
 - **Primary use**: Running tests locally against Dockerized application
+- **Note**: Docker containers use Python 3.11; this local venv can use 3.13.7 for latest tooling
 - **Dependencies**: All testing frameworks and tools
 - **Activation**: `source venv-test/bin/activate`
 - **Usage**: `python run_tests.py --smoke`
 
-### 2. `venv-lg` (Python 3.13.7)
+### 2. `venv-lg` (Python 3.13.7 - local only)
 **Purpose**: LG workflow (commit + push + GitHub hygiene)
 - **Primary use**: Code quality, security auditing, documentation generation
+- **Note**: Docker containers use Python 3.11; this local venv can use 3.13.7 for latest tooling
 - **Dependencies**: Development tools, security scanners, documentation generators
 - **Activation**: `source venv-lg/bin/activate`
 - **Usage**: Triggered by `lg` command for GitHub hygiene
 
-### 3. `venv-ml` (Python 3.9.6)
+### 3. `venv-ml` (Python 3.9.6 - local only)
 **Purpose**: ML/AI tasks and fine-tuning
 - **Primary use**: Machine learning experiments, model training, AI analysis
+- **Note**: Docker containers use Python 3.11; this local venv uses 3.9.6 for specific ML library compatibility
 - **Dependencies**: ML libraries, data science tools, specific Python 3.9 compatibility
 - **Activation**: `source venv-ml/bin/activate`
 - **Usage**: ML experiments and model development

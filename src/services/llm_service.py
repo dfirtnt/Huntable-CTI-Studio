@@ -973,6 +973,20 @@ class LLMService:
                     f"({failure_context}) attempt {idx + 1}/{len(lmstudio_urls)}"
                 )
                 logger.debug(f"Request payload preview: model={payload.get('model')}, messages_count={len(payload.get('messages', []))}, max_tokens={payload.get('max_tokens')}")
+                
+                # Log full payload for debugging (truncate long content)
+                if logger.isEnabledFor(logging.DEBUG):
+                    payload_copy = payload.copy()
+                    if 'messages' in payload_copy:
+                        messages_copy = []
+                        for msg in payload_copy['messages']:
+                            msg_copy = msg.copy()
+                            if 'content' in msg_copy and len(msg_copy['content']) > 500:
+                                msg_copy['content'] = msg_copy['content'][:500] + f"... [truncated, total length: {len(msg['content'])}]"
+                            messages_copy.append(msg_copy)
+                        payload_copy['messages'] = messages_copy
+                    logger.debug(f"Full LMStudio request payload: {json.dumps(payload_copy, indent=2)}")
+                
                 try:
                     # Make request
                     request_task = asyncio.create_task(make_request(client, lmstudio_url))
@@ -1023,7 +1037,16 @@ class LLMService:
                         response = await request_task
                     
                     if response.status_code == 200:
-                        return response.json()
+                        result = response.json()
+                        # Log successful response for debugging
+                        logger.info(f"LMStudio response received: status=200, model={result.get('model', 'unknown')}")
+                        if 'choices' in result and len(result['choices']) > 0:
+                            content = result['choices'][0].get('message', {}).get('content', '')
+                            logger.debug(f"LMStudio response content length: {len(content)} chars")
+                            logger.debug(f"LMStudio response content preview: {content[:500]}")
+                        if 'usage' in result:
+                            logger.info(f"LMStudio token usage: {result['usage']}")
+                        return result
                     else:
                         # Extract error message from response
                         error_text = response.text
@@ -2516,6 +2539,12 @@ CRITICAL: {instructions} If you are a reasoning model, you may include reasoning
             Dict with extraction results
         """
         logger.info(f"Running extraction agent {agent_name} (QA enabled: {bool(qa_prompt_config)})")
+        
+        # Validate content is not empty
+        if not content or len(content.strip()) == 0:
+            error_msg = f"Empty content provided to {agent_name}. Cannot run extraction."
+            logger.error(error_msg)
+            raise ValueError(error_msg)
 
         # Determine if hybrid extractor should be used
         should_use_hybrid = use_hybrid_extractor
@@ -2561,11 +2590,14 @@ CRITICAL: {instructions} If you are a reasoning model, you may include reasoning
                     json_example_str = f"\n\nREQUIRED JSON STRUCTURE (example):\n{json.dumps(json_example, indent=2)}\n\nYou MUST output JSON in this exact format. No markdown code fences, no prose, just the raw JSON object."
                 
                 # Construct prompt similar to extract_observables
+                truncated_content = self._truncate_content(content, 4000, 1000)
+                logger.info(f"{agent_name} prompt construction: content_length={len(content)}, truncated_length={len(truncated_content)}")
+                
                 user_prompt = f"""Title: {title}
 URL: {url}
 
 Content:
-{self._truncate_content(content, 4000, 1000)}
+{truncated_content}
 
 Task: {task}
 
@@ -2576,6 +2608,7 @@ CRITICAL INSTRUCTIONS: {instructions}
 
 IMPORTANT: Your response must end with a valid JSON object matching the structure above. If you include reasoning, place it BEFORE the JSON. The JSON must be parseable and complete.
 """
+                logger.debug(f"{agent_name} full user prompt length: {len(user_prompt)} chars")
                 if feedback:
                     user_prompt = f"PREVIOUS FEEDBACK (FIX THESE ISSUES):\n{feedback}\n\n" + user_prompt
 
@@ -2623,7 +2656,13 @@ IMPORTANT: Your response must end with a valid JSON object matching the structur
                     response_text = response['choices'][0]['message'].get('reasoning_content', '')
                 
                 # Log the actual response for debugging
+                logger.info(f"{agent_name} raw response length: {len(response_text)} chars")
                 logger.info(f"{agent_name} response (first 1000 chars): {response_text[:1000]}")
+                logger.debug(f"{agent_name} full response: {response_text}")
+                
+                # Log response metadata
+                if 'usage' in response:
+                    logger.info(f"{agent_name} token usage: {response['usage']}")
                 
                 # Note: We'll log completion to Langfuse AFTER parsing JSON
                 # so we can include the parsed result in the output field
@@ -2634,6 +2673,26 @@ IMPORTANT: Your response must end with a valid JSON object matching the structur
                 
                 def fix_json_escapes(text: str) -> str:
                     """Fix common JSON escape sequence issues, especially Windows paths."""
+                    # Pre-process: Fix patterns where models over-escape quotes
+                    import re
+                    # Fix four backslashes + quote -> escaped quote (\\\\" -> \")
+                    # In the raw text, four backslashes means: backslash + backslash + backslash + backslash
+                    # We want to convert this to: backslash + quote (escaped quote)
+                    text = re.sub(r'\\\\\\\\"', r'\\"', text)
+                    # Fix triple backslash + quote -> escaped quote (\\\" -> \")
+                    text = re.sub(r'\\\\\\"', r'\\"', text)
+                    # Fix \\" patterns that are clearly wrong (two backslashes + quote -> escaped quote)
+                    # This handles cases like: /tn \\"Task-... which should be /tn \"Task-...
+                    # We match \\" (two backslashes + quote) and replace with \" (escaped quote)
+                    # But be careful: we don't want to break Windows paths like C:\\ProgramData
+                    # So we only fix \\" that appears in contexts suggesting quoted text
+                    # Pattern: \\" followed by alphanumeric (opening quote) OR preceded by alphanumeric (closing quote)
+                    # In regex: \\\\" means match two backslashes + quote
+                    text = re.sub(r'\\\\"(?=[A-Za-z0-9])', r'\\"', text)  # Opening quotes: \\"Task -> \"Task
+                    # For closing quotes, use a simpler pattern: match \\" that's not part of a path
+                    # Look for \\" preceded by alphanumeric/dash/underscore and not followed by backslash
+                    text = re.sub(r'([A-Za-z0-9_-])\\\\"(?!\\)', r'\1\\"', text)  # Closing quotes
+                    
                     # Strategy: Find all backslashes and check if they're properly escaped
                     # For Windows paths like C:\ProgramData, we need C:\\ProgramData in JSON
                     result = []

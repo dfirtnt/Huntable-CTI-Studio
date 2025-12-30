@@ -442,11 +442,6 @@
                     }
                     
                     updateState();
-                    
-                    // Initialize QA master settings when QA Settings panel is opened
-                    if (panelId === 'qa-settings-panel' && isHidden && typeof initializeQAMasterSettings === 'function') {
-                        setTimeout(() => initializeQAMasterSettings(), 100);
-                    }
                 };
                 
                 // Click handler

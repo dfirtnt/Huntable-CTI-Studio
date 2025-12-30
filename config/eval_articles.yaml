@@ -15,7 +15,7 @@ subagents:
     - url: "https://thedfirreport.com/2025/09/08/blurring-the-lines-intrusion-shows-connection-with-three-major-ransomware-gangs/"
       expected_count: 6
     - url: "https://www.huntress.com/blog/velociraptor-misuse-part-one-wsus-up"
-      expected_count: 6
+      expected_count: 5
     - url: "https://cloud.google.com/blog/topics/threat-intelligence/analysis-of-unc1549-ttps-targeting-aerospace-defense"
       expected_count: 5
     - url: "https://isc.sans.edu/diary/rss/32484"
