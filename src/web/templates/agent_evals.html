@@ -26,6 +26,7 @@
     }
     .comparison-table {
         overflow-x: auto;
+        width: 100%;
     }
     .status-badge {
         padding: 0.25rem 0.75rem;
@@ -674,81 +675,126 @@ async function pollSubagentResults(executions) {
     pollOnce();
 }
 
-// Render subagent eval results with color-coded scores
-function renderSubagentResults(results) {
+// Render subagent eval results with color-coded scores (pivot format: one row per article, config versions as columns)
+function renderSubagentResultsPivot(articleRows, configVersions) {
     const resultsTable = document.getElementById('resultsTable');
     
-    if (!results || results.length === 0) {
+    if (!articleRows || articleRows.length === 0) {
         resultsTable.innerHTML = '<p class="text-sm text-gray-500 dark:text-gray-400">No results available.</p>';
         return;
     }
     
-    // Build table
-    let html = '<table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">';
+    // Build table with horizontal scrolling wrapper
+    let html = '<div class="overflow-x-auto">';
+    html += '<table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700" style="min-width: 600px;">';
     html += '<thead class="bg-gray-50 dark:bg-gray-800">';
     html += '<tr>';
-    html += '<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Article URL</th>';
-    html += '<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Expected</th>';
-    html += '<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Actual</th>';
-    html += '<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Score</th>';
-    html += '<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Status</th>';
+    html += '<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase whitespace-nowrap sticky left-0 bg-gray-50 dark:bg-gray-800 z-10">Article URL</th>';
+    html += '<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase whitespace-nowrap">Expected</th>';
+    
+    // Add one column per config version
+    configVersions.forEach(version => {
+        html += `<th class="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase whitespace-nowrap">v${version}</th>`;
+    });
+    
     html += '</tr></thead><tbody class="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">';
     
-    results.forEach(result => {
-        const urlDisplay = result.url.length > 70 ? result.url.substring(0, 70) + '...' : result.url;
-        const expectedCount = result.expected_count || 0;
-        const actualCount = result.actual_count !== null ? result.actual_count : '-';
-        const score = result.score !== null ? result.score : '-';
-        
-        // Determine color coding based on score
-        let scoreClass = 'status-pending';
-        let scoreDisplay = '-';
-        let scoreBadge = '';
-        
-        if (result.status === 'completed' && result.score !== null) {
-            const absScore = Math.abs(result.score);
-            if (result.score === 0) {
-                scoreClass = 'status-exact'; // Green
-                scoreDisplay = '0';
-                scoreBadge = '✓';
-            } else if (absScore <= 2) {
-                scoreClass = 'status-warning'; // Yellow
-                scoreDisplay = result.score > 0 ? `+${result.score}` : `${result.score}`;
-                scoreBadge = `±${absScore}`;
-            } else {
-                scoreClass = 'status-mismatch'; // Red
-                scoreDisplay = result.score > 0 ? `+${result.score}` : `${result.score}`;
-                scoreBadge = `±${absScore}`;
-            }
-        } else if (result.status === 'failed') {
-            scoreClass = 'status-mismatch';
-            scoreDisplay = 'Failed';
-        }
-        
-        // Status badge
-        const statusClass = result.status === 'completed' 
-            ? (result.score === 0 ? 'status-exact' : scoreClass)
-            : (result.status === 'failed' ? 'status-mismatch' : 'status-pending');
+    articleRows.forEach(article => {
+        const urlDisplay = article.url.length > 70 ? article.url.substring(0, 70) + '...' : article.url;
+        const expectedCount = article.expected_count || 0;
         
         html += '<tr>';
-        html += `<td class="px-4 py-3 text-sm text-gray-900 dark:text-white" title="${result.url}">${urlDisplay}</td>`;
-        html += `<td class="px-4 py-3 text-sm text-gray-900 dark:text-white font-medium">${expectedCount}</td>`;
-        html += `<td class="px-4 py-3 text-sm text-gray-900 dark:text-white">${actualCount}</td>`;
-        html += `<td class="px-4 py-3 text-sm">`;
-        html += `<div class="flex items-center gap-2">`;
-        html += `<span class="font-medium">${actualCount !== '-' ? `${actualCount} (${scoreDisplay})` : '-'}</span>`;
-        if (scoreBadge) {
-            html += `<span class="status-badge ${scoreClass}">${scoreBadge}</span>`;
-        }
-        html += `</div></td>`;
-        html += `<td class="px-4 py-3 text-sm">`;
-        html += `<span class="status-badge ${statusClass}">${result.status}</span>`;
-        html += `</td>`;
+        html += `<td class="px-4 py-3 text-sm text-gray-900 dark:text-gray-300 whitespace-nowrap sticky left-0 bg-white dark:bg-gray-900 z-10" title="${article.url}">${urlDisplay}</td>`;
+        html += `<td class="px-4 py-3 text-sm text-gray-900 dark:text-gray-300 font-medium whitespace-nowrap text-center">${expectedCount}</td>`;
+        
+        // Add one cell per config version
+        configVersions.forEach(version => {
+            const result = article.versions[version];
+            
+            if (!result) {
+                // No result for this version
+                html += `<td class="px-4 py-3 text-sm text-gray-400 dark:text-gray-600 whitespace-nowrap text-center">-</td>`;
+            } else {
+                const actualCount = result.actual_count !== null ? result.actual_count : '-';
+                const score = result.score !== null ? result.score : '-';
+                
+                // Determine color coding based on score
+                let scoreClass = 'status-pending';
+                let scoreDisplay = '-';
+                let scoreBadge = '';
+                
+                if (result.status === 'completed' && result.score !== null) {
+                    const absScore = Math.abs(result.score);
+                    if (result.score === 0) {
+                        scoreClass = 'status-exact'; // Green
+                        scoreDisplay = '0';
+                        scoreBadge = '✓';
+                    } else if (absScore <= 2) {
+                        scoreClass = 'status-warning'; // Yellow
+                        scoreDisplay = result.score > 0 ? `+${result.score}` : `${result.score}`;
+                        scoreBadge = `±${absScore}`;
+                    } else {
+                        scoreClass = 'status-mismatch'; // Red
+                        scoreDisplay = result.score > 0 ? `+${result.score}` : `${result.score}`;
+                        scoreBadge = `±${absScore}`;
+                    }
+                } else if (result.status === 'failed') {
+                    scoreClass = 'status-mismatch';
+                    scoreDisplay = 'Failed';
+                }
+                
+                // Status badge
+                const statusClass = result.status === 'completed' 
+                    ? (result.score === 0 ? 'status-exact' : scoreClass)
+                    : (result.status === 'failed' ? 'status-mismatch' : 'status-pending');
+                
+                html += `<td class="px-4 py-3 text-sm whitespace-nowrap text-center">`;
+                html += `<div class="flex flex-col items-center gap-1">`;
+                if (actualCount !== '-') {
+                    html += `<span class="font-medium text-gray-900 dark:text-gray-300">${actualCount}</span>`;
+                    html += `<span class="text-xs text-gray-600 dark:text-gray-400">(${scoreDisplay})</span>`;
+                } else {
+                    html += `<span class="text-gray-400 dark:text-gray-600">-</span>`;
+                }
+                if (scoreBadge) {
+                    html += `<span class="status-badge ${scoreClass} text-xs">${scoreBadge}</span>`;
+                }
+                if (result.status !== 'completed') {
+                    html += `<span class="status-badge ${statusClass} text-xs">${result.status}</span>`;
+                }
+                html += `</div></td>`;
+            }
+        });
+        
         html += '</tr>';
     });
     
     html += '</tbody></table>';
+    html += '</div>';
     resultsTable.innerHTML = html;
+}
+
+// Render subagent eval results with color-coded scores (legacy format - kept for compatibility)
+function renderSubagentResults(results) {
+    // For backward compatibility, convert to pivot format
+    const byUrl = {};
+    results.forEach(result => {
+        const url = result.url;
+        if (!byUrl[url]) {
+            byUrl[url] = {
+                url: url,
+                expected_count: result.expected_count,
+                versions: {}
+            };
+        }
+        const version = result.config_version || 'unknown';
+        byUrl[url].versions[version] = result;
+    });
+    
+    const allVersions = [...new Set(results.map(r => r.config_version))].sort((a, b) => parseInt(a) - parseInt(b));
+    const articleRows = Object.values(byUrl).sort((a, b) => a.url.localeCompare(b.url));
+    
+    renderSubagentResultsPivot(articleRows, allVersions);
 }
 
 // Event listeners
@@ -877,33 +923,34 @@ async function loadPreviousResults() {
             return;
         }
         
-        // Group by config version to show latest run
-        const byConfigVersion = {};
+        // Group by URL - one row per article, with config versions as columns
+        const byUrl = {};
         results.forEach(result => {
-            const version = result.config_version || 'unknown';
-            if (!byConfigVersion[version]) {
-                byConfigVersion[version] = [];
+            const url = result.url;
+            if (!byUrl[url]) {
+                byUrl[url] = {
+                    url: url,
+                    expected_count: result.expected_count,
+                    versions: {}
+                };
             }
-            byConfigVersion[version].push(result);
+            // Store result by config version
+            const version = result.config_version || 'unknown';
+            byUrl[url].versions[version] = result;
         });
         
-        // Get the latest config version
-        const latestVersion = Math.max(...Object.keys(byConfigVersion).map(v => v === 'unknown' ? 0 : parseInt(v)));
-        const latestResults = byConfigVersion[latestVersion] || results;
+        // Get all unique config versions and sort them (ascending - oldest first)
+        const allVersions = [...new Set(results.map(r => r.config_version))].sort((a, b) => parseInt(a) - parseInt(b));
         
-        // Sort by created_at descending (most recent first)
-        latestResults.sort((a, b) => {
-            const dateA = new Date(a.created_at || 0);
-            const dateB = new Date(b.created_at || 0);
-            return dateB - dateA;
-        });
+        // Convert to array of article objects
+        const articleRows = Object.values(byUrl).sort((a, b) => a.url.localeCompare(b.url));
         
-        renderSubagentResults(latestResults);
+        renderSubagentResultsPivot(articleRows, allVersions);
         
         // Show info message
         const infoMsg = document.createElement('p');
         infoMsg.className = 'text-sm text-blue-600 dark:text-blue-400 mt-2';
-        infoMsg.textContent = `✅ Loaded ${latestResults.length} result(s) from config version ${latestVersion}`;
+        infoMsg.textContent = `✅ Loaded ${articleRows.length} article(s) with results from ${allVersions.length} config version(s): ${allVersions.join(', ')}`;
         resultsTable.appendChild(infoMsg);
         
     } catch (error) {

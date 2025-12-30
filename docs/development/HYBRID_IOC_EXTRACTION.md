@@ -113,7 +113,7 @@ CHATGPT_CONTENT_LIMIT=8000  # Characters for LLM processing
 ```txt
 # requirements.txt
 iocextract==1.16.1  # Fast IOC extraction
-httpx==0.27.0      # Async HTTP client
+httpx==0.28.1      # Async HTTP client
 ```
 
 ## Usage Examples

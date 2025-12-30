@@ -36,7 +36,7 @@ Set these in `.env` before running `./start.sh`:
 - `LANGSMITH_API_KEY` (optional, for tracing)
 
 Notes:
-- `.env.example` shows legacy SQLite defaults; Docker uses PostgreSQL via `DATABASE_URL=postgresql+asyncpg://cti_user:${POSTGRES_PASSWORD}@postgres:5432/cti_scraper` defined in compose.
+- `.env.example` template includes required PostgreSQL configuration; Docker uses PostgreSQL via `DATABASE_URL=postgresql+asyncpg://cti_user:${POSTGRES_PASSWORD}@postgres:5432/cti_scraper` defined in compose.
 - Test template: `env.test.template` for pytest/Playwright values.
 
 ## CLI usage

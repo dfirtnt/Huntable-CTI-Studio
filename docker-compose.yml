@@ -148,7 +148,60 @@ services:
     networks:
       - cti_network
     restart: unless-stopped
-    command: celery -A src.worker.celery_app worker --loglevel=debug
+    command: celery -A src.worker.celery_app worker --loglevel=debug -Q default,source_checks,maintenance,reports,connectivity,collection
+    healthcheck:
+      test: ["CMD-SHELL", "celery -A src.worker.celery_app inspect ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  # Celery Worker for Workflow Tasks (Dedicated Queue)
+  workflow_worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: cti_workflow_worker
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://cti_user:${POSTGRES_PASSWORD}@postgres:5432/cti_scraper
+      - REDIS_URL=redis://redis:6379/0
+      - ENVIRONMENT=development
+      - LOG_LEVEL=DEBUG
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - CHATGPT_API_KEY=${CHATGPT_API_KEY}
+      - LMSTUDIO_API_URL=${LMSTUDIO_API_URL:-http://host.docker.internal:1234/v1}
+      - LMSTUDIO_MODEL=deepseek/deepseek-r1-0528-qwen3-8b
+      - LMSTUDIO_MODEL_RANK=qwen/qwen3-4b-2507
+      - LMSTUDIO_MODEL_EXTRACT=${LMSTUDIO_MODEL_EXTRACT:-qwen/qwen3-4b-2507}
+      - LMSTUDIO_MODEL_SIGMA=${LMSTUDIO_MODEL_SIGMA:-qwen/qwen3-4b-2507}
+      - LMSTUDIO_EMBEDDING_URL=${LMSTUDIO_EMBEDDING_URL:-http://host.docker.internal:1234/v1/embeddings}
+      - LMSTUDIO_EMBEDDING_MODEL=${LMSTUDIO_EMBEDDING_MODEL:-text-embedding-e5-base-v2}
+      # Context length overrides (LM Studio API doesn't report actual configured context)
+      - LMSTUDIO_CONTEXT_LENGTH_gemma_3n_e4b_it_text=16384
+      - LMSTUDIO_CONTEXT_LENGTH_deepseek_deepseek_r1_0528_qwen3_8b=4096
+      - LMSTUDIO_CONTEXT_LENGTH_qwen_qwen3_4b_2507=16384
+    volumes:
+      - ./src:/app/src
+      - ./config:/app/config
+      - ./logs:/app/logs
+      - ./tests:/app/tests
+      - ./outputs:/app/outputs
+      - ./models:/app/models
+      - ./scripts:/app/scripts
+      - ./allure-results:/app/allure-results
+      - ./test-results:/app/test-results
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - cti_network
+    restart: unless-stopped
+    command: celery -A src.worker.celery_app worker --loglevel=debug -Q workflows --concurrency=4
     healthcheck:
       test: ["CMD-SHELL", "celery -A src.worker.celery_app inspect ping"]
       interval: 30s

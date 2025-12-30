@@ -97,6 +97,12 @@ async def api_jobs_status():
             timeout=2.0
         )
         
+        # Get active queues for each worker
+        active_queues = await asyncio.wait_for(
+            asyncio.to_thread(run_inspect, 'active_queues'),
+            timeout=2.0
+        )
+        
         return {
             "status": "success",
             "timestamp": datetime.now().isoformat(),
@@ -105,6 +111,7 @@ async def api_jobs_status():
             "reserved_tasks": reserved,
             "worker_stats": stats,
             "registered_tasks": registered,
+            "active_queues": active_queues,
         }
     except asyncio.TimeoutError:
         logger.warning("Celery inspect timeout")
@@ -116,6 +123,7 @@ async def api_jobs_status():
             "reserved_tasks": {},
             "worker_stats": {},
             "registered_tasks": {},
+            "active_queues": {},
             "error": "Worker inspection timeout",
         }
     except Exception as exc:  # noqa: BLE001
@@ -128,6 +136,7 @@ async def api_jobs_status():
             "reserved_tasks": {},
             "worker_stats": {},
             "registered_tasks": {},
+            "active_queues": {},
             "error": str(exc),
         }
 
@@ -149,6 +158,7 @@ async def api_jobs_queues():
             "reports": redis_client.llen("reports"),
             "connectivity": redis_client.llen("connectivity"),
             "collection": redis_client.llen("collection"),
+            "workflows": redis_client.llen("workflows"),
         }
 
         return {

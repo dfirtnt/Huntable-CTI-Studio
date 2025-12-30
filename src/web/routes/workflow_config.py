@@ -604,8 +604,18 @@ async def test_sub_agent(request: Request, test_request: TestSubAgentRequest):
             agent_models = config.agent_models if config.agent_models else {}
             llm_service = LLMService(config_models=agent_models)
             
+            # Validate article has content
+            if not article.content or len(article.content.strip()) == 0:
+                raise HTTPException(
+                    status_code=400, 
+                    detail=f"Article {test_request.article_id} has no content to process"
+                )
+            
             # Apply content filtering if enabled
             content_to_use = article.content
+            original_content_length = len(article.content) if article.content else 0
+            logger.info(f"Testing {agent_name} on article {test_request.article_id}: original content length={original_content_length}")
+            
             if test_request.use_junk_filter:
                 from src.utils.content_filter import ContentFilter
                 content_filter = ContentFilter()
@@ -617,6 +627,15 @@ async def test_sub_agent(request: Request, test_request: TestSubAgentRequest):
                     article_id=article.id
                 )
                 content_to_use = filter_result.filtered_content or article.content
+                filtered_content_length = len(content_to_use) if content_to_use else 0
+                logger.info(f"After filtering: content length={filtered_content_length}, is_huntable={filter_result.is_huntable}, removed_chunks={len(filter_result.removed_chunks)}")
+                
+                # Validate filtered content is not empty
+                if not content_to_use or len(content_to_use.strip()) == 0:
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"Article {test_request.article_id} content was filtered to empty. All content was removed by the content filter (threshold: {test_request.junk_filter_threshold}). Try lowering the threshold or disabling the filter."
+                    )
             
             # Get model and temperature for this agent
             model_key = f"{agent_name}_model"
@@ -624,7 +643,15 @@ async def test_sub_agent(request: Request, test_request: TestSubAgentRequest):
             agent_model = agent_models.get(model_key) or agent_models.get("ExtractAgent")
             agent_temperature = agent_models.get(temperature_key, 0.0)
             
+            # Validate model is configured
+            if not agent_model:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"No model configured for {agent_name}. Please configure a model in the workflow config."
+                )
+            
             # Run extraction agent
+            # For testing, disable hybrid extractor to force LLM extraction
             result = await llm_service.run_extraction_agent(
                 agent_name=agent_name,
                 content=content_to_use,
@@ -636,7 +663,8 @@ async def test_sub_agent(request: Request, test_request: TestSubAgentRequest):
                 execution_id=None,
                 model_name=agent_model,
                 temperature=float(agent_temperature),
-                qa_model_override=None
+                qa_model_override=None,
+                use_hybrid_extractor=False  # Disable hybrid extractor for testing - force LLM extraction
             )
             
             return {
