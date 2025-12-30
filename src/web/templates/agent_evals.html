@@ -199,22 +199,92 @@ async function loadActiveConfig() {
         const disabled = getDisabledExtractAgentsFromConfig(data);
         const disabledSet = new Set(disabled);
         
-        // Main agents (only if QA enabled)
-        if (models.SigmaAgent && qaEnabled.SigmaAgent) {
+        // Helper to check if model is embedding (exclude from display)
+        function isEmbeddingModel(modelName) {
+            if (!modelName) return false;
+            const lower = modelName.toLowerCase();
+            return lower.includes('bert') || 
+                   lower.includes('embedding') || 
+                   lower.includes('encoder') ||
+                   lower.includes('text-embedding') ||
+                   lower.includes('sentence-transformers') ||
+                   lower.includes('all-mpnet') ||
+                   lower.includes('e5-');
+        }
+        
+        // Main agents - only show if enabled
+        // Rank Agent - check if enabled
+        const rankAgentEnabled = data.rank_agent_enabled !== false; // Default true
+        if (rankAgentEnabled && models.RankAgent && !isEmbeddingModel(models.RankAgent)) {
+            const provider = models.RankAgent_provider || 'lmstudio';
+            selectedModels.push(`Rank: ${models.RankAgent} (${provider})`);
+        }
+        
+        // Extract Agent - always enabled (no toggle)
+        if (models.ExtractAgent && !isEmbeddingModel(models.ExtractAgent)) {
+            const provider = models.ExtractAgent_provider || 'lmstudio';
+            selectedModels.push(`Extract: ${models.ExtractAgent} (${provider})`);
+        }
+        
+        // SIGMA Agent - only show if QA enabled (matching workflow.html logic)
+        if (qaEnabled.SigmaAgent && models.SigmaAgent && !isEmbeddingModel(models.SigmaAgent)) {
             const provider = models.SigmaAgent_provider || 'lmstudio';
             selectedModels.push(`SIGMA: ${models.SigmaAgent} (${provider})`);
         }
-        // Note: Extract and Rank agents are not shown in Selected Models (only SIGMA and sub-agents)
         
-        // Sub-agents (only if enabled and has model)
-        ['CmdlineExtract', 'SigExtract', 'EventCodeExtract', 'ProcTreeExtract', 'RegExtract'].forEach(agent => {
-            const modelKey = `${agent}_model`;
-            // Only show if model exists and agent is not disabled
-            if (models[modelKey] && !disabledSet.has(agent)) {
-                const provider = models[`${agent}_provider`] || 'lmstudio';
-                selectedModels.push(`${agent}: ${models[modelKey]} (${provider})`);
+        // Sub-agents - only show if not disabled
+        const subAgents = [
+            { name: 'CmdlineExtract', modelKey: 'CmdlineExtract_model' },
+            { name: 'SigExtract', modelKey: 'SigExtract_model' },
+            { name: 'EventCodeExtract', modelKey: 'EventCodeExtract_model' },
+            { name: 'ProcTreeExtract', modelKey: 'ProcTreeExtract_model' },
+            { name: 'RegExtract', modelKey: 'RegExtract_model' }
+        ];
+        
+        subAgents.forEach(subAgent => {
+            // Skip if agent is disabled
+            if (disabledSet.has(subAgent.name)) return;
+            
+            const model = models[subAgent.modelKey];
+            if (model && !isEmbeddingModel(model)) {
+                const provider = models[`${subAgent.name}_provider`] || 'lmstudio';
+                selectedModels.push(`${subAgent.name}: ${model} (${provider})`);
             }
         });
+        
+        // QA agents - only show if corresponding agent is enabled AND QA is enabled
+        const qaAgents = [
+            { name: 'CmdLineQA', modelKey: 'CmdLineQA', subAgent: 'CmdlineExtract' },
+            { name: 'SigQA', modelKey: 'SigQA', subAgent: 'SigExtract' },
+            { name: 'EventCodeQA', modelKey: 'EventCodeQA', subAgent: 'EventCodeExtract' },
+            { name: 'ProcTreeQA', modelKey: 'ProcTreeQA', subAgent: 'ProcTreeExtract' },
+            { name: 'RegQA', modelKey: 'RegQA', subAgent: 'RegExtract' },
+            { name: 'RankAgentQA', modelKey: 'RankAgentQA', subAgent: null } // RankAgentQA doesn't have a sub-agent
+        ];
+        
+        qaAgents.forEach(qaAgent => {
+            // For sub-agent QA: check if sub-agent is enabled AND QA is enabled
+            if (qaAgent.subAgent) {
+                if (disabledSet.has(qaAgent.subAgent)) return; // Sub-agent is disabled
+                if (!qaEnabled[qaAgent.subAgent]) return; // QA not enabled for this sub-agent
+            } else {
+                // For RankAgentQA: check if RankAgent is enabled AND QA is enabled
+                if (!rankAgentEnabled) return;
+                if (!qaEnabled.RankAgent) return;
+            }
+            
+            const model = models[qaAgent.modelKey];
+            if (model && !isEmbeddingModel(model)) {
+                const provider = models[`${qaAgent.modelKey}_provider`] || 'lmstudio';
+                selectedModels.push(`${qaAgent.name}: ${model} (${provider})`);
+            }
+        });
+        
+        // OS Detection fallback - only if enabled and has model
+        if (data.sigma_fallback_enabled && models.OSDetectionAgent_fallback && !isEmbeddingModel(models.OSDetectionAgent_fallback)) {
+            const provider = models.OSDetectionAgent_fallback_provider || 'lmstudio';
+            selectedModels.push(`OS Fallback: ${models.OSDetectionAgent_fallback} (${provider})`);
+        }
         
         const modelsHtml = selectedModels.length > 0 
             ? `<div class="mt-2 pt-2 border-t border-gray-300 dark:border-gray-600"><p class="text-xs font-medium text-gray-300 dark:text-gray-300 mb-1">Selected Models:</p><div class="space-y-1 text-xs text-gray-400 dark:text-gray-400">${selectedModels.join('<br>')}</div></div>`
@@ -651,9 +721,12 @@ async function pollSubagentResults(executions) {
                 statusText.textContent = `✅ All executions completed. Rendering results...`;
                 statusText.className = 'text-sm text-green-600 dark:text-green-400';
                 
-                // Small delay to ensure UI updates
+                // Small delay to ensure UI updates, then render and update status
                 setTimeout(() => {
                     renderSubagentResults(results);
+                    // Update status after rendering completes
+                    statusText.textContent = `✅ Results rendered. ${results.length} evaluation(s) completed.`;
+                    statusText.className = 'text-sm text-green-600 dark:text-green-400';
                 }, 100);
             } else if (isPolling) {
                 // Schedule next poll
@@ -772,6 +845,13 @@ function renderSubagentResultsPivot(articleRows, configVersions) {
     html += '</tbody></table>';
     html += '</div>';
     resultsTable.innerHTML = html;
+    
+    // Update status text after rendering (if called directly)
+    const statusText = document.getElementById('evalStatusText');
+    if (statusText && statusText.textContent.includes('Rendering results')) {
+        statusText.textContent = `✅ Results rendered. ${articleRows.length} article(s) with results.`;
+        statusText.className = 'text-sm text-green-600 dark:text-green-400';
+    }
 }
 
 // Render subagent eval results with color-coded scores (legacy format - kept for compatibility)

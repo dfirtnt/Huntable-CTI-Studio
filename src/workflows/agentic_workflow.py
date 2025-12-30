@@ -151,6 +151,9 @@ def _update_subagent_eval_on_completion(execution: AgenticWorkflowExecutionTable
         eval_record.status = 'completed'
         eval_record.completed_at = datetime.utcnow()
         
+        # Commit the update
+        db_session.commit()
+        
         logger.info(
             f"Updated SubagentEvaluation {eval_record.id}: "
             f"subagent={subagent_name}, expected={eval_record.expected_count}, "
@@ -196,9 +199,10 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
         try:
             logger.info(f"[Workflow {state['execution_id']}] Step 1: Junk Filter")
             
-            article = state['article']
+            # Load article from DB instead of state (state['article'] is None to avoid serialization issues)
+            article = db_session.query(ArticleTable).filter(ArticleTable.id == state['article_id']).first()
             if not article:
-                raise ValueError("Article not found in state")
+                raise ValueError(f"Article {state['article_id']} not found in database")
             
             # Validate article content
             if not article.content or len(article.content.strip()) == 0:
@@ -314,11 +318,11 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
         try:
             logger.info(f"[Workflow {state['execution_id']}] Step 2: LLM Ranking")
             
-            article = state['article']
-            filtered_content = state.get('filtered_content') or article.content if article else ""
-            
+            # Load article from DB instead of state
+            article = db_session.query(ArticleTable).filter(ArticleTable.id == state['article_id']).first()
             if not article:
-                raise ValueError("Article not found in state")
+                raise ValueError(f"Article {state['article_id']} not found in database")
+            filtered_content = state.get('filtered_content') or article.content if article else ""
             
             # Update execution record BEFORE calling LLM (so status is accurate during long-running LLM call)
             execution = db_session.query(AgenticWorkflowExecutionTable).filter(
@@ -544,12 +548,12 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
         try:
             logger.info(f"[Workflow {state['execution_id']}] Step 0: OS Detection")
             
-            article = state['article']
+            # Load article from DB instead of state
+            article = db_session.query(ArticleTable).filter(ArticleTable.id == state['article_id']).first()
+            if not article:
+                raise ValueError(f"Article {state['article_id']} not found in database")
             # OS detection runs first, so use original content
             content = article.content if article else ""
-            
-            if not article:
-                raise ValueError("Article not found in state")
             
             # Update execution record
             execution = db_session.query(AgenticWorkflowExecutionTable).filter(
@@ -727,11 +731,11 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
         try:
             logger.info(f"[Workflow {state['execution_id']}] Step 3: Extract Agent")
             
-            article = state['article']
-            filtered_content = state.get('filtered_content') or article.content if article else ""
-            
+            # Load article from DB instead of state
+            article = db_session.query(ArticleTable).filter(ArticleTable.id == state['article_id']).first()
             if not article:
-                raise ValueError("Article not found in state")
+                raise ValueError(f"Article {state['article_id']} not found in database")
+            filtered_content = state.get('filtered_content') or article.content if article else ""
             
             # Update execution record BEFORE calling LLM
             execution = db_session.query(AgenticWorkflowExecutionTable).filter(
@@ -1132,11 +1136,11 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
             
             from src.services.sigma_generation_service import SigmaGenerationService
             
-            article = state['article']
-            filtered_content = state.get('filtered_content') or article.content if article else ""
-            
+            # Load article from DB instead of state
+            article = db_session.query(ArticleTable).filter(ArticleTable.id == state['article_id']).first()
             if not article:
-                raise ValueError("Article not found in state")
+                raise ValueError(f"Article {state['article_id']} not found in database")
+            filtered_content = state.get('filtered_content') or article.content if article else ""
             
             # Update execution record BEFORE calling LLM
             execution = db_session.query(AgenticWorkflowExecutionTable).filter(
@@ -1533,7 +1537,8 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                     queued_rules = []
                 else:
                     queued_rules = []
-                    article = state['article']
+                    # Load article from DB instead of state
+                    article = db_session.query(ArticleTable).filter(ArticleTable.id == state['article_id']).first()
                     
                     # Queue each rule with low similarity
                     for idx, rule in enumerate(sigma_rules):
@@ -1795,11 +1800,34 @@ async def run_workflow(article_id: int, db_session: Session) -> Dict[str, Any]:
             AgenticWorkflowExecutionTable.status == 'pending'
         ).order_by(AgenticWorkflowExecutionTable.created_at.desc()).first()
         
+        # Get config service (needed for both paths)
+        trigger_service = WorkflowTriggerService(db_session)
+        
         if not execution:
-            raise ValueError(f"No pending execution found for article {article_id}")
+            # Create execution record if it doesn't exist (e.g., when called directly via Celery)
+            logger.info(f"No pending execution found for article {article_id}, creating one...")
+            config_obj = trigger_service.get_active_config()
+            execution = AgenticWorkflowExecutionTable(
+                article_id=article_id,
+                status='pending',
+                config_snapshot={
+                    'min_hunt_score': config_obj.min_hunt_score if config_obj else 97.0,
+                    'ranking_threshold': config_obj.ranking_threshold if config_obj else 6.0,
+                    'similarity_threshold': config_obj.similarity_threshold if config_obj else 0.5,
+                    'junk_filter_threshold': config_obj.junk_filter_threshold if config_obj else 0.8,
+                    'agent_models': config_obj.agent_models if config_obj else {},
+                    'agent_prompts': config_obj.agent_prompts if config_obj else {},
+                    'qa_enabled': config_obj.qa_enabled if config_obj else {},
+                    'config_id': config_obj.id if config_obj else None,
+                    'config_version': config_obj.version if config_obj else None
+                } if config_obj else None
+            )
+            db_session.add(execution)
+            db_session.commit()
+            db_session.refresh(execution)
+            logger.info(f"Created execution record {execution.id} for article {article_id}")
         
         # Get config
-        trigger_service = WorkflowTriggerService(db_session)
         config_obj = trigger_service.get_active_config()
         config = {
             'min_hunt_score': config_obj.min_hunt_score if config_obj else 97.0,
@@ -1844,7 +1872,7 @@ async def run_workflow(article_id: int, db_session: Session) -> Dict[str, Any]:
         initial_state: WorkflowState = {
             'article_id': article_id,
             'execution_id': execution.id,
-            'article': article,
+            'article': None,  # Don't store ArticleTable in state - load from DB when needed
             'config': config,
             'filtered_content': None,
             'junk_filter_result': None,
@@ -2055,12 +2083,41 @@ async def run_workflow(article_id: int, db_session: Session) -> Dict[str, Any]:
                         db_session.commit()
                         logger.info(f"[Workflow {execution.id}] Updated current_step to {execution.current_step} for failed execution")
         
-        return {
+        # Build minimal return dict with ONLY JSON-safe primitives
+        # NEVER return ArticleTable or any ORM objects - Celery JSON serializer cannot handle SQLAlchemy models
+        # Never return final_state - it contains ArticleTable and other ORM objects
+        # Extract execution.id as primitive BEFORE any potential serialization issues
+        execution_id_primitive = int(execution.id) if execution else None
+        
+        return_dict = {
             'success': final_state.get('error') is None if final_state else False,
-            'execution_id': execution.id,
-            'final_state': final_state,
-            'error': final_state.get('error') if final_state else None
+            'execution_id': execution_id_primitive,
+            'error': str(final_state.get('error')) if final_state and final_state.get('error') else None,
+            # Only include safe primitive values from final_state
+            'ranking_score': float(final_state.get('ranking_score')) if final_state and final_state.get('ranking_score') is not None else None,
+            'discrete_huntables_count': int(final_state.get('discrete_huntables_count')) if final_state and final_state.get('discrete_huntables_count') is not None else None,
+            'sigma_rules_count': int(len(final_state.get('sigma_rules', []))) if final_state and final_state.get('sigma_rules') else 0,
+            'queued_rules_count': int(len(final_state.get('queued_rules', []))) if final_state and final_state.get('queued_rules') else 0,
         }
+        
+        # Final validation: ensure it's JSON serializable
+        import json
+        try:
+            # Test serialization - this will catch any ORM objects
+            serialized = json.dumps(return_dict)
+            # Verify we can deserialize it too
+            json.loads(serialized)
+        except (TypeError, ValueError) as e:
+            logger.error(f"Return value still contains non-serializable objects: {e}")
+            logger.error(f"Return dict contents: {return_dict}")
+            # Fallback: return absolute minimal safe dict with only primitives
+            return {
+                'success': False,
+                'execution_id': execution_id_primitive,
+                'error': 'Serialization error: workflow result contained non-serializable objects'
+            }
+        
+        return return_dict
         
     except Exception as e:
         # Rollback any failed transaction
@@ -2096,7 +2153,13 @@ async def run_workflow(article_id: int, db_session: Session) -> Dict[str, Any]:
                 execution.error_message = None
                 db_session.commit()
                 # Don't re-raise - workflow succeeded
-                return
+                # Extract execution.id as primitive to avoid ORM serialization issues
+                execution_id_primitive = int(execution.id) if execution else None
+                return {
+                    'success': True,
+                    'execution_id': execution_id_primitive,
+                    'error': None
+                }
             else:
                 # Check for generator errors - these often occur during trace cleanup
                 err_msg = str(e).lower()
@@ -2110,7 +2173,13 @@ async def run_workflow(article_id: int, db_session: Session) -> Dict[str, Any]:
                     if not execution.current_step:
                         execution.current_step = 'generate_sigma'
                     db_session.commit()
-                    return
+                    # Extract execution.id as primitive to avoid ORM serialization issues
+                    execution_id_primitive = int(execution.id) if execution else None
+                    return {
+                        'success': True,
+                        'execution_id': execution_id_primitive,
+                        'error': None
+                    }
                 else:
                     # Real workflow failure - mark as failed
                     logger.error(f"Workflow execution error for article {article_id}: {e}")
@@ -2121,6 +2190,25 @@ async def run_workflow(article_id: int, db_session: Session) -> Dict[str, Any]:
             # No execution record - this is a real error
             logger.error(f"Workflow execution error for article {article_id}: {e}")
         
+        # Return error result (sanitized) instead of raising to avoid serialization issues
         # Only re-raise if it's not a generator/trace error
         if 'generator' not in str(e).lower() and 'trace' not in str(e).lower():
-            raise
+            # Sanitize error message to ensure no ArticleTable references
+            error_msg = str(e)
+            # Extract execution.id as primitive to avoid ORM serialization issues
+            execution_id_primitive = int(execution.id) if execution else None
+            # Return sanitized error result instead of raising
+            return {
+                'success': False,
+                'execution_id': execution_id_primitive,
+                'error': error_msg
+            }
+        else:
+            # Generator/trace error - return success with no rules
+            # Extract execution.id as primitive to avoid ORM serialization issues
+            execution_id_primitive = int(execution.id) if execution else None
+            return {
+                'success': True,
+                'execution_id': execution_id_primitive,
+                'error': None
+            }
