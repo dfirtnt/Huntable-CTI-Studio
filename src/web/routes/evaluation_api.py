@@ -480,6 +480,65 @@ async def get_execution_results(request: Request, execution_id: int):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.get("/execution/{execution_id}/commandlines")
+async def get_execution_commandlines(
+    request: Request,
+    execution_id: int,
+):
+    """Get commandlines extracted from a workflow execution."""
+    try:
+        db_manager = DatabaseManager()
+        db_session = db_manager.get_session()
+
+        try:
+            execution = (
+                db_session.query(AgenticWorkflowExecutionTable)
+                .filter(AgenticWorkflowExecutionTable.id == execution_id)
+                .first()
+            )
+
+            if not execution:
+                raise HTTPException(status_code=404, detail="Execution not found")
+
+            commandlines = []
+            extraction_result = execution.extraction_result
+
+            if extraction_result and isinstance(extraction_result, dict):
+                # Check observables list
+                observables = extraction_result.get("observables", [])
+                if isinstance(observables, list):
+                    commandlines = [
+                        obs.get("value", str(obs))
+                        for obs in observables
+                        if obs.get("type") == "cmdline" or obs.get("type") == "commandline"
+                    ]
+                
+                # Also check subresults
+                if not commandlines:
+                    subresults = extraction_result.get("subresults", {})
+                    if isinstance(subresults, dict):
+                        # Check cmdline subresult
+                        cmdline_result = subresults.get("cmdline", {}) or subresults.get("CmdlineExtract", {})
+                        if isinstance(cmdline_result, dict):
+                            items = cmdline_result.get("items", [])
+                            if items:
+                                commandlines = items if isinstance(items, list) else [items]
+
+            return {
+                "execution_id": execution_id,
+                "article_id": execution.article_id,
+                "commandlines": commandlines,
+                "count": len(commandlines),
+            }
+        finally:
+            db_session.close()
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting execution commandlines: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 def resolve_article_by_url(url: str) -> Optional[int]:
     """
     Resolve article ID from URL by querying articles table.
